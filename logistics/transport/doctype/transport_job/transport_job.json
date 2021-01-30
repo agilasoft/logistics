@@ -1,0 +1,161 @@
+{
+ "autoname": "naming_series:",
+ "creation": "2020-12-24 11:21:19.521094",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "customer",
+  "booking_date",
+  "column_break_5",
+  "transport_booking",
+  "customer_ref_no",
+  "hazardous",
+  "refrigeration",
+  "vehicles_required_section",
+  "vehicles",
+  "instructions_section",
+  "instructions",
+  "package_details_section",
+  "packages",
+  "notes_section",
+  "internal_notes",
+  "column_break_16",
+  "client_notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "booking_date",
+   "fieldtype": "Date",
+   "label": "Job Date"
+  },
+  {
+   "fieldname": "customer_ref_no",
+   "fieldtype": "Data",
+   "label": "Customer Ref No"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "hazardous",
+   "fieldtype": "Check",
+   "label": "Hazardous"
+  },
+  {
+   "default": "0",
+   "fieldname": "refrigeration",
+   "fieldtype": "Check",
+   "label": "Refrigeration"
+  },
+  {
+   "fieldname": "vehicles_required_section",
+   "fieldtype": "Section Break",
+   "label": "Vehicles Required"
+  },
+  {
+   "fieldname": "vehicles",
+   "fieldtype": "Table",
+   "label": "Vehicles",
+   "options": "Transport Job Vehicle"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "instructions_section",
+   "fieldtype": "Section Break",
+   "label": "Instructions"
+  },
+  {
+   "fieldname": "instructions",
+   "fieldtype": "Table",
+   "label": "Instructions",
+   "options": "Transport Job Instruction"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "package_details_section",
+   "fieldtype": "Section Break",
+   "label": "Package Details"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "label": "Packages",
+   "options": "Transport Job Package"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_16",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "fieldname": "transport_booking",
+   "fieldtype": "Link",
+   "label": "Transport Booking",
+   "options": "Transport Booking"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Transport Job",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "modified": "2020-12-24 11:24:15.436311",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Job",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

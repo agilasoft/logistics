@@ -1,0 +1,100 @@
+{
+ "creation": "2020-12-24 11:32:34.064117",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "transport_job",
+  "instruction_type",
+  "org_type",
+  "organization",
+  "address",
+  "notes",
+  "section_break_7",
+  "scheduled_start",
+  "scheduled_end",
+  "column_break_10",
+  "actual_start",
+  "actual_end"
+ ],
+ "fields": [
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Job",
+   "options": "Transport Job"
+  },
+  {
+   "fieldname": "instruction_type",
+   "fieldtype": "Data",
+   "label": "Instruction Type"
+  },
+  {
+   "fieldname": "org_type",
+   "fieldtype": "Link",
+   "label": "Org Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "organization",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Organization",
+   "options": "org_type"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "section_break_7",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "scheduled_start",
+   "fieldtype": "Datetime",
+   "label": "Scheduled Start"
+  },
+  {
+   "fieldname": "scheduled_end",
+   "fieldtype": "Datetime",
+   "label": "Scheduled End"
+  },
+  {
+   "fieldname": "column_break_10",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "actual_start",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Actual Start"
+  },
+  {
+   "fieldname": "actual_end",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Actual End"
+  }
+ ],
+ "istable": 1,
+ "modified": "2020-12-24 11:38:52.197648",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Trip Run Sheet",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

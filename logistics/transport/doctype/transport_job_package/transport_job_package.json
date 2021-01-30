@@ -1,0 +1,68 @@
+{
+ "creation": "2020-12-24 11:21:37.054296",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "description",
+  "quantity",
+  "weight",
+  "length",
+  "widht",
+  "height",
+  "atl"
+ ],
+ "fields": [
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "widht",
+   "fieldtype": "Float",
+   "label": "Widht"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "default": "0",
+   "fieldname": "atl",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "ATL"
+  }
+ ],
+ "istable": 1,
+ "modified": "2020-12-24 11:21:37.054296",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Job Package",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

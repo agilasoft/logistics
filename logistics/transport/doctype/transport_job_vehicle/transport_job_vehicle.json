@@ -1,0 +1,44 @@
+{
+ "creation": "2020-12-24 11:22:39.074942",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle_type",
+  "load_type",
+  "qty"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Load Type",
+   "options": "LTL\nFTL"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty"
+  }
+ ],
+ "istable": 1,
+ "modified": "2020-12-24 11:22:39.074942",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Job Vehicle",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
