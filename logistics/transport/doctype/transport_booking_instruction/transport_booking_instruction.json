@@ -14,34 +14,39 @@
   {
    "fieldname": "instruction",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Instruction",
    "options": "Pickup\nDeliver"
   },
   {
    "fieldname": "address",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Address",
    "options": "Address"
   },
   {
    "fieldname": "notes",
    "fieldtype": "Text Editor",
+   "in_list_view": 1,
    "label": "Notes"
   },
   {
    "fieldname": "org_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Org Type",
    "options": "DocType"
   },
   {
    "fieldname": "organization",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Organization",
    "options": "org_type"
   }
  ],
- "modified": "2020-12-16 14:28:13.393490",
+ "modified": "2021-01-30 21:49:56.547455",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Booking Instruction",

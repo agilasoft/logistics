@@ -7,7 +7,7 @@
  "field_order": [
   "naming_series",
   "customer",
-  "booking_date",
+  "job_date",
   "column_break_5",
   "transport_booking",
   "customer_ref_no",
@@ -36,11 +36,6 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer"
-  },
-  {
-   "fieldname": "booking_date",
-   "fieldtype": "Date",
-   "label": "Job Date"
   },
   {
    "fieldname": "customer_ref_no",
@@ -132,10 +127,15 @@
    "options": "Transport Job",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "job_date",
+   "fieldtype": "Date",
+   "label": "Job Date"
   }
  ],
  "is_submittable": 1,
- "modified": "2020-12-24 11:24:15.436311",
+ "modified": "2021-01-30 23:00:11.098972",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

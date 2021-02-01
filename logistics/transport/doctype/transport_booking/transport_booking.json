@@ -33,17 +33,20 @@
   {
    "fieldname": "customer",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Customer",
    "options": "Customer"
   },
   {
    "fieldname": "booking_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Booking Date"
   },
   {
    "fieldname": "customer_ref_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Customer Ref No"
   },
   {
@@ -67,6 +70,7 @@
    "default": "0",
    "fieldname": "refrigeration",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Refrigeration"
   },
   {
@@ -128,7 +132,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-12-21 10:14:25.737681",
+ "modified": "2021-01-30 22:01:21.716945",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Booking",
