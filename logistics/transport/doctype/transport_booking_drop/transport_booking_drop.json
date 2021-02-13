@@ -1,0 +1,54 @@
+{
+ "creation": "2021-02-09 11:38:06.187738",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "transport_booking",
+  "transport_booking_vehicle",
+  "locations"
+ ],
+ "fields": [
+  {
+   "fieldname": "transport_booking",
+   "fieldtype": "Link",
+   "label": "Transport Booking",
+   "options": "Transport Booking"
+  },
+  {
+   "fieldname": "transport_booking_vehicle",
+   "fieldtype": "Link",
+   "label": "Transport Booking Vehicle",
+   "options": "Transport Booking Vehicle"
+  },
+  {
+   "fieldname": "locations",
+   "fieldtype": "Table",
+   "label": "Locations",
+   "options": "Transport Booking Drop Location"
+  }
+ ],
+ "modified": "2021-02-09 11:41:39.515067",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Booking Drop",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

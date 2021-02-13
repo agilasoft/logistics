@@ -1,12 +1,14 @@
 {
- "creation": "2020-12-16 14:13:09.577449",
+ "creation": "2021-02-08 14:02:38.504748",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "vehicle_type",
-  "load_type",
-  "qty"
+  "qty",
+  "origin",
+  "destination",
+  "drops"
  ],
  "fields": [
   {
@@ -17,21 +19,35 @@
    "options": "Vehicle Type"
   },
   {
-   "fieldname": "load_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Load Type",
-   "options": "LTL\nFTL"
-  },
-  {
    "fieldname": "qty",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Qty"
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin",
+   "options": "Address"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination",
+   "options": "Address"
+  },
+  {
+   "fieldname": "drops",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Drops",
+   "options": "Transport Booking Drop"
   }
  ],
  "istable": 1,
- "modified": "2020-12-16 14:13:27.716940",
+ "modified": "2021-02-09 11:44:45.160121",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Booking Vehicle",

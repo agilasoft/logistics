@@ -12,10 +12,8 @@
   "column_break_5",
   "hazardous",
   "refrigeration",
-  "vehicles_required_section",
+  "section_break_8",
   "vehicles",
-  "instructions_section",
-  "instructions",
   "package_details_section",
   "packages",
   "notes_section",
@@ -48,11 +46,6 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Customer Ref No"
-  },
-  {
-   "fieldname": "vehicles_required_section",
-   "fieldtype": "Section Break",
-   "label": "Vehicles Required"
   },
   {
    "collapsible": 1,
@@ -88,27 +81,9 @@
   },
   {
    "collapsible": 1,
-   "fieldname": "instructions_section",
-   "fieldtype": "Section Break",
-   "label": "Instructions"
-  },
-  {
-   "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
    "label": "Notes"
-  },
-  {
-   "fieldname": "vehicles",
-   "fieldtype": "Table",
-   "label": "Vehicles",
-   "options": "Transport Booking Vehicle"
-  },
-  {
-   "fieldname": "instructions",
-   "fieldtype": "Table",
-   "label": "Instructions",
-   "options": "Transport Booking Instruction"
   },
   {
    "fieldname": "packages",
@@ -129,10 +104,20 @@
    "fieldname": "client_notes",
    "fieldtype": "Text Editor",
    "label": "Client Notes"
+  },
+  {
+   "fieldname": "vehicles",
+   "fieldtype": "Table",
+   "label": "Vehicles",
+   "options": "Transport Booking Vehicle"
+  },
+  {
+   "fieldname": "section_break_8",
+   "fieldtype": "Section Break"
   }
  ],
  "is_submittable": 1,
- "modified": "2021-01-30 22:01:21.716945",
+ "modified": "2021-02-09 11:43:24.430390",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Booking",

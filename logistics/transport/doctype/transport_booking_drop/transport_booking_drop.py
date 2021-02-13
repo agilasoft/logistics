@@ -6,5 +6,5 @@ from __future__ import unicode_literals
 # import frappe
 from frappe.model.document import Document
 
-class TransportBookingVehicle(Document):
+class TransportBookingDrop(Document):
 	pass

@@ -4,6 +4,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "vehicle_type",
+  "vehicle",
   "instruction",
   "org_type",
   "organization",
@@ -14,34 +16,51 @@
   {
    "fieldname": "instruction",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Instruction",
    "options": "Pickup\nDeliver"
   },
   {
    "fieldname": "org_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Org Type",
    "options": "DocType"
   },
   {
    "fieldname": "organization",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Organization",
    "options": "org_type"
   },
   {
    "fieldname": "address",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Address",
    "options": "Address"
   },
   {
    "fieldname": "notes",
    "fieldtype": "Text Editor",
+   "in_list_view": 1,
    "label": "Notes"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Vehicle"
   }
  ],
- "modified": "2020-12-24 11:22:08.109717",
+ "modified": "2021-02-07 12:28:20.681855",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job Instruction",
