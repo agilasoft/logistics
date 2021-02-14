@@ -5,6 +5,7 @@
  "engine": "InnoDB",
  "field_order": [
   "trip_date",
+  "transport_job",
   "transport_vehicle",
   "driver",
   "transport_company",
@@ -85,9 +86,15 @@
    "fieldname": "expenses",
    "fieldtype": "Table",
    "options": "Trip Expense"
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "label": "Transport Job",
+   "options": "Transport Job"
   }
  ],
- "modified": "2020-12-24 11:41:48.665118",
+ "modified": "2021-02-13 13:50:52.757321",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Trip",

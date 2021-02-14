@@ -1,0 +1,61 @@
+{
+ "creation": "2021-02-13 13:53:34.980875",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle_type",
+  "driver",
+  "transport_company",
+  "pickup",
+  "delivery"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Driver",
+   "options": "Driver"
+  },
+  {
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Company",
+   "options": "Transport Company"
+  },
+  {
+   "fieldname": "pickup",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Pickup",
+   "options": "Address"
+  },
+  {
+   "fieldname": "delivery",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Delivery",
+   "options": "Address"
+  }
+ ],
+ "istable": 1,
+ "modified": "2021-02-14 23:28:00.316130",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Job Activity",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -13,10 +13,8 @@
   "customer_ref_no",
   "hazardous",
   "refrigeration",
-  "vehicles_required_section",
-  "vehicles",
-  "instructions_section",
-  "instructions",
+  "trips_section",
+  "activities",
   "package_details_section",
   "packages",
   "notes_section",
@@ -58,29 +56,6 @@
    "fieldname": "refrigeration",
    "fieldtype": "Check",
    "label": "Refrigeration"
-  },
-  {
-   "fieldname": "vehicles_required_section",
-   "fieldtype": "Section Break",
-   "label": "Vehicles Required"
-  },
-  {
-   "fieldname": "vehicles",
-   "fieldtype": "Table",
-   "label": "Vehicles",
-   "options": "Transport Job Vehicle"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "instructions_section",
-   "fieldtype": "Section Break",
-   "label": "Instructions"
-  },
-  {
-   "fieldname": "instructions",
-   "fieldtype": "Table",
-   "label": "Instructions",
-   "options": "Transport Job Instruction"
   },
   {
    "collapsible": 1,
@@ -133,10 +108,21 @@
    "fieldname": "job_date",
    "fieldtype": "Date",
    "label": "Job Date"
+  },
+  {
+   "fieldname": "trips_section",
+   "fieldtype": "Section Break",
+   "label": "Trips"
+  },
+  {
+   "fieldname": "activities",
+   "fieldtype": "Table",
+   "label": "Activities",
+   "options": "Transport Job Activity"
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-05 17:45:18.072935",
+ "modified": "2021-02-14 20:25:44.678219",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
