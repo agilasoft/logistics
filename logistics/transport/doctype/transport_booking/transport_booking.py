@@ -18,18 +18,7 @@ class TransportBooking(Document):
 		doc.customer_ref_no = self.customer_ref_no
 		doc.hazardous = self.hazardous
 		doc.refrigeration = self.refrigeration
-
-		# Run through booking items and insert  job activities
-		for items in self.vehicles:
-			i = items.qty
-			while i > 0:
-				doc.append("activities", {
-					"vehicle_type": items.vehicle_type,
-					"pickup": items.origin,
-					"delivery": items.destination 
-				})
-				i = i-1
-
+		doc.instructions = self.instructions
 		doc.packages = self.packages
 		doc.internal_notes = self.internal_notes
 		doc.client_notes = self.client_notes

@@ -1,7 +1,7 @@
 // Copyright (c) 2021, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Transport Booking Vehicle', {
+frappe.ui.form.on('Transport Job Instruction', {
 	// refresh: function(frm) {
 
 	// }

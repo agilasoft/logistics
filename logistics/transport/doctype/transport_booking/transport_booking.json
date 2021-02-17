@@ -10,10 +10,11 @@
   "booking_date",
   "customer_ref_no",
   "column_break_5",
+  "vehicle_type",
   "hazardous",
   "refrigeration",
   "section_break_8",
-  "vehicles",
+  "instructions",
   "package_details_section",
   "packages",
   "notes_section",
@@ -106,18 +107,24 @@
    "label": "Client Notes"
   },
   {
-   "fieldname": "vehicles",
-   "fieldtype": "Table",
-   "label": "Vehicles",
-   "options": "Transport Booking Vehicle"
-  },
-  {
    "fieldname": "section_break_8",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "instructions",
+   "fieldtype": "Table",
+   "label": "Instructions",
+   "options": "Transport Booking Instruction"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-09 11:43:24.430390",
+ "modified": "2021-02-17 09:25:31.590310",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Booking",

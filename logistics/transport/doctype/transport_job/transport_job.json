@@ -1,20 +1,24 @@
 {
  "autoname": "naming_series:",
- "creation": "2020-12-24 11:21:19.521094",
+ "creation": "2021-02-17 09:20:24.655421",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
   "customer",
-  "job_date",
-  "column_break_5",
-  "transport_booking",
+  "booking_date",
   "customer_ref_no",
+  "column_break_5",
+  "vehicle_type",
   "hazardous",
   "refrigeration",
-  "trips_section",
-  "activities",
+  "vehicle_assignment_section",
+  "vehicle",
+  "driver",
+  "transport_company",
+  "section_break_8",
+  "instructions",
   "package_details_section",
   "packages",
   "notes_section",
@@ -27,23 +31,36 @@
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Naming Series",
-   "options": "TRJ.######"
+   "label": "Naming Series"
   },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Customer",
    "options": "Customer"
   },
   {
+   "fieldname": "booking_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Booking Date"
+  },
+  {
    "fieldname": "customer_ref_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Customer Ref No"
   },
   {
    "fieldname": "column_break_5",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
   },
   {
    "default": "0",
@@ -55,7 +72,41 @@
    "default": "0",
    "fieldname": "refrigeration",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Refrigeration"
+  },
+  {
+   "fieldname": "vehicle_assignment_section",
+   "fieldtype": "Section Break",
+   "label": "Vehicle Assignment"
+  },
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Vehicle"
+  },
+  {
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "label": "Driver",
+   "options": "Driver"
+  },
+  {
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "label": "Transport Company",
+   "options": "Transport Company"
+  },
+  {
+   "fieldname": "section_break_8",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "instructions",
+   "fieldtype": "Table",
+   "label": "Instructions",
+   "options": "Transport Job Instruction"
   },
   {
    "collapsible": 1,
@@ -90,12 +141,6 @@
    "label": "Client Notes"
   },
   {
-   "fieldname": "transport_booking",
-   "fieldtype": "Link",
-   "label": "Transport Booking",
-   "options": "Transport Booking"
-  },
-  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -103,26 +148,10 @@
    "options": "Transport Job",
    "print_hide": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "job_date",
-   "fieldtype": "Date",
-   "label": "Job Date"
-  },
-  {
-   "fieldname": "trips_section",
-   "fieldtype": "Section Break",
-   "label": "Trips"
-  },
-  {
-   "fieldname": "activities",
-   "fieldtype": "Table",
-   "label": "Activities",
-   "options": "Transport Job Activity"
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-14 20:25:44.678219",
+ "modified": "2021-02-17 09:25:48.879605",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

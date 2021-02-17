@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2020, www.agilasoft.com and contributors
+# Copyright (c) 2021, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
