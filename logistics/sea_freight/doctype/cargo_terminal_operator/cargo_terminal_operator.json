@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-05-24 18:47:42.479721",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "cto_name",
+  "avaiable_for_column",
+  "air",
+  "sea",
+  "rail",
+  "road"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code"
+  },
+  {
+   "fieldname": "cto_name",
+   "fieldtype": "Data",
+   "label": "CTO Name"
+  },
+  {
+   "fieldname": "avaiable_for_column",
+   "fieldtype": "Column Break",
+   "label": "Available for"
+  },
+  {
+   "default": "0",
+   "fieldname": "air",
+   "fieldtype": "Check",
+   "label": "Air"
+  },
+  {
+   "default": "0",
+   "fieldname": "sea",
+   "fieldtype": "Check",
+   "label": "Sea"
+  },
+  {
+   "default": "0",
+   "fieldname": "rail",
+   "fieldtype": "Check",
+   "label": "Rail"
+  },
+  {
+   "default": "0",
+   "fieldname": "road",
+   "fieldtype": "Check",
+   "label": "Road"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-06-01 14:33:54.664270",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Cargo Terminal Operator",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

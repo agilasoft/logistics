@@ -1,0 +1,223 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:master_bl",
+ "creation": "2025-05-28 16:58:43.225668",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "master_bl",
+  "master_type",
+  "charted_vessel",
+  "column_break_liay",
+  "shipping_line",
+  "vessel",
+  "voyage_no",
+  "column_break_vsbq",
+  "consolidator",
+  "sending_agent",
+  "receiving_agent",
+  "departure_tab",
+  "origin_cto",
+  "origin_cfs",
+  "origin_cy",
+  "column_break_qrqv",
+  "origin_receipt_requested",
+  "origin_dispatch_requested",
+  "departure",
+  "arrival_tab",
+  "destination_cto",
+  "destination_cfs",
+  "destination_cy",
+  "column_break_hwqe",
+  "destination_receipt_requested",
+  "destination_dispatch_requested",
+  "arrival",
+  "connections_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "master_bl",
+   "fieldtype": "Data",
+   "label": "Master BL",
+   "unique": 1
+  },
+  {
+   "fieldname": "master_type",
+   "fieldtype": "Select",
+   "label": "Master Type",
+   "options": "Direct\nCo-Load\nAgent Consolidation\nCharter\nCourier\nOther"
+  },
+  {
+   "fieldname": "column_break_liay",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line"
+  },
+  {
+   "fieldname": "consolidator",
+   "fieldtype": "Link",
+   "label": "Consolidator",
+   "options": "Freight Consolidator"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "vessel",
+   "fieldtype": "Data",
+   "label": "Vessel"
+  },
+  {
+   "fieldname": "voyage_no",
+   "fieldtype": "Data",
+   "label": "Voyage No"
+  },
+  {
+   "fieldname": "column_break_vsbq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "charted_vessel",
+   "fieldtype": "Check",
+   "label": "Charted Vessel"
+  },
+  {
+   "fieldname": "sending_agent",
+   "fieldtype": "Link",
+   "label": "Sending Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "receiving_agent",
+   "fieldtype": "Link",
+   "label": "Receiving Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "departure_tab",
+   "fieldtype": "Tab Break",
+   "label": "Departure"
+  },
+  {
+   "fieldname": "origin_cto",
+   "fieldtype": "Link",
+   "label": "Origin CTO",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "fieldname": "origin_cfs",
+   "fieldtype": "Link",
+   "label": "Origin CFS",
+   "options": "Container Freight Station"
+  },
+  {
+   "fieldname": "column_break_qrqv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "departure",
+   "fieldtype": "Date",
+   "label": "Departure"
+  },
+  {
+   "fieldname": "origin_cy",
+   "fieldtype": "Link",
+   "label": "Container Yard",
+   "options": "Container Yard"
+  },
+  {
+   "fieldname": "arrival_tab",
+   "fieldtype": "Tab Break",
+   "label": "Arrival"
+  },
+  {
+   "fieldname": "destination_cto",
+   "fieldtype": "Link",
+   "label": "Destination CTO",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "fieldname": "destination_cfs",
+   "fieldtype": "Link",
+   "label": "Destination CFS",
+   "options": "Container Freight Station"
+  },
+  {
+   "fieldname": "destination_cy",
+   "fieldtype": "Link",
+   "label": "Container Yard",
+   "options": "Container Yard"
+  },
+  {
+   "fieldname": "origin_receipt_requested",
+   "fieldtype": "Date",
+   "label": "Receipt Requested"
+  },
+  {
+   "fieldname": "origin_dispatch_requested",
+   "fieldtype": "Date",
+   "label": "Dispatch Requested"
+  },
+  {
+   "fieldname": "column_break_hwqe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "destination_receipt_requested",
+   "fieldtype": "Date",
+   "label": "Receipt Requested"
+  },
+  {
+   "fieldname": "destination_dispatch_requested",
+   "fieldtype": "Date",
+   "label": "Dispatch Requested"
+  },
+  {
+   "fieldname": "arrival",
+   "fieldtype": "Date",
+   "label": "Arrival"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "group": "Operations",
+   "link_doctype": "Sea Freight Booking",
+   "link_fieldname": "master_bill"
+  }
+ ],
+ "modified": "2025-06-01 16:17:31.342954",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Master Bill",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

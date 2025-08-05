@@ -1,0 +1,203 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-05-29 10:16:23.065420",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "leg_details_section",
+  "mode",
+  "job_type",
+  "job_no",
+  "type",
+  "status",
+  "charter",
+  "column_break_qvlk",
+  "notes",
+  "routing_details_section",
+  "origin",
+  "loading_port",
+  "origin_cto",
+  "etd",
+  "atd",
+  "received_date",
+  "cutoff_date",
+  "documents_due_date",
+  "column_break_jmts",
+  "destination_details",
+  "discharge_port",
+  "destination_cto",
+  "eta",
+  "ata",
+  "available_date",
+  "storage_date"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Mode",
+   "options": "Air\nSea\nRoad\nRail\nInland Waterway\nOther"
+  },
+  {
+   "columns": 1,
+   "fetch_from": "origin_cto.air",
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Main\nPre-carriage\nOn-forwarding\nOther"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Confirmed\nPlanned\nOn-hold"
+  },
+  {
+   "fieldname": "leg_details_section",
+   "fieldtype": "Section Break",
+   "label": "Leg Details"
+  },
+  {
+   "default": "0",
+   "fieldname": "charter",
+   "fieldtype": "Check",
+   "label": "Charter"
+  },
+  {
+   "fieldname": "column_break_qvlk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Long Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "routing_details_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Heading",
+   "label": "Origin Details"
+  },
+  {
+   "fieldname": "loading_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Loading Port",
+   "options": "Location"
+  },
+  {
+   "columns": 1,
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ETD"
+  },
+  {
+   "fieldname": "atd",
+   "fieldtype": "Date",
+   "label": "ATD"
+  },
+  {
+   "fieldname": "column_break_jmts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "received_date",
+   "fieldtype": "Date",
+   "label": "Received Date"
+  },
+  {
+   "fieldname": "cutoff_date",
+   "fieldtype": "Date",
+   "label": "Cutoff Date"
+  },
+  {
+   "fieldname": "documents_due_date",
+   "fieldtype": "Date",
+   "label": "Documents Due Date"
+  },
+  {
+   "fieldname": "origin_cto",
+   "fieldtype": "Link",
+   "label": "Origin CTO",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "fieldname": "destination_details",
+   "fieldtype": "Heading",
+   "label": "Destination Details"
+  },
+  {
+   "fieldname": "discharge_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Discharge Port",
+   "options": "Location"
+  },
+  {
+   "fieldname": "destination_cto",
+   "fieldtype": "Link",
+   "label": "Destination CTO",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "columns": 1,
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ETA"
+  },
+  {
+   "fieldname": "ata",
+   "fieldtype": "Date",
+   "label": "ATA"
+  },
+  {
+   "fieldname": "available_date",
+   "fieldtype": "Date",
+   "label": "Available Date"
+  },
+  {
+   "fieldname": "storage_date",
+   "fieldtype": "Date",
+   "label": "Storage Date"
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job No",
+   "options": "job_type"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-06-01 22:35:15.757903",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Freight Routing Items",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

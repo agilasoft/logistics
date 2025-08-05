@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Sea Port",
+ "creation": "2025-05-22 18:31:24.404382",
+ "description": "Add all origin and destination sea ports.\n\nDefine ports used for cargo loading and discharge. Each booking will require a Port of Loading (POL) and Port of Discharge (POD).",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 2,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-05-22 18:31:24.404382",
+ "modified_by": "Administrator",
+ "name": "Create Sea Port",
+ "owner": "Administrator",
+ "reference_document": "Location",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create Sea Port",
+ "validate_action": 1
+}

@@ -1,0 +1,38 @@
+{
+ "allow_roles": [
+  {
+   "role": "Sea Freight Manager"
+  }
+ ],
+ "creation": "2025-05-22 17:29:44.457900",
+ "docstatus": 0,
+ "doctype": "Module Onboarding",
+ "documentation_url": "https://www.erpnext.com",
+ "idx": 0,
+ "is_complete": 0,
+ "modified": "2025-06-01 22:32:25.723866",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Freight",
+ "owner": "Administrator",
+ "steps": [
+  {
+   "step": "Create Shipping Line"
+  },
+  {
+   "step": "Create Shipper"
+  },
+  {
+   "step": "Create a Consignee"
+  },
+  {
+   "step": "Create Freight Agents"
+  },
+  {
+   "step": "Sea Freight Job"
+  }
+ ],
+ "subtitle": "Bookings, Jobs, Shipping Lines, Agents, Ports, and more.",
+ "success_message": "You\u2019re ready to move containers! Your Sea Freight operations are now set up. \ud83d\udea2 Let the global trade begin.\u201d",
+ "title": "Let\u2019s Set Up the Sea Freight Module!"
+}

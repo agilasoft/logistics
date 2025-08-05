@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-06-02 15:00:19.068547",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "commodity",
+  "hs_code",
+  "reference_no",
+  "column_break_pjoj",
+  "goods_description",
+  "column_break_dbep",
+  "no_of_packs",
+  "uom",
+  "weight",
+  "volume",
+  "section_break_mzjl",
+  "dangerous_goods_column",
+  "dg_substance",
+  "dg_class",
+  "flash_point",
+  "temp_controlled_column",
+  "temp_controlled",
+  "min_temperature",
+  "max_temperature"
+ ],
+ "fields": [
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Commodity",
+   "options": "Commodities"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "HS Code",
+   "options": "Customs Tariff Number"
+  },
+  {
+   "fieldname": "column_break_pjoj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "goods_description",
+   "fieldtype": "Long Text",
+   "label": "Goods Description"
+  },
+  {
+   "fieldname": "column_break_dbep",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "no_of_packs",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "No of Packs"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Volume"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "section_break_mzjl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "dangerous_goods_column",
+   "fieldtype": "Column Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dg_substance",
+   "fieldtype": "Link",
+   "label": "DG Substance",
+   "options": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "fieldname": "flash_point",
+   "fieldtype": "Float",
+   "label": "Flash Point"
+  },
+  {
+   "fieldname": "temp_controlled_column",
+   "fieldtype": "Column Break",
+   "label": "Temp Controlled"
+  },
+  {
+   "default": "0",
+   "fieldname": "temp_controlled",
+   "fieldtype": "Check",
+   "label": "Temp Controlled"
+  },
+  {
+   "fieldname": "min_temperature",
+   "fieldtype": "Float",
+   "label": "Min Temperature (\u00b0C)"
+  },
+  {
+   "fieldname": "max_temperature",
+   "fieldtype": "Float",
+   "label": "Max Temperature (\u00b0C)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-06-02 15:10:57.051388",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Freight Packages",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,120 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-05-22 18:05:21.234972",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "description",
+  "standard_details_section",
+  "offset",
+  "timezone_name",
+  "column_break_vhbh",
+  "military_time_zone_code",
+  "dst_applicable",
+  "dst_zone_details_tab",
+  "dst_offset",
+  "dst_time_zone_name",
+  "column_break_uzeu",
+  "dst_time_zone_code",
+  "dst_military_time_zone_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "standard_details_section",
+   "fieldtype": "Section Break",
+   "label": "Standard Details"
+  },
+  {
+   "fieldname": "offset",
+   "fieldtype": "Float",
+   "label": "Offset in UTC (mins)"
+  },
+  {
+   "fieldname": "timezone_name",
+   "fieldtype": "Data",
+   "label": "Timezone Name"
+  },
+  {
+   "fieldname": "column_break_vhbh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "military_time_zone_code",
+   "fieldtype": "Data",
+   "label": "Military Time Zone Code"
+  },
+  {
+   "default": "0",
+   "fieldname": "dst_applicable",
+   "fieldtype": "Check",
+   "label": "DST Applicable"
+  },
+  {
+   "fieldname": "dst_zone_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "DST Zone Details"
+  },
+  {
+   "fieldname": "dst_offset",
+   "fieldtype": "Float",
+   "label": "Offset from UTC (mins)"
+  },
+  {
+   "fieldname": "dst_time_zone_name",
+   "fieldtype": "Data",
+   "label": "Time Zone Name"
+  },
+  {
+   "fieldname": "column_break_uzeu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dst_time_zone_code",
+   "fieldtype": "Data",
+   "label": "Time Zone Code"
+  },
+  {
+   "fieldname": "dst_military_time_zone_code",
+   "fieldtype": "Data",
+   "label": "Military Time Zone Code"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-05-22 18:11:43.991915",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Time Zone",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

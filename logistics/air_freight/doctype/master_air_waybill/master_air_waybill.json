@@ -1,0 +1,264 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:master_awb_no",
+ "creation": "2025-06-01 00:01:11.973496",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_43gn",
+  "amended_from",
+  "master_awb_no",
+  "airline",
+  "column_break_puld",
+  "aircraft_type",
+  "flight_no",
+  "aircraft_registration_no",
+  "column_break_wddz",
+  "booking_reference_no",
+  "agent_reference",
+  "chartered_flight",
+  "connected_flight",
+  "cargo_flight",
+  "handling_parties_section",
+  "sending_agent",
+  "column_break_gkum",
+  "receiving_agent",
+  "departure_tab",
+  "origin_cto",
+  "origin_cfs",
+  "column_break_bqmc",
+  "origin_receipt_requested",
+  "origin_dispatch_requested",
+  "arrival_tab",
+  "destination_cto",
+  "destination_cfs",
+  "column_break_ejdt",
+  "destination_receipt_requested",
+  "destination_dispatch_requested",
+  "ground_handling_tab",
+  "ground_works_agreement_section",
+  "text_editor_awvz",
+  "connections_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_43gn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Master Air Waybill",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "master_awb_no",
+   "fieldtype": "Data",
+   "label": "Master AWB No",
+   "unique": 1
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline"
+  },
+  {
+   "fieldname": "column_break_puld",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "flight_no",
+   "fieldtype": "Data",
+   "label": "Flight No"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "aircraft_type",
+   "fieldtype": "Data",
+   "label": "Aircraft Type"
+  },
+  {
+   "fieldname": "aircraft_registration_no",
+   "fieldtype": "Data",
+   "label": "Aircraft Registration No"
+  },
+  {
+   "fieldname": "column_break_wddz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "chartered_flight",
+   "fieldtype": "Check",
+   "label": "Chartered Flight"
+  },
+  {
+   "default": "0",
+   "fieldname": "connected_flight",
+   "fieldtype": "Check",
+   "label": "Connected Flight"
+  },
+  {
+   "default": "0",
+   "fieldname": "cargo_flight",
+   "fieldtype": "Check",
+   "label": "Cargo Flight"
+  },
+  {
+   "fieldname": "handling_parties_section",
+   "fieldtype": "Section Break",
+   "label": "Handling Parties"
+  },
+  {
+   "fieldname": "sending_agent",
+   "fieldtype": "Link",
+   "label": "Sending Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_gkum",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receiving_agent",
+   "fieldtype": "Link",
+   "label": "Receiving Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "booking_reference_no",
+   "fieldtype": "Data",
+   "label": "Booking Reference No"
+  },
+  {
+   "fieldname": "agent_reference",
+   "fieldtype": "Data",
+   "label": "Agent Reference"
+  },
+  {
+   "fieldname": "ground_handling_tab",
+   "fieldtype": "Tab Break",
+   "label": "Ground Handling"
+  },
+  {
+   "fieldname": "ground_works_agreement_section",
+   "fieldtype": "Section Break",
+   "label": "Ground Works Agreement"
+  },
+  {
+   "fieldname": "text_editor_awvz",
+   "fieldtype": "Text Editor"
+  },
+  {
+   "fieldname": "departure_tab",
+   "fieldtype": "Tab Break",
+   "label": "Departure"
+  },
+  {
+   "fieldname": "origin_cto",
+   "fieldtype": "Link",
+   "label": "Origin CTO",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"air\",\"=\",1]]",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "fieldname": "origin_cfs",
+   "fieldtype": "Link",
+   "label": "Origin CFS",
+   "link_filters": "[[\"Container Freight Station\",\"air_cfs\",\"=\",1]]",
+   "options": "Container Freight Station"
+  },
+  {
+   "fieldname": "column_break_bqmc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "arrival_tab",
+   "fieldtype": "Tab Break",
+   "label": "Arrival"
+  },
+  {
+   "fieldname": "origin_receipt_requested",
+   "fieldtype": "Date",
+   "label": "Receipt Requested"
+  },
+  {
+   "fieldname": "origin_dispatch_requested",
+   "fieldtype": "Date",
+   "label": "Dispatch Requested"
+  },
+  {
+   "fieldname": "destination_cto",
+   "fieldtype": "Link",
+   "label": "Destination CTO",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "fieldname": "destination_cfs",
+   "fieldtype": "Link",
+   "label": "Destination CFS",
+   "options": "Container Freight Station"
+  },
+  {
+   "fieldname": "column_break_ejdt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "destination_receipt_requested",
+   "fieldtype": "Date",
+   "label": "Receipt Requested"
+  },
+  {
+   "fieldname": "destination_dispatch_requested",
+   "fieldtype": "Date",
+   "label": "Dispatch Requested"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Operations",
+   "link_doctype": "Air Freight Booking",
+   "link_fieldname": "master_awb"
+  }
+ ],
+ "modified": "2025-06-01 22:02:41.209558",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Master Air Waybill",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "airline,flight_no",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

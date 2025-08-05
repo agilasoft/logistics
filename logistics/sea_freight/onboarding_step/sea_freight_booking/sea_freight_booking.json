@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Sea Freight Booking",
+ "creation": "2025-05-22 19:46:50.862061",
+ "description": "You\u2019re ready to process your first sea shipment!\n\nChoose shipper, consignee, shipping line, ports, container details, and charges. Generate required documents like Bill of Lading and start tracking movement.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-05-22 21:34:41.692073",
+ "modified_by": "Administrator",
+ "name": "Sea Freight Booking",
+ "owner": "Administrator",
+ "reference_document": "Sea Freight Booking",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create Sea Freight Booking",
+ "validate_action": 1
+}

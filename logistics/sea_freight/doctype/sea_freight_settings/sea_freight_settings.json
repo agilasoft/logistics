@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-06-02 00:01:30.378127",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "default_origin_location",
+  "default_destination_location",
+  "column_break_lopf",
+  "allow_creation_of_sales_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "default_origin_location",
+   "fieldtype": "Link",
+   "label": "Default Origin Location",
+   "options": "Location"
+  },
+  {
+   "fieldname": "default_destination_location",
+   "fieldtype": "Link",
+   "label": "Default Destination Location",
+   "options": "Location"
+  },
+  {
+   "fieldname": "column_break_lopf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_creation_of_sales_order",
+   "fieldtype": "Check",
+   "label": "Allow Creation of Sales Order"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-06-09 09:51:12.905009",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Freight Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

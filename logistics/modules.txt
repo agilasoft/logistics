@@ -5,3 +5,9 @@ Warehousing
 Customs
 Distribution
 Contract Logistics
+Registry
+Directories
+Master Files
+Master References
+Sea Freight
+Air Freight

@@ -1,0 +1,685 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-05-22 19:48:10.656371",
+ "description": "DEV Notes:\n\n1. Impending Penalties Alert.  Develop a features that alerts user of upcoming penalties to minimize costs.\n2. Delay Alerts.  Develop a feature that alerts upcoming milestones that a delay has happened.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details_tab",
+  "section_break_h1wy",
+  "amended_from",
+  "naming_series",
+  "booking_date",
+  "shipping_status",
+  "transport_mode",
+  "direction",
+  "column_break_nbco",
+  "shipping_line",
+  "local_customer",
+  "freight_agent",
+  "column_break_ccsn",
+  "house_type",
+  "release_type",
+  "entry_type",
+  "service_level",
+  "section_break_akxb",
+  "shipper",
+  "origin_port",
+  "etd",
+  "column_break_iklg",
+  "consignee",
+  "destination_port",
+  "eta",
+  "column_break_qyob",
+  "volume",
+  "weight",
+  "chargeable",
+  "house_tab",
+  "shipping_details_section",
+  "house_bl",
+  "incoterm",
+  "additional_terms",
+  "column_break_loqt",
+  "packs",
+  "inner",
+  "good_value",
+  "insurance",
+  "section_break_zmkr",
+  "description",
+  "column_break_bycr",
+  "marks_and_nos",
+  "master_tab",
+  "master_bill",
+  "column_break_etab",
+  "column_break_lfko",
+  "section_break_edxz",
+  "container_type",
+  "vessel",
+  "voyage_no",
+  "column_break_nkwl",
+  "addresses_tab",
+  "bill_of_lading_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_dzim",
+  "consignee_address",
+  "consignee_address_display",
+  "shipping_contacts_section",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_wcpn",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_yglj",
+  "notify_to_party",
+  "column_break_vway",
+  "notify_to_address",
+  "services_tab",
+  "services",
+  "packing_tab",
+  "containers_section",
+  "containers",
+  "section_break_mene",
+  "total_containers",
+  "column_break_jpbm",
+  "total_teus",
+  "packages_section",
+  "packages",
+  "section_break_zjbb",
+  "total_packages",
+  "column_break_trhg",
+  "total_volume",
+  "total_weight",
+  "charges_tab",
+  "handling_branch",
+  "handling_department",
+  "column_break_vlqo",
+  "recognition_date",
+  "job_description",
+  "column_break_arzm",
+  "job_reference",
+  "quote_no",
+  "section_break_elec",
+  "charges",
+  "connections_tab",
+  "notes_tab",
+  "external_notes",
+  "column_break_kedv",
+  "internal_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_h1wy",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Sea Freight Job",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "booking_date",
+   "fieldtype": "Date",
+   "in_standard_filter": 1,
+   "label": "Booking Date"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin Port",
+   "options": "Location"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination Port",
+   "options": "Location"
+  },
+  {
+   "fieldname": "column_break_nbco",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "local_customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Local Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "shipping_details_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Transport Mode",
+   "options": "Sea"
+  },
+  {
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "options": "Container Type"
+  },
+  {
+   "fieldname": "column_break_iklg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "label": "ETD"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "label": "ETA"
+  },
+  {
+   "fieldname": "house_bl",
+   "fieldtype": "Data",
+   "label": "House BL"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "marks_and_nos",
+   "fieldtype": "Long Text",
+   "label": "Marks and Nos"
+  },
+  {
+   "fieldname": "column_break_loqt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight (kg)"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume (cbm)"
+  },
+  {
+   "fieldname": "chargeable",
+   "fieldtype": "Float",
+   "label": "Chargeable (kg)"
+  },
+  {
+   "fieldname": "packs",
+   "fieldtype": "Float",
+   "label": "Packs"
+  },
+  {
+   "fieldname": "inner",
+   "fieldtype": "Float",
+   "label": "Inner"
+  },
+  {
+   "fieldname": "good_value",
+   "fieldtype": "Currency",
+   "label": "Good Value"
+  },
+  {
+   "fieldname": "insurance",
+   "fieldtype": "Currency",
+   "label": "Insurance"
+  },
+  {
+   "fieldname": "section_break_akxb",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_qyob",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "additional_terms",
+   "fieldtype": "Data",
+   "label": "Additional Terms"
+  },
+  {
+   "fieldname": "release_type",
+   "fieldtype": "Link",
+   "label": "Release Type",
+   "options": "Release Type"
+  },
+  {
+   "fieldname": "entry_type",
+   "fieldtype": "Select",
+   "label": "Entry Type",
+   "options": "Customs Permit\nTransshipment\nATA Carnet"
+  },
+  {
+   "fieldname": "service_level",
+   "fieldtype": "Link",
+   "label": "Service Level",
+   "options": "Service Level Agreement"
+  },
+  {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packing"
+  },
+  {
+   "fieldname": "handling_branch",
+   "fieldtype": "Link",
+   "label": "Handling Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "handling_department",
+   "fieldtype": "Link",
+   "label": "Handling Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "master_tab",
+   "fieldtype": "Tab Break",
+   "label": "Master"
+  },
+  {
+   "fieldname": "vessel",
+   "fieldtype": "Data",
+   "label": "Vessel"
+  },
+  {
+   "fieldname": "voyage_no",
+   "fieldtype": "Data",
+   "label": "Voyage No."
+  },
+  {
+   "fieldname": "house_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nBuyer's Consol Lead\nShipper's Consol Lead"
+  },
+  {
+   "fieldname": "house_tab",
+   "fieldtype": "Tab Break",
+   "label": "House"
+  },
+  {
+   "fieldname": "master_bill",
+   "fieldtype": "Link",
+   "label": "Master Bill",
+   "options": "Master Bill"
+  },
+  {
+   "fieldname": "column_break_etab",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_lfko",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_edxz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_nkwl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ccsn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_zmkr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_bycr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "services",
+   "fieldtype": "Table",
+   "options": "Sea Freight Services"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "containers_section",
+   "fieldtype": "Section Break",
+   "label": "Containers"
+  },
+  {
+   "fieldname": "containers",
+   "fieldtype": "Table",
+   "options": "Sea Freight Containers"
+  },
+  {
+   "fieldname": "packages_section",
+   "fieldtype": "Section Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "options": "Sea Freight Packages"
+  },
+  {
+   "fieldname": "column_break_vlqo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date"
+  },
+  {
+   "fieldname": "job_description",
+   "fieldtype": "Data",
+   "label": "Job Description"
+  },
+  {
+   "fieldname": "job_reference",
+   "fieldtype": "Link",
+   "label": "Job Reference",
+   "options": "Job Reference"
+  },
+  {
+   "fieldname": "column_break_arzm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quote_no",
+   "fieldtype": "Link",
+   "label": "Quote No",
+   "options": "Quotation"
+  },
+  {
+   "fieldname": "section_break_elec",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Sea Freight Charges"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "options": "Shipper Addresses"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Address Display"
+  },
+  {
+   "fieldname": "column_break_dzim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bill_of_lading_addresses_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "options": "Shipper Addresses"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Address Display"
+  },
+  {
+   "fieldname": "notify_to_party",
+   "fieldtype": "Data",
+   "label": "Notify To Party"
+  },
+  {
+   "fieldname": "notify_to_address",
+   "fieldtype": "Small Text",
+   "label": "Notify To Address"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "shipping_contacts_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display"
+  },
+  {
+   "fieldname": "column_break_wcpn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display"
+  },
+  {
+   "fieldname": "section_break_mene",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "total_containers",
+   "fieldtype": "Float",
+   "label": "Total Containers"
+  },
+  {
+   "fieldname": "column_break_jpbm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_teus",
+   "fieldtype": "Float",
+   "label": "Total TEUs"
+  },
+  {
+   "fieldname": "section_break_zjbb",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Float",
+   "label": "Total Packages"
+  },
+  {
+   "fieldname": "column_break_trhg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Data",
+   "label": "Total Weight"
+  },
+  {
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line"
+  },
+  {
+   "fieldname": "shipping_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Shipping Status",
+   "options": "Booking Received\nBooking Confirmed\nCargo Not Ready\nPick-Up Scheduled\nGate-In at Port / CY\nCustoms Clearance (Export)\nLoaded on Vessel\nDeparted\nIn-Transit\nArrived\nDischarged from Vessel\nCustoms Clearance (Import)\nAvailable for Pick-Up\nOut for Delivery\nDelivered\nEmpty Container Returned\nDelayed\nCustoms Hold\nDocument Issue\nDetention / Demurrage Ongoing\nClosed"
+  },
+  {
+   "fieldname": "section_break_yglj",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_vway",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "external_notes",
+   "fieldtype": "Text Editor",
+   "label": "External Notes"
+  },
+  {
+   "fieldname": "column_break_kedv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Accounting",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_reference"
+  },
+  {
+   "group": "Accounting",
+   "link_doctype": "Purchase Invoice",
+   "link_fieldname": "job_reference"
+  },
+  {
+   "group": "Operations",
+   "link_doctype": "Transport Booking",
+   "link_fieldname": "job_reference"
+  },
+  {
+   "group": "Operations",
+   "link_doctype": "Freight Routing",
+   "link_fieldname": "job_no",
+   "table_fieldname": "routes"
+  }
+ ],
+ "modified": "2025-06-02 09:49:44.265556",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Freight Job",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "origin_port, destination_port",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
