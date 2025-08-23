@@ -1,0 +1,187 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2025-08-18 16:50:12.399698",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "description",
+  "default_billing_uom",
+  "naming_series",
+  "column_break_cady",
+  "notes",
+  "configurations_tab",
+  "dimension_uom",
+  "external_length",
+  "external_width",
+  "external_height",
+  "column_break_vbyj",
+  "tare_weight_kg",
+  "max_gross_kg",
+  "max_volume_cbm",
+  "capacity_basis",
+  "default_qty_capacity",
+  "column_break_wywy",
+  "stackable",
+  "nestable",
+  "returnable",
+  "serializable",
+  "lift_methods_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_cady",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "external_length",
+   "fieldtype": "Float",
+   "label": "External Length"
+  },
+  {
+   "fieldname": "external_width",
+   "fieldtype": "Float",
+   "label": "External Width"
+  },
+  {
+   "fieldname": "external_height",
+   "fieldtype": "Float",
+   "label": "External Height"
+  },
+  {
+   "fieldname": "tare_weight_kg",
+   "fieldtype": "Float",
+   "label": "Tare Weight (kg)"
+  },
+  {
+   "fieldname": "max_gross_kg",
+   "fieldtype": "Float",
+   "label": "Max Gross (kg)"
+  },
+  {
+   "fieldname": "max_volume_cbm",
+   "fieldtype": "Float",
+   "label": "Max Volume (cbm)"
+  },
+  {
+   "fieldname": "capacity_basis",
+   "fieldtype": "Select",
+   "label": "Capacity Basis",
+   "options": "Weight\nVolume\nCount\nMixed"
+  },
+  {
+   "fieldname": "default_qty_capacity",
+   "fieldtype": "Float",
+   "label": "Default Qty Capacity"
+  },
+  {
+   "default": "0",
+   "fieldname": "stackable",
+   "fieldtype": "Check",
+   "label": "Stackable"
+  },
+  {
+   "default": "0",
+   "fieldname": "nestable",
+   "fieldtype": "Check",
+   "label": "Nestable"
+  },
+  {
+   "default": "0",
+   "fieldname": "returnable",
+   "fieldtype": "Check",
+   "label": "Returnable"
+  },
+  {
+   "default": "0",
+   "fieldname": "serializable",
+   "fieldtype": "Check",
+   "label": "Serializable"
+  },
+  {
+   "fieldname": "lift_methods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Lift Methods"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Long Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "configurations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Configurations"
+  },
+  {
+   "fieldname": "column_break_vbyj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_wywy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_billing_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Billing UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Data",
+   "label": "Naming Series"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-18 17:47:21.457933",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Handling Unit Type",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "description",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "description"
+}

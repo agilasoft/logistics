@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-18 12:00:52.691409",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "compliance_type",
+  "compliance_certificate",
+  "issued_by",
+  "column_break_mgpt",
+  "issuance_date",
+  "expiry_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "compliance_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Compliance type",
+   "options": "Security and Compliance Type"
+  },
+  {
+   "fieldname": "compliance_certificate",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Compliance Certificate"
+  },
+  {
+   "fieldname": "issued_by",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Issued By"
+  },
+  {
+   "fieldname": "column_break_mgpt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "issuance_date",
+   "fieldtype": "Date",
+   "label": "Issuance Date"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Expiry Date"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-08-18 12:05:41.714023",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Storage Type Compliance",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

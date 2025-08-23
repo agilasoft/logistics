@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{handling_unit}-{######}",
+ "creation": "2025-08-18 18:19:17.524126",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_g4nk",
+  "amended_from",
+  "storage_location",
+  "handling_unit",
+  "customer",
+  "column_break_rowz",
+  "starter_on",
+  "ended_on",
+  "status",
+  "warehouse_contract"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_g4nk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Storage Occupancy",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "storage_location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Storage Location",
+   "options": "Storage Location"
+  },
+  {
+   "fieldname": "handling_unit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Handling Unit",
+   "options": "Handling Unit"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_rowz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "starter_on",
+   "fieldtype": "Date",
+   "label": "Starter On"
+  },
+  {
+   "fieldname": "ended_on",
+   "fieldtype": "Date",
+   "label": "Ended On"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Active\nReleased"
+  },
+  {
+   "fieldname": "warehouse_contract",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract",
+   "options": "Warehouse Contract"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-08-18 18:24:40.219924",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Storage Occupancy",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

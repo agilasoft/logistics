@@ -1,0 +1,92 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-21 17:50:59.825524",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "description",
+  "uom",
+  "quantity",
+  "column_break_zinj",
+  "sku_tracking",
+  "serial_tracking",
+  "batch_tracking",
+  "serial_no",
+  "batch_no"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Warehouse Item"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "column_break_zinj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "sku_tracking",
+   "fieldtype": "Check",
+   "label": "SKU Tracking"
+  },
+  {
+   "default": "0",
+   "fieldname": "serial_tracking",
+   "fieldtype": "Check",
+   "label": "Serial Tracking"
+  },
+  {
+   "default": "0",
+   "fieldname": "batch_tracking",
+   "fieldtype": "Check",
+   "label": "Batch Tracking"
+  },
+  {
+   "fieldname": "serial_no",
+   "fieldtype": "Link",
+   "label": "Serial No",
+   "options": "Warehouse Serial"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Link",
+   "label": "Batch No",
+   "options": "Warehouse Batch"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-08-21 17:53:23.901419",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "VAS Order Input",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

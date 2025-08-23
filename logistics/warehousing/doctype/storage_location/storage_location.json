@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{site}/{building}/{zone}/{aisle}/{bay}/{level}/{location_code}",
+ "creation": "2025-08-18 13:15:25.722151",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site",
+  "building",
+  "zone",
+  "aisle",
+  "bay",
+  "level",
+  "column_break_anrj",
+  "location_code",
+  "storage_type",
+  "configuration_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "configuration_tab",
+   "fieldtype": "Tab Break",
+   "label": "Configuration"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "zone",
+   "fieldtype": "Link",
+   "label": "Zone",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Zone\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "aisle",
+   "fieldtype": "Link",
+   "label": "Aisle",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Aisle\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "bay",
+   "fieldtype": "Link",
+   "label": "Bay",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Bay\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "level",
+   "fieldtype": "Link",
+   "label": "Level",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Level\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "building",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Building",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Building\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "column_break_anrj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location_code",
+   "fieldtype": "Data",
+   "label": "Location Code"
+  },
+  {
+   "fieldname": "storage_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Storage Type",
+   "options": "Storage Type"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-18 14:40:46.125306",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Storage Location",
+ "naming_rule": "Expression",
+ "nsm_parent_field": "parent_storage_location",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "location_code,storage_type",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

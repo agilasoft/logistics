@@ -1,0 +1,95 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-20 14:14:57.670314",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "handling_unit",
+  "item",
+  "serial_no",
+  "batch_no",
+  "column_break_cqfu",
+  "storage_location",
+  "quantiy",
+  "beg_quantity",
+  "end_qty"
+ ],
+ "fields": [
+  {
+   "fieldname": "handling_unit",
+   "fieldtype": "Link",
+   "label": "Handling Unit",
+   "options": "Handling Unit"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Warehouse Item"
+  },
+  {
+   "fieldname": "serial_no",
+   "fieldtype": "Link",
+   "label": "Serial No",
+   "options": "Warehouse Serial"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Link",
+   "label": "Batch No",
+   "options": "Warehouse Batch"
+  },
+  {
+   "fieldname": "column_break_cqfu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "storage_location",
+   "fieldtype": "Link",
+   "label": "Storage Location",
+   "options": "Storage Location"
+  },
+  {
+   "fieldname": "quantiy",
+   "fieldtype": "Float",
+   "label": "Quantiy"
+  },
+  {
+   "fieldname": "beg_quantity",
+   "fieldtype": "Float",
+   "label": "Beg Quantity"
+  },
+  {
+   "fieldname": "end_qty",
+   "fieldtype": "Float",
+   "label": "End Qty"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-20 14:17:56.508486",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehouse Stock Ledger",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

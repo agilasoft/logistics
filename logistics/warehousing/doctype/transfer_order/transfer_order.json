@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-08-21 15:31:20.036327",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_xgkg",
+  "amended_from",
+  "naming_series",
+  "order_date",
+  "transfer_type",
+  "column_break_zznj",
+  "customer",
+  "warehouse_contract",
+  "cust_reference",
+  "reason",
+  "column_break_rucg",
+  "priority",
+  "planned_date",
+  "due_date",
+  "section_break_yuil",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_xgkg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Transfer Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series"
+  },
+  {
+   "fieldname": "order_date",
+   "fieldtype": "Date",
+   "label": "Order Date"
+  },
+  {
+   "fieldname": "column_break_zznj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.transfer_type==\"Customer\"",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "transfer_type",
+   "fieldtype": "Select",
+   "label": "Transfer Type",
+   "options": "Internal\nCustomer\nOthers"
+  },
+  {
+   "depends_on": "eval:doc.transfer_type==\"Customer\"",
+   "fieldname": "warehouse_contract",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract",
+   "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "cust_reference",
+   "fieldtype": "Data",
+   "label": "Cust. Reference"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "label": "Reason",
+   "options": "Re-slot\nRe-org\nStaging\nQuality\nQuarantine\nReturns\nOthers"
+  },
+  {
+   "fieldname": "column_break_rucg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh"
+  },
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Datetime",
+   "label": "Planned Date"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Datetime",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "section_break_yuil",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "options": "Transfer Order Item"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-08-21 17:12:15.775458",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Transfer Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

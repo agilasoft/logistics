@@ -1,0 +1,134 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-18 20:23:47.123552",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "column_break_bsls",
+  "item",
+  "description",
+  "uom",
+  "quantity",
+  "column_break_qfvj",
+  "sku_tracking",
+  "serial_tracking",
+  "batch_tracking",
+  "handling_unit_type",
+  "handling_unit",
+  "serial_no",
+  "batch_no"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Warehouse Item"
+  },
+  {
+   "columns": 2,
+   "fieldname": "handling_unit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Handling Unit",
+   "options": "Handling Unit"
+  },
+  {
+   "columns": 1,
+   "fieldname": "handling_unit_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Handling Unit Type",
+   "options": "Handling Unit Type"
+  },
+  {
+   "columns": 2,
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_bsls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
+  },
+  {
+   "columns": 1,
+   "depends_on": "eval:doc.serial_tracking",
+   "fieldname": "serial_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Serial No",
+   "options": "Warehouse Serial"
+  },
+  {
+   "columns": 1,
+   "depends_on": "eval:doc.batch_tracking",
+   "fieldname": "batch_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "options": "Warehouse Batch"
+  },
+  {
+   "fieldname": "column_break_qfvj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fetch_from": "item.serial_tracking",
+   "fieldname": "serial_tracking",
+   "fieldtype": "Check",
+   "label": "Serial Tracking",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "item.batch_tracking",
+   "fieldname": "batch_tracking",
+   "fieldtype": "Check",
+   "label": "Batch Tracking",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "item.sku_tracking",
+   "fieldname": "sku_tracking",
+   "fieldtype": "Check",
+   "label": "SKU Tracking",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-08-19 20:28:35.148901",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Inbound Order Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

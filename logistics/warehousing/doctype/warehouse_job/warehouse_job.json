@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-08-19 20:23:29.092699",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_tzyq",
+  "amended_from",
+  "naming_series",
+  "type",
+  "job_open_date",
+  "column_break_ldqk",
+  "reference_order_type",
+  "reference_order",
+  "section_break_xmlp",
+  "items",
+  "charges_and_accounting_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_tzyq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Warehouse Job",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Putaway\nPick\nMove"
+  },
+  {
+   "fieldname": "column_break_ldqk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_order_type",
+   "fieldtype": "Link",
+   "label": "Reference Order Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Inbound Order\"]]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_order",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Reference Order",
+   "options": "reference_order_type"
+  },
+  {
+   "fieldname": "job_open_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Job Open Date"
+  },
+  {
+   "fieldname": "charges_and_accounting_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges and Accounting"
+  },
+  {
+   "fieldname": "section_break_xmlp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Warehouse Job Item"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "WJ-.########"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-08-20 12:44:14.543627",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehouse Job",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,159 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-08-18 20:16:47.750062",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_6vby",
+  "amended_from",
+  "naming_series",
+  "order_date",
+  "column_break_pggc",
+  "customer",
+  "contract",
+  "cust_reference",
+  "column_break_pyci",
+  "priority",
+  "planned_date",
+  "due_date",
+  "section_break_dulp",
+  "items",
+  "additional_charges_tab",
+  "carrier_details_tab",
+  "appointment",
+  "notes_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_6vby",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Inbound Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_pggc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "order_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Order Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Contract",
+   "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "column_break_pyci",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh"
+  },
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Datetime",
+   "label": "Planned Date"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Datetime",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "cust_reference",
+   "fieldtype": "Data",
+   "label": "Cust. Reference"
+  },
+  {
+   "fieldname": "carrier_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Carrier Details"
+  },
+  {
+   "fieldname": "appointment",
+   "fieldtype": "Link",
+   "label": "Appointment",
+   "options": "Appointment"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "additional_charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Additional Charges"
+  },
+  {
+   "fieldname": "section_break_dulp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "options": "Inbound Order Item"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "WIN.########"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-08-19 20:29:14.231714",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Inbound Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

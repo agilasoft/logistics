@@ -1,0 +1,185 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2025-08-18 11:36:48.038536",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "description",
+  "usage",
+  "column_break_kfmv",
+  "environment",
+  "picking_method",
+  "default_free_days",
+  "column_break_oomk",
+  "billing_uom",
+  "time_unit",
+  "unit_capacity_tab",
+  "max_capacity",
+  "capacity_uom",
+  "unit_capacity_section",
+  "max_height",
+  "max_width",
+  "max_length",
+  "column_break_cofj",
+  "max_weight",
+  "securitycompliance_tab",
+  "compliances",
+  "dg_classes_allowed_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "billing_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Billing UOM",
+   "link_filters": "[[\"UOM\",\"custom_storage_uom\",\"=\",1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_kfmv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Environment",
+   "options": "Storage Environment"
+  },
+  {
+   "fieldname": "securitycompliance_tab",
+   "fieldtype": "Tab Break",
+   "label": "Security/Compliance"
+  },
+  {
+   "fieldname": "compliances",
+   "fieldtype": "Table",
+   "label": "compliances",
+   "options": "Storage Type Compliance"
+  },
+  {
+   "fieldname": "dg_classes_allowed_tab",
+   "fieldtype": "Tab Break",
+   "label": "DG Classes Allowed"
+  },
+  {
+   "fieldname": "unit_capacity_section",
+   "fieldtype": "Section Break",
+   "label": "Dimensions and Weight"
+  },
+  {
+   "fieldname": "max_height",
+   "fieldtype": "Float",
+   "label": "Max Height"
+  },
+  {
+   "fieldname": "max_width",
+   "fieldtype": "Float",
+   "label": "Max Width"
+  },
+  {
+   "fieldname": "max_length",
+   "fieldtype": "Float",
+   "label": "Max Length"
+  },
+  {
+   "fieldname": "column_break_cofj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_weight",
+   "fieldtype": "Float",
+   "label": "Max Weight"
+  },
+  {
+   "fieldname": "unit_capacity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Unit Capacity"
+  },
+  {
+   "fieldname": "picking_method",
+   "fieldtype": "Select",
+   "label": "Picking Method",
+   "options": "FIFO\nFEFO\nLIFO\nFixed Slot\nFloating"
+  },
+  {
+   "fieldname": "default_free_days",
+   "fieldtype": "Float",
+   "label": "Default Free Days",
+   "precision": "0"
+  },
+  {
+   "fieldname": "column_break_oomk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "time_unit",
+   "fieldtype": "Select",
+   "label": "Time Unit",
+   "options": "Day\nWeek\nMonth\nYear"
+  },
+  {
+   "fieldname": "capacity_uom",
+   "fieldtype": "Link",
+   "label": "Capacity UOM",
+   "link_filters": "[[\"UOM\",\"custom_storage_uom\",\"=\",1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "max_capacity",
+   "fieldtype": "Float",
+   "label": "Max Capacity"
+  },
+  {
+   "fieldname": "usage",
+   "fieldtype": "Data",
+   "label": "Usage"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-18 15:03:04.787820",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Storage Type",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "description,environment",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "description"
+}

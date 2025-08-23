@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-08-21 17:46:09.046889",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_rh0z",
+  "amended_from",
+  "naming_series",
+  "order_date",
+  "type",
+  "column_break_berz",
+  "customer",
+  "warehouse_contract",
+  "cust_reference",
+  "column_break_vsgc",
+  "priority",
+  "planned_date",
+  "due_date",
+  "section_break_cwsn",
+  "outputs",
+  "inputs_tab",
+  "inputs",
+  "tab_2_tab",
+  "billing_uom"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_rh0z",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "VAS Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series"
+  },
+  {
+   "fieldname": "order_date",
+   "fieldtype": "Date",
+   "label": "Order Date"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "Relabel\nRepack\nKitting\nLabelling\nSorting\nRework\nOther"
+  },
+  {
+   "fieldname": "column_break_berz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "warehouse_contract",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract",
+   "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "cust_reference",
+   "fieldtype": "Data",
+   "label": "Cust. Reference"
+  },
+  {
+   "fieldname": "column_break_vsgc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nMedium\nHigh"
+  },
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Datetime",
+   "label": "Planned Date"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Datetime",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "inputs",
+   "fieldtype": "Table",
+   "options": "VAS Order Input"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "inputs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Inputs"
+  },
+  {
+   "fieldname": "billing_uom",
+   "fieldtype": "Link",
+   "label": "Billing UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "section_break_cwsn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "outputs",
+   "fieldtype": "Table",
+   "options": "VAS Order Output"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-08-22 00:11:50.087589",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "VAS Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

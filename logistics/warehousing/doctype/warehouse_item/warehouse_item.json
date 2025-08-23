@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{code}-{customer_code}",
+ "creation": "2025-08-18 16:42:28.773696",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "item_name",
+  "uom",
+  "column_break_ppbd",
+  "customer",
+  "customer_code",
+  "handling_unit",
+  "sku_tracking",
+  "batch_tracking",
+  "serial_tracking",
+  "section_break_uzft",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ppbd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "handling_unit",
+   "fieldtype": "Check",
+   "label": "Handling Unit"
+  },
+  {
+   "default": "0",
+   "fieldname": "sku_tracking",
+   "fieldtype": "Check",
+   "label": "SKU Tracking"
+  },
+  {
+   "default": "0",
+   "fieldname": "batch_tracking",
+   "fieldtype": "Check",
+   "label": "Batch Tracking"
+  },
+  {
+   "default": "0",
+   "fieldname": "serial_tracking",
+   "fieldtype": "Check",
+   "label": "Serial Tracking"
+  },
+  {
+   "fieldname": "section_break_uzft",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "customer.custom_code",
+   "fieldname": "customer_code",
+   "fieldtype": "Data",
+   "label": "Customer Code",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-18 22:07:21.569002",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehouse Item",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
