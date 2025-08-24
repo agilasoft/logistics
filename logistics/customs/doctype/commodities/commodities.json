@@ -1,0 +1,175 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-05-22 10:34:19.845671",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "description",
+  "active",
+  "column_break_vzlp",
+  "universal_commodity_code",
+  "iata_commodity_code",
+  "applicable_to_section",
+  "forwarding",
+  "shipping",
+  "land_transport",
+  "perishable",
+  "timber",
+  "hazardous",
+  "flammable",
+  "container_vent_required",
+  "column_break_eefs",
+  "commodity_expiry",
+  "minimum_temperature",
+  "maximum_temperature",
+  "other_codes_tab",
+  "other_codes",
+  "notes_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_vzlp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "universal_commodity_code",
+   "fieldtype": "Data",
+   "label": "Universal Commodity Code"
+  },
+  {
+   "fieldname": "iata_commodity_code",
+   "fieldtype": "Data",
+   "label": "IATA Commodity Code"
+  },
+  {
+   "fieldname": "applicable_to_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "forwarding",
+   "fieldtype": "Check",
+   "label": "Forwarding"
+  },
+  {
+   "default": "0",
+   "fieldname": "shipping",
+   "fieldtype": "Check",
+   "label": "Shipping"
+  },
+  {
+   "default": "0",
+   "fieldname": "land_transport",
+   "fieldtype": "Check",
+   "label": "Land Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "perishable",
+   "fieldtype": "Check",
+   "label": "Perishable"
+  },
+  {
+   "default": "0",
+   "fieldname": "timber",
+   "fieldtype": "Check",
+   "label": "Timber"
+  },
+  {
+   "default": "0",
+   "fieldname": "hazardous",
+   "fieldtype": "Check",
+   "label": "Hazardous"
+  },
+  {
+   "default": "0",
+   "fieldname": "flammable",
+   "fieldtype": "Check",
+   "label": "Flammable"
+  },
+  {
+   "default": "0",
+   "fieldname": "container_vent_required",
+   "fieldtype": "Check",
+   "label": "Container Vent Required"
+  },
+  {
+   "fieldname": "column_break_eefs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "commodity_expiry",
+   "fieldtype": "Date",
+   "label": "Commodity Expiry"
+  },
+  {
+   "fieldname": "minimum_temperature",
+   "fieldtype": "Float",
+   "label": "Minimum Temperature (\u00b0C)"
+  },
+  {
+   "fieldname": "maximum_temperature",
+   "fieldtype": "Float",
+   "label": "Maximum Temperature (\u00b0C)"
+  },
+  {
+   "fieldname": "other_codes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Other Codes"
+  },
+  {
+   "fieldname": "other_codes",
+   "fieldtype": "Table",
+   "options": "Other Commodity Code"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-24 13:51:55.018594",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Commodities",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

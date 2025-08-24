@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2025-05-21 23:57:54.440094",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "codes_section",
+  "code",
+  "airline_name",
+  "logo",
+  "column_break_zmyd",
+  "airline_numeric_code",
+  "three_letter_numeric_code",
+  "two_character_code",
+  "memberships_section",
+  "memberships",
+  "other_details_section",
+  "short_name",
+  "address",
+  "efreight_tab",
+  "airline_codes_tab",
+  "notes_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "codes_section",
+   "fieldtype": "Section Break",
+   "label": "Codes"
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "airline_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Airline Name"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "fieldname": "column_break_zmyd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "airline_numeric_code",
+   "fieldtype": "Data",
+   "label": "Airline Numeric Code"
+  },
+  {
+   "fieldname": "three_letter_numeric_code",
+   "fieldtype": "Data",
+   "label": "Three Letter Numeric Code"
+  },
+  {
+   "fieldname": "two_character_code",
+   "fieldtype": "Data",
+   "label": "Two Character Code"
+  },
+  {
+   "fieldname": "memberships_section",
+   "fieldtype": "Section Break",
+   "label": "Memberships"
+  },
+  {
+   "fieldname": "memberships",
+   "fieldtype": "Table",
+   "options": "Airline Membership"
+  },
+  {
+   "fieldname": "other_details_section",
+   "fieldtype": "Section Break",
+   "label": "Other Details"
+  },
+  {
+   "fieldname": "short_name",
+   "fieldtype": "Data",
+   "label": "Short Name"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Link",
+   "label": "Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "efreight_tab",
+   "fieldtype": "Tab Break",
+   "label": "eFreight"
+  },
+  {
+   "fieldname": "airline_codes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Airline Codes"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "icon": "logo",
+ "image_field": "logo",
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-24 13:51:32.394684",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Airline",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "airline_name"
+}
