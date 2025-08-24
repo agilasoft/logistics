@@ -3,8 +3,6 @@ Transport
 Forwarding
 Warehousing
 Customs
-Distribution
-Contract Logistics
 Registry
 Directories
 Master Files
