@@ -1,0 +1,22 @@
+{
+ "action": "Create Entry",
+ "action_label": "Testing lang to",
+ "creation": "2025-08-26 17:14:19.304172",
+ "description": "A shipping line is the carrier company responsible for transporting cargo via sea.\r\n\r\nIn ERPNext, a Shipping Line record stores details like carrier name, contact information, and vessel names. These are essential for assigning the correct carrier to each sea freight booking and managing documentation such as the Bill of Lading.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "intro_video_url": "https://logistics.agilasoft.com/app/shipping-line",
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-26 17:14:19.304172",
+ "modified_by": "Administrator",
+ "name": "Create Air Port",
+ "owner": "Administrator",
+ "reference_document": "Sea Freight Services",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Air Port",
+ "validate_action": 1
+}

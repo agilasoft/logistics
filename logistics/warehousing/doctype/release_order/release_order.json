@@ -12,14 +12,20 @@
   "order_date",
   "column_break_fwfm",
   "customer",
-  "warehouse_contract",
+  "contract",
   "cust_reference",
   "column_break_omwr",
   "priority",
   "planned_date",
   "due_date",
   "section_break_qqij",
-  "items"
+  "items",
+  "charges_tab",
+  "charges",
+  "docking_tab",
+  "table_ymzf",
+  "notes_tab",
+  "notes"
  ],
  "fields": [
   {
@@ -58,12 +64,6 @@
    "options": "Customer"
   },
   {
-   "fieldname": "warehouse_contract",
-   "fieldtype": "Link",
-   "label": "Contract",
-   "options": "Warehouse Contract"
-  },
-  {
    "fieldname": "cust_reference",
    "fieldtype": "Data",
    "label": "Cust. Reference"
@@ -96,13 +96,48 @@
    "fieldname": "items",
    "fieldtype": "Table",
    "options": "Release Order Item"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Release Order Charges"
+  },
+  {
+   "fieldname": "table_ymzf",
+   "fieldtype": "Table",
+   "options": "Release Order Dock"
+  },
+  {
+   "fieldname": "docking_tab",
+   "fieldtype": "Tab Break",
+   "label": "Docking"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor"
+  },
+  {
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Contract",
+   "options": "Warehouse Contract"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-21 00:32:46.579424",
+ "modified": "2025-08-30 22:05:26.216867",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order",

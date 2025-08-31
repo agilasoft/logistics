@@ -1,98 +1,104 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Inbound Order", {
-  refresh(frm) {
-    // Show button only for submitted Inbound Orders
-    if (!frm.is_new() && frm.doc.docstatus === 1) {
-      frm.add_custom_button(
-        __("Warehouse Job"),
-        () => {
-          frappe.model.open_mapped_doc({
-            method: "logistics.warehousing.doctype.inbound_order.inbound_order.make_warehouse_job",
-            frm: frm
-          });
-        },
-        __("Create") // goes under the Create menu
-      );
-    }
-  }
-});
-
-// Client Script for DocType: Inbound Order
-frappe.ui.form.on("Inbound Order", {
-  refresh(frm) {
-    if (!frm.is_new() && [0].includes(frm.doc.docstatus)) {
-      frm.add_custom_button(__("Handling Unit"), () => {
-        const grid = frm.fields_dict.items?.grid;
-        const selected = grid?.get_selected_children() || [];
-        if (!selected.length) {
-          frappe.msgprint(__("Please select one or more rows in Items first."));
-          return;
-        }
-
-        const d = new frappe.ui.Dialog({
-          title: __("Allocate Handling Unit to Selected Items"),
-          fields: [
-            {
-              fieldname: "hu_type",
-              label: __("Handling Unit Type"),
-              fieldtype: "Link",
-              options: "Handling Unit Type",
-              reqd: 1,
-              onchange: () => {
-                d.fields_dict.handling_unit.get_query = () => {
-                  const hut = d.get_value("hu_type");
-                  return hut ? { filters: { type: hut } } : {};
-                };
-                d.set_value("handling_unit", null);
-              }
-            },
-            {
-              fieldname: "handling_unit",
-              label: __("Handling Unit"),
-              fieldtype: "Link",
-              options: "Handling Unit",
-              reqd: 1,
-              get_query: () => {
-                const hut = d.get_value("hu_type");
-                return hut ? { filters: { type: hut } } : {};
-              }
-            }
-          ],
-          primary_action_label: __("Allocate"),
-          primary_action(values) {
-            d.hide();
-            const rownames = selected.map(r => r.name);
-
-            frappe.call({
-              method: "logistics.warehousing.doctype.inbound_order.inbound_order.allocate_existing_handling_unit",
-              args: {
-                source_name: frm.doc.name,
-                handling_unit_type: values.hu_type,
-                handling_unit: values.handling_unit,
-                item_row_names: rownames
-              },
-              freeze: true,
-              freeze_message: __("Allocating..."),
-              callback(r) {
-                const count = (r && r.message && r.message.updated_count) || 0;
-                frappe.msgprint(__("{0} row(s) allocated to Handling Unit <b>{1}</b>.", [count, values.handling_unit]));
-
-                // Update the selected child rows in memory
-                selected.forEach(ch => {
-                  ch.handling_unit = values.handling_unit;
-                  ch.handling_unit_type = values.hu_type;   // <<< add this
+frappe.ui.form.on('Inbound Order', {
+    refresh: function(frm) {
+        if (!frm.doc.__islocal && frm.doc.docstatus === 1) {
+            frm.add_custom_button(__('Warehouse Job'), function() {
+                frappe.model.open_mapped_doc({
+                    method: "logistics.warehousing.doctype.inbound_order.inbound_order.make_warehouse_job",
+                    frm: frm
                 });
-                frm.refresh_field("items");
-              }
-            });
-          }
-        });
-
-        d.show();
-      }, __("Allocate"));
+            }, __('Create'));
+        }
     }
-  }
 });
+
+
+//Get Rates from Contract
+
+function _resolve_item(row){ return row.charge_item || row.item_code || row.item || row.item_charge; }
+function _apply_vals(cdt, cdn, m){
+  if (!m) return;
+  if (typeof m.rate === "number") frappe.model.set_value(cdt, cdn, "rate", m.rate);
+  if (m.currency) frappe.model.set_value(cdt, cdn, "currency", m.currency);
+
+  // strictly use UOM from Contract
+  let contract_uom = (m.storage_charge && m.storage_uom) ? m.storage_uom : (m.handling_uom || null);
+  if (contract_uom) {
+    frappe.model.set_value(cdt, cdn, "uom", contract_uom);
+  } else {
+    // ensure Item default doesn't stick
+    frappe.model.set_value(cdt, cdn, "uom", "");
+    frappe.show_alert({message: __("No UOM set on Warehouse Contract for this charge."), indicator: "orange"});
+  }
+}
+function _fetch(frm, cdt, cdn, context){
+  const row = locals[cdt][cdn];
+  const contract = frm.doc.contract;
+  const item_code = _resolve_item(row);
+  if (!contract || !item_code) return;
+  frappe.call({
+    method: "logistics.warehousing.api.get_contract_charge",
+    args: { contract, item_code, context },
+    callback: (r) => _apply_vals(cdt, cdn, r.message)
+  });
+}
+
+frappe.ui.form.on("Inbound Order Charges", {
+  charge_item(frm, cdt, cdn){ _fetch(frm, cdt, cdn, "inbound"); },
+  item_code(frm, cdt, cdn){ _fetch(frm, cdt, cdn, "inbound"); }
+});
+
+
+//Limit Item by Customer
+// Doctype: Inbound Order
+
+(function () {
+  const CHILD_TABLE = 'items';   // child table fieldname on parent
+  const ITEM_FIELD  = 'item';    // link fieldname inside child table (to Warehouse Item)
+
+  function set_item_query(frm) {
+    if (!frm.fields_dict[CHILD_TABLE]) return;
+
+    // Grid list view picker
+    frm.fields_dict[CHILD_TABLE].grid.get_field(ITEM_FIELD).get_query = function () {
+      const customer = frm.doc.customer || '';
+      return { filters: customer ? { customer } : {} };
+    };
+
+    // Row form picker (fallback for some UI paths)
+    frm.set_query(ITEM_FIELD, CHILD_TABLE, function () {
+      const customer = frm.doc.customer || '';
+      return { filters: customer ? { customer } : {} };
+    });
+  }
+
+  function drop_mismatched_rows(frm) {
+    // OPTIONAL: comment out if you don't want auto-clearing
+    const customer = frm.doc.customer;
+    if (!customer || !Array.isArray(frm.doc[CHILD_TABLE])) return;
+
+    let changed = false;
+    (frm.doc[CHILD_TABLE] || []).forEach(row => {
+      // If a row already has an item that belongs to a different customer, clear it
+      // We can’t sync-check the linked item here without an extra call,
+      // so we clear defensively when customer changes.
+      if (row[ITEM_FIELD]) {
+        row[ITEM_FIELD] = null;
+        changed = true;
+      }
+    });
+    if (changed) frm.refresh_field(CHILD_TABLE);
+  }
+
+  frappe.ui.form.on('Inbound Order', {
+    setup: set_item_query,
+    refresh: set_item_query,
+    customer: function (frm) {
+      set_item_query(frm);
+      drop_mismatched_rows(frm);
+    },
+  });
+})();
 

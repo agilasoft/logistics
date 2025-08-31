@@ -1,0 +1,221 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"haJQzFEZjs\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Land Transport\",\"col\":12}},{\"id\":\"1iWx1fqP9z\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"q7EPLC6fZU\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Order\",\"col\":3}},{\"id\":\"3TS59zETtC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Job\",\"col\":3}},{\"id\":\"N1HgqeWP45\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"yNM9LyJ0bU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Reports</b></span>\",\"col\":12}},{\"id\":\"HKK035MI_V\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport\",\"col\":4}},{\"id\":\"ICBiUn21qr\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport Job\",\"col\":4}},{\"id\":\"T4NHfMqzxe\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport Facilities\",\"col\":4}},{\"id\":\"4lt_4qQ2s5\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}}]",
+ "creation": "2025-05-22 17:01:42.084612",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "full-page",
+ "idx": 0,
+ "indicator_color": "",
+ "is_hidden": 0,
+ "label": "Transport",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dispatcher",
+   "link_count": 0,
+   "link_to": "Dispatcher",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Zone",
+   "link_count": 0,
+   "link_to": "Zone",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Terminal Type",
+   "link_count": 0,
+   "link_to": "Terminal Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Job",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Job Templates",
+   "link_count": 0,
+   "link_to": "Transport Operations Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Job",
+   "link_count": 0,
+   "link_to": "Transport Job",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Organizations",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipper",
+   "link_count": 0,
+   "link_to": "Shipper",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consignee",
+   "link_count": 0,
+   "link_to": "Consignee",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Company",
+   "link_count": 0,
+   "link_to": "Transport Company",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Facilities",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Yard",
+   "link_count": 0,
+   "link_to": "Container Yard",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Depot",
+   "link_count": 0,
+   "link_to": "Container Depot",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Freight Station",
+   "link_count": 0,
+   "link_to": "Container Freight Station",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Storage Facility",
+   "link_count": 0,
+   "link_to": "Storage Facility",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Truck Park",
+   "link_count": 0,
+   "link_to": "Truck Park",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-08-31 22:40:31.893362",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 4.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Transport Order",
+   "link_to": "Transport Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Transport Job",
+   "link_to": "Transport Job",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Invoice",
+   "link_to": "Sales Invoice",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Transport"
+}

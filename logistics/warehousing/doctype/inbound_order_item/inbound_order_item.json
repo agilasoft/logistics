@@ -33,7 +33,6 @@
    "columns": 2,
    "fieldname": "handling_unit",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Handling Unit",
    "options": "Handling Unit"
   },
@@ -41,7 +40,6 @@
    "columns": 1,
    "fieldname": "handling_unit_type",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Handling Unit Type",
    "options": "Handling Unit Type"
   },
@@ -49,6 +47,7 @@
    "columns": 2,
    "fieldname": "description",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Description"
   },
   {
@@ -121,7 +120,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-19 20:28:35.148901",
+ "modified": "2025-08-31 22:30:34.492348",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order Item",

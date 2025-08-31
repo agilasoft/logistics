@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-22 18:05:21.234972",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -24,7 +25,8 @@
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "description",
@@ -94,10 +96,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-22 18:11:43.991915",
+ "modified": "2025-08-30 15:31:46.495177",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Time Zone",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

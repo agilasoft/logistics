@@ -307,7 +307,7 @@
    "fieldname": "service_level",
    "fieldtype": "Link",
    "label": "Service Level",
-   "options": "Service Level Agreement"
+   "options": "Logistics Service Level"
   },
   {
    "fieldname": "services_tab",
@@ -656,7 +656,7 @@
    "table_fieldname": "routes"
   }
  ],
- "modified": "2025-06-02 09:49:44.265556",
+ "modified": "2025-08-28 13:29:23.942299",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Job",

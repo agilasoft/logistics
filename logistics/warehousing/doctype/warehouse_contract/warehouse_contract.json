@@ -1,14 +1,20 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "naming_series:",
+ "autoname": "format:{site}/{###########}",
  "creation": "2025-08-18 18:21:45.387152",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "section_break_upjh",
   "amended_from",
-  "naming_series"
+  "date",
+  "customer",
+  "column_break_djlp",
+  "valid_until",
+  "site",
+  "section_break_cvch",
+  "items"
  ],
  "fields": [
   {
@@ -26,19 +32,55 @@
    "search_index": 1
   },
   {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Naming Series"
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_djlp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date"
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Valid until"
+  },
+  {
+   "fieldname": "section_break_cvch",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "options": "Warehouse Contract Item"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
+   "options": "Storage Location Configurator"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-18 18:21:54.744992",
+ "modified": "2025-08-29 18:21:03.234791",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
@@ -58,5 +100,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "customer"
 }

@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Air Freight Job",
+ "creation": "2025-08-29 17:38:53.672214",
+ "description": "An Air Freight Job is the main transaction that captures all details of a cargo shipment by air. It includes information such as shipper, consignee, airline, airports, container details, schedule, and charges. It serves as the central record for tracking, billing, and managing the entire air freight process.\n\n",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-29 17:38:53.672214",
+ "modified_by": "Administrator",
+ "name": "Create an Air Freight Job",
+ "owner": "Administrator",
+ "reference_document": "Air Freight Job",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create an Air Freight Job",
+ "validate_action": 1
+}

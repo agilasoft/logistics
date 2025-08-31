@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Dispatcher",
+ "creation": "2025-08-30 11:53:04.776677",
+ "description": "A Dispatcher is the key person responsible for planning, scheduling, and managing transport jobs. In this system, the Dispatcher record links a user to transport operations, allowing them to assign drivers, track vehicles, and communicate shipment updates.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-30 11:53:04.776677",
+ "modified_by": "Administrator",
+ "name": "Create a Dispatcher",
+ "owner": "Administrator",
+ "reference_document": "Dispatcher",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create a Dispatcher",
+ "validate_action": 1
+}

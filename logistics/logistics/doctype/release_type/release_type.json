@@ -7,7 +7,9 @@
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "description"
+  "description",
+  "notes",
+  "risk_level"
  ],
  "fields": [
   {
@@ -20,15 +22,28 @@
   },
   {
    "fieldname": "description",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "in_list_view": 1,
-   "label": "Description"
+   "label": "Description",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes",
+   "reqd": 1
+  },
+  {
+   "fieldname": "risk_level",
+   "fieldtype": "Select",
+   "label": "Risk level",
+   "options": "Low\nMedium\nHigh"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-31 00:46:22.516349",
+ "modified": "2025-08-27 20:10:48.709238",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Release Type",
@@ -54,5 +69,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "description"
+ "title_field": "code"
 }

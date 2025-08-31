@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Transport Company",
+ "creation": "2025-08-30 11:52:37.402568",
+ "description": "A Transport Company is the carrier responsible for transporting cargo via land. In this system, a Transport Company record stores details like the company name, contact information, and vehicle fleet. These are essential for assigning the correct carrier to each transport job and managing documentation such as waybills.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-30 11:52:37.402568",
+ "modified_by": "Administrator",
+ "name": "Create a Transport Company",
+ "owner": "Administrator",
+ "reference_document": "Transport Company",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create a Transport Company",
+ "validate_action": 1
+}

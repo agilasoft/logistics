@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Entry",
+ "creation": "2025-08-29 17:36:48.736850",
+ "description": "A Shipper is the person or company responsible for sending the cargo in an air freight transaction. In this system, the Shipper record includes complete business details such as name, address, contact info, and tax identification. [cite_start]It is a required party in every air freight booking and is linked to documentation like the Air Waybill. [cite: 3]",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-29 17:36:48.736850",
+ "modified_by": "Administrator",
+ "name": "Create a Shipper",
+ "owner": "Administrator",
+ "reference_document": "Shipper",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create a Shipper",
+ "validate_action": 1
+}

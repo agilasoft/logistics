@@ -1,0 +1,35 @@
+{
+ "allow_roles": [
+  {
+   "role": "Air Freight Manager"
+  }
+ ],
+ "creation": "2025-08-26 17:18:20.841578",
+ "docstatus": 0,
+ "doctype": "Module Onboarding",
+ "documentation_url": "agilasoft.com",
+ "idx": 0,
+ "is_complete": 0,
+ "modified": "2025-08-26 17:18:20.841578",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Let\u2019s Set Up the Air Freight Module!",
+ "owner": "Administrator",
+ "steps": [
+  {
+   "step": "Create Air Port"
+  },
+  {
+   "step": "Create a Consignee"
+  },
+  {
+   "step": "Create Freight Agents"
+  },
+  {
+   "step": "Create Shipper"
+  }
+ ],
+ "subtitle": "Bookings, Jobs, Shipping Lines, Agents, Ports, and more.",
+ "success_message": "Salamat sa lahat",
+ "title": "Let\u2019s Set Up the Air Freight Module!"
+}

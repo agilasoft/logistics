@@ -13,7 +13,7 @@
   "transfer_type",
   "column_break_zznj",
   "customer",
-  "warehouse_contract",
+  "contract",
   "cust_reference",
   "reason",
   "column_break_rucg",
@@ -21,7 +21,9 @@
   "planned_date",
   "due_date",
   "section_break_yuil",
-  "items"
+  "items",
+  "charges_tab",
+  "table_xplm"
  ],
  "fields": [
   {
@@ -41,7 +43,8 @@
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Series"
+   "label": "Series",
+   "options": "WTR.######"
   },
   {
    "fieldname": "order_date",
@@ -64,13 +67,6 @@
    "fieldtype": "Select",
    "label": "Transfer Type",
    "options": "Internal\nCustomer\nOthers"
-  },
-  {
-   "depends_on": "eval:doc.transfer_type==\"Customer\"",
-   "fieldname": "warehouse_contract",
-   "fieldtype": "Link",
-   "label": "Warehouse Contract",
-   "options": "Warehouse Contract"
   },
   {
    "fieldname": "cust_reference",
@@ -111,13 +107,30 @@
    "fieldname": "items",
    "fieldtype": "Table",
    "options": "Transfer Order Item"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "table_xplm",
+   "fieldtype": "Table",
+   "options": "Transfer Order Charges"
+  },
+  {
+   "depends_on": "eval:doc.transfer_type==\"Customer\"",
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract",
+   "options": "Warehouse Contract"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-21 17:12:15.775458",
+ "modified": "2025-08-30 22:08:05.816946",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Transfer Order",

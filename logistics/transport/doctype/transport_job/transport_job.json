@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "autoname": "naming_series:",
  "creation": "2021-02-17 09:20:24.655421",
  "doctype": "DocType",
@@ -6,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "transport_job_type",
   "customer",
   "booking_date",
   "customer_ref_no",
@@ -13,14 +15,18 @@
   "vehicle_type",
   "hazardous",
   "refrigeration",
-  "vehicle_assignment_section",
+  "column_break_tjia",
   "vehicle",
   "driver",
   "transport_company",
-  "section_break_8",
-  "instructions",
+  "package_details_tab",
   "package_details_section",
   "packages",
+  "operations_tab",
+  "operations",
+  "charges_tab",
+  "charges",
+  "notes_tab",
   "notes_section",
   "internal_notes",
   "column_break_16",
@@ -76,11 +82,6 @@
    "label": "Refrigeration"
   },
   {
-   "fieldname": "vehicle_assignment_section",
-   "fieldtype": "Section Break",
-   "label": "Vehicle Assignment"
-  },
-  {
    "fieldname": "vehicle",
    "fieldtype": "Link",
    "label": "Vehicle",
@@ -97,16 +98,6 @@
    "fieldtype": "Link",
    "label": "Transport Company",
    "options": "Transport Company"
-  },
-  {
-   "fieldname": "section_break_8",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "instructions",
-   "fieldtype": "Table",
-   "label": "Instructions",
-   "options": "Transport Job Instruction"
   },
   {
    "collapsible": 1,
@@ -148,13 +139,55 @@
    "options": "Transport Job",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "transport_job_type",
+   "fieldtype": "Select",
+   "label": "Transport Job Class",
+   "options": "Container\nNon-Container\nSpecial\nMultimodal\nHeavy Haul"
+  },
+  {
+   "fieldname": "column_break_tjia",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "package_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Package Details"
+  },
+  {
+   "fieldname": "operations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operations"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "options": "Transport Job Operations"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Transport Job Charges"
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-17 09:25:48.879605",
+ "links": [],
+ "modified": "2025-08-30 09:36:26.350015",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -171,7 +204,9 @@
   }
  ],
  "quick_entry": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }

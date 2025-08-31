@@ -1,0 +1,1 @@
+logistics.warehousing.patches.add_wsl_indexes

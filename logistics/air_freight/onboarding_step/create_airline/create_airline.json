@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Create Airline",
+ "creation": "2025-08-29 17:35:44.999503",
+ "description": "An airline is the carrier company responsible for transporting cargo via air. In this system, an Airline record stores details like carrier name, IATA code, and contact information. [cite_start]These are essential for assigning the correct carrier to each air freight booking and managing documentation such as the Air Waybill (AWB). [cite: 5]",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-29 17:35:44.999503",
+ "modified_by": "Administrator",
+ "name": "Create Airline",
+ "owner": "Administrator",
+ "reference_document": "Airline",
+ "show_form_tour": 0,
+ "show_full_form": 0,
+ "title": "Create Airline",
+ "validate_action": 1
+}

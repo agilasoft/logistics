@@ -11,6 +11,8 @@
   "item",
   "quantity",
   "column_break_imof",
+  "location_to",
+  "handling_unit_to",
   "serial_no",
   "batch_no"
  ],
@@ -59,13 +61,25 @@
    "in_list_view": 1,
    "label": "Batch No",
    "options": "Warehouse Batch"
+  },
+  {
+   "fieldname": "location_to",
+   "fieldtype": "Link",
+   "label": "Location To",
+   "options": "Storage Location"
+  },
+  {
+   "fieldname": "handling_unit_to",
+   "fieldtype": "Link",
+   "label": "Handling Unit To",
+   "options": "Handling Unit"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-20 09:51:01.979870",
+ "modified": "2025-08-30 14:06:18.011486",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Item",

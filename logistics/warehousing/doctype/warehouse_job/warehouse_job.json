@@ -16,7 +16,12 @@
   "reference_order",
   "section_break_xmlp",
   "items",
-  "charges_and_accounting_tab"
+  "charges_tab",
+  "table_dxtc",
+  "operations_tab",
+  "table_tncd",
+  "notes_tab",
+  "notes"
  ],
  "fields": [
   {
@@ -38,7 +43,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Putaway\nPick\nMove"
+   "options": "Putaway\nPick\nMove\nOthers"
   },
   {
    "fieldname": "column_break_ldqk",
@@ -65,11 +70,6 @@
    "label": "Job Open Date"
   },
   {
-   "fieldname": "charges_and_accounting_tab",
-   "fieldtype": "Tab Break",
-   "label": "Charges and Accounting"
-  },
-  {
    "fieldname": "section_break_xmlp",
    "fieldtype": "Section Break"
   },
@@ -84,13 +84,42 @@
    "fieldtype": "Select",
    "label": "Series",
    "options": "WJ-.########"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "table_dxtc",
+   "fieldtype": "Table",
+   "options": "Warehouse Job Charges"
+  },
+  {
+   "fieldname": "operations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operations"
+  },
+  {
+   "fieldname": "table_tncd",
+   "fieldtype": "Table",
+   "options": "Warehouse Job Operations"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-20 12:44:14.543627",
+ "modified": "2025-08-30 17:23:09.111365",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job",

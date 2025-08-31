@@ -9,6 +9,7 @@
   "code",
   "item_name",
   "uom",
+  "abc_class",
   "column_break_ppbd",
   "customer",
   "customer_code",
@@ -93,12 +94,18 @@
    "label": "Customer Code",
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "abc_class",
+   "fieldtype": "Select",
+   "label": "ABC Class",
+   "options": "A\nB\nC"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-18 22:07:21.569002",
+ "modified": "2025-08-31 13:12:57.917514",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Item",

@@ -13,7 +13,7 @@
   "type",
   "column_break_berz",
   "customer",
-  "warehouse_contract",
+  "contract",
   "cust_reference",
   "column_break_vsgc",
   "priority",
@@ -24,7 +24,7 @@
   "inputs_tab",
   "inputs",
   "tab_2_tab",
-  "billing_uom"
+  "charges"
  ],
  "fields": [
   {
@@ -44,7 +44,8 @@
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Series"
+   "label": "Series",
+   "options": "VAS.######"
   },
   {
    "fieldname": "order_date",
@@ -66,12 +67,6 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer"
-  },
-  {
-   "fieldname": "warehouse_contract",
-   "fieldtype": "Link",
-   "label": "Warehouse Contract",
-   "options": "Warehouse Contract"
   },
   {
    "fieldname": "cust_reference",
@@ -114,12 +109,6 @@
    "label": "Inputs"
   },
   {
-   "fieldname": "billing_uom",
-   "fieldtype": "Link",
-   "label": "Billing UOM",
-   "options": "UOM"
-  },
-  {
    "fieldname": "section_break_cwsn",
    "fieldtype": "Section Break"
   },
@@ -127,13 +116,24 @@
    "fieldname": "outputs",
    "fieldtype": "Table",
    "options": "VAS Order Output"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "VAS Order Charges"
+  },
+  {
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Contract",
+   "options": "Warehouse Contract"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-22 00:11:50.087589",
+ "modified": "2025-08-31 08:46:11.010121",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "VAS Order",

@@ -1,0 +1,32 @@
+{
+ "allow_roles": [
+  {
+   "role": "Warehouse User"
+  }
+ ],
+ "creation": "2025-08-27 19:56:29.711122",
+ "docstatus": 0,
+ "doctype": "Module Onboarding",
+ "documentation_url": "www.agilasoft.com",
+ "idx": 0,
+ "is_complete": 0,
+ "modified": "2025-08-27 20:05:57.414404",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehousing",
+ "owner": "Administrator",
+ "steps": [
+  {
+   "step": "Warehouse Settings"
+  },
+  {
+   "step": "Storage Location Configurator"
+  },
+  {
+   "step": "Handling Unit Type"
+  }
+ ],
+ "subtitle": "Centralized control over warehouse locations, stock operations, and value-added services (VAS)",
+ "success_message": "You're all set!",
+ "title": "Let\u2019s Set Up the Warehousing Module!"
+}

@@ -1,0 +1,38 @@
+{
+ "allow_roles": [
+  {
+   "role": "Air Freight Manager"
+  }
+ ],
+ "creation": "2025-08-29 17:39:43.906461",
+ "docstatus": 0,
+ "doctype": "Module Onboarding",
+ "documentation_url": "https://www.erpnext.com",
+ "idx": 0,
+ "is_complete": 0,
+ "modified": "2025-08-29 17:39:43.906461",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Freight",
+ "owner": "Administrator",
+ "steps": [
+  {
+   "step": "Create Airline"
+  },
+  {
+   "step": "Create a Shipper"
+  },
+  {
+   "step": "Create a Consignee"
+  },
+  {
+   "step": "Create Freight Agents"
+  },
+  {
+   "step": "Create an Air Freight Job"
+  }
+ ],
+ "subtitle": "Bookings, Jobs, Shipping Lines, Agents, Ports, and more.",
+ "success_message": "You're ready to fly cargo! Your Air Freight operations are now set up.",
+ "title": "Let\u2019s Set Up the Air Freight Module!"
+}

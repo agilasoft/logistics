@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Location Configurator",
+ "creation": "2025-08-27 20:01:25.081130",
+ "description": "The Storage Location Configurator is used to define a structured hierarchy of warehouse spaces, from high-level sites down to detailed storage areas like aisles, bays, and levels, ensuring clear organization of physical inventory. Its key features include customizable location levels (Site, Building, Zone, Aisle, Bay, Level), unique codes for easy tracking, and descriptive labels for clarity\u2014allowing warehouses to standardize location mapping, improve stock visibility, and support accurate picking, put-away, and reporting processes.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-08-27 20:01:25.081130",
+ "modified_by": "Administrator",
+ "name": "Storage Location Configurator",
+ "owner": "Administrator",
+ "reference_document": "Storage Location Configurator",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Configure Storage Locations",
+ "validate_action": 1
+}

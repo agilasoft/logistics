@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-22 12:28:42.937910",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -16,22 +17,24 @@
   },
   {
    "fieldname": "description",
-   "fieldtype": "Date",
+   "fieldtype": "Small Text",
    "label": "Description"
   },
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-22 12:30:28.454531",
+ "modified": "2025-08-28 14:56:31.214773",
  "modified_by": "Administrator",
  "module": "Master References",
  "name": "Container Make",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -50,5 +53,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "description"
 }

@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Warehouse Settings",
+ "creation": "2025-08-27 19:56:21.239710",
+ "description": "Warehouse Settings define the structure and rules of your warehousing operations. Think of it as your warehouse blueprint: how warehouses are organized, how items are handled, and what policies apply across the module.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 1,
+ "is_skipped": 0,
+ "modified": "2025-08-27 19:58:38.193237",
+ "modified_by": "Administrator",
+ "name": "Warehouse Settings",
+ "owner": "Administrator",
+ "reference_document": "Warehouse Settings",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Review Warehouse Settings",
+ "validate_action": 1
+}

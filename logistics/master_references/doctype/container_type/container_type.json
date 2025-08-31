@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-22 12:23:34.488343",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -47,11 +48,12 @@
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "description",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Description"
   },
   {
@@ -241,10 +243,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-22 13:42:34.629080",
+ "modified": "2025-08-28 16:20:14.472359",
  "modified_by": "Administrator",
  "module": "Master References",
  "name": "Container Type",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

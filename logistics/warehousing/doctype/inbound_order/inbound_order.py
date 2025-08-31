@@ -12,15 +12,34 @@ class InboundOrder(Document):
 
 @frappe.whitelist()
 def make_warehouse_job(source_name, target_doc=None):
-    """
-    Map Inbound Order -> Warehouse Job (default Type = Putaway).
-    """
-
     def set_missing_values(source, target):
-        target.type = "Putaway"   # Always Putaway for Inbound Orders
-        target.job_open_date = frappe.utils.nowdate()
+        target.type = "Putaway"
         target.reference_order_type = "Inbound Order"
         target.reference_order = source.name
+
+    def update_item(source_doc, target_doc, source_parent):
+        target_doc.item = source_doc.item
+        target_doc.uom = source_doc.uom
+        target_doc.quantity = source_doc.quantity
+        target_doc.handling_unit_type = source_doc.handling_unit_type
+        target_doc.handling_unit = source_doc.handling_unit
+        target_doc.serial_no = source_doc.serial_no
+        target_doc.batch_no = source_doc.batch_no
+
+    def update_charge(source_doc, target_doc, source_parent):
+        target_doc.item_code = source_doc.charge_item
+        target_doc.uom = source_doc.uom
+        target_doc.quantity = source_doc.quantity
+        target_doc.currency = source_doc.currency
+        target_doc.rate = source_doc.rate
+        target_doc.total = source_doc.total
+
+    def update_dock(source_doc, target_doc, source_parent):
+        target_doc.dock_door = source_doc.dock_door
+        target_doc.eta = source_doc.eta
+        target_doc.transport_company = source_doc.transport_company
+        target_doc.vehicle_type = source_doc.vehicle_type
+        target_doc.plate_no = source_doc.plate_no
 
     doc = get_mapped_doc(
         "Inbound Order",
@@ -29,59 +48,24 @@ def make_warehouse_job(source_name, target_doc=None):
             "Inbound Order": {
                 "doctype": "Warehouse Job",
                 "field_map": {
-                    # If you want to bring over fields:
-                    # "customer": "customer",
-                    # "contract": "contract",
+                    "name": "reference_order"
                 }
             },
             "Inbound Order Item": {
                 "doctype": "Warehouse Job Item",
-                "field_map": {
-                    "item": "item",
-                    "quantity": "quantity",
-                    "handling_unit": "handling_unit",
-                    "serial_no": "serial_no",
-                    "batch_no": "batch_no",
-                }
-            }
+                "postprocess": update_item
+            },
+            "Inbound Order Charges": {
+                "doctype": "Warehouse Job Charges",
+                "postprocess": update_charge
+            },
+            "Inbound Order Dock": {
+                "doctype": "Warehouse Job Dock",
+                "postprocess": update_dock
+            },
         },
         target_doc,
         set_missing_values
     )
 
     return doc
-    
-
-@frappe.whitelist()
-def allocate_existing_handling_unit(source_name, handling_unit_type, handling_unit, item_row_names):
-    if not source_name or not handling_unit_type or not handling_unit or not item_row_names:
-        frappe.throw("Missing required parameters.")
-
-    if isinstance(item_row_names, str):
-        item_row_names = frappe.parse_json(item_row_names)
-    if not isinstance(item_row_names, (list, tuple)) or not item_row_names:
-        frappe.throw("No item rows selected.")
-
-    # Validate HU type (Handling Unit has field 'type')
-    hu_type = frappe.db.get_value("Handling Unit", handling_unit, "type")
-    if hu_type != handling_unit_type:
-        frappe.throw(f"Handling Unit {handling_unit} is not of type {handling_unit_type}.")
-
-    # Ensure rows belong to the parent
-    rownames = frappe.get_all(
-        "Inbound Order Item",
-        filters={"parent": source_name, "name": ["in", item_row_names]},
-        pluck="name"
-    )
-    if len(rownames) != len(item_row_names):
-        frappe.throw("One or more selected rows do not belong to the Inbound Order.")
-
-    # Update each child row (basic, explicit)
-    updated = 0
-    for rn in item_row_names:
-        frappe.db.set_value("Inbound Order Item", rn, "handling_unit", handling_unit, update_modified=False)
-        frappe.db.set_value("Inbound Order Item", rn, "handling_unit_type", handling_unit_type, update_modified=False)
-        updated += 1
-
-    frappe.db.commit()
-    return {"handling_unit": handling_unit, "updated_count": updated}

@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{site}/{facility}/{code}",
+ "creation": "2025-08-28 15:29:32.801040",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "description",
+  "site",
+  "facility",
+  "column_break_vnpq",
+  "inbound",
+  "outbound",
+  "door_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_vnpq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "inbound",
+   "fieldtype": "Check",
+   "label": "Inbound"
+  },
+  {
+   "default": "0",
+   "fieldname": "outbound",
+   "fieldtype": "Check",
+   "label": "Outbound"
+  },
+  {
+   "fieldname": "door_type",
+   "fieldtype": "Select",
+   "label": "Door Type",
+   "options": "Leveler\nRamp\nFlush Dock\nGrade-Level"
+  },
+  {
+   "fieldname": "facility",
+   "fieldtype": "Link",
+   "label": "Facility",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Building\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
+   "options": "Storage Location Configurator"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-28 15:40:38.012846",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Dock Door",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

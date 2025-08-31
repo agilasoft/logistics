@@ -18,11 +18,14 @@
   "priority",
   "planned_date",
   "due_date",
-  "section_break_dulp",
+  "section_break_tams",
   "items",
-  "additional_charges_tab",
   "carrier_details_tab",
-  "appointment",
+  "docks",
+  "section_break_ozie",
+  "staging_area",
+  "additional_charges_tab",
+  "charges",
   "notes_tab"
  ],
  "fields": [
@@ -93,13 +96,7 @@
   {
    "fieldname": "carrier_details_tab",
    "fieldtype": "Tab Break",
-   "label": "Carrier Details"
-  },
-  {
-   "fieldname": "appointment",
-   "fieldtype": "Link",
-   "label": "Appointment",
-   "options": "Appointment"
+   "label": "Docking"
   },
   {
    "fieldname": "notes_tab",
@@ -109,11 +106,7 @@
   {
    "fieldname": "additional_charges_tab",
    "fieldtype": "Tab Break",
-   "label": "Additional Charges"
-  },
-  {
-   "fieldname": "section_break_dulp",
-   "fieldtype": "Section Break"
+   "label": "Charges"
   },
   {
    "fieldname": "items",
@@ -125,13 +118,37 @@
    "fieldtype": "Select",
    "label": "Series",
    "options": "WIN.########"
+  },
+  {
+   "fieldname": "docks",
+   "fieldtype": "Table",
+   "options": "Inbound Order Dock"
+  },
+  {
+   "fieldname": "section_break_ozie",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "staging_area",
+   "fieldtype": "Link",
+   "label": "Staging Area",
+   "options": "Storage Location"
+  },
+  {
+   "fieldname": "section_break_tams",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Inbound Order Charges"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-19 20:29:14.231714",
+ "modified": "2025-08-30 21:15:44.471450",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order",

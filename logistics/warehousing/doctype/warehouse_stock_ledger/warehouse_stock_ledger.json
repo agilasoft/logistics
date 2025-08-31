@@ -5,12 +5,15 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "handling_unit",
+  "posting_date",
+  "warehouse_job",
   "item",
-  "serial_no",
-  "batch_no",
   "column_break_cqfu",
   "storage_location",
+  "handling_unit",
+  "serial_no",
+  "batch_no",
+  "column_break_evhh",
   "quantiy",
   "beg_quantity",
   "end_qty"
@@ -64,12 +67,27 @@
    "fieldname": "end_qty",
    "fieldtype": "Float",
    "label": "End Qty"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Datetime",
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "warehouse_job",
+   "fieldtype": "Link",
+   "label": "Warehouse Job",
+   "options": "Warehouse Job"
+  },
+  {
+   "fieldname": "column_break_evhh",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-20 14:17:56.508486",
+ "modified": "2025-08-30 15:01:26.776077",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Stock Ledger",
