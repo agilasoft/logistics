@@ -12,7 +12,7 @@
   "column_break_pley",
   "move",
   "section_break_kyyq",
-  "instructions"
+  "operations"
  ],
  "fields": [
   {
@@ -42,21 +42,21 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "instructions",
-   "fieldtype": "Table",
-   "options": "Transport Job Template Operations"
-  },
-  {
    "fieldname": "operations_flow",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Operations Flow"
+  },
+  {
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "options": "Transport Job Template Operations"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-30 07:18:29.147820",
+ "modified": "2025-09-10 10:42:58.476495",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Operations Template",

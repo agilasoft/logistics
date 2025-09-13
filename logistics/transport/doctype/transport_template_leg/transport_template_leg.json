@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-10 16:42:08.135801",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "facility_type_from",
+  "column_break_bjvj",
+  "facility_type_to"
+ ],
+ "fields": [
+  {
+   "fieldname": "facility_type_from",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Facility Type From",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "column_break_bjvj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "facility_type_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Facility Type To",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "options": "DocType"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-10 16:45:16.936391",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Template Leg",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

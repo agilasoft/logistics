@@ -16,7 +16,10 @@ def make_warehouse_job(source_name, target_doc=None):
         target.type = "Putaway"
         target.reference_order_type = "Inbound Order"
         target.reference_order = source.name
-
+        target.company = source.company
+        target.branch = source.branch
+        target.customer = source.customer
+        
     def update_item(source_doc, target_doc, source_parent):
         target_doc.item = source_doc.item
         target_doc.uom = source_doc.uom
@@ -52,7 +55,7 @@ def make_warehouse_job(source_name, target_doc=None):
                 }
             },
             "Inbound Order Item": {
-                "doctype": "Warehouse Job Item",
+                "doctype": "Warehouse Job Order Items",
                 "postprocess": update_item
             },
             "Inbound Order Charges": {

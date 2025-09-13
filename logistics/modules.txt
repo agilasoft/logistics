@@ -3,9 +3,7 @@ Transport
 Forwarding
 Warehousing
 Customs
-Registry
-Directories
-Master References
 Sea Freight
 Air Freight
 Land Transport
+Logistics Core

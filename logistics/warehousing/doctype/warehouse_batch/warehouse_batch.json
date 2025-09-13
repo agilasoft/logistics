@@ -13,7 +13,8 @@
   "column_break_xify",
   "item_code",
   "customer",
-  "section_break_qrsk",
+  "quality_grade",
+  "column_break_chjd",
   "manufacturing_date",
   "expiry_date"
  ],
@@ -61,10 +62,6 @@
    "options": "Customer"
   },
   {
-   "fieldname": "section_break_qrsk",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "manufacturing_date",
    "fieldtype": "Date",
    "label": "Manufacturing Date"
@@ -73,13 +70,22 @@
    "fieldname": "expiry_date",
    "fieldtype": "Date",
    "label": "Expiry Date"
+  },
+  {
+   "fieldname": "quality_grade",
+   "fieldtype": "Int",
+   "label": "Quality Grade"
+  },
+  {
+   "fieldname": "column_break_chjd",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-19 19:58:18.469141",
+ "modified": "2025-09-01 13:25:15.155932",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Batch",

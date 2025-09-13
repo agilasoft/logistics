@@ -1,6 +1,27 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+frappe.ui.form.on('Transfer Order', {
+  refresh(frm) {
+    // Create → Warehouse Job (available for draft/submitted TO; adjust as you prefer)
+    if (frm.doc.docstatus == 1) {
+      frm.add_custom_button(
+        __('Warehouse Job'),
+        () => make_warehouse_job_from_to(frm),
+        __('Create')
+      );
+    }
+  }
+});
+
+function make_warehouse_job_from_to(frm) {
+  frappe.model.open_mapped_doc({
+    method: 'logistics.warehousing.doctype.transfer_order.transfer_order.make_warehouse_job',
+    frm: frm
+  });
+}
+
+
 function _resolve_item(row){ return row.charge_item || row.item_code || row.item || row.item_charge; }
 function _apply_vals(cdt, cdn, m){
   if (!m) return;
@@ -72,3 +93,115 @@ frappe.ui.form.on("Transfer Order Charges", {
     },
   });
 })();
+
+
+// Manage Planned Date
+
+frappe.ui.form.on("Transfer Order", {
+  onload(frm) { maybe_set_planned_date(frm); },
+  before_save(frm) { if (!frm.doc.planned_date) maybe_set_planned_date(frm, true); }
+});
+
+function maybe_set_planned_date(frm, force=false) {
+  if (!force && (frm.doc.planned_date || frm.__planned_date_set)) return;
+
+  frappe.db.get_single_value("Warehouse Settings", "planned_date_offset_days")
+    .then((val) => {
+      const offset = parseInt(val, 10) || 0;
+      const nowStr = frappe.datetime.now_datetime(); // "YYYY-MM-DD HH:mm:ss"
+      const planned = addDaysPreserveTime(nowStr, offset);
+      frm.set_value("planned_date", planned);
+      frm.__planned_date_set = true;
+    })
+    .catch(() => {
+      frm.set_value("planned_date", frappe.datetime.now_datetime());
+      frm.__planned_date_set = true;
+    });
+}
+
+function addDaysPreserveTime(baseStr, days) {
+  if (window.dayjs) {
+    return window.dayjs(baseStr).add(days, "day").format("YYYY-MM-DD HH:mm:ss");
+  } else if (window.moment) {
+    return window.moment(baseStr, "YYYY-MM-DD HH:mm:ss").add(days, "days").format("YYYY-MM-DD HH:mm:ss");
+  } else {
+    // Pure JS fallback
+    const d = new Date(baseStr.replace(" ", "T"));
+    d.setDate(d.getDate() + days);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+}
+
+frappe.ui.form.on("Transfer Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
+
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});
+
+// Recalculate a row's total = quantity * rate
+function recalc_charge_total(cdt, cdn) {
+  const row = locals[cdt][cdn];
+  const qty  = parseFloat(row.quantity) || 0;
+  const rate = parseFloat(row.rate) || 0;
+  frappe.model.set_value(cdt, cdn, "total", qty * rate);
+}
+
+frappe.ui.form.on("Transfer Order Charges", {
+  quantity(frm, cdt, cdn) {
+    recalc_charge_total(cdt, cdn);
+  },
+  rate(frm, cdt, cdn) {
+    recalc_charge_total(cdt, cdn);
+  }
+});
+
+// When a new row is added to the charges table
+frappe.ui.form.on("Transfer Order", {
+  charges_add(frm, cdt, cdn) {   // if your table fieldname ≠ "charges", rename this to <your_fieldname>_add
+    recalc_charge_total(cdt, cdn);
+  },
+
+  // Safety net: recompute all totals on validate (covers imports/paste edits)
+  validate(frm) {
+    (frm.doc.charges || []).forEach(row => {
+      const qty  = parseFloat(row.quantity) || 0;
+      const rate = parseFloat(row.rate) || 0;
+      row.total = qty * rate;
+    });
+    frm.refresh_field("charges");
+  }
+});
+
+// Serial Management
+frappe.ui.form.on("Transfer Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
+
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});

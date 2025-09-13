@@ -14,9 +14,12 @@
   "serial_no",
   "batch_no",
   "column_break_evhh",
-  "quantiy",
+  "quantity",
   "beg_quantity",
-  "end_qty"
+  "end_qty",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -54,11 +57,6 @@
    "options": "Storage Location"
   },
   {
-   "fieldname": "quantiy",
-   "fieldtype": "Float",
-   "label": "Quantiy"
-  },
-  {
    "fieldname": "beg_quantity",
    "fieldtype": "Float",
    "label": "Beg Quantity"
@@ -82,12 +80,38 @@
   {
    "fieldname": "column_break_evhh",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-30 15:01:26.776077",
+ "modified": "2025-09-06 19:46:33.760892",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Stock Ledger",

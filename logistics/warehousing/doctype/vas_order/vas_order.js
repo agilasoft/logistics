@@ -1,6 +1,51 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+// VAS Order Client Script
+// Adds: Create → Warehouse Job (maps VAS Order → Warehouse Job via server mapper)
+
+frappe.ui.form.on("VAS Order", {
+  refresh(frm) {
+    if (frm.is_new()) return;
+
+    // Show while Draft/Submitted (hide when Cancelled)
+    if (frm.doc.docstatus < 2) {
+      frm.add_custom_button(
+        __("Warehouse Job"),
+        () => makeWarehouseJob(frm),
+        __("Create")
+      );
+    }
+  },
+});
+
+function makeWarehouseJob(frm) {
+  // Basic guardrails
+  if (!frm.doc.type) {
+    frappe.msgprint({
+      title: __("Missing Type"),
+      message: __("Please set the VAS <b>Type</b> before creating a Warehouse Job."),
+      indicator: "orange",
+    });
+    return;
+  }
+  if (!Array.isArray(frm.doc.items) || frm.doc.items.length === 0) {
+    frappe.msgprint({
+      title: __("No Items"),
+      message: __("Add at least one <b>VAS Order Item</b> before creating a Warehouse Job."),
+      indicator: "orange",
+    });
+    return;
+  }
+
+  // Use standard mapped-doc opener (handles fetch + route)
+  frappe.model.open_mapped_doc({
+    method: "logistics.warehousing.doctype.vas_order.vas_order.make_warehouse_job",
+    frm: frm,
+  });
+}
+
+
 function _resolve_item(row){ return row.charge_item || row.item_code || row.item || row.item_charge; }
 function _apply_vals(cdt, cdn, m){
   if (!m) return;
@@ -111,3 +156,79 @@ frappe.ui.form.on("VAS Order Charges", {
     },
   });
 })();
+
+
+frappe.ui.form.on("VAS Order", {
+  onload(frm) { maybe_set_planned_date(frm); },
+  before_save(frm) { if (!frm.doc.planned_date) maybe_set_planned_date(frm, true); }
+});
+
+function maybe_set_planned_date(frm, force=false) {
+  if (!force && (frm.doc.planned_date || frm.__planned_date_set)) return;
+
+  frappe.db.get_single_value("Warehouse Settings", "planned_date_offset_days")
+    .then((val) => {
+      const offset = parseInt(val, 10) || 0;
+      const nowStr = frappe.datetime.now_datetime(); // "YYYY-MM-DD HH:mm:ss"
+      const planned = addDaysPreserveTime(nowStr, offset);
+      frm.set_value("planned_date", planned);
+      frm.__planned_date_set = true;
+    })
+    .catch(() => {
+      frm.set_value("planned_date", frappe.datetime.now_datetime());
+      frm.__planned_date_set = true;
+    });
+}
+
+function addDaysPreserveTime(baseStr, days) {
+  if (window.dayjs) {
+    return window.dayjs(baseStr).add(days, "day").format("YYYY-MM-DD HH:mm:ss");
+  } else if (window.moment) {
+    return window.moment(baseStr, "YYYY-MM-DD HH:mm:ss").add(days, "days").format("YYYY-MM-DD HH:mm:ss");
+  } else {
+    // Pure JS fallback
+    const d = new Date(baseStr.replace(" ", "T"));
+    d.setDate(d.getDate() + days);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+}
+
+frappe.ui.form.on("VAS Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
+
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});
+
+// Serial Management
+frappe.ui.form.on("VAS Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
+
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});

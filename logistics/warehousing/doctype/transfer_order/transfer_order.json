@@ -23,7 +23,10 @@
   "section_break_yuil",
   "items",
   "charges_tab",
-  "table_xplm"
+  "charges",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -47,6 +50,7 @@
    "options": "WTR.######"
   },
   {
+   "default": "Today",
    "fieldname": "order_date",
    "fieldtype": "Date",
    "label": "Order Date"
@@ -60,6 +64,7 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
+   "mandatory_depends_on": "eval:doc.transfer_type==\"Customer\"",
    "options": "Customer"
   },
   {
@@ -114,23 +119,46 @@
    "label": "Charges"
   },
   {
-   "fieldname": "table_xplm",
-   "fieldtype": "Table",
-   "options": "Transfer Order Charges"
-  },
-  {
    "depends_on": "eval:doc.transfer_type==\"Customer\"",
    "fieldname": "contract",
    "fieldtype": "Link",
    "label": "Warehouse Contract",
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
+   "mandatory_depends_on": "eval:doc.transfer_type==\"Customer\"",
    "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Transfer Order Charges"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-30 22:08:05.816946",
+ "modified": "2025-09-13 10:46:45.613053",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Transfer Order",

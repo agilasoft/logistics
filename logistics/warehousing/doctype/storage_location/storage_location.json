@@ -12,10 +12,21 @@
   "aisle",
   "bay",
   "level",
-  "column_break_anrj",
   "location_code",
+  "configuration_tab",
+  "column_break_anrj",
   "storage_type",
-  "configuration_tab"
+  "bin_priority",
+  "max_hu_slot",
+  "column_break_fgum",
+  "allow_mix_batches",
+  "allow_mix_items",
+  "allow_mix_customers",
+  "dedicated_item",
+  "item",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -81,13 +92,78 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Storage Type",
-   "options": "Storage Type"
+   "options": "Storage Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bin_priority",
+   "fieldtype": "Int",
+   "label": "Bin Priority"
+  },
+  {
+   "fieldname": "max_hu_slot",
+   "fieldtype": "Int",
+   "label": "Max HU Slot"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_mix_items",
+   "fieldtype": "Check",
+   "label": "Allow Mix Items"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_mix_batches",
+   "fieldtype": "Check",
+   "label": "Allow Mix Batches"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_mix_customers",
+   "fieldtype": "Check",
+   "label": "Allow Mix Customers"
+  },
+  {
+   "default": "0",
+   "fieldname": "dedicated_item",
+   "fieldtype": "Check",
+   "label": "Dedicated Item"
+  },
+  {
+   "depends_on": "dedicated_item",
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Warehouse Item"
+  },
+  {
+   "fieldname": "column_break_fgum",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-18 14:40:46.125306",
+ "modified": "2025-09-06 19:44:58.807518",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Storage Location",

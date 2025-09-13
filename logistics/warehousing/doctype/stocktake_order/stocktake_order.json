@@ -17,6 +17,7 @@
   "contract",
   "column_break_ndxz",
   "planned_date",
+  "due_date",
   "blind_count",
   "qa_required",
   "section_break_mzvs",
@@ -24,7 +25,10 @@
   "charges_tab",
   "charges",
   "notes_tab",
-  "notes"
+  "notes",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -42,21 +46,25 @@
    "search_index": 1
   },
   {
+   "default": "Today",
    "fieldname": "date",
    "fieldtype": "Date",
-   "label": "Date"
+   "label": "Date",
+   "reqd": 1
   },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "reqd": 1
   },
   {
    "fieldname": "type",
    "fieldtype": "Select",
    "label": "Type",
-   "options": "Full\nCycle\nBlind\nInvestigative\nAd-hoc"
+   "options": "Full\nCycle\nBlind\nInvestigative\nAd-hoc",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_rtgm",
@@ -66,7 +74,8 @@
    "fieldname": "scope",
    "fieldtype": "Select",
    "label": "Scope",
-   "options": "Site\nBuilding\nZone\nAisle\nBay\nLevel"
+   "options": "Site\nBuilding\nZone\nAisle\nBay\nLevel",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_ndxz",
@@ -75,7 +84,8 @@
   {
    "fieldname": "planned_date",
    "fieldtype": "Datetime",
-   "label": "Planned Date"
+   "label": "Planned Date",
+   "reqd": 1
   },
   {
    "default": "0",
@@ -127,14 +137,42 @@
    "fieldname": "contract",
    "fieldtype": "Link",
    "label": "Contract",
-   "options": "Warehouse Contract"
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
+   "options": "Warehouse Contract",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Datetime",
+   "label": "Due Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-31 08:50:05.787823",
+ "modified": "2025-09-13 08:41:43.780651",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Stocktake Order",

@@ -65,14 +65,15 @@
    "fieldname": "total",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Total"
+   "label": "Total",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-30 23:44:42.879794",
+ "modified": "2025-09-13 11:22:53.706878",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order Charges",

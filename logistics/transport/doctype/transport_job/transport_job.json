@@ -8,22 +8,23 @@
  "field_order": [
   "naming_series",
   "transport_job_type",
-  "customer",
   "booking_date",
-  "customer_ref_no",
+  "transport_template",
   "column_break_5",
-  "vehicle_type",
+  "customer",
+  "customer_ref_no",
+  "transport_order",
   "hazardous",
   "refrigeration",
   "column_break_tjia",
+  "vehicle_type",
   "vehicle",
   "driver",
   "transport_company",
-  "package_details_tab",
-  "package_details_section",
+  "section_break_jozr",
   "packages",
-  "operations_tab",
-  "operations",
+  "leg_plan_tab",
+  "legs",
   "charges_tab",
   "charges",
   "notes_tab",
@@ -37,7 +38,8 @@
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Naming Series"
+   "label": "Naming Series",
+   "options": "TR.#########"
   },
   {
    "fieldname": "customer",
@@ -100,12 +102,6 @@
    "options": "Transport Company"
   },
   {
-   "collapsible": 1,
-   "fieldname": "package_details_section",
-   "fieldtype": "Section Break",
-   "label": "Package Details"
-  },
-  {
    "fieldname": "packages",
    "fieldtype": "Table",
    "label": "Packages",
@@ -151,16 +147,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "package_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Package Details"
-  },
-  {
-   "fieldname": "operations_tab",
-   "fieldtype": "Tab Break",
-   "label": "Operations"
-  },
-  {
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
@@ -171,19 +157,40 @@
    "label": "Notes"
   },
   {
-   "fieldname": "operations",
-   "fieldtype": "Table",
-   "options": "Transport Job Operations"
-  },
-  {
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Transport Job Charges"
+  },
+  {
+   "fieldname": "section_break_jozr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "transport_order",
+   "fieldtype": "Link",
+   "label": "Transport Order",
+   "options": "Transport Order"
+  },
+  {
+   "fieldname": "leg_plan_tab",
+   "fieldtype": "Tab Break",
+   "label": "Leg Plan"
+  },
+  {
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
+  },
+  {
+   "fieldname": "legs",
+   "fieldtype": "Table",
+   "options": "Transport Job Legs"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-30 09:36:26.350015",
+ "modified": "2025-09-10 23:47:47.501207",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

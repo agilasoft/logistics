@@ -11,17 +11,34 @@
   "naming_series",
   "type",
   "job_open_date",
+  "customer",
   "column_break_ldqk",
   "reference_order_type",
   "reference_order",
+  "vas_order_type",
   "section_break_xmlp",
+  "orders",
+  "docking_tab",
+  "docks",
+  "allocations_tab",
   "items",
+  "count_sheet_tab",
+  "count_date",
+  "column_break_kzzc",
+  "count_type",
+  "blind_count",
+  "qa_required",
+  "section_break_jmth",
+  "counts",
   "charges_tab",
   "table_dxtc",
   "operations_tab",
   "table_tncd",
   "notes_tab",
-  "notes"
+  "notes",
+  "transaction_entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -43,7 +60,9 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Putaway\nPick\nMove\nOthers"
+   "options": "Staging In\nStaging Out\nPutaway\nPick\nMove\nVAS\nStocktake",
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "column_break_ldqk",
@@ -53,21 +72,25 @@
    "fieldname": "reference_order_type",
    "fieldtype": "Link",
    "label": "Reference Order Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Inbound Order\"]]]",
-   "options": "DocType"
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Inbound Order\",\"Release Order\",\"VAS Order\",\"Stocktake Order\",\"Transfer Order\"]]]",
+   "options": "DocType",
+   "read_only": 1
   },
   {
    "fieldname": "reference_order",
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
    "label": "Reference Order",
-   "options": "reference_order_type"
+   "options": "reference_order_type",
+   "read_only": 1
   },
   {
+   "default": "Today",
    "fieldname": "job_open_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Job Open Date"
+   "label": "Job Open Date",
+   "reqd": 1
   },
   {
    "fieldname": "section_break_xmlp",
@@ -113,13 +136,111 @@
   {
    "fieldname": "notes",
    "fieldtype": "Text Editor"
+  },
+  {
+   "fieldname": "allocations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Allocations"
+  },
+  {
+   "fieldname": "orders",
+   "fieldtype": "Table",
+   "options": "Warehouse Job Order Items"
+  },
+  {
+   "depends_on": "eval:doc.type!='Stocktake'",
+   "fieldname": "docking_tab",
+   "fieldtype": "Tab Break",
+   "label": "Docking"
+  },
+  {
+   "fieldname": "docks",
+   "fieldtype": "Table",
+   "options": "Warehouse Job Dock"
+  },
+  {
+   "depends_on": "eval:doc.type == 'VAS'",
+   "fieldname": "vas_order_type",
+   "fieldtype": "Link",
+   "label": "VAS Order Type",
+   "options": "VAS Order Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "transaction_entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.type=='Stocktake'",
+   "fieldname": "count_sheet_tab",
+   "fieldtype": "Tab Break",
+   "label": "Count Sheet"
+  },
+  {
+   "fieldname": "count_date",
+   "fieldtype": "Datetime",
+   "label": "Count Date"
+  },
+  {
+   "fieldname": "column_break_kzzc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "count_type",
+   "fieldtype": "Select",
+   "label": "Count Type",
+   "options": "Full\nCycle\nBlind\nInvestigative\nAd-hoc"
+  },
+  {
+   "default": "0",
+   "fieldname": "blind_count",
+   "fieldtype": "Check",
+   "label": "Blind Count"
+  },
+  {
+   "default": "0",
+   "fieldname": "qa_required",
+   "fieldtype": "Check",
+   "label": "QA Required"
+  },
+  {
+   "fieldname": "section_break_jmth",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "counts",
+   "fieldtype": "Table",
+   "label": "counts",
+   "options": "Warehouse Job Count"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-30 17:23:09.111365",
+ "modified": "2025-09-13 10:08:53.254462",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job",

@@ -28,6 +28,8 @@
   "nestable",
   "returnable",
   "serializable",
+  "section_break_hjno",
+  "uoms",
   "lift_methods_tab"
  ],
  "fields": [
@@ -152,12 +154,22 @@
    "fieldname": "naming_series",
    "fieldtype": "Data",
    "label": "Naming Series"
+  },
+  {
+   "fieldname": "section_break_hjno",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "uoms",
+   "fieldtype": "Table",
+   "label": "uoms",
+   "options": "Handling Unit Type UOM"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-18 17:47:21.457933",
+ "modified": "2025-09-13 07:38:02.318969",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Handling Unit Type",

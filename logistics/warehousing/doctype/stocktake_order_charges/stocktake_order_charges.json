@@ -64,14 +64,15 @@
    "fieldname": "total",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Total"
+   "label": "Total",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-29 17:32:13.855850",
+ "modified": "2025-09-13 10:55:03.638493",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Stocktake Order Charges",

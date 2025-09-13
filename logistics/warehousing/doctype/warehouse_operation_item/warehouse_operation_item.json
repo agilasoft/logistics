@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2025-09-08 18:02:42.980894",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "operation_name",
+  "handling_uom",
+  "column_break_nlcm",
+  "unit_std_hours",
+  "used_in",
+  "vas_order_type",
+  "notes_section",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "operation_name",
+   "fieldtype": "Data",
+   "label": "Operation Name"
+  },
+  {
+   "fieldname": "handling_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Handling UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_nlcm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit_std_hours",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Unit Std Hours"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "used_in",
+   "fieldtype": "Select",
+   "label": "Used in",
+   "options": "Staging In\nStaging Out\nPutaway\nPick\nMove\nVAS\nStocktake"
+  },
+  {
+   "depends_on": "eval:doc.used_in == 'VAS'",
+   "fieldname": "vas_order_type",
+   "fieldtype": "Link",
+   "label": "VAS Order Type",
+   "options": "VAS Order Type"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-09 11:01:21.685075",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehouse Operation Item",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "operation_name"
+}

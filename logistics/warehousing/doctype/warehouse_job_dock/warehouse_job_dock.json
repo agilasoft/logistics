@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-06 11:12:47.310108",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "dock_door",
+  "eta",
+  "column_break_hsyd",
+  "transport_company",
+  "vehicle_type",
+  "plate_no"
+ ],
+ "fields": [
+  {
+   "fieldname": "dock_door",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Dock Door",
+   "link_filters": "[\r\n  [\"Inbound Order Dock\", \"branch\", \"=\", \"eval:parent.branch\"],\r\n  [\"Inbound Order Dock\", \"company\", \"=\", \"eval:parent.company\"],\r\n  [\"Dock Door\", \"outbound\", \"in\", \"eval:parent.type=='Pick' ? [1] : [0,1]\"],\r\n  [\"Dock Door\", \"inbound\", \"in\", \"eval:parent.type=='Putaway' ? [1] : [0,1]\"]\r\n]\r\n",
+   "options": "Dock Door"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "ETA"
+  },
+  {
+   "fieldname": "column_break_hsyd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Company",
+   "options": "Transport Company"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "plate_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Plate No."
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-13 14:45:08.982463",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehouse Job Dock",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

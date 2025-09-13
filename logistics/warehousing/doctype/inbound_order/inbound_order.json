@@ -26,7 +26,10 @@
   "staging_area",
   "additional_charges_tab",
   "charges",
-  "notes_tab"
+  "notes_tab",
+  "tab_5_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -48,6 +51,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "Today",
    "fieldname": "order_date",
    "fieldtype": "Date",
    "in_list_view": 1,
@@ -66,6 +70,7 @@
    "fieldname": "contract",
    "fieldtype": "Link",
    "label": "Contract",
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Warehouse Contract"
   },
   {
@@ -109,6 +114,7 @@
    "label": "Charges"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "items",
    "fieldtype": "Table",
    "options": "Inbound Order Item"
@@ -142,13 +148,32 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Inbound Order Charges"
+  },
+  {
+   "fieldname": "tab_5_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-30 21:15:44.471450",
+ "modified": "2025-09-12 21:16:04.303782",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order",

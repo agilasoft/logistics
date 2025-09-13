@@ -51,54 +51,146 @@ frappe.ui.form.on("Inbound Order Charges", {
 });
 
 
-//Limit Item by Customer
+
+// Create Serial and Batch if entered text does not exist
 // Doctype: Inbound Order
 
-(function () {
-  const CHILD_TABLE = 'items';   // child table fieldname on parent
-  const ITEM_FIELD  = 'item';    // link fieldname inside child table (to Warehouse Item)
-
-  function set_item_query(frm) {
-    if (!frm.fields_dict[CHILD_TABLE]) return;
-
-    // Grid list view picker
-    frm.fields_dict[CHILD_TABLE].grid.get_field(ITEM_FIELD).get_query = function () {
-      const customer = frm.doc.customer || '';
-      return { filters: customer ? { customer } : {} };
-    };
-
-    // Row form picker (fallback for some UI paths)
-    frm.set_query(ITEM_FIELD, CHILD_TABLE, function () {
-      const customer = frm.doc.customer || '';
-      return { filters: customer ? { customer } : {} };
-    });
+frappe.ui.form.on('Inbound Order', {
+  refresh(frm) {
+    if (!frm.is_new()) {
+      frm.add_custom_button(
+        __('Serials & Batches'),
+        () => {
+          frappe.call({
+            method: 'logistics.warehousing.api.create_serial_and_batch_for_inbound',
+            args: { inbound_order: frm.doc.name },
+            freeze: true,
+            freeze_message: __('Creating / linking Serials & Batches...'),
+          }).then(r => {
+            const m = r.message || {};
+            const txt = [
+              __('Created Serials: {0}', [m.created?.serial || 0]),
+              __('Created Batches: {0}', [m.created?.batch || 0]),
+              __('Linked Serials: {0}', [m.linked?.serial || 0]),
+              __('Linked Batches: {0}', [m.linked?.batch || 0]),
+              __('Skipped: {0}', [m.skipped || 0]),
+              (m.errors && m.errors.length ? __('Errors: {0}', [m.errors.length]) : '')
+            ].filter(Boolean).join('<br>');
+            frappe.msgprint({ title: __('Serials & Batches'), message: txt, indicator: 'blue' });
+            frm.reload_doc();
+          });
+        },
+        __('Create')
+      );
+    }
   }
+});
 
-  function drop_mismatched_rows(frm) {
-    // OPTIONAL: comment out if you don't want auto-clearing
-    const customer = frm.doc.customer;
-    if (!customer || !Array.isArray(frm.doc[CHILD_TABLE])) return;
+frappe.ui.form.on("Inbound Order", {
+  onload(frm) { maybe_set_planned_date(frm); },
+  before_save(frm) { if (!frm.doc.planned_date) maybe_set_planned_date(frm, true); }
+});
 
-    let changed = false;
-    (frm.doc[CHILD_TABLE] || []).forEach(row => {
-      // If a row already has an item that belongs to a different customer, clear it
-      // We can’t sync-check the linked item here without an extra call,
-      // so we clear defensively when customer changes.
-      if (row[ITEM_FIELD]) {
-        row[ITEM_FIELD] = null;
-        changed = true;
-      }
+function maybe_set_planned_date(frm, force=false) {
+  if (!force && (frm.doc.planned_date || frm.__planned_date_set)) return;
+
+  frappe.db.get_single_value("Warehouse Settings", "planned_date_offset_days")
+    .then((val) => {
+      const offset = parseInt(val, 10) || 0;
+      const nowStr = frappe.datetime.now_datetime(); // "YYYY-MM-DD HH:mm:ss"
+      const planned = addDaysPreserveTime(nowStr, offset);
+      frm.set_value("planned_date", planned);
+      frm.__planned_date_set = true;
+    })
+    .catch(() => {
+      frm.set_value("planned_date", frappe.datetime.now_datetime());
+      frm.__planned_date_set = true;
     });
-    if (changed) frm.refresh_field(CHILD_TABLE);
+}
+
+function addDaysPreserveTime(baseStr, days) {
+  if (window.dayjs) {
+    return window.dayjs(baseStr).add(days, "day").format("YYYY-MM-DD HH:mm:ss");
+  } else if (window.moment) {
+    return window.moment(baseStr, "YYYY-MM-DD HH:mm:ss").add(days, "days").format("YYYY-MM-DD HH:mm:ss");
+  } else {
+    // Pure JS fallback
+    const d = new Date(baseStr.replace(" ", "T"));
+    d.setDate(d.getDate() + days);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
+}
 
-  frappe.ui.form.on('Inbound Order', {
-    setup: set_item_query,
-    refresh: set_item_query,
-    customer: function (frm) {
-      set_item_query(frm);
-      drop_mismatched_rows(frm);
-    },
-  });
-})();
+frappe.ui.form.on("Inbound Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
 
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});
+
+// Recalculate a row's total = quantity * rate
+function recalc_charge_total(cdt, cdn) {
+  const row = locals[cdt][cdn];
+  const qty  = parseFloat(row.quantity) || 0;
+  const rate = parseFloat(row.rate) || 0;
+  frappe.model.set_value(cdt, cdn, "total", qty * rate);
+}
+
+frappe.ui.form.on("Inbound Order Charges", {
+  quantity(frm, cdt, cdn) {
+    recalc_charge_total(cdt, cdn);
+  },
+  rate(frm, cdt, cdn) {
+    recalc_charge_total(cdt, cdn);
+  }
+});
+
+// When a new row is added to the charges table
+frappe.ui.form.on("Inbound Order", {
+  charges_add(frm, cdt, cdn) {   // if your table fieldname ≠ "charges", rename this to <your_fieldname>_add
+    recalc_charge_total(cdt, cdn);
+  },
+
+  // Safety net: recompute all totals on validate (covers imports/paste edits)
+  validate(frm) {
+    (frm.doc.charges || []).forEach(row => {
+      const qty  = parseFloat(row.quantity) || 0;
+      const rate = parseFloat(row.rate) || 0;
+      row.total = qty * rate;
+    });
+    frm.refresh_field("charges");
+  }
+});
+
+// Serial Management
+frappe.ui.form.on("Inbound Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
+
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});

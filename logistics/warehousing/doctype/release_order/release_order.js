@@ -5,23 +5,19 @@ frappe.ui.form.on("Release Order", {
   refresh(frm) {
     if (!frm.doc.docstatus) return;
 
-    frm.add_custom_button(
-      __("Warehouse Job"),
-      () => {
-        frappe.call({
-          method: "logistics.warehousing.doctype.release_order.release_order.prepare_warehouse_job_from_release_order",
-          freeze: true,
-          freeze_message: __("Loading Warehouse Job…"),
-          args: { release_order: frm.doc.name },
-          callback: (r) => {
-            if (r && r.message) {
-              frappe.new_doc("Warehouse Job", r.message);
-            }
-          }
-        });
-      },
-      __("Create")
-    );
+    frm.add_custom_button(__("Warehouse Job"), () => {
+      frappe.call({
+        method: "logistics.warehousing.doctype.release_order.release_order.make_warehouse_job",
+        args: { source_name: frm.doc.name },
+        freeze: true,
+        freeze_message: __("Creating Warehouse Job…"),
+      }).then(({ message }) => {
+        if (!message) return;
+        const docs = frappe.model.sync(message);
+        const doc = docs && docs[0];
+        if (doc) frappe.set_route("Form", doc.doctype, doc.name);
+      });
+    }, __("Create"));
   },
 });
 
@@ -61,42 +57,94 @@ frappe.ui.form.on("Release Order Charges", {
 });
 
 
-//Limit Items by Customer
-// Doctype: Release Order
-(function () {
-  const CHILD_TABLE = 'items';
-  const ITEM_FIELD  = 'item';
+//Manage Planned Date
 
-  function set_item_query(frm) {
-    if (!frm.fields_dict[CHILD_TABLE]) return;
-    frm.fields_dict[CHILD_TABLE].grid.get_field(ITEM_FIELD).get_query = () => {
-      const customer = frm.doc.customer || '';
-      return { filters: customer ? { customer } : {} };
-    };
-    frm.set_query(ITEM_FIELD, CHILD_TABLE, () => {
-      const customer = frm.doc.customer || '';
-      return { filters: customer ? { customer } : {} };
+frappe.ui.form.on("Release Order", {
+  onload(frm) { maybe_set_planned_date(frm); },
+  before_save(frm) { if (!frm.doc.planned_date) maybe_set_planned_date(frm, true); }
+});
+
+function maybe_set_planned_date(frm, force=false) {
+  if (!force && (frm.doc.planned_date || frm.__planned_date_set)) return;
+
+  frappe.db.get_single_value("Warehouse Settings", "planned_date_offset_days")
+    .then((val) => {
+      const offset = parseInt(val, 10) || 0;
+      const nowStr = frappe.datetime.now_datetime(); // "YYYY-MM-DD HH:mm:ss"
+      const planned = addDaysPreserveTime(nowStr, offset);
+      frm.set_value("planned_date", planned);
+      frm.__planned_date_set = true;
+    })
+    .catch(() => {
+      frm.set_value("planned_date", frappe.datetime.now_datetime());
+      frm.__planned_date_set = true;
     });
-  }
+}
 
-  function drop_mismatched_rows(frm) {
-    const customer = frm.doc.customer;
-    if (!customer || !Array.isArray(frm.doc[CHILD_TABLE])) return;
-    let changed = false;
-    (frm.doc[CHILD_TABLE] || []).forEach(r => {
-      if (r[ITEM_FIELD]) { r[ITEM_FIELD] = null; changed = true; }
+function addDaysPreserveTime(baseStr, days) {
+  if (window.dayjs) {
+    return window.dayjs(baseStr).add(days, "day").format("YYYY-MM-DD HH:mm:ss");
+  } else if (window.moment) {
+    return window.moment(baseStr, "YYYY-MM-DD HH:mm:ss").add(days, "days").format("YYYY-MM-DD HH:mm:ss");
+  } else {
+    // Pure JS fallback
+    const d = new Date(baseStr.replace(" ", "T"));
+    d.setDate(d.getDate() + days);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+}
+
+// Serial Management
+frappe.ui.form.on("Release Order Item", {
+  serial_tracking(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+    }
+    // ensure grid re-evaluates read_only_depends_on per row
+    frm.fields_dict.items.grid.refresh();
+  },
+
+  quantity(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    if (row.serial_tracking && row.quantity != 1) {
+      frappe.model.set_value(cdt, cdn, "quantity", 1);
+      frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
+    }
+  }
+});
+
+// Recalculate a row's total = quantity * rate
+function recalc_charge_total(cdt, cdn) {
+  const row = locals[cdt][cdn];
+  const qty  = parseFloat(row.quantity) || 0;
+  const rate = parseFloat(row.rate) || 0;
+  frappe.model.set_value(cdt, cdn, "total", qty * rate);
+}
+
+frappe.ui.form.on("Release Order Charges", {
+  quantity(frm, cdt, cdn) {
+    recalc_charge_total(cdt, cdn);
+  },
+  rate(frm, cdt, cdn) {
+    recalc_charge_total(cdt, cdn);
+  }
+});
+
+// When a new row is added to the charges table
+frappe.ui.form.on("Release Order", {
+  charges_add(frm, cdt, cdn) {   // if your table fieldname ≠ "charges", rename this to <your_fieldname>_add
+    recalc_charge_total(cdt, cdn);
+  },
+
+  // Safety net: recompute all totals on validate (covers imports/paste edits)
+  validate(frm) {
+    (frm.doc.charges || []).forEach(row => {
+      const qty  = parseFloat(row.quantity) || 0;
+      const rate = parseFloat(row.rate) || 0;
+      row.total = qty * rate;
     });
-    if (changed) frm.refresh_field(CHILD_TABLE);
+    frm.refresh_field("charges");
   }
-
-  frappe.ui.form.on('Release Order', {
-    setup: set_item_query,
-    refresh: set_item_query,
-    customer: function (frm) {
-      set_item_query(frm);
-      drop_mismatched_rows(frm);
-    },
-  });
-})();
-
-
+});

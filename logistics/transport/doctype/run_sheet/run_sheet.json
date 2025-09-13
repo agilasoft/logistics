@@ -1,0 +1,159 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-09-10 17:04:57.498698",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_e1zq",
+  "amended_from",
+  "naming_series",
+  "run_date",
+  "run_type",
+  "column_break_aftz",
+  "base_location_type",
+  "base_location",
+  "route_name",
+  "status",
+  "column_break_gwan",
+  "vehicle_type",
+  "vehicle",
+  "transport_company",
+  "driver",
+  "transport_leg_tab",
+  "legs"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_e1zq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Run Sheet",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "RS.#########"
+  },
+  {
+   "fieldname": "run_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Run Date"
+  },
+  {
+   "fieldname": "run_type",
+   "fieldtype": "Select",
+   "label": "Run Type",
+   "options": "Regular\nBackload\nSpot\nReposition\nOthers"
+  },
+  {
+   "fieldname": "base_location_type",
+   "fieldtype": "Link",
+   "label": "Base Location Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "base_location",
+   "fieldtype": "Dynamic Link",
+   "label": "Base Location",
+   "options": "base_location_type"
+  },
+  {
+   "fieldname": "column_break_aftz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "route_name",
+   "fieldtype": "Data",
+   "label": "Route Name"
+  },
+  {
+   "fieldname": "column_break_gwan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle",
+   "options": "Vehicle"
+  },
+  {
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Company",
+   "options": "Transport Company"
+  },
+  {
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "label": "Driver",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "transport_leg_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transport Leg"
+  },
+  {
+   "fieldname": "legs",
+   "fieldtype": "Table",
+   "options": "Run Sheet Leg"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nDispatched\nIn-Progress\nHold\nCompleted\nCancelled"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-11 09:31:33.211586",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Run Sheet",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "route_name,vehicle,transport_company",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "vehicle"
+}

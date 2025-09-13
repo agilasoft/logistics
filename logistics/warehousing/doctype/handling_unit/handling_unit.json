@@ -7,7 +7,17 @@
  "engine": "InnoDB",
  "field_order": [
   "type",
-  "naming_series"
+  "naming_series",
+  "column_break_vrcu",
+  "brand",
+  "supplier",
+  "section_break_wunt",
+  "notes",
+  "entity_tab",
+  "column_break_woym",
+  "company",
+  "branch",
+  "column_break_fjdn"
  ],
  "fields": [
   {
@@ -23,12 +33,64 @@
    "fieldtype": "Data",
    "label": "Naming Series",
    "read_only": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_woym",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_vrcu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "column_break_fjdn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_wunt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-18 17:46:49.512706",
+ "modified": "2025-09-06 19:40:11.084981",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Handling Unit",

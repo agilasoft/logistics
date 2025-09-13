@@ -18,7 +18,22 @@
   "batch_tracking",
   "serial_tracking",
   "section_break_uzft",
-  "description"
+  "description",
+  "putaway_policy_tab",
+  "putaway_policy",
+  "lot_consolidation",
+  "allow_mix_with_other_customers",
+  "column_break_kkch",
+  "preferred_storage_type",
+  "picking_setup_tab",
+  "picking_method",
+  "column_break_ltaz",
+  "single_lot_preference",
+  "full_unit_first",
+  "nearest_location_first",
+  "primary_pick_face_first",
+  "quality_grade_priority",
+  "storage_type_preference"
  ],
  "fields": [
   {
@@ -100,12 +115,96 @@
    "fieldtype": "Select",
    "label": "ABC Class",
    "options": "A\nB\nC"
+  },
+  {
+   "fieldname": "picking_method",
+   "fieldtype": "Select",
+   "label": "Picking Method",
+   "options": "\nFIFO\nLIFO\nFEFO\nLEFO\nFMFO"
+  },
+  {
+   "fieldname": "picking_setup_tab",
+   "fieldtype": "Tab Break",
+   "label": "Pick Policy"
+  },
+  {
+   "fieldname": "column_break_ltaz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "single_lot_preference",
+   "fieldtype": "Check",
+   "label": "Single Lot Preference"
+  },
+  {
+   "default": "0",
+   "fieldname": "full_unit_first",
+   "fieldtype": "Check",
+   "label": "Full Unit First"
+  },
+  {
+   "default": "0",
+   "fieldname": "nearest_location_first",
+   "fieldtype": "Check",
+   "label": "Nearest Location First"
+  },
+  {
+   "default": "0",
+   "fieldname": "primary_pick_face_first",
+   "fieldtype": "Check",
+   "label": "Primary Pick Face First"
+  },
+  {
+   "default": "0",
+   "fieldname": "quality_grade_priority",
+   "fieldtype": "Check",
+   "label": "Quality Grade Priority"
+  },
+  {
+   "default": "0",
+   "fieldname": "storage_type_preference",
+   "fieldtype": "Check",
+   "label": "Storage Type Preference"
+  },
+  {
+   "fieldname": "putaway_policy_tab",
+   "fieldtype": "Tab Break",
+   "label": "Putaway Policy"
+  },
+  {
+   "default": "0",
+   "fieldname": "lot_consolidation",
+   "fieldtype": "Check",
+   "label": "Lot Consolidation"
+  },
+  {
+   "fieldname": "column_break_kkch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "preferred_storage_type",
+   "fieldtype": "Link",
+   "label": "Preferred Storage Type",
+   "options": "Storage Type"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_mix_with_other_customers",
+   "fieldtype": "Check",
+   "label": "Allow Mix with Other Customers"
+  },
+  {
+   "fieldname": "putaway_policy",
+   "fieldtype": "Select",
+   "label": "Putaway Policy",
+   "options": "Consolidate Same Item\nReplenish Pick Face First\nNearest Empty\nDistribute Evenly\nCross Dock If Demand"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-31 13:12:57.917514",
+ "modified": "2025-09-02 22:10:26.751058",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Item",
@@ -126,7 +225,9 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "customer",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "item_name"
 }

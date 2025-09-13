@@ -12,6 +12,8 @@
   "column_break_waca",
   "item_code",
   "customer",
+  "column_break_jfyu",
+  "quality_grade",
   "warranty__amc_details_section",
   "warranty_expiry_date",
   "amc_expiry_date"
@@ -67,13 +69,22 @@
    "fieldname": "amc_expiry_date",
    "fieldtype": "Date",
    "label": "AMC Expiry Date"
+  },
+  {
+   "fieldname": "column_break_jfyu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quality_grade",
+   "fieldtype": "Int",
+   "label": "Quality Grade"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-19 19:50:50.869214",
+ "modified": "2025-09-01 13:37:47.766110",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Serial",

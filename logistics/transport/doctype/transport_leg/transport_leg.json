@@ -1,0 +1,133 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-09-10 13:47:21.931822",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_fcp1",
+  "amended_from",
+  "naming_series",
+  "transport_job",
+  "run_sheet",
+  "column_break_ddgn",
+  "facility_type_from",
+  "facility_from",
+  "pick_mode",
+  "column_break_xsyy",
+  "facility_type_to",
+  "facility_to",
+  "drop_mode"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_fcp1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Transport Leg",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "L.#######"
+  },
+  {
+   "fieldname": "column_break_ddgn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "facility_type_from",
+   "fieldtype": "Link",
+   "label": "Facility Type From",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "facility_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Facility From",
+   "options": "facility_type_from"
+  },
+  {
+   "fieldname": "column_break_xsyy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "facility_type_to",
+   "fieldtype": "Link",
+   "label": "Facility Type To",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "facility_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Facility To",
+   "options": "facility_type_to"
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "label": "Transport Job",
+   "options": "Transport Job"
+  },
+  {
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "label": "Pick Mode",
+   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_pick\",\"=\",1]]",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "label": "Drop Mode",
+   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_drop\",\"=\",1]]",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "fieldname": "run_sheet",
+   "fieldtype": "Link",
+   "label": "Run Sheet",
+   "options": "Run Sheet"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-10 23:54:05.271717",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Leg",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,84 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-10 17:17:33.154181",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "facility_type_from",
+  "facility_from",
+  "pick_mode",
+  "column_break_uqra",
+  "facility_type_to",
+  "facility_to",
+  "drop_mode"
+ ],
+ "fields": [
+  {
+   "fieldname": "facility_type_from",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Facility Type From",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "facility_from",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Facility From",
+   "options": "facility_type_from"
+  },
+  {
+   "fieldname": "column_break_uqra",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "facility_type_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Facility Type To",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "facility_to",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Facility To",
+   "options": "facility_type_to"
+  },
+  {
+   "columns": 1,
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Pick Mode",
+   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_pick\",\"=\",1]]",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "columns": 1,
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Drop Mode",
+   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_drop\",\"=\",1]]",
+   "options": "Pick and Drop Mode"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-10 19:10:45.688867",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Order Legs",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

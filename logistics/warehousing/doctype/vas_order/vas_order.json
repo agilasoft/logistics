@@ -20,11 +20,12 @@
   "planned_date",
   "due_date",
   "section_break_cwsn",
-  "outputs",
-  "inputs_tab",
-  "inputs",
+  "items",
   "tab_2_tab",
-  "charges"
+  "charges",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -48,15 +49,18 @@
    "options": "VAS.######"
   },
   {
+   "default": "Today",
    "fieldname": "order_date",
    "fieldtype": "Date",
-   "label": "Order Date"
+   "label": "Order Date",
+   "reqd": 1
   },
   {
    "fieldname": "type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Type",
-   "options": "Relabel\nRepack\nKitting\nLabelling\nSorting\nRework\nOther"
+   "options": "VAS Order Type",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_berz",
@@ -66,7 +70,8 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "reqd": 1
   },
   {
    "fieldname": "cust_reference",
@@ -86,7 +91,8 @@
   {
    "fieldname": "planned_date",
    "fieldtype": "Datetime",
-   "label": "Planned Date"
+   "label": "Planned Date",
+   "reqd": 1
   },
   {
    "fieldname": "due_date",
@@ -94,28 +100,13 @@
    "label": "Due Date"
   },
   {
-   "fieldname": "inputs",
-   "fieldtype": "Table",
-   "options": "VAS Order Input"
-  },
-  {
    "fieldname": "tab_2_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
   },
   {
-   "fieldname": "inputs_tab",
-   "fieldtype": "Tab Break",
-   "label": "Inputs"
-  },
-  {
    "fieldname": "section_break_cwsn",
    "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "outputs",
-   "fieldtype": "Table",
-   "options": "VAS Order Output"
   },
   {
    "fieldname": "charges",
@@ -126,14 +117,43 @@
    "fieldname": "contract",
    "fieldtype": "Link",
    "label": "Contract",
-   "options": "Warehouse Contract"
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
+   "options": "Warehouse Contract",
+   "reqd": 1
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "options": "VAS Order Item"
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "Manila",
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-31 08:46:11.010121",
+ "modified": "2025-09-13 08:26:11.213962",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "VAS Order",

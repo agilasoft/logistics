@@ -25,7 +25,10 @@
   "docking_tab",
   "table_ymzf",
   "notes_tab",
-  "notes"
+  "notes",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -49,9 +52,11 @@
    "options": "WRO.######"
   },
   {
+   "default": "Today",
    "fieldname": "order_date",
    "fieldtype": "Date",
-   "label": "Order Date"
+   "label": "Order Date",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_fwfm",
@@ -61,7 +66,8 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "reqd": 1
   },
   {
    "fieldname": "cust_reference",
@@ -130,14 +136,37 @@
    "fieldname": "contract",
    "fieldtype": "Link",
    "label": "Contract",
-   "options": "Warehouse Contract"
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
+   "options": "Warehouse Contract",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-30 22:05:26.216867",
+ "modified": "2025-09-12 21:23:18.597354",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order",

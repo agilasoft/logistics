@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-07 17:21:45.170951",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "location",
+  "handling_unit",
+  "item",
+  "serial_no",
+  "batch_no",
+  "column_break_etxy",
+  "system_count",
+  "actual_quantity",
+  "blind_count"
+ ],
+ "fields": [
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Location",
+   "options": "Storage Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "handling_unit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Handling Unit",
+   "options": "Handling Unit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Warehouse Item",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "serial_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Serial No",
+   "options": "Warehouse Serial",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "batch_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "options": "Warehouse Batch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_etxy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "actual_quantity",
+   "fieldtype": "Float",
+   "label": "Actual Count"
+  },
+  {
+   "columns": 1,
+   "depends_on": "parent.blind_count",
+   "fieldname": "system_count",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "System Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "blind_count",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Blind Count",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-09 13:41:23.877276",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Warehouse Job Count",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

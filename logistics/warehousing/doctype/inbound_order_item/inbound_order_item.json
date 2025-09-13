@@ -8,32 +8,28 @@
  "field_order": [
   "column_break_bsls",
   "item",
-  "description",
+  "item_name",
   "uom",
   "quantity",
-  "column_break_qfvj",
   "sku_tracking",
   "serial_tracking",
   "batch_tracking",
-  "handling_unit_type",
-  "handling_unit",
+  "column_break_vapv",
+  "serial_no_text",
   "serial_no",
-  "batch_no"
+  "batch_no_text",
+  "batch_no",
+  "batch_expiry",
+  "handling_unit_type",
+  "handling_unit"
  ],
  "fields": [
-  {
-   "columns": 2,
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Item",
-   "options": "Warehouse Item"
-  },
   {
    "columns": 2,
    "fieldname": "handling_unit",
    "fieldtype": "Link",
    "label": "Handling Unit",
+   "link_filters": "[[\"Handling Unit\",\"type\",\"=\",\"eval:doc.handling_unit_type\"]]",
    "options": "Handling Unit"
   },
   {
@@ -44,18 +40,12 @@
    "options": "Handling Unit Type"
   },
   {
-   "columns": 2,
-   "fieldname": "description",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Description"
-  },
-  {
    "fieldname": "column_break_bsls",
    "fieldtype": "Column Break"
   },
   {
    "columns": 1,
+   "fetch_from": "item.uom",
    "fieldname": "uom",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -71,25 +61,23 @@
   },
   {
    "columns": 1,
-   "depends_on": "eval:doc.serial_tracking",
+   "depends_on": "eval:doc.serial_tracking==1",
    "fieldname": "serial_no",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Serial No",
-   "options": "Warehouse Serial"
+   "options": "Warehouse Serial",
+   "read_only": 1
   },
   {
    "columns": 1,
-   "depends_on": "eval:doc.batch_tracking",
+   "depends_on": "eval:doc.batch_tracking==1",
    "fieldname": "batch_no",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Batch No",
-   "options": "Warehouse Batch"
-  },
-  {
-   "fieldname": "column_break_qfvj",
-   "fieldtype": "Column Break"
+   "options": "Warehouse Batch",
+   "read_only": 1
   },
   {
    "default": "0",
@@ -114,13 +102,61 @@
    "fieldtype": "Check",
    "label": "SKU Tracking",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_vapv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:!doc.serial_no",
+   "fieldname": "serial_no_text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Serial No",
+   "mandatory_depends_on": "eval:doc.serial_tracking==1",
+   "read_only_depends_on": "eval:doc.serial_tracking==0"
+  },
+  {
+   "depends_on": "eval:!doc.batch_no",
+   "fieldname": "batch_no_text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "mandatory_depends_on": "eval:doc.batch_tracking==1",
+   "read_only_depends_on": "eval:doc.batch_tracking==0"
+  },
+  {
+   "depends_on": "eval:doc.batch_tracking==1",
+   "fieldname": "batch_expiry",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Batch Expiry",
+   "mandatory_depends_on": "eval:doc.batch_tracking==1",
+   "read_only_depends_on": "eval:doc.batch_tracking==0"
+  },
+  {
+   "columns": 2,
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Inbound Order Item\",\"customer\",\"=\",\"eval:parent.customer\"]]",
+   "options": "Warehouse Item",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-31 22:30:34.492348",
+ "modified": "2025-09-13 14:49:18.026824",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order Item",

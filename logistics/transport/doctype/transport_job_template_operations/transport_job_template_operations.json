@@ -6,7 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "activity",
+  "operation",
   "facility_type",
   "facility",
   "column_break_neku"
@@ -19,29 +19,31 @@
   {
    "fieldname": "facility_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Facility Type",
    "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
    "options": "DocType"
   },
   {
-   "fieldname": "activity",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Activity",
-   "options": "Transport Operation"
-  },
-  {
    "fieldname": "facility",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Facility",
    "options": "facility_type"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Operation",
+   "options": "Transport Operation"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-30 05:15:34.952014",
+ "modified": "2025-09-10 11:10:20.611325",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job Template Operations",

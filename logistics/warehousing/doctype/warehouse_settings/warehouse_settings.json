@@ -5,7 +5,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "default_site"
+  "default_site",
+  "planned_date_offset_days"
  ],
  "fields": [
   {
@@ -13,13 +14,18 @@
    "fieldtype": "Link",
    "label": "Default Site",
    "options": "Storage Location"
+  },
+  {
+   "fieldname": "planned_date_offset_days",
+   "fieldtype": "Int",
+   "label": "Planned Date Offset Days"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-27 19:31:01.183386",
+ "modified": "2025-09-12 21:05:04.600474",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",
@@ -32,6 +38,16 @@
    "print": 1,
    "read": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Warehouse User",
    "share": 1,
    "write": 1
   }

@@ -14,6 +14,10 @@
   "quantity",
   "total_std_hours",
   "actual_hours",
+  "column_break_oyvl",
+  "machine",
+  "std_machine_hours",
+  "actual_machine_hours",
   "section_break_nhpb",
   "notes"
  ],
@@ -23,7 +27,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Operation",
-   "options": "Warehouse Job Operations"
+   "options": "Warehouse Operation Item"
   },
   {
    "fieldname": "description",
@@ -73,13 +77,33 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Total Std Hours"
+  },
+  {
+   "fieldname": "column_break_oyvl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "machine",
+   "fieldtype": "Link",
+   "label": "Machine",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "std_machine_hours",
+   "fieldtype": "Float",
+   "label": "Std Machine Hours"
+  },
+  {
+   "fieldname": "actual_machine_hours",
+   "fieldtype": "Float",
+   "label": "Actual Machine Hours"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-29 10:52:33.777725",
+ "modified": "2025-09-13 13:45:01.175250",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Operations",

@@ -13,7 +13,9 @@
   "column_break_vnpq",
   "inbound",
   "outbound",
-  "door_type"
+  "door_type",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -61,12 +63,28 @@
    "label": "Site",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
    "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-28 15:40:38.012846",
+ "modified": "2025-09-13 14:13:59.556942",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Dock Door",

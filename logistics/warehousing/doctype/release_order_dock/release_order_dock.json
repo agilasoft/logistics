@@ -19,7 +19,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Dock Door",
-   "link_filters": "[[\"Dock Door\",\"outbound\",\"=\",1]]",
+   "link_filters": "[\r\n  [\"Inbound Order Dock\", \"branch\", \"=\", \"eval:parent.branch\"],\r\n  [\"Inbound Order Dock\", \"company\", \"=\", \"eval:parent.company\"],\r\n  [\"Dock Door\", \"outbound\", \"=\", 1]\r\n]\r\n",
    "options": "Dock Door"
   },
   {
@@ -57,7 +57,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-29 12:26:41.256064",
+ "modified": "2025-09-13 14:20:36.387050",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order Dock",
