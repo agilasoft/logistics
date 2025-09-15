@@ -2,11 +2,18 @@
 // For license information, please see license.txt
 
 (() => {
-  const GROUP = __("Action");
-  const CREATE_GROUP = __("Create");
+  const GROUP_ACTION = __("Action");
+  const GROUP_CREATE = __("Create");
+  const GROUP_POST   = __("Post");
 
-  // ---------- Helpers ----------
-  const ensureSaved = (frm) => {
+  // ---------- helpers ----------
+  const ensureSaved = (f) => {
+    const frm = f || (typeof cur_frm !== "undefined" ? cur_frm : null);
+    if (!frm || !frm.doc) {
+      console.error("[Warehouse Job] Missing frm in ensureSaved()");
+      frappe.msgprint(__("Unexpected error: form not ready. Try reloading the page."));
+      return false;
+    }
     if (!frm.doc.name) {
       frappe.msgprint(__("Please save the document first."));
       return false;
@@ -20,46 +27,58 @@
     return r.message || (typeof fallback === "function" ? fallback(r) : fallback);
   };
 
-  const callServer = async (frm, { method, args, freezing, title, fallback }) => {
+  const callServer = async (
+    frm,
+    { method, args = {}, freeze = true, freezing = __("Working…"), title = __("Result"), fallback = () => "" }
+  ) => {
     try {
-      const r = await frappe.call({ method, args, freeze: true, freeze_message: freezing });
-      const msg = extractMsg(r, fallback((r && r.message) || {}));
+      const r = await frappe.call({ method, args, freeze, freeze_message: freezing });
+      const msg = extractMsg(r, fallback(r && r.message ? r.message : {}));
       frappe.msgprint({ title, message: msg, indicator: "blue" });
+      // show toast as well
+      if (typeof msg === "string") {
+        frappe.show_alert({ message: `${title}: ${msg}`, indicator: "green" });
+      }
       frm.reload_doc();
       return r && r.message;
     } catch (err) {
       console.error(err);
-      frappe.msgprint({ title, message: __("See console for details."), indicator: "red" });
+      frappe.msgprint({ title: __("Server Error"), message: __("See console for details."), indicator: "red" });
       throw err;
     }
   };
 
-  const addBtnIf = (frm, cond, label, handler, group = GROUP) => {
-    if (cond) frm.add_custom_button(label, handler, group);
+  // ALWAYS wrap the click handler so frm is passed in
+  const addBtnIf = (frm, cond, label, handler, group = GROUP_ACTION) => {
+    if (!cond) return;
+    frm.add_custom_button(label, () => handler(frm), group);
   };
 
-  // ---------- NEW: Item filtering by Customer ----------
+  // ---------- Item filter by Customer ----------
   function applyItemCustomerFilter(frm) {
     const cust = frm.doc.customer || null;
 
-    // Orders table (Warehouse Job Order Items)
+    // Orders table
     if (frm.fields_dict.orders && frm.fields_dict.orders.grid) {
-      frm.fields_dict.orders.grid.get_field("item").get_query = function () {
-        if (cust) return { filters: { customer: cust } };
-        return {};
-      };
+      const fld = frm.fields_dict.orders.grid.get_field("item");
+      if (fld) {
+        fld.get_query = function () {
+          return cust ? { filters: { customer: cust } } : {};
+        };
+      }
     }
 
-    // Items table (Warehouse Job Item)
+    // Items table
     if (frm.fields_dict.items && frm.fields_dict.items.grid) {
-      frm.fields_dict.items.grid.get_field("item").get_query = function () {
-        if (cust) return { filters: { customer: cust } };
-        return {};
-      };
+      const fld = frm.fields_dict.items.grid.get_field("item");
+      if (fld) {
+        fld.get_query = function () {
+          return cust ? { filters: { customer: cust } } : {};
+        };
+      }
     }
   }
 
-  // Optionally clear already-selected items if customer changes
   function clearItemsOnCustomerChange(frm) {
     const cust = frm.doc.customer || null;
     if (!cust) return;
@@ -82,18 +101,18 @@
     frm.refresh_field("items");
   }
 
-  // ---------- Standard Actions ----------
+  // ---------- allocation actions ----------
   const allocatePick = (frm) => {
     if (!ensureSaved(frm)) return;
     callServer(frm, {
       method: "logistics.warehousing.api.allocate_pick",
       args: { warehouse_job: frm.doc.name },
       freezing: __("Allocating picks…"),
-      title: __("Allocation Result"),
+      title: __("Allocate Picks"),
       fallback: (res) =>
-        __("Picks allocation finished. Created rows: {0}, Qty: {1}", [
-          (res && res.created_rows) || 0,
+        __("Allocated {0} units across {1} pick rows.", [
           (res && res.created_qty) || 0,
+          (res && res.created_rows) || 0,
         ]),
     });
   };
@@ -103,12 +122,12 @@
     callServer(frm, {
       method: "logistics.warehousing.api.allocate_putaway",
       args: { warehouse_job: frm.doc.name },
-      freezing: __("Preparing putaway tasks…"),
-      title: __("Putaway"),
+      freezing: __("Preparing putaway…"),
+      title: __("Allocate Putaway"),
       fallback: (res) =>
-        __("Putaway prepared. Rows: {0}, Qty: {1}", [
-          (res && res.created_rows) || 0,
+        __("Prepared {0} units across {1} putaway rows.", [
           (res && res.created_qty) || 0,
+          (res && res.created_rows) || 0,
         ]),
     });
   };
@@ -117,81 +136,156 @@
     if (!ensureSaved(frm)) return;
     const d = new frappe.ui.Dialog({
       title: __("Allocate Move from Orders"),
-      fields: [
-        { fieldname: "clear_existing", label: __("Clear current Items before allocate"), fieldtype: "Check", default: 1 },
-        {
-          fieldname: "help",
-          fieldtype: "HTML",
-          options: `
-            <div class="text-muted" style="margin-top:8px">
-              • Reads <b>From/To</b> & HUs from the <b>Orders</b> table.<br>
-              • Creates two <b>Items</b> rows per order: <i>−qty</i> from <b>From</b> and <i>+qty</i> to <b>To</b>.<br>
-              • Requires: From/To locations present and quantity &gt; 0.
-            </div>`,
-        },
-      ],
+      fields: [{ fieldname: "clear_existing", label: __("Clear current Items before allocate"), fieldtype: "Check", default: 1 }],
       primary_action_label: __("Allocate"),
       primary_action(values) {
         d.hide();
-        frappe
-          .call({
-            method: "logistics.warehousing.api.allocate_move",
-            args: { warehouse_job: frm.doc.name, clear_existing: values.clear_existing ? 1 : 0 },
-            freeze: true,
-            freeze_message: __("Allocating moves…"),
-          })
-          .then((r) => {
-            const res = (r && r.message) || {};
-            const msg =
-              typeof res === "string"
-                ? res
-                : res.message || __("Move allocation complete. Pairs: {0}", [res.created_pairs || 0]);
-
-            let html = `<div>${frappe.utils.escape_html(msg)}</div>`;
-            if (res.skipped && res.skipped.length) {
-              const lis = res.skipped.map((s) => `<li>${frappe.utils.escape_html(s)}</li>`).join("");
-              html += `<div style="margin-top:8px">${__("Skipped")}:</div><ul>${lis}</ul>`;
-            }
-            frappe.msgprint({ title: __("Move Allocation"), message: html, indicator: "blue" });
-            frm.reload_doc();
-          })
-          .catch((err) => {
-            console.error(err);
-            frappe.msgprint({
-              title: __("Move Allocation Failed"),
-              message: __("See console for details, or check server error logs."),
-              indicator: "red",
-            });
-          });
+        callServer(frm, {
+          method: "logistics.warehousing.api.allocate_move",
+          args: { warehouse_job: frm.doc.name, clear_existing: values.clear_existing ? 1 : 0 },
+          freezing: __("Allocating moves…"),
+          title: __("Allocate Move"),
+          fallback: (res) => __("Allocated {0} move pair(s).", [(res && res.created_pairs) || 0]),
+        });
       },
     });
     d.show();
   };
 
-  // … (other functions unchanged: fetchCountSheet, createJobOperations, createAdjustments, createSalesInvoice, toggleBlindCountColumns) …
+  // ---------- posting actions (new flow) ----------
+  const requireStaging = (frm) => {
+    if (!frm.doc.staging_area) {
+      frappe.msgprint(__("Please set a Staging Area on this Job first."));
+      return false;
+    }
+    return true;
+  };
 
-  // ---------- Button wiring & events ----------
+  const postReceiving = (frm) => {
+    if (!ensureSaved(frm) || !requireStaging(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.post_receiving",
+      args: { warehouse_job: frm.doc.name },
+      freezing: __("Posting receiving into staging…"),
+      title: __("Receiving Posted"),
+    });
+  };
+
+  const postPutaway = (frm) => {
+    if (!ensureSaved(frm) || !requireStaging(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.post_putaway",
+      args: { warehouse_job: frm.doc.name },
+      freezing: __("Posting putaway movements…"),
+      title: __("Putaway Posted"),
+    });
+  };
+
+  const postPick = (frm) => {
+    if (!ensureSaved(frm) || !requireStaging(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.post_pick",
+      args: { warehouse_job: frm.doc.name },
+      freezing: __("Posting pick movements…"),
+      title: __("Pick Posted"),
+    });
+  };
+
+  const postRelease = (frm) => {
+    if (!ensureSaved(frm) || !requireStaging(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.post_release",
+      args: { warehouse_job: frm.doc.name },
+      freezing: __("Posting release from staging…"),
+      title: __("Release Posted"),
+    });
+  };
+
+  // ---------- stocktake ----------
+  const fetchCountSheet = (frm) => {
+    if (!ensureSaved(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.warehouse_job_fetch_count_sheet",
+      args: { warehouse_job: frm.doc.name, clear_existing: 1 },
+      freezing: __("Building count sheet…"),
+      title: __("Count Sheet"),
+    });
+  };
+
+  const createAdjustments = (frm) => {
+    if (!ensureSaved(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.populate_stocktake_adjustments",
+      args: { warehouse_job: frm.doc.name, clear_existing: 1 },
+      freezing: __("Creating adjustments…"),
+      title: __("Adjustments"),
+    });
+  };
+
+  // ---------- operations ----------
+  const populateOperations = (frm) => {
+    if (!ensureSaved(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.populate_job_operations",
+      args: { warehouse_job: frm.doc.name, clear_existing: 1 },
+      freezing: __("Populating operations…"),
+      title: __("Operations"),
+    });
+  };
+
+  // ---------- invoice ----------
+  const createSalesInvoice = (frm) => {
+    if (!ensureSaved(frm)) return;
+    callServer(frm, {
+      method: "logistics.warehousing.api.create_sales_invoice_from_job",
+      args: { warehouse_job: frm.doc.name },
+      freezing: __("Creating Sales Invoice…"),
+      title: __("Sales Invoice"),
+      fallback: (m) => (m && m.sales_invoice ? __("Created Sales Invoice {0}", [m.sales_invoice]) : __("Sales Invoice created.")),
+    });
+  };
+
+  // ---------- form events ----------
   frappe.ui.form.on("Warehouse Job", {
     onload(frm) {
       applyItemCustomerFilter(frm);
-    },
-
-    refresh(frm) {
-      applyItemCustomerFilter(frm);
-
-      const t = frm.doc.type || "";
-      const ds = frm.doc.docstatus || 0;
-      addBtnIf(frm, t === "Pick" && ds < 2, __("Allocate Picks"), () => allocatePick(frm));
-      addBtnIf(frm, t === "Putaway" && ds < 2, __("Allocate Putaway"), () => allocatePutaway(frm));
-      addBtnIf(frm, t === "Move" && ds < 1, __("Allocate Move"), () => allocateMove(frm));
-      // (other buttons unchanged)
     },
 
     customer(frm) {
       applyItemCustomerFilter(frm);
       clearItemsOnCustomerChange(frm);
     },
-  });
 
-  // … (VAS handlers, recalc_charge_total, Warehouse Job Charges events, Serial Management, etc. unchanged) …
+    refresh(frm) {
+      applyItemCustomerFilter(frm);
+
+      const t = (frm.doc.type || "").trim();
+      const ds = frm.doc.docstatus || 0; // 0=draft, 1=submitted, 2=cancelled
+      const not_cancelled = ds < 2;
+
+      // Allocation
+      addBtnIf(frm, t === "Pick"    && not_cancelled, __("Allocate Picks"), allocatePick, GROUP_ACTION);
+      addBtnIf(frm, t === "Putaway" && not_cancelled, __("Allocate Putaway"), allocatePutaway, GROUP_ACTION);
+      addBtnIf(frm, t === "Move"    && not_cancelled, __("Allocate Move"), allocateMove, GROUP_ACTION);
+
+      // Posting (new flow)
+      if (not_cancelled) {
+        if (t === "Putaway") {
+          addBtnIf(frm, true, __("Receiving"), postReceiving, GROUP_POST);
+          addBtnIf(frm, true, __("Putaway"),   postPutaway,  GROUP_POST);
+        } else if (t === "Pick" || t === "VAS") {
+          addBtnIf(frm, true, __("Pick"),    postPick,    GROUP_POST);
+          addBtnIf(frm, true, __("Release"), postRelease, GROUP_POST);
+        }
+      }
+
+      // Stocktake
+      addBtnIf(frm, t === "Stocktake" && not_cancelled, __("Fetch Count Sheet"), fetchCountSheet, GROUP_ACTION);
+      addBtnIf(frm, t === "Stocktake" && not_cancelled, __("Populate Adjustments"), createAdjustments, GROUP_ACTION);
+
+      // Operations + Invoice
+      addBtnIf(frm, not_cancelled, __("Populate Operations"), populateOperations, GROUP_CREATE);
+      addBtnIf(frm, not_cancelled, __("Create Sales Invoice"), createSalesInvoice, GROUP_CREATE);
+    },
+  });
 })();

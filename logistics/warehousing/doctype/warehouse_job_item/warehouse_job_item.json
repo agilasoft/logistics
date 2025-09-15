@@ -15,7 +15,17 @@
   "column_break_imof",
   "quantity",
   "serial_no",
-  "batch_no"
+  "batch_no",
+  "staging_area",
+  "posting_history_section",
+  "pick_posted",
+  "pick_posted_at",
+  "column_break_bgls",
+  "staging_posted",
+  "staging_posted_at",
+  "column_break_isuc",
+  "putaway_posted",
+  "putaway_posted_at"
  ],
  "fields": [
   {
@@ -86,13 +96,67 @@
    "fieldtype": "Check",
    "label": "Batch Tracking",
    "read_only": 1
+  },
+  {
+   "fieldname": "staging_area",
+   "fieldtype": "Link",
+   "label": "Staging Area",
+   "link_filters": "[[\"Storage Location\",\"staging_area\",\"=\",1]]",
+   "options": "Storage Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "posting_history_section",
+   "fieldtype": "Section Break",
+   "label": "Posting History"
+  },
+  {
+   "default": "0",
+   "fieldname": "pick_posted",
+   "fieldtype": "Check",
+   "label": "Pick Posted"
+  },
+  {
+   "fieldname": "pick_posted_at",
+   "fieldtype": "Datetime",
+   "label": "Pick Posted At"
+  },
+  {
+   "fieldname": "column_break_bgls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "staging_posted",
+   "fieldtype": "Check",
+   "label": "Staging Posted"
+  },
+  {
+   "fieldname": "staging_posted_at",
+   "fieldtype": "Datetime",
+   "label": "Staging Posted At"
+  },
+  {
+   "fieldname": "column_break_isuc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "putaway_posted",
+   "fieldtype": "Check",
+   "label": "Putaway Posted"
+  },
+  {
+   "fieldname": "putaway_posted_at",
+   "fieldtype": "Datetime",
+   "label": "Putaway Posted At"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-13 12:00:16.538672",
+ "modified": "2025-09-13 18:12:36.969461",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Item",

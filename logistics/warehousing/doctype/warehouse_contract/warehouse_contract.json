@@ -14,7 +14,8 @@
   "valid_until",
   "site",
   "section_break_cvch",
-  "items"
+  "items",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -70,13 +71,50 @@
    "label": "Site",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
    "options": "Storage Location Configurator"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2025-08-29 18:21:03.234791",
+ "links": [
+  {
+   "group": "Orders and Jobs",
+   "link_doctype": "Warehouse Job",
+   "link_fieldname": "warehouse_contract"
+  },
+  {
+   "group": "Orders and Jobs",
+   "link_doctype": "Inbound Order",
+   "link_fieldname": "Contract"
+  },
+  {
+   "group": "Orders and Jobs",
+   "link_doctype": "Release Order",
+   "link_fieldname": "contract"
+  },
+  {
+   "group": "Orders and Jobs",
+   "link_doctype": "Transfer Order",
+   "link_fieldname": "contract"
+  },
+  {
+   "group": "Orders and Jobs",
+   "link_doctype": "VAS Order",
+   "link_fieldname": "contract"
+  },
+  {
+   "group": "Orders and Jobs",
+   "link_doctype": "Stocktake Order",
+   "link_fieldname": "contract"
+  }
+ ],
+ "modified": "2025-09-14 20:25:16.028626",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",

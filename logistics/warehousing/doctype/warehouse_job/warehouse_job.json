@@ -16,11 +16,13 @@
   "reference_order_type",
   "reference_order",
   "vas_order_type",
+  "warehouse_contract",
   "section_break_xmlp",
   "orders",
   "docking_tab",
   "docks",
   "allocations_tab",
+  "staging_area",
   "items",
   "count_sheet_tab",
   "count_date",
@@ -38,7 +40,8 @@
   "notes",
   "transaction_entity_tab",
   "company",
-  "branch"
+  "branch",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -234,13 +237,40 @@
    "label": "Customer",
    "options": "Customer",
    "read_only": 1
+  },
+  {
+   "fieldname": "staging_area",
+   "fieldtype": "Link",
+   "label": "Staging Area",
+   "link_filters": "[[\"Storage Location\",\"company\",\"=\",\"eval:doc.company\"],[\"Storage Location\",\"branch\",\"=\",\"eval:doc.branch\"],[\"Storage Location\",\"staging_area\",\"=\",1]]",
+   "options": "Storage Location"
+  },
+  {
+   "fieldname": "warehouse_contract",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract",
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
+   "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2025-09-13 10:08:53.254462",
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Periodic Billing",
+   "link_fieldname": "warehouse_job",
+   "table_fieldname": "charges"
+  }
+ ],
+ "modified": "2025-09-14 20:21:56.364022",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job",
