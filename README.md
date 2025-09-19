@@ -16,18 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 ---
 
-## Additional Terms for Premium Add-ons
-
-The Logistics App core is licensed under the AGPL v3 as described above.  
-However, certain extensions, add-ons, or premium applications distributed by  
-Agilasoft Cloud Technologies Inc. are proprietary software and not licensed  
-under the AGPL. These add-ons require a separate commercial license agreement  
-with Agilasoft Cloud Technologies Inc.
-
-Use of such proprietary add-ons without a valid license is prohibited.
-
----
-
 Contact Information:
 Agilasoft Cloud Technologies Inc.
 Website: https://www.agilasoft.com
