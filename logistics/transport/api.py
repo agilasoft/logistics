@@ -54,3 +54,38 @@ def build_operations_from_template(template: str) -> List[Dict]:
         rows.append(row)
 
     return rows
+
+# apps/logistics/logistics/transport/api.py
+from logistics.transport.routing import get_address_coords
+
+@frappe.whitelist()
+def get_address_latlon(addr_name: str):
+    c = get_address_coords(addr_name)
+    return {"lat": c[0], "lon": c[1]} if c else None
+
+@frappe.whitelist()
+def get_run_sheet_bundle(name: str):
+    """Return a Run Sheet header + its legs (safe fields only)."""
+    if not name:
+        frappe.throw(_("Run Sheet name required."))
+
+    doc = frappe.get_doc("Run Sheet", name)
+    doc.check_permission("read")
+
+    # Only fields that exist on your Transport Leg DocType
+    fields = [
+        "name", "date", "transport_job", "vehicle_type",
+        "facility_type_from", "facility_from", "pick_address",
+        "facility_type_to",   "facility_to",   "drop_address",
+        "start_date", "end_date", "distance_km", "duration_min",
+    ]
+
+    legs = frappe.get_all(
+        "Transport Leg",
+        filters={"run_sheet": name, "docstatus": ["<", 2]},
+        fields=fields,
+        order_by="date asc, modified asc",
+        limit_page_length=1000,
+    )
+
+    return {"doc": doc.as_dict(no_nulls=True), "legs": legs}

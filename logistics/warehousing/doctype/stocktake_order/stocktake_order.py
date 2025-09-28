@@ -206,6 +206,7 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target.company = getattr(src, "company", None)
         target.branch = getattr(src, "branch", None)
         target.customer = src.customer
+        target.warehouse_contract = src.contract
 
         # Traceability
         target.reference_order_type = "Stocktake Order"

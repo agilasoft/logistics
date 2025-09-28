@@ -73,23 +73,27 @@
    "options": "Warehouse Job"
   },
   {
+   "allow_on_submit": 1,
    "default": "0",
    "fieldname": "invoiced",
    "fieldtype": "Check",
-   "label": "Invoiced"
+   "label": "Invoiced",
+   "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "sales_invoice",
    "fieldtype": "Link",
    "label": "Sales Invoice",
-   "options": "Sales Invoice"
+   "options": "Sales Invoice",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-12 10:03:30.296528",
+ "modified": "2025-09-28 13:00:48.873512",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Periodic Billing Charges",

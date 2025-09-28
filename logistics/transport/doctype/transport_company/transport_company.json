@@ -15,7 +15,8 @@
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Naming Series"
+   "label": "Naming Series",
+   "options": "TRC.########"
   },
   {
    "fieldname": "full_name",
@@ -36,7 +37,7 @@
   }
  ],
  "links": [],
- "modified": "2025-08-30 15:06:57.305111",
+ "modified": "2025-09-25 09:49:06.850288",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Company",

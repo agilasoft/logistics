@@ -32,6 +32,7 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target.reference_order_type = "Transfer Order"
         target.reference_order = source.name
         target.customer = source.customer
+        target.warehouse_contract = source.contract
 
         # Carry over any helpful context into notes (optional)
         blips = []

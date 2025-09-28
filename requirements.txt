@@ -1,2 +1,3 @@
 frappe
 erpnext
+zeep>=4.2

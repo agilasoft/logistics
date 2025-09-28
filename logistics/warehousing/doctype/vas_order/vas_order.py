@@ -36,6 +36,7 @@ def make_warehouse_job(source_name, target_doc=None):
         target.company = source.company
         target.branch = source.branch
         target.customer = source.customer
+        target.warehouse_contract = source.contract
 
         # Type (normalize to match Warehouse Job options)
         target.type = "VAS"

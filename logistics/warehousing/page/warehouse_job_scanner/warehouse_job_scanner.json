@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2025-09-24 13:32:22.308807",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-09-24 13:38:37.910130",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "warehouse-job-scanner",
+ "owner": "Administrator",
+ "page_name": "warehouse-job-scanner",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 1,
+ "title": "Warehouse Job Scanner"
+}

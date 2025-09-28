@@ -481,7 +481,7 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
-   "options": "Shipper Addresses"
+   "options": "Address"
   },
   {
    "fieldname": "shipper_address_display",
@@ -500,7 +500,7 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
-   "options": "Shipper Addresses"
+   "options": "Address"
   },
   {
    "fieldname": "consignee_address_display",
@@ -646,7 +646,7 @@
   },
   {
    "group": "Operations",
-   "link_doctype": "Transport Booking",
+   "link_doctype": "Transport Order",
    "link_fieldname": "job_reference"
   },
   {
@@ -656,7 +656,7 @@
    "table_fieldname": "routes"
   }
  ],
- "modified": "2025-08-28 13:29:23.942299",
+ "modified": "2025-09-17 16:39:22.765193",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Job",

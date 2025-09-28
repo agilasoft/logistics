@@ -9,8 +9,16 @@
   "code",
   "cy_name",
   "column_break_xzht",
-  "cy_address",
-  "cy_address_display"
+  "addreses_and_contacts_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_ypvh",
+  "contact_html",
+  "section_break_lezp",
+  "containeryard_primary_address",
+  "primary_address",
+  "column_break_fgxt",
+  "containeryard_primary_contact"
  ],
  "fields": [
   {
@@ -29,23 +37,57 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "cy_address",
+   "fieldname": "addreses_and_contacts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addreses and Contacts"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "column_break_ypvh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_lezp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "containeryard_primary_address",
    "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "CY Address",
+   "label": "Primary Address",
    "options": "Address"
   },
   {
-   "fieldname": "cy_address_display",
-   "fieldtype": "Small Text",
-   "label": "CY Address Display",
-   "options": "cy_address.address_html"
+   "fieldname": "primary_address",
+   "fieldtype": "Text"
+  },
+  {
+   "fieldname": "column_break_fgxt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "containeryard_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-01 15:31:31.695149",
+ "modified": "2025-09-17 11:31:44.245908",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Container Yard",
@@ -66,7 +108,7 @@
   }
  ],
  "row_format": "Dynamic",
- "search_fields": "cy_name, cy_address, code",
+ "search_fields": "cy_name, code",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

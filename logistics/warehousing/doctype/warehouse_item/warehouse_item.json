@@ -25,6 +25,7 @@
   "allow_mix_with_other_customers",
   "column_break_kkch",
   "preferred_storage_type",
+  "allowed_storage_type",
   "picking_setup_tab",
   "picking_method",
   "column_break_ltaz",
@@ -199,12 +200,18 @@
    "fieldtype": "Select",
    "label": "Putaway Policy",
    "options": "Consolidate Same Item\nReplenish Pick Face First\nNearest Empty\nDistribute Evenly\nCross Dock If Demand"
+  },
+  {
+   "fieldname": "allowed_storage_type",
+   "fieldtype": "Table MultiSelect",
+   "label": "Allowed Storage Type",
+   "options": "Warehouse Item Storage Type"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-02 22:10:26.751058",
+ "modified": "2025-09-28 11:38:58.228644",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Item",

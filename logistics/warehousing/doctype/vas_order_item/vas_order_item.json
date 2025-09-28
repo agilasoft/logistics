@@ -68,6 +68,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Handling Unit",
+   "link_filters": "[[\"Handling Unit\",\"type\",\"=\",\"eval:doc.handling_unit_type\"]]",
    "options": "Handling Unit"
   },
   {
@@ -75,6 +76,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Serial No",
+   "link_filters": "[[\"Warehouse Serial\",\"item_code\",\"=\",\"eval:doc.item\"]]",
    "options": "Warehouse Serial"
   },
   {
@@ -82,6 +84,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Batch No",
+   "link_filters": "[[\"Warehouse Batch\",\"item_code\",\"=\",\"eval:doc.item\"]]",
    "options": "Warehouse Batch"
   },
   {
@@ -110,7 +113,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-13 08:33:44.895820",
+ "modified": "2025-09-28 08:49:27.512499",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "VAS Order Item",

@@ -21,6 +21,7 @@
    "options": "Warehouse Item"
   },
   {
+   "fetch_from": "item.uom",
    "fieldname": "uom",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -49,7 +50,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-22 00:21:34.358777",
+ "modified": "2025-09-27 15:56:00.068511",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Customer VAS Item Input",

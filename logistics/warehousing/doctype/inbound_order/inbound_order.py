@@ -19,6 +19,7 @@ def make_warehouse_job(source_name, target_doc=None):
         target.company = source.company
         target.branch = source.branch
         target.customer = source.customer
+        target.warehouse_contract = source.contract
         
     def update_item(source_doc, target_doc, source_parent):
         target_doc.item = source_doc.item
@@ -30,7 +31,7 @@ def make_warehouse_job(source_name, target_doc=None):
         target_doc.batch_no = source_doc.batch_no
 
     def update_charge(source_doc, target_doc, source_parent):
-        target_doc.item_code = source_doc.charge_item
+        target_doc.item_code = source_doc.item_code
         target_doc.uom = source_doc.uom
         target_doc.quantity = source_doc.quantity
         target_doc.currency = source_doc.currency

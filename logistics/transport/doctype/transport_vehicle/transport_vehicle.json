@@ -1,0 +1,307 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2025-09-18 10:49:44.802718",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "vehicle_name",
+  "company_owned",
+  "column_break_gmed",
+  "make",
+  "model",
+  "vehicle_type",
+  "transport_company",
+  "last_ignition_on",
+  "last_odometer_km",
+  "last_provider",
+  "capacity_tab",
+  "capacity_weight",
+  "capacity_volume",
+  "capacity_pallets",
+  "column_break_kckw",
+  "can_carry_container",
+  "max_container_count",
+  "container_types",
+  "column_break_eopu",
+  "reefer",
+  "reefer_min_temp",
+  "reefer_max_temp",
+  "routing_tab",
+  "base_facility",
+  "address",
+  "avg_speed",
+  "cost_per_km",
+  "cost_per_hour",
+  "column_break_tvvj",
+  "service_zones",
+  "permits_tab",
+  "permits",
+  "telematics_tab",
+  "telematics_provider",
+  "telematics_external_id",
+  "column_break_bnct",
+  "last_telematics_ts",
+  "last_telematics_lat",
+  "last_telematics_lon",
+  "last_speed_kph"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "vehicle_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Vehicle Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_gmed",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "make",
+   "fieldtype": "Link",
+   "label": "Make",
+   "options": "Vehicle Make"
+  },
+  {
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Type",
+   "options": "Vehicle Type",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "company_owned",
+   "fieldtype": "Check",
+   "label": "Company Owned"
+  },
+  {
+   "depends_on": "eval:!doc.company_owned",
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "label": "Transport Company",
+   "mandatory_depends_on": "eval:!doc.company_owned",
+   "options": "Transport Company"
+  },
+  {
+   "fieldname": "capacity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capacity"
+  },
+  {
+   "fieldname": "capacity_weight",
+   "fieldtype": "Float",
+   "label": "Capacity Weight"
+  },
+  {
+   "fieldname": "capacity_volume",
+   "fieldtype": "Float",
+   "label": "Capacity Volume"
+  },
+  {
+   "fieldname": "capacity_pallets",
+   "fieldtype": "Float",
+   "label": "Capacity Pallets"
+  },
+  {
+   "fieldname": "column_break_kckw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_carry_container",
+   "fieldtype": "Check",
+   "label": "Can Carry Container"
+  },
+  {
+   "fieldname": "max_container_count",
+   "fieldtype": "Float",
+   "label": "Max Container Count"
+  },
+  {
+   "fieldname": "container_types",
+   "fieldtype": "Table MultiSelect",
+   "label": "Container Types",
+   "options": "Transport Vehicle Container Types"
+  },
+  {
+   "fieldname": "column_break_eopu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "reefer",
+   "fieldtype": "Check",
+   "label": "Reefer"
+  },
+  {
+   "fieldname": "reefer_min_temp",
+   "fieldtype": "Float",
+   "label": "Minimum Temp"
+  },
+  {
+   "fieldname": "reefer_max_temp",
+   "fieldtype": "Float",
+   "label": "Maximum Temp"
+  },
+  {
+   "fieldname": "permits_tab",
+   "fieldtype": "Tab Break",
+   "label": "Permits"
+  },
+  {
+   "fieldname": "routing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Routing"
+  },
+  {
+   "fieldname": "base_facility",
+   "fieldtype": "Link",
+   "label": "Base Facility",
+   "options": "Truck Park"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Link",
+   "label": "Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "column_break_tvvj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_zones",
+   "fieldtype": "Table MultiSelect",
+   "label": "Service Zones",
+   "options": "Transport Vehicle Zones"
+  },
+  {
+   "fieldname": "avg_speed",
+   "fieldtype": "Float",
+   "label": "Avg Speed"
+  },
+  {
+   "fieldname": "cost_per_km",
+   "fieldtype": "Currency",
+   "label": "Cost per km"
+  },
+  {
+   "fieldname": "cost_per_hour",
+   "fieldtype": "Currency",
+   "label": "Cost per hour"
+  },
+  {
+   "fieldname": "permits",
+   "fieldtype": "Table",
+   "options": "Transport Vehicle Permits"
+  },
+  {
+   "fieldname": "telematics_tab",
+   "fieldtype": "Tab Break",
+   "label": "Telematics"
+  },
+  {
+   "fieldname": "telematics_provider",
+   "fieldtype": "Link",
+   "label": "Telematics Provider",
+   "options": "Telematics Provider"
+  },
+  {
+   "fieldname": "telematics_external_id",
+   "fieldtype": "Data",
+   "label": "Telematics External ID"
+  },
+  {
+   "fieldname": "column_break_bnct",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_telematics_ts",
+   "fieldtype": "Datetime",
+   "label": "Last Telematics TS"
+  },
+  {
+   "fieldname": "last_telematics_lat",
+   "fieldtype": "Float",
+   "label": "Last Telematics Lat",
+   "precision": "6"
+  },
+  {
+   "fieldname": "last_telematics_lon",
+   "fieldtype": "Float",
+   "label": "Last_Telematics_Lon",
+   "precision": "6"
+  },
+  {
+   "fieldname": "last_speed_kph",
+   "fieldtype": "Float",
+   "label": "Last Speed (kph)",
+   "precision": "1"
+  },
+  {
+   "default": "0",
+   "fieldname": "last_ignition_on",
+   "fieldtype": "Check",
+   "label": "Last Ignition On"
+  },
+  {
+   "fieldname": "last_odometer_km",
+   "fieldtype": "Float",
+   "label": "Last Odometer (km)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "last_provider",
+   "fieldtype": "Link",
+   "label": "Last Provider",
+   "options": "Telematics Provider"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-26 19:40:36.727541",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Vehicle",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "vehicle_name,make,model,vehicle_type",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,11 +1,13 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-05-22 12:23:34.488343",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "details_tab",
   "code",
   "description",
   "active",
@@ -53,7 +55,8 @@
   },
   {
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Description"
   },
   {
@@ -87,6 +90,7 @@
   {
    "fieldname": "container_transport_mode",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Container Transport Mode",
    "options": "Transport Mode"
   },
@@ -120,6 +124,7 @@
   {
    "fieldname": "container_iso_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Container ISO Type",
    "options": "Container ISO Type"
   },
@@ -238,12 +243,17 @@
    "fieldname": "container_class_tab",
    "fieldtype": "Tab Break",
    "label": "Container Class"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-01 10:14:29.128532",
+ "modified": "2025-09-18 11:23:21.645001",
  "modified_by": "Administrator",
  "module": "Logistics Core",
  "name": "Container Type",

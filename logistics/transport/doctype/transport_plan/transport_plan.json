@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-09-19 23:16:27.639774",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_9p7s",
+  "naming_series",
+  "amended_from",
+  "plan_date",
+  "transport_planner",
+  "column_break_lgwc",
+  "company",
+  "branch",
+  "section_break_hawq",
+  "runsheets"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_9p7s",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Transport Plan",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "plan_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Plan Date"
+  },
+  {
+   "fieldname": "transport_planner",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Planner",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_lgwc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "section_break_hawq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "runsheets",
+   "fieldtype": "Table",
+   "options": "Transport Plan Run Sheets"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "TRP.#########"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-21 00:14:22.691242",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Plan",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -127,3 +127,9 @@ app_license = "MIT"
 # 	"Task": "logistics.task.get_dashboard_data"
 # }
 
+doc_events = {
+    "Warehouse Job": {
+        # keep your existing validate hook(s) if any
+        "before_submit": "logistics.warehousing.api.warehouse_job_before_submit",
+    }
+}

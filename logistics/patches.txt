@@ -1,1 +1,2 @@
 logistics.warehousing.patches.add_wsl_indexes
+logistics.transport.patches.add_telematics_indexes

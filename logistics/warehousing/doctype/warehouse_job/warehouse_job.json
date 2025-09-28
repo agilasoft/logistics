@@ -33,9 +33,9 @@
   "section_break_jmth",
   "counts",
   "charges_tab",
-  "table_dxtc",
+  "charges",
   "operations_tab",
-  "table_tncd",
+  "operations",
   "notes_tab",
   "notes",
   "transaction_entity_tab",
@@ -63,7 +63,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Staging In\nStaging Out\nPutaway\nPick\nMove\nVAS\nStocktake",
+   "options": "Putaway\nPick\nMove\nVAS\nStocktake",
    "read_only": 1,
    "reqd": 1
   },
@@ -117,19 +117,9 @@
    "label": "Charges"
   },
   {
-   "fieldname": "table_dxtc",
-   "fieldtype": "Table",
-   "options": "Warehouse Job Charges"
-  },
-  {
    "fieldname": "operations_tab",
    "fieldtype": "Tab Break",
    "label": "Operations"
-  },
-  {
-   "fieldname": "table_tncd",
-   "fieldtype": "Table",
-   "options": "Warehouse Job Operations"
   },
   {
    "fieldname": "notes_tab",
@@ -250,13 +240,24 @@
    "fieldtype": "Link",
    "label": "Warehouse Contract",
    "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
-   "options": "Warehouse Contract"
+   "options": "Warehouse Contract",
+   "read_only": 1
   },
   {
    "fieldname": "connections_tab",
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "options": "Warehouse Job Operations"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Warehouse Job Charges"
   }
  ],
  "grid_page_length": 50,
@@ -270,7 +271,7 @@
    "table_fieldname": "charges"
   }
  ],
- "modified": "2025-09-14 20:21:56.364022",
+ "modified": "2025-09-28 17:10:18.559401",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job",

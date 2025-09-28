@@ -15,8 +15,12 @@
   "date_from",
   "date_to",
   "warehouse_contract",
+  "sales_invoice",
   "section_break_vdnw",
-  "charges"
+  "charges",
+  "entity_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -84,13 +88,38 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Periodic Billing Charges"
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-12 09:47:21.269777",
+ "modified": "2025-09-28 13:08:56.380291",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Periodic Billing",

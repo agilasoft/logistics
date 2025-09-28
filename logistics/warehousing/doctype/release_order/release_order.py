@@ -14,70 +14,68 @@ class ReleaseOrder(Document):
 @frappe.whitelist()
 def make_warehouse_job(source_name, target_doc=None):
     """
-    Map Release Order -> Warehouse Job using get_mapped_doc.
-    - Job Type: Pick
-    - Reference: Release Order
-    - Copies company/branch/customer when present
-    - Maps child tables:
-        • Release Order Item       -> Warehouse Job Order Items
-        • Release Order Charges    -> Warehouse Job Charges
+    Release Order -> Warehouse Job
+      - Job Type: Pick
+      - Reference: Release Order
+      - Child mappings:
+          • Release Order Item    -> Warehouse Job Order Items   (parentfield: orders)
+          • Release Order Charges -> Warehouse Job Charges       (parentfield: table_dxtc)
+          • Release Order Dock    -> Warehouse Job Dock          (parentfield: docks)
     """
+
+    def _get(obj, field, default=None):
+        return getattr(obj, field, default)
 
     def set_missing_values(source, target):
         target.type = "Pick"
         target.reference_order_type = "Release Order"
         target.reference_order = source.name
-        target.customer = source.customer
-        # scope
+        target.customer = _get(source, "customer")
+        target.warehouse_contract = _get(source, "contract")
+
         if hasattr(source, "company"):
             target.company = source.company
         if hasattr(source, "branch"):
             target.branch = source.branch
-        if hasattr(source, "customer"):
-            target.customer = source.customer
-        # optional, if your Job has this field
         if hasattr(target, "job_open_date"):
             target.job_open_date = nowdate()
 
-    def update_item(source_doc, target_doc, source_parent):
-        # Release Order Item fields (per your DocType):
-        # item, uom, quantity, serial_no, batch_no, handling_unit_type
-        target_doc.item = getattr(source_doc, "item", None)
-        if hasattr(source_doc, "uom"):
-            target_doc.uom = source_doc.uom
-        if hasattr(source_doc, "quantity"):
-            target_doc.quantity = source_doc.quantity
-        if hasattr(source_doc, "serial_no"):
-            target_doc.serial_no = source_doc.serial_no
-        if hasattr(source_doc, "batch_no"):
-            target_doc.batch_no = source_doc.batch_no
-        if hasattr(source_doc, "handling_unit_type"):
-            target_doc.handling_unit_type = source_doc.handling_unit_type
-        # Only map these if your RO Item actually has them
-        if hasattr(source_doc, "handling_unit"):
-            target_doc.handling_unit = source_doc.handling_unit
-        if hasattr(source_doc, "location"):
-            target_doc.location = source_doc.location
+    def update_item(src, tgt, src_parent):
+        tgt.item = _get(src, "item")
+        tgt.uom = _get(src, "uom")
+        tgt.quantity = _get(src, "quantity")
+        tgt.serial_no = _get(src, "serial_no")
+        tgt.batch_no = _get(src, "batch_no")
+        tgt.handling_unit_type = _get(src, "handling_unit_type")
+        # optional passthroughs if present on RO Item
+        hu = _get(src, "handling_unit")
+        if hu:
+            tgt.handling_unit = hu
+        loc = _get(src, "location")
+        if loc:
+            tgt.location = loc
 
-    def update_charge(source_doc, target_doc, source_parent):
-        # Be flexible: accept charge_item or item_code
+    def update_charge(src, tgt, src_parent):
         item_code = (
-            getattr(source_doc, "charge_item", None)
-            or getattr(source_doc, "item_code", None)
-            or getattr(source_doc, "item", None)
-            or getattr(source_doc, "item_charge", None)
+            _get(src, "charge_item")
+            or _get(src, "item_code")
+            or _get(src, "item")
+            or _get(src, "item_charge")
         )
-        target_doc.item_code = item_code
-        if hasattr(source_doc, "uom"):
-            target_doc.uom = source_doc.uom
-        if hasattr(source_doc, "quantity"):
-            target_doc.quantity = source_doc.quantity
-        if hasattr(source_doc, "currency"):
-            target_doc.currency = source_doc.currency
-        if hasattr(source_doc, "rate"):
-            target_doc.rate = source_doc.rate
-        if hasattr(source_doc, "total"):
-            target_doc.total = source_doc.total
+        if item_code:
+            tgt.item_code = item_code
+        tgt.uom = _get(src, "uom")
+        tgt.quantity = _get(src, "quantity")
+        tgt.currency = _get(src, "currency")
+        tgt.rate = _get(src, "rate")
+        tgt.total = _get(src, "total")
+
+    def update_dock(src, tgt, src_parent):
+        tgt.dock_door = _get(src, "dock_door")
+        tgt.eta = _get(src, "eta")
+        tgt.transport_company = _get(src, "transport_company")
+        tgt.vehicle_type = _get(src, "vehicle_type")
+        tgt.plate_no = _get(src, "plate_no")
 
     doc = get_mapped_doc(
         "Release Order",
@@ -85,17 +83,25 @@ def make_warehouse_job(source_name, target_doc=None):
         {
             "Release Order": {
                 "doctype": "Warehouse Job",
-                "field_map": {
-                    "name": "reference_order"
-                },
+                "field_map": {"name": "reference_order"},
             },
             "Release Order Item": {
                 "doctype": "Warehouse Job Order Items",
+                # ensure items go into Warehouse Job's 'orders' table field
+                "field_map": {"parentfield": "orders"},
                 "postprocess": update_item,
             },
             "Release Order Charges": {
                 "doctype": "Warehouse Job Charges",
+                # ensure charges go into 'table_dxtc' table field
+                "field_map": {"parentfield": "charges"},
                 "postprocess": update_charge,
+            },
+            "Release Order Dock": {
+                "doctype": "Warehouse Job Dock",
+                # ensure docks go into 'docks' table field
+                "field_map": {"parentfield": "docks"},
+                "postprocess": update_dock,
             },
         },
         target_doc,

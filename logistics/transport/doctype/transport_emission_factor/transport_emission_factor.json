@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-24 17:43:25.444485",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle_type",
+  "scope",
+  "fuel_type",
+  "factor_g_per_km",
+  "factor_g_per_ton_km",
+  "column_break_cvno",
+  "source",
+  "source_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Scope",
+   "options": "PER_KM\nPER_TON_KM"
+  },
+  {
+   "fieldname": "fuel_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Fuel Type"
+  },
+  {
+   "fieldname": "factor_g_per_km",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Factor (g/km)"
+  },
+  {
+   "fieldname": "column_break_cvno",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source"
+  },
+  {
+   "fieldname": "source_url",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source URL"
+  },
+  {
+   "fieldname": "factor_g_per_ton_km",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Factor (g/Tkm)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-24 18:00:17.951093",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Emission Factor",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

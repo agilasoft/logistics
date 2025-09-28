@@ -8,14 +8,22 @@
  "field_order": [
   "transport_leg",
   "run_sheet",
+  "column_break_jfkf",
+  "scheduled_date",
+  "actual_date",
+  "section_break_bapj",
   "column_break_pakq",
   "facility_type_from",
   "facility_from",
   "pick_mode",
+  "pick_address",
+  "pick_address_html",
   "column_break_aejb",
   "facility_type_to",
   "facility_to",
-  "drop_mode"
+  "drop_mode",
+  "drop_address",
+  "drop_address_html"
  ],
  "fields": [
   {
@@ -28,7 +36,8 @@
   },
   {
    "fieldname": "column_break_pakq",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "label": "Pick Details"
   },
   {
    "fetch_from": "transport_leg.facility_type_from",
@@ -51,7 +60,8 @@
   },
   {
    "fieldname": "column_break_aejb",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "label": "Drop Details"
   },
   {
    "fetch_from": "transport_leg.facility_type_to",
@@ -98,13 +108,55 @@
    "label": "Run Sheet",
    "options": "Run Sheet",
    "read_only": 1
+  },
+  {
+   "fieldname": "pick_address",
+   "fieldtype": "Link",
+   "label": "Pick Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "pick_address_html",
+   "fieldtype": "Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drop_address",
+   "fieldtype": "Link",
+   "label": "Drop Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "drop_address_html",
+   "fieldtype": "Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_bapj",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_jfkf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "transport_leg.date",
+   "fieldname": "scheduled_date",
+   "fieldtype": "Date",
+   "label": "Scheduled Date"
+  },
+  {
+   "fetch_from": "run_sheet.run_date",
+   "fieldname": "actual_date",
+   "fieldtype": "Date",
+   "label": "Actual Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-11 00:25:50.396104",
+ "modified": "2025-09-20 07:00:30.626115",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job Legs",

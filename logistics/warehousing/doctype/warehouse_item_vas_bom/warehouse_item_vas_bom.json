@@ -10,7 +10,8 @@
   "item",
   "vas_order_type",
   "column_break_ckmn",
-  "section_break_tnuu",
+  "reverse_bom",
+  "inputs_tab",
   "inputs",
   "notes_tab",
   "notes"
@@ -28,6 +29,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
+   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Warehouse Item"
   },
   {
@@ -40,10 +42,6 @@
   {
    "fieldname": "column_break_ckmn",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_tnuu",
-   "fieldtype": "Section Break"
   },
   {
    "fieldname": "inputs",
@@ -59,12 +57,24 @@
   {
    "fieldname": "notes",
    "fieldtype": "Text Editor"
+  },
+  {
+   "default": "0",
+   "description": "When checked, the ordered item will be picked and the BOM items will be received.",
+   "fieldname": "reverse_bom",
+   "fieldtype": "Check",
+   "label": "Reverse BOM"
+  },
+  {
+   "fieldname": "inputs_tab",
+   "fieldtype": "Tab Break",
+   "label": "BOM"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-22 00:33:43.652199",
+ "modified": "2025-09-28 12:34:12.902964",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Item VAS BOM",

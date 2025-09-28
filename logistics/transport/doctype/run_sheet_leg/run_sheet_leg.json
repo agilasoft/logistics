@@ -27,70 +27,86 @@
    "options": "Transport Leg"
   },
   {
+   "fetch_from": "transport_leg.transport_job",
    "fieldname": "transport_job",
    "fieldtype": "Link",
    "label": "Transport Job",
-   "options": "Transport Job"
+   "options": "Transport Job",
+   "read_only": 1
   },
   {
+   "fetch_from": "transport_job.customer",
    "fieldname": "customer",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_ssrh",
    "fieldtype": "Section Break"
   },
   {
+   "fetch_from": "transport_leg.facility_type_from",
    "fieldname": "facility_type_from",
    "fieldtype": "Link",
    "label": "Facility Type From",
-   "options": "DocType"
+   "options": "DocType",
+   "read_only": 1
   },
   {
+   "fetch_from": "transport_leg.facility_from",
    "fieldname": "facility_from",
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
    "label": "Facility From",
-   "options": "facility_type_from"
+   "options": "facility_type_from",
+   "read_only": 1
   },
   {
+   "fetch_from": "transport_leg.pick_mode",
    "fieldname": "pick_mode",
    "fieldtype": "Link",
    "label": "Pick Mode",
-   "options": "Pick and Drop Mode"
+   "options": "Pick and Drop Mode",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_nstg",
    "fieldtype": "Column Break"
   },
   {
+   "fetch_from": "transport_leg.facility_type_to",
    "fieldname": "facility_type_to",
    "fieldtype": "Link",
    "label": "Facility Type To",
-   "options": "DocType"
+   "options": "DocType",
+   "read_only": 1
   },
   {
+   "fetch_from": "transport_leg.facility_to",
    "fieldname": "facility_to",
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
    "label": "Facility To",
-   "options": "facility_type_to"
+   "options": "facility_type_to",
+   "read_only": 1
   },
   {
+   "fetch_from": "transport_leg.drop_mode",
    "fieldname": "drop_mode",
    "fieldtype": "Link",
    "label": "Drop Mode",
-   "options": "Pick and Drop Mode"
+   "options": "Pick and Drop Mode",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-11 08:11:37.665666",
+ "modified": "2025-09-20 09:21:47.989696",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Run Sheet Leg",

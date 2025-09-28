@@ -11,6 +11,8 @@
   "column_break_vrcu",
   "brand",
   "supplier",
+  "status",
+  "mark_inactive_on_release",
   "section_break_wunt",
   "notes",
   "entity_tab",
@@ -85,12 +87,24 @@
    "fieldname": "notes",
    "fieldtype": "Text Editor",
    "label": "Notes"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Available\nIn Use\nUnder Maintenance\nInactive"
+  },
+  {
+   "default": "0",
+   "fieldname": "mark_inactive_on_release",
+   "fieldtype": "Check",
+   "label": "Mark Inactive on Release"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-06 19:40:11.084981",
+ "modified": "2025-09-22 07:29:31.743440",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Handling Unit",

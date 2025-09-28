@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2025-06-01 15:27:41.812042",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "cy_name",
+  "column_break_xzht",
+  "addreses_and_contacts_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_ypvh",
+  "contact_html",
+  "section_break_lezp",
+  "containeryard_primary_address",
+  "primary_address",
+  "column_break_fgxt",
+  "containeryard_primary_contact"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "cy_name",
+   "fieldtype": "Data",
+   "label": "CY Name"
+  },
+  {
+   "fieldname": "column_break_xzht",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "addreses_and_contacts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addreses and Contacts"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "column_break_ypvh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_lezp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "containeryard_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Text"
+  },
+  {
+   "fieldname": "column_break_fgxt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "containeryard_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-17 11:31:57.582205",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Container Yard",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "cy_name, code",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "cy_name"
+}

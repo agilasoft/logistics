@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from typing import Optional, List, Dict, Any
 from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 from frappe import _
@@ -167,6 +168,26 @@ def _make_ledger_row(job, ji, delta_qty, beg_qty, end_qty, posting_dt):
 # ---------------------------------------------------------------------------
 
 class WarehouseJob(Document):
+    def before_save(self):
+        # Auto-fill charges pricing from Warehouse Contract and compute totals
+        try:
+            if getattr(self, 'charges', None):
+                contract = getattr(self, 'warehouse_contract', None) or _find_customer_contract(getattr(self, 'customer', None))
+                for ch in self.charges:
+                    item_code = getattr(ch, 'item_code', None) or getattr(ch, 'item', None)
+                    qty = flt(getattr(ch, 'quantity', 0))
+                    if item_code and (getattr(ch, 'rate', None) in (None, '') or flt(ch.rate) == 0):
+                        rate, cur = _get_charge_price_from_contract(contract, item_code)
+                        if rate is not None:
+                            ch.rate = rate
+                        if cur and hasattr(ch, 'currency'):
+                            ch.currency = cur
+                    # (re)compute total
+                    if hasattr(ch, 'total'):
+                        ch.total = flt(qty) * flt(getattr(ch, 'rate', 0))
+        except Exception as e:
+            frappe.logger().warning(f"[WarehouseJob.before_save] charges autofill warning: {e}")
+
     def on_submit(self):
         job_type = (getattr(self, "type", "") or "").strip()
 
@@ -190,7 +211,7 @@ class WarehouseJob(Document):
                 delta = sign * qty
             else:
                 # Move / Others: accept signed quantities (negative for source, positive for destination)
-                if qty == 0:
+                if qty == 0 and job_type != "Stocktake":
                     frappe.throw(_("Row #{0}: Quantity cannot be zero.").format(ji.idx))
                 delta = qty
 
@@ -218,3 +239,44 @@ class WarehouseJob(Document):
                 )
 
             _make_ledger_row(self, ji, delta, beg, end, posting_dt)
+
+# ---------------------------------------------------------------------------
+# Charges pricing helpers
+# ---------------------------------------------------------------------------
+
+def _find_customer_contract(customer: str | None) -> str | None:
+    """Find an active Warehouse Contract for a given customer (prefers submitted)."""
+    if not customer:
+        return None
+    cond = {"customer": customer}
+    rows = frappe.get_all("Warehouse Contract", filters={**cond, "docstatus": 1}, fields=["name"], limit=1)
+    if rows:
+        return rows[0]["name"]
+    rows = frappe.get_all("Warehouse Contract", filters={**cond, "docstatus": 0}, fields=["name"], limit=1)
+    return rows[0]["name"] if rows else None
+
+
+def _get_charge_price_from_contract(contract: str | None, item_code: str | None):
+    """Return (rate, currency) for a charge item from Warehouse Contract Item; None if not found."""
+    if not contract or not item_code:
+        return None, None
+    row = frappe.get_all(
+        "Warehouse Contract Item",
+        filters={"parent": contract, "parenttype": "Warehouse Contract", "item_charge": item_code},
+        fields=["rate", "currency"],
+        limit=1,
+        ignore_permissions=True,
+    )
+    if row:
+        return flt(row[0].get("rate") or 0.0), row[0].get("currency")
+    return None, None
+
+
+@frappe.whitelist()
+def warehouse_job_fetch_charge_price(warehouse_job: str, item_code: str) -> dict:
+    """Client helper: fetch rate/currency for charge item based on the Job's contract (or customer's)."""
+    job = frappe.get_doc("Warehouse Job", warehouse_job)
+    contract = getattr(job, "warehouse_contract", None) or _find_customer_contract(getattr(job, "customer", None))
+    rate, currency = _get_charge_price_from_contract(contract, item_code)
+    return {"rate": flt(rate or 0.0), "currency": currency}
+

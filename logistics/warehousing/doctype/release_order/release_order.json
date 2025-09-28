@@ -23,7 +23,7 @@
   "charges_tab",
   "charges",
   "docking_tab",
-  "table_ymzf",
+  "docks",
   "notes_tab",
   "notes",
   "entity_tab",
@@ -114,11 +114,6 @@
    "options": "Release Order Charges"
   },
   {
-   "fieldname": "table_ymzf",
-   "fieldtype": "Table",
-   "options": "Release Order Dock"
-  },
-  {
    "fieldname": "docking_tab",
    "fieldtype": "Tab Break",
    "label": "Docking"
@@ -160,13 +155,18 @@
    "label": "Branch",
    "options": "Branch",
    "reqd": 1
+  },
+  {
+   "fieldname": "docks",
+   "fieldtype": "Table",
+   "options": "Release Order Dock"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-12 21:23:18.597354",
+ "modified": "2025-09-18 14:01:24.150005",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order",

@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-19 14:43:50.584099",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "permit_type",
+  "issued_by",
+  "column_break_etmv",
+  "reference_no",
+  "date_issued",
+  "valid_until"
+ ],
+ "fields": [
+  {
+   "fieldname": "permit_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Permit Type",
+   "link_filters": "[[\"License and Permit Type\",\"transport\",\"=\",1]]",
+   "options": "License and Permit Type"
+  },
+  {
+   "fetch_from": "permit_type.issued_by",
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Issued By",
+   "options": "Supplier",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_etmv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "date_issued",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date Issued"
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid Until"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-19 14:48:50.731892",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Vehicle Permits",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

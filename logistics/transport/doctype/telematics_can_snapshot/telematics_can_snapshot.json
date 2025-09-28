@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-27 08:57:00.045162",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle",
+  "provider",
+  "external_id",
+  "ts",
+  "column_break_pqbz",
+  "fuel_l",
+  "rpm",
+  "engine_hours",
+  "coolant_c",
+  "ambient_c",
+  "section_break_lbjp",
+  "raw_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Transport Vehicle"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "label": "Provider",
+   "options": "Telematics Provider"
+  },
+  {
+   "fieldname": "external_id",
+   "fieldtype": "Data",
+   "label": "External ID"
+  },
+  {
+   "fieldname": "ts",
+   "fieldtype": "Datetime",
+   "label": "Timestamp"
+  },
+  {
+   "fieldname": "column_break_pqbz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fuel_l",
+   "fieldtype": "Float",
+   "label": "Fuel (l)",
+   "precision": "2"
+  },
+  {
+   "fieldname": "rpm",
+   "fieldtype": "Float",
+   "label": "RPM",
+   "precision": "0"
+  },
+  {
+   "fieldname": "engine_hours",
+   "fieldtype": "Float",
+   "label": "Engine Hours",
+   "precision": "2"
+  },
+  {
+   "fieldname": "coolant_c",
+   "fieldtype": "Float",
+   "label": "Coolant (\u00b0C)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "ambient_c",
+   "fieldtype": "Float",
+   "label": "Ambient (\u00b0C)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "section_break_lbjp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "raw_json",
+   "fieldtype": "Long Text",
+   "label": "Raw JSON"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-27 09:01:00.947624",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Telematics CAN Snapshot",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

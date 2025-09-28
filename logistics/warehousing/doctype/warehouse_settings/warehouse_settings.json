@@ -5,27 +5,29 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "default_site",
-  "planned_date_offset_days"
+  "planned_date_offset_days",
+  "allocation_level_limit"
  ],
  "fields": [
   {
-   "fieldname": "default_site",
-   "fieldtype": "Link",
-   "label": "Default Site",
-   "options": "Storage Location"
-  },
-  {
+   "description": "Sets an offset (in days) that your server logic can use to auto-populate \u201cplanned\u201d dates on new Jobs/Orders.",
    "fieldname": "planned_date_offset_days",
    "fieldtype": "Int",
    "label": "Planned Date Offset Days"
+  },
+  {
+   "description": "Constrains candidate locations for Putaway destinations and Pick sources so they share the hierarchy path with the job\u2019s Staging Area up to the selected level.",
+   "fieldname": "allocation_level_limit",
+   "fieldtype": "Select",
+   "label": "Allocation Level Limit",
+   "options": "Site\nBuilding\nZone\nAisle\nBay\nLevel"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-12 21:05:04.600474",
+ "modified": "2025-09-18 15:11:14.803195",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",

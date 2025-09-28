@@ -7,20 +7,19 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
-  "transport_job_type",
   "booking_date",
   "transport_template",
+  "transport_job_type",
   "column_break_5",
   "customer",
   "customer_ref_no",
   "transport_order",
-  "hazardous",
-  "refrigeration",
   "column_break_tjia",
   "vehicle_type",
-  "vehicle",
-  "driver",
-  "transport_company",
+  "container_type",
+  "container_no",
+  "hazardous",
+  "refrigeration",
   "section_break_jozr",
   "packages",
   "leg_plan_tab",
@@ -46,13 +45,15 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "reqd": 1
   },
   {
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Booking Date"
+   "label": "Booking Date",
+   "reqd": 1
   },
   {
    "fieldname": "customer_ref_no",
@@ -68,7 +69,8 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type"
+   "options": "Vehicle Type",
+   "reqd": 1
   },
   {
    "default": "0",
@@ -82,24 +84,6 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Refrigeration"
-  },
-  {
-   "fieldname": "vehicle",
-   "fieldtype": "Link",
-   "label": "Vehicle",
-   "options": "Vehicle"
-  },
-  {
-   "fieldname": "driver",
-   "fieldtype": "Link",
-   "label": "Driver",
-   "options": "Driver"
-  },
-  {
-   "fieldname": "transport_company",
-   "fieldtype": "Link",
-   "label": "Transport Company",
-   "options": "Transport Company"
   },
   {
    "fieldname": "packages",
@@ -135,12 +119,6 @@
    "options": "Transport Job",
    "print_hide": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "transport_job_type",
-   "fieldtype": "Select",
-   "label": "Transport Job Class",
-   "options": "Container\nNon-Container\nSpecial\nMultimodal\nHeavy Haul"
   },
   {
    "fieldname": "column_break_tjia",
@@ -180,17 +158,39 @@
    "fieldname": "transport_template",
    "fieldtype": "Link",
    "label": "Transport Template",
-   "options": "Transport Template"
+   "options": "Transport Template",
+   "reqd": 1
   },
   {
    "fieldname": "legs",
    "fieldtype": "Table",
    "options": "Transport Job Legs"
+  },
+  {
+   "fieldname": "transport_job_type",
+   "fieldtype": "Select",
+   "label": "Transport Job Type",
+   "options": "Container\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul"
+  },
+  {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "mandatory_depends_on": "eval:doc.transport_job_type=='Container'",
+   "options": "Container Type"
+  },
+  {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No.",
+   "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-10 23:47:47.501207",
+ "modified": "2025-09-26 14:35:04.082825",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
@@ -207,6 +207,7 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],

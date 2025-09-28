@@ -12,6 +12,7 @@
   "booking_date",
   "customer_ref_no",
   "column_break_5",
+  "scheduled_date",
   "vehicle_type",
   "hazardous",
   "refrigeration",
@@ -146,11 +147,16 @@
    "fieldname": "legs",
    "fieldtype": "Table",
    "options": "Transport Order Legs"
+  },
+  {
+   "fieldname": "scheduled_date",
+   "fieldtype": "Date",
+   "label": "Scheduled Date"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-11 00:17:22.431572",
+ "modified": "2025-09-20 06:57:22.443553",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order",

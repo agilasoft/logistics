@@ -7,7 +7,18 @@
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "consignee_name"
+  "consignee_name",
+  "addresses_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_nivp",
+  "contact_html",
+  "section_break_vizq",
+  "consignee_primary_address",
+  "primary_address",
+  "column_break_umfc",
+  "consignee_primary_contact",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -20,12 +31,66 @@
    "fieldname": "consignee_name",
    "fieldtype": "Data",
    "label": "Consignee Name"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addresses and Contacts"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "consignee_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_nivp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_vizq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_umfc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Text",
+   "label": "Primary Address"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-29 16:07:07.766528",
+ "modified": "2025-09-17 11:19:34.125711",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Consignee",

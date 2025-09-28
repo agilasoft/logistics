@@ -80,3 +80,90 @@ function create_run_sheet_from_job(frm, payload) {
   });
 }
 
+// --- Transport Job: child (Transport Job Legs) address filters ---
+
+const TO_LEGS_FIELD = "legs"; // change to "legs" if that's your fieldname
+
+frappe.ui.form.on("Transport Job", {
+  setup(frm) {
+    bind_leg_address_queries(frm);
+  },
+  refresh(frm) {
+    bind_leg_address_queries(frm);
+  },
+});
+
+function bind_leg_address_queries(frm) {
+  // Pick Address: filter by (facility_type_from, facility_from)
+  frm.set_query("pick_address", TO_LEGS_FIELD, function (doc, cdt, cdn) {
+    const row = locals[cdt][cdn] || {};
+    if (row.facility_type_from && row.facility_from) {
+      return {
+        filters: {
+          link_doctype: row.facility_type_from,
+          link_name: row.facility_from,
+        },
+      };
+    }
+    // block selection until a facility is chosen
+    return { filters: { name: "__none__" } };
+  });
+
+  // Drop Address: filter by (facility_type_to, facility_to)
+  frm.set_query("drop_address", TO_LEGS_FIELD, function (doc, cdt, cdn) {
+    const row = locals[cdt][cdn] || {};
+    if (row.facility_type_to && row.facility_to) {
+      return {
+        filters: {
+          link_doctype: row.facility_type_to,
+          link_name: row.facility_to,
+        },
+      };
+    }
+    return { filters: { name: "__none__" } };
+  });
+}
+
+// Optional: clear addresses if related facility changes (prevents stale values)
+frappe.ui.form.on("Transport Job Legs", {
+  facility_type_from(frm, cdt, cdn) {
+    frappe.model.set_value(cdt, cdn, "pick_address", null);
+    frappe.model.set_value(cdt, cdn, "pick_address_html", "");
+  },
+  facility_from(frm, cdt, cdn) {
+    frappe.model.set_value(cdt, cdn, "pick_address", null);
+    frappe.model.set_value(cdt, cdn, "pick_address_html", "");
+  },
+  facility_type_to(frm, cdt, cdn) {
+    frappe.model.set_value(cdt, cdn, "drop_address", null);
+    frappe.model.set_value(cdt, cdn, "drop_address_html", "");
+  },
+  facility_to(frm, cdt, cdn) {
+    frappe.model.set_value(cdt, cdn, "drop_address", null);
+    frappe.model.set_value(cdt, cdn, "drop_address_html", "");
+  },
+
+  // When an address is picked, format HTML using ERPNext's formatter
+  pick_address(frm, cdt, cdn) {
+    format_row_address_html(cdt, cdn, "pick_address", "pick_address_html");
+  },
+  drop_address(frm, cdt, cdn) {
+    format_row_address_html(cdt, cdn, "drop_address", "drop_address_html");
+  },
+});
+
+function format_row_address_html(cdt, cdn, addr_field, html_field) {
+  const row = locals[cdt][cdn];
+  const addr = row[addr_field];
+  if (!addr) {
+    frappe.model.set_value(cdt, cdn, html_field, "");
+    return;
+  }
+  frappe.call({
+    method: "frappe.contacts.doctype.address.address.get_address_display",
+    args: { address_dict: addr }, // accepts name or dict
+    callback: (r) => {
+      frappe.model.set_value(cdt, cdn, html_field, r.message || "");
+    },
+  });
+}

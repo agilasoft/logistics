@@ -1,0 +1,20 @@
+{
+ "content": null,
+ "creation": "2025-09-25 16:59:59.958286",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-09-25 16:59:59.958286",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "run-sheet-scan",
+ "owner": "Administrator",
+ "page_name": "run-sheet-scan",
+ "restrict_to_domain": "",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 1,
+ "title": "Run Sheet Scan"
+}

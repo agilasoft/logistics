@@ -1,0 +1,216 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-19 23:37:09.296973",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "forward_days_in_transport_plan",
+  "backward_days_in_transport_plan",
+  "routing_tab",
+  "routing_provider",
+  "osrm_base_url",
+  "routing_mapbox_api_key",
+  "routing_google_api_key",
+  "routing_default_avg_speed_kmh",
+  "column_break_rifi",
+  "routing_auto_compute",
+  "routing_show_map",
+  "maps_enable_external_links",
+  "routing_tiles_url",
+  "routing_tiles_attr",
+  "routing_timeout_sec",
+  "telematics_tab",
+  "default_telematics_provider",
+  "telematics_poll_interval_min",
+  "carbon_tab",
+  "carbon_autocompute",
+  "carbon_default_factor_g_per_km",
+  "carbon_default_factor_g_per_ton_km",
+  "column_break_ezfi",
+  "carbon_provider",
+  "carbon_provider_api_key",
+  "carbon_provider_url",
+  "section_break_sdbl",
+  "emission_factors"
+ ],
+ "fields": [
+  {
+   "fieldname": "forward_days_in_transport_plan",
+   "fieldtype": "Int",
+   "label": "Forward Days in Transport Plan"
+  },
+  {
+   "fieldname": "backward_days_in_transport_plan",
+   "fieldtype": "Int",
+   "label": "Backward Days in Transport Plan"
+  },
+  {
+   "default": "OSRM",
+   "fieldname": "routing_provider",
+   "fieldtype": "Select",
+   "label": "Routing Provider",
+   "options": "Disabled\nOSRM\nMapbox\nGoogle"
+  },
+  {
+   "fieldname": "column_break_rifi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "https://router.project-osrm.org",
+   "fieldname": "osrm_base_url",
+   "fieldtype": "Data",
+   "label": "OSRM Base URL"
+  },
+  {
+   "fieldname": "routing_mapbox_api_key",
+   "fieldtype": "Password",
+   "label": "Mapbox API Key"
+  },
+  {
+   "fieldname": "routing_google_api_key",
+   "fieldtype": "Password",
+   "label": "Google API Key"
+  },
+  {
+   "default": "40",
+   "fieldname": "routing_default_avg_speed_kmh",
+   "fieldtype": "Float",
+   "label": "Default Avg Speed (KPH)"
+  },
+  {
+   "default": "1",
+   "fieldname": "routing_auto_compute",
+   "fieldtype": "Check",
+   "label": "Routing Auto Compute"
+  },
+  {
+   "default": "1",
+   "fieldname": "routing_show_map",
+   "fieldtype": "Check",
+   "label": "Routing Show Map"
+  },
+  {
+   "fieldname": "routing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Routing"
+  },
+  {
+   "default": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+   "fieldname": "routing_tiles_url",
+   "fieldtype": "Data",
+   "label": "Routing Tiles URL"
+  },
+  {
+   "default": "&copy; <a target=\"_blank\" href=\"https://www.openstreetmap.org/copyright\">OSM</a> contributors",
+   "fieldname": "routing_tiles_attr",
+   "fieldtype": "Small Text",
+   "label": "Routing Tiles Attr"
+  },
+  {
+   "fieldname": "routing_timeout_sec",
+   "fieldtype": "Int",
+   "label": "Routing Timeout (sec)"
+  },
+  {
+   "default": "0",
+   "fieldname": "maps_enable_external_links",
+   "fieldtype": "Check",
+   "label": "Maps Enable External Links"
+  },
+  {
+   "fieldname": "carbon_tab",
+   "fieldtype": "Tab Break",
+   "label": "Carbon"
+  },
+  {
+   "fieldname": "carbon_provider",
+   "fieldtype": "Select",
+   "label": "Carbon Provider",
+   "options": "FACTOR_TABLE\nCLIMATIQ\nCARBON_INTERFACE\nCUSTOM_WEBHOOK"
+  },
+  {
+   "default": "800",
+   "fieldname": "carbon_default_factor_g_per_km",
+   "fieldtype": "Float",
+   "label": "Carbon Default Factor (g/km)"
+  },
+  {
+   "default": "62",
+   "fieldname": "carbon_default_factor_g_per_ton_km",
+   "fieldtype": "Float",
+   "label": "Carbon Default Factor (g/Tkm)"
+  },
+  {
+   "fieldname": "carbon_provider_api_key",
+   "fieldtype": "Password",
+   "label": "Carbon Provider API Key"
+  },
+  {
+   "fieldname": "column_break_ezfi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "carbon_provider_url",
+   "fieldtype": "Data",
+   "label": "Carbon Provider URL"
+  },
+  {
+   "fieldname": "section_break_sdbl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "emission_factors",
+   "fieldtype": "Table",
+   "label": "Emission Factors",
+   "options": "Transport Emission Factor"
+  },
+  {
+   "default": "1",
+   "fieldname": "carbon_autocompute",
+   "fieldtype": "Check",
+   "label": "Carbon Autocompute"
+  },
+  {
+   "fieldname": "telematics_tab",
+   "fieldtype": "Tab Break",
+   "label": "Telematics"
+  },
+  {
+   "fieldname": "default_telematics_provider",
+   "fieldtype": "Link",
+   "label": "Default Telematics Provider",
+   "options": "Telematics Provider"
+  },
+  {
+   "fieldname": "telematics_poll_interval_min",
+   "fieldtype": "Int",
+   "label": "Telematics Poll Interval (min)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-09-26 18:33:04.873248",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

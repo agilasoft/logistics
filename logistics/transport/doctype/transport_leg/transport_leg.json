@@ -9,16 +9,70 @@
   "section_break_fcp1",
   "amended_from",
   "naming_series",
+  "date",
+  "column_break_srly",
   "transport_job",
+  "transport_job_type",
+  "hazardous",
+  "refrigeration",
+  "column_break_jewt",
+  "priority",
+  "vehicle_type",
   "run_sheet",
+  "run_date",
+  "pickup_tab",
   "column_break_ddgn",
   "facility_type_from",
   "facility_from",
+  "pick_address",
+  "pick_address_format",
+  "column_break_nzht",
   "pick_mode",
+  "pick_window_start",
+  "pick_window_end",
+  "drop_tab",
   "column_break_xsyy",
   "facility_type_to",
   "facility_to",
-  "drop_mode"
+  "drop_address",
+  "drop_address_html",
+  "column_break_nmkr",
+  "drop_mode",
+  "drop_window_start",
+  "drop_window_end",
+  "routing_tab",
+  "distance_km",
+  "duration_min",
+  "actual_distance_km",
+  "actual_duration_min",
+  "column_break_vbhy",
+  "start_date",
+  "end_date",
+  "column_break_yocf",
+  "routing_provider",
+  "routing_profile",
+  "telematics_tab",
+  "eta_at_drop",
+  "remaining_km",
+  "remaining_min",
+  "column_break_hdfr",
+  "auto_arrival_enabled",
+  "auto_departure_enabled",
+  "arrival_radius_m",
+  "departure_radius_m",
+  "column_break_pbaa",
+  "route_failure_reason",
+  "carbon_tab",
+  "co2e_kg",
+  "co2e_method",
+  "co2e_scope",
+  "emission_factor",
+  "emission_factor_gscop",
+  "column_break_dreg",
+  "carbon_provider",
+  "co2e_source",
+  "co2e_last_computed",
+  "cargo_weight_kg"
  ],
  "fields": [
   {
@@ -66,6 +120,7 @@
    "fieldname": "facility_type_to",
    "fieldtype": "Link",
    "label": "Facility Type To",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
    "options": "DocType"
   },
   {
@@ -77,8 +132,10 @@
   {
    "fieldname": "transport_job",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Transport Job",
-   "options": "Transport Job"
+   "options": "Transport Job",
+   "reqd": 1
   },
   {
    "fieldname": "pick_mode",
@@ -97,15 +154,312 @@
   {
    "fieldname": "run_sheet",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Run Sheet",
    "options": "Run Sheet"
+  },
+  {
+   "fieldname": "pick_address",
+   "fieldtype": "Link",
+   "label": "Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "pick_address_format",
+   "fieldtype": "Text"
+  },
+  {
+   "fieldname": "drop_address",
+   "fieldtype": "Link",
+   "label": "Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "drop_address_html",
+   "fieldtype": "Text"
+  },
+  {
+   "fieldname": "pickup_tab",
+   "fieldtype": "Tab Break",
+   "label": "Pick"
+  },
+  {
+   "fieldname": "column_break_nzht",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "pick_address.custom_pickup_window_start",
+   "fieldname": "pick_window_start",
+   "fieldtype": "Time",
+   "label": "Pick Window Start"
+  },
+  {
+   "fetch_from": "pick_address.custom_pickup_window_end",
+   "fieldname": "pick_window_end",
+   "fieldtype": "Time",
+   "label": "Pick Window End"
+  },
+  {
+   "fieldname": "drop_tab",
+   "fieldtype": "Tab Break",
+   "label": "Drop"
+  },
+  {
+   "fieldname": "column_break_nmkr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "drop_address.custom_drop_window_start",
+   "fieldname": "drop_window_start",
+   "fieldtype": "Time",
+   "label": "Drop Window Start"
+  },
+  {
+   "fetch_from": "drop_address.custom_drop_windows_end",
+   "fieldname": "drop_window_end",
+   "fieldtype": "Time",
+   "label": "Drop Window End"
+  },
+  {
+   "fieldname": "column_break_jewt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "run_sheet.run_date",
+   "fieldname": "run_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Run Date"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "transport_job.hazardous",
+   "fieldname": "hazardous",
+   "fieldtype": "Check",
+   "label": "Hazardous",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "transport_job.refrigeration",
+   "fieldname": "refrigeration",
+   "fieldtype": "Check",
+   "label": "Refrigeration",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "transport_job.vehicle_type",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_srly",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh"
+  },
+  {
+   "fieldname": "transport_job_type",
+   "fieldtype": "Select",
+   "label": "Transport Job Type",
+   "options": "Container\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul",
+   "reqd": 1
+  },
+  {
+   "fieldname": "routing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Routing"
+  },
+  {
+   "fieldname": "distance_km",
+   "fieldtype": "Float",
+   "label": "Distance (km)"
+  },
+  {
+   "fieldname": "duration_min",
+   "fieldtype": "Float",
+   "label": "Duration (min)"
+  },
+  {
+   "fieldname": "routing_provider",
+   "fieldtype": "Data",
+   "label": "Routing Provider",
+   "read_only": 1
+  },
+  {
+   "fieldname": "routing_profile",
+   "fieldtype": "Data",
+   "label": "Routing Profile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_vbhy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_yocf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "carbon_tab",
+   "fieldtype": "Tab Break",
+   "label": "Carbon"
+  },
+  {
+   "fieldname": "co2e_kg",
+   "fieldtype": "Float",
+   "label": "CO\u2082e (kg)"
+  },
+  {
+   "fieldname": "co2e_method",
+   "fieldtype": "Select",
+   "label": "Emission Method",
+   "options": "PER_TON_KM\nPER_KM"
+  },
+  {
+   "fieldname": "co2e_scope",
+   "fieldtype": "Data",
+   "label": "Emission Scope Applied"
+  },
+  {
+   "fieldname": "emission_factor",
+   "fieldtype": "Float",
+   "label": "Emission Factor "
+  },
+  {
+   "fieldname": "column_break_dreg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "emission_factor_gscop",
+   "fieldtype": "Float",
+   "label": "Emission Factor (g/scop)"
+  },
+  {
+   "fieldname": "carbon_provider",
+   "fieldtype": "Data",
+   "label": "Carbon Provider"
+  },
+  {
+   "fieldname": "co2e_source",
+   "fieldtype": "Data",
+   "label": "Carbon Source"
+  },
+  {
+   "fieldname": "co2e_last_computed",
+   "fieldtype": "Datetime",
+   "label": "Carbon Last Computed"
+  },
+  {
+   "fieldname": "cargo_weight_kg",
+   "fieldtype": "Float",
+   "label": "Cargo Weight (kg)"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "actual_distance_km",
+   "fieldtype": "Float",
+   "label": "Actual Distance (km)",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "actual_duration_min",
+   "fieldtype": "Float",
+   "label": "Actual Duration (min)",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "start_date",
+   "fieldtype": "Datetime",
+   "label": "Start Date"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "end_date",
+   "fieldtype": "Datetime",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "telematics_tab",
+   "fieldtype": "Tab Break",
+   "label": "Telematics"
+  },
+  {
+   "fieldname": "eta_at_drop",
+   "fieldtype": "Datetime",
+   "label": "ETA at Drop"
+  },
+  {
+   "fieldname": "remaining_km",
+   "fieldtype": "Float",
+   "label": "Remaining (km)",
+   "precision": "3"
+  },
+  {
+   "fieldname": "remaining_min",
+   "fieldtype": "Float",
+   "label": "Remaining (min)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "column_break_hdfr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_arrival_enabled",
+   "fieldtype": "Check",
+   "label": "Auto Arrival Enabled"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_departure_enabled",
+   "fieldtype": "Check",
+   "label": "Auto Departure Enabled"
+  },
+  {
+   "default": "200",
+   "fieldname": "arrival_radius_m",
+   "fieldtype": "Int",
+   "label": "Arrival Radius (m)"
+  },
+  {
+   "fieldname": "departure_radius_m",
+   "fieldtype": "Int",
+   "label": "Departure Radius (m)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "column_break_pbaa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "route_failure_reason",
+   "fieldtype": "Small Text",
+   "label": "Route Failure Reason"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-10 23:54:05.271717",
+ "modified": "2025-09-26 20:01:50.335403",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Leg",

@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-19 23:18:53.411558",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "run_sheet",
+  "run_date",
+  "vehicle",
+  "driver"
+ ],
+ "fields": [
+  {
+   "fieldname": "run_sheet",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Run Sheet",
+   "options": "Run Sheet"
+  },
+  {
+   "fetch_from": "run_sheet.run_date",
+   "fieldname": "run_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Run Date",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "run_sheet.vehicle",
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle",
+   "options": "Transport Vehicle",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "run_sheet.driver",
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Driver",
+   "options": "Driver",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-26 15:50:59.745480",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Plan Run Sheets",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -93,7 +93,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Vehicle",
-   "options": "Vehicle"
+   "options": "Transport Vehicle"
   },
   {
    "fieldname": "transport_company",
@@ -106,7 +106,7 @@
    "fieldname": "driver",
    "fieldtype": "Link",
    "label": "Driver",
-   "options": "Employee"
+   "options": "Driver"
   },
   {
    "fieldname": "transport_leg_tab",
@@ -129,7 +129,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-11 09:31:33.211586",
+ "modified": "2025-09-20 07:16:51.278568",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Run Sheet",

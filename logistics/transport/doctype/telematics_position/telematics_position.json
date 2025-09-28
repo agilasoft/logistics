@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-26 20:06:20.837642",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle",
+  "provider",
+  "external_id",
+  "ts",
+  "column_break_tpct",
+  "lat",
+  "lon",
+  "speed_kph",
+  "ignition",
+  "odometer_km",
+  "column_break_wosh",
+  "raw_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Transport Vehicle"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "label": "Provider",
+   "options": "Telematics Provider"
+  },
+  {
+   "fieldname": "external_id",
+   "fieldtype": "Data",
+   "label": "External ID"
+  },
+  {
+   "fieldname": "ts",
+   "fieldtype": "Datetime",
+   "label": "Timestamp"
+  },
+  {
+   "fieldname": "column_break_tpct",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lat",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "6"
+  },
+  {
+   "fieldname": "lon",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "6"
+  },
+  {
+   "fieldname": "speed_kph",
+   "fieldtype": "Float",
+   "label": "Speed (kph)",
+   "precision": "1"
+  },
+  {
+   "default": "0",
+   "fieldname": "ignition",
+   "fieldtype": "Check",
+   "label": "Ignition"
+  },
+  {
+   "fieldname": "odometer_km",
+   "fieldtype": "Float",
+   "label": "Odometer (km)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "column_break_wosh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "raw_json",
+   "fieldtype": "Long Text",
+   "label": "Raw JSON"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-26 20:09:49.864769",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Telematics Position",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

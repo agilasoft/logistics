@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-06-01 14:29:31.454713",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -12,13 +13,24 @@
   "air_cfs",
   "sea_cfs",
   "rail_cfs",
-  "road_cfs"
+  "road_cfs",
+  "tab_2_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_msbx",
+  "contact_html",
+  "section_break_rjhf",
+  "cfs_primary_address",
+  "primary_address",
+  "column_break_juch",
+  "cfs_primary_contact"
  ],
  "fields": [
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "cfs_name",
@@ -58,15 +70,64 @@
    "fieldname": "road_cfs",
    "fieldtype": "Check",
    "label": "Road CFS"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addresses & Contacts"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "column_break_msbx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_rjhf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cfs_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Long Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_juch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cfs_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-01 14:31:32.430355",
+ "modified": "2025-09-17 13:10:11.118730",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container Freight Station",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -83,7 +144,9 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "cfs_name",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "cfs_name"
 }

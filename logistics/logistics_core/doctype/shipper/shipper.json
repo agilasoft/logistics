@@ -14,13 +14,15 @@
   "default_currency",
   "default_incoterm",
   "defaults_tab",
-  "default_pickup_address",
-  "default_delivery_address",
-  "default_bl_address",
-  "column_break_tjrc",
+  "addresses_and_contacts",
   "address_html",
-  "section_break_oteu",
-  "addresses"
+  "column_break_ekpq",
+  "contact_html",
+  "section_break_unej",
+  "shipper_primary_address",
+  "primary_address",
+  "column_break_giwp",
+  "shipper_primary_contact"
  ],
  "fields": [
   {
@@ -68,51 +70,55 @@
   {
    "fieldname": "defaults_tab",
    "fieldtype": "Tab Break",
+   "label": "Addresses and Contacts"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
    "label": "Addresses"
   },
   {
-   "fieldname": "default_pickup_address",
-   "fieldtype": "Link",
-   "label": "Default Pickup Address",
-   "options": "Address"
-  },
-  {
-   "fieldname": "default_delivery_address",
-   "fieldtype": "Link",
-   "label": "Default Delivery Address",
-   "options": "Address"
-  },
-  {
-   "fieldname": "default_bl_address",
-   "fieldtype": "Link",
-   "label": "Default BL Address",
-   "options": "Address"
-  },
-  {
-   "fieldname": "column_break_tjrc",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval: !doc.__islocal",
-   "fieldname": "address_html",
-   "fieldtype": "HTML",
-   "label": "Address HTML",
-   "read_only": 1
-  },
-  {
-   "fieldname": "section_break_oteu",
+   "fieldname": "addresses_and_contacts",
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "addresses",
-   "fieldtype": "Table",
-   "options": "Shipper Addresses"
+   "fieldname": "column_break_ekpq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_unej",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shipper_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Text"
+  },
+  {
+   "fieldname": "column_break_giwp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-01 10:14:06.751645",
+ "modified": "2025-09-17 11:21:51.471871",
  "modified_by": "Administrator",
  "module": "Logistics Core",
  "name": "Shipper",
