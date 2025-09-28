@@ -220,6 +220,41 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
               <div id="rss-legs"></div>
             </div>
           </div>
+
+          <!-- Signature Dialog -->
+          <div class="modal fade" id="rss-signature-modal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h4 class="modal-title">${__("Sign ePOD")}</h4>
+                  <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                  <div class="signature-container">
+                    <div class="signature-header">
+                      <label>${__("Signature")}:</label>
+                      <button type="button" class="btn btn-sm btn-default" id="rss-clear-signature">${__("Clear")}</button>
+                    </div>
+                    <canvas id="rss-signature-canvas" width="600" height="200" style="border: 1px solid #ccc; cursor: crosshair; max-width: 100%; height: auto;"></canvas>
+                    <div class="signature-info" style="margin-top: 10px;">
+                      <div class="form-group">
+                        <label>${__("Signed By")}:</label>
+                        <input type="text" class="form-control" id="rss-signed-by" placeholder="${__("Enter name")}" required>
+                      </div>
+                      <div class="form-group">
+                        <label>${__("Date Signed")}:</label>
+                        <input type="datetime-local" class="form-control" id="rss-date-signed" required>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">${__("Cancel")}</button>
+                  <button type="button" class="btn btn-primary" id="rss-save-signature">${__("Save Signature")}</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       `);
 
@@ -237,12 +272,32 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
           .rss .leg-main{ display:flex; justify-content:space-between; gap:8px; align-items:center; }
           .rss .leg-name{ font-weight:600; }
           .rss .leg-desc{ color:#6b7280; font-size:12px; margin-top:2px; }
-          .rss .leg-actions{ display:flex; gap:6px; }
-          .rss .leg-actions .btn{ min-width:92px; }
+          .rss .leg-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+          .rss .leg-actions .btn{ min-width:92px; flex:1 1 auto; }
+          @media (max-width: 768px) {
+            .rss .leg-actions{ flex-direction:column; gap:4px; }
+            .rss .leg-actions .btn{ min-width:auto; width:100%; }
+            .rss .leg-main{ flex-direction:column; align-items:stretch; }
+            .rss .leg-actions{ margin-top:8px; }
+          }
           .rss .leg-meta{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:6px; margin-top:8px; font-size:12px; color:#374151; }
           .rss .leg-meta label{ font-weight:600; margin-right:6px; }
           .rss .unsynced{ background:#fff7ed; color:#9a3412; border:1px dashed #fdba74; padding:1px 6px; border-radius:999px; font-size:11px; }
           .rss .btn[disabled]{ opacity:.6; pointer-events:none; }
+          .signature-container{ text-align: center; }
+          .signature-header{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+          .signature-header label{ font-weight: 600; margin: 0; }
+          #rss-signature-canvas{ background: white; }
+          .signature-info{ text-align: left; }
+          .signature-info .form-group{ margin-bottom: 10px; }
+          .signature-info label{ font-weight: 600; margin-bottom: 5px; display: block; }
+          @media (max-width: 768px) {
+            .signature-header{ flex-direction: column; gap: 8px; align-items: stretch; }
+            .signature-header label{ text-align: left; }
+            #rss-signature-canvas{ width: 100%; height: 150px; }
+            .modal-dialog{ margin: 10px; }
+            .modal-body{ padding: 15px; }
+          }
         </style>
       `);
 
@@ -521,8 +576,9 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
                 </div>
               </div>
               <div class="leg-actions">
-                <button class="btn btn-sm btn-primary leg-start ${hasStart ? "disabled" : ""}">${__("Start")}</button>
-                <button class="btn btn-sm btn-success leg-end ${hasEnd ? "disabled" : ""}">${__("End")}</button>
+                ${!hasStart ? `<button class="btn btn-sm btn-primary leg-start">${__("Start")}</button>` : ""}
+                ${hasStart && !hasEnd ? `<button class="btn btn-sm btn-success leg-end">${__("End")}</button>` : ""}
+                ${hasStart && !r.signature ? `<button class="btn btn-sm btn-info leg-sign-epod">${__("Sign ePOD")}</button>` : ""}
                 ${gmapUrl ? `<a class="btn btn-sm btn-default" target="_blank" rel="noopener" href="${gmapUrl}">${__("View Map")}</a>` : ""}
               </div>
             </div>
@@ -530,6 +586,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
               <div><label>${__("Started")}:</label><span class="leg-start-at">${this.fmt_dt(r.start_date)}</span></div>
               <div><label>${__("Ended")}:</label><span class="leg-end-at">${this.fmt_dt(r.end_date)}</span></div>
               <div><label>${__("Planned")}:</label><span>${this.plan_text(r)}</span></div>
+              ${r.signature ? `<div><label>${__("Signed")}:</label><span>${frappe.utils.escape_html(r.signed_by || "")} (${this.fmt_dt(r.date_signed)})</span></div>` : ""}
             </div>
           </div>
         `;
@@ -559,7 +616,6 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
 
       $root.find(".leg-start").on("click", async (ev) => {
         const $btn  = $(ev.currentTarget);
-        if ($btn.hasClass("disabled")) return;
         const $card = $btn.closest(".leg-card");
         const name  = $card.data("row");
         const val   = nowISO();
@@ -567,13 +623,15 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
         const ok = await this.apply_leg_updates(name, { start_date: val });
         if (!ok) return;
 
-        $btn.addClass("disabled");
+        // Update the leg data and re-render to show correct buttons
+        const leg = this.state.legs.find(l => l.name === name);
+        if (leg) leg.start_date = val;
         $card.find(".leg-start-at").text(this.fmt_dt(val));
+        this.render_legs(this.state.legs); // Re-render to update button visibility
       });
 
       $root.find(".leg-end").on("click", async (ev) => {
         const $btn  = $(ev.currentTarget);
-        if ($btn.hasClass("disabled")) return;
         const $card = $btn.closest(".leg-card");
         const name  = $card.data("row");
         const val   = nowISO();
@@ -581,8 +639,20 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
         const ok = await this.apply_leg_updates(name, { end_date: val });
         if (!ok) return;
 
-        $btn.addClass("disabled");
+        // Update the leg data and re-render to hide buttons
+        const leg = this.state.legs.find(l => l.name === name);
+        if (leg) leg.end_date = val;
         $card.find(".leg-end-at").text(this.fmt_dt(val));
+        this.render_legs(this.state.legs); // Re-render to update button visibility
+      });
+
+      $root.find(".leg-sign-epod").on("click", async (ev) => {
+        const $btn  = $(ev.currentTarget);
+        const $card = $btn.closest(".leg-card");
+        const name  = $card.data("row");
+        
+        this.current_leg_for_signature = name;
+        this.show_signature_dialog();
       });
     }
 
@@ -625,6 +695,182 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
       const hasChip = $name.find(".unsynced").length > 0;
       if (unsynced && !hasChip) $name.append(` <span class="unsynced">${__("unsynced")}</span>`);
       if (!unsynced && hasChip) $name.find(".unsynced").remove();
+    }
+
+    // ----------------- Signature functionality -----------------
+    show_signature_dialog() {
+      // Initialize signature canvas
+      this.init_signature_canvas();
+      
+      // Set current date/time
+      const now = new Date();
+      const localDateTime = now.toISOString().slice(0, 16);
+      $("#rss-date-signed").val(localDateTime);
+      
+      // Clear previous data
+      $("#rss-signed-by").val("");
+      this.clear_signature();
+      
+      // Show modal
+      $("#rss-signature-modal").modal("show");
+    }
+
+    init_signature_canvas() {
+      const canvas = document.getElementById("rss-signature-canvas");
+      if (!canvas) return;
+      
+      // Adjust canvas size for mobile
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        canvas.width = Math.min(600, window.innerWidth - 40);
+        canvas.height = 150;
+      } else {
+        canvas.width = 600;
+        canvas.height = 200;
+      }
+      
+      const ctx = canvas.getContext("2d");
+      let isDrawing = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      // Mouse events
+      canvas.addEventListener("mousedown", (e) => {
+        isDrawing = true;
+        const rect = canvas.getBoundingClientRect();
+        lastX = e.clientX - rect.left;
+        lastY = e.clientY - rect.top;
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.stroke();
+        
+        lastX = currentX;
+        lastY = currentY;
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        isDrawing = false;
+      });
+
+      canvas.addEventListener("mouseout", () => {
+        isDrawing = false;
+      });
+
+      // Touch events for mobile
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        lastX = touch.clientX - rect.left;
+        lastY = touch.clientY - rect.top;
+      });
+
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const currentX = touch.clientX - rect.left;
+        const currentY = touch.clientY - rect.top;
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.stroke();
+        
+        lastX = currentX;
+        lastY = currentY;
+      });
+
+      canvas.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        isDrawing = false;
+      });
+
+      // Clear button
+      $("#rss-clear-signature").off("click").on("click", () => {
+        this.clear_signature();
+      });
+
+      // Save button
+      $("#rss-save-signature").off("click").on("click", () => {
+        this.save_signature();
+      });
+    }
+
+    clear_signature() {
+      const canvas = document.getElementById("rss-signature-canvas");
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    async save_signature() {
+      const signedBy = $("#rss-signed-by").val().trim();
+      const dateSigned = $("#rss-date-signed").val();
+      
+      if (!signedBy) {
+        frappe.show_alert({ message: __("Please enter the signer's name"), indicator: "orange" });
+        return;
+      }
+      
+      if (!dateSigned) {
+        frappe.show_alert({ message: __("Please enter the date signed"), indicator: "orange" });
+        return;
+      }
+
+      // Get signature as base64
+      const canvas = document.getElementById("rss-signature-canvas");
+      const signature = canvas.toDataURL("image/png");
+      
+      // Check if signature is empty (just white canvas)
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hasContent = imageData.data.some((value, index) => {
+        return index % 4 !== 3 && value !== 255; // Check if any pixel is not white
+      });
+      
+      if (!hasContent) {
+        frappe.show_alert({ message: __("Please provide a signature"), indicator: "orange" });
+        return;
+      }
+
+      const updates = {
+        signature: signature,
+        signed_by: signedBy,
+        date_signed: dateSigned
+      };
+
+      const ok = await this.apply_leg_updates(this.current_leg_for_signature, updates);
+      if (ok) {
+        // Update the leg data and re-render to hide the sign button
+        const leg = this.state.legs.find(l => l.name === this.current_leg_for_signature);
+        if (leg) {
+          leg.signature = signature;
+          leg.signed_by = signedBy;
+          leg.date_signed = dateSigned;
+        }
+        $("#rss-signature-modal").modal("hide");
+        this.render_legs(this.state.legs); // Re-render to hide the sign button
+        frappe.show_alert({ message: __("Signature saved"), indicator: "green" });
+      }
     }
 
     // ----------------- Sync queue (hardened) -----------------

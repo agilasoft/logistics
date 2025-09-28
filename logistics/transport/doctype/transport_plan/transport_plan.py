@@ -64,6 +64,9 @@ def auto_allocate_and_create(plan_name: str) -> Dict[str, Any]:
         day_legs = list(group)
         day_legs.sort(key=lambda l: cstr(l.get("name") or ""))
 
+        # Group legs by Run Sheet (vehicle + driver + date combination)
+        runsheet_groups = {}
+        
         for leg in day_legs:
             leg_debug: List[str] = []
             try:
@@ -95,10 +98,33 @@ def auto_allocate_and_create(plan_name: str) -> Dict[str, Any]:
                 if _has_field("Transport Leg", "run_sheet"):
                     frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
 
+                # Group legs by Run Sheet for additional leg creation
+                if rs_name not in runsheet_groups:
+                    runsheet_groups[rs_name] = {
+                        "legs": [],
+                        "reused": reused,
+                        "debug": []
+                    }
+                runsheet_groups[rs_name]["legs"].append(leg)
+                runsheet_groups[rs_name]["debug"].extend(leg_debug)
+
                 (result["reused"] if reused else result["created"]).append(rs_name)
 
             except Exception as e:
                 result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
+                continue
+
+        # Add additional legs (base-to-first-pick, connecting, last-drop-to-base) to each Run Sheet
+        for rs_name, group_data in runsheet_groups.items():
+            try:
+                additional_legs = _add_additional_legs_to_runsheet(
+                    rs_name, 
+                    group_data["legs"], 
+                    group_data["debug"]
+                )
+                result["attached_legs"] += additional_legs
+            except Exception as e:
+                result["errors"].append(f"Failed to add additional legs to {rs_name}: {cstr(e)}")
                 continue
 
     try:
@@ -159,10 +185,10 @@ def _get_transport_legs(plan: Document, debug: Optional[List[str]] = None) -> Tu
     base_fields = ["name", leg_date_field]
     opt_fields = []
     for f in [
-        "vehicle_type", "hazardous",
+        "vehicle_type", "hazardous", "order",
         "facility_type_from", "facility_from",
         "facility_type_to", "facility_to",
-        "run_date",
+        "run_date", "transport_job",
     ]:
         if _has_field("Transport Leg", f):
             opt_fields.append(f)
@@ -172,7 +198,7 @@ def _get_transport_legs(plan: Document, debug: Optional[List[str]] = None) -> Tu
         "Transport Leg",
         filters=filters,
         fields=fields,
-        order_by=f"{leg_date_field} asc, modified asc",
+        order_by=f"{leg_date_field} asc, `order` asc, modified asc",
     )
     debug.append(f"Legs fetched: {len(legs)} | Window {window} | Field '{leg_date_field}'")
     return legs, leg_date_field, window
@@ -585,6 +611,194 @@ def _has_child_table(doc_or_doctype: Any, childtable_fieldname: str, child_docty
 
 def _ensure_controller_class() -> None:
     return
+
+
+# ------------------------ Additional Leg Creation ------------------------
+
+def _create_base_to_first_pick_leg(rs: Document, first_leg: Dict[str, Any]) -> Optional[Document]:
+    """
+    Create a leg from base location to the first pick location.
+    Returns the created Transport Leg document or None if base location is not set.
+    """
+    if not rs.get("base_location_type") or not rs.get("base_location"):
+        return None
+    
+    # Check if first leg has valid pick location
+    if not first_leg.get("facility_type_from") or not first_leg.get("facility_from"):
+        return None
+    
+    # Create new Transport Leg
+    leg = frappe.new_doc("Transport Leg")
+    leg.transport_job = first_leg.get("transport_job")
+    leg.date = first_leg.get("date")
+    leg.vehicle_type = first_leg.get("vehicle_type")
+    leg.hazardous = first_leg.get("hazardous")
+    
+    # Set from base location
+    leg.facility_type_from = rs.base_location_type
+    leg.facility_from = rs.base_location
+    
+    # Set to first pick location
+    leg.facility_type_to = first_leg.get("facility_type_from")
+    leg.facility_to = first_leg.get("facility_from")
+    
+    # Set operation type to indicate this is a base-to-pick leg
+    if _has_field("Transport Leg", "operation_type"):
+        leg.operation_type = "Base to Pick"
+    
+    # Set order to be before the first leg
+    if _has_field("Transport Leg", "order"):
+        leg.order = cint(first_leg.get("order") or 0) - 1
+    
+    leg.insert(ignore_permissions=True)
+    return leg
+
+
+def _create_last_drop_to_base_leg(rs: Document, last_leg: Dict[str, Any]) -> Optional[Document]:
+    """
+    Create a leg from the last drop location back to base.
+    Returns the created Transport Leg document or None if base location is not set.
+    """
+    if not rs.get("base_location_type") or not rs.get("base_location"):
+        return None
+    
+    # Create new Transport Leg
+    leg = frappe.new_doc("Transport Leg")
+    leg.transport_job = last_leg.get("transport_job")
+    leg.date = last_leg.get("date")
+    leg.vehicle_type = last_leg.get("vehicle_type")
+    leg.hazardous = last_leg.get("hazardous")
+    
+    # Set from last drop location
+    leg.facility_type_from = last_leg.get("facility_type_to")
+    leg.facility_from = last_leg.get("facility_to")
+    
+    # Set to base location
+    leg.facility_type_to = rs.base_location_type
+    leg.facility_to = rs.base_location
+    
+    # Set operation type to indicate this is a drop-to-base leg
+    if _has_field("Transport Leg", "operation_type"):
+        leg.operation_type = "Drop to Base"
+    
+    # Set order to be after the last leg
+    if _has_field("Transport Leg", "order"):
+        leg.order = cint(last_leg.get("order") or 0) + 1
+    
+    leg.insert(ignore_permissions=True)
+    return leg
+
+
+def _create_connecting_leg(rs: Document, from_leg: Dict[str, Any], to_leg: Dict[str, Any]) -> Optional[Document]:
+    """
+    Create a connecting leg between two jobs (from one job's drop to next job's pick).
+    Returns the created Transport Leg document.
+    """
+    # Create new Transport Leg
+    leg = frappe.new_doc("Transport Leg")
+    leg.transport_job = to_leg.get("transport_job")  # Associate with the destination job
+    leg.date = to_leg.get("date")
+    leg.vehicle_type = to_leg.get("vehicle_type")
+    leg.hazardous = to_leg.get("hazardous")
+    
+    # Set from previous job's drop location
+    leg.facility_type_from = from_leg.get("facility_type_to")
+    leg.facility_from = from_leg.get("facility_to")
+    
+    # Set to next job's pick location
+    leg.facility_type_to = to_leg.get("facility_type_from")
+    leg.facility_to = to_leg.get("facility_from")
+    
+    # Set operation type to indicate this is a connecting leg
+    if _has_field("Transport Leg", "operation_type"):
+        leg.operation_type = "Connecting"
+    
+    # Set order to be between the two legs
+    if _has_field("Transport Leg", "order"):
+        from_order = cint(from_leg.get("order") or 0)
+        to_order = cint(to_leg.get("order") or 0)
+        leg.order = (from_order + to_order) // 2
+    
+    leg.insert(ignore_permissions=True)
+    return leg
+
+
+def _add_additional_legs_to_runsheet(rs_name: str, legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> int:
+    """
+    Add base-to-first-pick, connecting, and last-drop-to-base legs to a Run Sheet.
+    Returns the number of additional legs added.
+    """
+    debug = debug or []
+    rs = frappe.get_doc("Run Sheet", rs_name)
+    
+    if not legs:
+        debug.append("No legs provided for additional leg creation")
+        return 0
+    
+    additional_legs_added = 0
+    
+    # Sort legs by order field, then by name to ensure proper order
+    sorted_legs = sorted(legs, key=lambda l: (cint(l.get("order") or 0), cstr(l.get("name") or "")))
+    
+    # 1. Add base-to-first-pick leg (only if base location is set)
+    if sorted_legs and rs.get("base_location_type") and rs.get("base_location"):
+        first_leg = sorted_legs[0]
+        base_to_pick_leg = _create_base_to_first_pick_leg(rs, first_leg)
+        if base_to_pick_leg:
+            # Add to Run Sheet
+            child = rs.append("legs", {})
+            child.transport_leg = base_to_pick_leg.name
+            if _has_field("Run Sheet Leg", "sequence"):
+                child.sequence = base_to_pick_leg.order or 0
+            additional_legs_added += 1
+            debug.append(f"Added base-to-first-pick leg: {base_to_pick_leg.name}")
+    elif sorted_legs:
+        debug.append("Skipped base-to-first-pick leg: Run Sheet base location not set")
+    
+    # 2. Add connecting legs between jobs
+    for i in range(len(sorted_legs) - 1):
+        current_leg = sorted_legs[i]
+        next_leg = sorted_legs[i + 1]
+        
+        # Check if these are different jobs (different transport_job)
+        if current_leg.get("transport_job") != next_leg.get("transport_job"):
+            connecting_leg = _create_connecting_leg(rs, current_leg, next_leg)
+            if connecting_leg:
+                # Add to Run Sheet
+                child = rs.append("legs", {})
+                child.transport_leg = connecting_leg.name
+                if _has_field("Run Sheet Leg", "sequence"):
+                    child.sequence = connecting_leg.order or 0
+                additional_legs_added += 1
+                debug.append(f"Added connecting leg: {connecting_leg.name}")
+    
+    # 3. Add last-drop-to-base leg (only if base location is set)
+    if sorted_legs and rs.get("base_location_type") and rs.get("base_location"):
+        last_leg = sorted_legs[-1]
+        drop_to_base_leg = _create_last_drop_to_base_leg(rs, last_leg)
+        if drop_to_base_leg:
+            # Add to Run Sheet
+            child = rs.append("legs", {})
+            child.transport_leg = drop_to_base_leg.name
+            if _has_field("Run Sheet Leg", "sequence"):
+                child.sequence = drop_to_base_leg.order or 0
+            additional_legs_added += 1
+            debug.append(f"Added last-drop-to-base leg: {drop_to_base_leg.name}")
+    elif sorted_legs:
+        debug.append("Skipped last-drop-to-base leg: Run Sheet base location not set")
+    
+    # Save the Run Sheet with additional legs
+    if additional_legs_added > 0:
+        try:
+            rs.save(ignore_permissions=True, ignore_validate=True)
+            debug.append(f"Added {additional_legs_added} additional legs to {rs_name}")
+        except Exception as e:
+            debug.append(f"Failed to save additional legs: {cstr(e)}")
+            raise Exception(f"Run Sheet update failed: {cstr(e)}")
+    else:
+        debug.append("No additional legs added to Run Sheet")
+    
+    return additional_legs_added
 
 
 class TransportPlan(Document):
