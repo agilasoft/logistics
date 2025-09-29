@@ -1,46 +1,32 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:code",
- "creation": "2025-09-10 16:39:26.203643",
+ "creation": "2025-05-22 12:35:19.722010",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "description",
-  "section_break_xvtl",
-  "legs"
+  "customs_authority_name"
  ],
  "fields": [
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code",
-   "unique": 1
+   "label": "Code"
   },
   {
-   "fieldname": "description",
+   "fieldname": "customs_authority_name",
    "fieldtype": "Data",
-   "label": "Description"
-  },
-  {
-   "fieldname": "section_break_xvtl",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "legs",
-   "fieldtype": "Table",
-   "options": "Transport Template Leg"
+   "label": "Customs Authority Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-10 16:45:05.929055",
+ "modified": "2025-09-28 22:53:29.683219",
  "modified_by": "Administrator",
- "module": "Land Transport",
- "name": "Transport Template",
- "naming_rule": "By fieldname",
+ "module": "Logistics",
+ "name": "Customs Authority",
  "owner": "Administrator",
  "permissions": [
   {
@@ -59,6 +45,5 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
- "title_field": "description"
+ "states": []
 }

@@ -1,40 +1,32 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:code",
- "creation": "2025-05-22 12:28:42.937910",
+ "creation": "2025-05-22 13:12:15.590068",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "code_section",
   "code",
   "description"
  ],
  "fields": [
   {
-   "fieldname": "code_section",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code",
-   "unique": 1
+   "label": "Code"
   },
   {
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Data",
    "label": "Description"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-01 10:14:51.217662",
+ "modified": "2025-09-28 22:52:00.631221",
  "modified_by": "Administrator",
- "module": "Logistics Core",
- "name": "Container Make",
- "naming_rule": "By fieldname",
+ "module": "Logistics",
+ "name": "Container ISO Type",
  "owner": "Administrator",
  "permissions": [
   {
@@ -53,6 +45,5 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
- "title_field": "description"
+ "states": []
 }

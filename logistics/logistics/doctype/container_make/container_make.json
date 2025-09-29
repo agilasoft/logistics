@@ -2,14 +2,19 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:code",
- "creation": "2025-05-22 12:31:23.234048",
+ "creation": "2025-05-22 12:28:42.937910",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "code_section",
   "code",
   "description"
  ],
  "fields": [
+  {
+   "fieldname": "code_section",
+   "fieldtype": "Section Break"
+  },
   {
    "fieldname": "code",
    "fieldtype": "Data",
@@ -25,10 +30,10 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-01 10:14:39.682844",
+ "modified": "2025-09-28 22:52:21.289562",
  "modified_by": "Administrator",
- "module": "Logistics Core",
- "name": "IATA Rate Class",
+ "module": "Logistics",
+ "name": "Container Make",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [

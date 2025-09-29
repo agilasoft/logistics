@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class Shipper(Document):
+class TransportJobOperations(Document):
 	pass

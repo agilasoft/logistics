@@ -48,6 +48,11 @@
  ],
  "fields": [
   {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
    "fieldname": "code",
    "fieldtype": "Data",
    "label": "Code",
@@ -243,19 +248,14 @@
    "fieldname": "container_class_tab",
    "fieldtype": "Tab Break",
    "label": "Container Class"
-  },
-  {
-   "fieldname": "details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-18 11:23:21.645001",
+ "modified": "2025-09-28 22:52:40.748371",
  "modified_by": "Administrator",
- "module": "Logistics Core",
+ "module": "Logistics",
  "name": "Container Type",
  "naming_rule": "By fieldname",
  "owner": "Administrator",

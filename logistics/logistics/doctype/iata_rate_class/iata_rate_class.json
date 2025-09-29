@@ -1,32 +1,35 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-05-22 12:35:19.722010",
+ "autoname": "field:code",
+ "creation": "2025-05-22 12:31:23.234048",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "customs_authority_name"
+  "description"
  ],
  "fields": [
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
-   "fieldname": "customs_authority_name",
-   "fieldtype": "Data",
-   "label": "Customs Authority Name"
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-01 10:15:34.139416",
+ "modified": "2025-09-28 22:53:16.673842",
  "modified_by": "Administrator",
- "module": "Logistics Core",
- "name": "Customs Authority",
+ "module": "Logistics",
+ "name": "IATA Rate Class",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -45,5 +48,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "description"
 }
