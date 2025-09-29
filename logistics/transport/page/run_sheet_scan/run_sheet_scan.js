@@ -282,6 +282,12 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
           }
           .rss .leg-meta{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:6px; margin-top:8px; font-size:12px; color:#374151; }
           .rss .leg-meta label{ font-weight:600; margin-right:6px; }
+          .rss .leg-status{ font-weight:600; text-transform:uppercase; }
+          .rss .status-open{ color:#6b7280; }
+          .rss .status-assigned{ color:#3b82f6; }
+          .rss .status-started{ color:#f59e0b; }
+          .rss .status-completed{ color:#10b981; }
+          .rss .status-billed{ color:#8b5cf6; }
           .rss .unsynced{ background:#fff7ed; color:#9a3412; border:1px dashed #fdba74; padding:1px 6px; border-radius:999px; font-size:11px; }
           .rss .btn[disabled]{ opacity:.6; pointer-events:none; }
           .signature-container{ text-align: center; }
@@ -583,6 +589,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
               </div>
             </div>
             <div class="leg-meta">
+              <div><label>${__("Status")}:</label><span class="leg-status status-${(r.status || "Open").toLowerCase()}">${frappe.utils.escape_html(r.status || "Open")}</span></div>
               <div><label>${__("Started")}:</label><span class="leg-start-at">${this.fmt_dt(r.start_date)}</span></div>
               <div><label>${__("Ended")}:</label><span class="leg-end-at">${this.fmt_dt(r.end_date)}</span></div>
               <div><label>${__("Planned")}:</label><span>${this.plan_text(r)}</span></div>
@@ -604,6 +611,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
       if (m != null && m !== "") parts.push(`${fmtNum(m, 1)} min`);
       return parts.join(" • ") || "-";
     }
+
 
     render_empty() {
       this.$head.empty();

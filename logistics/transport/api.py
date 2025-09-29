@@ -78,7 +78,7 @@ def get_run_sheet_bundle(name: str):
         "facility_type_from", "facility_from", "pick_address",
         "facility_type_to",   "facility_to",   "drop_address",
         "start_date", "end_date", "distance_km", "duration_min",
-        "signature", "signed_by", "date_signed",
+        "signature", "signed_by", "date_signed", "status",
     ]
 
     legs = frappe.get_all(
