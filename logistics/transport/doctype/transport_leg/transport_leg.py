@@ -30,3 +30,37 @@ class TransportLeg(Document):
     def before_save(self):
         """Ensure status is updated before saving"""
         self.update_status()
+
+
+@frappe.whitelist()
+def regenerate_routing(leg_name: str):
+    """Regenerate routing for a Transport Leg"""
+    from logistics.transport.routing import compute_leg_distance_time
+    
+    result = compute_leg_distance_time(leg_name)
+    if result.get("ok", False):
+        return {
+            "distance_km": result.get("distance_km", 0),
+            "duration_min": result.get("duration_min", 0),
+            "provider": result.get("provider", "")
+        }
+    else:
+        frappe.throw(result.get("msg", "Routing computation failed"))
+
+
+@frappe.whitelist()
+def regenerate_carbon(leg_name: str):
+    """Regenerate carbon calculation for a Transport Leg"""
+    from logistics.transport.carbon import compute_leg_carbon
+    
+    result = compute_leg_carbon(leg_name)
+    if result.get("ok", False):
+        return {
+            "co2e_kg": result.get("co2e_kg", 0),
+            "method": result.get("method", ""),
+            "scope": result.get("scope", ""),
+            "provider": result.get("provider", ""),
+            "factor": result.get("factor", 0)
+        }
+    else:
+        frappe.throw(result.get("msg", "Carbon computation failed"))

@@ -214,6 +214,110 @@ async function run_regenerate_carbon(frm) {
   }
 }
 
+// ---------- Google Map Integration ----------
+// To enable embedded Google Maps:
+// 1. Get a Google Maps API key from Google Cloud Console
+// 2. Enable "Maps Embed API" for the key
+// 3. Add the API key to Transport Settings > Routing > Google API Key
+// 4. The map will automatically appear when both pick and drop addresses are set
+async function render_route_map(frm) {
+  const $wrapper = frm.get_field('route_map').$wrapper;
+  if (!$wrapper) return;
+  
+  const pick = frm.doc.pick_address;
+  const drop = frm.doc.drop_address;
+  
+  if (!pick || !drop) {
+    $wrapper.html('<div class="text-muted">Set Pick and Drop addresses to view route map</div>');
+    return;
+  }
+
+  try {
+    // Get coordinates for both addresses
+    const [pickCoords, dropCoords] = await Promise.all([
+      getAddressLatLon(pick),
+      getAddressLatLon(drop)
+    ]);
+
+    if (!pickCoords || !dropCoords) {
+      $wrapper.html('<div class="text-muted">Coordinates not available for addresses</div>');
+      return;
+    }
+
+    // Try to get Google Maps API key from settings
+    let apiKey = '';
+    try {
+      const settings = await frappe.call({
+        method: 'frappe.client.get_value',
+        args: {
+          doctype: 'Transport Settings',
+          fieldname: 'routing_google_api_key'
+        }
+      });
+      apiKey = settings.message?.routing_google_api_key || '';
+    } catch (e) {
+      // Settings not found or no API key configured
+    }
+
+    const origin = `${pickCoords.lat},${pickCoords.lon}`;
+    const destination = `${dropCoords.lat},${dropCoords.lon}`;
+    
+    let mapHtml;
+    
+    if (apiKey) {
+      // Use Google Maps Embed API with API key
+      mapHtml = `
+        <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <iframe 
+            width="100%" 
+            height="400" 
+            frameborder="0" 
+            style="border:0" 
+            src="https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${origin}&destination=${destination}&mode=driving"
+            allowfullscreen>
+          </iframe>
+        </div>
+        <div class="text-muted small" style="margin-top: 8px; display: flex; gap: 15px; align-items: center;">
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}" target="_blank" rel="noopener" style="text-decoration: none;">
+            <i class="fa fa-external-link"></i> Open in Google Maps
+          </a>
+          <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickCoords.lat}%2C${pickCoords.lon}%3B${dropCoords.lat}%2C${dropCoords.lon}" target="_blank" rel="noopener" style="text-decoration: none;">
+            <i class="fa fa-external-link"></i> Open in OpenStreetMap
+          </a>
+        </div>
+      `;
+    } else {
+      // Fallback to static map or external link
+      mapHtml = `
+        <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+          <div class="text-muted">
+            <i class="fa fa-map-marker" style="font-size: 24px; margin-bottom: 10px;"></i>
+            <div>Route Map</div>
+            <div style="font-size: 12px; margin-top: 5px;">
+              From: ${pickCoords.lat.toFixed(4)}, ${pickCoords.lon.toFixed(4)}<br>
+              To: ${dropCoords.lat.toFixed(4)}, ${dropCoords.lon.toFixed(4)}
+            </div>
+          </div>
+        </div>
+        <div class="text-muted small" style="margin-top: 5px;">
+          <a href="https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}" target="_blank" rel="noopener">
+            <i class="fa fa-external-link"></i> Open in Google Maps
+          </a>
+          <span style="margin: 0 10px;">|</span>
+          <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickCoords.lat}%2C${pickCoords.lon}%3B${dropCoords.lat}%2C${dropCoords.lon}" target="_blank" rel="noopener">
+            <i class="fa fa-external-link"></i> Open in OpenStreetMap
+          </a>
+        </div>
+      `;
+    }
+    
+    $wrapper.html(mapHtml);
+  } catch (error) {
+    console.error('Error rendering route map:', error);
+    $wrapper.html('<div class="text-muted">Unable to load map</div>');
+  }
+}
+
 // ---------- form bindings ----------
 frappe.ui.form.on('Transport Leg', {
   setup(frm) {
@@ -228,6 +332,7 @@ frappe.ui.form.on('Transport Leg', {
     set_drop_query(frm);
     render_pick_address(frm);
     render_drop_address(frm);
+    render_route_map(frm);
 
     addExternalMapButtons(frm);
 
@@ -242,8 +347,14 @@ frappe.ui.form.on('Transport Leg', {
     }
   },
 
-  pick_address(frm)  { render_pick_address(frm); },
-  drop_address(frm)  { render_drop_address(frm); },
+  pick_address(frm)  { 
+    render_pick_address(frm); 
+    render_route_map(frm);
+  },
+  drop_address(frm)  { 
+    render_drop_address(frm); 
+    render_route_map(frm);
+  },
 
   facility_type_from(frm) { set_pick_query(frm); if (frm.doc.pick_address) frm.set_value('pick_address', null); },
   facility_from(frm)      { set_pick_query(frm); if (frm.doc.pick_address) frm.set_value('pick_address', null); },

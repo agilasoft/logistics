@@ -57,6 +57,8 @@
   "column_break_yocf",
   "routing_provider",
   "routing_profile",
+  "tab_7_tab",
+  "route_map",
   "telematics_tab",
   "eta_at_drop",
   "remaining_km",
@@ -462,6 +464,11 @@
    "label": "Route Failure Reason"
   },
   {
+   "fieldname": "route_map",
+   "fieldtype": "HTML",
+   "label": "Route Map"
+  },
+  {
    "fieldname": "order",
    "fieldtype": "Int",
    "label": "Order"
@@ -499,13 +506,18 @@
    "label": "Status",
    "options": "Open\nAssigned\nStarted\nCompleted\nBilled",
    "reqd": 1
+  },
+  {
+   "fieldname": "tab_7_tab",
+   "fieldtype": "Tab Break",
+   "label": "Map"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-29 12:21:35.580448",
+ "modified": "2025-09-29 13:33:30.142699",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Leg",
@@ -529,36 +541,26 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
-"states": [
-{
-    "state": "Open",
-    "doc_status": 0,
-    "style": "red",
-    "update_field": "status"
-},
-{
-    "state": "Assigned",
-    "doc_status": 0,
-    "style": "orange",
-    "update_field": "status"
-},
-{
-    "state": "Started",
-    "doc_status": 1,
-    "style": "green",
-    "update_field": "status"
-},
-{
-    "state": "Completed",
-    "doc_status": 1,
-    "style": "blue",
-    "update_field": "status"
-},
-{
-    "state": "Billed",
-    "doc_status": 1,
-    "style": "gray",
-    "update_field": "status"
-}
-]
+ "states": [
+  {
+   "color": "Red",
+   "title": "Open"
+  },
+  {
+   "color": "Orange",
+   "title": "Assigned"
+  },
+  {
+   "color": "Green",
+   "title": "Started"
+  },
+  {
+   "color": "Blue",
+   "title": "Completed"
+  },
+  {
+   "color": "Gray",
+   "title": "Billed"
+  }
+ ]
 }
