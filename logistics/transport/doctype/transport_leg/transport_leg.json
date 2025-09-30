@@ -500,6 +500,7 @@
    "read_only": 1
   },
   {
+   "default": "Open",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -517,7 +518,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-29 13:33:30.142699",
+ "modified": "2025-09-29 15:26:00.740985",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Leg",

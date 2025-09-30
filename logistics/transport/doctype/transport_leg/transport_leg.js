@@ -111,44 +111,13 @@ function render_address_html(frm, src_field, html_field_candidates) {
 function render_pick_address(frm) { render_address_html(frm, 'pick_address', ['pick_address_html', 'pick_address_format']); }
 function render_drop_address(frm) { render_address_html(frm, 'drop_address', ['drop_address_html']); }
 
-// ---------- External map shortcuts only ----------
-async function addExternalMapButtons(frm) {
+// ---------- Action buttons ----------
+async function addActionButtons(frm) {
   if (frm._tl_buttons_added) return;
   frm._tl_buttons_added = true;
 
-  const group = __("Action");
-
   frm.page.add_action_item(__("Regenerate Routing"), () => run_regenerate_routing(frm));
-  frm.add_custom_button(__("Regenerate Routing"), () => run_regenerate_routing(frm), group);
-
   frm.page.add_action_item(__("Regenerate Carbon (CO₂e)"), () => run_regenerate_carbon(frm));
-  frm.add_custom_button(__("Regenerate Carbon (CO₂e)"), () => run_regenerate_carbon(frm), group);
-
-  try {
-    const [pick, drop] = await Promise.all([
-      getAddressLatLon(frm.doc.pick_address),
-      getAddressLatLon(frm.doc.drop_address),
-    ]);
-
-    if (pick && drop) {
-      frm.add_custom_button(__("Open in Google Maps"), () => {
-        const url = `https://www.google.com/maps/dir/?api=1&origin=${pick.lat},${pick.lon}&destination=${drop.lat},${drop.lon}`;
-        window.open(url, "_blank");
-      }, group);
-
-      frm.add_custom_button(__("Open in OpenStreetMap"), () => {
-        const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pick.lat}%2C${pick.lon}%3B${drop.lat}%2C${drop.lon}`;
-        window.open(url, "_blank");
-      }, group);
-
-      frm.add_custom_button(__("Open in Apple Maps"), () => {
-        const url = `https://maps.apple.com/?saddr=${pick.lat},${pick.lon}&daddr=${drop.lat},${drop.lon}`;
-        window.open(url, "_blank");
-      }, group);
-    }
-  } catch (e) {
-    // ignore
-  }
 }
 
 // ---------- actions ----------
@@ -214,12 +183,9 @@ async function run_regenerate_carbon(frm) {
   }
 }
 
-// ---------- Google Map Integration ----------
-// To enable embedded Google Maps:
-// 1. Get a Google Maps API key from Google Cloud Console
-// 2. Enable "Maps Embed API" for the key
-// 3. Add the API key to Transport Settings > Routing > Google API Key
-// 4. The map will automatically appear when both pick and drop addresses are set
+// ---------- OpenStreetMap Integration ----------
+// Uses Leaflet.js for interactive maps - no API key required
+// Automatically loads when both pick and drop addresses are set
 async function render_route_map(frm) {
   const $wrapper = frm.get_field('route_map').$wrapper;
   if (!$wrapper) return;
@@ -244,78 +210,457 @@ async function render_route_map(frm) {
       return;
     }
 
-    // Try to get Google Maps API key from settings
-    let apiKey = '';
+    const distance = frm.doc.route_distance_km ?? frm.doc.distance_km;
+    const duration = frm.doc.route_duration_min ?? frm.doc.duration_min;
+    
+    // Create unique map container ID
+    const mapId = `route-map-${frm.doc.name || 'new'}-${Date.now()}`;
+    
+    // Get map renderer setting
+    let mapRenderer = 'openstreetmap'; // default
     try {
       const settings = await frappe.call({
         method: 'frappe.client.get_value',
         args: {
           doctype: 'Transport Settings',
-          fieldname: 'routing_google_api_key'
+          fieldname: 'map_renderer'
         }
       });
-      apiKey = settings.message?.routing_google_api_key || '';
+      mapRenderer = settings.message?.map_renderer || 'openstreetmap';
     } catch (e) {
-      // Settings not found or no API key configured
+      // Use default
     }
 
-    const origin = `${pickCoords.lat},${pickCoords.lon}`;
-    const destination = `${dropCoords.lat},${dropCoords.lon}`;
-    
-    let mapHtml;
-    
-    if (apiKey) {
-      // Use Google Maps Embed API with API key
-      mapHtml = `
-        <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <iframe 
-            width="100%" 
-            height="400" 
-            frameborder="0" 
-            style="border:0" 
-            src="https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${origin}&destination=${destination}&mode=driving"
-            allowfullscreen>
-          </iframe>
+    const mapHtml = `
+      <div class="text-muted small" style="margin-bottom: 10px; display: flex; gap: 20px; align-items: center; justify-content: center;">
+        <a href="https://www.google.com/maps/dir/?api=1&origin=${pickCoords.lat},${pickCoords.lon}&destination=${dropCoords.lat},${dropCoords.lon}" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
+          <i class="fa fa-external-link"></i> Google Maps
+        </a>
+        <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickCoords.lat}%2C${pickCoords.lon}%3B${dropCoords.lat}%2C${dropCoords.lon}" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
+          <i class="fa fa-external-link"></i> OpenStreetMap
+        </a>
+        <a href="https://maps.apple.com/?saddr=${pickCoords.lat},${pickCoords.lon}&daddr=${dropCoords.lat},${dropCoords.lon}" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
+          <i class="fa fa-external-link"></i> Apple Maps
+        </a>
+      </div>
+      <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
+        <div id="${mapId}" style="width: 100%; height: 100%;"></div>
+        <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 1000;">
+          <span style="color: red;">●</span> A <span style="margin-left: 10px; color: green;">●</span> B
         </div>
-        <div class="text-muted small" style="margin-top: 8px; display: flex; gap: 15px; align-items: center;">
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}" target="_blank" rel="noopener" style="text-decoration: none;">
-            <i class="fa fa-external-link"></i> Open in Google Maps
-          </a>
-          <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickCoords.lat}%2C${pickCoords.lon}%3B${dropCoords.lat}%2C${dropCoords.lon}" target="_blank" rel="noopener" style="text-decoration: none;">
-            <i class="fa fa-external-link"></i> Open in OpenStreetMap
-          </a>
-        </div>
-      `;
-    } else {
-      // Fallback to static map or external link
-      mapHtml = `
-        <div style="width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-          <div class="text-muted">
-            <i class="fa fa-map-marker" style="font-size: 24px; margin-bottom: 10px;"></i>
-            <div>Route Map</div>
-            <div style="font-size: 12px; margin-top: 5px;">
-              From: ${pickCoords.lat.toFixed(4)}, ${pickCoords.lon.toFixed(4)}<br>
-              To: ${dropCoords.lat.toFixed(4)}, ${dropCoords.lon.toFixed(4)}
+        <div id="${mapId}-fallback" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); display: flex; align-items: center; justify-content: center; flex-direction: column;">
+          <div style="text-align: center; color: #6c757d;">
+            <i class="fa fa-map" style="font-size: 32px; margin-bottom: 15px;"></i>
+            <div style="font-size: 18px; font-weight: 500; margin-bottom: 10px;">Map Loading...</div>
+            <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.4;">
+              <strong>From:</strong> ${pickCoords.lat.toFixed(4)}, ${pickCoords.lon.toFixed(4)}<br>
+              <strong>To:</strong> ${dropCoords.lat.toFixed(4)}, ${dropCoords.lon.toFixed(4)}
+            </div>
+            <div style="font-size: 12px; color: #6c757d;">
+              <i class="fa fa-info-circle"></i> Use the links above to view the route
             </div>
           </div>
         </div>
-        <div class="text-muted small" style="margin-top: 5px;">
-          <a href="https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}" target="_blank" rel="noopener">
-            <i class="fa fa-external-link"></i> Open in Google Maps
-          </a>
-          <span style="margin: 0 10px;">|</span>
-          <a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickCoords.lat}%2C${pickCoords.lon}%3B${dropCoords.lat}%2C${dropCoords.lon}" target="_blank" rel="noopener">
-            <i class="fa fa-external-link"></i> Open in OpenStreetMap
-          </a>
+      </div>
+      ${distance || duration ? `
+        <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
+          ${distance ? `<div><i class="fa fa-road"></i> <strong>Distance:</strong> ${distance.toFixed(1)} km</div>` : ''}
+          ${duration ? `<div><i class="fa fa-clock-o"></i> <strong>Duration:</strong> ${duration.toFixed(0)} min</div>` : ''}
         </div>
-      `;
-    }
+      ` : ''}
+    `;
     
     $wrapper.html(mapHtml);
+    
+    // Show fallback initially
+    showMapFallback(mapId, pickCoords, dropCoords);
+    
+    // Initialize map based on setting with timeout
+    setTimeout(() => {
+      if (mapRenderer && mapRenderer.toLowerCase() === 'google maps' && apiKey && apiKey.length > 10) {
+        initializeGoogleMap(mapId, pickCoords, dropCoords, apiKey);
+      } else if (mapRenderer && mapRenderer.toLowerCase() === 'mapbox') {
+        initializeMapboxMap(mapId, pickCoords, dropCoords);
+      } else if (mapRenderer && mapRenderer.toLowerCase() === 'maplibre') {
+        initializeMapLibreMap(mapId, pickCoords, dropCoords);
+      } else {
+        initializeOpenStreetMap(mapId, pickCoords, dropCoords);
+      }
+    }, 100);
+    
   } catch (error) {
     console.error('Error rendering route map:', error);
     $wrapper.html('<div class="text-muted">Unable to load map</div>');
   }
+}
+
+// Show map fallback display
+function showMapFallback(mapId, pickCoords, dropCoords) {
+  const fallbackElement = document.getElementById(`${mapId}-fallback`);
+  if (fallbackElement) {
+    fallbackElement.style.display = 'flex';
+  }
+}
+
+// Hide map fallback display
+function hideMapFallback(mapId) {
+  const fallbackElement = document.getElementById(`${mapId}-fallback`);
+  if (fallbackElement) {
+    fallbackElement.style.display = 'none';
+  }
+}
+
+// Initialize Google Maps
+function initializeGoogleMap(mapId, pickCoords, dropCoords, apiKey) {
+  const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?key=${apiKey}&size=600x400&maptype=roadmap&markers=color:red|label:A|${pickCoords.lat},${pickCoords.lon}&markers=color:green|label:B|${dropCoords.lat},${dropCoords.lon}&path=color:0x0000ff|weight:5|${pickCoords.lat},${pickCoords.lon}|${dropCoords.lat},${dropCoords.lon}`;
+  
+  const mapElement = document.getElementById(mapId);
+  if (mapElement) {
+    // Create a test image to check if the API key works
+    const testImg = new Image();
+    testImg.onload = function() {
+      // API key works, hide fallback and show the map
+      hideMapFallback(mapId);
+      mapElement.innerHTML = `
+        <img 
+          src="${staticMapUrl}" 
+          alt="Route Map" 
+          style="width: 100%; height: 100%; object-fit: cover;"
+        />
+      `;
+    };
+    testImg.onerror = function() {
+      // API key doesn't work, keep fallback visible
+      console.warn('Google Maps Static API failed, showing fallback');
+    };
+    testImg.src = staticMapUrl;
+  }
+}
+
+// Initialize Mapbox
+function initializeMapboxMap(mapId, pickCoords, dropCoords) {
+  // Load Mapbox GL JS if not already loaded
+  if (!window.mapboxgl) {
+    // Load Mapbox CSS
+    const mapboxCSS = document.createElement('link');
+    mapboxCSS.rel = 'stylesheet';
+    mapboxCSS.href = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css';
+    document.head.appendChild(mapboxCSS);
+    
+    // Load Mapbox JS
+    const mapboxJS = document.createElement('script');
+    mapboxJS.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js';
+    mapboxJS.onload = () => {
+      createMapboxMap(mapId, pickCoords, dropCoords);
+    };
+    document.head.appendChild(mapboxJS);
+  } else {
+    createMapboxMap(mapId, pickCoords, dropCoords);
+  }
+}
+
+// Initialize MapLibre
+function initializeMapLibreMap(mapId, pickCoords, dropCoords) {
+  // Load MapLibre GL JS if not already loaded
+  if (!window.maplibregl) {
+    // Load MapLibre CSS
+    const maplibreCSS = document.createElement('link');
+    maplibreCSS.rel = 'stylesheet';
+    maplibreCSS.href = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css';
+    document.head.appendChild(maplibreCSS);
+    
+    // Load MapLibre JS
+    const maplibreJS = document.createElement('script');
+    maplibreJS.src = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js';
+    maplibreJS.onload = () => {
+      createMapLibreMap(mapId, pickCoords, dropCoords);
+    };
+    document.head.appendChild(maplibreJS);
+  } else {
+    createMapLibreMap(mapId, pickCoords, dropCoords);
+  }
+}
+
+// Initialize OpenStreetMap with Leaflet
+function initializeOpenStreetMap(mapId, pickCoords, dropCoords) {
+  // Load Leaflet CSS and JS if not already loaded
+  if (!window.L) {
+    // Load Leaflet CSS
+    const leafletCSS = document.createElement('link');
+    leafletCSS.rel = 'stylesheet';
+    leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    leafletCSS.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    leafletCSS.crossOrigin = 'anonymous';
+    document.head.appendChild(leafletCSS);
+    
+    // Load Leaflet JS
+    const leafletJS = document.createElement('script');
+    leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    leafletJS.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    leafletJS.crossOrigin = 'anonymous';
+    leafletJS.onload = () => {
+      createMap(mapId, pickCoords, dropCoords);
+    };
+    document.head.appendChild(leafletJS);
+  } else {
+    createMap(mapId, pickCoords, dropCoords);
+  }
+}
+
+function createMap(mapId, pickCoords, dropCoords) {
+  // Wait for DOM element to be available
+  const checkElement = () => {
+    const mapElement = document.getElementById(mapId);
+    if (mapElement) {
+      try {
+        // Create map centered between the two points
+        const centerLat = (pickCoords.lat + dropCoords.lat) / 2;
+        const centerLon = (pickCoords.lon + dropCoords.lon) / 2;
+        
+        const map = L.map(mapId).setView([centerLat, centerLon], 13);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        }).addTo(map);
+        
+        // Add pickup marker (red)
+        const pickupMarker = L.marker([pickCoords.lat, pickCoords.lon], {
+          icon: L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          })
+        }).addTo(map);
+        
+        // Add drop marker (green)
+        const dropMarker = L.marker([dropCoords.lat, dropCoords.lon], {
+          icon: L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color: green; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          })
+        }).addTo(map);
+        
+        // Add popups
+        pickupMarker.bindPopup('<strong>Pickup Location</strong><br>Coordinates: ' + pickCoords.lat.toFixed(4) + ', ' + pickCoords.lon.toFixed(4));
+        dropMarker.bindPopup('<strong>Drop Location</strong><br>Coordinates: ' + dropCoords.lat.toFixed(4) + ', ' + dropCoords.lon.toFixed(4));
+        
+        // Add route line
+        const routeLine = L.polyline([
+          [pickCoords.lat, pickCoords.lon],
+          [dropCoords.lat, dropCoords.lon]
+        ], {
+          color: 'blue',
+          weight: 4,
+          opacity: 0.7,
+          dashArray: '10, 10'
+        }).addTo(map);
+        
+        // Fit map to show both markers
+        const group = new L.featureGroup([pickupMarker, dropMarker]);
+        map.fitBounds(group.getBounds().pad(0.1));
+        
+        // Hide fallback when map loads successfully
+        hideMapFallback(mapId);
+        
+      } catch (error) {
+        console.error('Error creating OpenStreetMap:', error);
+        // Keep fallback visible on error
+      }
+    } else {
+      // Retry after a short delay
+      setTimeout(checkElement, 100);
+    }
+  };
+  
+  checkElement();
+}
+
+// Create Mapbox map
+function createMapboxMap(mapId, pickCoords, dropCoords) {
+  const checkElement = () => {
+    const mapElement = document.getElementById(mapId);
+    if (mapElement) {
+      try {
+        // Create map centered between the two points
+        const centerLat = (pickCoords.lat + dropCoords.lat) / 2;
+        const centerLon = (pickCoords.lon + dropCoords.lon) / 2;
+        
+        const map = new mapboxgl.Map({
+          container: mapId,
+          style: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
+          center: [centerLon, centerLat],
+          zoom: 13
+        });
+        
+        // Add pickup marker
+        const pickupMarker = new mapboxgl.Marker({ color: 'red' })
+          .setLngLat([pickCoords.lon, pickCoords.lat])
+          .setPopup(new mapboxgl.Popup().setHTML('<strong>Pickup Location</strong><br>Coordinates: ' + pickCoords.lat.toFixed(4) + ', ' + pickCoords.lon.toFixed(4)))
+          .addTo(map);
+        
+        // Add drop marker
+        const dropMarker = new mapboxgl.Marker({ color: 'green' })
+          .setLngLat([dropCoords.lon, dropCoords.lat])
+          .setPopup(new mapboxgl.Popup().setHTML('<strong>Drop Location</strong><br>Coordinates: ' + dropCoords.lat.toFixed(4) + ', ' + dropCoords.lon.toFixed(4)))
+          .addTo(map);
+        
+        // Add route line
+        map.on('load', () => {
+          map.addSource('route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [pickCoords.lon, pickCoords.lat],
+                  [dropCoords.lon, dropCoords.lat]
+                ]
+              }
+            }
+          });
+          
+          map.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': 'blue',
+              'line-width': 4,
+              'line-dasharray': [2, 2]
+            }
+          });
+        });
+        
+        // Fit map to show both markers
+        const bounds = new mapboxgl.LngLatBounds();
+        bounds.extend([pickCoords.lon, pickCoords.lat]);
+        bounds.extend([dropCoords.lon, dropCoords.lat]);
+        map.fitBounds(bounds, { padding: 50 });
+        
+        // Hide fallback when map loads successfully
+        hideMapFallback(mapId);
+        
+      } catch (error) {
+        console.error('Error creating Mapbox map:', error);
+        // Keep fallback visible on error
+      }
+    } else {
+      setTimeout(checkElement, 100);
+    }
+  };
+  
+  checkElement();
+}
+
+// Create MapLibre map
+function createMapLibreMap(mapId, pickCoords, dropCoords) {
+  const checkElement = () => {
+    const mapElement = document.getElementById(mapId);
+    if (mapElement) {
+      try {
+        // Create map centered between the two points
+        const centerLat = (pickCoords.lat + dropCoords.lat) / 2;
+        const centerLon = (pickCoords.lon + dropCoords.lon) / 2;
+        
+        const map = new maplibregl.Map({
+          container: mapId,
+          style: {
+            version: 8,
+            sources: {
+              'osm': {
+                type: 'raster',
+                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution: '&copy; OpenStreetMap contributors'
+              }
+            },
+            layers: [
+              {
+                id: 'osm',
+                type: 'raster',
+                source: 'osm'
+              }
+            ]
+          },
+          center: [centerLon, centerLat],
+          zoom: 13
+        });
+        
+        // Add pickup marker
+        const pickupMarker = new maplibregl.Marker({ color: 'red' })
+          .setLngLat([pickCoords.lon, pickCoords.lat])
+          .setPopup(new maplibregl.Popup().setHTML('<strong>Pickup Location</strong><br>Coordinates: ' + pickCoords.lat.toFixed(4) + ', ' + pickCoords.lon.toFixed(4)))
+          .addTo(map);
+        
+        // Add drop marker
+        const dropMarker = new maplibregl.Marker({ color: 'green' })
+          .setLngLat([dropCoords.lon, dropCoords.lat])
+          .setPopup(new maplibregl.Popup().setHTML('<strong>Drop Location</strong><br>Coordinates: ' + dropCoords.lat.toFixed(4) + ', ' + dropCoords.lon.toFixed(4)))
+          .addTo(map);
+        
+        // Add route line
+        map.on('load', () => {
+          map.addSource('route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [pickCoords.lon, pickCoords.lat],
+                  [dropCoords.lon, dropCoords.lat]
+                ]
+              }
+            }
+          });
+          
+          map.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': 'blue',
+              'line-width': 4,
+              'line-dasharray': [2, 2]
+            }
+          });
+        });
+        
+        // Fit map to show both markers
+        const bounds = new maplibregl.LngLatBounds();
+        bounds.extend([pickCoords.lon, pickCoords.lat]);
+        bounds.extend([dropCoords.lon, dropCoords.lat]);
+        map.fitBounds(bounds, { padding: 50 });
+        
+        // Hide fallback when map loads successfully
+        hideMapFallback(mapId);
+        
+      } catch (error) {
+        console.error('Error creating MapLibre map:', error);
+        // Keep fallback visible on error
+      }
+    } else {
+      setTimeout(checkElement, 100);
+    }
+  };
+  
+  checkElement();
 }
 
 // ---------- form bindings ----------
@@ -334,7 +679,7 @@ frappe.ui.form.on('Transport Leg', {
     render_drop_address(frm);
     render_route_map(frm);
 
-    addExternalMapButtons(frm);
+    addActionButtons(frm);
 
     const dist = frm.doc.route_distance_km ?? frm.doc.distance_km;
     const dur  = frm.doc.route_duration_min ?? frm.doc.duration_min;

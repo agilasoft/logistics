@@ -35,6 +35,14 @@ def _safe_set(doc: Document, fieldname: str, value):
     if _has_field(doc.doctype, fieldname):
         doc.set(fieldname, value)
 
+def _safe_meta_fieldnames(doctype: str) -> set:
+    """Get fieldnames that exist on a doctype as a set."""
+    try:
+        meta = frappe.get_meta(doctype)
+        return {df.fieldname for df in meta.fields if df.fieldname}
+    except Exception:
+        return set()
+
 def _pluck_names(rows: List[Dict[str, Any]]) -> List[str]:
     return [r.get("name") for r in rows if r.get("name")]
 
@@ -213,3 +221,134 @@ def _append_runsheet_legs_from_job(job: Document, rs: Document) -> int:
         added += 1
 
     return added
+
+
+@frappe.whitelist()
+def create_sales_invoice(job_name: str) -> Dict[str, Any]:
+    """
+    Create a Sales Invoice from a Transport Job when all legs are completed.
+    """
+    if not job_name:
+        frappe.throw(_("Transport Job name is required."))
+    
+    job = frappe.get_doc("Transport Job", job_name)
+    if job.docstatus != 1:
+        frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
+    
+    # Get all legs for this job
+    legs_field = _get_job_legs_fieldname(job)
+    job_legs = job.get(legs_field) or []
+    
+    if not job_legs:
+        frappe.throw(_("No legs found in this Transport Job."))
+    
+    # Check if all legs are completed
+    completed_legs = []
+    incomplete_legs = []
+    
+    for leg_row in job_legs:
+        transport_leg_name = leg_row.get("transport_leg")
+        if not transport_leg_name:
+            continue
+            
+        leg_doc = frappe.get_doc("Transport Leg", transport_leg_name)
+        if leg_doc.status == "Completed":
+            completed_legs.append(leg_doc)
+        else:
+            incomplete_legs.append(leg_doc)
+    
+    if incomplete_legs:
+        incomplete_names = [leg.name for leg in incomplete_legs]
+        frappe.throw(_("Cannot create Sales Invoice. The following legs are not completed: {0}").format(", ".join(incomplete_names)))
+    
+    if not completed_legs:
+        frappe.throw(_("No completed legs found to create Sales Invoice."))
+    
+    # Check if Sales Invoice already exists for this job
+    if job.sales_invoice:
+        frappe.throw(_("Sales Invoice {0} already exists for this Transport Job.").format(job.sales_invoice))
+    
+    # Create Sales Invoice
+    si = frappe.new_doc("Sales Invoice")
+    si.customer = job.customer
+    si.company = job.company
+    si.posting_date = frappe.utils.today()
+    
+    # Add reference in remarks since transport_job field doesn't exist
+    base_remarks = si.remarks or ""
+    note = _("Auto-created from Transport Job {0}").format(job.name)
+    si.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+    
+    # Create items for each completed leg
+    si_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
+    for leg in completed_legs:
+        # Try to find a suitable item or create a service item
+        item_code = None
+        item_name = f"Transport from {leg.facility_from or 'Origin'} to {leg.facility_to or 'Destination'}"
+        
+        # Try to find existing transport service items
+        existing_items = frappe.get_all("Item", 
+            filters={"item_group": "Services", "disabled": 0}, 
+            fields=["name"], 
+            limit=1
+        )
+        
+        if existing_items:
+            item_code = existing_items[0].name
+        else:
+            # Try to find any service item
+            service_items = frappe.get_all("Item", 
+                filters={"disabled": 0}, 
+                fields=["name"], 
+                limit=1
+            )
+            if service_items:
+                item_code = service_items[0].name
+            else:
+                # Use a generic approach - create item without item_code
+                item_code = None
+        
+        # Try to get rate from leg charges or use default
+        rate = 0.0
+        if hasattr(leg, 'rate') and leg.rate:
+            rate = leg.rate
+        elif hasattr(leg, 'amount') and leg.amount:
+            rate = leg.amount
+        
+        item_payload = {
+            "item_name": item_name,
+            "description": f"Transport Leg: {leg.name}",
+            "qty": 1,
+            "rate": rate
+        }
+        
+        # Only add item_code if we found one
+        if item_code:
+            item_payload["item_code"] = item_code
+        
+        # Add transport_leg field if it exists in Sales Invoice Item
+        if "transport_leg" in si_item_fields:
+            item_payload["transport_leg"] = leg.name
+        else:
+            # Add transport leg reference in description if field doesn't exist
+            item_payload["description"] = f"Transport Leg: {leg.name} - {item_payload.get('description', '')}"
+        
+        si.append("items", item_payload)
+    
+    # Set missing values and insert
+    si.set_missing_values()
+    si.insert(ignore_permissions=True)
+    
+    # Update Transport Legs with Sales Invoice reference
+    for leg in completed_legs:
+        frappe.db.set_value("Transport Leg", leg.name, "sales_invoice", si.name, update_modified=False)
+    
+    # Update Transport Job with Sales Invoice reference
+    frappe.db.set_value("Transport Job", job.name, "sales_invoice", si.name, update_modified=False)
+    
+    return {
+        "ok": True,
+        "message": _("Sales Invoice {0} created successfully.").format(si.name),
+        "sales_invoice": si.name,
+        "legs_updated": len(completed_legs)
+    }

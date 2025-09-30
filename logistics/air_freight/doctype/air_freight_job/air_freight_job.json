@@ -6,6 +6,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "milestones_tab",
+  "milestone_html",
+  "details_tab",
   "section_break_wacv",
   "transport_mode_column",
   "amended_from",
@@ -395,7 +398,7 @@
   {
    "fieldname": "services",
    "fieldtype": "Table",
-   "options": "Air Freight Services"
+   "options": "Air Freight Job Services"
   },
   {
    "fieldname": "connections_tab",
@@ -406,14 +409,29 @@
   {
    "fieldname": "packages",
    "fieldtype": "Table",
-   "options": "Air Freight Packages"
+   "options": "Air Freight Job Packages"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-06-02 15:11:32.364151",
+ "modified": "2025-09-30 00:14:36.091611",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight Job",

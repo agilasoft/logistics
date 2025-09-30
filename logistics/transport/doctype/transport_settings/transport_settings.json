@@ -16,6 +16,7 @@
   "column_break_rifi",
   "routing_auto_compute",
   "routing_show_map",
+  "map_renderer",
   "maps_enable_external_links",
   "routing_tiles_url",
   "routing_tiles_attr",
@@ -89,6 +90,12 @@
    "fieldname": "routing_show_map",
    "fieldtype": "Check",
    "label": "Routing Show Map"
+  },
+  {
+   "fieldname": "map_renderer",
+   "fieldtype": "Select",
+   "label": "Map Renderer",
+   "options": "OpenStreetMap\nGoogle Maps\nMapbox\nMapLibre"
   },
   {
    "fieldname": "routing_tab",
@@ -192,7 +199,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-26 18:33:04.873248",
+ "modified": "2025-09-29 13:19:06.245366",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Settings",

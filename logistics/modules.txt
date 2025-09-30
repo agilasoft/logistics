@@ -5,5 +5,3 @@ Warehousing
 Customs
 Sea Freight
 Air Freight
-Land Transport
-Logistics Core

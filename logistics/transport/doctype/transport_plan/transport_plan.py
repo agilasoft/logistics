@@ -12,7 +12,7 @@ from frappe.utils import add_days, getdate, nowdate, cint, cstr, flt
 
 
 @frappe.whitelist()
-def auto_allocate_and_create(plan_name: str) -> Dict[str, Any]:
+def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> Dict[str, Any]:
     """
     Allocate vehicles & drivers to Transport Legs, create/reuse Run Sheets,
     and append legs (we link only the Transport Leg, then prefill child fields
@@ -24,12 +24,16 @@ def auto_allocate_and_create(plan_name: str) -> Dict[str, Any]:
         "plan": plan_name,
         "created": [],
         "reused": [],
+        "created_with_vehicle": [],
+        "created_without_vehicle": [],
         "attached_legs": 0,
         "skipped": [],
         "errors": [],
         "debug": [],
         "leg_date_field": None,
         "window": None,
+        "consolidated_trips": 0,
+        "total_legs": 0,
     }
 
     try:
@@ -67,52 +71,122 @@ def auto_allocate_and_create(plan_name: str) -> Dict[str, Any]:
         # Group legs by Run Sheet (vehicle + driver + date combination)
         runsheet_groups = {}
         
-        for leg in day_legs:
-            leg_debug: List[str] = []
-            try:
-                vehicle = _find_candidate_vehicle(leg, leg_debug)
-                if not vehicle:
-                    result["skipped"].append({
-                        "leg": _fmt_leg(leg),
-                        "reason": _fmt_reason_no_vehicle(leg),
-                        "trace": leg_debug,
-                    })
+        if consolidate_legs:
+            # Consolidate legs into optimized trips
+            consolidated_trips = _consolidate_legs(day_legs, result["debug"])
+            result["consolidated_trips"] = len(consolidated_trips)
+            result["total_legs"] = len(day_legs)
+            
+            for trip in consolidated_trips:
+                trip_debug: List[str] = []
+                try:
+                    # Find vehicle and driver for the entire trip
+                    vehicle = _find_vehicle_for_trip(trip["legs"], trip_debug)
+                    driver = None
+                    
+                    if vehicle:
+                        driver = _find_candidate_driver(trip["legs"][0], vehicle, trip_debug)
+                        if not driver:
+                            trip_debug.append("No driver available for the selected vehicle.")
+                    else:
+                        trip_debug.append("No vehicle available for this trip.")
+
+                    # Create run sheet for the entire trip
+                    rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug)
+
+                    # Append all legs in the trip to the run sheet
+                    trip_legs_added = 0
+                    for leg in trip["legs"]:
+                        appended = _append_leg_to_runsheet(rs_name, leg, trip_debug)
+                        if appended:
+                            trip_legs_added += 1
+                            result["attached_legs"] += 1
+
+                        if _has_field("Transport Leg", "run_sheet"):
+                            frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
+
+                    # Group legs by Run Sheet for additional leg creation
+                    if rs_name not in runsheet_groups:
+                        runsheet_groups[rs_name] = {
+                            "legs": [],
+                            "reused": reused,
+                            "debug": []
+                        }
+                    runsheet_groups[rs_name]["legs"].extend(trip["legs"])
+                    runsheet_groups[rs_name]["debug"].extend(trip_debug)
+
+                    # Track run sheets with and without vehicles
+                    if vehicle:
+                        if reused:
+                            result["reused"].append(rs_name)
+                        else:
+                            result["created_with_vehicle"].append(rs_name)
+                    else:
+                        if reused:
+                            result["reused"].append(rs_name)
+                        else:
+                            result["created_without_vehicle"].append(rs_name)
+                    
+                    # Keep backward compatibility
+                    (result["reused"] if reused else result["created"]).append(rs_name)
+
+                except Exception as e:
+                    result["errors"].append(f"Trip consolidation failed: {cstr(e)}")
                     continue
+        else:
+            # Original logic: one run sheet per leg
+            for leg in day_legs:
+                leg_debug: List[str] = []
+                try:
+                    vehicle = _find_candidate_vehicle(leg, leg_debug)
+                    driver = None
+                    
+                    if vehicle:
+                        driver = _find_candidate_driver(leg, vehicle, leg_debug)
+                        if not driver:
+                            leg_debug.append("No driver available for the selected vehicle.")
+                    else:
+                        leg_debug.append("No vehicle available for this leg.")
 
-                driver = _find_candidate_driver(leg, vehicle, leg_debug)
-                if not driver:
-                    result["skipped"].append({
-                        "leg": _fmt_leg(leg),
-                        "reason": "No eligible Driver available on the scheduled day.",
-                        "trace": leg_debug,
-                    })
+                    # Create run sheet with or without vehicle/driver
+                    rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug)
+
+                    # Append child row: set transport_leg THEN prefill other child fields from the leg
+                    appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
+                    if appended:
+                        result["attached_legs"] += 1
+
+                    if _has_field("Transport Leg", "run_sheet"):
+                        frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
+
+                    # Group legs by Run Sheet for additional leg creation
+                    if rs_name not in runsheet_groups:
+                        runsheet_groups[rs_name] = {
+                            "legs": [],
+                            "reused": reused,
+                            "debug": []
+                        }
+                    runsheet_groups[rs_name]["legs"].append(leg)
+                    runsheet_groups[rs_name]["debug"].extend(leg_debug)
+
+                    # Track run sheets with and without vehicles
+                    if vehicle:
+                        if reused:
+                            result["reused"].append(rs_name)
+                        else:
+                            result["created_with_vehicle"].append(rs_name)
+                    else:
+                        if reused:
+                            result["reused"].append(rs_name)
+                        else:
+                            result["created_without_vehicle"].append(rs_name)
+                    
+                    # Keep backward compatibility
+                    (result["reused"] if reused else result["created"]).append(rs_name)
+
+                except Exception as e:
+                    result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
                     continue
-
-                rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug)
-
-                # Append child row: set transport_leg THEN prefill other child fields from the leg
-                appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
-                if appended:
-                    result["attached_legs"] += 1
-
-                if _has_field("Transport Leg", "run_sheet"):
-                    frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
-
-                # Group legs by Run Sheet for additional leg creation
-                if rs_name not in runsheet_groups:
-                    runsheet_groups[rs_name] = {
-                        "legs": [],
-                        "reused": reused,
-                        "debug": []
-                    }
-                runsheet_groups[rs_name]["legs"].append(leg)
-                runsheet_groups[rs_name]["debug"].extend(leg_debug)
-
-                (result["reused"] if reused else result["created"]).append(rs_name)
-
-            except Exception as e:
-                result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
-                continue
 
         # Add additional legs (base-to-first-pick, connecting, last-drop-to-base) to each Run Sheet
         for rs_name, group_data in runsheet_groups.items():
@@ -212,6 +286,231 @@ def _get_leg_date_value(leg: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+# ------------------------ Consolidation & Optimization ------------------------
+
+def _consolidate_legs(day_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """
+    Consolidate legs into optimized trips based on vehicle type, capacity, and route optimization.
+    """
+    debug = debug or []
+    trips = []
+    
+    # Group legs by vehicle type first
+    legs_by_vehicle_type = {}
+    for leg in day_legs:
+        vt = leg.get("vehicle_type", "Unknown")
+        if vt not in legs_by_vehicle_type:
+            legs_by_vehicle_type[vt] = []
+        legs_by_vehicle_type[vt].append(leg)
+    
+    debug.append(f"Grouped {len(day_legs)} legs into {len(legs_by_vehicle_type)} vehicle types")
+    
+    # For each vehicle type, create optimized trips
+    for vehicle_type, legs in legs_by_vehicle_type.items():
+        debug.append(f"Processing {len(legs)} legs for vehicle type: {vehicle_type}")
+        
+        # Sort legs by priority and time windows
+        sorted_legs = _sort_legs_for_optimization(legs)
+        
+        # Create trips based on capacity and route optimization
+        vehicle_trips = _create_optimized_trips(sorted_legs, vehicle_type, debug)
+        trips.extend(vehicle_trips)
+    
+    debug.append(f"Created {len(trips)} optimized trips from {len(day_legs)} legs")
+    return trips
+
+
+def _sort_legs_for_optimization(legs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Sort legs for optimization considering priority, time windows, and geographic proximity.
+    """
+    def sort_key(leg):
+        # Priority: hazardous first, then by order, then by time
+        priority = 0
+        if leg.get("hazardous"):
+            priority += 1000
+        
+        order = cint(leg.get("order") or 0)
+        time_factor = 0
+        
+        # Consider time windows if available
+        for time_field in ["pick_window_start", "drop_window_start", "run_date"]:
+            if leg.get(time_field):
+                try:
+                    time_factor = cint(str(leg[time_field]).replace(":", "").replace("-", "").replace(" ", ""))
+                except:
+                    time_factor = 0
+                break
+        
+        return (priority, order, time_factor)
+    
+    return sorted(legs, key=sort_key)
+
+
+def _create_optimized_trips(legs: List[Dict[str, Any]], vehicle_type: str, debug: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """
+    Create optimized trips by grouping legs that can be served by the same vehicle.
+    """
+    debug = debug or []
+    trips = []
+    remaining_legs = legs.copy()
+    
+    while remaining_legs:
+        # Start a new trip with the first leg
+        current_trip = [remaining_legs.pop(0)]
+        trip_capacity = _calculate_trip_capacity(current_trip)
+        
+        # Try to add more legs to this trip
+        legs_to_remove = []
+        for leg in remaining_legs:
+            if _can_add_leg_to_trip(current_trip, leg, trip_capacity):
+                current_trip.append(leg)
+                legs_to_remove.append(leg)
+                trip_capacity = _calculate_trip_capacity(current_trip)
+        
+        # Remove added legs from remaining
+        for leg in legs_to_remove:
+            remaining_legs.remove(leg)
+        
+        # Create trip object
+        trip = {
+            "legs": current_trip,
+            "vehicle_type": vehicle_type,
+            "total_weight": sum(flt(leg.get("weight") or 0) for leg in current_trip),
+            "total_volume": sum(flt(leg.get("volume") or 0) for leg in current_trip),
+            "total_pallets": sum(flt(leg.get("pallets") or 0) for leg in current_trip),
+            "hazardous": any(leg.get("hazardous") for leg in current_trip),
+            "leg_count": len(current_trip)
+        }
+        
+        trips.append(trip)
+        debug.append(f"Created trip with {len(current_trip)} legs for vehicle type {vehicle_type}")
+    
+    return trips
+
+
+def _can_add_leg_to_trip(trip_legs: List[Dict[str, Any]], new_leg: Dict[str, Any], current_capacity: Dict[str, float]) -> bool:
+    """
+    Check if a leg can be added to an existing trip based on capacity and compatibility.
+    """
+    # Check vehicle type compatibility
+    if new_leg.get("vehicle_type") != trip_legs[0].get("vehicle_type"):
+        return False
+    
+    # Check hazardous material compatibility
+    if new_leg.get("hazardous") and not all(leg.get("hazardous") for leg in trip_legs):
+        return False
+    
+    # Check capacity constraints
+    new_weight = flt(new_leg.get("weight") or 0)
+    new_volume = flt(new_leg.get("volume") or 0)
+    new_pallets = flt(new_leg.get("pallets") or 0)
+    
+    # Get vehicle capacity (we'll need to find a vehicle to check this)
+    # For now, use reasonable defaults
+    max_weight = 10000  # kg
+    max_volume = 100    # m³
+    max_pallets = 50
+    
+    if current_capacity["weight"] + new_weight > max_weight:
+        return False
+    if current_capacity["volume"] + new_volume > max_volume:
+        return False
+    if current_capacity["pallets"] + new_pallets > max_pallets:
+        return False
+    
+    return True
+
+
+def _calculate_trip_capacity(trip_legs: List[Dict[str, Any]]) -> Dict[str, float]:
+    """
+    Calculate total capacity requirements for a trip.
+    """
+    return {
+        "weight": sum(flt(leg.get("weight") or 0) for leg in trip_legs),
+        "volume": sum(flt(leg.get("volume") or 0) for leg in trip_legs),
+        "pallets": sum(flt(leg.get("pallets") or 0) for leg in trip_legs)
+    }
+
+
+def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+    """
+    Find a suitable vehicle for an entire trip based on capacity requirements.
+    """
+    debug = debug or []
+    if not trip_legs:
+        return None
+    
+    # Use the first leg to determine vehicle type and requirements
+    first_leg = trip_legs[0]
+    vehicle_type = first_leg.get("vehicle_type")
+    
+    if not vehicle_type:
+        debug.append("No vehicle type specified for trip")
+        return None
+    
+    # Calculate total trip requirements
+    total_weight = sum(flt(leg.get("weight") or 0) for leg in trip_legs)
+    total_volume = sum(flt(leg.get("volume") or 0) for leg in trip_legs)
+    total_pallets = sum(flt(leg.get("pallets") or 0) for leg in trip_legs)
+    has_hazardous = any(leg.get("hazardous") for leg in trip_legs)
+    
+    debug.append(f"Trip requirements: {total_weight}kg, {total_volume}m³, {total_pallets}pallets, hazardous: {has_hazardous}")
+    
+    # Find vehicles that can handle the entire trip
+    v_filters: List[Any] = [
+        ["company_owned", "=", 1],  # Only internal vehicles
+        ["vehicle_type", "=", vehicle_type]
+    ]
+    
+    v_fields = ["name", "vehicle_name", "company_owned"]
+    for vf in ["vehicle_type", "transport_company", "capacity_weight", "capacity_volume", "capacity_pallets"]:
+        if _has_field("Transport Vehicle", vf):
+            v_fields.append(vf)
+
+    vehicles = frappe.get_all(
+        "Transport Vehicle",
+        filters=v_filters,
+        fields=v_fields,
+        limit_page_length=200,
+        order_by="modified desc",
+    )
+    
+    if not vehicles:
+        debug.append("No internal vehicles available for trip")
+        return None
+    
+    # Check vehicle availability for the entire trip duration
+    trip_date = _get_leg_date_value(first_leg)
+    
+    for vehicle in vehicles:
+        # Check if vehicle is available for the entire trip
+        if not _vehicle_free_on_date(vehicle["name"], trip_date):
+            debug.append(f"Vehicle {vehicle.get('vehicle_name') or vehicle['name']} busy on {trip_date}")
+            continue
+        
+        # Check capacity
+        vehicle_weight = flt(vehicle.get("capacity_weight") or 0)
+        vehicle_volume = flt(vehicle.get("capacity_volume") or 0)
+        vehicle_pallets = flt(vehicle.get("capacity_pallets") or 0)
+        
+        if total_weight > 0 and vehicle_weight < total_weight:
+            debug.append(f"Vehicle {vehicle.get('vehicle_name')} insufficient weight capacity")
+            continue
+        if total_volume > 0 and vehicle_volume < total_volume:
+            debug.append(f"Vehicle {vehicle.get('vehicle_name')} insufficient volume capacity")
+            continue
+        if total_pallets > 0 and vehicle_pallets < total_pallets:
+            debug.append(f"Vehicle {vehicle.get('vehicle_name')} insufficient pallet capacity")
+            continue
+        
+        debug.append(f"Selected vehicle for trip: {vehicle.get('vehicle_name') or vehicle['name']}")
+        return vehicle
+    
+    debug.append("No suitable vehicle found for trip")
+    return None
+
+
 # ------------------------ Vehicle & Driver ------------------------
 
 def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
@@ -220,11 +519,13 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
         debug.append("No 'Transport Vehicle' doctype.")
         return None
 
-    v_filters: List[Any] = []
+    v_filters: List[Any] = [
+        ["company_owned", "=", 1]  # Only internal vehicles
+    ]
     if leg.get("vehicle_type") and _has_field("Transport Vehicle", "vehicle_type"):
         v_filters.append(["vehicle_type", "=", leg["vehicle_type"]])
 
-    v_fields = ["name", "vehicle_name"]
+    v_fields = ["name", "vehicle_name", "company_owned"]
     for vf in ["vehicle_type", "transport_company", "capacity_weight", "capacity_volume", "capacity_pallets"]:
         if _has_field("Transport Vehicle", vf):
             v_fields.append(vf)
@@ -237,7 +538,7 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
         order_by="modified desc",
     )
     if not vehicles:
-        debug.append("No vehicles match filters.")
+        debug.append("No internal vehicles match filters.")
         return None
 
     sched = _get_leg_date_value(leg)
@@ -247,7 +548,7 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
 
     for v in vehicles:
         if not _vehicle_free_on_date(v["name"], sched):
-            debug.append(f"Vehicle busy on {sched}: {v.get('vehicle_name') or v['name']}")
+            debug.append(f"Internal vehicle busy on {sched}: {v.get('vehicle_name') or v['name']}")
             continue
 
         ok = True
@@ -259,17 +560,17 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
             ok = ok and flt(v.get("capacity_pallets") or 0) >= need_p
 
         if ok:
-            debug.append(f"Vehicle selected: {v.get('vehicle_name') or v['name']}")
+            debug.append(f"Internal vehicle selected: {v.get('vehicle_name') or v['name']}")
             return v
 
-    debug.append("All candidate vehicles failed availability/capacity.")
+    debug.append("All internal vehicles failed availability/capacity.")
     return None
 
 
 def _fmt_reason_no_vehicle(leg: Dict[str, Any]) -> str:
     vt = cstr(leg.get("vehicle_type") or "—")
     sched = _get_leg_date_value(leg) or "—"
-    return f"No eligible Transport Vehicle found (Vehicle Type: {vt}, Date: {sched})."
+    return f"No eligible internal Transport Vehicle found (Vehicle Type: {vt}, Date: {sched})."
 
 
 def _find_candidate_driver(leg: Dict[str, Any], vehicle: Dict[str, Any], debug: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
@@ -357,13 +658,14 @@ def _driver_free_on_date(driver_name: str, day: Optional[str]) -> bool:
 
 # ------------------------ Run Sheet & legs ------------------------
 
-def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Dict[str, Any], driver: Dict[str, Any], debug: Optional[List[str]] = None) -> Tuple[str, bool]:
+def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None) -> Tuple[str, bool]:
     debug = debug or []
     sched = _get_leg_date_value(leg) or nowdate()
     rs_date = f"{sched} 08:00:00"
 
+    # Only try to reuse if we have both vehicle and driver
     existing = []
-    if _doctype_exists("Run Sheet") and _has_field("Run Sheet", "vehicle") and _has_field("Run Sheet", "driver") and _has_field("Run Sheet", "run_date"):
+    if vehicle and driver and _doctype_exists("Run Sheet") and _has_field("Run Sheet", "vehicle") and _has_field("Run Sheet", "driver") and _has_field("Run Sheet", "run_date"):
         existing = frappe.get_all(
             "Run Sheet",
             filters=[
@@ -385,12 +687,12 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Dict[str, Any], dri
     if _has_field("Run Sheet", "run_date"):
         rs.run_date = rs_date
     if _has_field("Run Sheet", "vehicle_type"):
-        rs.vehicle_type = vehicle.get("vehicle_type")
-    if _has_field("Run Sheet", "vehicle"):
+        rs.vehicle_type = leg.get("vehicle_type")
+    if _has_field("Run Sheet", "vehicle") and vehicle:
         rs.vehicle = vehicle["name"]
-    if _has_field("Run Sheet", "transport_company"):
+    if _has_field("Run Sheet", "transport_company") and vehicle:
         rs.transport_company = vehicle.get("transport_company")
-    if _has_field("Run Sheet", "driver"):
+    if _has_field("Run Sheet", "driver") and driver:
         rs.driver = driver["name"]
 
     try:
@@ -417,8 +719,8 @@ def _append_leg_to_runsheet(rs_name: str, leg: Dict[str, Any], debug: Optional[L
     child.transport_leg = leg["name"]
 
     try:
-        # Skip validations so we don't hit “Facility Type From must be set first”.
-        rs.save(ignore_permissions=True, ignore_validate=True)
+        # Skip validations so we don't hit "Facility Type From must be set first".
+        rs.save(ignore_permissions=True)
         debug.append(f"Appended leg {leg['name']} to {rs_name}")
         return True
     except Exception as e:
@@ -504,6 +806,8 @@ def _fmt_facility(ftype: Optional[str], fname: Optional[str]) -> str:
 def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, Any]:
     created = result.get("created") or []
     reused = result.get("reused") or []
+    created_with_vehicle = result.get("created_with_vehicle") or []
+    created_without_vehicle = result.get("created_without_vehicle") or []
     skipped = result.get("skipped") or []
     errors = result.get("errors") or []
 
@@ -518,6 +822,24 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
     html_parts = []
     html_parts.append('<div class="frappe-card" style="padding:12px; line-height:1.4">')
     html_parts.append('<h3 style="margin:0 0 8px 0">Create ➜ Run Sheets</h3>')
+    
+    # Show consolidation status
+    consolidation_info = ""
+    if result.get("consolidated_trips", 0) > 0:
+        consolidation_info = f"""
+        <div style="background:#e7f3ff; border:1px solid #b3d9ff; padding:8px; border-radius:4px; margin-bottom:10px; font-size:12px;">
+          <i class="fa fa-route"></i> <strong>Consolidation Active:</strong> 
+          {result.get('consolidated_trips', 0)} optimized trips created from {result.get('total_legs', 0)} legs
+        </div>
+        """
+    else:
+        consolidation_info = """
+        <div style="background:#fff3cd; border:1px solid #ffeaa7; padding:8px; border-radius:4px; margin-bottom:10px; font-size:12px;">
+          <i class="fa fa-info-circle"></i> <strong>Individual Mode:</strong> One run sheet per leg
+        </div>
+        """
+    
+    html_parts.append(consolidation_info)
     html_parts.append(f"""
     <div style="margin-bottom:10px">
       <div><b>Transport Plan:</b> {frappe.utils.escape_html(plan_name)}</div>
@@ -525,11 +847,27 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
       <div><b>Window:</b> {frappe.utils.escape_html(window)}</div>
     </div>
     """)
+    
+    # Add View Unassigned Run Sheets button
+    unassigned_count = len(created_without_vehicle)
+    if unassigned_count > 0:
+        html_parts.append(f"""
+        <div style="margin-bottom:15px; text-align:center">
+          <button onclick="viewUnassignedRunSheets()" class="btn btn-primary" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:14px;">
+            <i class="fa fa-list"></i> View Unassigned Run Sheets ({unassigned_count})
+          </button>
+        </div>
+        """)
+    
     html_parts.append(f"""
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:10px">
       <div class="card" style="border:1px solid var(--border-color); padding:10px; border-radius:8px">
-        <div><b>Created Run Sheets</b> ({len(created)})</div>
-        <ul style="margin:6px 0 0 18px">{''.join(li(r) for r in created) or '<li>—</li>'}</ul>
+        <div><b>Run Sheets with Vehicle</b> ({len(created_with_vehicle)})</div>
+        <ul style="margin:6px 0 0 18px">{''.join(li(r) for r in created_with_vehicle) or '<li>—</li>'}</ul>
+      </div>
+      <div class="card" style="border:1px solid #ffc107; padding:10px; border-radius:8px; background:#fff3cd">
+        <div><b>Run Sheets without Vehicle</b> ({len(created_without_vehicle)})</div>
+        <ul style="margin:6px 0 0 18px">{''.join(li(r) for r in created_without_vehicle) or '<li>—</li>'}</ul>
       </div>
       <div class="card" style="border:1px solid var(--border-color); padding:10px; border-radius:8px">
         <div><b>Reused Run Sheets</b> ({len(reused)})</div>
@@ -548,6 +886,7 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
         leg_txt = cstr(s.get("leg") or "—")
         reason = cstr(s.get("reason") or "—")
         skip_items.append(li(f"{leg_txt} — {reason}"))
+    
     html_parts.append(f"""
     <div style="border:1px solid var(--border-color); padding:10px; border-radius:8px; margin-bottom:10px">
       <div><b>Skipped</b> ({len(skipped)})</div>
@@ -565,6 +904,18 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
         </div>
         """)
 
+    # Add JavaScript for the View Unassigned Run Sheets button
+    html_parts.append("""
+    <script>
+    function viewUnassignedRunSheets() {
+        // Navigate to Run Sheet list with filter for unassigned vehicles
+        frappe.set_route("List", "Run Sheet", {
+            "vehicle": ["is", "not set"]
+        });
+    }
+    </script>
+    """)
+    
     html_parts.append("</div>")
     html = "".join(html_parts)
 
@@ -575,6 +926,8 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
     return {
         "ok": True,
         "created_count": len(created),
+        "created_with_vehicle_count": len(created_with_vehicle),
+        "created_without_vehicle_count": len(created_without_vehicle),
         "reused_count": len(reused),
         "attached_legs": attached,
         "skipped_count": len(skipped),
@@ -790,7 +1143,7 @@ def _add_additional_legs_to_runsheet(rs_name: str, legs: List[Dict[str, Any]], d
     # Save the Run Sheet with additional legs
     if additional_legs_added > 0:
         try:
-            rs.save(ignore_permissions=True, ignore_validate=True)
+            rs.save(ignore_permissions=True)
             debug.append(f"Added {additional_legs_added} additional legs to {rs_name}")
         except Exception as e:
             debug.append(f"Failed to save additional legs: {cstr(e)}")

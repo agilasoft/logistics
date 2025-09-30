@@ -31,7 +31,13 @@
   "internal_notes",
   "column_break_16",
   "client_notes",
-  "amended_from"
+  "amended_from",
+  "entity_tab",
+  "company",
+  "branch",
+  "column_break_xphe",
+  "job_reference",
+  "sales_invoice"
  ],
  "fields": [
   {
@@ -186,11 +192,47 @@
    "fieldtype": "Data",
    "label": "Container No.",
    "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
+  },
+  {
+   "fieldname": "entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_xphe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "This will be used when posting financial transactions to this job.",
+   "fieldname": "job_reference",
+   "fieldtype": "Link",
+   "label": "Job Reference",
+   "options": "Job Reference"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-26 14:35:04.082825",
+ "modified": "2025-09-29 20:45:33.827748",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

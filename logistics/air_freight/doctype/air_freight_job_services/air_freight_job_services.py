@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class AirFreightPackages(Document):
+class AirFreightJobServices(Document):
 	pass

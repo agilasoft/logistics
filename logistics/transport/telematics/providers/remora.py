@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import datetime as dt
+import time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
@@ -49,10 +50,20 @@ class RemoraProvider:
     }
 
     def __init__(self, config: Dict[str, Any]):
+        # Validate required configuration
+        required_fields = ['username', 'password']
+        missing = [f for f in required_fields if not config.get(f)]
+        if missing:
+            raise ValueError(f"Missing required REMORA configuration: {missing}")
+
         self.username = (config.get("username") or "").strip()
         self.password = (config.get("password") or "").strip()
         self.timeout  = float(config.get("request_timeout_sec") or config.get("timeout") or 20)
         self.debug    = bool(config.get("debug") or 0)
+        
+        # Debug capture for API responses
+        self.debug_capture = config.get("debug_capture", False)
+        self.debug_logs = [] if self.debug_capture else None
 
         if not self.username or not self.password:
             raise ValueError("REMORA username/password not configured")
@@ -67,6 +78,10 @@ class RemoraProvider:
         self.soap_version = "SOAP12" if ver == "SOAP12" else "SOAP11"
 
         self.base_url = (config.get("base_url") or "").strip()
+
+        # Validate timeout is reasonable
+        if self.timeout < 5 or self.timeout > 300:
+            _LOG.warning(f"REMORA timeout {self.timeout}s is outside recommended range (5-300s)")
 
         _LOG.info("REMORA init endpoint=%s soap=%s timeout=%.0f debug=%s",
                   self.endpoint, self.soap_version, self.timeout, int(self.debug))
@@ -117,7 +132,7 @@ class RemoraProvider:
             bits.append(f"detail={list(detail.keys())}")
         return " | ".join(bits) if bits else "SOAP Fault"
 
-    def _call(self, op: str, body_xml: str) -> Dict[str, Any]:
+    def _call(self, op: str, body_xml: str, max_retries: int = 3) -> Dict[str, Any]:
         if not _HAS_XMLTODICT:
             raise RuntimeError("xmltodict not installed; cannot parse SOAP XML. Install: bench pip install xmltodict")
 
@@ -135,40 +150,73 @@ class RemoraProvider:
 
         last_err: Optional[str] = None
         for url in candidates:
-            try:
-                if self.debug:
-                    print("\n=== REMORA SOAP REQUEST ===")
-                    print("URL:", url)
-                    print("SOAPAction:", action)
-                    print(envelope)
+            for attempt in range(max_retries):
+                try:
+                    debug_info = {}
+                    if self.debug or self.debug_capture:
+                        debug_info = {
+                            "attempt": attempt + 1,
+                            "max_retries": max_retries,
+                            "url": url,
+                            "soap_action": action,
+                            "envelope": envelope,
+                            "headers": headers
+                        }
+                        if self.debug:
+                            print(f"\n=== REMORA SOAP REQUEST (attempt {attempt + 1}/{max_retries}) ===")
+                            print("URL:", url)
+                            print("SOAPAction:", action)
+                            print(envelope)
 
-                r = self._post_once(url, envelope, headers)
-                ct = (r.headers.get("Content-Type") or "").lower()
-                text = r.text or ""
+                    r = self._post_once(url, envelope, headers)
+                    ct = (r.headers.get("Content-Type") or "").lower()
+                    text = r.text or ""
 
-                if self.debug:
-                    print("\n=== REMORA SOAP RESPONSE ===")
-                    print("HTTP:", r.status_code, r.reason, "| CT:", ct)
-                    print(text[:2000])
+                    if self.debug or self.debug_capture:
+                        debug_info.update({
+                            "http_status": r.status_code,
+                            "http_reason": r.reason,
+                            "content_type": ct,
+                            "response_text": text,
+                            "response_headers": dict(r.headers)
+                        })
+                        
+                        if self.debug:
+                            print(f"\n=== REMORA SOAP RESPONSE (attempt {attempt + 1}/{max_retries}) ===")
+                            print("HTTP:", r.status_code, r.reason, "| CT:", ct)
+                            print(text[:2000])
+                        
+                        if self.debug_capture:
+                            self.debug_logs.append(debug_info)
 
-                if r.status_code >= 400:
-                    fault = None
-                    if (ct.startswith("text/xml") or ct.startswith("application/soap+xml")) and text.strip().startswith("<"):
-                        fault = self._parse_soap_fault(text)
-                    if fault:
-                        raise RuntimeError(f"{op} SOAP fault @ {url}: {fault}")
-                    snippet = text[:200].replace("\n", " ")
-                    raise RuntimeError(f"HTTP {r.status_code} @ {url} (ct={ct}) {snippet}")
+                    if r.status_code >= 400:
+                        fault = None
+                        if (ct.startswith("text/xml") or ct.startswith("application/soap+xml")) and text.strip().startswith("<"):
+                            fault = self._parse_soap_fault(text)
+                        if fault:
+                            raise RuntimeError(f"{op} SOAP fault @ {url}: {fault}")
+                        snippet = text[:200].replace("\n", " ")
+                        raise RuntimeError(f"HTTP {r.status_code} @ {url} (ct={ct}) {snippet}")
 
-                # Some proxies return HTML with 200 — guard it
-                if "text/html" in ct or text.lstrip().lower().startswith("<!doctype html"):
-                    raise RuntimeError(f"HTML page returned @ {url} (ct={ct})")
+                    # Some proxies return HTML with 200 — guard it
+                    if "text/html" in ct or text.lstrip().lower().startswith("<!doctype html"):
+                        raise RuntimeError(f"HTML page returned @ {url} (ct={ct})")
 
-                return xmltodict.parse(text)
-            except Exception as e:
-                last_err = str(e)
-                tried.append((url, last_err))
-                continue
+                    return xmltodict.parse(text)
+                except (requests.ConnectionError, requests.Timeout) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff
+                        _LOG.warning(f"Connection error for {op} @ {url}, retrying in {wait_time}s: {e}")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        last_err = str(e)
+                        tried.append((url, last_err))
+                        break
+                except Exception as e:
+                    last_err = str(e)
+                    tried.append((url, last_err))
+                    break
 
         tried_join = " | ".join([f"{u} -> {err}" for u, err in tried])
         hint = ("Check endpoint & version. Recommended: HTTPS basicHttp + SOAP11 "
@@ -270,6 +318,8 @@ class RemoraProvider:
         for p in self.GetPositions():
             y = _pos_to_row(p)
             if y:
+                # Ensure external_id is properly mapped for interface compliance
+                y['external_id'] = y.get('device_id')
                 yield y
 
     def fetch_harsh_events(self, device_id: str, start: dt.datetime, end: dt.datetime) -> Iterable[Dict[str, Any]]:
@@ -283,6 +333,44 @@ class RemoraProvider:
             row = _geo_to_row(ev)
             if row:
                 yield row
+
+    def fetch_temperatures(self, since: dt.datetime, until: dt.datetime) -> Iterable[Dict[str, Any]]:
+        """Fetch temperature sensor data from Remora API"""
+        # Remora doesn't have a dedicated temperature endpoint, 
+        # but we can extract temperature data from position data if available
+        for device in self.GetDevices():
+            device_id = device.get("deviceId") or device.get("DeviceId")
+            if device_id:
+                try:
+                    for pos in self.GetPositionsByInterval(device_id, since, until):
+                        temp_data = _extract_temperature_from_position(pos)
+                        if temp_data:
+                            yield temp_data
+                except Exception:
+                    # Skip devices that don't support temperature data
+                    continue
+
+    def fetch_can(self, since: dt.datetime, until: dt.datetime) -> Iterable[Dict[str, Any]]:
+        """Fetch CAN bus data from Remora API"""
+        # Remora doesn't have a dedicated CAN endpoint,
+        # but we can extract CAN data from position data if available
+        for device in self.GetDevices():
+            device_id = device.get("deviceId") or device.get("DeviceId")
+            if device_id:
+                try:
+                    for pos in self.GetPositionsByInterval(device_id, since, until):
+                        can_data = _extract_can_from_position(pos)
+                        if can_data:
+                            yield can_data
+                except Exception:
+                    # Skip devices that don't support CAN data
+                    continue
+
+    def get_debug_logs(self) -> List[Dict[str, Any]]:
+        """Get captured debug logs from API calls"""
+        if self.debug_capture and self.debug_logs:
+            return self.debug_logs.copy()
+        return []
 
 
 # --------------------------
@@ -366,7 +454,7 @@ def _to_float(v: Any) -> Optional[float]:
 
 def _pos_to_row(p: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # Per WSDL: Position has deviceId, coordinate{latitude,longitude}, dateTime, lastCommunicationDateTime, heading, speed, ignitionState, mileage.
-    # See: GetPositionsResponse/positionList/Position schema. :contentReference[oaicite:1]{index=1}
+    # See: GetPositionsResponse/positionList/Position schema. 
     dev = p.get("deviceId") or p.get("DeviceId") or p.get("deviceID")
     coord = p.get("coordinate") or p.get("Coordinate") or {}
     lat = _to_float(coord.get("latitude") if "latitude" in coord else coord.get("lat"))
@@ -405,4 +493,59 @@ def _geo_to_row(ev: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "start": ev.get("startDateTime") or ev.get("StartDateTime"),
         "end": ev.get("enddateTime") or ev.get("EndDateTime"),
         "raw": ev,
+    }
+
+
+def _extract_temperature_from_position(pos: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Extract temperature data from position data if available"""
+    device_id = pos.get("deviceId") or pos.get("DeviceId")
+    if not device_id:
+        return None
+    
+    # Look for temperature fields in the position data
+    temp_c = None
+    for temp_field in ["temperature", "Temperature", "temp", "Temp", "ambientTemperature", "AmbientTemperature"]:
+        if temp_field in pos:
+            temp_c = _to_float(pos[temp_field])
+            if temp_c is not None:
+                break
+    
+    if temp_c is None:
+        return None
+    
+    return {
+        "external_id": str(device_id),
+        "ts": pos.get("dateTime") or pos.get("DateTime"),
+        "sensor": "ambient",
+        "temperature_c": temp_c,
+        "raw": pos,
+    }
+
+
+def _extract_can_from_position(pos: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Extract CAN bus data from position data if available"""
+    device_id = pos.get("deviceId") or pos.get("DeviceId")
+    if not device_id:
+        return None
+    
+    # Look for CAN-related fields
+    fuel_l = _to_float(pos.get("fuel") or pos.get("Fuel") or pos.get("fuelLevel") or pos.get("FuelLevel"))
+    rpm = _to_float(pos.get("rpm") or pos.get("RPM") or pos.get("engineRpm") or pos.get("EngineRpm"))
+    engine_hours = _to_float(pos.get("engineHours") or pos.get("EngineHours") or pos.get("totalEngineHours") or pos.get("TotalEngineHours"))
+    coolant_c = _to_float(pos.get("coolantTemperature") or pos.get("CoolantTemperature") or pos.get("engineTemp") or pos.get("EngineTemp"))
+    ambient_c = _to_float(pos.get("ambientTemperature") or pos.get("AmbientTemperature") or pos.get("outsideTemp") or pos.get("OutsideTemp"))
+    
+    # Only return if we have at least one CAN field
+    if not any([fuel_l, rpm, engine_hours, coolant_c, ambient_c]):
+        return None
+    
+    return {
+        "external_id": str(device_id),
+        "ts": pos.get("dateTime") or pos.get("DateTime"),
+        "fuel_l": fuel_l,
+        "rpm": rpm,
+        "engine_hours": engine_hours,
+        "coolant_c": coolant_c,
+        "ambient_c": ambient_c,
+        "raw": pos,
     }

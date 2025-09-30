@@ -336,7 +336,7 @@ def compute_leg_carbon(leg_name: str) -> Dict[str, Any]:
                     "co2e_kg": co2e_kg,
                     "provider": "DEFAULT",
                     "source": "Default PER_TON_KM",
-                    "method": "DEFAULT",
+                    "method": "PER_TON_KM",
                     "scope": "PER_TON_KM",
                     "factor": f_ton,
                 }
@@ -346,7 +346,7 @@ def compute_leg_carbon(leg_name: str) -> Dict[str, Any]:
                     "co2e_kg": co2e_kg,
                     "provider": "DEFAULT",
                     "source": "Default PER_KM",
-                    "method": "DEFAULT",
+                    "method": "PER_KM",
                     "scope": "PER_KM",
                     "factor": f_km,
                 }
