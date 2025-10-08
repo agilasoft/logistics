@@ -15,12 +15,12 @@ CargoNext follows a co-maintainer model. OSSPH and Agilasoft share equal respons
 
 ## Roles and Responsibilities 
 Succession planning is effective only if responsibilities are clearly defined. CargoNext assigns the following roles:
-•	Steering Committee (SC): Approves roadmaps, licensing changes, module ownership assignments, and handles emergency custodianship decisions.
-•	Release Managers: Coordinate version cycles, maintain long-term support (LTS) branches, and ensure that updates are documented and stable.
-•	Security Response Team (SRT): Monitors vulnerabilities, manages CVE disclosures, and executes rapid response patches.
-•	Module Maintainers: Serve as custodians of functional areas such as Warehousing, Transport, Customs, or Infrastructure. Their tasks include reviewing pull requests, enforcing architecture standards, and maintaining module documentation.
-•	Community Managers: Uphold the Code of Conduct, onboard contributors, moderate discussions, and facilitate events.
-•	Infrastructure and DevOps Roles: Manage CI/CD pipelines, automate testing, enforce key rotation, maintain observability, and secure cloud infrastructure.
+* Steering Committee (SC): Approves roadmaps, licensing changes, module ownership assignments, and handles emergency custodianship decisions.
+*	Release Managers: Coordinate version cycles, maintain long-term support (LTS) branches, and ensure that updates are documented and stable.
+*	Security Response Team (SRT): Monitors vulnerabilities, manages CVE disclosures, and executes rapid response patches.
+*	Module Maintainers: Serve as custodians of functional areas such as Warehousing, Transport, Customs, or Infrastructure. Their tasks include reviewing pull requests, enforcing architecture standards, and maintaining module documentation.
+*	Community Managers: Uphold the Code of Conduct, onboard contributors, moderate discussions, and facilitate events.
+*	Infrastructure and DevOps Roles: Manage CI/CD pipelines, automate testing, enforce key rotation, maintain observability, and secure cloud infrastructure.
 
 ## Succession Triggers and Playbooks 
 Succession can be triggered in three primary scenarios:
@@ -39,10 +39,10 @@ To avoid disruption, a structured handover checklist is maintained:
 
 ## Sustainability and Funding 
 The project remains sustainable through a dual-track model:
-•	Open-Source Core: CargoNext is free under AGPL-3.0+ and maintained by the community.
-•	Professional Services: OSSPH, Agilasoft, and other qualified providers may offer commercial services such as training, deployments, integrations, or premium support.
-•	Sponsorships and Grants: Neutral funding channels are established with transparency. All sponsorship funds are published publicly with clear allocation records.
-•	Community Donations: Crowdfunding and voluntary contributions are encouraged to support infrastructure, documentation, and mentorship programs.
+*	Open-Source Core: CargoNext is free under AGPL-3.0+ and maintained by the community.
+*	Professional Services: OSSPH, Agilasoft, and other qualified providers may offer commercial services such as training, deployments, integrations, or premium support.
+*	Sponsorships and Grants: Neutral funding channels are established with transparency. All sponsorship funds are published publicly with clear allocation records.
+*	Community Donations: Crowdfunding and voluntary contributions are encouraged to support infrastructure, documentation, and mentorship programs.
 
 ## Key Performance Indicators (KPIs) 
 Succession planning effectiveness is measured through the following KPIs:
@@ -55,9 +55,9 @@ Succession planning effectiveness is measured through the following KPIs:
 
 ## Review and Audits 
 CargoNext succession planning undergoes:
-•	Quarterly Operational Reviews: To ensure modules, processes, and maintainers are aligned with the roadmap.
-•	Annual Governance Audits: Independent reviews of governance structures, licensing compliance, and funding transparency.
-•	Incident Post-Mortems: Documented analysis of unplanned transitions or security incidents, ensuring lessons learned are incorporated into the plan.
+*	Quarterly Operational Reviews: To ensure modules, processes, and maintainers are aligned with the roadmap.
+*	Annual Governance Audits: Independent reviews of governance structures, licensing compliance, and funding transparency.
+*	Incident Post-Mortems: Documented analysis of unplanned transitions or security incidents, ensuring lessons learned are incorporated into the plan.
 
 ## Summary
 CargoNext is more than just a logistics platform; it is a community asset built on transparency, shared responsibility, and resilience. By adopting a comprehensive succession framework that addresses governance, technical maintenance, knowledge transfer, and sustainability, CargoNext can withstand leadership changes while remaining an enduring, open-source solution for the logistics industry. The adoption of the AGPL-3.0-or-later license guarantees that CargoNext will always remain free, open, and community-driven.
