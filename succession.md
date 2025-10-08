@@ -1,6 +1,5 @@
 # PRODUCT SUCCESSION
-June 30, 2025 Version
-A Comprehensive Succession Plan for an Open-source Project
+June 30, 2025 Version | A Comprehensive Succession Plan for an Open-source Project
 
 ## Purpose and Scope 
 CargoNext is an open-source logistics management platform that addresses freight forwarding, warehousing, transport, and customs operations. It is co-maintained by Opensource Support Phils., Inc. (OSSPH) and Agilasoft Cloud Technologies Inc. (Agilasoft). The purpose of this succession planning document is to guarantee uninterrupted stewardship, development, and support for CargoNext as a community-driven solution. This plan establishes mechanisms for governance, continuity of technical maintenance, secure release processes, knowledge transfer, documentation practices, infrastructure management, funding sustainability, and active community engagement.
