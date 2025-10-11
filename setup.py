@@ -9,8 +9,8 @@ from logistics import __version__ as version
 
 setup(
 	name='logistics',
-	version='1.0.0'',
-	description='CargoNext',
+	version=version,
+	description='CargoNext - Comprehensive Logistics Management System',
 	author='Agilasoft Cloud Technologies Inc.',
 	author_email='info@agilasoft.com',
 	packages=find_packages(),
