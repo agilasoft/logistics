@@ -6,9 +6,9 @@ app_dependencies = ["erpnext"]
 
 # App configuration
 app_name = "logistics"
-app_title = "Logistics"
+app_title = "CargoNext"
 app_publisher = "www.agilasoft.com"
-app_description = "Logistics Management System"
+app_description = "CargoNext Logistics Management System"
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "info@agilasoft.com"
