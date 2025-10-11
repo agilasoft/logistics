@@ -7,12 +7,12 @@ app_dependencies = ["erpnext"]
 # App configuration
 app_name = "logistics"
 app_title = "CargoNext"
-app_publisher = "www.agilasoft.com"
-app_description = "CargoNext Logistics Management System"
+app_publisher = "Agilasoft Cloud Technologies Inc."
+app_description = "CargoNext"
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "info@agilasoft.com"
-app_license = "MIT"
+app_license = "AGPL-3.0-or-later"
 
 # Includes in <head>
 # ------------------
