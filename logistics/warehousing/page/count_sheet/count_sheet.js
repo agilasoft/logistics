@@ -694,7 +694,7 @@ function create_counting_interface(page) {
 		// Add event handlers
 		$('.save-count').on('click', function() {
 			let item_name = $(this).data('item');
-			let actual_count = $(`input[data-item="${item_name}"]`).val();
+			let actual_count = $(`input.count-input[data-item="${item_name}"]`).val();
 			save_count(item_name, actual_count);
 		});
 
@@ -713,7 +713,7 @@ function create_counting_interface(page) {
 			
 			if (is_checked) {
 				// If checked, ensure there's a count value
-				let count_input = $(`input[data-item="${item_name}"]`);
+				let count_input = $(`input.count-input[data-item="${item_name}"]`);
 				let count_value = count_input.val();
 				if (count_value !== null && count_value !== undefined && count_value !== '') {
 					save_count(item_name, count_value);
