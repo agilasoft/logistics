@@ -8,12 +8,16 @@
  "field_order": [
   "item_code",
   "item_name",
-  "column_break_ghkh",
   "uom",
   "quantity",
+  "column_break_ghkh",
   "currency",
   "rate",
-  "total"
+  "total",
+  "standard_unit_cost",
+  "total_standard_cost",
+  "section_break_rxdj",
+  "calculation_notes"
  ],
  "fields": [
   {
@@ -71,13 +75,36 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name"
+  },
+  {
+   "description": "Standard unit cost from item master",
+   "fieldname": "standard_unit_cost",
+   "fieldtype": "Currency",
+   "label": "Standard Unit Cost",
+   "read_only": 1
+  },
+  {
+   "description": "Total standard cost (Quantity \u00d7 Standard Unit Cost)",
+   "fieldname": "total_standard_cost",
+   "fieldtype": "Currency",
+   "label": "Total Standard Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "calculation_notes",
+   "fieldtype": "Text",
+   "label": "Calculation Notes"
+  },
+  {
+   "fieldname": "section_break_rxdj",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-13 10:44:02.149673",
+ "modified": "2025-10-11 19:08:51.965755",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Charges",

@@ -1,6 +1,7 @@
 # apps/logistics/logistics/transport/api.py
 from typing import List, Dict
 import frappe
+from frappe import _
 
 def _safe_meta_fieldnames(doctype: str) -> set:
     meta = frappe.get_meta(doctype)

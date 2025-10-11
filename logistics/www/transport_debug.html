@@ -1,0 +1,110 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <h1>{{ title }}</h1>
+    
+    <div class="debug-section">
+        <h2>User & Customer Information</h2>
+        <p><strong>User:</strong> {{ debug_info.user }}</p>
+        <p><strong>Customer:</strong> {{ debug_info.customer or "Not found" }}</p>
+        
+        {% if debug_info.customer_info %}
+        <h3>Customer Details:</h3>
+        <p><strong>Name:</strong> {{ debug_info.customer_info.name }}</p>
+        <p><strong>Customer Name:</strong> {{ debug_info.customer_info.customer_name }}</p>
+        <p><strong>Email:</strong> {{ debug_info.customer_info.email_id }}</p>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Transport Jobs Statistics</h2>
+        <p><strong>Total Transport Jobs in System:</strong> {{ debug_info.total_transport_jobs }}</p>
+        
+        {% if debug_info.error_total_jobs %}
+        <p class="error"><strong>Error getting total jobs:</strong> {{ debug_info.error_total_jobs }}</p>
+        {% endif %}
+        
+        <h3>Available Fields in Transport Job:</h3>
+        {% if debug_info.sample_job_fields %}
+            <p><strong>Fields:</strong> {{ debug_info.sample_job_fields | join(', ') }}</p>
+        {% else %}
+            <p class="error"><strong>Error getting fields:</strong> {{ debug_info.error_sample_job }}</p>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Jobs for This Customer</h2>
+        {% if debug_info.customer_jobs %}
+            <p><strong>Found {{ debug_info.customer_jobs | length }} jobs for customer {{ debug_info.customer }}</strong></p>
+            {% for job in debug_info.customer_jobs %}
+                <div class="job-item">
+                    <p><strong>Job:</strong> {{ job.name }}</p>
+                    <p><strong>Status:</strong> {{ job.status }}</p>
+                    <p><strong>Booking Date:</strong> {{ job.booking_date }}</p>
+                    <p><strong>Customer:</strong> {{ job.customer }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No jobs found for this customer</p>
+            {% if debug_info.error_customer_jobs %}
+            <p class="error"><strong>Error:</strong> {{ debug_info.error_customer_jobs }}</p>
+            {% endif %}
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Sample Jobs in System</h2>
+        {% if debug_info.all_jobs_sample %}
+            <p><strong>Sample of all jobs in system:</strong></p>
+            {% for job in debug_info.all_jobs_sample %}
+                <div class="job-item">
+                    <p><strong>Job:</strong> {{ job.name }}</p>
+                    <p><strong>Customer:</strong> {{ job.customer }}</p>
+                    <p><strong>Status:</strong> {{ job.status }}</p>
+                    <p><strong>Booking Date:</strong> {{ job.booking_date }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No jobs found in system</p>
+            {% if debug_info.error_all_jobs %}
+            <p class="error"><strong>Error:</strong> {{ debug_info.error_all_jobs }}</p>
+            {% endif %}
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Next Steps</h2>
+        <ul>
+            <li>If no jobs are found for your customer, you may need to create some Transport Jobs</li>
+            <li>Make sure the Transport Jobs have the correct customer assigned</li>
+            <li>Check if the Transport Job doctype exists and has data</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.debug-section {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.job-item {
+    margin: 10px 0;
+    padding: 10px;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 3px;
+}
+
+.error {
+    color: #d32f2f;
+    font-weight: bold;
+}
+</style>
+{% endblock %}

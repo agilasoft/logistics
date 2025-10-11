@@ -1,0 +1,435 @@
+{
+ "actions": [],
+ "autoname": "format:FS-{flight_number}-{YYYY}-{MM}-{DD}-{####}",
+ "creation": "2025-10-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "flight_information_section",
+  "flight_number",
+  "airline",
+  "airline_iata",
+  "airline_icao",
+  "column_break_1",
+  "aircraft_type",
+  "registration",
+  "flight_status",
+  "departure_section",
+  "departure_airport",
+  "departure_iata",
+  "departure_icao",
+  "departure_terminal",
+  "departure_gate",
+  "column_break_2",
+  "departure_time_scheduled",
+  "departure_time_estimated",
+  "departure_time_actual",
+  "departure_timezone",
+  "arrival_section",
+  "arrival_airport",
+  "arrival_iata",
+  "arrival_icao",
+  "arrival_terminal",
+  "arrival_gate",
+  "column_break_3",
+  "arrival_time_scheduled",
+  "arrival_time_estimated",
+  "arrival_time_actual",
+  "arrival_timezone",
+  "flight_details_section",
+  "delay_minutes",
+  "flight_duration_minutes",
+  "distance_km",
+  "column_break_4",
+  "cargo_capacity_kg",
+  "available_cargo_capacity_kg",
+  "cargo_booked_kg",
+  "tracking_section",
+  "latitude",
+  "longitude",
+  "altitude_meters",
+  "speed_kmh",
+  "heading",
+  "column_break_5",
+  "last_position_update",
+  "is_on_ground",
+  "vertical_speed_ms",
+  "metadata_section",
+  "data_source",
+  "data_source_priority",
+  "last_updated",
+  "column_break_6",
+  "sync_status",
+  "error_message",
+  "api_calls_count",
+  "raw_data_section",
+  "raw_data_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "flight_information_section",
+   "fieldtype": "Section Break",
+   "label": "Flight Information"
+  },
+  {
+   "fieldname": "flight_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Flight Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Airline",
+   "options": "Airline Master"
+  },
+  {
+   "fieldname": "airline_iata",
+   "fieldtype": "Data",
+   "label": "Airline IATA Code",
+   "length": 2
+  },
+  {
+   "fieldname": "airline_icao",
+   "fieldtype": "Data",
+   "label": "Airline ICAO Code",
+   "length": 3
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "aircraft_type",
+   "fieldtype": "Data",
+   "label": "Aircraft Type"
+  },
+  {
+   "fieldname": "registration",
+   "fieldtype": "Data",
+   "label": "Aircraft Registration"
+  },
+  {
+   "default": "Scheduled",
+   "fieldname": "flight_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Flight Status",
+   "options": "Scheduled\nActive\nEnRoute\nLanded\nCancelled\nDelayed\nDiverted\nUnknown"
+  },
+  {
+   "fieldname": "departure_section",
+   "fieldtype": "Section Break",
+   "label": "Departure"
+  },
+  {
+   "fieldname": "departure_airport",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Departure Airport",
+   "options": "Airport Master"
+  },
+  {
+   "fieldname": "departure_iata",
+   "fieldtype": "Data",
+   "label": "Departure IATA",
+   "length": 3
+  },
+  {
+   "fieldname": "departure_icao",
+   "fieldtype": "Data",
+   "label": "Departure ICAO",
+   "length": 4
+  },
+  {
+   "fieldname": "departure_terminal",
+   "fieldtype": "Data",
+   "label": "Terminal"
+  },
+  {
+   "fieldname": "departure_gate",
+   "fieldtype": "Data",
+   "label": "Gate"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "departure_time_scheduled",
+   "fieldtype": "Datetime",
+   "label": "Scheduled Departure"
+  },
+  {
+   "fieldname": "departure_time_estimated",
+   "fieldtype": "Datetime",
+   "label": "Estimated Departure"
+  },
+  {
+   "fieldname": "departure_time_actual",
+   "fieldtype": "Datetime",
+   "label": "Actual Departure"
+  },
+  {
+   "fieldname": "departure_timezone",
+   "fieldtype": "Data",
+   "label": "Timezone"
+  },
+  {
+   "fieldname": "arrival_section",
+   "fieldtype": "Section Break",
+   "label": "Arrival"
+  },
+  {
+   "fieldname": "arrival_airport",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Arrival Airport",
+   "options": "Airport Master"
+  },
+  {
+   "fieldname": "arrival_iata",
+   "fieldtype": "Data",
+   "label": "Arrival IATA",
+   "length": 3
+  },
+  {
+   "fieldname": "arrival_icao",
+   "fieldtype": "Data",
+   "label": "Arrival ICAO",
+   "length": 4
+  },
+  {
+   "fieldname": "arrival_terminal",
+   "fieldtype": "Data",
+   "label": "Terminal"
+  },
+  {
+   "fieldname": "arrival_gate",
+   "fieldtype": "Data",
+   "label": "Gate"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "arrival_time_scheduled",
+   "fieldtype": "Datetime",
+   "label": "Scheduled Arrival"
+  },
+  {
+   "fieldname": "arrival_time_estimated",
+   "fieldtype": "Datetime",
+   "label": "Estimated Arrival"
+  },
+  {
+   "fieldname": "arrival_time_actual",
+   "fieldtype": "Datetime",
+   "label": "Actual Arrival"
+  },
+  {
+   "fieldname": "arrival_timezone",
+   "fieldtype": "Data",
+   "label": "Timezone"
+  },
+  {
+   "fieldname": "flight_details_section",
+   "fieldtype": "Section Break",
+   "label": "Flight Details"
+  },
+  {
+   "default": "0",
+   "fieldname": "delay_minutes",
+   "fieldtype": "Int",
+   "label": "Delay (Minutes)"
+  },
+  {
+   "fieldname": "flight_duration_minutes",
+   "fieldtype": "Int",
+   "label": "Duration (Minutes)"
+  },
+  {
+   "fieldname": "distance_km",
+   "fieldtype": "Float",
+   "label": "Distance (KM)"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cargo_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Cargo Capacity (KG)"
+  },
+  {
+   "fieldname": "available_cargo_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Available Capacity (KG)"
+  },
+  {
+   "default": "0",
+   "fieldname": "cargo_booked_kg",
+   "fieldtype": "Float",
+   "label": "Booked Cargo (KG)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "tracking_section",
+   "fieldtype": "Section Break",
+   "label": "Real-time Tracking"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "6"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "6"
+  },
+  {
+   "fieldname": "altitude_meters",
+   "fieldtype": "Float",
+   "label": "Altitude (Meters)"
+  },
+  {
+   "fieldname": "speed_kmh",
+   "fieldtype": "Float",
+   "label": "Speed (KM/H)"
+  },
+  {
+   "fieldname": "heading",
+   "fieldtype": "Float",
+   "label": "Heading (Degrees)"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_position_update",
+   "fieldtype": "Datetime",
+   "label": "Last Position Update"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_on_ground",
+   "fieldtype": "Check",
+   "label": "Is On Ground"
+  },
+  {
+   "fieldname": "vertical_speed_ms",
+   "fieldtype": "Float",
+   "label": "Vertical Speed (M/S)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Select",
+   "label": "Data Source",
+   "options": "OpenSky Network\nAviationStack\nAviation Edge\nFlightAware\nManual"
+  },
+  {
+   "default": "0",
+   "fieldname": "data_source_priority",
+   "fieldtype": "Int",
+   "label": "Source Priority"
+  },
+  {
+   "fieldname": "last_updated",
+   "fieldtype": "Datetime",
+   "label": "Last Updated"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Synced",
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "label": "Sync Status",
+   "options": "Synced\nPending\nFailed\nStale"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Text",
+   "label": "Error Message"
+  },
+  {
+   "default": "0",
+   "fieldname": "api_calls_count",
+   "fieldtype": "Int",
+   "label": "API Calls Count"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "raw_data_json",
+   "fieldname": "raw_data_section",
+   "fieldtype": "Section Break",
+   "label": "Raw API Data"
+  },
+  {
+   "fieldname": "raw_data_json",
+   "fieldtype": "JSON",
+   "label": "Raw Data (JSON)"
+  }
+ ],
+ "links": [],
+ "modified": "2025-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Flight Schedule",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Logistics User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "flight_number,airline,departure_airport,arrival_airport,flight_status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "flight_number",
+ "track_changes": 1
+}
+
+

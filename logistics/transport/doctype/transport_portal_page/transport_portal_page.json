@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:TPP-{####}",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_basic",
+  "title",
+  "route",
+  "column_break_1",
+  "is_active",
+  "section_break_content",
+  "content_type",
+  "column_break_2",
+  "template_path",
+  "section_break_settings",
+  "show_vehicle_tracking",
+  "show_route_map",
+  "column_break_3",
+  "show_job_details",
+  "show_leg_details"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "default": "Transport Jobs Portal"
+  },
+  {
+   "fieldname": "route",
+   "fieldtype": "Data",
+   "label": "Route",
+   "reqd": 1,
+   "default": "/transport-portal",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "section_break_content",
+   "fieldtype": "Section Break",
+   "label": "Content Configuration"
+  },
+  {
+   "fieldname": "content_type",
+   "fieldtype": "Select",
+   "label": "Content Type",
+   "options": "Web Page\nWeb Form\nCustom Template",
+   "default": "Custom Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "template_path",
+   "fieldtype": "Data",
+   "label": "Template Path",
+   "default": "logistics/transport/www/transport_portal.html",
+   "depends_on": "content_type",
+   "mandatory_depends_on": "eval:doc.content_type=='Custom Template'"
+  },
+  {
+   "fieldname": "section_break_settings",
+   "fieldtype": "Section Break",
+   "label": "Portal Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_vehicle_tracking",
+   "fieldtype": "Check",
+   "label": "Show Vehicle Tracking"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_route_map",
+   "fieldtype": "Check",
+   "label": "Show Route Map"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_job_details",
+   "fieldtype": "Check",
+   "label": "Show Job Details"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_leg_details",
+   "fieldtype": "Check",
+   "label": "Show Leg Details"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Portal Page",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

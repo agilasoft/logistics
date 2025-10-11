@@ -67,7 +67,7 @@ frappe.ui.form.on("Release Order", {
 function maybe_set_planned_date(frm, force=false) {
   if (!force && (frm.doc.planned_date || frm.__planned_date_set)) return;
 
-  frappe.db.get_single_value("Warehouse Settings", "planned_date_offset_days")
+  frappe.db.get_value("Warehouse Settings", frappe.defaults.get_user_default("Company"), "planned_date_offset_days")
     .then((val) => {
       const offset = parseInt(val, 10) || 0;
       const nowStr = frappe.datetime.now_datetime(); // "YYYY-MM-DD HH:mm:ss"

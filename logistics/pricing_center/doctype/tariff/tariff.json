@@ -1,0 +1,206 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:tariff_name",
+ "creation": "2024-01-01 00:00:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "tariff_name",
+  "tariff_type",
+  "customer",
+  "agent",
+  "description",
+  "is_active",
+  "valid_from",
+  "valid_to",
+  "currency",
+  "column_break_10",
+  "service_tabs",
+  "air_freight_tab",
+  "air_freight_rates",
+  "sea_freight_tab",
+  "sea_freight_rates",
+  "transport_tab",
+  "transport_rates",
+  "warehouse_tab",
+  "warehouse_rates",
+  "customs_tab",
+  "customs_rates",
+  "summary_tab",
+  "total_rates",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "tariff_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tariff Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "tariff_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tariff Type",
+   "options": "Customer\nAgent",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "depends_on": "tariff_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent",
+   "depends_on": "tariff_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid From",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_to",
+   "fieldtype": "Date",
+   "label": "Valid To"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_10",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_tabs",
+   "fieldtype": "Tab Break",
+   "label": "Service Rates"
+  },
+  {
+   "fieldname": "air_freight_tab",
+   "fieldtype": "Tab Break",
+   "label": "Air Freight"
+  },
+  {
+   "fieldname": "air_freight_rates",
+   "fieldtype": "Table",
+   "label": "Air Freight Rates",
+   "options": "Air Freight Rate"
+  },
+  {
+   "fieldname": "sea_freight_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sea Freight"
+  },
+  {
+   "fieldname": "sea_freight_rates",
+   "fieldtype": "Table",
+   "label": "Sea Freight Rates",
+   "options": "Sea Freight Rate"
+  },
+  {
+   "fieldname": "transport_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transport"
+  },
+  {
+   "fieldname": "transport_rates",
+   "fieldtype": "Table",
+   "label": "Transport Rates",
+   "options": "Transport Rate"
+  },
+  {
+   "fieldname": "warehouse_tab",
+   "fieldtype": "Tab Break",
+   "label": "Warehouse"
+  },
+  {
+   "fieldname": "warehouse_rates",
+   "fieldtype": "Table",
+   "label": "Warehouse Rates",
+   "options": "Warehouse Rate"
+  },
+  {
+   "fieldname": "customs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Customs"
+  },
+  {
+   "fieldname": "customs_rates",
+   "fieldtype": "Table",
+   "label": "Customs Rates",
+   "options": "Customs Rate"
+  },
+  {
+   "fieldname": "summary_tab",
+   "fieldtype": "Tab Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_rates",
+   "fieldtype": "Int",
+   "label": "Total Rates",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Tariff",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

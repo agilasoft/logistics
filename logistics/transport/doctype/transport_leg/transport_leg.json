@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2025-09-10 13:47:21.931822",
+ "creation": "2025-10-02 12:11:18.137097",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -160,6 +160,7 @@
    "options": "Pick and Drop Mode"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "run_sheet",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -234,6 +235,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "allow_on_submit": 1,
    "fetch_from": "run_sheet.run_date",
    "fieldname": "run_date",
    "fieldtype": "Date",
@@ -471,7 +473,8 @@
   {
    "fieldname": "order",
    "fieldtype": "Int",
-   "label": "Order"
+   "label": "Order",
+   "read_only": 1
   },
   {
    "allow_on_submit": 1,
@@ -500,6 +503,7 @@
    "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "default": "Open",
    "fieldname": "status",
    "fieldtype": "Select",
@@ -518,7 +522,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-29 15:26:00.740985",
+ "modified": "2025-10-02 15:51:32.514283",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Leg",

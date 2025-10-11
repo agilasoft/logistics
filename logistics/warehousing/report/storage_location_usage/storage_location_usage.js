@@ -75,7 +75,11 @@ frappe.query_reports["Storage Location Usage"] = {
     return {
       data: {
         labels: ["In Use", "Available"],
-        datasets: [{ name: "Locations", values: [in_use, available] }],
+        datasets: [{ 
+          name: "Locations", 
+          values: [in_use, available],
+          colors: ["#dc3545", "#28a745"] // Ensure valid colors are provided
+        }],
       },
       type: "donut",
       height: 260,

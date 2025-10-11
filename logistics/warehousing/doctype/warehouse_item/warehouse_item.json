@@ -5,7 +5,7 @@
  "creation": "2025-08-18 16:42:28.773696",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "code",
   "item_name",
   "uom",
@@ -19,6 +19,14 @@
   "serial_tracking",
   "section_break_uzft",
   "description",
+  "dimensions_tab",
+  "length",
+  "width",
+  "height",
+  "volume",
+  "volume_uom",
+  "weight",
+  "weight_uom",
   "putaway_policy_tab",
   "putaway_policy",
   "lot_consolidation",
@@ -206,8 +214,61 @@
    "fieldtype": "Table MultiSelect",
    "label": "Allowed Storage Type",
    "options": "Warehouse Item Storage Type"
+  },
+  {
+   "fieldname": "dimensions_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dimensions & Weight"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length",
+   "precision": "3"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width",
+   "precision": "3"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height",
+   "precision": "3"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "read_only": 1
   }
  ],
+ "client_script": "logistics.warehousing.doctype.warehouse_item.warehouse_item",
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],

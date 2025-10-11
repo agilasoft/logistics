@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 10:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "commodity",
+  "un_number",
+  "proper_shipping_name",
+  "dg_class",
+  "packing_group",
+  "column_break_quantities",
+  "net_quantity",
+  "packing_instruction",
+  "column_break_emergency",
+  "emergency_contact",
+  "emergency_phone",
+  "column_break_special",
+  "is_radioactive",
+  "temp_controlled",
+  "min_temperature",
+  "max_temperature",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Commodity"
+  },
+  {
+   "fieldname": "un_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UN Number"
+  },
+  {
+   "fieldname": "proper_shipping_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Proper Shipping Name"
+  },
+  {
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "fieldname": "packing_group",
+   "fieldtype": "Select",
+   "label": "Packing Group",
+   "options": "\nI\nII\nIII"
+  },
+  {
+   "fieldname": "column_break_quantities",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "net_quantity",
+   "fieldtype": "Float",
+   "label": "Net Quantity"
+  },
+  {
+   "fieldname": "packing_instruction",
+   "fieldtype": "Data",
+   "label": "Packing Instruction"
+  },
+  {
+   "fieldname": "column_break_emergency",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "emergency_contact",
+   "fieldtype": "Data",
+   "label": "Emergency Contact"
+  },
+  {
+   "fieldname": "emergency_phone",
+   "fieldtype": "Data",
+   "label": "Emergency Phone"
+  },
+  {
+   "fieldname": "column_break_special",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_radioactive",
+   "fieldtype": "Check",
+   "label": "Is Radioactive"
+  },
+  {
+   "default": "0",
+   "fieldname": "temp_controlled",
+   "fieldtype": "Check",
+   "label": "Temperature Controlled"
+  },
+  {
+   "fieldname": "min_temperature",
+   "fieldtype": "Float",
+   "label": "Min Temperature (°C)"
+  },
+  {
+   "fieldname": "max_temperature",
+   "fieldtype": "Float",
+   "label": "Max Temperature (°C)"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Long Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Dangerous Goods Declaration Packages",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

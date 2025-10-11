@@ -5,7 +5,7 @@
  "creation": "2025-08-18 16:48:46.364258",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "type",
   "naming_series",
   "column_break_vrcu",
@@ -15,6 +15,22 @@
   "mark_inactive_on_release",
   "section_break_wunt",
   "notes",
+  "capacity_tab",
+  "max_volume",
+  "max_weight",
+  "max_height",
+  "max_width",
+  "max_length",
+  "capacity_uom",
+  "weight_uom",
+  "current_volume",
+  "current_weight",
+  "utilization_percentage",
+  "capacity_alerts_tab",
+  "enable_capacity_alerts",
+  "volume_alert_threshold",
+  "weight_alert_threshold",
+  "utilization_alert_threshold",
   "entity_tab",
   "column_break_woym",
   "company",
@@ -99,6 +115,105 @@
    "fieldname": "mark_inactive_on_release",
    "fieldtype": "Check",
    "label": "Mark Inactive on Release"
+  },
+  {
+   "fieldname": "capacity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capacity Management"
+  },
+  {
+   "fieldname": "max_volume",
+   "fieldtype": "Float",
+   "label": "Max Volume",
+   "precision": "3"
+  },
+  {
+   "fieldname": "max_weight",
+   "fieldtype": "Float",
+   "label": "Max Weight",
+   "precision": "2"
+  },
+  {
+   "fieldname": "max_height",
+   "fieldtype": "Float",
+   "label": "Max Height",
+   "precision": "2"
+  },
+  {
+   "fieldname": "max_width",
+   "fieldtype": "Float",
+   "label": "Max Width",
+   "precision": "2"
+  },
+  {
+   "fieldname": "max_length",
+   "fieldtype": "Float",
+   "label": "Max Length",
+   "precision": "2"
+  },
+  {
+   "fieldname": "capacity_uom",
+   "fieldtype": "Link",
+   "label": "Capacity UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "current_volume",
+   "fieldtype": "Float",
+   "label": "Current Volume",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_weight",
+   "fieldtype": "Float",
+   "label": "Current Weight",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "utilization_percentage",
+   "fieldtype": "Percent",
+   "label": "Utilization %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "capacity_alerts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capacity Alerts"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_capacity_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Capacity Alerts"
+  },
+  {
+   "depends_on": "enable_capacity_alerts",
+   "fieldname": "volume_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Volume Alert Threshold",
+   "default": "80"
+  },
+  {
+   "depends_on": "enable_capacity_alerts",
+   "fieldname": "weight_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Weight Alert Threshold",
+   "default": "80"
+  },
+  {
+   "depends_on": "enable_capacity_alerts",
+   "fieldname": "utilization_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Utilization Alert Threshold",
+   "default": "90"
   }
  ],
  "grid_page_length": 50,

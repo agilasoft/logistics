@@ -201,7 +201,11 @@ def make_chart(rows, by="day"):
         return {
             "data": {
                 "labels": labels,
-                "datasets": [{"name": "Efficiency % (avg)", "values": eff_values}],
+                "datasets": [{
+                    "name": "Efficiency % (avg)", 
+                    "values": eff_values,
+                    "colors": ["#007bff"] * len(eff_values)  # Blue color for all bars
+                }],
             },
             "type": "bar",
         }
@@ -233,8 +237,16 @@ def make_chart(rows, by="day"):
         "data": {
             "labels": labels,
             "datasets": [
-                {"name": "Efficiency %", "values": eff_values},
-                {"name": "Units/Hr", "values": uph_values},
+                {
+                    "name": "Efficiency %", 
+                    "values": eff_values,
+                    "colors": ["#28a745"] * len(eff_values)  # Green for efficiency
+                },
+                {
+                    "name": "Units/Hr", 
+                    "values": uph_values,
+                    "colors": ["#007bff"] * len(uph_values)  # Blue for units per hour
+                },
             ],
         },
         "type": "line",

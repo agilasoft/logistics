@@ -52,7 +52,7 @@
    "fieldname": "zone",
    "fieldtype": "Link",
    "label": "Zone",
-   "options": "Zone"
+   "options": "Transport Zone"
   },
   {
    "fieldname": "currency",
@@ -109,7 +109,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-10 22:45:50.451179",
+ "modified": "2025-10-03 06:26:17.613127",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Charges",

@@ -92,6 +92,51 @@ function set_drop_query(frm) {
   });
 }
 
+// ---------- Auto-fill Address Functions ----------
+async function auto_fill_pick_address(frm) {
+  if (!frm.doc.facility_type_from || !frm.doc.facility_from) {
+    return;
+  }
+  
+  try {
+    const result = await frappe.call({
+      method: 'logistics.transport.doctype.transport_leg.transport_leg.get_primary_address',
+      args: {
+        facility_type: frm.doc.facility_type_from,
+        facility_name: frm.doc.facility_from
+      }
+    });
+    
+    if (result.message && !frm.doc.pick_address) {
+      frm.set_value('pick_address', result.message);
+    }
+  } catch (error) {
+    console.error('Error auto-filling pick address:', error);
+  }
+}
+
+async function auto_fill_drop_address(frm) {
+  if (!frm.doc.facility_type_to || !frm.doc.facility_to) {
+    return;
+  }
+  
+  try {
+    const result = await frappe.call({
+      method: 'logistics.transport.doctype.transport_leg.transport_leg.get_primary_address',
+      args: {
+        facility_type: frm.doc.facility_type_to,
+        facility_name: frm.doc.facility_to
+      }
+    });
+    
+    if (result.message && !frm.doc.drop_address) {
+      frm.set_value('drop_address', result.message);
+    }
+  } catch (error) {
+    console.error('Error auto-filling drop address:', error);
+  }
+}
+
 function render_address_html(frm, src_field, html_field_candidates) {
   const addr = frm.doc[src_field];
   const html_field = html_field_candidates.find((f) => frm.fields_dict[f]);
@@ -701,8 +746,24 @@ frappe.ui.form.on('Transport Leg', {
     render_route_map(frm);
   },
 
-  facility_type_from(frm) { set_pick_query(frm); if (frm.doc.pick_address) frm.set_value('pick_address', null); },
-  facility_from(frm)      { set_pick_query(frm); if (frm.doc.pick_address) frm.set_value('pick_address', null); },
-  facility_type_to(frm)   { set_drop_query(frm); if (frm.doc.drop_address) frm.set_value('drop_address', null); },
-  facility_to(frm)        { set_drop_query(frm); if (frm.doc.drop_address) frm.set_value('drop_address', null); },
+  facility_type_from(frm) { 
+    set_pick_query(frm); 
+    if (frm.doc.pick_address) frm.set_value('pick_address', null); 
+    auto_fill_pick_address(frm);
+  },
+  facility_from(frm) { 
+    set_pick_query(frm); 
+    if (frm.doc.pick_address) frm.set_value('pick_address', null); 
+    auto_fill_pick_address(frm);
+  },
+  facility_type_to(frm) { 
+    set_drop_query(frm); 
+    if (frm.doc.drop_address) frm.set_value('drop_address', null); 
+    auto_fill_drop_address(frm);
+  },
+  facility_to(frm) { 
+    set_drop_query(frm); 
+    if (frm.doc.drop_address) frm.set_value('drop_address', null); 
+    auto_fill_drop_address(frm);
+  },
 });

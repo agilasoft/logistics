@@ -9,6 +9,7 @@
   "operation",
   "description",
   "unit_std_hours",
+  "handling_basis",
   "column_break_myok",
   "handling_uom",
   "quantity",
@@ -44,10 +45,12 @@
    "fieldtype": "Column Break"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "actual_hours",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Actual Hours"
+   "label": "Actual Hours",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_nhpb",
@@ -103,14 +106,18 @@
    "label": "Actual Machine Hours"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "start_date",
    "fieldtype": "Datetime",
-   "label": "Start Date"
+   "label": "Start Date",
+   "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "end_date",
    "fieldtype": "Datetime",
-   "label": "End Date"
+   "label": "End Date",
+   "read_only": 1
   },
   {
    "columns": 1,
@@ -118,13 +125,19 @@
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Order"
+  },
+  {
+   "fieldname": "handling_basis",
+   "fieldtype": "Select",
+   "label": "Handling Basis",
+   "options": "Item Unit\nVolume\nWeight\nHandling Unit\nTask"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-28 11:31:10.228296",
+ "modified": "2025-10-09 19:08:15.461026",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Operations",

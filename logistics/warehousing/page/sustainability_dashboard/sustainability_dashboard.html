@@ -1,0 +1,387 @@
+<!-- Copyright (c) 2025, www.agilasoft.com and contributors -->
+<!-- For license information, please see license.txt -->
+
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Sustainability Dashboard") }}{% endblock %}
+
+{% block page_content %}
+<div class="sustainability-dashboard">
+	<div class="row">
+		<div class="col-md-12">
+			<div class="page-header">
+				<h1 class="page-title">
+					<i class="fa fa-leaf text-success"></i>
+					{{ _("Sustainability Dashboard") }}
+				</h1>
+				<p class="text-muted">{{ _("Monitor energy efficiency, carbon footprint, and green operations metrics") }}</p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Filters -->
+	<div class="row mb-4">
+		<div class="col-md-12">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="card-title">{{ _("Filters") }}</h5>
+				</div>
+				<div class="card-body">
+					<div class="row">
+						<div class="col-md-3">
+							<label for="site-filter">{{ _("Site") }}</label>
+							<select id="site-filter" class="form-control">
+								<option value="">{{ _("All Sites") }}</option>
+								{% for site in sites %}
+								<option value="{{ site.name }}">{{ site.title or site.name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<div class="col-md-3">
+							<label for="facility-filter">{{ _("Facility") }}</label>
+							<select id="facility-filter" class="form-control">
+								<option value="">{{ _("All Facilities") }}</option>
+								{% for facility in facilities %}
+								<option value="{{ facility.name }}">{{ facility.title or facility.name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<div class="col-md-3">
+							<label for="from-date">{{ _("From Date") }}</label>
+							<input type="date" id="from-date" class="form-control" value="{{ frappe.utils.getdate().strftime('%Y-%m-%d') }}">
+						</div>
+						<div class="col-md-3">
+							<label for="to-date">{{ _("To Date") }}</label>
+							<input type="date" id="to-date" class="form-control" value="{{ frappe.utils.getdate().strftime('%Y-%m-%d') }}">
+						</div>
+					</div>
+					<div class="row mt-3">
+						<div class="col-md-12">
+							<button class="btn btn-primary" onclick="refreshDashboard()">
+								<i class="fa fa-refresh"></i> {{ _("Refresh") }}
+							</button>
+							<button class="btn btn-success" onclick="exportReport()">
+								<i class="fa fa-download"></i> {{ _("Export Report") }}
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Sustainability Scores -->
+	<div class="row mb-4">
+		<div class="col-md-3">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="text-primary" id="overall-score">--</h3>
+					<p class="card-text">{{ _("Overall Score") }}</p>
+					<div class="progress">
+						<div class="progress-bar bg-primary" id="overall-progress" style="width: 0%"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="text-success" id="energy-score">--</h3>
+					<p class="card-text">{{ _("Energy Score") }}</p>
+					<div class="progress">
+						<div class="progress-bar bg-success" id="energy-progress" style="width: 0%"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="text-info" id="carbon-score">--</h3>
+					<p class="card-text">{{ _("Carbon Score") }}</p>
+					<div class="progress">
+						<div class="progress-bar bg-info" id="carbon-progress" style="width: 0%"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="text-warning" id="green-score">--</h3>
+					<p class="card-text">{{ _("Green Score") }}</p>
+					<div class="progress">
+						<div class="progress-bar bg-warning" id="green-progress" style="width: 0%"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Energy Consumption -->
+	<div class="row mb-4">
+		<div class="col-md-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="card-title">{{ _("Energy Consumption") }}</h5>
+				</div>
+				<div class="card-body">
+					<div class="row">
+						<div class="col-md-6">
+							<h6>{{ _("Total Consumption") }}</h6>
+							<p class="h4 text-primary" id="total-consumption">--</p>
+						</div>
+						<div class="col-md-6">
+							<h6>{{ _("Total Cost") }}</h6>
+							<p class="h4 text-success" id="total-cost">--</p>
+						</div>
+					</div>
+					<div class="row mt-3">
+						<div class="col-md-6">
+							<h6>{{ _("Renewable %") }}</h6>
+							<p class="h4 text-info" id="renewable-percentage">--</p>
+						</div>
+						<div class="col-md-6">
+							<h6>{{ _("Carbon Intensity") }}</h6>
+							<p class="h4 text-warning" id="carbon-intensity">--</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="card-title">{{ _("Carbon Footprint") }}</h5>
+				</div>
+				<div class="card-body">
+					<div class="row">
+						<div class="col-md-6">
+							<h6>{{ _("Total Emissions") }}</h6>
+							<p class="h4 text-danger" id="total-emissions">--</p>
+						</div>
+						<div class="col-md-6">
+							<h6>{{ _("Daily Average") }}</h6>
+							<p class="h4 text-info" id="daily-average">--</p>
+						</div>
+					</div>
+					<div class="row mt-3">
+						<div class="col-md-12">
+							<h6>{{ _("Scope Breakdown") }}</h6>
+							<div id="scope-breakdown">
+								<!-- Scope breakdown will be populated by JavaScript -->
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Charts -->
+	<div class="row mb-4">
+		<div class="col-md-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="card-title">{{ _("Energy Consumption Trend") }}</h5>
+				</div>
+				<div class="card-body">
+					<canvas id="energy-chart" width="400" height="200"></canvas>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="card-title">{{ _("Carbon Footprint Trend") }}</h5>
+				</div>
+				<div class="card-body">
+					<canvas id="carbon-chart" width="400" height="200"></canvas>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Recommendations -->
+	<div class="row mb-4">
+		<div class="col-md-12">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="card-title">{{ _("Sustainability Recommendations") }}</h5>
+				</div>
+				<div class="card-body">
+					<div id="recommendations">
+						<!-- Recommendations will be populated by JavaScript -->
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+// JavaScript for sustainability dashboard
+let sustainabilityData = null;
+
+// Initialize dashboard on page load
+$(document).ready(function() {
+	loadDashboardData();
+});
+
+function loadDashboardData() {
+	const filters = getFilters();
+	
+	frappe.call({
+		method: "logistics.warehousing.sustainability_dashboard.get_sustainability_dashboard_data",
+		args: filters,
+		callback: function(r) {
+			if (r.message) {
+				sustainabilityData = r.message;
+				updateDashboard();
+			}
+		}
+	});
+}
+
+function getFilters() {
+	return {
+		site: $("#site-filter").val(),
+		facility: $("#facility-filter").val(),
+		from_date: $("#from-date").val(),
+		to_date: $("#to-date").val()
+	};
+}
+
+function updateDashboard() {
+	if (!sustainabilityData) return;
+	
+	// Update scores
+	updateScores();
+	
+	// Update energy data
+	updateEnergyData();
+	
+	// Update carbon data
+	updateCarbonData();
+	
+	// Update charts
+	updateCharts();
+	
+	// Update recommendations
+	updateRecommendations();
+}
+
+function updateScores() {
+	const scores = sustainabilityData.sustainability_scores || {};
+	
+	$("#overall-score").text(Math.round(scores.overall_score || 0));
+	$("#overall-progress").css("width", (scores.overall_score || 0) + "%");
+	
+	$("#energy-score").text(Math.round(scores.energy_score || 0));
+	$("#energy-progress").css("width", (scores.energy_score || 0) + "%");
+	
+	$("#carbon-score").text(Math.round(scores.carbon_score || 0));
+	$("#carbon-progress").css("width", (scores.carbon_score || 0) + "%");
+	
+	$("#green-score").text(Math.round(scores.green_score || 0));
+	$("#green-progress").css("width", (scores.green_score || 0) + "%");
+}
+
+function updateEnergyData() {
+	const energy = sustainabilityData.energy_data || {};
+	const summary = energy.summary || {};
+	
+	$("#total-consumption").text(formatNumber(summary.total_consumption || 0));
+	$("#total-cost").text(formatCurrency(summary.total_cost || 0));
+	$("#renewable-percentage").text(formatPercentage(summary.average_renewable_percentage || 0));
+	$("#carbon-intensity").text(formatNumber(summary.carbon_intensity || 0));
+}
+
+function updateCarbonData() {
+	const carbon = sustainabilityData.carbon_data || {};
+	const summary = carbon.summary || {};
+	
+	$("#total-emissions").text(formatNumber(summary.total_emissions || 0));
+	$("#daily-average").text(formatNumber(summary.average_daily_emissions || 0));
+	
+	// Update scope breakdown
+	const scopeBreakdown = carbon.scope_breakdown || {};
+	let scopeHtml = "";
+	for (const [scope, value] of Object.entries(scopeBreakdown)) {
+		scopeHtml += `<div class="mb-2">
+			<strong>${scope}:</strong> ${formatNumber(value)} kg CO2e
+		</div>`;
+	}
+	$("#scope-breakdown").html(scopeHtml);
+}
+
+function updateCharts() {
+	// This would integrate with Chart.js or similar
+	// For now, we'll just show placeholder text
+	$("#energy-chart").html("<p class='text-center text-muted'>Energy consumption chart will be displayed here</p>");
+	$("#carbon-chart").html("<p class='text-center text-muted'>Carbon footprint chart will be displayed here</p>");
+}
+
+function updateRecommendations() {
+	const recommendations = sustainabilityData.recommendations || [];
+	
+	let html = "";
+	if (recommendations.length === 0) {
+		html = "<p class='text-muted'>No specific recommendations at this time.</p>";
+	} else {
+		recommendations.forEach(rec => {
+			html += `<div class="alert alert-info">
+				<h6>${rec.category}</h6>
+				<p>${rec.recommendation}</p>
+				<small class="text-muted">Potential savings: ${rec.potential_savings}</small>
+			</div>`;
+		});
+	}
+	
+	$("#recommendations").html(html);
+}
+
+function refreshDashboard() {
+	loadDashboardData();
+}
+
+function exportReport() {
+	// Export functionality
+	frappe.msgprint("Export functionality will be implemented");
+}
+
+// Utility functions
+function formatNumber(num) {
+	return new Intl.NumberFormat().format(num);
+}
+
+function formatCurrency(num) {
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: 'USD'
+	}).format(num);
+}
+
+function formatPercentage(num) {
+	return num.toFixed(1) + "%";
+}
+</script>
+
+<style>
+.sustainability-dashboard .card {
+	margin-bottom: 1rem;
+}
+
+.sustainability-dashboard .progress {
+	height: 8px;
+}
+
+.sustainability-dashboard .h4 {
+	margin-bottom: 0;
+}
+
+.sustainability-dashboard .alert {
+	margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

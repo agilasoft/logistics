@@ -1,0 +1,158 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "message_info_section",
+  "message_type",
+  "direction",
+  "status",
+  "column_break_1",
+  "reference_doctype",
+  "reference_name",
+  "retry_count",
+  "message_content_section",
+  "message_content",
+  "response_content",
+  "error_log",
+  "processing_info_section",
+  "created_timestamp",
+  "processed_timestamp",
+  "column_break_2",
+  "sender_id",
+  "recipient_id",
+  "message_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "message_info_section",
+   "fieldtype": "Section Break",
+   "label": "Message Information"
+  },
+  {
+   "fieldname": "message_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Message Type",
+   "options": "FWB\nFSU\nFMA\nFHL\nXFWB\nXFHL\nXSDG"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Direction",
+   "options": "Outbound\nInbound"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Pending\nProcessing\nSent\nReceived\nFailed\nRetry"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "retry_count",
+   "fieldtype": "Int",
+   "label": "Retry Count"
+  },
+  {
+   "fieldname": "message_content_section",
+   "fieldtype": "Section Break",
+   "label": "Message Content"
+  },
+  {
+   "fieldname": "message_content",
+   "fieldtype": "Long Text",
+   "label": "Message Content"
+  },
+  {
+   "fieldname": "response_content",
+   "fieldtype": "Long Text",
+   "label": "Response Content"
+  },
+  {
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Error Log"
+  },
+  {
+   "fieldname": "processing_info_section",
+   "fieldtype": "Section Break",
+   "label": "Processing Information"
+  },
+  {
+   "fieldname": "created_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Created Timestamp"
+  },
+  {
+   "fieldname": "processed_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Processed Timestamp"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sender_id",
+   "fieldtype": "Data",
+   "label": "Sender ID"
+  },
+  {
+   "fieldname": "recipient_id",
+   "fieldtype": "Data",
+   "label": "Recipient ID"
+  },
+  {
+   "fieldname": "message_id",
+   "fieldtype": "Data",
+   "label": "Message ID"
+  }
+ ],
+ "icon": "fa fa-exchange",
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "IATA Message Queue",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

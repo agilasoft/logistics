@@ -70,11 +70,20 @@ def run_ingest():
 
 def _store_position(vehicle: str, p: Dict[str, Any]):
     if not vehicle: return
+    
+    # Get vehicle info to set provider and external_id
+    vehicle_doc = frappe.get_doc("Transport Vehicle", vehicle)
+    provider = vehicle_doc.telematics_provider
+    external_id = vehicle_doc.telematics_external_id
+    
     doc = frappe.get_doc({
         "doctype": "Telematics Position",
         "vehicle": vehicle,
+        "provider": provider,
+        "external_id": external_id,
         "ts": p["ts"],
-        "lat": p["lat"], "lon": p["lon"],
+        "lat": p["lat"], 
+        "lon": p["lon"],
         "speed_kph": p.get("speed_kph"),
         "ignition": 1 if p.get("ignition") else 0,
         "odometer_km": p.get("odometer_km"),
@@ -107,14 +116,26 @@ def _store_temp(vehicle: str, t: Dict[str, Any]):
 
 def _store_can(vehicle: str, c: Dict[str, Any]):
     if not vehicle: return
+    
+    # Get vehicle info to set provider and external_id
+    vehicle_doc = frappe.get_doc("Transport Vehicle", vehicle)
+    provider = vehicle_doc.telematics_provider
+    external_id = vehicle_doc.telematics_external_id
+    
     doc = frappe.get_doc({
         "doctype": "Telematics CAN Snapshot",
         "vehicle": vehicle,
+        "provider": provider,
+        "external_id": external_id,
         "ts": c["ts"],
-        "fuel_l": c.get("fuel_l"), "rpm": c.get("rpm"),
+        "fuel_l": c.get("fuel_l"), 
+        "rpm": c.get("rpm"),
         "engine_hours": c.get("engine_hours"),
-        "coolant_c": c.get("coolant_c"), "ambient_c": c.get("ambient_c"),
+        "coolant_c": c.get("coolant_c"), 
+        "ambient_c": c.get("ambient_c"),
         "raw_json": frappe.as_json(c.get("raw")),
     })
     doc.flags.ignore_permissions = True
     doc.insert(ignore_permissions=True)
+    
+    frappe.logger().info(f"Stored CAN data for vehicle {vehicle}: fuel={c.get('fuel_l')}, rpm={c.get('rpm')}, engine_hours={c.get('engine_hours')}")

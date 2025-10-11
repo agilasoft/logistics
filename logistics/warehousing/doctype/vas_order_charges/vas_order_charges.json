@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "item_code",
   "item_name",
   "uom",
@@ -13,7 +13,10 @@
   "quantity",
   "currency",
   "rate",
-  "total"
+  "total",
+  "billing_method",
+  "piece_quantity",
+  "piece_uom"
  ],
  "fields": [
   {

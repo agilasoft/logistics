@@ -215,8 +215,17 @@ def _append_runsheet_legs_from_job(job: Document, rs: Document) -> int:
         rs.append(rs_legs_field, payload)
 
         # Immediately lock association on TL (optional but prevents races)
+        # Use proper document update to trigger status update hooks
         if tl_name and _has_field("Transport Leg", "run_sheet"):
-            frappe.db.set_value("Transport Leg", tl_name, "run_sheet", rs.name, update_modified=False)
+            try:
+                leg_doc = frappe.get_doc("Transport Leg", tl_name)
+                if leg_doc.run_sheet != rs.name:
+                    leg_doc.run_sheet = rs.name
+                    leg_doc.save(ignore_permissions=True)
+            except Exception as e:
+                frappe.log_error(f"Error updating Transport Leg {tl_name} run_sheet assignment in transport_job: {str(e)}")
+                # Fallback to db.set_value if document update fails
+                frappe.db.set_value("Transport Leg", tl_name, "run_sheet", rs.name, update_modified=False)
 
         added += 1
 

@@ -1,10 +1,20 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2020, www.agilasoft.com and contributors
+# Copyright (c) 2025, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-from __future__ import unicode_literals
-# import frappe
+import frappe
 from frappe.model.document import Document
 
+
 class TransportJobPackage(Document):
-	pass
+	def validate(self):
+		"""Calculate volume from dimensions"""
+		self.calculate_volume()
+	
+	def calculate_volume(self):
+		"""Calculate volume from length, width, and height"""
+		if self.length and self.widht and self.height:
+			# Calculate volume in cubic meters
+			# Assuming dimensions are in meters
+			self.volume = self.length * self.widht * self.height
+		else:
+			self.volume = 0

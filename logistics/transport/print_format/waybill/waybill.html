@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #000;
+            background: white;
+        }
+        
+        .waybill-document {
+            width: 100%;
+            max-width: 190mm;
+            margin: 0 auto;
+            padding: 0;
+            background: white;
+        }
+        
+        /* Header */
+        .waybill-header {
+            text-align: center;
+            padding: 3mm 0;
+            border-bottom: 3px solid #000;
+            margin-bottom: 3mm;
+        }
+        
+        .waybill-title {
+            font-size: 18pt;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 2mm;
+        }
+        
+        .waybill-subtitle {
+            font-size: 10pt;
+            color: #666;
+        }
+        
+        /* Waybill Number and Date */
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 2mm;
+            background: #f0f0f0;
+            border: 1px solid #000;
+            margin-bottom: 3mm;
+        }
+        
+        .info-item {
+            flex: 1;
+        }
+        
+        .info-label {
+            font-size: 7pt;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .info-value {
+            font-size: 11pt;
+            font-weight: bold;
+            margin-top: 1mm;
+        }
+        
+        /* Box System */
+        .box {
+            border: 2px solid #000;
+            position: relative;
+            margin-bottom: 2mm;
+        }
+        
+        .box-label {
+            position: absolute;
+            top: -8px;
+            left: 5mm;
+            background: white;
+            padding: 0 2mm;
+            font-size: 7pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .box-content {
+            padding: 5mm 3mm 3mm 3mm;
+            min-height: 20mm;
+        }
+        
+        .party-name {
+            font-size: 11pt;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        
+        .party-address {
+            font-size: 9pt;
+            line-height: 1.4;
+        }
+        
+        /* Two Column Layout */
+        .two-col {
+            display: flex;
+            gap: 3mm;
+        }
+        
+        .col {
+            flex: 1;
+        }
+        
+        /* Route Info */
+        .route-box {
+            border: 2px solid #000;
+            padding: 3mm;
+            margin: 2mm 0;
+            background: #f9f9f9;
+        }
+        
+        .route-arrow {
+            text-align: center;
+            font-size: 16pt;
+            font-weight: bold;
+            color: #007bff;
+            margin: 2mm 0;
+        }
+        
+        /* Cargo Details Table */
+        .cargo-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid #000;
+            margin: 2mm 0;
+        }
+        
+        .cargo-table th {
+            background: #e0e0e0;
+            border: 1px solid #000;
+            padding: 2mm;
+            font-size: 8pt;
+            font-weight: bold;
+            text-align: left;
+        }
+        
+        .cargo-table td {
+            border: 1px solid #000;
+            padding: 2mm;
+            font-size: 9pt;
+            vertical-align: top;
+        }
+        
+        /* Signature Section */
+        .signature-section {
+            display: flex;
+            gap: 3mm;
+            margin-top: 5mm;
+        }
+        
+        .signature-box {
+            flex: 1;
+            border: 2px solid #000;
+            padding: 3mm;
+            min-height: 25mm;
+        }
+        
+        .sig-title {
+            font-size: 8pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 2mm;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 1mm;
+        }
+        
+        .sig-line {
+            border-top: 1px solid #000;
+            margin-top: 15mm;
+            padding-top: 2mm;
+            font-size: 7pt;
+            text-align: center;
+        }
+        
+        .sig-field {
+            margin-top: 2mm;
+            font-size: 8pt;
+        }
+        
+        .sig-label {
+            font-size: 7pt;
+            color: #666;
+        }
+        
+        /* Notes Section */
+        .notes-box {
+            border: 2px solid #000;
+            padding: 3mm;
+            margin: 2mm 0;
+            min-height: 15mm;
+        }
+        
+        .notes-title {
+            font-size: 8pt;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        
+        .notes-content {
+            font-size: 8pt;
+            line-height: 1.4;
+        }
+        
+        /* Footer */
+        .waybill-footer {
+            text-align: center;
+            font-size: 7pt;
+            color: #666;
+            margin-top: 5mm;
+            padding-top: 2mm;
+            border-top: 1px solid #ccc;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 1mm 3mm;
+            background: #007bff;
+            color: white;
+            font-size: 7pt;
+            font-weight: bold;
+            border-radius: 2mm;
+            margin: 0 2mm;
+        }
+        
+        .badge-warning {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .badge-danger {
+            background: #dc3545;
+        }
+        
+        @media print {
+            body { margin: 0; padding: 0; }
+            .waybill-document { margin: 0; padding: 0; max-width: 100%; }
+            @page { size: A4; margin: 5mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="waybill-document">
+        <!-- Header -->
+        <div class="waybill-header">
+            <div class="waybill-title">WAYBILL / CONSIGNMENT NOTE</div>
+            <div class="waybill-subtitle">Road Transport Document</div>
+        </div>
+        
+        <!-- Waybill Number and Date -->
+        <div class="info-bar">
+            <div class="info-item">
+                <div class="info-label">Waybill Number</div>
+                <div class="info-value">{{ doc.name }}</div>
+            </div>
+            <div class="info-item" style="text-align: center;">
+                <div class="info-label">Date</div>
+                <div class="info-value">
+                    {% if doc.date %}
+                        {{ frappe.utils.formatdate(doc.date, 'dd MMM yyyy') }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="info-item" style="text-align: right;">
+                <div class="info-label">Status</div>
+                <div class="info-value">{{ doc.status or 'Open' }}</div>
+            </div>
+        </div>
+        
+        <!-- Transport Job Reference -->
+        {% if doc.transport_job %}
+        <div style="text-align: center; margin-bottom: 3mm; font-size: 9pt;">
+            <strong>Transport Job:</strong> {{ doc.transport_job }}
+            {% if doc.run_sheet %}
+                | <strong>Run Sheet:</strong> {{ doc.run_sheet }}
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- Special Handling Badges -->
+        <div style="text-align: center; margin-bottom: 3mm;">
+            {% if doc.hazardous %}
+                <span class="badge badge-danger">⚠ HAZARDOUS</span>
+            {% endif %}
+            {% if doc.refrigeration %}
+                <span class="badge badge-warning">❄ REFRIGERATED</span>
+            {% endif %}
+            {% if doc.priority %}
+                <span class="badge">⚡ PRIORITY: {{ doc.priority }}</span>
+            {% endif %}
+        </div>
+        
+        <!-- Shipper and Consignee -->
+        <div class="two-col">
+            <div class="col">
+                <div class="box">
+                    <div class="box-label">Shipper / From</div>
+                    <div class="box-content">
+                        {% if doc.facility_from %}
+                            <div class="party-name">{{ doc.facility_from }}</div>
+                        {% endif %}
+                        {% if doc.pick_address_format %}
+                            <div class="party-address">{{ doc.pick_address_format|replace('\n', '<br>')|safe }}</div>
+                        {% elif doc.pick_address %}
+                            <div class="party-address">{{ doc.pick_address }}</div>
+                        {% endif %}
+                        {% if doc.pick_mode %}
+                            <div style="margin-top: 2mm; font-size: 8pt; color: #666;">
+                                <strong>Mode:</strong> {{ doc.pick_mode }}
+                            </div>
+                        {% endif %}
+                        {% if doc.pick_window_start or doc.pick_window_end %}
+                            <div style="margin-top: 1mm; font-size: 8pt; color: #666;">
+                                <strong>Window:</strong> 
+                                {% if doc.pick_window_start %}{{ frappe.utils.format_time(doc.pick_window_start) }}{% endif %}
+                                {% if doc.pick_window_end %} - {{ frappe.utils.format_time(doc.pick_window_end) }}{% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col">
+                <div class="box">
+                    <div class="box-label">Consignee / To</div>
+                    <div class="box-content">
+                        {% if doc.facility_to %}
+                            <div class="party-name">{{ doc.facility_to }}</div>
+                        {% endif %}
+                        {% if doc.drop_address_html %}
+                            <div class="party-address">{{ doc.drop_address_html|replace('\n', '<br>')|safe }}</div>
+                        {% elif doc.drop_address %}
+                            <div class="party-address">{{ doc.drop_address }}</div>
+                        {% endif %}
+                        {% if doc.drop_mode %}
+                            <div style="margin-top: 2mm; font-size: 8pt; color: #666;">
+                                <strong>Mode:</strong> {{ doc.drop_mode }}
+                            </div>
+                        {% endif %}
+                        {% if doc.drop_window_start or doc.drop_window_end %}
+                            <div style="margin-top: 1mm; font-size: 8pt; color: #666;">
+                                <strong>Window:</strong> 
+                                {% if doc.drop_window_start %}{{ frappe.utils.format_time(doc.drop_window_start) }}{% endif %}
+                                {% if doc.drop_window_end %} - {{ frappe.utils.format_time(doc.drop_window_end) }}{% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Route Arrow -->
+        <div class="route-arrow">
+            {{ doc.facility_from or 'Origin' }} ➜ {{ doc.facility_to or 'Destination' }}
+        </div>
+        
+        <!-- Route Information -->
+        <div class="route-box">
+            <table style="width: 100%; font-size: 9pt;">
+                <tr>
+                    <td style="width: 25%;"><strong>Distance:</strong></td>
+                    <td style="width: 25%;">
+                        {% if doc.actual_distance_km %}
+                            {{ "%.1f" | format(doc.actual_distance_km) }} km
+                        {% elif doc.distance_km %}
+                            {{ "%.1f" | format(doc.distance_km) }} km (Est.)
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td style="width: 25%;"><strong>Duration:</strong></td>
+                    <td style="width: 25%;">
+                        {% if doc.actual_duration_min %}
+                            {{ "%.0f" | format(doc.actual_duration_min) }} min
+                        {% elif doc.duration_min %}
+                            {{ "%.0f" | format(doc.duration_min) }} min (Est.)
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Vehicle Type:</strong></td>
+                    <td>{{ doc.vehicle_type or '—' }}</td>
+                    <td><strong>Cargo Weight:</strong></td>
+                    <td>
+                        {% if doc.cargo_weight_kg %}
+                            {{ "%.1f" | format(doc.cargo_weight_kg) }} kg
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if doc.start_date or doc.end_date %}
+                <tr>
+                    <td><strong>Departure:</strong></td>
+                    <td>
+                        {% if doc.start_date %}
+                            {{ frappe.utils.format_datetime(doc.start_date, 'dd MMM yyyy HH:mm') }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td><strong>Arrival:</strong></td>
+                    <td>
+                        {% if doc.end_date %}
+                            {{ frappe.utils.format_datetime(doc.end_date, 'dd MMM yyyy HH:mm') }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+        
+        <!-- Cargo Details -->
+        <table class="cargo-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Order</th>
+                    <th style="width: 20%;">Type</th>
+                    <th style="width: 20%;">Vehicle Type</th>
+                    <th style="width: 15%;">Weight (kg)</th>
+                    <th style="width: 30%;">Special Instructions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ doc.order or '—' }}</td>
+                    <td>{{ doc.facility_type_from or '—' }} → {{ doc.facility_type_to or '—' }}</td>
+                    <td>{{ doc.vehicle_type or '—' }}</td>
+                    <td>
+                        {% if doc.cargo_weight_kg %}
+                            {{ "%.1f" | format(doc.cargo_weight_kg) }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if doc.hazardous %}HAZARDOUS | {% endif %}
+                        {% if doc.refrigeration %}REFRIGERATED | {% endif %}
+                        {% if doc.priority %}PRIORITY: {{ doc.priority }}{% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Notes/Instructions -->
+        <div class="notes-box">
+            <div class="notes-title">Instructions / Notes</div>
+            <div class="notes-content">
+                {% if doc.pick_mode or doc.drop_mode %}
+                    <strong>Pickup Mode:</strong> {{ doc.pick_mode or 'Standard' }} | 
+                    <strong>Drop Mode:</strong> {{ doc.drop_mode or 'Standard' }}
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Signature Section -->
+        <div class="signature-section">
+            <div class="signature-box">
+                <div class="sig-title">Sender / Shipper</div>
+                <div class="sig-line">Signature</div>
+                <div class="sig-field">
+                    <span class="sig-label">Name:</span> _______________________
+                </div>
+                <div class="sig-field">
+                    <span class="sig-label">Date/Time:</span> _______________________
+                </div>
+            </div>
+            
+            <div class="signature-box">
+                <div class="sig-title">Driver / Carrier</div>
+                <div class="sig-line">Signature</div>
+                <div class="sig-field">
+                    <span class="sig-label">Name:</span> _______________________
+                </div>
+                <div class="sig-field">
+                    <span class="sig-label">Date/Time:</span> _______________________
+                </div>
+            </div>
+            
+            <div class="signature-box">
+                <div class="sig-title">Receiver / Consignee</div>
+                {% if doc.signature %}
+                    <div style="text-align: center; margin: 2mm 0;">
+                        <img src="{{ doc.signature }}" style="max-width: 100%; max-height: 15mm;" />
+                    </div>
+                {% else %}
+                    <div class="sig-line">Signature</div>
+                {% endif %}
+                <div class="sig-field">
+                    <span class="sig-label">Name:</span> {{ doc.signed_by or '_______________________' }}
+                </div>
+                <div class="sig-field">
+                    <span class="sig-label">Date/Time:</span> 
+                    {% if doc.date_signed %}
+                        {{ frappe.utils.format_datetime(doc.date_signed, 'dd MMM yyyy HH:mm') }}
+                    {% else %}
+                        _______________________
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Terms and Conditions -->
+        <div style="margin-top: 5mm; padding: 2mm; background: #f9f9f9; border: 1px solid #ccc; font-size: 7pt; line-height: 1.4;">
+            <strong>Terms and Conditions:</strong> The carrier is not liable for any loss or damage of goods during transit unless caused by carrier's negligence. 
+            Claims must be made within 7 days of delivery. The carrier's liability is limited to the declared value of goods or $100 per kg, whichever is lower.
+        </div>
+        
+        <!-- Footer -->
+        <div class="waybill-footer">
+            <div>Waybill Number: <strong>{{ doc.name }}</strong></div>
+            <div style="margin-top: 1mm;">
+                Generated on {{ frappe.utils.format_datetime(frappe.utils.now(), 'dd MMM yyyy HH:mm') }}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

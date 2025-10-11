@@ -14,7 +14,7 @@
   "column_break_etxy",
   "system_count",
   "actual_quantity",
-  "blind_count"
+  "counted"
  ],
  "fields": [
   {
@@ -71,7 +71,7 @@
   },
   {
    "columns": 1,
-   "depends_on": "parent.blind_count",
+   "depends_on": "eval:!parent.blind_count",
    "fieldname": "system_count",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -79,18 +79,17 @@
    "read_only": 1
   },
   {
-   "fieldname": "blind_count",
-   "fieldtype": "Float",
-   "hidden": 1,
-   "label": "Blind Count",
-   "read_only": 1
+   "default": "0",
+   "fieldname": "counted",
+   "fieldtype": "Check",
+   "label": "Counted"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-09 13:41:23.877276",
+ "modified": "2025-10-10 01:34:24.463440",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Count",

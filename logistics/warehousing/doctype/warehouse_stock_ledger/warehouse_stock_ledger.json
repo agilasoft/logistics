@@ -4,23 +4,26 @@
  "creation": "2025-08-20 14:14:57.670314",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
-  "posting_date",
-  "warehouse_job",
-  "item",
-  "column_break_cqfu",
-  "storage_location",
-  "handling_unit",
-  "serial_no",
-  "batch_no",
-  "column_break_evhh",
-  "quantity",
-  "beg_quantity",
-  "end_qty",
-  "entity_tab",
-  "company",
-  "branch"
- ],
+  "field_order": [
+    "posting_date",
+    "warehouse_job",
+    "item",
+    "column_break_cqfu",
+    "storage_location",
+    "handling_unit",
+    "serial_no",
+    "batch_no",
+    "column_break_evhh",
+    "quantity",
+    "beg_quantity",
+    "end_qty",
+    "billing_tab",
+    "volume",
+    "weight",
+    "entity_tab",
+    "company",
+    "branch"
+  ],
  "fields": [
   {
    "fieldname": "handling_unit",
@@ -106,6 +109,21 @@
    "label": "Branch",
    "options": "Branch",
    "reqd": 1
+  },
+  {
+   "fieldname": "billing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Billing Information"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume (CBM)"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight (KG)"
   }
  ],
  "grid_page_length": 50,

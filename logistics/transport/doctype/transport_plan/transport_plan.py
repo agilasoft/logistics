@@ -34,6 +34,8 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> D
         "window": None,
         "consolidated_trips": 0,
         "total_legs": 0,
+        "consolidations_created": [],
+        "load_type_consolidations": 0,
     }
 
     try:
@@ -92,7 +94,8 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> D
                         trip_debug.append("No vehicle available for this trip.")
 
                     # Create run sheet for the entire trip
-                    rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug)
+                    consolidation = trip.get("consolidation")
+                    rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug, consolidation)
 
                     # Append all legs in the trip to the run sheet
                     trip_legs_added = 0
@@ -129,6 +132,16 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> D
                     
                     # Keep backward compatibility
                     (result["reused"] if reused else result["created"]).append(rs_name)
+                    
+                    # Track consolidation if present
+                    if consolidation:
+                        result["consolidations_created"].append({
+                            "consolidation": consolidation["name"],
+                            "run_sheet": rs_name,
+                            "load_type": trip.get("load_type"),
+                            "legs_count": len(trip["legs"])
+                        })
+                        result["load_type_consolidations"] += 1
 
                 except Exception as e:
                     result["errors"].append(f"Trip consolidation failed: {cstr(e)}")
@@ -290,34 +303,168 @@ def _get_leg_date_value(leg: Dict[str, Any]) -> Optional[str]:
 
 def _consolidate_legs(day_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """
-    Consolidate legs into optimized trips based on vehicle type, capacity, and route optimization.
+    Consolidate legs into optimized trips based on Load Type consolidation rules and route optimization.
     """
     debug = debug or []
     trips = []
     
-    # Group legs by vehicle type first
-    legs_by_vehicle_type = {}
-    for leg in day_legs:
-        vt = leg.get("vehicle_type", "Unknown")
-        if vt not in legs_by_vehicle_type:
-            legs_by_vehicle_type[vt] = []
-        legs_by_vehicle_type[vt].append(leg)
-    
-    debug.append(f"Grouped {len(day_legs)} legs into {len(legs_by_vehicle_type)} vehicle types")
-    
-    # For each vehicle type, create optimized trips
-    for vehicle_type, legs in legs_by_vehicle_type.items():
-        debug.append(f"Processing {len(legs)} legs for vehicle type: {vehicle_type}")
+    # First, check for Load Type-based consolidations
+    consolidation_trips = _create_load_type_consolidations(day_legs, debug)
+    if consolidation_trips:
+        trips.extend(consolidation_trips)
+        # Remove legs that were consolidated
+        consolidated_leg_names = set()
+        for trip in consolidation_trips:
+            for leg in trip["legs"]:
+                consolidated_leg_names.add(leg["name"])
         
-        # Sort legs by priority and time windows
-        sorted_legs = _sort_legs_for_optimization(legs)
-        
-        # Create trips based on capacity and route optimization
-        vehicle_trips = _create_optimized_trips(sorted_legs, vehicle_type, debug)
-        trips.extend(vehicle_trips)
+        # Filter out consolidated legs
+        remaining_legs = [leg for leg in day_legs if leg["name"] not in consolidated_leg_names]
+        debug.append(f"Created {len(consolidation_trips)} Load Type consolidations, {len(remaining_legs)} legs remaining")
+    else:
+        remaining_legs = day_legs
+        debug.append("No Load Type consolidations found, using route optimization")
     
-    debug.append(f"Created {len(trips)} optimized trips from {len(day_legs)} legs")
+    # For remaining legs, use traditional route optimization
+    if remaining_legs:
+        # Group legs by vehicle type
+        legs_by_vehicle_type = {}
+        for leg in remaining_legs:
+            vt = leg.get("vehicle_type", "Unknown")
+            if vt not in legs_by_vehicle_type:
+                legs_by_vehicle_type[vt] = []
+            legs_by_vehicle_type[vt].append(leg)
+        
+        debug.append(f"Grouped {len(remaining_legs)} remaining legs into {len(legs_by_vehicle_type)} vehicle types")
+        
+        # For each vehicle type, create optimized trips
+        for vehicle_type, legs in legs_by_vehicle_type.items():
+            debug.append(f"Processing {len(legs)} legs for vehicle type: {vehicle_type}")
+            
+            # Sort legs by priority and time windows
+            sorted_legs = _sort_legs_for_optimization(legs)
+            
+            # Create trips based on capacity and route optimization
+            vehicle_trips = _create_optimized_trips(sorted_legs, vehicle_type, debug)
+            trips.extend(vehicle_trips)
+    
+    debug.append(f"Created {len(trips)} total trips from {len(day_legs)} legs")
     return trips
+
+
+def _create_load_type_consolidations(day_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """
+    Create consolidations based on Load Type rules for LTL jobs.
+    """
+    debug = debug or []
+    consolidation_trips = []
+    
+    # Group legs by load type
+    legs_by_load_type = {}
+    for leg in day_legs:
+        # Get load type from transport job
+        load_type = _get_leg_load_type(leg)
+        if load_type:
+            if load_type not in legs_by_load_type:
+                legs_by_load_type[load_type] = []
+            legs_by_load_type[load_type].append(leg)
+    
+    debug.append(f"Found {len(legs_by_load_type)} load types with consolidatable legs")
+    
+    # Process each load type
+    for load_type, legs in legs_by_load_type.items():
+        debug.append(f"Processing {len(legs)} legs for Load Type: {load_type}")
+        
+        # Check if load type allows consolidation
+        load_type_doc = frappe.get_doc("Load Type", load_type)
+        if not load_type_doc.can_consolidate:
+            debug.append(f"Load Type {load_type} does not allow consolidation, skipping")
+            continue
+        
+        # Create consolidation for this load type
+        consolidation = _create_transport_consolidation(load_type, legs, debug)
+        if consolidation:
+            # Create trip for this consolidation
+            trip = {
+                "legs": legs,
+                "vehicle_type": legs[0].get("vehicle_type") if legs else None,
+                "consolidation": consolidation,
+                "total_weight": sum(flt(leg.get("weight") or 0) for leg in legs),
+                "total_volume": sum(flt(leg.get("volume") or 0) for leg in legs),
+                "total_pallets": sum(flt(leg.get("pallets") or 0) for leg in legs),
+                "hazardous": any(leg.get("hazardous") for leg in legs),
+                "leg_count": len(legs),
+                "load_type": load_type
+            }
+            consolidation_trips.append(trip)
+            debug.append(f"Created consolidation {consolidation['name']} for {len(legs)} legs")
+    
+    return consolidation_trips
+
+
+def _get_leg_load_type(leg: Dict[str, Any]) -> Optional[str]:
+    """
+    Get the load type for a transport leg by looking up the transport job.
+    """
+    transport_job = leg.get("transport_job")
+    if not transport_job:
+        return None
+    
+    try:
+        load_type = frappe.db.get_value("Transport Job", transport_job, "load_type")
+        return load_type
+    except Exception:
+        return None
+
+
+def _create_transport_consolidation(load_type: str, legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+    """
+    Create a Transport Consolidation for the given legs.
+    """
+    debug = debug or []
+    
+    try:
+        # Get transport jobs from legs
+        transport_jobs = [leg.get("transport_job") for leg in legs if leg.get("transport_job")]
+        if not transport_jobs:
+            debug.append("No transport jobs found in legs")
+            return None
+        
+        # Create consolidation
+        consolidation = frappe.new_doc("Transport Consolidation")
+        consolidation.consolidation_date = _get_leg_date_value(legs[0]) or nowdate()
+        consolidation.status = "Draft"
+        consolidation.consolidation_type = "LTL"
+        
+        # Set accounting fields from first transport job
+        if legs and legs[0].get("transport_job"):
+            first_job = frappe.get_doc("Transport Job", legs[0]["transport_job"])
+            consolidation.company = getattr(first_job, "company", None)
+            consolidation.branch = getattr(first_job, "branch", None)
+            consolidation.cost_center = getattr(first_job, "cost_center", None)
+            consolidation.profit_center = getattr(first_job, "profit_center", None)
+            consolidation.job_reference = getattr(first_job, "job_reference", None)
+        
+        # Add transport jobs
+        for job_name in transport_jobs:
+            consolidation.append("transport_jobs", {
+                "transport_job": job_name,
+                "weight": 0,  # Will be calculated from packages
+                "volume": 0    # Will be calculated from packages
+            })
+        
+        consolidation.save()
+        debug.append(f"Created Transport Consolidation: {consolidation.name}")
+        
+        return {
+            "name": consolidation.name,
+            "load_type": load_type,
+            "jobs_count": len(transport_jobs)
+        }
+        
+    except Exception as e:
+        debug.append(f"Failed to create consolidation: {cstr(e)}")
+        return None
 
 
 def _sort_legs_for_optimization(legs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -338,7 +485,7 @@ def _sort_legs_for_optimization(legs: List[Dict[str, Any]]) -> List[Dict[str, An
             if leg.get(time_field):
                 try:
                     time_factor = cint(str(leg[time_field]).replace(":", "").replace("-", "").replace(" ", ""))
-                except:
+                except (ValueError, TypeError, AttributeError):
                     time_factor = 0
                 break
         
@@ -658,7 +805,7 @@ def _driver_free_on_date(driver_name: str, day: Optional[str]) -> bool:
 
 # ------------------------ Run Sheet & legs ------------------------
 
-def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None) -> Tuple[str, bool]:
+def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None, consolidation: Optional[Dict[str, Any]] = None) -> Tuple[str, bool]:
     debug = debug or []
     sched = _get_leg_date_value(leg) or nowdate()
     rs_date = f"{sched} 08:00:00"
@@ -694,6 +841,11 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
         rs.transport_company = vehicle.get("transport_company")
     if _has_field("Run Sheet", "driver") and driver:
         rs.driver = driver["name"]
+    
+    # Link to consolidation if provided
+    if consolidation and _has_field("Run Sheet", "transport_consolidation"):
+        rs.transport_consolidation = consolidation["name"]
+        debug.append(f"Linked to Transport Consolidation: {consolidation['name']}")
 
     try:
         rs.insert(ignore_permissions=True)
@@ -825,11 +977,20 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
     
     # Show consolidation status
     consolidation_info = ""
-    if result.get("consolidated_trips", 0) > 0:
+    load_type_consolidations = result.get("load_type_consolidations", 0)
+    consolidated_trips = result.get("consolidated_trips", 0)
+    
+    if load_type_consolidations > 0 or consolidated_trips > 0:
+        consolidation_details = []
+        if load_type_consolidations > 0:
+            consolidation_details.append(f"{load_type_consolidations} Load Type consolidations")
+        if consolidated_trips > 0:
+            consolidation_details.append(f"{consolidated_trips} route-optimized trips")
+        
         consolidation_info = f"""
         <div style="background:#e7f3ff; border:1px solid #b3d9ff; padding:8px; border-radius:4px; margin-bottom:10px; font-size:12px;">
           <i class="fa fa-route"></i> <strong>Consolidation Active:</strong> 
-          {result.get('consolidated_trips', 0)} optimized trips created from {result.get('total_legs', 0)} legs
+          {' + '.join(consolidation_details)} created from {result.get('total_legs', 0)} legs
         </div>
         """
     else:
@@ -840,6 +1001,21 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
         """
     
     html_parts.append(consolidation_info)
+    
+    # Show consolidation details if any
+    consolidations_created = result.get("consolidations_created", [])
+    if consolidations_created:
+        consolidation_items = []
+        for cons in consolidations_created:
+            consolidation_items.append(li(f"{cons['consolidation']} ({cons['load_type']}) → {cons['run_sheet']} ({cons['legs_count']} legs)"))
+        
+        html_parts.append(f"""
+        <div style="border:1px solid #28a745; padding:10px; border-radius:8px; background:#f8fff9; margin-bottom:10px">
+          <div><b>Load Type Consolidations Created</b> ({len(consolidations_created)})</div>
+          <ul style="margin:6px 0 0 18px">{''.join(consolidation_items)}</ul>
+        </div>
+        """)
+    
     html_parts.append(f"""
     <div style="margin-bottom:10px">
       <div><b>Transport Plan:</b> {frappe.utils.escape_html(plan_name)}</div>

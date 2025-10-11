@@ -1,0 +1,164 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-09 21:03:37.839523",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "column_break_jbbp",
+  "section_break_yyll",
+  "revenue_column",
+  "calculation_method",
+  "uom",
+  "currency",
+  "rate",
+  "unit_type",
+  "minimum_quantity",
+  "minimum_charge",
+  "maximum_charge",
+  "base_amount",
+  "estimated_revenue",
+  "column_break_pndm",
+  "calculation_method_copy",
+  "cost_uom",
+  "cost_currency",
+  "cost_rate"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "column_break_jbbp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_yyll",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Rate"
+  },
+  {
+   "fieldname": "column_break_pndm",
+   "fieldtype": "Column Break",
+   "label": "Cost"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
+   "fieldname": "minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\"",
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  },
+  {
+   "fieldname": "revenue_column",
+   "fieldtype": "Column Break",
+   "label": "Revenue"
+  },
+  {
+   "columns": 1,
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Revenue"
+  },
+  {
+   "fieldname": "calculation_method_copy",
+   "fieldtype": "Select",
+   "label": "Calculation Method Copy",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
+  },
+  {
+   "fieldname": "cost_uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "cost_currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "cost_rate",
+   "fieldtype": "Currency",
+   "label": "Rate"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-10-09 22:51:17.217521",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Sales Quote Transport",
+ "owner": "jeffbangquil@gmail.com",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

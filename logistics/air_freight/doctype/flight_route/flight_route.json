@@ -1,0 +1,225 @@
+{
+ "actions": [],
+ "autoname": "format:{airline}-{origin_airport}-{destination_airport}",
+ "creation": "2025-10-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "route_information_section",
+  "route_name",
+  "airline",
+  "airline_iata",
+  "column_break_1",
+  "origin_airport",
+  "destination_airport",
+  "is_active",
+  "flight_details_section",
+  "typical_duration_minutes",
+  "distance_km",
+  "frequency",
+  "column_break_2",
+  "departure_days",
+  "typical_departure_time",
+  "typical_arrival_time",
+  "cargo_section",
+  "cargo_capacity_kg",
+  "typical_cargo_rate_per_kg",
+  "column_break_3",
+  "supports_dangerous_goods",
+  "supports_live_animals",
+  "supports_refrigerated",
+  "metadata_section",
+  "data_source",
+  "last_synced"
+ ],
+ "fields": [
+  {
+   "fieldname": "route_information_section",
+   "fieldtype": "Section Break",
+   "label": "Route Information"
+  },
+  {
+   "fieldname": "route_name",
+   "fieldtype": "Data",
+   "label": "Route Name"
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Airline",
+   "options": "Airline Master",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "airline.iata_code",
+   "fieldname": "airline_iata",
+   "fieldtype": "Data",
+   "label": "Airline IATA"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "origin_airport",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Origin Airport",
+   "options": "Airport Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "destination_airport",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Destination Airport",
+   "options": "Airport Master",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "flight_details_section",
+   "fieldtype": "Section Break",
+   "label": "Flight Details"
+  },
+  {
+   "fieldname": "typical_duration_minutes",
+   "fieldtype": "Int",
+   "label": "Typical Duration (Minutes)"
+  },
+  {
+   "fieldname": "distance_km",
+   "fieldtype": "Float",
+   "label": "Distance (KM)"
+  },
+  {
+   "default": "Daily",
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "label": "Frequency",
+   "options": "Daily\nWeekly\nBi-Weekly\nMonthly\nSeasonal"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "departure_days",
+   "fieldtype": "Data",
+   "label": "Departure Days (e.g., Mon,Wed,Fri)"
+  },
+  {
+   "fieldname": "typical_departure_time",
+   "fieldtype": "Time",
+   "label": "Typical Departure Time"
+  },
+  {
+   "fieldname": "typical_arrival_time",
+   "fieldtype": "Time",
+   "label": "Typical Arrival Time"
+  },
+  {
+   "fieldname": "cargo_section",
+   "fieldtype": "Section Break",
+   "label": "Cargo Information"
+  },
+  {
+   "fieldname": "cargo_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Cargo Capacity (KG)"
+  },
+  {
+   "fieldname": "typical_cargo_rate_per_kg",
+   "fieldtype": "Currency",
+   "label": "Typical Cargo Rate per KG"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Supports Dangerous Goods"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_live_animals",
+   "fieldtype": "Check",
+   "label": "Supports Live Animals"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_refrigerated",
+   "fieldtype": "Check",
+   "label": "Supports Refrigerated"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Data",
+   "label": "Data Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2025-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Flight Route",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Logistics User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+
+

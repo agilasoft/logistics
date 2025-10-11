@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "creation": "2020-12-16 16:11:07.803095",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -20,30 +21,38 @@
    "label": "Description"
   },
   {
+   "columns": 1,
    "fieldname": "quantity",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Quantity"
   },
   {
+   "columns": 1,
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Weight"
   },
   {
+   "columns": 1,
    "fieldname": "length",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Length"
   },
   {
+   "columns": 1,
    "fieldname": "widht",
    "fieldtype": "Float",
-   "label": "Widht"
+   "in_list_view": 1,
+   "label": "Width"
   },
   {
+   "columns": 1,
    "fieldname": "height",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Height"
   },
   {
@@ -55,14 +64,17 @@
   }
  ],
  "istable": 1,
- "modified": "2020-12-16 16:11:27.192142",
+ "links": [],
+ "modified": "2025-10-02 15:32:54.119611",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Package",
  "owner": "Administrator",
  "permissions": [],
  "quick_entry": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }

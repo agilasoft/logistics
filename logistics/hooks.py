@@ -22,6 +22,60 @@ app_license = "MIT"
 # web_include_css = "/assets/logistics/css/logistics.css"
 # web_include_js = "/assets/logistics/js/logistics.js"
 
+# Portal Menu Items
+# -----------------
+portal_menu_items = [
+    {
+        "title": "Warehousing Portal",
+        "route": "/warehousing-portal",
+        "reference_doctype": "Warehouse Job",
+        "icon": "fa fa-warehouse"
+    },
+    {
+        "title": "Transport Jobs",
+        "route": "/transport-jobs",
+        "reference_doctype": "Transport Job",
+        "icon": "fa fa-truck"
+    },
+    {
+        "title": "Stock Balance",
+        "route": "/stock-balance",
+        "reference_doctype": "Item",
+        "icon": "fa fa-chart-line"
+    },
+    {
+        "title": "Warehouse Jobs",
+        "route": "/warehouse-jobs",
+        "reference_doctype": "Warehouse Job",
+        "icon": "fa fa-tasks"
+    }
+]
+
+# Portal Page Context
+# -------------------
+get_portal_page_context = "logistics.transport.portal_config.get_portal_page_context"
+
+# Website Routes
+# --------------
+website_route_rules = [
+    {"from_route": "/simple-test", "to_route": "simple_test"},
+    {"from_route": "/customer-debug", "to_route": "customer_debug"},
+    {"from_route": "/transport-debug", "to_route": "transport_debug"},
+    {"from_route": "/warehousing-test", "to_route": "warehousing_test"},
+    {"from_route": "/warehousing-debug", "to_route": "warehousing_debug"},
+    {"from_route": "/test-transport", "to_route": "test_portal"},
+    {"from_route": "/transport-jobs", "to_route": "transport_jobs"},
+    {"from_route": "/stock-balance", "to_route": "stock_balance"},
+    {"from_route": "/warehouse-jobs", "to_route": "warehouse_jobs"},
+    {"from_route": "/warehousing-portal", "to_route": "warehousing_portal"},
+    {"from_route": "/customer-debug-portal", "to_route": "customer_debug_portal"},
+    {
+        "from_route": "/transport-jobs/<path:name>",
+        "to_route": "transport_job_detail",
+        "defaults": {"doctype": "Transport Job", "parents": [{"label": "Transport Jobs", "route": "transport-jobs"}]},
+    },
+]
+
 # include js in page
 # page_js = {"page" : "public/js/file.js"}
 
@@ -55,7 +109,7 @@ app_license = "MIT"
 # ------------
 
 # before_install = "logistics.install.before_install"
-# after_install = "logistics.install.after_install"
+after_install = "logistics.install.after_install.after_install"
 
 # Desk Notifications
 # ------------------
@@ -90,23 +144,21 @@ app_license = "MIT"
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"logistics.tasks.all"
-# 	],
-# 	"daily": [
-# 		"logistics.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"logistics.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"logistics.tasks.weekly"
-# 	]
-# 	"monthly": [
-# 		"logistics.tasks.monthly"
-# 	]
-# }
+scheduler_events = {
+	"hourly": [
+		"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
+		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status"
+	],
+	"daily": [
+		"logistics.air_freight.flight_schedules.tasks.sync_airport_master",
+		"logistics.air_freight.flight_schedules.tasks.sync_airline_master",
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules"
+	],
+	"weekly": [
+		"logistics.air_freight.flight_schedules.tasks.sync_route_data",
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs"
+	]
+}
 
 # Testing
 # -------
@@ -131,5 +183,27 @@ doc_events = {
     "Warehouse Job": {
         # keep your existing validate hook(s) if any
         "before_submit": "logistics.warehousing.api.warehouse_job_before_submit",
+    },
+    "Sales Invoice": {
+        "validate": [
+            "logistics.setup.dimension_hooks.update_dimensions_on_item_change",
+            "logistics.setup.bir_2307_hooks.validate_bir_2307_fields",
+            "logistics.setup.bir_2307_hooks.auto_populate_tin_fields",
+            "logistics.setup.bir_2307_hooks.auto_populate_atc_details"
+        ],
+    },
+    "Purchase Invoice": {
+        "validate": [
+            "logistics.setup.dimension_hooks.update_dimensions_on_item_change",
+            "logistics.setup.bir_2307_hooks.validate_bir_2307_fields",
+            "logistics.setup.bir_2307_hooks.auto_populate_tin_fields",
+            "logistics.setup.bir_2307_hooks.auto_populate_atc_details"
+        ],
+    },
+    "Journal Entry": {
+        "validate": "logistics.setup.dimension_hooks.update_dimensions_on_item_change",
+    },
+    "ATC Code": {
+        "validate": "logistics.setup.bir_2307_hooks.validate_atc_code",
     }
 }

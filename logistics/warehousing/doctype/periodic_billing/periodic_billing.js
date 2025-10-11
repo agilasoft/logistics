@@ -3,44 +3,102 @@
 
 frappe.ui.form.on('Periodic Billing', {
   refresh(frm) {
-    if (!frm.is_new()) {
-      frm.add_custom_button(__('Get Charges'), async () => {
-        try {
-          const r = await frappe.call({
-            method: 'logistics.warehousing.api.periodic_billing_get_charges',
-            args: { periodic_billing: frm.doc.name, clear_existing: 1 },
-            freeze: true,
-            freeze_message: __('Fetching charges...'),
-          });
+    if (frm.is_new()) return;
 
-          let msg = '';
-          if (r && r.message) {
-            if (typeof r.message === 'string') {
-              msg = r.message;
-            } else if (typeof r.message.message === 'string') {
-              msg = r.message.message;
-            } else {
-              msg = __('Charges fetched.');
-            }
+    // Test button
+    frm.add_custom_button(__('Test'), async () => {
+      console.log('Test button clicked');
+      try {
+        const r = await frappe.call({
+          method: 'logistics.warehousing.api.test_periodic_billing',
+          freeze: true,
+        });
+        console.log('Test response:', r);
+        frappe.msgprint({ title: __('Test'), message: r.message.message, indicator: 'green' });
+      } catch (e) {
+        console.error('Test error:', e);
+        frappe.msgprint({ title: __('Error'), indicator: 'red', message: String(e) });
+      }
+    }, __('Test'));
+
+    // Get Charges button
+    frm.add_custom_button(__('Get Charges'), async () => {
+      console.log('Get Charges button clicked');
+      try {
+        console.log('Calling periodic_billing_get_charges with:', frm.doc.name);
+        const r = await frappe.call({
+          method: 'logistics.warehousing.billing.periodic_billing_get_charges',
+          args: { periodic_billing: frm.doc.name, clear_existing: 1 },
+          freeze: true,
+          freeze_message: __('Fetching charges...'),
+        });
+        console.log('Response received:', r);
+
+        let msg = '';
+        if (r && r.message) {
+          if (typeof r.message === 'string') {
+            msg = r.message;
+          } else if (typeof r.message.message === 'string') {
+            msg = r.message.message;
           } else {
             msg = __('Charges fetched.');
           }
-
-          frappe.msgprint({ title: __('Get Charges'), message: msg, indicator: 'green' });
-          frm.reload_doc();
-        } catch (e) {
-          const server = (e && e.message) ? e.message : (e && e._server_messages) ? e._server_messages : e;
-          frappe.msgprint({ title: __('Error'), indicator: 'red', message: String(server || __('Unknown error')) });
+        } else {
+          msg = __('Charges fetched.');
         }
-      }, __('Action'));
+
+        frappe.msgprint({ title: __('Get Charges'), message: msg, indicator: 'green' });
+        frm.reload_doc();
+      } catch (e) {
+        const server = (e && e.message) ? e.message : (e && e._server_messages) ? e._server_messages : e;
+        frappe.msgprint({ title: __('Error'), indicator: 'red', message: String(server || __('Unknown error')) });
+      }
+    }, __('Action'));
+    
+    // Add contract setup summary button
+    if (frm.doc.warehouse_contract) {
+      frm.add_custom_button(__('Contract Setup Summary'), async () => {
+        try {
+          const summary = await frappe.call({
+            method: 'logistics.warehousing.billing.get_contract_setup_summary',
+            args: { warehouse_contract: frm.doc.warehouse_contract },
+            freeze: true,
+            freeze_message: __('Loading contract setup...'),
+          });
+
+          if (summary && summary.message) {
+            const s = summary.message;
+            let msg = `<h4>Contract Setup Summary</h4>
+              <p><strong>Contract:</strong> ${s.contract_name}</p>
+              <p><strong>Customer:</strong> ${s.customer}</p>
+              <p><strong>Valid Until:</strong> ${s.valid_until || 'Not specified'}</p>
+              <p><strong>Total Contract Items:</strong> ${s.total_items}</p>
+              <hr>
+              <h5>Charge Types:</h5>
+              <ul>
+                <li>Storage Charges: ${s.storage_charges}</li>
+                <li>Inbound Charges: ${s.inbound_charges}</li>
+                <li>Outbound Charges: ${s.outbound_charges}</li>
+                <li>Transfer Charges: ${s.transfer_charges}</li>
+                <li>VAS Charges: ${s.vas_charges}</li>
+                <li>Stocktake Charges: ${s.stocktake_charges}</li>
+              </ul>`;
+            
+            frappe.msgprint({ 
+              title: __('Contract Setup Summary'), 
+              message: msg, 
+              indicator: 'blue' 
+            });
+          }
+        } catch (e) {
+          frappe.msgprint({ 
+            title: __('Error'), 
+            indicator: 'red', 
+            message: __('Failed to load contract setup summary') 
+          });
+        }
+      }, __('Info'));
     }
-  }
-});
-
-
-frappe.ui.form.on('Periodic Billing', {
-  refresh(frm) {
-    if (frm.is_new()) return;
 
     // Create → Sales Invoice
     frm.add_custom_button(__('Sales Invoice'), () => {

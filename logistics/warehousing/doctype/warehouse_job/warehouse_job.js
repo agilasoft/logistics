@@ -1,542 +1,931 @@
-// Copyright (c) 2025, www.agilasoft.com
+// Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-(() => {
-  const GROUP_ACTION = __("Action");
-  const GROUP_CREATE = __("Create");
-  const GROUP_POST   = __("Post");
-
-  // ---------- helpers ----------
-  const ensureSaved = (f) => {
-    const frm = f || (typeof cur_frm !== "undefined" ? cur_frm : null);
-    if (!frm || !frm.doc) {
-      console.error("[Warehouse Job] Missing frm in ensureSaved()");
-      frappe.msgprint(__("Unexpected error: form not ready. Try reloading the page."));
-      return false;
-    }
-    if (!frm.doc.name) {
-      frappe.msgprint(__("Please save the document first."));
-      return false;
-    }
-    return true;
-  };
-
-  const extractMsg = (res, fallback) => {
-    const r = (res && res.message) || res || {};
-    if (typeof r === "string") return r;
-    return r.message || (typeof fallback === "function" ? fallback(r) : fallback);
-  };
-
-  const callServer = async (
-    frm,
-    { method, args = {}, freeze = true, freezing = __("Working…"), title = __("Result"), fallback = () => "" }
-  ) => {
-    try {
-      const r = await frappe.call({ method, args, freeze, freeze_message: freezing });
-      const payload = r && r.message ? r.message : {};
-      const msg = extractMsg(r, fallback(payload));
-      if (title) {
-        frappe.msgprint({ title, message: msg, indicator: "blue" });
-        if (typeof msg === "string") {
-          frappe.show_alert({ message: `${title}: ${msg}`, indicator: "green" });
+frappe.ui.form.on('Warehouse Job', {
+    onload: function(frm) {
+        // Load dashboard HTML when document is loaded
+        console.log('Warehouse Job onload triggered, doc name:', frm.doc.name);
+        
+        if (frm.doc.name) {
+            console.log('Loading dashboard for job:', frm.doc.name);
+            
+            frappe.call({
+                method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.get_warehouse_dashboard_html',
+                args: {
+                    job_name: frm.doc.name
+                },
+                callback: function(r) {
+                    console.log('Dashboard callback received:', r);
+                    if (r.message) {
+                        console.log('Setting dashboard HTML content');
+                        console.log('HTML content length:', r.message.length);
+                        console.log('HTML content preview:', r.message.substring(0, 200) + '...');
+                        
+                        try {
+                            // Use the same pattern as run_sheet - get field wrapper and set HTML directly
+                            const $wrapper = frm.get_field('warehouse_job_html').$wrapper;
+                            if ($wrapper) {
+                                $wrapper.html(r.message);
+                                console.log('Dashboard HTML set using wrapper.html()');
+                                
+                                // Force a small delay to ensure rendering
+                                setTimeout(function() {
+                                    $wrapper.find('.handling-unit-card').each(function() {
+                                        console.log('Found handling unit card:', $(this).text().substring(0, 50));
+                                    });
+                                }, 100);
+                            } else {
+                                console.log('Field wrapper not found, falling back to document assignment');
+                                frm.doc.warehouse_job_html = r.message;
+                                frm.refresh_field('warehouse_job_html');
+                            }
+                        } catch (error) {
+                            console.error('Error setting dashboard HTML:', error);
+                            // Show user-friendly error message
+                            frappe.msgprint({
+                                title: __('Dashboard Error'),
+                                message: __('Failed to load warehouse dashboard. Please refresh the page.'),
+                                indicator: 'orange'
+                            });
+                        }
+                    } else {
+                        console.log('No message received from dashboard method');
+                        // Show user-friendly error message
+                        frappe.msgprint({
+                            title: __('Dashboard Error'),
+                            message: __('Failed to load warehouse dashboard data. Please refresh the page.'),
+                            indicator: 'orange'
+                        });
+                    }
+                },
+                error: function(r) {
+                    console.log('Dashboard error:', r);
+                    
+                    // Handle different types of errors
+                    let errorMessage = __('Failed to load warehouse dashboard.');
+                    let errorTitle = __('Dashboard Error');
+                    
+                    if (r && r.status === 502) {
+                        errorTitle = __('Server Error (502)');
+                        errorMessage = __('The server is temporarily unavailable. Please try again in a few moments.');
+                    } else if (r && r.status === 500) {
+                        errorTitle = __('Server Error (500)');
+                        errorMessage = __('An internal server error occurred. Please contact support if this persists.');
+                    } else if (r && r.status === 404) {
+                        errorTitle = __('Not Found (404)');
+                        errorMessage = __('The warehouse job was not found. Please refresh the page.');
+                    } else if (r && r.status === 403) {
+                        errorTitle = __('Access Denied (403)');
+                        errorMessage = __('You do not have permission to view this dashboard.');
+                    }
+                    
+                    // Show error message to user
+                    frappe.msgprint({
+                        title: errorTitle,
+                        message: `
+                            <div style="padding: 15px; font-size: 14px;">
+                                <p style="text-align: center; margin-bottom: 15px;">${errorMessage}</p>
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0;"><strong>Troubleshooting:</strong></p>
+                                    <ul style="margin: 5px 0; padding-left: 20px;">
+                                        <li>Try refreshing the page</li>
+                                        <li>Check if the warehouse job exists</li>
+                                        <li>Contact support if the problem persists</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        `,
+                        indicator: 'red'
+                    });
+                }
+            });
+        } else {
+            console.log('No job name, skipping dashboard load');
         }
-      }
-      try { frm.reload_doc(); } catch {}
-      return payload;
-    } catch (err) {
-      console.error(err);
-      frappe.msgprint({ title: __("Server Error"), message: __("See console for details."), indicator: "red" });
-      throw err;
-    }
-  };
+        
+        // Add gate pass methods to the form
+        frm.create_gate_pass_for_dock = function(dockRow) {
+            // Create gate pass for a specific dock entry
+            frappe.call({
+                method: 'logistics.warehousing.doctype.gate_pass.gate_pass.create_gate_pass_for_docking',
+                args: {
+                    warehouse_job: frm.doc.name,
+                    dock_name: dockRow.name
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        frappe.msgprint(__('Created Gate Pass: {0}', [r.message]));
+                        frm.reload_doc();
+                    }
+                },
+                freeze: true,
+                freeze_message: __('Creating Gate Pass...')
+            });
+        };
 
-  const addBtnIf = (frm, cond, label, handler, group = GROUP_ACTION) => {
-    if (!cond) return;
-    frm.add_custom_button(label, () => handler(frm), group);
-  };
+        frm.create_gate_passes_for_all_docks = function() {
+            // Create gate passes for all docking entries
+            frappe.confirm(
+                __('Create Gate Passes for all {0} docking entries?', [frm.doc.docks.length]),
+                function() {
+                    frappe.call({
+                        method: 'logistics.warehousing.doctype.gate_pass.gate_pass.create_gate_pass_for_docking',
+                        args: {
+                            warehouse_job: frm.doc.name
+                        },
+                        callback: function(r) {
+                            if (r.message) {
+                                const gatePasses = Array.isArray(r.message) ? r.message : [r.message];
+                                frappe.msgprint(__('Created {0} Gate Pass{1}: {2}', [
+                                    gatePasses.length,
+                                    gatePasses.length > 1 ? 'es' : '',
+                                    gatePasses.join(', ')
+                                ]));
+                                frm.reload_doc();
+                            }
+                        },
+                        freeze: true,
+                        freeze_message: __('Creating Gate Passes...')
+                    });
+                }
+            );
+        };
 
-  // ---------- Item filter by Customer ----------
-  function applyItemCustomerFilter(frm) {
-    const cust = frm.doc.customer || null;
-    const setFilter = (grid, fieldname) => {
-      if (!grid) return;
-      const fld = grid.get_field(fieldname);
-      if (fld) fld.get_query = () => (cust ? { filters: { customer: cust } } : {});
-    };
-    if (frm.fields_dict.orders?.grid) setFilter(frm.fields_dict.orders.grid, "item");
-    if (frm.fields_dict.items?.grid)  setFilter(frm.fields_dict.items.grid,  "item");
-  }
-
-  function clearItemsOnCustomerChange(frm) {
-    const cust = frm.doc.customer || null;
-    if (!cust) return;
-    const clearRow = (row) => {
-      if (row.item) {
-        row.item = null;
-        row.item_name = null;
-        if ("uom" in row) row.uom = null;
-        if ("serial_tracking" in row) row.serial_tracking = 0;
-        if ("batch_tracking" in row) row.batch_tracking = 0;
-        if ("sku_tracking" in row) row.sku_tracking = 0;
-      }
-    };
-    (frm.doc.orders || []).forEach(clearRow);
-    (frm.doc.items  || []).forEach(clearRow);
-    frm.refresh_field("orders");
-    frm.refresh_field("items");
-  }
-
-  // ---------- allocation actions ----------
-  const allocatePick = (frm) => {
-    if (!ensureSaved(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.allocate_pick",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Allocating picks…"),
-      title: __("Allocate Picks"),
-      fallback: (res) =>
-        __("Allocated {0} units across {1} pick rows.", [
-          (res && res.created_qty) || 0,
-          (res && res.created_rows) || 0,
-        ]),
-    });
-  };
-
-  const allocatePutaway = (frm) => {
-    if (!ensureSaved(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.allocate_putaway",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Preparing putaway…"),
-      title: __("Allocate Putaway"),
-      fallback: (res) =>
-        __("Prepared {0} units across {1} putaway rows.", [
-          (res && res.created_qty) || 0,
-          (res && res.created_rows) || 0,
-        ]),
-    });
-  };
-
-  const allocateMove = (frm) => {
-    if (!ensureSaved(frm)) return;
-    const d = new frappe.ui.Dialog({
-      title: __("Allocate Move from Orders"),
-      fields: [{ fieldname: "clear_existing", label: __("Clear current Items before allocate"), fieldtype: "Check", default: 1 }],
-      primary_action_label: __("Allocate"),
-      primary_action(values) {
-        d.hide();
-        callServer(frm, {
-          method: "logistics.warehousing.api.allocate_move",
-          args: { warehouse_job: frm.doc.name, clear_existing: values.clear_existing ? 1 : 0 },
-          freezing: __("Allocating moves…"),
-          title: __("Allocate Move"),
-          fallback: (res) => __("Allocated {0} move pair(s).", [(res && res.created_pairs) || 0]),
-        });
-      },
-    });
-    d.show();
-  };
-
-  // ---------- posting actions (batch) ----------
-  const requireStaging = (frm) => {
-    if (!frm.doc.staging_area) {
-      frappe.msgprint(__("Please set a Staging Area on this Job first."));
-      return false;
-    }
-    return true;
-  };
-
-  const postReceiving = (frm) => {
-    if (!ensureSaved(frm) || !requireStaging(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.post_receiving",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Posting receiving into staging…"),
-      title: __("Receiving Posted"),
-    });
-  };
-
-  const postPutaway = (frm) => {
-    if (!ensureSaved(frm) || !requireStaging(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.post_putaway",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Posting putaway movements…"),
-      title: __("Putaway Posted"),
-    });
-  };
-
-  const postPick = (frm) => {
-    if (!ensureSaved(frm) || !requireStaging(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.post_pick",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Posting pick movements…"),
-      title: __("Pick Posted"),
-    });
-  };
-
-  const postRelease = (frm) => {
-    if (!ensureSaved(frm) || !requireStaging(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.post_release",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Posting release from staging…"),
-      title: __("Release Posted"),
-    });
-  };
-
-  // ---------- barcode camera ----------
-  async function scan_barcode_with_camera() {
-    try {
-      if (window.erpnext?.utils?.scan_barcode) {
-        const code = await erpnext.utils.scan_barcode();
-        if (code) return String(code).trim();
-      }
-    } catch (e) { console.warn("erpnext.utils.scan_barcode failed:", e); }
-    try {
-      if (frappe.ui && typeof frappe.ui.Scanner === "function") {
-        const code = await new Promise((resolve, reject) => {
-          const scanner = new frappe.ui.Scanner({
-            dialog: true,
-            multiple: false,
-            on_scan: (data) => resolve(String((data?.decodedText || data?.code || data?.content || data || "")).trim()),
-            on_error: (err) => reject(err),
-          });
-          scanner.make?.();
-          scanner.open?.();
-        });
-        if (code) return code;
-      }
-    } catch (e) { console.warn("frappe.ui.Scanner failed:", e); }
-    try {
-      if (frappe.ui && typeof frappe.ui.BarcodeScanner === "function") {
-        const code = await new Promise((resolve, reject) => {
-          const bs = new frappe.ui.BarcodeScanner({
-            dialog: true,
-            scan_action: (val) => resolve(String(val || "").trim()),
-            on_error: (err) => reject(err),
-          });
-          bs.scan?.();
-        });
-        if (code) return code;
-      }
-    } catch (e) { console.warn("frappe.ui.BarcodeScanner failed:", e); }
-    const v = await new Promise((resolve) => {
-      frappe.prompt(
-        [{ fieldname: "code", fieldtype: "Data", label: __("Barcode"), reqd: 1 }],
-        (vals) => resolve(String(vals.code || "").trim()),
-        __("Enter / Paste Barcode"),
-        __("OK")
-      );
-    });
-    return v;
-  }
-
-  function decorate_scan_field(dialog, fieldname) {
-    const ctrl = dialog.get_field(fieldname);
-    if (!ctrl?.$wrapper) return;
-    ctrl.$input.attr("placeholder", __("Scan Barcode"));
-    ctrl.$wrapper.addClass("barcode-scan-wrapper");
-
-    const $btn = $(`<span class="btn btn-default btn-xs scan-inline-btn" title="${__("Scan with Camera")}">
-        <i class="fa fa-qrcode"></i>
-      </span>`).css({ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", cursor: "pointer", "z-index": 2 });
-
-    ctrl.$wrapper.css("position", "relative");
-    ctrl.$wrapper.find(".control-input").css("position", "relative");
-    ctrl.$wrapper.append($btn);
-
-    $btn.on("click", async (ev) => {
-      ev.preventDefault();
-      try {
-        const code = await scan_barcode_with_camera();
-        if (code) {
-          dialog.set_value(fieldname, code);
-          if (fieldname === "location_code") {
-            dialog.get_field("handling_unit_code")?.$input?.focus();
-          } else {
-            dialog.get_primary_btn().focus();
-          }
-        }
-      } catch (e) {
-        console.error("Scan failed:", e);
-        frappe.msgprint({ title: __("Scan Error"), message: __("Unable to read barcode. Please try again."), indicator: "red" });
-      }
-    });
-  }
-
-  const postByScan = (frm) => {
-    if (!ensureSaved(frm)) return;
-    if (!requireStaging(frm)) return;
-
-    const d = new frappe.ui.Dialog({
-      title: __("Post by Scan"),
-      size: "small",
-      fields: [
-        { fieldtype: "Select", fieldname: "action", label: __("Action"),
-          options: ["Receiving", "Putaway", "Pick", "Release"].join("\n"),
-          default: ((t) => (t === "Putaway" ? "Putaway" : ((t === "Pick" || t === "VAS") ? "Pick" : "Pick")))((frm.doc.type || "").trim()),
-          reqd: 1
-        },
-        { fieldtype: "Section Break", label: __("Scan Location") },
-        { fieldtype: "Data", fieldname: "location_code", label: __("Scan Barcode"), reqd: 1, description: __("Location") },
-        { fieldtype: "Section Break", label: __("Scan Handling Unit") },
-        { fieldtype: "Data", fieldname: "handling_unit_code", label: __("Scan Barcode"), reqd: 1, description: __("Handling Unit") },
-      ],
-      primary_action_label: __("Post"),
-      primary_action(values) {
-        if (!values.location_code || !values.handling_unit_code || !values.action) {
-          frappe.msgprint(__("Please select an Action and scan both Location and Handling Unit."));
-          return;
-        }
-        d.hide();
-        callServer(frm, {
-          method: "logistics.warehousing.api.post_items_by_scan",
-          args: {
-            warehouse_job: frm.doc.name,
-            action: values.action,
-            location_code: values.location_code,
-            handling_unit_code: values.handling_unit_code,
-          },
-          freezing: __("Posting by scan…"),
-          title: __("Posted by Scan"),
-          fallback: (m) => {
-            const rows = (m && m.posted_rows) || 0;
-            const q    = (m && m.posted_qty)  || 0;
-            return __("Posted {0} rows, qty {1}.", [rows, q]);
-          },
-        });
-      },
-    });
-
-    d.on_page_show = () => {
-      decorate_scan_field(d, "location_code");
-      decorate_scan_field(d, "handling_unit_code");
-
-      const loc = d.get_field("location_code")?.$input;
-      const hu  = d.get_field("handling_unit_code")?.$input;
-      if (loc) {
-        loc.on("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); hu?.focus(); } });
-      }
-      if (hu) {
-        hu.on("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); d.get_primary_btn().click(); } });
-      }
-      loc?.focus();
-    };
-
-    d.show();
-  };
-
-  // ---------- stocktake ----------
-  const fetchCountSheet = (frm) => {
-    if (!ensureSaved(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.warehouse_job_fetch_count_sheet",
-      args: { warehouse_job: frm.doc.name, clear_existing: 1 },
-      freezing: __("Building count sheet…"),
-      title: __("Count Sheet"),
-    });
-  };
-
-  const createAdjustments = (frm) => {
-    if (!ensureSaved(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.populate_stocktake_adjustments",
-      args: { warehouse_job: frm.doc.name, clear_existing: 1 },
-      freezing: __("Creating adjustments…"),
-      title: __("Adjustments"),
-    });
-  };
-
-  // ---------- operations ----------
-  const populateOperations = (frm) => {
-    if (!ensureSaved(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.populate_job_operations",
-      args: { warehouse_job: frm.doc.name, clear_existing: 1 },
-      freezing: __("Populating operations…"),
-      title: __("Operations"),
-    });
-  };
-
-  const createSalesInvoice = (frm) => {
-    if (!ensureSaved(frm)) return;
-    callServer(frm, {
-      method: "logistics.warehousing.api.create_sales_invoice_from_job",
-      args: { warehouse_job: frm.doc.name },
-      freezing: __("Creating Sales Invoice…"),
-      title: __("Sales Invoice"),
-      fallback: (m) => (m && m.sales_invoice ? __("Created Sales Invoice {0}", [m.sales_invoice]) : __("Sales Invoice created.")),
-    });
-  };
-
-  // ---------- submit guard (status confirmation) ----------
-  async function confirmNonAvailableLocationsBeforeSubmit(frm) {
-    if (!frm.doc || !frm.doc.name) return true;
-
-    const r = await frappe.call({
-      method: "logistics.warehousing.api.check_item_location_statuses",
-      args: { warehouse_job: frm.doc.name },
-      freeze: true,
-      freeze_message: __("Checking locations…"),
-    });
-
-    const data = r?.message || {};
-    const hasWarnings = !!data.has_warnings;
-    const locs = Array.isArray(data.affected_locations) ? data.affected_locations : [];
-    const lines = Array.isArray(data.lines) ? data.lines : [];
-
-    if (!hasWarnings || !locs.length) return true;
-
-    // Build HTML: affected locations + per-row details
-    const locsHtml = frappe.utils.escape_html(locs.join(", "));
-    let table = "";
-    if (lines.length) {
-      const rows = lines.map((l) => `
-        <tr>
-          <td style="text-align:right;">${frappe.utils.escape_html(l.row_idx ?? "")}</td>
-          <td>${frappe.utils.escape_html(l.field || "")}</td>
-          <td>${frappe.utils.escape_html(l.location || "")}</td>
-          <td>${frappe.utils.escape_html(l.status || "")}</td>
-          <td>${frappe.utils.escape_html(l.item || "")}</td>
-          <td style="text-align:right;">${frappe.format(l.qty || 0, { fieldtype: "Float" })}</td>
-        </tr>`).join("");
-      table = `
-        <div class="mt-2">
-          <div class="text-muted mb-2">${__("Affected rows")}</div>
-          <div style="max-height: 260px; overflow:auto; border:1px solid var(--border-color); border-radius: var(--border-radius);">
-            <table class="table table-bordered table-sm" style="margin:0;">
-              <thead>
-                <tr>
-                  <th style="width:70px; text-align:right;">${__("Row")}</th>
-                  <th style="width:120px;">${__("Field")}</th>
-                  <th>${__("Location")}</th>
-                  <th style="width:140px;">${__("Status")}</th>
-                  <th>${__("Item")}</th>
-                  <th style="width:100px; text-align:right;">${__("Qty")}</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>`;
-    }
-
-    const body = `
-      <div>
-        <p class="mb-2">${__("Some locations are not <b>Available</b>. Do you want to continue submitting?")}</p>
-        <p><b>${__("Locations")}</b>: ${locsHtml}</p>
-        ${table}
-      </div>`;
-
-    return await new Promise((resolve) => {
-      // Use a dialog instead of frappe.confirm to avoid nested confirms on some browsers
-      const d = new frappe.ui.Dialog({
-        title: __("Location Status Warnings"),
-        fields: [{ fieldtype: "HTML", fieldname: "body" }],
-        primary_action_label: __("Continue Submit"),
-        primary_action: () => { d.hide(); resolve(true); },
-        secondary_action_label: __("Cancel"),
-        secondary_action: () => { d.hide(); resolve(false); },
-      });
-      d.get_field("body").$wrapper.html(body);
-      d.show();
-    });
-  }
-
-  // ---------- form events ----------
-  frappe.ui.form.on("Warehouse Job", {
-    onload(frm) { applyItemCustomerFilter(frm); },
-    customer(frm) { applyItemCustomerFilter(frm); clearItemsOnCustomerChange(frm); },
-
-    refresh(frm) {
-      applyItemCustomerFilter(frm);
-      const t = (frm.doc.type || "").trim();
-      const ds = frm.doc.docstatus || 0; // 0=draft, 1=submitted, 2=cancelled
-      const not_cancelled = ds < 2;
-      const not_submitted = ds < 1;
-      const submitted = ds == 1;
-
-      // Allocation
-      addBtnIf(frm, t === "Pick"    && not_submitted, __("Allocate Picks"), allocatePick, GROUP_ACTION);
-      addBtnIf(frm, t === "Putaway" && not_submitted, __("Allocate Putaway"), allocatePutaway, GROUP_ACTION);
-      addBtnIf(frm, t === "Move"    && not_submitted, __("Allocate Move"), allocateMove, GROUP_ACTION);
-
-      // Posting (batch + scan)
-      if (submitted) {
-        if (t === "Putaway") {
-          addBtnIf(frm, true, __("Receiving"), postReceiving, GROUP_POST);
-          addBtnIf(frm, true, __("Putaway"),   postPutaway,  GROUP_POST);
-        } else if (t === "Pick" || t === "VAS") {
-          addBtnIf(frm, true, __("Pick"),    postPick,    GROUP_POST);
-          addBtnIf(frm, true, __("Release"), postRelease, GROUP_POST);
-        }
-        addBtnIf(frm, (t === "Putaway" || t === "Pick" || t === "VAS"), __("Post by Scan"), postByScan, GROUP_POST);
-      }
-
-      // Stocktake
-      addBtnIf(frm, t === "Stocktake" && not_submitted, __("Fetch Count Sheet"), fetchCountSheet, GROUP_ACTION);
-      addBtnIf(frm, t === "Stocktake" && not_submitted, __("Populate Adjustments"), createAdjustments, GROUP_ACTION);
-
-      // Operations + Invoice
-      addBtnIf(frm, not_submitted, __("Populate Operations"), populateOperations, GROUP_CREATE);
-      addBtnIf(frm, not_cancelled, __("Create Sales Invoice"), createSalesInvoice, GROUP_CREATE);
+        frm.view_related_gate_passes = function() {
+            // View gate passes related to this warehouse job
+            frappe.route_options = {
+                warehouse_job: frm.doc.name
+            };
+            frappe.set_route('List', 'Gate Pass');
+        };
     },
-
-    // Intercept submit to ask the user instead of blocking, list affected locations.
-    async before_submit(frm) {
-      // One-time guard to avoid the “Permanently Submit … ?” repeat loop
-      if (frm.__skip_location_check) return; // allow native submit to continue
-
-      // Cancel this submit while we confirm
-      frappe.validated = false;
-
-      const ok = await confirmNonAvailableLocationsBeforeSubmit(frm);
-      if (ok) {
-        // Set guard and resubmit once
-        frm.__skip_location_check = true;
-        frm.savesubmit();
-      } else {
-        frappe.show_alert({ message: __("Submission cancelled."), indicator: "orange" });
-      }
+    refresh: function(frm) {
+        calculate_job_totals(frm);
+        update_uom_fields_for_items(frm);
+        
+        // Add Allocate button if job is not completed (exclude Stocktake jobs)
+        if (frm.doc.docstatus === 0 && frm.doc.status !== 'Completed' && frm.doc.type !== 'Stocktake') {
+            // Determine button text based on job type
+            let button_text = 'Allocate';
+            if (frm.doc.type === 'Pick') {
+                button_text = 'Allocate Pick';
+            } else if (frm.doc.type === 'Putaway') {
+                button_text = 'Allocate Putaway';
+            } else if (frm.doc.type === 'Move') {
+                button_text = 'Allocate Move';
+            } else if (frm.doc.type === 'VAS') {
+                button_text = 'Allocate VAS';
+            }
+            
+            frm.add_custom_button(__(button_text), function() {
+                allocate_items(frm);
+            }, __('Actions'));
+        }
+        
+        // Add Create Operations button if items exist
+        if (frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Create Operations'), function() {
+                create_operations(frm);
+            }, __('Actions'));
+        }
+        
+        
+        // Add Post Receiving button for Putaway jobs (only when submitted)
+        if (frm.doc.type === 'Putaway' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post Receiving'), function() {
+                post_receiving(frm);
+            }, __('Post'));
+        }
+        
+        // Add Post Putaway button for Putaway jobs (only when submitted)
+        if (frm.doc.type === 'Putaway' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post Putaway'), function() {
+                post_putaway(frm);
+            }, __('Post'));
+        }
+        
+        // Add Post Pick button for Pick jobs (only when submitted)
+        if (frm.doc.type === 'Pick' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post Pick'), function() {
+                post_pick(frm);
+            }, __('Post'));
+        }
+        
+        // Add Post Release button for Pick jobs (only when submitted)
+        if (frm.doc.type === 'Pick' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post Release'), function() {
+                post_release(frm);
+            }, __('Post'));
+        }
+        
+        // Add Fetch Count Sheet button for Stocktake jobs
+        if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
+            frm.add_custom_button(__('Fetch Count Sheet'), function() {
+                fetch_count_sheet(frm);
+            }, __('Stocktake'));
+        }
+        
+        // Add Populate Stocktake Adjustments button for Stocktake jobs
+        if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
+            frm.add_custom_button(__('Populate Adjustments'), function() {
+                populate_stocktake_adjustments(frm);
+            }, __('Stocktake'));
+        }
+        
+        // Add Post by Scan button for all job types (only when submitted)
+        if (frm.doc.docstatus === 1) {
+            frm.add_custom_button(__('Post by Scan'), function() {
+                post_by_scan(frm);
+            }, __('Post'));
+        }
+        
+        // Add Gate Pass creation buttons - show for submitted jobs
+        if (frm.doc.docstatus === 1) {
+            frm.add_custom_button(__('Create Gate Passes'), function() {
+                if (frm.doc.docks && frm.doc.docks.length > 0) {
+                    frm.create_gate_passes_for_all_docks();
+                } else {
+                    frappe.msgprint(__('No docking entries found. Please add docking entries first.'));
+                }
+            }, __('Actions'));
+            
+            frm.add_custom_button(__('View Gate Passes'), function() {
+                frm.view_related_gate_passes();
+            }, __('Actions'));
+        }
+        
+        // Add Calculate Charges button - show for jobs with contract and existing charges
+        if ((frm.doc.warehouse_contract || frm.doc.customer) && frm.doc.charges && frm.doc.charges.length > 0) {
+            frm.add_custom_button(__('Calculate Charges'), function() {
+                calculate_charges_from_contract(frm);
+            }, __('Actions'));
+        }
     },
-  });
-
-// ---- Charges grid auto pricing ----
-frappe.ui.form.on("Warehouse Job Charges", {
-  item_code(frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    if (!frm.doc || !frm.doc.name || !row.item_code) return;
-    frappe.call({
-      method: "logistics.warehousing.doctype.warehouse_job.warehouse_job.warehouse_job_fetch_charge_price",
-      args: { warehouse_job: frm.doc.name, item_code: row.item_code },
-      freeze: false,
-    }).then((r) => {
-      const msg = (r && r.message) || {};
-      if (msg && typeof msg.rate !== "undefined") row.rate = msg.rate || 0;
-      if (msg && msg.currency && "currency" in row) row.currency = msg.currency;
-      // compute total after rate change
-      const qty = flt(row.quantity || 0);
-      const rate = flt(row.rate || 0);
-      if ("total" in row) row.total = qty * rate;
-      frm.refresh_field("charges");
-    });
-  },
-  quantity(frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    const qty = flt(row.quantity || 0);
-    const rate = flt(row.rate || 0);
-    if ("total" in row) row.total = qty * rate;
-    frm.refresh_field("charges");
-  },
-  rate(frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    const qty = flt(row.quantity || 0);
-    const rate = flt(row.rate || 0);
-    if ("total" in row) row.total = qty * rate;
-    frm.refresh_field("charges");
-  },
+    items: function(frm) {
+        calculate_job_totals(frm);
+    },
+    volume_qty_type: function(frm) {
+        calculate_job_totals(frm);
+    },
+    weight_qty_type: function(frm) {
+        calculate_job_totals(frm);
+    }
 });
 
-})();
+frappe.ui.form.on('Warehouse Job Item', {
+    length: function(frm, cdt, cdn) {
+        calculate_item_volume(frm, cdt, cdn);
+        calculate_job_totals(frm);
+    },
+    width: function(frm, cdt, cdn) {
+        calculate_item_volume(frm, cdt, cdn);
+        calculate_job_totals(frm);
+    },
+    height: function(frm, cdt, cdn) {
+        calculate_item_volume(frm, cdt, cdn);
+        calculate_job_totals(frm);
+    },
+    volume: function(frm, cdt, cdn) {
+        calculate_job_totals(frm);
+    },
+    weight: function(frm, cdt, cdn) {
+        calculate_job_totals(frm);
+    },
+    items_remove: function(frm) {
+        calculate_job_totals(frm);
+    }
+});
+
+function calculate_job_totals(frm) {
+    if (!frm.doc.items) {
+        frm.set_value('total_volume', 0);
+        frm.set_value('total_weight', 0);
+        frm.set_value('total_handling_units', 0);
+        return;
+    }
+    
+    let total_volume = 0;
+    let total_weight = 0;
+    let total_handling_units = 0;
+    let unique_handling_units = new Set();
+    
+    frm.doc.items.forEach(function(item) {
+        // Calculate volume if dimensions are available
+        let item_volume = 0;
+        if (item.length && item.width && item.height) {
+            item_volume = flt(item.length) * flt(item.width) * flt(item.height);
+        } else if (item.volume) {
+            item_volume = flt(item.volume);
+        }
+        
+        // Add volume based on volume_qty_type setting
+        if (frm.doc.volume_qty_type === 'Total') {
+            // Volume is total for the entire quantity, not per unit
+            total_volume += item_volume;
+        } else {
+            // Volume is per unit, so multiply by quantity
+            total_volume += item_volume * flt(item.quantity || 0);
+        }
+        
+        // Add weight based on weight_qty_type setting
+        if (item.weight) {
+            if (frm.doc.weight_qty_type === 'Per Unit') {
+                // Weight is per unit, so multiply by quantity
+                total_weight += flt(item.weight) * flt(item.quantity || 0);
+            } else {
+                // Weight is total for the entire quantity, not per unit
+                total_weight += flt(item.weight);
+            }
+        }
+        
+        // Count unique handling units
+        if (item.handling_unit) {
+            unique_handling_units.add(item.handling_unit);
+        }
+    });
+    
+    total_handling_units = unique_handling_units.size;
+    
+    frm.set_value('total_volume', total_volume);
+    frm.set_value('total_weight', total_weight);
+    frm.set_value('total_handling_units', total_handling_units);
+}
+
+function calculate_item_volume(frm, cdt, cdn) {
+    console.log("Calculating volume for warehouse job item");
+    
+    // Get the current item row
+    const item = locals[cdt][cdn];
+    if (!item) return;
+    
+    // Get dimension values
+    const length = flt(item.length || 0);
+    const width = flt(item.width || 0);
+    const height = flt(item.height || 0);
+    
+    console.log("Item dimensions - Length:", length, "Width:", width, "Height:", height);
+    
+    // Calculate volume if all dimensions are provided
+    if (length > 0 && width > 0 && height > 0) {
+        const volume = length * width * height;
+        console.log("Calculated item volume:", volume);
+        frappe.model.set_value(cdt, cdn, "volume", volume);
+    } else {
+        // Clear volume if dimensions are incomplete
+        console.log("Incomplete dimensions, clearing item volume");
+        frappe.model.set_value(cdt, cdn, "volume", 0);
+    }
+}
+
+// Allocation functions
+function allocate_items(frm) {
+    // Check if there are orders to allocate from
+    if (!frm.doc.orders || frm.doc.orders.length === 0) {
+        frappe.msgprint({
+            title: __('No Orders Found'),
+            message: `
+                <div style="padding: 10px; font-size: 14px;">
+                    <p><strong>Orders Required</strong></p>
+                    <p>Please add orders to the job before allocating.</p>
+                </div>
+            `,
+            indicator: 'orange'
+        });
+        return;
+    }
+    
+    if (!frm.doc.staging_area) {
+        frappe.msgprint({
+            title: __('Staging Area Required'),
+            message: `
+                <div style="padding: 10px; font-size: 14px;">
+                    <p><strong>Staging Area Missing</strong></p>
+                    <p>Please select a staging area before allocating items.</p>
+                </div>
+            `,
+            indicator: 'orange'
+        });
+        return;
+    }
+    
+    // Determine confirmation message based on job type
+    let confirm_message = __('This will allocate all items to the staging area. Continue?');
+    if (frm.doc.type === 'Pick') {
+        confirm_message = __('This will allocate pick lines from orders. Continue?');
+    } else if (frm.doc.type === 'Putaway') {
+        confirm_message = __('This will allocate putaway tasks from orders. Continue?');
+    } else if (frm.doc.type === 'Move') {
+        confirm_message = __('This will allocate move tasks from orders. Continue?');
+    } else if (frm.doc.type === 'VAS') {
+        confirm_message = __('This will allocate VAS putaway tasks from orders. Continue?');
+    }
+    
+          frappe.confirm(
+        confirm_message,
+            function() {
+      frappe.call({
+                method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.allocate_items',
+        args: {
+                    job_name: frm.doc.name
+        },
+        callback: function(r) {
+                    if (r.message && r.message.success) {
+                        let message = r.message.message || __('Items allocated successfully.');
+                        let allocated_count = r.message.allocated_count || 0;
+                        let allocated_qty = r.message.allocated_qty || 0;
+                        
+                        let html_message = `
+                            <div style="padding: 15px; font-size: 14px;">
+                                <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                    <strong>Allocation Successful!</strong>
+                                </p>
+                                <p style="text-align: center; margin-bottom: 15px;">${message}</p>
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0;"><strong>Results:</strong></p>
+                                    <p style="margin: 5px 0;">• Items Allocated: <strong>${allocated_count}</strong></p>
+                                    <p style="margin: 5px 0;">• Quantity: <strong>${allocated_qty}</strong></p>
+                                </div>
+                        `;
+                        
+                        // Show warnings if any
+                        if (r.message.warnings && r.message.warnings.length > 0) {
+                            html_message += `
+                                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0; color: #856404;"><strong>Warnings:</strong></p>
+                                    <ul style="margin: 5px 0; color: #856404;">
+                                        ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+                        
+                        html_message += `</div>`;
+                        
+                        frappe.msgprint({
+                            title: __('Allocation Complete'),
+                            message: html_message,
+                            indicator: 'green'
+                        });
+            frm.reload_doc();
+                    } else {
+                        let error_message = r.message.error || __('Failed to allocate items.');
+                        
+                        let html_message = `
+                            <div style="padding: 15px; font-size: 14px;">
+                                <p style="text-align: center; font-size: 18px; color: #dc3545; margin-bottom: 10px;">
+                                    <strong>Allocation Failed</strong>
+                                </p>
+                                <p style="text-align: center; margin-bottom: 15px;">${error_message}</p>
+                        `;
+                        
+                        // Show warnings even on failure
+                        if (r.message.warnings && r.message.warnings.length > 0) {
+                            html_message += `
+                                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0; color: #856404;"><strong>Warnings:</strong></p>
+                                    <ul style="margin: 5px 0; color: #856404;">
+                                        ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                                    </ul>
+          </div>
+                            `;
+                        }
+                        
+                        html_message += `</div>`;
+                        
+                        frappe.msgprint({
+                            title: __('Allocation Error'),
+                            message: html_message,
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+
+
+// Create Operations function
+function create_operations(frm) {
+    if (!frm.doc.items || frm.doc.items.length === 0) {
+        frappe.msgprint({
+            title: __('No Items Found'),
+            message: `
+                <div style="padding: 10px; font-size: 14px;">
+                    <p><strong>Items Required</strong></p>
+                    <p>Please add items to the job before creating operations.</p>
+                </div>
+            `,
+            indicator: 'orange'
+        });
+        return;
+    }
+    
+    frappe.confirm(
+        __('This will create operations from operation templates. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.create_operations',
+                args: {
+                    job_name: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.success) {
+                        let created_count = r.message.created_count || 0;
+                        
+                        frappe.msgprint({
+                            title: __('Create Operations'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>Operations Created!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">Operations created successfully from operation templates.</p>
+                                    <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                        <p style="margin: 5px 0;"><strong>Results:</strong></p>
+                                        <p style="margin: 5px 0;">• Operations Created: <strong>${created_count}</strong></p>
+                                    </div>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+            } else {
+                        frappe.msgprint({
+                            title: __('Create Operations Error'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #dc3545; margin-bottom: 10px;">
+                                        <strong>Create Failed</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.error || __('Failed to create operations.')}</p>
+                                </div>
+                            `,
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}// Additional Warehouse Job Functions
+
+// Post Receiving function
+function post_receiving(frm) {
+    frappe.confirm(
+        __('This will post receiving transactions. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_receiving',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Post Receiving'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>Receiving Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Receiving transactions posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+          } else {
+                        frappe.msgprint({
+                            title: __('Post Receiving Error'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #dc3545; margin-bottom: 10px;">
+                                        <strong>Post Failed</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.error || __('Failed to post receiving.')}</p>
+                                </div>
+                            `,
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post Putaway function
+function post_putaway(frm) {
+    frappe.confirm(
+        __('This will post putaway transactions. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_putaway',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Post Putaway'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>Putaway Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Putaway transactions posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+      } else {
+                        frappe.msgprint({
+                            title: __('Post Putaway Error'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #dc3545; margin-bottom: 10px;">
+                                        <strong>Post Failed</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.error || __('Failed to post putaway.')}</p>
+                                </div>
+                            `,
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post Pick function
+function post_pick(frm) {
+    frappe.confirm(
+        __('This will post pick transactions. Continue?'),
+        function() {
+    frappe.call({
+                method: 'logistics.warehousing.api.post_pick',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('✅ Post Pick'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📦</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ Pick Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Pick transactions posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+        } else {
+                        frappe.msgprint({
+                            title: __('❌ Post Pick Error'),
+                            message: r.message.error || __('Failed to post pick.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post Release function
+function post_release(frm) {
+          frappe.confirm(
+        __('This will post release transactions. Continue?'),
+            function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_release',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('✅ Post Release'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📦</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ Release Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Release transactions posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('❌ Post Release Error'),
+                            message: r.message.error || __('Failed to post release.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+              });
+            }
+          );
+}
+
+// Fetch Count Sheet function
+function fetch_count_sheet(frm) {
+    frappe.confirm(
+        __('This will fetch count sheet for stocktake. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.warehouse_job_fetch_count_sheet',
+                args: {
+                    warehouse_job: frm.doc.name,
+                    clear_existing: 1
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('📊 Fetch Count Sheet'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📊</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ Count Sheet Fetched!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Count sheet fetched successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+        } else {
+                        frappe.msgprint({
+                            title: __('❌ Fetch Count Sheet Error'),
+                            message: r.message.error || __('Failed to fetch count sheet.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Populate Stocktake Adjustments function
+function populate_stocktake_adjustments(frm) {
+    frappe.confirm(
+        __('This will populate stocktake adjustments. Continue?'),
+        function() {
+      frappe.call({
+                method: 'logistics.warehousing.api.populate_stocktake_adjustments',
+        args: {
+          warehouse_job: frm.doc.name,
+                    clear_existing: 1
+        },
+        callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('📊 Populate Adjustments'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📊</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ Adjustments Populated!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Stocktake adjustments populated successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+            frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('❌ Populate Adjustments Error'),
+                            message: r.message.error || __('Failed to populate adjustments.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+
+
+// Post by Scan function
+function post_by_scan(frm) {
+      frappe.confirm(
+        __('This will open the Post by Scan interface. Continue?'),
+        function() {
+            // Open the warehouse job scanner page
+            frappe.set_route('warehouse-job-scanner', frm.doc.name);
+        }
+    );
+}
+
+// Update UOM fields for child table items
+function update_uom_fields_for_items(frm) {
+    console.log("Auto-populating UOM fields for Warehouse Job Items");
+    
+    // Get UOM values from Warehouse Settings
+    const company = frappe.defaults.get_user_default("Company");
+    console.log("Company:", company);
+    
+    frappe.call({
+        method: "frappe.client.get_value",
+        args: {
+            doctype: "Warehouse Settings",
+            name: company,
+            fieldname: ["default_volume_uom", "default_weight_uom"]
+        },
+        callback: function(r) {
+            console.log("UOM response:", r);
+            if (r.message) {
+                const volume_uom = r.message.default_volume_uom;
+                const weight_uom = r.message.default_weight_uom;
+                console.log("Volume UOM:", volume_uom, "Weight UOM:", weight_uom);
+                
+                // Update UOM fields for all items in the child table
+                if (frm.doc.items && frm.doc.items.length > 0) {
+                    frm.doc.items.forEach(function(item, index) {
+                        if (volume_uom) {
+                            frappe.model.set_value("Warehouse Job Item", item.name, "volume_uom", volume_uom);
+                        }
+                        if (weight_uom) {
+                            frappe.model.set_value("Warehouse Job Item", item.name, "weight_uom", weight_uom);
+                        }
+                    });
+                    frm.refresh_field("items");
+                    console.log("Updated UOM fields for", frm.doc.items.length, "items");
+                } else {
+                    console.log("No items found in the job");
+                }
+            } else {
+                console.log("No UOM message received");
+            }
+        }
+    });
+}
+
+// Calculate Charges from Contract function
+function calculate_charges_from_contract(frm) {
+    if (!frm.doc.warehouse_contract && !frm.doc.customer) {
+        frappe.msgprint(__('Please select a warehouse contract or customer first.'));
+        return;
+    }
+    
+    if (!frm.doc.charges || frm.doc.charges.length === 0) {
+        frappe.msgprint(__('No charges found. Please add charges first.'));
+        return;
+    }
+    
+    frappe.confirm(
+        __('This will recalculate quantities and rates based on the warehouse contract. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.calculate_charges_from_contract',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                freeze: true,
+                freeze_message: __('Calculating charges...'),
+                callback: function(r) {
+                    console.log('Calculate Charges Response:', r);
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Charges Calculated'),
+                            message: r.message.message,
+                            indicator: 'green'
+                        });
+                        frm.refresh_field('charges');
+                    } else {
+                        console.log('Calculate Charges Error:', r.message);
+                        frappe.msgprint({
+                            title: __('Error'),
+                            message: r.message ? r.message.message : __('Failed to calculate charges'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+

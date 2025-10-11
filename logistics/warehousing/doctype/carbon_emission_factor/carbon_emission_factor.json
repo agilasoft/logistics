@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{parent}-{emission_source}",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "emission_source",
+  "factor_value",
+  "unit_of_measure",
+  "factor_type",
+  "validity_period",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "emission_source",
+   "fieldtype": "Data",
+   "label": "Emission Source",
+   "reqd": 1
+  },
+  {
+   "fieldname": "factor_value",
+   "fieldtype": "Float",
+   "label": "Factor Value (kg CO2e per unit)",
+   "precision": "6",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Link",
+   "label": "Unit of Measure",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "factor_type",
+   "fieldtype": "Select",
+   "label": "Factor Type",
+   "options": "Default\nRegional\nIndustry-Specific\nCustom",
+   "reqd": 1
+  },
+  {
+   "fieldname": "validity_period",
+   "fieldtype": "Data",
+   "label": "Validity Period"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Carbon Emission Factor",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

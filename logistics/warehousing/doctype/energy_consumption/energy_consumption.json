@@ -1,0 +1,218 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{site}/{facility}/{date}",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "documentation": "https://cargonext.io/cargonext/warehousing/energy-consumption",
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_info",
+  "date",
+  "site",
+  "facility",
+  "column_break_energy",
+  "energy_type",
+  "consumption_value",
+  "unit_of_measure",
+  "cost_per_unit",
+  "total_cost",
+  "section_break_efficiency",
+  "efficiency_metrics",
+  "equipment_breakdown",
+  "sustainability_tab",
+  "carbon_footprint",
+  "renewable_percentage",
+  "green_certifications",
+  "notes_tab",
+  "notes",
+  "transaction_entity_tab",
+  "company",
+  "branch",
+  "cost_center"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_info",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
+   "options": "Storage Location Configurator",
+   "reqd": 1
+  },
+  {
+   "fieldname": "facility",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Facility",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Building\"]]",
+   "options": "Storage Location Configurator",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_energy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "energy_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Energy Type",
+   "options": "Electricity\nNatural Gas\nDiesel\nSolar\nWind\nHydro\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consumption_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Consumption Value",
+   "precision": "3",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Link",
+   "label": "Unit of Measure",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_per_unit",
+   "fieldtype": "Currency",
+   "label": "Cost per Unit",
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Cost",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_efficiency",
+   "fieldtype": "Section Break",
+   "label": "Efficiency Metrics"
+  },
+  {
+   "fieldname": "efficiency_metrics",
+   "fieldtype": "Table",
+   "label": "Efficiency Metrics",
+   "options": "Energy Efficiency Metric"
+  },
+  {
+   "fieldname": "equipment_breakdown",
+   "fieldtype": "Table",
+   "label": "Equipment Breakdown",
+   "options": "Energy Equipment Consumption"
+  },
+  {
+   "fieldname": "sustainability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Carbon Footprint (kg CO2)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "renewable_percentage",
+   "fieldtype": "Percent",
+   "label": "Renewable Energy Percentage",
+   "precision": "2"
+  },
+  {
+   "fieldname": "green_certifications",
+   "fieldtype": "Table",
+   "label": "Green Certifications",
+   "options": "Green Certification"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "transaction_entity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transaction Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Energy Consumption",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Warehouse User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

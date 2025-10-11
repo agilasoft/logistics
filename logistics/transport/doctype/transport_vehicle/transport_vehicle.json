@@ -16,7 +16,9 @@
   "transport_company",
   "last_ignition_on",
   "last_odometer_km",
+  "last_fuel_level",
   "last_provider",
+  "column_break_mrie",
   "capacity_tab",
   "capacity_weight",
   "capacity_volume",
@@ -270,16 +272,26 @@
    "precision": "1"
   },
   {
+   "fieldname": "last_fuel_level",
+   "fieldtype": "Float",
+   "label": "Last Fuel Level (%)",
+   "precision": "1"
+  },
+  {
    "fieldname": "last_provider",
    "fieldtype": "Link",
    "label": "Last Provider",
    "options": "Telematics Provider"
+  },
+  {
+   "fieldname": "column_break_mrie",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-26 19:40:36.727541",
+ "modified": "2025-09-30 16:22:10.640782",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle",

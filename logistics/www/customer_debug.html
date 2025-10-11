@@ -1,0 +1,103 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <h1>{{ title }}</h1>
+    
+    <div class="debug-section">
+        <h2>User Information</h2>
+        <p><strong>User:</strong> {{ debug_info.user }}</p>
+        <p><strong>Roles:</strong> {{ debug_info.roles | join(", ") }}</p>
+        <p><strong>Session Customer:</strong> {{ debug_info.session_customer or "None" }}</p>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Direct Customer Match</h2>
+        {% if debug_info.direct_customers %}
+            {% for customer in debug_info.direct_customers %}
+                <div class="customer-item">
+                    <p><strong>Name:</strong> {{ customer.name }}</p>
+                    <p><strong>Customer Name:</strong> {{ customer.customer_name }}</p>
+                    <p><strong>Email:</strong> {{ customer.email_id }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No direct customer match found</p>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Contact Information</h2>
+        <p><strong>Contact:</strong> {{ debug_info.contact or "None" }}</p>
+        {% if debug_info.customer_links %}
+            <h3>Customer Links:</h3>
+            {% for link in debug_info.customer_links %}
+                <p><strong>Customer:</strong> {{ link.link_name }}</p>
+            {% endfor %}
+        {% else %}
+            <p>No customer links found</p>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Portal Users</h2>
+        {% if debug_info.portal_users %}
+            {% for portal_user in debug_info.portal_users %}
+                <div class="customer-item">
+                    <p><strong>Customer:</strong> {{ portal_user.parent }}</p>
+                    <p><strong>User:</strong> {{ portal_user.user }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No portal users found</p>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>All Customers with Similar Email</h2>
+        {% if debug_info.all_customers %}
+            {% for customer in debug_info.all_customers %}
+                <div class="customer-item">
+                    <p><strong>Name:</strong> {{ customer.name }}</p>
+                    <p><strong>Customer Name:</strong> {{ customer.customer_name }}</p>
+                    <p><strong>Email:</strong> {{ customer.email_id }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No customers found with similar email</p>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Form Data</h2>
+        <pre>{{ debug_info.form_dict | tojson(indent=2) }}</pre>
+    </div>
+</div>
+
+<style>
+.debug-section {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.customer-item {
+    margin: 10px 0;
+    padding: 10px;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 3px;
+}
+
+pre {
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 3px;
+    overflow-x: auto;
+}
+</style>
+{% endblock %}

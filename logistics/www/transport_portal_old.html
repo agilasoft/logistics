@@ -1,0 +1,989 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title or "Transport Jobs Portal" }}{% endblock %}
+
+{% block page_content %}
+<div class="transport-portal-container">
+    <!-- Header Section -->
+    <div class="portal-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <h1 class="portal-title">🚛 Transport Jobs Portal</h1>
+                <p class="portal-subtitle">Track your shipments and deliveries</p>
+            </div>
+            <div class="customer-info">
+                <div class="customer-name">{{ customer_name or "Customer" }}</div>
+                <div class="customer-id">Customer ID: {{ customer_id or "N/A" }}</div>
+                <button class="refresh-btn" id="refresh-data">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Statistics Section -->
+    <div class="stats-section">
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_jobs }}</div>
+                <div class="stat-label">Total Jobs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ jobs | length }}</div>
+                <div class="stat-label">All Jobs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Planned</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="main-grid">
+        <!-- Jobs Section -->
+        <div class="jobs-section">
+            <div class="section-header">
+                <h2>📋 Your Transport Jobs</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="refresh-jobs">🔄 Refresh Jobs</button>
+                </div>
+            </div>
+            <div class="jobs-content">
+                {% if jobs %}
+                    {% for job in jobs %}
+                    <div class="job-card" data-job-id="{{ job.name }}" onclick="selectJob('{{ job.name }}')">
+                        <div class="job-header">
+                            <div class="job-id">
+                                <a href="/transport-jobs/{{ job.name }}" class="job-link">{{ job.name }}</a>
+                            </div>
+                            <div class="job-status {{ (job.status or 'draft').lower().replace(' ', '-') }}">{{ job.status or 'Draft' }}</div>
+                        </div>
+                        <div class="job-info">
+                            <div class="info-item">
+                                <div class="info-label">Booking Date</div>
+                                <div class="info-value">{{ job.booking_date }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Vehicle Type</div>
+                                <div class="info-value">{{ job.vehicle_type or 'N/A' }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Load Type</div>
+                                <div class="info-value">{{ job.load_type or 'N/A' }}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Reference</div>
+                                <div class="info-value">{{ job.customer_ref_no or 'N/A' }}</div>
+                            </div>
+                        </div>
+                        <div class="legs-section">
+                            <div class="legs-header">
+                                Transport Legs
+                                <span class="legs-count">{{ job.legs | length if job.legs else 0 }}</span>
+                            </div>
+                            {% if job.legs %}
+                                {% for leg in job.legs %}
+                                <div class="leg-item">
+                                    <div class="leg-route">{{ leg.facility_from_name or leg.facility_from }} → {{ leg.facility_to_name or leg.facility_to }}</div>
+                                    <div class="leg-details">
+                                        <span>{{ leg.distance_km or 0 }} km</span>
+                                        <span>{{ leg.duration_min or 0 }} min</span>
+                                        <span class="job-status {{ (leg.status or 'planned').lower().replace(' ', '-') }}">{{ leg.status or 'Planned' }}</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p>No legs available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-data">
+                        <div class="no-data-icon">📦</div>
+                        <h3>No Transport Jobs Found</h3>
+                        <p>You don't have any transport jobs at the moment.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Map and Tracking Section -->
+        {% if show_vehicle_tracking %}
+        <div class="tracking-section">
+            <div class="section-header">
+                <h2>🗺️ Route Map & Vehicle Tracking</h2>
+                <p class="section-subtitle">Vehicle tracking is active because transport legs have started</p>
+            </div>
+            <div class="tracking-content">
+                <!-- Vehicle Info -->
+                <div id="vehicle-info" class="vehicle-info-card" style="display: none;">
+                    <div class="vehicle-header">
+                        <div class="vehicle-name" id="vehicle-name">Vehicle Name</div>
+                        <div class="vehicle-status" id="vehicle-status">Status</div>
+                    </div>
+                    <div class="vehicle-details" id="vehicle-details">
+                        <!-- Vehicle details will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Map Container -->
+                <div class="map-container">
+                    <div id="map" class="map"></div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="tracking-section disabled">
+            <div class="section-header">
+                <h2>🗺️ Route Map & Vehicle Tracking</h2>
+                <p class="section-subtitle">Vehicle tracking will be available when transport legs start</p>
+            </div>
+            <div class="tracking-content">
+                <div class="tracking-placeholder">
+                    <div class="placeholder-content">
+                        <div class="placeholder-icon">🚛</div>
+                        <h4>Vehicle Tracking Not Available</h4>
+                        <p>Vehicle location tracking will be displayed once any transport leg status changes to "Started"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div id="error-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Error</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p id="error-message"></p>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Portal Styles */
+.transport-portal-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.portal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30px;
+}
+
+.logo-section h1 {
+    font-size: 28px;
+    margin: 0 0 5px 0;
+    font-weight: 700;
+}
+
+.portal-subtitle {
+    font-size: 16px;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.customer-info {
+    text-align: right;
+}
+
+.customer-name {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.customer-id {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 15px;
+}
+
+.refresh-btn {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+}
+
+.stats-section {
+    margin-bottom: 30px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.jobs-section, .tracking-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.section-header {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.section-subtitle {
+    margin: 5px 0 0 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.section-actions .btn {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.section-actions .btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.jobs-content, .tracking-content {
+    padding: 20px;
+}
+
+.job-card {
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: #fff;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.job-card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.job-card.selected {
+    border-color: #3498db;
+    background: #f8f9ff;
+}
+
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.job-id {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.job-link {
+    color: #2c3e50;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.job-link:hover {
+    color: #3498db;
+    text-decoration: underline;
+}
+
+.job-status {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.job-status.draft {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.job-status.planned {
+    background: #d4edda;
+    color: #155724;
+}
+
+.job-status.in-progress {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.job-status.completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.job-status.cancelled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.job-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-label {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.info-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.legs-section {
+    margin-top: 15px;
+}
+
+.legs-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #34495e;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.legs-count {
+    background: #3498db;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    margin-left: 8px;
+}
+
+.leg-item {
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 0 6px 6px 0;
+}
+
+.leg-route {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.leg-details {
+    font-size: 12px;
+    color: #7f8c8d;
+    display: flex;
+    justify-content: space-between;
+}
+
+.vehicle-info-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #e1e8ed;
+}
+
+.vehicle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.vehicle-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.vehicle-status {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.vehicle-status.available {
+    background: #d4edda;
+    color: #155724;
+}
+
+.vehicle-status.assigned {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.vehicle-status.in-transit {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.vehicle-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    font-size: 14px;
+}
+
+.vehicle-detail {
+    display: flex;
+    flex-direction: column;
+}
+
+.vehicle-detail-label {
+    color: #7f8c8d;
+    margin-bottom: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.vehicle-detail-value {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.map-container {
+    height: 500px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e1e8ed;
+}
+
+.map {
+    width: 100%;
+    height: 100%;
+}
+
+.tracking-section.disabled {
+    opacity: 0.7;
+}
+
+.tracking-placeholder {
+    height: 500px;
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.placeholder-content {
+    text-align: center;
+    max-width: 300px;
+}
+
+.placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.placeholder-content h4 {
+    color: #6c757d;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.placeholder-content p {
+    color: #6c757d;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+}
+
+.no-data-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e1e8ed;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.close {
+    font-size: 24px;
+    cursor: pointer;
+    color: #7f8c8d;
+}
+
+.close:hover {
+    color: #2c3e50;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+@media (max-width: 768px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .customer-info {
+        text-align: center;
+    }
+    
+    .job-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .vehicle-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+</style>
+
+<script>
+// Include Leaflet CSS and JS
+document.head.insertAdjacentHTML('beforeend', 
+    '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />'
+);
+
+// Load Leaflet JS
+const script = document.createElement('script');
+script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+script.onload = function() {
+    // Initialize portal after Leaflet is loaded
+    initializePortal();
+};
+document.head.appendChild(script);
+
+function initializePortal() {
+    class TransportPortal {
+        constructor() {
+            this.customerId = '{{ customer_id or "" }}';
+            this.selectedJob = null;
+            this.map = null;
+            this.markers = [];
+            this.jobs = {{ jobs | tojson }};
+            this.init();
+        }
+
+        async init() {
+            console.log('🚀 Initializing transport portal...');
+            try {
+                // Only initialize map if vehicle tracking is enabled
+                if ({{ show_vehicle_tracking | tojson }}) {
+                    await this.initializeMap();
+                }
+                this.setupEventListeners();
+                console.log('✅ Portal initialization complete!');
+            } catch (error) {
+                console.error('❌ Error initializing portal:', error);
+                this.showError('Failed to initialize portal');
+            }
+        }
+
+        async initializeMap() {
+            // Get map renderer from transport settings
+            const mapRenderer = '{{ map_renderer or "OpenStreetMap" }}'.toLowerCase();
+            
+            // Initialize map based on renderer (same as run sheet)
+            if (mapRenderer === 'google maps') {
+                await this.initializeGoogleMap();
+            } else if (mapRenderer === 'mapbox') {
+                await this.initializeMapboxMap();
+            } else if (mapRenderer === 'maplibre') {
+                await this.initializeMapLibreMap();
+            } else {
+                await this.initializeOpenStreetMap();
+            }
+
+            // Add initial markers for all vehicles
+            this.updateMap();
+        }
+
+        async initializeOpenStreetMap() {
+            this.map = L.map('map').setView([14.5995, 120.9842], 11);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(this.map);
+        }
+
+        async initializeGoogleMap() {
+            // Google Maps implementation (same as run sheet)
+            console.log('Initializing Google Maps...');
+            // Implementation would go here
+            await this.initializeOpenStreetMap(); // Fallback for now
+        }
+
+        async initializeMapboxMap() {
+            // Mapbox implementation (same as run sheet)
+            console.log('Initializing Mapbox...');
+            // Implementation would go here
+            await this.initializeOpenStreetMap(); // Fallback for now
+        }
+
+        async initializeMapLibreMap() {
+            // MapLibre implementation (same as run sheet)
+            console.log('Initializing MapLibre...');
+            // Implementation would go here
+            await this.initializeOpenStreetMap(); // Fallback for now
+        }
+
+        selectJob(jobId) {
+            // Remove previous selection
+            document.querySelectorAll('.job-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Add selection to clicked card
+            const selectedCard = document.querySelector(`[data-job-id="${jobId}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+            }
+
+            this.selectedJob = this.jobs.find(job => job.name === jobId);
+            this.updateMap();
+            this.updateVehicleInfo();
+        }
+
+        updateMap() {
+            // Clear existing markers
+            this.markers.forEach(marker => this.map.removeLayer(marker));
+            this.markers = [];
+
+            if (this.selectedJob && this.selectedJob.vehicle) {
+                const vehicle = this.selectedJob.vehicle;
+                const lat = vehicle.location ? vehicle.location.lat : 14.5995;
+                const lng = vehicle.location ? vehicle.location.lng : 120.9842;
+
+                // Add vehicle marker
+                const vehicleIcon = L.divIcon({
+                    className: 'vehicle-marker',
+                    html: `
+                        <div style="
+                            background: #3498db;
+                            color: white;
+                            border-radius: 50%;
+                            width: 30px;
+                            height: 30px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: bold;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        ">🚛</div>
+                    `,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                const marker = L.marker([lat, lng], { icon: vehicleIcon })
+                    .addTo(this.map)
+                    .bindPopup(`
+                        <div style="min-width: 200px;">
+                            <h4>${vehicle.name}</h4>
+                            <p><strong>Plate:</strong> ${vehicle.plate_number}</p>
+                            <p><strong>Driver:</strong> ${vehicle.driver_name}</p>
+                            <p><strong>Status:</strong> ${vehicle.status}</p>
+                            <p><strong>Job:</strong> ${this.selectedJob.name}</p>
+                        </div>
+                    `);
+
+                this.markers.push(marker);
+                this.map.setView([lat, lng], 13);
+            } else {
+                // Show all vehicles if no job selected
+                this.jobs.forEach(job => {
+                    if (job.vehicle && job.vehicle.location) {
+                        const vehicle = job.vehicle;
+                        const lat = vehicle.location.lat;
+                        const lng = vehicle.location.lng;
+
+                        const vehicleIcon = L.divIcon({
+                            className: 'vehicle-marker',
+                            html: `
+                                <div style="
+                                    background: ${(job.status || '').toLowerCase() === 'in progress' ? '#e74c3c' : '#95a5a6'};
+                                    color: white;
+                                    border-radius: 50%;
+                                    width: 25px;
+                                    height: 25px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-weight: bold;
+                                    border: 2px solid white;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                ">🚛</div>
+                            `,
+                            iconSize: [25, 25],
+                            iconAnchor: [12, 12]
+                        });
+
+                        const marker = L.marker([lat, lng], { icon: vehicleIcon })
+                            .addTo(this.map)
+                            .bindPopup(`
+                                <div style="min-width: 200px;">
+                                    <h4>${vehicle.name}</h4>
+                                    <p><strong>Plate:</strong> ${vehicle.plate_number}</p>
+                                    <p><strong>Driver:</strong> ${vehicle.driver_name}</p>
+                                    <p><strong>Status:</strong> ${vehicle.status}</p>
+                                    <p><strong>Job:</strong> ${job.name}</p>
+                                </div>
+                            `);
+
+                        this.markers.push(marker);
+                    }
+                });
+            }
+        }
+
+        updateVehicleInfo() {
+            const vehicleInfo = document.getElementById('vehicle-info');
+            
+            if (this.selectedJob && this.selectedJob.vehicle) {
+                const vehicle = this.selectedJob.vehicle;
+                
+                document.getElementById('vehicle-name').textContent = vehicle.name;
+                document.getElementById('vehicle-status').textContent = vehicle.status || 'Available';
+                document.getElementById('vehicle-status').className = `vehicle-status ${(vehicle.status || 'available').toLowerCase().replace(' ', '-')}`;
+                
+                document.getElementById('vehicle-details').innerHTML = `
+                    <div class="vehicle-detail">
+                        <div class="vehicle-detail-label">Plate Number</div>
+                        <div class="vehicle-detail-value">${vehicle.plate_number || 'N/A'}</div>
+                    </div>
+                    <div class="vehicle-detail">
+                        <div class="vehicle-detail-label">Driver</div>
+                        <div class="vehicle-detail-value">${vehicle.driver_name || 'N/A'}</div>
+                    </div>
+                    <div class="vehicle-detail">
+                        <div class="vehicle-detail-label">Job</div>
+                        <div class="vehicle-detail-value">${this.selectedJob.name}</div>
+                    </div>
+                    <div class="vehicle-detail">
+                        <div class="vehicle-detail-label">Status</div>
+                        <div class="vehicle-detail-value">${vehicle.status || 'Available'}</div>
+                    </div>
+                `;
+                
+                vehicleInfo.style.display = 'block';
+            } else {
+                vehicleInfo.style.display = 'none';
+            }
+        }
+
+        setupEventListeners() {
+            document.getElementById('refresh-data').addEventListener('click', () => {
+                window.location.reload();
+            });
+
+            document.getElementById('refresh-jobs').addEventListener('click', () => {
+                window.location.reload();
+            });
+
+            // Close modal
+            document.querySelector('.close').addEventListener('click', () => {
+                document.getElementById('error-modal').style.display = 'none';
+            });
+        }
+
+        showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-modal').style.display = 'flex';
+        }
+    }
+
+    // Initialize portal
+    window.portal = new TransportPortal();
+}
+</script>
+{% endblock %}

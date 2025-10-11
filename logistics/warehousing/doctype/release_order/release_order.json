@@ -28,7 +28,9 @@
   "notes",
   "entity_tab",
   "company",
-  "branch"
+  "branch",
+  "cost_center",
+  "profit_center"
  ],
  "fields": [
   {
@@ -133,12 +135,13 @@
    "label": "Contract",
    "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Warehouse Contract",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "entity_tab",
    "fieldtype": "Tab Break",
-   "label": "Entity"
+   "label": "Accounts"
   },
   {
    "fieldname": "company",
@@ -160,13 +163,27 @@
    "fieldname": "docks",
    "fieldtype": "Table",
    "options": "Release Order Dock"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-18 14:01:24.150005",
+ "modified": "2025-10-09 23:28:51.333664",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order",

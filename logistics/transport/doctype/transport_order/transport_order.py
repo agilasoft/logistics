@@ -279,8 +279,11 @@ def action_create_transport_job(docname: str):
             "hazardous": getattr(doc, "hazardous", None),
             "refrigeration": getattr(doc, "refrigeration", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
+            "load_type": getattr(doc, "load_type", None),
             "pick_address": getattr(doc, "pick_address", None),
             "drop_address": getattr(doc, "drop_address", None),
+            "company": getattr(doc, "company", None),
+            "branch": getattr(doc, "branch", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):

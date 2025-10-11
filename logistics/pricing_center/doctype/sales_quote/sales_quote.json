@@ -1,0 +1,333 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-10-09 15:07:40.013726",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_aall",
+  "naming_series",
+  "amended_from",
+  "customer",
+  "date",
+  "valid_until",
+  "column_break_abll",
+  "shipper",
+  "consignee",
+  "incoterm",
+  "additional_terms",
+  "service_level",
+  "column_break_nvoa",
+  "weight",
+  "weight_uom",
+  "volume",
+  "volume_uom",
+  "chargeable",
+  "chargeable_uom",
+  "sea_tab",
+  "sea_load_type",
+  "air_tab",
+  "air_load_type",
+  "transport_tab",
+  "load_type",
+  "vehicle_type",
+  "container_type",
+  "column_break_cxfw",
+  "location_from",
+  "location_to",
+  "section_break_disr",
+  "transport",
+  "customs_tab",
+  "warehousing_tab",
+  "accounts_tab",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "column_break_jabf",
+  "company",
+  "branch",
+  "profit_center",
+  "connections_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_aall",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "SQU.#########"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Sales Quote",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date"
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid Until"
+  },
+  {
+   "fieldname": "column_break_abll",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "additional_terms",
+   "fieldtype": "Data",
+   "label": "Additional Terms"
+  },
+  {
+   "fieldname": "service_level",
+   "fieldtype": "Link",
+   "label": "Service Level",
+   "options": "Service Level Agreement"
+  },
+  {
+   "fieldname": "column_break_nvoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable",
+   "fieldtype": "Float",
+   "label": "Chargeable"
+  },
+  {
+   "fieldname": "chargeable_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "sea_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sea"
+  },
+  {
+   "fieldname": "sea_load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"sea\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "air_tab",
+   "fieldtype": "Tab Break",
+   "label": "Air"
+  },
+  {
+   "fieldname": "air_load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"air\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "transport_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transport"
+  },
+  {
+   "fieldname": "section_break_disr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "transport",
+   "fieldtype": "Table",
+   "options": "Sales Quote Transport"
+  },
+  {
+   "fieldname": "customs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Customs"
+  },
+  {
+   "fieldname": "warehousing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Warehousing"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_jabf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "column_break_cxfw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location_from",
+   "fieldtype": "Link",
+   "label": "Location From",
+   "options": "Location"
+  },
+  {
+   "fieldname": "location_to",
+   "fieldtype": "Link",
+   "label": "Location To",
+   "options": "Location"
+  },
+  {
+   "depends_on": "eval:doc.load_type == \"FCL\"",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "options": "Container Type"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-10-09 22:53:59.161703",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Sales Quote",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

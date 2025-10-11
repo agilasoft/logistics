@@ -1,5 +1,7 @@
 from __future__ import annotations
 from .common import *  # shared helpers
+from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu  # explicit imports
+from .capacity_management import CapacityManager, CapacityValidationError
 
 import frappe
 from frappe import _
@@ -14,9 +16,12 @@ def _putaway_candidate_locations(
     company: Optional[str],
     branch: Optional[str],
     exclude_locations: Optional[List[str]] = None,
+    quantity: float = 1.0,
+    handling_unit: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """Return candidate locations preferring consolidation bins first, then others.
-       Excludes staging locations and honors status filters."""
+       Excludes staging locations and honors status filters.
+       Now includes comprehensive capacity validation."""
     exclude_locations = exclude_locations or []
     slf = _sl_fields()
     status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
@@ -65,7 +70,97 @@ def _putaway_candidate_locations(
     ) or []
     others = [r for r in others if r["location"] not in cons_set]
 
-    return cons + others
+    # Combine all candidates
+    all_candidates = cons + others
+    
+    # Apply capacity validation to filter out locations that can't accommodate the item
+    capacity_manager = CapacityManager()
+    validated_candidates = []
+    
+    for candidate in all_candidates:
+        try:
+            # Validate capacity for this location
+            capacity_validation = capacity_manager.validate_storage_capacity(
+                location=candidate["location"],
+                item=item,
+                quantity=quantity,
+                handling_unit=handling_unit
+            )
+            
+            # Only include locations that pass capacity validation
+            if capacity_validation.get("valid", False):
+                candidate["capacity_valid"] = True
+                candidate["capacity_utilization"] = capacity_validation.get("validation_results", {}).get("capacity_utilization", {})
+                candidate["capacity_warnings"] = capacity_validation.get("validation_results", {}).get("warnings", [])
+                validated_candidates.append(candidate)
+            else:
+                # Log capacity violations for debugging
+                violations = capacity_validation.get("validation_results", {}).get("violations", [])
+                if violations:
+                    frappe.logger().info(f"Capacity validation failed for {candidate['location']}: {violations}")
+                    
+        except CapacityValidationError as e:
+            # Log capacity validation errors
+            frappe.logger().info(f"Capacity validation error for {candidate['location']}: {str(e)}")
+            continue
+        except Exception as e:
+            # Log other errors but don't fail the entire process
+            frappe.logger().error(f"Unexpected error validating capacity for {candidate['location']}: {str(e)}")
+            continue
+    
+    return validated_candidates
+
+
+def _select_dest_for_hu_with_capacity_validation(
+    item: str,
+    quantity: float,
+    company: Optional[str],
+    branch: Optional[str],
+    staging_area: Optional[str],
+    level_limit_label: Optional[str],
+    used_locations: Set[str],
+    exclude_locations: Optional[List[str]],
+    handling_unit: str
+) -> Optional[str]:
+    """Select destination for HU with comprehensive capacity validation"""
+    try:
+        # Get candidate locations with capacity validation
+        candidates = _putaway_candidate_locations(
+            item=item,
+            company=company,
+            branch=branch,
+            exclude_locations=exclude_locations,
+            quantity=quantity,
+            handling_unit=handling_unit
+        )
+        
+        # Filter by allocation level limit
+        if staging_area and level_limit_label:
+            candidates = _filter_locations_by_level(candidates, staging_area, level_limit_label)
+        
+        # Filter out used locations
+        available_candidates = [c for c in candidates if c["location"] not in used_locations]
+        
+        if not available_candidates:
+            return None
+        
+        # Sort by capacity utilization (prefer locations with lower utilization)
+        def capacity_sort_key(candidate):
+            utilization = candidate.get("capacity_utilization", {})
+            # Use volume utilization as primary sort key, then weight, then HU count
+            volume_util = utilization.get("volume", 0)
+            weight_util = utilization.get("weight", 0)
+            hu_util = utilization.get("handling_units", 0)
+            return (volume_util, weight_util, hu_util, candidate.get("bin_priority", 999999))
+        
+        available_candidates.sort(key=capacity_sort_key)
+        
+        return available_candidates[0]["location"] if available_candidates else None
+        
+    except Exception as e:
+        frappe.logger().error(f"Error selecting destination with capacity validation: {str(e)}")
+        return None
+
 
 def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[str, Any]], List[str]]:
     """Impose HU → single destination; unique location per HU; warnings for violations."""
@@ -117,10 +212,19 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             continue
 
         # choose destination for this HU (must be unique and match level limit)
-        dest = _select_dest_for_hu(
-            item=rep_item, company=company, branch=branch,
-            staging_area=staging_area, level_limit_label=level_limit_label,
-            used_locations=used_locations, exclude_locations=exclude
+        # First get all items in this HU to calculate total capacity requirements
+        total_quantity = sum(flt(rr.get("quantity", 0)) for rr in rows)
+        
+        dest = _select_dest_for_hu_with_capacity_validation(
+            item=rep_item, 
+            quantity=total_quantity,
+            company=company, 
+            branch=branch,
+            staging_area=staging_area, 
+            level_limit_label=level_limit_label,
+            used_locations=used_locations, 
+            exclude_locations=exclude,
+            handling_unit=hu
         )
         if not dest:
             # last resort: try again allowing reuse (but still honoring level limit)

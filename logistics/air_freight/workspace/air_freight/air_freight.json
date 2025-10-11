@@ -1,0 +1,96 @@
+{
+ "charts": [
+  {
+   "chart_name": "Profit and Loss",
+   "label": "Profit and Loss"
+  }
+ ],
+ "content": "[{\"id\":\"weUdBF3DtZ\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Air Freight\",\"col\":12}},{\"id\":\"Xd0aOQxJVT\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Jobs\",\"col\":4}},{\"id\":\"1Np06cfNbD\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Unbilled Jobs\",\"col\":4}},{\"id\":\"2w-nwRj3x8\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"On Hold Jobs\",\"col\":4}},{\"id\":\"KmqO4ZDUte\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"id5PPDI1AU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"3HiVrZLIPv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Shipment\",\"col\":3}},{\"id\":\"aDLLlm2IFm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Airports\",\"col\":3}},{\"id\":\"zzsLPl3JFG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Freight Charges\",\"col\":3}},{\"id\":\"cOpPisjZoB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Airlines\",\"col\":3}},{\"id\":\"W7zKI4QDd2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"ULD Types\",\"col\":3}},{\"id\":\"zeZs1MccAG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Waybills (AWB)\",\"col\":3}},{\"id\":\"95JHp6T1ff\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Profit and Loss\",\"col\":12}},{\"id\":\"oJg34cjG-V\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"74ODRaeO5Y\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Masters</b></span>\",\"col\":12}}]",
+ "creation": "2025-05-22 17:01:00.044524",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "sidebar-expand",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Air Freight",
+ "links": [],
+ "modified": "2025-10-08 17:06:29.123347",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Freight",
+ "number_cards": [
+  {
+   "label": "Open Jobs",
+   "number_card_name": "Active Customers"
+  },
+  {
+   "label": "On Hold Jobs",
+   "number_card_name": "Active Suppliers"
+  },
+  {
+   "label": "Unbilled Jobs",
+   "number_card_name": "Ongoing Job Card"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 4.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Air Shipment",
+   "link_to": "Air Shipment",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Airports",
+   "link_to": "Location",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Air Freight Charges",
+   "link_to": "Item",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Airlines",
+   "link_to": "Airline",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "ULD Types",
+   "link_to": "Unit Load Device",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Air Waybills (AWB)",
+   "link_to": "Master Air Waybill",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Air Freight"
+}

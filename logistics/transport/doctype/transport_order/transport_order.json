@@ -14,6 +14,7 @@
   "column_break_5",
   "scheduled_date",
   "vehicle_type",
+  "load_type",
   "hazardous",
   "refrigeration",
   "section_break_ofjt",
@@ -27,7 +28,10 @@
   "internal_notes",
   "column_break_16",
   "client_notes",
-  "amended_from"
+  "amended_from",
+  "tab_5_tab",
+  "company",
+  "branch"
  ],
  "fields": [
   {
@@ -114,6 +118,13 @@
    "options": "Vehicle Type"
   },
   {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"transport\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
    "fieldname": "notes_tab",
    "fieldtype": "Tab Break",
    "label": "Notes"
@@ -152,12 +163,31 @@
    "fieldname": "scheduled_date",
    "fieldtype": "Date",
    "label": "Scheduled Date"
+  },
+  {
+   "fieldname": "tab_5_tab",
+   "fieldtype": "Tab Break",
+   "label": "Entity"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-20 06:57:22.443553",
- "modified_by": "Administrator",
+ "modified": "2025-10-08 21:38:48.432351",
+ "modified_by": "jeffbangquil@gmail.com",
  "module": "Transport",
  "name": "Transport Order",
  "naming_rule": "By \"Naming Series\" field",

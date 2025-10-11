@@ -1,0 +1,602 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-05-31 14:22:22.192721",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "milestones_tab",
+  "milestone_html",
+  "details_tab",
+  "section_break_wacv",
+  "transport_mode_column",
+  "amended_from",
+  "naming_series",
+  "booking_date",
+  "house_type",
+  "direction",
+  "column_break_lzrh",
+  "airline",
+  "local_customer",
+  "freight_agent",
+  "column_break_bpch",
+  "release_type",
+  "entry_type",
+  "service_level",
+  "section_break_cllp",
+  "shipper",
+  "origin_port",
+  "etd",
+  "column_break_oxhc",
+  "consignee",
+  "destination_port",
+  "eta",
+  "column_break_uvws",
+  "volume",
+  "weight",
+  "chargeable",
+  "house_tab",
+  "house_bl",
+  "incoterm",
+  "additional_terms",
+  "column_break_mjzk",
+  "packs",
+  "inner",
+  "gooda_value",
+  "insurance",
+  "section_break_olqg",
+  "description",
+  "column_break_ngoa",
+  "marks_and_nos",
+  "packing_tab",
+  "packages",
+  "master_tab",
+  "master_awb",
+  "column_break_wwsh",
+  "iata_section",
+  "iata_status",
+  "iata_message_id",
+  "last_status_update",
+  "column_break_iata",
+  "house_awb_no",
+  "booking_reference",
+  "agent_reference",
+  "dangerous_goods_tab",
+  "contains_dangerous_goods",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg_main",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
+  "services_tab",
+  "services",
+  "charges_tab",
+  "contacts_and_addresses_tab",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_cyzc",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_haya",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_tptt",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_xuwf",
+  "notify_party",
+  "column_break_mzhi",
+  "notify_party_address",
+  "connections_tab",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "job_reference"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_wacv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Air Shipment",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "AF.#########"
+  },
+  {
+   "fieldname": "booking_date",
+   "fieldtype": "Date",
+   "label": "Booking Date"
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline"
+  },
+  {
+   "fieldname": "column_break_lzrh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "house_type",
+   "fieldtype": "Select",
+   "label": "House Type"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic"
+  },
+  {
+   "fieldname": "local_customer",
+   "fieldtype": "Link",
+   "label": "Local Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_bpch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "release_type",
+   "fieldtype": "Link",
+   "label": "Release Type",
+   "options": "Release Type"
+  },
+  {
+   "fieldname": "entry_type",
+   "fieldtype": "Select",
+   "label": "Entry Type",
+   "options": "Customs Permit\nTransshipment\nATA Carnet"
+  },
+  {
+   "fieldname": "service_level",
+   "fieldtype": "Link",
+   "label": "Service Level",
+   "options": "Service Level Agreement"
+  },
+  {
+   "fieldname": "section_break_cllp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "Location"
+  },
+  {
+   "fieldname": "column_break_oxhc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "Location"
+  },
+  {
+   "fieldname": "column_break_uvws",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "label": "ETD"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "label": "ETA"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume (cbm)"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight (kg)"
+  },
+  {
+   "fieldname": "chargeable",
+   "fieldtype": "Float",
+   "label": "Chargeable (kg)"
+  },
+  {
+   "fieldname": "dangerous_goods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "default": "0",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "default": "0",
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
+  },
+  {
+   "fieldname": "house_tab",
+   "fieldtype": "Tab Break",
+   "label": "House"
+  },
+  {
+   "fieldname": "house_bl",
+   "fieldtype": "Data",
+   "label": "House BL"
+  },
+  {
+   "fieldname": "column_break_mjzk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "additional_terms",
+   "fieldtype": "Data",
+   "label": "Additional Terms"
+  },
+  {
+   "fieldname": "packs",
+   "fieldtype": "Float",
+   "label": "Packs"
+  },
+  {
+   "fieldname": "inner",
+   "fieldtype": "Float",
+   "label": "Inner"
+  },
+  {
+   "fieldname": "gooda_value",
+   "fieldtype": "Currency",
+   "label": "Gooda Value"
+  },
+  {
+   "fieldname": "insurance",
+   "fieldtype": "Currency",
+   "label": "Insurance"
+  },
+  {
+   "fieldname": "section_break_olqg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_ngoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "marks_and_nos",
+   "fieldtype": "Long Text",
+   "label": "Marks and Nos"
+  },
+  {
+   "fieldname": "master_tab",
+   "fieldtype": "Tab Break",
+   "label": "Master"
+  },
+  {
+   "fieldname": "master_awb",
+   "fieldtype": "Link",
+   "label": "Master AWB",
+   "options": "Master Air Waybill"
+  },
+  {
+   "fieldname": "column_break_wwsh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "iata_section",
+   "fieldtype": "Section Break",
+   "label": "IATA Integration"
+  },
+  {
+   "fieldname": "iata_status",
+   "fieldtype": "Select",
+   "label": "IATA Status",
+   "options": "\nPending\nAccepted\nDeparted\nIn Transit\nArrived\nDelivered\nReady for Collection\nCustoms Cleared\nException"
+  },
+  {
+   "fieldname": "iata_message_id",
+   "fieldtype": "Data",
+   "label": "IATA Message ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_status_update",
+   "fieldtype": "Datetime",
+   "label": "Last Status Update",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_iata",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "house_awb_no",
+   "fieldtype": "Data",
+   "label": "House AWB Number"
+  },
+  {
+   "fieldname": "booking_reference",
+   "fieldtype": "Data",
+   "label": "Booking Reference"
+  },
+  {
+   "fieldname": "agent_reference",
+   "fieldtype": "Data",
+   "label": "Agent Reference"
+  },
+  {
+   "fieldname": "contacts_and_addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "transport_mode_column",
+   "fieldtype": "Column Break",
+   "label": "Transport Mode",
+   "options": "Air"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Address Display"
+  },
+  {
+   "fieldname": "column_break_cyzc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Address Display"
+  },
+  {
+   "fieldname": "notify_party",
+   "fieldtype": "Data",
+   "label": "Notify Party"
+  },
+  {
+   "fieldname": "section_break_haya",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display"
+  },
+  {
+   "fieldname": "column_break_tptt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display"
+  },
+  {
+   "fieldname": "section_break_xuwf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_mzhi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notify_party_address",
+   "fieldtype": "Small Text",
+   "label": "Notify Party Address"
+  },
+  {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "services",
+   "fieldtype": "Table",
+   "options": "Air Shipment Services"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "job_reference",
+   "fieldtype": "Link",
+   "label": "Job Reference",
+   "options": "Job Reference"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "options": "Air Shipment Packages"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-10-04 13:10:21.499859",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Shipment",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

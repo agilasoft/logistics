@@ -84,6 +84,9 @@ def make_warehouse_job(source_name, target_doc=None):
             "Release Order": {
                 "doctype": "Warehouse Job",
                 "field_map": {"name": "reference_order"},
+                "field_no_map": [
+                    "naming_series"
+                ]
             },
             "Release Order Item": {
                 "doctype": "Warehouse Job Order Items",
@@ -107,5 +110,9 @@ def make_warehouse_job(source_name, target_doc=None):
         target_doc,
         set_missing_values,
     )
+
+    # Save the job before returning
+    doc.save()
+    frappe.db.commit()
 
     return doc

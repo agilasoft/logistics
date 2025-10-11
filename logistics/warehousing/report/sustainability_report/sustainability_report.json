@@ -1,0 +1,27 @@
+{
+ "actions": [],
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "No",
+ "json": "",
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Sustainability Report",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Warehouse User"
+  }
+ ],
+ "preview": "Sustainability Report",
+ "query_report": 0,
+ "ref_doctype": "Energy Consumption",
+ "report_name": "Sustainability Report",
+ "report_type": "Script Report"
+}

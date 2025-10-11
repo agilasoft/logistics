@@ -9,6 +9,7 @@
  "field_order": [
   "code",
   "operation_name",
+  "handling_basis",
   "handling_uom",
   "column_break_nlcm",
   "unit_std_hours",
@@ -73,12 +74,18 @@
    "fieldname": "order",
    "fieldtype": "Int",
    "label": "Order"
+  },
+  {
+   "fieldname": "handling_basis",
+   "fieldtype": "Select",
+   "label": "Handling Basis",
+   "options": "Item Unit\nVolume\nWeight\nHandling Unit\nTask"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-28 10:46:28.480176",
+ "modified": "2025-10-09 19:15:42.511339",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Operation Item",

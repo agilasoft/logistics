@@ -61,7 +61,7 @@
    "fieldname": "zone",
    "fieldtype": "Link",
    "label": "Zone",
-   "options": "Zone"
+   "options": "Transport Zone"
   },
   {
    "fieldname": "uom",
@@ -104,7 +104,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-30 09:36:00.248668",
+ "modified": "2025-10-03 06:26:17.841500",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job Charges",

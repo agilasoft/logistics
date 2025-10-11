@@ -1,0 +1,305 @@
+{
+ "actions": [],
+ "autoname": "field:iata_code",
+ "creation": "2025-10-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "airport_information_section",
+  "airport_name",
+  "iata_code",
+  "icao_code",
+  "airport_type",
+  "column_break_1",
+  "city",
+  "country",
+  "timezone",
+  "location_section",
+  "latitude",
+  "longitude",
+  "altitude_meters",
+  "column_break_2",
+  "gmt_offset",
+  "dst",
+  "capabilities_section",
+  "is_cargo_hub",
+  "is_international",
+  "has_customs",
+  "column_break_3",
+  "supports_dangerous_goods",
+  "supports_live_animals",
+  "supports_refrigerated",
+  "contact_section",
+  "website",
+  "phone",
+  "email",
+  "column_break_4",
+  "address_line_1",
+  "address_line_2",
+  "postal_code",
+  "metadata_section",
+  "data_source",
+  "last_synced",
+  "column_break_5",
+  "is_active",
+  "disabled"
+ ],
+ "fields": [
+  {
+   "fieldname": "airport_information_section",
+   "fieldtype": "Section Break",
+   "label": "Airport Information"
+  },
+  {
+   "fieldname": "airport_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Airport Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "iata_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "IATA Code",
+   "length": 3,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "icao_code",
+   "fieldtype": "Data",
+   "label": "ICAO Code",
+   "length": 4,
+   "unique": 1
+  },
+  {
+   "default": "Airport",
+   "fieldname": "airport_type",
+   "fieldtype": "Select",
+   "label": "Airport Type",
+   "options": "Airport\nHeliport\nSeaplane Base\nBalloonport\nClosed"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "City"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Country",
+   "options": "Country"
+  },
+  {
+   "fieldname": "timezone",
+   "fieldtype": "Data",
+   "label": "Timezone"
+  },
+  {
+   "fieldname": "location_section",
+   "fieldtype": "Section Break",
+   "label": "Location"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "6"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "6"
+  },
+  {
+   "fieldname": "altitude_meters",
+   "fieldtype": "Float",
+   "label": "Altitude (Meters)"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gmt_offset",
+   "fieldtype": "Data",
+   "label": "GMT Offset"
+  },
+  {
+   "fieldname": "dst",
+   "fieldtype": "Data",
+   "label": "DST"
+  },
+  {
+   "fieldname": "capabilities_section",
+   "fieldtype": "Section Break",
+   "label": "Capabilities"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cargo_hub",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Cargo Hub"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_international",
+   "fieldtype": "Check",
+   "label": "Is International"
+  },
+  {
+   "default": "1",
+   "fieldname": "has_customs",
+   "fieldtype": "Check",
+   "label": "Has Customs Facility"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Supports Dangerous Goods"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_live_animals",
+   "fieldtype": "Check",
+   "label": "Supports Live Animals"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_refrigerated",
+   "fieldtype": "Check",
+   "label": "Supports Refrigerated Cargo"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "contact_section",
+   "fieldtype": "Section Break",
+   "label": "Contact Information"
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Website"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "address_line_1",
+   "fieldtype": "Data",
+   "label": "Address Line 1"
+  },
+  {
+   "fieldname": "address_line_2",
+   "fieldtype": "Data",
+   "label": "Address Line 2"
+  },
+  {
+   "fieldname": "postal_code",
+   "fieldtype": "Data",
+   "label": "Postal Code"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Data",
+   "label": "Data Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled"
+  }
+ ],
+ "links": [],
+ "modified": "2025-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Airport Master",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Logistics User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "airport_name,city,country,iata_code,icao_code",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "airport_name",
+ "track_changes": 1
+}
+
+

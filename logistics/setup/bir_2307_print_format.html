@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>BIR Form 2307 - Certificate of Creditable Tax Withheld at Source</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 10px;
+        margin: 0;
+        padding: 15px;
+        line-height: 1.2;
+    }
+    
+    .form-container {
+        max-width: 8.5in;
+        margin: 0 auto;
+        border: 2px solid black;
+        padding: 15px;
+    }
+    
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+    }
+    
+    .header-left {
+        font-size: 8px;
+        line-height: 1.1;
+    }
+    
+    .header-center {
+        text-align: center;
+        flex: 1;
+        margin: 0 20px;
+    }
+    
+    .header-right {
+        font-size: 8px;
+        text-align: right;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .form-title-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        border-bottom: 1px solid black;
+        padding-bottom: 10px;
+    }
+    
+    .form-number-section {
+        text-align: left;
+    }
+    
+    .form-number {
+        font-size: 48px;
+        font-weight: bold;
+        line-height: 1;
+        margin: 5px 0;
+    }
+    
+    .form-date {
+        font-size: 8px;
+    }
+    
+    .certificate-title {
+        text-align: center;
+        font-weight: bold;
+        font-size: 14px;
+        line-height: 1.2;
+    }
+    
+    .instructions {
+        text-align: center;
+        font-size: 8px;
+        margin: 10px 0;
+        font-weight: bold;
+    }
+    
+    .section-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 5px 0;
+    }
+    
+    .section-table td {
+        border: 1px solid black;
+        padding: 4px 6px;
+        vertical-align: top;
+        font-size: 9px;
+    }
+    
+    .section-header {
+        background-color: #e8e8e8;
+        font-weight: bold;
+        text-align: center;
+        padding: 6px;
+        border: 1px solid black;
+        margin: 8px 0 2px 0;
+    }
+    
+    .field-label {
+        font-weight: bold;
+        font-size: 8px;
+    }
+    
+    .tin-boxes {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+    }
+    
+    .tin-box {
+        width: 18px;
+        height: 18px;
+        border: 1px solid black;
+        text-align: center;
+        line-height: 16px;
+        font-size: 9px;
+        display: inline-block;
+    }
+    
+    .tin-separator {
+        margin: 0 3px;
+        font-weight: bold;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 8px 0;
+        font-size: 8px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        border: 1px solid black;
+        padding: 4px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .data-table th {
+        background-color: #e8e8e8;
+        font-weight: bold;
+        font-size: 7px;
+        line-height: 1.1;
+    }
+    
+    .text-left {
+        text-align: left;
+    }
+    
+    .text-right {
+        text-align: right;
+    }
+    
+    .amount-cell {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+        font-size: 8px;
+    }
+    
+    .total-row {
+        background-color: #e8e8e8;
+        font-weight: bold;
+    }
+    
+    .certification-text {
+        font-size: 7px;
+        text-align: justify;
+        margin: 15px 0;
+        line-height: 1.4;
+        padding: 8px;
+        border: 1px solid black;
+    }
+    
+    .signature-section {
+        margin: 15px 0;
+    }
+    
+    .signature-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .signature-table td {
+        border: 1px solid black;
+        padding: 8px;
+        vertical-align: top;
+        font-size: 7px;
+        text-align: center;
+        height: 60px;
+    }
+    
+    .signature-line {
+        border-bottom: 1px solid black;
+        height: 25px;
+        margin: 10px 0 5px 0;
+    }
+    
+    .conforme {
+        text-align: center;
+        font-weight: bold;
+        margin: 15px 0;
+        font-size: 10px;
+    }
+    
+    .footer-note {
+        font-size: 6px;
+        text-align: center;
+        margin-top: 15px;
+    }
+    
+    .barcode-area {
+        height: 25px;
+        background: repeating-linear-gradient(
+            90deg,
+            black 0px,
+            black 1px,
+            transparent 1px,
+            transparent 3px
+        );
+        margin: 5px 0;
+    }
+    
+    @media print {
+        body {
+            margin: 0;
+            padding: 10px;
+        }
+        .form-container {
+            max-width: none;
+            margin: 0;
+            padding: 10px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="form-container">
+
+<!-- Header Section -->
+<div class="header-section">
+    <div class="header-left">
+        <strong>For BIR</strong><br>
+        <strong>BCS/</strong><br>
+        <strong>Use Only</strong><br>
+        Item:
+    </div>
+    
+    <div class="header-center">
+        <div style="font-weight: bold; font-size: 12px;">Republic of the Philippines</div>
+        <div style="font-weight: bold; font-size: 12px;">Department of Finance</div>
+        <div style="font-weight: bold; font-size: 12px;">Bureau of Internal Revenue</div>
+    </div>
+    
+    <div class="header-right">
+        2307.01/18ENCS<br>
+        <div class="barcode-area"></div>
+    </div>
+</div>
+
+<!-- Form Title Section -->
+<div class="form-title-section">
+    <div class="form-number-section">
+        <div style="font-size: 8px;">BIR Form No.</div>
+        <div class="form-number">2307</div>
+        <div class="form-date">January 2018 (ENCS)</div>
+    </div>
+    
+    <div class="certificate-title">
+        Certificate of Creditable Tax<br>
+        Withheld at Source
+    </div>
+</div>
+
+<!-- Instructions -->
+<div class="instructions">
+    Fill in all applicable spaces. Mark all appropriate boxes with an "X".
+</div>
+
+<!-- Period Section -->
+<table class="section-table">
+    <tr>
+        <td style="width: 3%; font-weight: bold;">1</td>
+        <td style="width: 12%; font-weight: bold;">For the Period</td>
+        <td style="width: 6%; font-weight: bold;">From</td>
+        <td style="width: 25%;">
+            <span style="font-size: 7px;">(MM/DD/YYYY)</span><br>
+            {{ doc.posting_date.strftime("%m/%d/%Y") if doc.posting_date else "" }}
+        </td>
+        <td style="width: 4%; font-weight: bold;">To</td>
+        <td style="width: 25%;">
+            <span style="font-size: 7px;">(MM/DD/YYYY)</span><br>
+            {{ doc.posting_date.strftime("%m/%d/%Y") if doc.posting_date else "" }}
+        </td>
+        <td style="width: 25%; text-align: right; font-size: 8px;">
+            {% if doc.posting_date %}
+                {% set quarter = ((doc.posting_date.month - 1) // 3) + 1 %}
+                Q{{ quarter }} {{ doc.posting_date.year }}
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+<!-- Part I - Payee Information -->
+<div class="section-header">Part I – Payee Information</div>
+
+<table class="section-table">
+    <tr>
+        <td style="width: 3%; font-weight: bold;">2</td>
+        <td style="width: 32%; font-weight: bold;">Taxpayer Identification Number (TIN)</td>
+        <td style="width: 65%;">
+            <div class="tin-boxes">
+                {% set payee_tin = (doc.payee_tin or "").replace("-", "").replace(" ", "") %}
+                {% for i in range(12) %}
+                    <div class="tin-box">{{ payee_tin[i] if i < payee_tin|length else '' }}</div>
+                    {% if i == 2 or i == 5 or i == 8 %}
+                        <span class="tin-separator">-</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-weight: bold;">3</td>
+        <td colspan="2">
+            <div class="field-label">Payee's Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)</div>
+            <div style="margin-top: 4px; font-size: 10px;">{{ doc.customer or "" }}</div>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-weight: bold;">4</td>
+        <td style="font-weight: bold; width: 60%;">Registered Address</td>
+        <td style="width: 37%;">{{ doc.customer_address or "" }}</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td></td>
+        <td>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span></span>
+                <div style="text-align: right;">
+                    <span class="field-label">4A. ZIP Code</span>
+                    <div style="display: inline-flex; gap: 1px; margin-left: 10px;">
+                        {% for i in range(4) %}
+                            <div class="tin-box" style="width: 15px; height: 15px; line-height: 13px;"></div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-weight: bold;">5</td>
+        <td colspan="2">
+            <div class="field-label">Foreign Address, if applicable</div>
+            <div style="height: 20px; margin-top: 4px;"></div>
+        </td>
+    </tr>
+</table>
+
+<!-- Part II - Payor Information -->
+<div class="section-header">Part II – Payor Information</div>
+
+<table class="section-table">
+    <tr>
+        <td style="width: 3%; font-weight: bold;">6</td>
+        <td style="width: 32%; font-weight: bold;">Taxpayer Identification Number (TIN)</td>
+        <td style="width: 65%;">
+            <div class="tin-boxes">
+                {% set payor_tin = (doc.payor_tin or "").replace("-", "").replace(" ", "") %}
+                {% for i in range(12) %}
+                    <div class="tin-box">{{ payor_tin[i] if i < payor_tin|length else '' }}</div>
+                    {% if i == 2 or i == 5 or i == 8 %}
+                        <span class="tin-separator">-</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-weight: bold;">7</td>
+        <td colspan="2">
+            <div class="field-label">Payor's Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)</div>
+            <div style="margin-top: 4px; font-size: 10px;">{{ doc.company or "" }}</div>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-weight: bold;">8</td>
+        <td style="font-weight: bold; width: 60%;">Registered Address</td>
+        <td style="width: 37%;">{{ doc.company_address or "" }}</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td></td>
+        <td>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span></span>
+                <div style="text-align: right;">
+                    <span class="field-label">8A. ZIP Code</span>
+                    <div style="display: inline-flex; gap: 1px; margin-left: 10px;">
+                        {% for i in range(4) %}
+                            <div class="tin-box" style="width: 15px; height: 15px; line-height: 13px;"></div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </td>
+    </tr>
+</table>
+
+<!-- Part III - Details of Monthly Income Payments and Taxes Withheld -->
+<div class="section-header">Part III – Details of Monthly Income Payments and Taxes Withheld</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th rowspan="2" style="width: 28%;">Income Payments Subject to<br>Expanded Withholding Tax</th>
+            <th rowspan="2" style="width: 8%;">ATC</th>
+            <th colspan="3" style="width: 42%;">AMOUNT OF INCOME PAYMENTS</th>
+            <th rowspan="2" style="width: 12%;">Total</th>
+            <th rowspan="2" style="width: 10%;">Tax Withheld for the<br>Quarter</th>
+        </tr>
+        <tr>
+            <th style="width: 14%;">1st Month of the<br>Quarter</th>
+            <th style="width: 14%;">2nd Month of the<br>Quarter</th>
+            <th style="width: 14%;">3rd Month of the<br>Quarter</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% set withholding_taxes = [] %}
+        {% for tax in doc.taxes %}
+            {% if tax.is_withholding_tax %}
+                {% set _ = withholding_taxes.append(tax) %}
+            {% endif %}
+        {% endfor %}
+        
+        {% for tax in withholding_taxes %}
+        <tr>
+            <td class="text-left">{{ tax.nature_of_income or tax.description }}</td>
+            <td>{{ tax.atc_code or "" }}</td>
+            <td class="amount-cell">{{ "₱{:,.2f}".format(tax.base_amount or doc.net_total) }}</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">{{ "₱{:,.2f}".format(tax.base_amount or doc.net_total) }}</td>
+            <td class="amount-cell">{{ "₱{:,.2f}".format(abs(tax.tax_amount or 0)) }}</td>
+        </tr>
+        {% endfor %}
+        
+        <!-- Empty rows to fill the table -->
+        {% for i in range(8 - withholding_taxes|length) %}
+        <tr>
+            <td style="height: 20px;">&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+        {% endfor %}
+        
+        <!-- Total Row for Expanded Withholding Tax -->
+        <tr class="total-row">
+            <td colspan="2" class="text-right">Total</td>
+            <td class="amount-cell">{{ "₱{:,.2f}".format(doc.net_total) }}</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">{{ "₱{:,.2f}".format(doc.net_total) }}</td>
+            <td class="amount-cell">{{ "₱{:,.2f}".format(sum([abs(tax.tax_amount or 0) for tax in withholding_taxes])) }}</td>
+        </tr>
+        
+        <!-- Business Tax Section Header -->
+        <tr>
+            <td class="text-left" style="font-weight: bold; background-color: #f0f0f0;">Money Payments Subject to Withholding of<br>Business Tax (Government & Private)</td>
+            <td style="background-color: #f0f0f0;">&nbsp;</td>
+            <td style="background-color: #f0f0f0;">&nbsp;</td>
+            <td style="background-color: #f0f0f0;">&nbsp;</td>
+            <td style="background-color: #f0f0f0;">&nbsp;</td>
+            <td style="background-color: #f0f0f0;">&nbsp;</td>
+            <td style="background-color: #f0f0f0;">&nbsp;</td>
+        </tr>
+        
+        <!-- Empty rows for Business Tax -->
+        {% for i in range(5) %}
+        <tr>
+            <td style="height: 20px;">&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+        {% endfor %}
+        
+        <!-- Total Row for Business Tax -->
+        <tr class="total-row">
+            <td colspan="2" class="text-right">Total</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">-</td>
+            <td class="amount-cell">-</td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- Certification Text -->
+<div class="certification-text">
+    We declare under the penalties of perjury that this certificate has been made in good faith, verified by us, and to the best of our knowledge and belief, is true and correct, pursuant to the provisions of the National Internal Revenue Code, as amended, and the regulations issued under authority thereof. Further, we give our consent to the processing of our information as contemplated under the *Data Privacy Act of 2012 (R.A. No. 10173) for legitimate and lawful purposes.
+</div>
+
+<!-- Signature Section -->
+<div class="signature-section">
+    <table class="signature-table">
+        <tr>
+            <td style="width: 20%;">
+                <div style="font-weight: bold; margin-bottom: 8px;">Tax Agent Accreditation No./<br>Attorney's Roll No. (if applicable)</div>
+                <div class="signature-line"></div>
+            </td>
+            <td style="width: 40%;">
+                <div style="font-weight: bold; margin-bottom: 8px;">Signature over Printed Name of Payor/Payor's Authorized Representative/Tax Agent</div>
+                <div style="font-weight: bold; margin-bottom: 8px;">(Indicate Title/Designation and TIN)</div>
+                <div class="signature-line"></div>
+            </td>
+            <td style="width: 20%;">
+                <div style="font-weight: bold; margin-bottom: 4px;">Date of Issue</div>
+                <div style="font-size: 6px; margin-bottom: 4px;">(MM/DD/YYYY)</div>
+                <div style="font-size: 9px;">{{ doc.posting_date.strftime("%m/%d/%Y") if doc.posting_date else "" }}</div>
+            </td>
+            <td style="width: 20%;">
+                <div style="font-weight: bold; margin-bottom: 4px;">Date of Expiry</div>
+                <div style="font-size: 6px; margin-bottom: 4px;">(MM/DD/YYYY)</div>
+                <div style="height: 20px;"></div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Conforme Section -->
+<div class="conforme">CONFORME:</div>
+
+<div class="signature-section">
+    <table class="signature-table">
+        <tr>
+            <td style="width: 20%;">
+                <div style="font-weight: bold; margin-bottom: 8px;">Tax Agent Accreditation No./<br>Attorney's Roll No. (if applicable)</div>
+                <div class="signature-line"></div>
+            </td>
+            <td style="width: 40%;">
+                <div style="font-weight: bold; margin-bottom: 8px;">Signature over Printed Name of Payee/Payee's Authorized Representative/Tax Agent</div>
+                <div style="font-weight: bold; margin-bottom: 8px;">(Indicate Title/Designation and TIN)</div>
+                <div class="signature-line"></div>
+            </td>
+            <td style="width: 20%;">
+                <div style="font-weight: bold; margin-bottom: 4px;">Date of Issue</div>
+                <div style="font-size: 6px; margin-bottom: 4px;">(MM/DD/YYYY)</div>
+                <div style="height: 20px;"></div>
+            </td>
+            <td style="width: 20%;">
+                <div style="font-weight: bold; margin-bottom: 4px;">Date of Expiry</div>
+                <div style="font-size: 6px; margin-bottom: 4px;">(MM/DD/YYYY)</div>
+                <div style="height: 20px;"></div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Footer Note -->
+<div class="footer-note">
+    *NOTE: The BIR Data Privacy is in the BIR website (www.bir.gov.ph)
+</div>
+
+</div>
+
+</body>
+</html>

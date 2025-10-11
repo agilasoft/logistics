@@ -1,9 +1,56 @@
 # Copyright (c) 2025, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
 from frappe.model.document import Document
+from frappe.utils import flt
+from logistics.warehousing.api_parts.billing_methods import get_billing_quantity
 
 
 class VASOrderCharges(Document):
-	pass
+	def before_save(self):
+		"""Automatically compute billing quantities based on billing method"""
+		self._compute_billing_quantities()
+	
+	def _compute_billing_quantities(self):
+		"""Compute billing quantities for VAS operations only"""
+		if not self.billing_method or not self.parent:
+			return
+		
+		try:
+			# Get parent document context
+			parent_doc = frappe.get_doc(self.parenttype, self.parent)
+			context = "vas"  # VAS orders are always VAS context
+			
+			# Get billing quantity based on method
+			billing_quantity = get_billing_quantity(
+				context=context,
+				billing_method=self.billing_method,
+				reference_doc=self.parent,
+				date_from=getattr(parent_doc, 'date_from', None),
+				date_to=getattr(parent_doc, 'date_to', None)
+			)
+			
+			if billing_quantity > 0:
+				# Update quantity
+				self.quantity = billing_quantity
+				
+				# Update method-specific quantities for VAS operations
+				if self.billing_method == "Per Volume":
+					self.volume_quantity = billing_quantity
+					self.volume_uom = self.volume_uom or "CBM"
+				elif self.billing_method == "Per Weight":
+					self.weight_quantity = billing_quantity
+					self.weight_uom = self.weight_uom or "Kg"
+				elif self.billing_method == "Per Piece":
+					self.piece_quantity = billing_quantity
+					self.piece_uom = self.piece_uom or "Nos"
+				elif self.billing_method == "Per Hour":
+					self.hour_quantity = billing_quantity
+					self.hour_uom = self.hour_uom or "Hours"
+				
+				# Recalculate total
+				self.total = flt(self.quantity) * flt(self.rate or 0)
+				
+		except Exception as e:
+			frappe.log_error(f"Error computing VAS billing quantities for {self.name}: {str(e)}")

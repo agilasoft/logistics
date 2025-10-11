@@ -1,0 +1,704 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title or "Stock Balance" }}{% endblock %}
+
+{% block page_content %}
+{% if error_message %}
+<div class="error-container">
+    <h1>Stock Balance</h1>
+    <p class="error-message">{{ error_message }}</p>
+</div>
+{% else %}
+<!-- Debug: Starting stock balance display -->
+<!-- Debug: customer_name = {{ customer_name }} -->
+<!-- Debug: total_items = {{ total_items }} -->
+<!-- Debug: stock_balance length = {{ stock_balance|length if stock_balance else 'None' }} -->
+<!-- Debug: available_items length = {{ available_items|length if available_items else 'None' }} -->
+<!-- Debug: available_branches length = {{ available_branches|length if available_branches else 'None' }} -->
+<div class="stock-balance-container">
+    <!-- Header Section -->
+    <div class="stock-balance-header">
+        <div class="header-main">
+            <div class="header-left">
+                <a href="/warehousing-portal" class="section-label">Warehousing Portal</a>
+                <h1 class="portal-title">Stock Balance Report</h1>
+                <p class="portal-subtitle">View your inventory and stock levels</p>
+            </div>
+            <div class="header-customer">
+                <div class="customer-name">{{ customer_name or "Customer" }}</div>
+            </div>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-number">{{ total_items or 0 }}</div>
+                        <div class="stat-label">Total Items</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-number">{{ total_quantity or 0 }}</div>
+                        <div class="stat-label">Total Quantity</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-number">{{ expiring_items_count or 0 }}</div>
+                        <div class="stat-label">Expired Items</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-number">{{ handling_units_count or 0 }}</div>
+                        <div class="stat-label">Handling Units</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Balance Table Section -->
+    <div class="stock-section">
+        <div class="section-header">
+            <div class="filters-section">
+                <form method="GET" class="filters-form" id="filters-form">
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label for="date_from">From Date</label>
+                            <input type="date" id="date_from" name="date_from" value="{{ date_from or '' }}" class="filter-input">
+                        </div>
+                        <div class="filter-group">
+                            <label for="date_to">To Date</label>
+                            <input type="date" id="date_to" name="date_to" value="{{ date_to or '' }}" class="filter-input">
+                        </div>
+                        <div class="filter-group">
+                            <label for="item_code">Item</label>
+                            <select id="item_code" name="item_code" class="filter-input">
+                                <option value="">All Items</option>
+                                {% for item in available_items %}
+                                <option value="{{ item.name }}" {% if item.name == (item_code or '') %}selected{% endif %}>
+                                    {{ item.item_name or item.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="branch">Branch</label>
+                            <select id="branch" name="branch" class="filter-input">
+                                <option value="">All Branches</option>
+                                <!-- Debug: available_branches count: {{ available_branches|length }} -->
+                                {% for br in available_branches %}
+                                <option value="{{ br.warehouse_name or br.name }}" {% if (branch or '') == (br.warehouse_name or br.name) %}selected{% endif %}>
+                                    {{ br.warehouse_name or br.name }}
+                                </option>
+                                {% endfor %}
+                                <!-- Debug: End of branch loop -->
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="section-actions">
+                <button type="submit" form="filters-form" class="btn btn-outline">
+                    <i class="fa fa-search"></i>
+                    Search
+                </button>
+                <button type="button" class="btn btn-outline" onclick="clearFilters()">
+                    <i class="fa fa-times"></i>
+                    Clear
+                </button>
+                <button type="button" class="btn btn-outline" onclick="exportData()">
+                    <i class="fa fa-download"></i>
+                    Export
+                </button>
+            </div>
+        </div>
+        
+        <div class="stock-table-container">
+            {% if stock_balance %}
+            <table class="stock-balance-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Branch</th>
+                        <th>Beginning</th>
+                        <th>In</th>
+                        <th>Out</th>
+                        <th>Ending</th>
+                        <th>Last Transaction</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stock_balance %}
+                    <tr>
+                        <td>
+                            <div class="item-info">
+                                <div class="item-code">{{ item.item_code }}</div>
+                                <div class="item-name">{{ item.item_name or "N/A" }}</div>
+                            </div>
+                        </td>
+                        <td class="branch-cell">{{ item.branch or "N/A" }}</td>
+                        <td class="quantity-cell">{{ item.beg_qty or 0 }}</td>
+                        <td class="quantity-cell in-qty">{{ item.in_qty or 0 }}</td>
+                        <td class="quantity-cell out-qty">{{ item.out_qty or 0 }}</td>
+                        <td class="quantity-cell ending-qty">{{ item.qty or 0 }}</td>
+                        <td class="date-cell">{{ item.last_transaction_date or "N/A" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <div class="no-stock">
+                    <i class="fa fa-inbox"></i>
+                    <h3>No Stock Balance Found</h3>
+                    <p>No stock balance entries found for the selected filters.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function clearFilters() {
+    document.getElementById('date_from').value = '';
+    document.getElementById('date_to').value = '';
+    document.getElementById('item_code').value = '';
+    document.getElementById('warehouse').value = '';
+}
+
+function exportData() {
+    // Simple CSV export functionality
+    const table = document.querySelector('.stock-balance-table');
+    if (!table) return;
+    
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = [], cols = rows[i].querySelectorAll('td, th');
+        
+        for (let j = 0; j < cols.length; j++) {
+            row.push(cols[j].innerText);
+        }
+        csv.push(row.join(','));
+    }
+    
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stock_balance.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+</script>
+
+<style>
+/* Hide built-in page title */
+.page-title {
+    display: none !important;
+}
+
+.page-header {
+    display: none !important;
+}
+
+/* Error Container */
+.error-container {
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 30px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.error-container h1 {
+    color: #dc3545;
+    margin-bottom: 15px;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.error-message {
+    color: #6c757d;
+    font-size: 16px;
+    margin: 0;
+}
+
+/* Main Container */
+.stock-balance-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Header Section */
+.stock-balance-header {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.header-main {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 8px;
+}
+
+.header-left h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #000;
+    margin: 0 0 4px 0;
+}
+
+.header-left p {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+.section-label {
+    font-size: 10px;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: -2px;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.section-label:hover {
+    color: #007bff;
+    text-decoration: underline;
+}
+
+.header-customer {
+    display: flex;
+    align-items: center;
+}
+
+.customer-name {
+    font-size: 28px;
+    font-weight: 700;
+    color: #007bff;
+    margin: 0;
+}
+
+/* Filters Section */
+.filters-section {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    align-items: end;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    color: #6c757d;
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.filter-input {
+    background: white;
+    border: 1px solid #ced4da;
+    color: #495057;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 13px;
+    height: 32px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+}
+
+.filter-input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+    border-color: #545b62;
+}
+
+.btn-outline {
+    background: transparent;
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline:hover {
+    background: #6c757d;
+    color: white;
+}
+
+/* Statistics Section */
+.stats-section {
+    margin-bottom: 10px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
+
+.stat-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.stat-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+.stat-content {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 16px;
+    font-weight: 600;
+    color: #007bff;
+    margin-bottom: 1px;
+}
+
+.stat-label {
+    font-size: 10px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Stock Section */
+.stock-section {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.section-header h2 {
+    font-size: 16px;
+    margin: 0;
+    color: #495057;
+    font-weight: 600;
+}
+
+.section-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+/* Stock Balance Table */
+.stock-table-container {
+    overflow-x: auto;
+}
+
+.stock-balance-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.stock-balance-table th {
+    background: #f8f9fa;
+    padding: 8px 10px;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.stock-balance-table th:nth-child(1),
+.stock-balance-table th:nth-child(2) {
+    text-align: left;
+}
+
+.stock-balance-table th:nth-child(3),
+.stock-balance-table th:nth-child(4),
+.stock-balance-table th:nth-child(5),
+.stock-balance-table th:nth-child(6) {
+    text-align: right;
+}
+
+.stock-balance-table th:nth-child(7) {
+    text-align: left;
+}
+
+.stock-balance-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f3f4;
+    vertical-align: top;
+}
+
+.stock-balance-table td:nth-child(1),
+.stock-balance-table td:nth-child(2) {
+    text-align: left;
+}
+
+.stock-balance-table td:nth-child(3),
+.stock-balance-table td:nth-child(4),
+.stock-balance-table td:nth-child(5),
+.stock-balance-table td:nth-child(6) {
+    text-align: right;
+}
+
+.stock-balance-table td:nth-child(7) {
+    text-align: left;
+}
+
+.stock-balance-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+.item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.item-code {
+    font-weight: 600;
+    color: #495057;
+    font-size: 13px;
+}
+
+.item-name {
+    color: #6c757d;
+    font-size: 12px;
+}
+
+.branch-cell {
+    font-weight: 500;
+    color: #007bff;
+    font-size: 12px;
+}
+
+.quantity-cell {
+    text-align: right;
+    font-weight: 500;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+
+.in-qty {
+    color: #28a745;
+}
+
+.out-qty {
+    color: #dc3545;
+}
+
+.ending-qty {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.date-cell {
+    color: #6c757d;
+    font-size: 12px;
+}
+
+/* No Stock State */
+.no-stock {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.no-stock i {
+    font-size: 48px;
+    color: #007bff;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.no-stock h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: #495057;
+}
+
+.no-stock p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .stock-balance-container {
+        padding: 10px;
+    }
+    
+    .header-main {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .header-details {
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .filters-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .filters-section {
+        padding: 10px;
+    }
+    
+    .section-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .stock-balance-table {
+        font-size: 12px;
+    }
+    
+    .stock-balance-table th,
+    .stock-balance-table td {
+        padding: 8px 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stock-balance-container {
+        padding: 5px;
+    }
+    
+    .stock-balance-header {
+        padding: 12px;
+    }
+    
+    .header-details {
+        gap: 8px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    .section-label {
+        font-size: 9px;
+    }
+    
+    .stock-balance-table th,
+    .stock-balance-table td {
+        padding: 6px 8px;
+    }
+}
+</style>
+{% endblock %}

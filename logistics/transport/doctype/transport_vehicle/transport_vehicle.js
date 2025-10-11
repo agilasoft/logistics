@@ -66,6 +66,25 @@ frappe.ui.form.on("Transport Vehicle", {
 			}, __("Telematics"));
 		}
 		
+		// Add button to fetch CAN data specifically
+		if (frm.doc.telematics_external_id) {
+			frm.add_custom_button(__("Get CAN Data"), function() {
+				frm.call({
+					method: "get_can_data",
+					doc: frm.doc,
+					callback: function(r) {
+						if (r.message) {
+							// Show CAN data details in a dialog
+							show_can_data_details(r.message);
+						}
+						frm.reload_doc();
+					},
+					freeze: true,
+					freeze_message: __("Fetching CAN data...")
+				});
+			}, __("Telematics"));
+		}
+		
 		// Add button to get all device IDs
 		frm.add_custom_button(__("Get All Device IDs"), function() {
 			frappe.call({
@@ -79,8 +98,61 @@ frappe.ui.form.on("Transport Vehicle", {
 				freeze_message: __("Retrieving all device IDs...")
 			});
 		}, __("Telematics"));
+		
+		// Add button to debug CAN data specifically
+		if (frm.doc.telematics_external_id) {
+			frm.add_custom_button(__("Debug CAN Data"), function() {
+				frappe.call({
+					method: "logistics.transport.api_telematics_debug.debug_can_data",
+					args: {
+						vehicle_name: frm.doc.name
+					},
+					callback: function(r) {
+						if (r.message) {
+							show_can_debug_info(r.message);
+						}
+					},
+					freeze: true,
+					freeze_message: __("Debugging CAN data...")
+				});
+			}, __("Telematics"));
+		}
 	}
 });
+
+// Function to show CAN data details in a dialog
+function show_can_data_details(can_data) {
+	let content = `
+		<div style="padding: 20px;">
+			<h4>CAN Data Details</h4>
+			<table class="table table-bordered">
+				<tr><td><strong>Timestamp:</strong></td><td>${can_data.timestamp || 'N/A'}</td></tr>
+				<tr><td><strong>Fuel Level:</strong></td><td>${can_data.fuel_level || 'N/A'}%</td></tr>
+				<tr><td><strong>RPM:</strong></td><td>${can_data.rpm || 'N/A'}</td></tr>
+				<tr><td><strong>Engine Hours:</strong></td><td>${can_data.engine_hours || 'N/A'}</td></tr>
+				<tr><td><strong>Coolant Temperature:</strong></td><td>${can_data.coolant_temp || 'N/A'}°C</td></tr>
+				<tr><td><strong>Ambient Temperature:</strong></td><td>${can_data.ambient_temp || 'N/A'}°C</td></tr>
+			</table>
+		</div>
+	`;
+	
+	let d = new frappe.ui.Dialog({
+		title: 'CAN Data Results',
+		fields: [
+			{
+				fieldtype: 'HTML',
+				fieldname: 'can_data_content',
+				options: content
+			}
+		],
+		primary_action_label: 'Close',
+		primary_action: function() {
+			d.hide();
+		}
+	});
+	
+	d.show();
+}
 
 function show_position_details(position_data) {
 	let dialog = new frappe.ui.Dialog({
@@ -158,7 +230,7 @@ function show_debug_info(debug_data) {
 			<h5>Available Positions:</h5>
 			<table class="table table-bordered">
 				<thead>
-					<tr><th>External ID</th><th>Device ID</th><th>Timestamp</th><th>Lat/Lon</th><th>Speed</th><th>Ignition</th></tr>
+					<tr><th>External ID</th><th>Device ID</th><th>Timestamp</th><th>Lat/Lon</th><th>Speed</th><th>Ignition</th><th>Odometer</th><th>Fuel</th></tr>
 				</thead>
 				<tbody>
 					${debug_data.available_positions.map(pos => `
@@ -169,6 +241,34 @@ function show_debug_info(debug_data) {
 							<td>${pos.latitude || 'N/A'}, ${pos.longitude || 'N/A'}</td>
 							<td>${pos.speed_kph || 'N/A'} km/h</td>
 							<td>${pos.ignition || 'N/A'}</td>
+							<td>${pos.odometer_km || 'N/A'} km</td>
+							<td>${pos.fuel_l || 'N/A'}</td>
+						</tr>
+					`).join('')}
+				</tbody>
+			</table>
+		`;
+	}
+	
+	let can_data_html = '';
+	if (debug_data.available_can_data && debug_data.available_can_data.length > 0) {
+		can_data_html = `
+			<h5>Available CAN Data:</h5>
+			<table class="table table-bordered">
+				<thead>
+					<tr><th>External ID</th><th>Device ID</th><th>Timestamp</th><th>Fuel Level</th><th>RPM</th><th>Engine Hours</th><th>Coolant Temp</th><th>Ambient Temp</th></tr>
+				</thead>
+				<tbody>
+					${debug_data.available_can_data.map(can => `
+						<tr>
+							<td>${can.external_id || 'N/A'}</td>
+							<td>${can.device_id || 'N/A'}</td>
+							<td>${can.timestamp || 'N/A'}</td>
+							<td>${can.fuel_l || 'N/A'}</td>
+							<td>${can.rpm || 'N/A'}</td>
+							<td>${can.engine_hours || 'N/A'}</td>
+							<td>${can.coolant_c || 'N/A'}°C</td>
+							<td>${can.ambient_c || 'N/A'}°C</td>
 						</tr>
 					`).join('')}
 				</tbody>
@@ -273,6 +373,38 @@ function show_debug_info(debug_data) {
 								</div>
 								<h6>Raw Error Response:</h6>
 								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(positions, null, 2)}</pre>
+							`}
+						</div>
+					</div>
+				</div>
+			`;
+		}
+		
+		// CAN Data Response
+		if (debug_data.api_responses.can_data_response) {
+			const can_data = debug_data.api_responses.can_data_response;
+			api_responses_html += `
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h6 class="panel-title">
+							<a data-toggle="collapse" href="#can-data-response">
+								CAN Data Response ${can_data.success ? '✅' : '❌'} (${can_data.count || 0} CAN records)
+							</a>
+						</h6>
+					</div>
+					<div id="can-data-response" class="panel-collapse collapse">
+						<div class="panel-body">
+							${can_data.success ? `
+								<h6>Raw API Response (${can_data.count || 0} CAN records):</h6>
+								<pre style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(can_data.raw_response || can_data.data || can_data, null, 2)}</pre>
+							` : `
+								<h6>API Error:</h6>
+								<div class="alert alert-danger">
+									<strong>Error Type:</strong> ${can_data.error_type || 'Unknown'}<br>
+									<strong>Error Message:</strong> ${can_data.error || 'No error message available'}
+								</div>
+								<h6>Raw Error Response:</h6>
+								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(can_data, null, 2)}</pre>
 							`}
 						</div>
 					</div>
@@ -387,6 +519,7 @@ function show_debug_info(debug_data) {
 						
 						${devices_html}
 						${positions_html}
+						${can_data_html}
 						${api_responses_html}
 						${errors_html}
 						
@@ -512,6 +645,151 @@ function show_all_devices(data) {
 								<li>Update your vehicle's "Telematics External ID" field with this Device ID</li>
 								<li>Make sure the Provider matches your vehicle's telematics provider</li>
 							</ol>
+						</div>
+					</div>
+				`
+			}
+		]
+	});
+	
+	dialog.show();
+}
+
+function show_can_debug_info(debug_data) {
+	let can_data_html = '';
+	
+	if (debug_data.can_data_for_vehicle && debug_data.can_data_for_vehicle.length > 0) {
+		can_data_html = `
+			<h5>CAN Data for This Vehicle (${debug_data.can_data_for_vehicle.length} records):</h5>
+			<table class="table table-bordered table-striped">
+				<thead>
+					<tr>
+						<th>Device ID</th>
+						<th>Timestamp</th>
+						<th>Fuel Level</th>
+						<th>RPM</th>
+						<th>Engine Hours</th>
+						<th>Coolant Temp</th>
+						<th>Ambient Temp</th>
+					</tr>
+				</thead>
+				<tbody>
+					${debug_data.can_data_for_vehicle.map(can => `
+						<tr>
+							<td><strong>${can.device_id}</strong></td>
+							<td>${can.timestamp || 'N/A'}</td>
+							<td>${can.fuel_l !== null && can.fuel_l !== undefined ? can.fuel_l : 'N/A'}</td>
+							<td>${can.rpm !== null && can.rpm !== undefined ? can.rpm : 'N/A'}</td>
+							<td>${can.engine_hours !== null && can.engine_hours !== undefined ? can.engine_hours : 'N/A'}</td>
+							<td>${can.coolant_c !== null && can.coolant_c !== undefined ? can.coolant_c + '°C' : 'N/A'}</td>
+							<td>${can.ambient_c !== null && can.ambient_c !== undefined ? can.ambient_c + '°C' : 'N/A'}</td>
+						</tr>
+					`).join('')}
+				</tbody>
+			</table>
+		`;
+	} else {
+		can_data_html = `
+			<div class="alert alert-warning">
+				<strong>No CAN data found for this vehicle.</strong>
+				<p>This could mean:</p>
+				<ul>
+					<li>The device ID doesn't match any CAN data records</li>
+					<li>No CAN data is available from the telematics provider</li>
+					<li>The device doesn't support CAN data transmission</li>
+				</ul>
+			</div>
+		`;
+	}
+	
+	let all_can_data_html = '';
+	if (debug_data.all_can_data && debug_data.all_can_data.length > 0) {
+		all_can_data_html = `
+			<h5>All Available CAN Data (${debug_data.all_can_data.length} total records):</h5>
+			<table class="table table-bordered">
+				<thead>
+					<tr>
+						<th>Device ID</th>
+						<th>Timestamp</th>
+						<th>Fuel Level</th>
+						<th>RPM</th>
+						<th>Engine Hours</th>
+						<th>Raw Keys</th>
+					</tr>
+				</thead>
+				<tbody>
+					${debug_data.all_can_data.map(can => `
+						<tr>
+							<td>${can.device_id}</td>
+							<td>${can.timestamp || 'N/A'}</td>
+							<td>${can.fuel_l !== null && can.fuel_l !== undefined ? can.fuel_l : 'N/A'}</td>
+							<td>${can.rpm !== null && can.rpm !== undefined ? can.rpm : 'N/A'}</td>
+							<td>${can.engine_hours !== null && can.engine_hours !== undefined ? can.engine_hours : 'N/A'}</td>
+							<td>${can.raw_keys ? can.raw_keys.join(', ') : 'N/A'}</td>
+						</tr>
+					`).join('')}
+				</tbody>
+			</table>
+		`;
+	}
+	
+	let errors_html = '';
+	if (debug_data.errors && debug_data.errors.length > 0) {
+		errors_html = `
+			<h5>Errors:</h5>
+			<div class="alert alert-danger">
+				${debug_data.errors.map(error => `<div>${error}</div>`).join('')}
+			</div>
+		`;
+	}
+	
+	let dialog = new frappe.ui.Dialog({
+		title: __("CAN Data Debug Information"),
+		fields: [
+			{
+				fieldtype: "HTML",
+				fieldname: "can_debug_info",
+				options: `
+					<div style="padding: 20px;">
+						<h4>CAN Data Debug Information</h4>
+						<table class="table table-bordered">
+							<tr>
+								<td><strong>Vehicle:</strong></td>
+								<td>${debug_data.vehicle_name || 'N/A'}</td>
+							</tr>
+							<tr>
+								<td><strong>External ID:</strong></td>
+								<td>${debug_data.telematics_external_id || 'N/A'}</td>
+							</tr>
+							<tr>
+								<td><strong>Provider:</strong></td>
+								<td>${debug_data.telematics_provider || 'N/A'}</td>
+							</tr>
+							<tr>
+								<td><strong>Provider Enabled:</strong></td>
+								<td>${debug_data.provider_enabled ? 'Yes' : 'No'}</td>
+							</tr>
+							<tr>
+								<td><strong>CAN Data Available:</strong></td>
+								<td>${debug_data.can_data_available ? 'Yes' : 'No'}</td>
+							</tr>
+							<tr>
+								<td><strong>Total CAN Records:</strong></td>
+								<td>${debug_data.can_data_count || 0}</td>
+							</tr>
+							<tr>
+								<td><strong>Records for This Vehicle:</strong></td>
+								<td>${debug_data.can_data_for_vehicle ? debug_data.can_data_for_vehicle.length : 0}</td>
+							</tr>
+						</table>
+						
+						${can_data_html}
+						${all_can_data_html}
+						${errors_html}
+						
+						<div class="alert alert-info">
+							<strong>Debug Information:</strong> This shows CAN data specifically for debugging purposes.
+							Make sure the External ID matches one of the Device IDs in the "All Available CAN Data" table above.
 						</div>
 					</div>
 				`

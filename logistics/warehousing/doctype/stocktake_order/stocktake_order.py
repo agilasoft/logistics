@@ -258,7 +258,7 @@ def make_warehouse_job(source_name: str, target_doc=None):
             if hasattr(tgt_row, fld) and hasattr(src_row, fld):
                 setattr(tgt_row, fld, getattr(src_row, fld))
 
-    return get_mapped_doc(
+    doc = get_mapped_doc(
         "Stocktake Order",
         source_name,
         {
@@ -267,6 +267,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
                 "field_map": {
                     "name": "reference_order",
                 },
+                "field_no_map": [
+                    "naming_series"
+                ]
             },
             "Stocktake Order Item": {
                 "doctype": "Warehouse Job Order Items",
@@ -280,3 +283,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target_doc,
         set_missing_values,
     )
+    
+    # Save the job before returning
+    doc.save()
+    frappe.db.commit()
+    
+    return doc

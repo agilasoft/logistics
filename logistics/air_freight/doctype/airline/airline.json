@@ -6,24 +6,34 @@
  "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
-  "codes_section",
-  "code",
-  "airline_name",
-  "logo",
-  "column_break_zmyd",
-  "airline_numeric_code",
-  "three_letter_numeric_code",
-  "two_character_code",
-  "memberships_section",
-  "memberships",
-  "other_details_section",
-  "short_name",
-  "address",
-  "efreight_tab",
-  "airline_codes_tab",
-  "notes_tab"
- ],
+  "field_order": [
+    "codes_section",
+    "code",
+    "airline_name",
+    "logo",
+    "column_break_zmyd",
+    "airline_numeric_code",
+    "three_letter_numeric_code",
+    "two_character_code",
+    "memberships_section",
+    "memberships",
+    "other_details_section",
+    "short_name",
+    "address",
+    "performance_section",
+    "airline_performance_score",
+    "on_time_performance",
+    "damage_rate",
+    "capacity_utilization",
+    "column_break_performance",
+    "preferred_carrier",
+    "carrier_contract_terms",
+    "fuel_surcharge_rate",
+    "security_surcharge",
+    "efreight_tab",
+    "airline_codes_tab",
+    "notes_tab"
+  ],
  "fields": [
   {
    "fieldname": "codes_section",
@@ -106,6 +116,59 @@
    "fieldname": "notes_tab",
    "fieldtype": "Tab Break",
    "label": "Notes"
+  },
+  {
+   "fieldname": "performance_section",
+   "fieldtype": "Section Break",
+   "label": "Performance & Operations"
+  },
+  {
+   "fieldname": "airline_performance_score",
+   "fieldtype": "Float",
+   "label": "Airline Performance Score",
+   "precision": 2
+  },
+  {
+   "fieldname": "on_time_performance",
+   "fieldtype": "Percent",
+   "label": "On-Time Performance %",
+   "precision": 2
+  },
+  {
+   "fieldname": "damage_rate",
+   "fieldtype": "Percent",
+   "label": "Damage Rate %",
+   "precision": 2
+  },
+  {
+   "fieldname": "capacity_utilization",
+   "fieldtype": "Percent",
+   "label": "Capacity Utilization %",
+   "precision": 2
+  },
+  {
+   "fieldname": "column_break_performance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "preferred_carrier",
+   "fieldtype": "Check",
+   "label": "Preferred Carrier"
+  },
+  {
+   "fieldname": "carrier_contract_terms",
+   "fieldtype": "Long Text",
+   "label": "Contract Terms"
+  },
+  {
+   "fieldname": "fuel_surcharge_rate",
+   "fieldtype": "Currency",
+   "label": "Fuel Surcharge Rate"
+  },
+  {
+   "fieldname": "security_surcharge",
+   "fieldtype": "Currency",
+   "label": "Security Surcharge"
   }
  ],
  "grid_page_length": 50,

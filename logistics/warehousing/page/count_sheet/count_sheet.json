@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2025-10-10 00:15:14.845552",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-10-10 00:15:14.845552",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "count-sheet",
+ "owner": "Administrator",
+ "page_name": "count-sheet",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 1,
+ "title": "Count Sheet"
+}

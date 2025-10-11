@@ -76,14 +76,18 @@
   {
    "fieldname": "pick_address",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Pick Address",
-   "options": "Address"
+   "options": "Address",
+   "permlevel": 1
   },
   {
    "fieldname": "drop_address",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Drop Address",
-   "options": "Address"
+   "options": "Address",
+   "permlevel": 1
   },
   {
    "fieldname": "pick_address_html",
@@ -109,7 +113,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-25 16:26:25.674352",
+ "modified": "2025-10-03 12:28:10.365272",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Legs",

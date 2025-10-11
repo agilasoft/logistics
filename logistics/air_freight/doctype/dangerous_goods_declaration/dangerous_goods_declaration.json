@@ -1,0 +1,186 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 10:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "air_shipment",
+  "column_break_job_info",
+  "shipper",
+  "consignee",
+  "origin_port",
+  "destination_port",
+  "section_break_emergency",
+  "emergency_contact",
+  "emergency_phone",
+  "emergency_email",
+  "section_break_packages",
+  "packages",
+  "section_break_declaration",
+  "declaration_date",
+  "declaration_status",
+  "declared_by",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Air Shipment",
+   "options": "Air Shipment"
+  },
+  {
+   "fieldname": "column_break_job_info",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Consignee"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Data",
+   "label": "Origin Port"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Data",
+   "label": "Destination Port"
+  },
+  {
+   "fieldname": "section_break_emergency",
+   "fieldtype": "Section Break",
+   "label": "Emergency Contact Information"
+  },
+  {
+   "fieldname": "emergency_contact",
+   "fieldtype": "Data",
+   "label": "Emergency Contact"
+  },
+  {
+   "fieldname": "emergency_phone",
+   "fieldtype": "Data",
+   "label": "Emergency Phone"
+  },
+  {
+   "fieldname": "emergency_email",
+   "fieldtype": "Data",
+   "label": "Emergency Email"
+  },
+  {
+   "fieldname": "section_break_packages",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods Packages"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "label": "Packages",
+   "options": "Dangerous Goods Declaration Packages"
+  },
+  {
+   "fieldname": "section_break_declaration",
+   "fieldtype": "Section Break",
+   "label": "Declaration Details"
+  },
+  {
+   "fieldname": "declaration_date",
+   "fieldtype": "Date",
+   "label": "Declaration Date"
+  },
+  {
+   "fieldname": "declaration_status",
+   "fieldtype": "Select",
+   "label": "Declaration Status",
+   "options": "\nDraft\nSubmitted\nApproved\nRejected"
+  },
+  {
+   "fieldname": "declared_by",
+   "fieldtype": "Data",
+   "label": "Declared By"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Long Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2025-01-27 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Dangerous Goods Declaration",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Air Freight User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "action": "Submit",
+   "doc_status": 0,
+   "is_optional_state": 0,
+   "next_state": "Submitted",
+   "state": "Draft"
+  },
+  {
+   "action": "Cancel",
+   "doc_status": 1,
+   "is_optional_state": 0,
+   "next_state": "Cancelled",
+   "state": "Submitted"
+  },
+  {
+   "action": "Approve",
+   "doc_status": 1,
+   "is_optional_state": 0,
+   "next_state": "Approved",
+   "state": "Submitted"
+  },
+  {
+   "action": "Reject",
+   "doc_status": 1,
+   "is_optional_state": 0,
+   "next_state": "Rejected",
+   "state": "Submitted"
+  }
+ ]
+}

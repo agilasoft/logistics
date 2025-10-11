@@ -1,0 +1,267 @@
+{
+ "actions": [],
+ "creation": "2025-10-01 00:00:00.000000",
+ "default_view": "Form",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "general_section",
+  "default_provider",
+  "enable_auto_fallback",
+  "cache_duration_hours",
+  "sync_frequency",
+  "enable_realtime_tracking",
+  "column_break_1",
+  "max_api_calls_per_hour",
+  "data_retention_days",
+  "opensky_section",
+  "opensky_enabled",
+  "opensky_username",
+  "opensky_password",
+  "opensky_endpoint",
+  "column_break_2",
+  "aviationstack_section",
+  "aviationstack_enabled",
+  "aviationstack_api_key",
+  "aviationstack_endpoint",
+  "column_break_3",
+  "aviation_edge_section",
+  "aviation_edge_enabled",
+  "aviation_edge_api_key",
+  "aviation_edge_endpoint",
+  "column_break_4",
+  "flightaware_section",
+  "flightaware_enabled",
+  "flightaware_api_key",
+  "flightaware_endpoint",
+  "column_break_5",
+  "testing_section",
+  "test_mode",
+  "debug_logging",
+  "test_endpoint"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_section",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "default": "OpenSky Network",
+   "fieldname": "default_provider",
+   "fieldtype": "Select",
+   "label": "Default Provider",
+   "options": "OpenSky Network\nAviationStack\nAviation Edge\nFlightAware",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_auto_fallback",
+   "fieldtype": "Check",
+   "label": "Enable Auto Fallback"
+  },
+  {
+   "default": "6",
+   "fieldname": "cache_duration_hours",
+   "fieldtype": "Int",
+   "label": "Cache Duration (Hours)"
+  },
+  {
+   "default": "Hourly",
+   "fieldname": "sync_frequency",
+   "fieldtype": "Select",
+   "label": "Sync Frequency",
+   "options": "Manual\nHourly\nEvery 6 Hours\nDaily\nWeekly"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_realtime_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Real-time Tracking"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1000",
+   "fieldname": "max_api_calls_per_hour",
+   "fieldtype": "Int",
+   "label": "Max API Calls Per Hour"
+  },
+  {
+   "default": "90",
+   "fieldname": "data_retention_days",
+   "fieldtype": "Int",
+   "label": "Data Retention (Days)"
+  },
+  {
+   "fieldname": "opensky_section",
+   "fieldtype": "Section Break",
+   "label": "OpenSky Network (Free/Open Source)"
+  },
+  {
+   "default": "1",
+   "fieldname": "opensky_enabled",
+   "fieldtype": "Check",
+   "label": "Enable OpenSky Network"
+  },
+  {
+   "depends_on": "opensky_enabled",
+   "fieldname": "opensky_username",
+   "fieldtype": "Data",
+   "label": "OpenSky Username (Optional)"
+  },
+  {
+   "depends_on": "opensky_enabled",
+   "fieldname": "opensky_password",
+   "fieldtype": "Password",
+   "label": "OpenSky Password (Optional)"
+  },
+  {
+   "default": "https://opensky-network.org/api",
+   "depends_on": "opensky_enabled",
+   "fieldname": "opensky_endpoint",
+   "fieldtype": "Data",
+   "label": "OpenSky API Endpoint"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "aviationstack_section",
+   "fieldtype": "Section Break",
+   "label": "AviationStack API"
+  },
+  {
+   "default": "0",
+   "fieldname": "aviationstack_enabled",
+   "fieldtype": "Check",
+   "label": "Enable AviationStack"
+  },
+  {
+   "depends_on": "aviationstack_enabled",
+   "fieldname": "aviationstack_api_key",
+   "fieldtype": "Password",
+   "label": "AviationStack API Key"
+  },
+  {
+   "default": "http://api.aviationstack.com/v1",
+   "depends_on": "aviationstack_enabled",
+   "fieldname": "aviationstack_endpoint",
+   "fieldtype": "Data",
+   "label": "AviationStack Endpoint"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "aviation_edge_section",
+   "fieldtype": "Section Break",
+   "label": "Aviation Edge API"
+  },
+  {
+   "default": "0",
+   "fieldname": "aviation_edge_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Aviation Edge"
+  },
+  {
+   "depends_on": "aviation_edge_enabled",
+   "fieldname": "aviation_edge_api_key",
+   "fieldtype": "Password",
+   "label": "Aviation Edge API Key"
+  },
+  {
+   "default": "https://aviation-edge.com/v2/public",
+   "depends_on": "aviation_edge_enabled",
+   "fieldname": "aviation_edge_endpoint",
+   "fieldtype": "Data",
+   "label": "Aviation Edge Endpoint"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "flightaware_section",
+   "fieldtype": "Section Break",
+   "label": "FlightAware AeroAPI (Premium)"
+  },
+  {
+   "default": "0",
+   "fieldname": "flightaware_enabled",
+   "fieldtype": "Check",
+   "label": "Enable FlightAware"
+  },
+  {
+   "depends_on": "flightaware_enabled",
+   "fieldname": "flightaware_api_key",
+   "fieldtype": "Password",
+   "label": "FlightAware API Key"
+  },
+  {
+   "default": "https://aeroapi.flightaware.com/aeroapi",
+   "depends_on": "flightaware_enabled",
+   "fieldname": "flightaware_endpoint",
+   "fieldtype": "Data",
+   "label": "FlightAware Endpoint"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "testing_section",
+   "fieldtype": "Section Break",
+   "label": "Testing & Debug"
+  },
+  {
+   "default": "0",
+   "fieldname": "test_mode",
+   "fieldtype": "Check",
+   "label": "Test Mode"
+  },
+  {
+   "default": "0",
+   "fieldname": "debug_logging",
+   "fieldtype": "Check",
+   "label": "Enable Debug Logging"
+  },
+  {
+   "depends_on": "test_mode",
+   "fieldname": "test_endpoint",
+   "fieldtype": "Data",
+   "label": "Test Endpoint URL"
+  }
+ ],
+ "icon": "fa fa-plane",
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Flight Schedule Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+
+

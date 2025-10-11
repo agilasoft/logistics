@@ -1,0 +1,271 @@
+/* Warehouse Dashboard Styles */
+
+.dashboard-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Enhanced handling unit cards */
+.handling-unit-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 4px solid #3498db;
+}
+
+.handling-unit-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.handling-unit-card.selected {
+    border-left-color: #e74c3c;
+    background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
+}
+
+/* Status indicators */
+.hu-status {
+    position: relative;
+    padding-left: 20px;
+}
+
+.hu-status::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.hu-status.available::before {
+    background: #27ae60;
+    box-shadow: 0 0 6px rgba(39, 174, 96, 0.5);
+}
+
+.hu-status.in-use::before {
+    background: #f39c12;
+    box-shadow: 0 0 6px rgba(243, 156, 18, 0.5);
+}
+
+.hu-status.under-maintenance::before {
+    background: #e74c3c;
+    box-shadow: 0 0 6px rgba(231, 76, 60, 0.5);
+}
+
+/* Warehouse map enhancements */
+.warehouse-map {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+}
+
+.map-location {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.map-location::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transition: left 0.5s;
+}
+
+.map-location:hover::before {
+    left: 100%;
+}
+
+.map-location.available {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: 2px solid #28a745;
+}
+
+.map-location.occupied {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    border: 2px solid #dc3545;
+}
+
+.map-location.partial {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border: 2px solid #ffc107;
+}
+
+.map-location.selected {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    transform: scale(1.1);
+    z-index: 10;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+}
+
+/* Statistics cards */
+.stat-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover::before {
+    top: -25%;
+    right: -25%;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Items list animations */
+.hu-items-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.hu-items-list.show {
+    max-height: 300px;
+}
+
+.hu-item {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Search functionality */
+.dashboard-search input {
+    background: white;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.dashboard-search input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    outline: none;
+}
+
+/* Loading states */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    color: #6c757d;
+}
+
+.loading::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid #e9ecef;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .dashboard-container {
+        grid-template-columns: 1fr;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .handling-units-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .map-location {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .section {
+        padding: 15px;
+    }
+    
+    .hu-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .location-info {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .dashboard-container {
+        background-color: #1a1a1a;
+        color: #e9ecef;
+    }
+    
+    .section {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+    }
+    
+    .handling-unit-card {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .warehouse-map {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        border-color: #4a5568;
+    }
+}
+
+/* Print styles */
+@media print {
+    .dashboard-container {
+        display: block;
+    }
+    
+    .section {
+        break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    .handling-unit-card {
+        break-inside: avoid;
+        margin-bottom: 10px;
+    }
+}

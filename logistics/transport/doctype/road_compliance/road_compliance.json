@@ -1,0 +1,278 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "compliance_type",
+  "column_break_1",
+  "status",
+  "priority",
+  "section_break_basic",
+  "title",
+  "description",
+  "column_break_2",
+  "effective_date",
+  "expiry_date",
+  "section_break_scope",
+  "applies_to_vehicles",
+  "applies_to_drivers",
+  "applies_to_routes",
+  "column_break_3",
+  "applies_to_loads",
+  "applies_to_hazardous",
+  "applies_to_refrigeration",
+  "section_break_requirements",
+  "requirements",
+  "section_break_monitoring",
+  "monitoring_frequency",
+  "column_break_4",
+  "auto_check_enabled",
+  "alert_before_expiry",
+  "section_break_penalties",
+  "penalty_amount",
+  "column_break_5",
+  "penalty_currency",
+  "penalty_description",
+  "section_break_documents",
+  "required_documents",
+  "section_break_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "RC.#########"
+  },
+  {
+   "fieldname": "compliance_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Compliance Type",
+   "options": "Driver License\nVehicle Registration\nInsurance\nPermit\nWeight Limit\nDimension Limit\nHours of Service\nHazardous Material\nRefrigeration\nEnvironmental",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Active\nInactive\nExpired\nSuspended"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nMedium\nHigh\nCritical"
+  },
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "Effective Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Expiry Date"
+  },
+  {
+   "fieldname": "section_break_scope",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_vehicles",
+   "fieldtype": "Check",
+   "label": "Applies to Vehicles"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_drivers",
+   "fieldtype": "Check",
+   "label": "Applies to Drivers"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_routes",
+   "fieldtype": "Check",
+   "label": "Applies to Routes"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_loads",
+   "fieldtype": "Check",
+   "label": "Applies to Loads"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_hazardous",
+   "fieldtype": "Check",
+   "label": "Applies to Hazardous Materials"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_refrigeration",
+   "fieldtype": "Check",
+   "label": "Applies to Refrigeration"
+  },
+  {
+   "fieldname": "section_break_requirements",
+   "fieldtype": "Section Break",
+   "label": "Requirements"
+  },
+  {
+   "fieldname": "requirements",
+   "fieldtype": "Table",
+   "label": "Requirements",
+   "options": "Road Compliance Requirement"
+  },
+  {
+   "fieldname": "section_break_monitoring",
+   "fieldtype": "Section Break",
+   "label": "Monitoring"
+  },
+  {
+   "fieldname": "monitoring_frequency",
+   "fieldtype": "Select",
+   "label": "Monitoring Frequency",
+   "options": "Daily\nWeekly\nMonthly\nQuarterly\nAnnually\nOn Demand"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_check_enabled",
+   "fieldtype": "Check",
+   "label": "Auto Check Enabled"
+  },
+  {
+   "fieldname": "alert_before_expiry",
+   "fieldtype": "Int",
+   "label": "Alert Before Expiry (Days)"
+  },
+  {
+   "fieldname": "section_break_penalties",
+   "fieldtype": "Section Break",
+   "label": "Penalties"
+  },
+  {
+   "fieldname": "penalty_amount",
+   "fieldtype": "Currency",
+   "label": "Penalty Amount"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "penalty_currency",
+   "fieldtype": "Link",
+   "label": "Penalty Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "penalty_description",
+   "fieldtype": "Text",
+   "label": "Penalty Description"
+  },
+  {
+   "fieldname": "section_break_documents",
+   "fieldtype": "Section Break",
+   "label": "Required Documents"
+  },
+  {
+   "fieldname": "required_documents",
+   "fieldtype": "Table",
+   "label": "Required Documents",
+   "options": "Road Compliance Document"
+  },
+  {
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Road Compliance",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Land Transport Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+
+
+

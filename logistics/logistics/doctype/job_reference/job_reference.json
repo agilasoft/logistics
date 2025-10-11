@@ -7,7 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "job_type",
-  "job_no"
+  "job_no",
+  "amended_from"
  ],
  "fields": [
   {
@@ -21,12 +22,23 @@
    "fieldtype": "Dynamic Link",
    "label": "Job No",
    "options": "job_type"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Job Reference",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-05-28 16:13:13.760844",
+ "modified": "2025-10-01 22:07:19.581390",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Job Reference",

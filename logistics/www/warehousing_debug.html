@@ -1,0 +1,54 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <h1>{{ title }}</h1>
+    
+    <div class="debug-section">
+        <h2>Warehouse Items</h2>
+        <p><strong>Count:</strong> {{ warehouse_items_count }}</p>
+        {% if warehouse_items_error %}
+        <p><strong>Error:</strong> {{ warehouse_items_error }}</p>
+        {% endif %}
+        {% if warehouse_items %}
+        <ul>
+            {% for item in warehouse_items %}
+            <li>{{ item.name }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Warehouse Stock Ledger</h2>
+        <p><strong>Count:</strong> {{ stock_ledger_count }}</p>
+        {% if stock_ledger_error %}
+        <p><strong>Error:</strong> {{ stock_ledger_error }}</p>
+        {% endif %}
+        {% if stock_ledger_entries %}
+        <ul>
+            {% for entry in stock_ledger_entries %}
+            <li>{{ entry.name }} - {{ entry.item if entry.item else 'No item' }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    
+    <div class="debug-section">
+        <h2>Customers</h2>
+        <p><strong>Count:</strong> {{ customers_count }}</p>
+        {% if customers_error %}
+        <p><strong>Error:</strong> {{ customers_error }}</p>
+        {% endif %}
+        {% if customers %}
+        <ul>
+            {% for customer in customers %}
+            <li>{{ customer.name }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

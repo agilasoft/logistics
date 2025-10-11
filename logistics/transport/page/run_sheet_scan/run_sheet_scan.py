@@ -177,6 +177,7 @@ def set_leg_times(leg_name: str, op: str):
     - op = "start" → set start_date if empty
     - op = "end"   → set end_date (always) and recompute actual_duration_min if start exists
     Returns updated fields for the UI.
+    Ensures status is properly updated by explicitly calling update_status().
     """
     try:
         if not leg_name or not op:
@@ -208,12 +209,15 @@ def set_leg_times(leg_name: str, op: str):
                 changed = True
 
         if changed:
+            # Explicitly call update_status to ensure status is updated
+            leg.update_status()
             leg.save(ignore_permissions=False)
 
         return {"ok": True, "data": {
             "start_date": leg.get("start_date"),
             "end_date": leg.get("end_date"),
             "actual_duration_min": actual_minutes if actual_minutes is not None else leg.get("actual_duration_min"),
+            "status": leg.get("status")  # Include status in response
         }}
 
     except frappe.PermissionError:

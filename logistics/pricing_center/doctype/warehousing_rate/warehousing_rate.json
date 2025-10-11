@@ -1,0 +1,119 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2025-10-08 18:00:30.682418",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "calculation_method",
+  "rate_value",
+  "rate_uom",
+  "minimum_charge",
+  "maximum_charge",
+  "fixed_amount",
+  "per_unit_rate",
+  "warehouse_type",
+  "storage_type",
+  "valid_from",
+  "valid_to",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Calculation Method",
+   "options": "Per Volume\nPer Weight\nPer Package\nPer Shipment\nFixed Amount\nPercentage\nPer Pallet\nPer Day\nPer Month\nMinimum Charge\nMaximum Charge",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rate_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate Value",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rate_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Rate UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "fieldname": "fixed_amount",
+   "fieldtype": "Currency",
+   "label": "Fixed Amount"
+  },
+  {
+   "fieldname": "per_unit_rate",
+   "fieldtype": "Currency",
+   "label": "Per Unit Rate"
+  },
+  {
+   "fieldname": "warehouse_type",
+   "fieldtype": "Select",
+   "label": "Warehouse Type",
+   "options": "General\nCold Storage\nHazardous\nBonded\nFree Trade Zone"
+  },
+  {
+   "fieldname": "storage_type",
+   "fieldtype": "Select",
+   "label": "Storage Type",
+   "options": "Floor\nRack\nBulk\nContainer"
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid From"
+  },
+  {
+   "fieldname": "valid_to",
+   "fieldtype": "Date",
+   "label": "Valid To"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-10-08 18:00:30.682418",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Warehousing Rate",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

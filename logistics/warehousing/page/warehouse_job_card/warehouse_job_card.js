@@ -10,7 +10,7 @@ class WarehouseJobCardPage {
     this.wrapper = $(wrapper);
     this.page = frappe.ui.make_app_page({
       parent: wrapper,
-      title: __("Warehouse Job Card"),
+      title: "",
       single_column: true,
     });
     this.state = { job: null, doc: null, operations: [] };
@@ -21,24 +21,54 @@ class WarehouseJobCardPage {
 
   make_layout() {
     const $ui = $(`
-      <div class="wjc space-y-4">
-        <div class="card">
-          <div class="card-body" style="padding:12px;">
-            <div class="wjc-bar">
-              <button class="btn btn-sm btn-primary" id="wjc-scan"><i class="fa fa-qrcode"></i> ${__("Scan Job")}</button>
-              <input type="text" class="form-control input-sm" id="wjc-input"
-                     placeholder="${__("Enter or scan Warehouse Job (e.g., WJ-00000123)")}">
-              <button class="btn btn-sm btn-default" id="wjc-load">${__("Load")}</button>
-              <a class="btn btn-sm btn-default" id="wjc-open">${__("Open Document")}</a>
+      <div class="wjc-container">
+        <div class="wjc-header">
+          <div class="wjc-header-main">
+            <div class="wjc-header-left">
+              <h1>WAREHOUSE JOB CARD</h1>
+              <p>Operations Management</p>
             </div>
-            <div id="wjc-head" class="text-muted" style="margin-top:8px;"></div>
+            <div class="wjc-header-details">
+              <div class="wjc-detail-item">
+                <label><i class="fa fa-info-circle"></i> Status:</label>
+                <span id="wjc-status">Ready</span>
+              </div>
+              <div class="wjc-detail-item">
+                <label><i class="fa fa-briefcase"></i> Current Job:</label>
+                <span id="wjc-current-job">-</span>
+              </div>
+              <div class="wjc-detail-item">
+                <label><i class="fa fa-building"></i> Company:</label>
+                <span id="wjc-company">-</span>
+              </div>
+              <div class="wjc-detail-item">
+                <label><i class="fa fa-map-marker"></i> Branch:</label>
+                <span id="wjc-branch">-</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header"><strong>${__("Operations")}</strong></div>
-          <div class="card-body" style="padding:12px;">
-            <div id="wjc-ops"></div>
+        <div class="wjc-main-content">
+          <div class="wjc-search-section">
+            <div class="wjc-search-form">
+              <div class="wjc-input-wrapper">
+                <input type="text" id="wjc-input" placeholder="Enter or scan Warehouse Job (e.g., WJ-00000123)">
+                <i class="fa fa-qrcode wjc-scan-icon" id="wjc-scan"></i>
+              </div>
+              <button id="wjc-load">Load</button>
+            </div>
+            <div id="wjc-head" class="wjc-job-info wjc-clickable-card"></div>
+          </div>
+
+          <div class="wjc-results-section" id="wjc-results">
+            <div class="wjc-results-content" id="wjc-ops">
+              <div class="wjc-waiting-state">
+                <i class="fa fa-cogs"></i>
+                <h3>Ready to Load</h3>
+                <p>Enter a Warehouse Job ID to begin</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -55,21 +85,462 @@ class WarehouseJobCardPage {
 
     this.page.body.append(`
       <style>
-        .wjc .wjc-bar{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-        .wjc .wjc-bar #wjc-input{ min-width:220px; max-width:340px; }
-        @media (max-width:480px){ .wjc .wjc-bar #wjc-input{ min-width:160px; max-width:100%; flex:1; } }
-
-        .wjc .op-grid{ display:grid; gap:10px; }
-        .wjc .op-card{ border:1px solid var(--border-color,#e5e7eb); border-radius:12px; padding:10px; background:#fff; box-shadow:0 1px 0 rgba(0,0,0,0.02); }
-        .wjc .op-main{ display:flex; justify-content:space-between; gap:8px; align-items:center; }
-        .wjc .op-name{ font-weight:600; }
-        .wjc .op-desc{ color:#6b7280; font-size:12px; margin-top:2px; }
-        .wjc .op-actions{ display:flex; gap:6px; }
-        .wjc .op-actions .btn{ min-width:92px; }
-        @media (max-width:480px){ .wjc .op-actions .btn{ min-width:110px; } }
-        .wjc .op-times{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:6px; margin-top:8px; font-size:12px; color:#374151; }
-        .wjc .op-times label{ font-weight:600; margin-right:6px; }
-        .wjc .hidden{ display:none !important; }
+        .wjc-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        
+        /* Hide built-in page title */
+        .page-title {
+          display: none !important;
+        }
+        
+        .page-header {
+          display: none !important;
+        }
+        
+        .wjc-header {
+          background: #fff;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .wjc-header-main {
+          display: flex;
+          justify-content: space-between;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #eee;
+          margin-bottom: 12px;
+        }
+        
+        .wjc-header-left h1 {
+          font-size: 24px;
+          font-weight: 700;
+          color: #007bff;
+          margin: 0 0 4px 0;
+        }
+        
+        .wjc-header-left p {
+          font-size: 14px;
+          color: #666;
+          margin: 0;
+        }
+        
+        .wjc-header-details {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+        
+        .wjc-detail-item {
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .wjc-detail-item label {
+          font-size: 12px;
+          color: #666;
+          font-weight: 600;
+          margin-bottom: 2px;
+        }
+        
+        .wjc-detail-item span {
+          font-size: 14px;
+          color: #000;
+          font-weight: 500;
+        }
+        
+        .wjc-main-content {
+          display: flex;
+          gap: 20px;
+        }
+        
+        .wjc-search-section {
+          width: 350px;
+          background: #f8f9fa;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          padding: 24px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .wjc-search-form {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        
+        .wjc-input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        
+        .wjc-search-form input {
+          padding: 12px 40px 12px 16px;
+          font-size: 16px;
+          border: 2px solid #ddd;
+          border-radius: 6px;
+          outline: none;
+          transition: border-color 0.3s;
+          width: 100%;
+        }
+        
+        .wjc-search-form input:focus {
+          border-color: #007bff;
+        }
+        
+        .wjc-scan-icon {
+          position: absolute;
+          right: 12px;
+          color: #007bff;
+          cursor: pointer;
+          font-size: 18px;
+          transition: color 0.3s;
+        }
+        
+        .wjc-scan-icon:hover {
+          color: #0056b3;
+        }
+        
+        .wjc-search-form button, .wjc-search-form a {
+          padding: 12px 24px;
+          font-size: 16px;
+          font-weight: 600;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background-color 0.3s;
+          text-decoration: none;
+          text-align: center;
+          display: inline-block;
+        }
+        
+        .wjc-search-form button:hover, .wjc-search-form a:hover {
+          background: #0056b3;
+        }
+        
+        .wjc-job-info {
+          margin-top: 16px;
+          padding: 16px;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          font-size: 14px;
+          color: #666;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          border-left: 4px solid #007bff;
+        }
+        
+        .wjc-job-info:hover {
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          transform: translateY(-2px);
+        }
+        
+        .wjc-job-info.wjc-clickable-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .wjc-job-info-line {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 4px 0;
+        }
+        
+        .wjc-job-info-label {
+          font-weight: 600;
+          color: #333;
+          min-width: 80px;
+        }
+        
+        .wjc-job-info-value {
+          color: #666;
+          text-align: right;
+          flex: 1;
+        }
+        
+        .wjc-results-section {
+          flex: 1;
+          background: #fff;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          padding: 24px;
+        }
+        
+        .wjc-waiting-state {
+          text-align: center;
+          color: #666;
+        }
+        
+        .wjc-waiting-state i {
+          font-size: 48px;
+          color: #007bff;
+          margin-bottom: 16px;
+          display: block;
+        }
+        
+        .wjc-waiting-state h3 {
+          font-size: 20px;
+          font-weight: 600;
+          margin: 0 0 8px 0;
+          color: #000;
+        }
+        
+        .wjc-waiting-state p {
+          font-size: 14px;
+          margin: 0;
+          color: #000;
+        }
+        
+        /* Warehouse Job Dashboard BOX Cards Style */
+        .op-grid{ 
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        
+        .op-card{ 
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          transition: all 0.3s ease;
+          border-left: 4px solid #667eea;
+          cursor: pointer;
+          margin-bottom: 8px;
+        }
+        
+        .op-card:hover {
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          transform: translateY(-2px);
+        }
+        
+        .op-main{ 
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
+        }
+        
+        .op-left {
+          flex: 1;
+        }
+        
+        .op-name{ 
+          margin: 0;
+          font-size: 16px;
+          font-weight: 700;
+          color: #333;
+          line-height: 1.2;
+          margin-bottom: 4px;
+        }
+        
+        .op-desc{ 
+          font-size: 12px;
+          color: #6c757d;
+          line-height: 1.4;
+          margin-bottom: 8px;
+        }
+        
+        .op-actions{ 
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        
+        .op-actions .btn{ 
+          padding: 4px 8px;
+          font-size: 10px;
+          font-weight: 600;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          min-width: 50px;
+        }
+        
+        .op-actions .btn:hover {
+          transform: translateY(-1px);
+        }
+        
+        .op-times{ 
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 8px;
+          font-size: 10px;
+          color: #6c757d;
+        }
+        
+        .op-times > div {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          flex: 1;
+        }
+        
+        .op-times label{ 
+          font-weight: 600;
+          margin-bottom: 2px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .op-times span {
+          font-weight: 500;
+          color: #333;
+          font-size: 11px;
+        }
+        
+        .status-badge {
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: 500;
+          text-transform: uppercase;
+          background: #f8f9fa;
+          color: #6c757d;
+          border: 1px solid #e9ecef;
+        }
+        
+        .status-badge.completed {
+          background: #d4edda;
+          color: #155724;
+          border-color: #c3e6cb;
+        }
+        
+        .status-badge.in-progress {
+          background: #cfe2ff;
+          color: #084298;
+          border-color: #b6d7ff;
+        }
+        
+        .status-badge.pending {
+          background: #fff3cd;
+          color: #856404;
+          border-color: #ffeaa7;
+        }
+        
+        .wjc .hidden{ 
+          display: none !important; 
+        }
+        
+        @media (max-width: 768px) {
+          .wjc-container {
+            padding: 10px;
+          }
+          
+          .wjc-header-main {
+            flex-direction: column;
+            gap: 16px;
+          }
+          
+          .wjc-header-details {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          
+          .wjc-main-content {
+            flex-direction: column;
+            gap: 16px;
+          }
+          
+          .wjc-search-section {
+            width: 100%;
+            padding: 16px;
+          }
+          
+          .wjc-results-section {
+            padding: 16px;
+          }
+          
+          .wjc-input-wrapper input {
+            font-size: 16px; /* Prevents zoom on iOS */
+          }
+          
+          .wjc-search-form button {
+            padding: 10px 16px;
+            font-size: 14px;
+          }
+          
+          .op-card {
+            padding: 12px;
+            margin-bottom: 8px;
+          }
+          
+          .op-main {
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+          }
+          
+          .op-actions {
+            width: 100%;
+            justify-content: space-between;
+          }
+          
+          .op-actions .btn {
+            flex: 1;
+            min-width: 0;
+            margin: 0 4px;
+          }
+          
+          .op-times {
+            flex-direction: column;
+            gap: 8px;
+          }
+          
+          .op-times > div {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .wjc-container {
+            padding: 5px;
+          }
+          
+          .wjc-header {
+            padding: 12px;
+          }
+          
+          .wjc-header-left h1 {
+            font-size: 20px;
+          }
+          
+          .wjc-search-section,
+          .wjc-results-section {
+            padding: 12px;
+          }
+          
+          .wjc-job-info {
+            padding: 12px;
+          }
+          
+          .wjc-job-info-line {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+          }
+          
+          .wjc-job-info-value {
+            text-align: left;
+          }
+        }
       </style>
     `);
   }
@@ -97,7 +568,8 @@ class WarehouseJobCardPage {
       }
     });
 
-    this.$open.on("click", () => {
+    // Job info card click handler
+    this.page.body.on("click", ".wjc-clickable-card", () => {
       if (!this.state.job) return;
       frappe.set_route("Form", "Warehouse Job", this.state.job);
     });
@@ -181,6 +653,7 @@ class WarehouseJobCardPage {
 
   async load_job(name) {
     this.$head.text(__("Loading…"));
+    this.update_status("Loading", name);
     const doc = await this.fetch_job(name);
     if (!doc) { this.render_empty(); return; }
 
@@ -192,20 +665,42 @@ class WarehouseJobCardPage {
 
     this.render_header(doc);
     this.render_operations(ops);
+    this.update_status("Loaded", doc.name);
+    this.update_header_info(doc);
     frappe.show_alert({ message: __("Loaded {0}", [doc.name]), indicator: "green" });
   }
 
   render_header(job) {
-    const bits = [
-      `<b>${frappe.utils.escape_html(job.name || "")}</b>`,
-      job.type ? `${__("Type")}: ${frappe.utils.escape_html(job.type)}` : "",
-      job.customer ? `${__("Customer")}: ${frappe.utils.escape_html(job.customer)}` : "",
-      job.company ? `${__("Company")}: ${frappe.utils.escape_html(job.company)}` : "",
-      job.branch ? `${__("Branch")}: ${frappe.utils.escape_html(job.branch)}` : "",
-      job.staging_area ? `${__("Staging")}: ${frappe.utils.escape_html(job.staging_area)}` : "",
-      `${__("Docstatus")}: ${[__("Draft"),__("Submitted"),__("Cancelled")][job.docstatus || 0]}`
-    ].filter(Boolean);
-    this.$head.html(bits.join(" • "));
+    const statusText = [__("Draft"),__("Submitted"),__("Cancelled")][job.docstatus || 0];
+    
+    this.$head.html(`
+      <div class="wjc-job-info-line">
+        <span class="wjc-job-info-label"><i class="fa fa-tag"></i> ${__("Job ID")}:</span>
+        <span class="wjc-job-info-value"><b>${frappe.utils.escape_html(job.name || "")}</b></span>
+      </div>
+      ${job.type ? `
+        <div class="wjc-job-info-line">
+          <span class="wjc-job-info-label"><i class="fa fa-cogs"></i> ${__("Type")}:</span>
+          <span class="wjc-job-info-value">${frappe.utils.escape_html(job.type)}</span>
+        </div>
+      ` : ""}
+      ${job.customer ? `
+        <div class="wjc-job-info-line">
+          <span class="wjc-job-info-label"><i class="fa fa-user"></i> ${__("Customer")}:</span>
+          <span class="wjc-job-info-value">${frappe.utils.escape_html(job.customer)}</span>
+        </div>
+      ` : ""}
+      ${job.staging_area ? `
+        <div class="wjc-job-info-line">
+          <span class="wjc-job-info-label"><i class="fa fa-warehouse"></i> ${__("Staging")}:</span>
+          <span class="wjc-job-info-value">${frappe.utils.escape_html(job.staging_area)}</span>
+        </div>
+      ` : ""}
+      <div class="wjc-job-info-line">
+        <span class="wjc-job-info-label"><i class="fa fa-check-circle"></i> ${__("Status")}:</span>
+        <span class="wjc-job-info-value">${statusText}</span>
+      </div>
+    `);
   }
 
   render_operations(rows) {
@@ -213,6 +708,9 @@ class WarehouseJobCardPage {
       const safe = (x) => (x == null ? "" : String(x));
       const hasStart = !!r.start_date;
       const hasEnd   = !!r.end_date;
+      const status = hasEnd ? "completed" : hasStart ? "in-progress" : "pending";
+      const statusText = hasEnd ? "COMPLETED" : hasStart ? "IN PROGRESS" : "PENDING";
+      
       return `
         <div class="op-card" data-row="${frappe.utils.escape_html(r.name)}">
           <div class="op-main">
@@ -221,6 +719,7 @@ class WarehouseJobCardPage {
               <div class="op-desc">${frappe.utils.escape_html(safe(r.description) || "")}</div>
             </div>
             <div class="op-actions">
+              <span class="status-badge ${status}">${statusText}</span>
               <button class="btn btn-sm btn-primary op-start ${hasStart ? "hidden" : ""}">${__("Start")}</button>
               <button class="btn btn-sm btn-success op-end ${hasEnd ? "hidden" : ""}">${__("End")}</button>
             </div>
@@ -235,7 +734,13 @@ class WarehouseJobCardPage {
     };
 
     if (!rows?.length) {
-      this.$ops.html(`<div class="text-muted">${__("No operations on this job.")}</div>`);
+      this.$ops.html(`
+        <div class="wjc-waiting-state">
+          <i class="fa fa-exclamation-triangle"></i>
+          <h3>No Operations</h3>
+          <p>No operations found on this job</p>
+        </div>
+      `);
       return;
     }
 
@@ -243,9 +748,33 @@ class WarehouseJobCardPage {
     this.bind_op_buttons();
   }
 
+  update_status(status, currentJob) {
+    const $status = this.page.body.find("#wjc-status");
+    const $currentJob = this.page.body.find("#wjc-current-job");
+    
+    if ($status.length) $status.text(status);
+    if ($currentJob.length) $currentJob.text(currentJob || "-");
+  }
+
+  update_header_info(job) {
+    const $company = this.page.body.find("#wjc-company");
+    const $branch = this.page.body.find("#wjc-branch");
+    
+    if ($company.length) $company.text(job.company || "-");
+    if ($branch.length) $branch.text(job.branch || "-");
+  }
+
   render_empty() {
     this.$head.empty();
-    this.$ops.html(`<div class="text-muted">${__("Scan a Warehouse Job to begin.")}</div>`);
+    this.update_status("Ready", "-");
+    this.update_header_info({ company: "-", branch: "-" });
+    this.$ops.html(`
+      <div class="wjc-waiting-state">
+        <i class="fa fa-cogs"></i>
+        <h3>Ready to Load</h3>
+        <p>Enter a Warehouse Job ID to begin</p>
+      </div>
+    `);
   }
 
   bind_op_buttons() {

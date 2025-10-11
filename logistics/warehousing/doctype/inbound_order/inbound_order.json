@@ -22,14 +22,15 @@
   "items",
   "carrier_details_tab",
   "docks",
-  "section_break_ozie",
-  "staging_area",
   "additional_charges_tab",
   "charges",
   "notes_tab",
   "tab_5_tab",
   "company",
-  "branch"
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_scjj"
  ],
  "fields": [
   {
@@ -131,16 +132,6 @@
    "options": "Inbound Order Dock"
   },
   {
-   "fieldname": "section_break_ozie",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "staging_area",
-   "fieldtype": "Link",
-   "label": "Staging Area",
-   "options": "Storage Location"
-  },
-  {
    "fieldname": "section_break_tams",
    "fieldtype": "Section Break"
   },
@@ -152,7 +143,7 @@
   {
    "fieldname": "tab_5_tab",
    "fieldtype": "Tab Break",
-   "label": "Entity"
+   "label": "Accounts"
   },
   {
    "fieldname": "company",
@@ -167,13 +158,31 @@
    "label": "Branch",
    "options": "Branch",
    "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_scjj",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-12 21:16:04.303782",
+ "modified": "2025-10-09 23:19:57.217376",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order",

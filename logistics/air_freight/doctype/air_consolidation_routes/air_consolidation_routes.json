@@ -1,0 +1,353 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:route_sequence",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "route_info_section",
+  "route_sequence",
+  "route_type",
+  "origin_airport",
+  "destination_airport",
+  "column_break_1",
+  "airline",
+  "flight_number",
+  "aircraft_type",
+  "section_break_timing",
+  "departure_date",
+  "departure_time",
+  "arrival_date",
+  "column_break_2",
+  "arrival_time",
+  "transit_time_hours",
+  "connection_time_hours",
+  "section_break_capacity",
+  "cargo_capacity_kg",
+  "cargo_capacity_volume",
+  "column_break_3",
+  "utilization_percentage",
+  "available_capacity_kg",
+  "available_capacity_volume",
+  "section_break_costs",
+  "base_rate_per_kg",
+  "fuel_surcharge_rate",
+  "security_surcharge_rate",
+  "column_break_4",
+  "war_risk_surcharge",
+  "terminal_handling_charges",
+  "total_cost_per_kg",
+  "section_break_restrictions",
+  "dangerous_goods_allowed",
+  "live_animals_allowed",
+  "column_break_5",
+  "refrigerated_cargo_allowed",
+  "oversized_cargo_allowed",
+  "section_break_status",
+  "route_status",
+  "booking_status",
+  "column_break_6",
+  "confirmation_number",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "route_info_section",
+   "fieldtype": "Section Break",
+   "label": "Route Information"
+  },
+  {
+   "fieldname": "route_sequence",
+   "fieldtype": "Int",
+   "label": "Route Sequence",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "route_type",
+   "fieldtype": "Select",
+   "label": "Route Type",
+   "options": "Direct\nTransit\nMulti-Stop\nCharter",
+   "reqd": 1
+  },
+  {
+   "fieldname": "origin_airport",
+   "fieldtype": "Link",
+   "label": "Origin Airport",
+   "options": "Airport Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "destination_airport",
+   "fieldtype": "Link",
+   "label": "Destination Airport",
+   "options": "Airport Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "flight_number",
+   "fieldtype": "Data",
+   "label": "Flight Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "aircraft_type",
+   "fieldtype": "Data",
+   "label": "Aircraft Type"
+  },
+  {
+   "fieldname": "section_break_timing",
+   "fieldtype": "Section Break",
+   "label": "Timing Information"
+  },
+  {
+   "fieldname": "departure_date",
+   "fieldtype": "Date",
+   "label": "Departure Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "departure_time",
+   "fieldtype": "Time",
+   "label": "Departure Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "arrival_date",
+   "fieldtype": "Date",
+   "label": "Arrival Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "arrival_time",
+   "fieldtype": "Time",
+   "label": "Arrival Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "transit_time_hours",
+   "fieldtype": "Float",
+   "label": "Transit Time (Hours)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "connection_time_hours",
+   "fieldtype": "Float",
+   "label": "Connection Time (Hours)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "section_break_capacity",
+   "fieldtype": "Section Break",
+   "label": "Capacity Information"
+  },
+  {
+   "fieldname": "cargo_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Cargo Capacity (kg)",
+   "precision": "2"
+  },
+  {
+   "fieldname": "cargo_capacity_volume",
+   "fieldtype": "Float",
+   "label": "Cargo Capacity (m³)",
+   "precision": "3"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "utilization_percentage",
+   "fieldtype": "Percent",
+   "label": "Utilization %",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Available Capacity (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_capacity_volume",
+   "fieldtype": "Float",
+   "label": "Available Capacity (m³)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_costs",
+   "fieldtype": "Section Break",
+   "label": "Cost Information"
+  },
+  {
+   "fieldname": "base_rate_per_kg",
+   "fieldtype": "Currency",
+   "label": "Base Rate per kg",
+   "precision": "2"
+  },
+  {
+   "fieldname": "fuel_surcharge_rate",
+   "fieldtype": "Currency",
+   "label": "Fuel Surcharge Rate",
+   "precision": "2"
+  },
+  {
+   "fieldname": "security_surcharge_rate",
+   "fieldtype": "Currency",
+   "label": "Security Surcharge Rate",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "war_risk_surcharge",
+   "fieldtype": "Currency",
+   "label": "War Risk Surcharge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "terminal_handling_charges",
+   "fieldtype": "Currency",
+   "label": "Terminal Handling Charges",
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_cost_per_kg",
+   "fieldtype": "Currency",
+   "label": "Total Cost per kg",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_restrictions",
+   "fieldtype": "Section Break",
+   "label": "Cargo Restrictions"
+  },
+  {
+   "fieldname": "dangerous_goods_allowed",
+   "fieldtype": "Check",
+   "label": "Dangerous Goods Allowed"
+  },
+  {
+   "fieldname": "live_animals_allowed",
+   "fieldtype": "Check",
+   "label": "Live Animals Allowed"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "refrigerated_cargo_allowed",
+   "fieldtype": "Check",
+   "label": "Refrigerated Cargo Allowed"
+  },
+  {
+   "fieldname": "oversized_cargo_allowed",
+   "fieldtype": "Check",
+   "label": "Oversized Cargo Allowed"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status Information"
+  },
+  {
+   "default": "Available",
+   "fieldname": "route_status",
+   "fieldtype": "Select",
+   "label": "Route Status",
+   "options": "Available\nBooked\nConfirmed\nCancelled\nCompleted"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "booking_status",
+   "fieldtype": "Select",
+   "label": "Booking Status",
+   "options": "Pending\nConfirmed\nCancelled\nCompleted"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "confirmation_number",
+   "fieldtype": "Data",
+   "label": "Confirmation Number"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Long Text",
+   "label": "Remarks"
+  }
+ ],
+ "has_web_view": 0,
+ "hide_heading": 1,
+ "hide_toolbar": 1,
+ "idx": 0,
+ "image_view": 1,
+ "in_create": 1,
+ "is_submittable": 0,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Consolidation Routes",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Air Freight Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Air Freight Agent",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

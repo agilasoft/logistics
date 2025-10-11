@@ -1,0 +1,1 @@
+# IATA Message Queue DocType

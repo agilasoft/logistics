@@ -112,6 +112,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
                     # "order_date": "job_open_date",
                     "name": "reference_order",  # for traceability (also set in set_missing_values)
                 },
+                "field_no_map": [
+                    "naming_series"
+                ]
             },
             "Transfer Order Item": {
                 "doctype": "Warehouse Job Order Items",
@@ -125,5 +128,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target_doc,
         set_missing_values,
     )
+
+    # Save the job before returning
+    doc.save()
+    frappe.db.commit()
 
     return doc

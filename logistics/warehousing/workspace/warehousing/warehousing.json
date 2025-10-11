@@ -3,17 +3,9 @@
   {
    "chart_name": "Warehouse Heatmap",
    "label": "Warehouse Heatmap"
-  },
-  {
-   "chart_name": "Warehouse Utilization",
-   "label": "Warehouse Utilization"
-  },
-  {
-   "chart_name": "ABC Report",
-   "label": "ABC Report"
   }
  ],
- "content": "[{\"id\":\"YpClK1cbLm\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Warehouse Heatmap\",\"col\":12}},{\"id\":\"evM0_dR_BH\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Warehouse Utilization\",\"col\":6}},{\"id\":\"mqo9NjCiPX\",\"type\":\"chart\",\"data\":{\"chart_name\":\"ABC Report\",\"col\":6}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Reports</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"SL7dS_-_Xs\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Reports\",\"col\":4}},{\"id\":\"qzri6KoLie\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Management\",\"col\":4}},{\"id\":\"oNb734hTDW\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity\",\"col\":4}}]",
+ "content": "[{\"id\":\"YpClK1cbLm\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Warehouse Heatmap\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Reports</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"SL7dS_-_Xs\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Reports\",\"col\":4}},{\"id\":\"qzri6KoLie\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Management\",\"col\":4}},{\"id\":\"oNb734hTDW\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity\",\"col\":4}}]",
  "creation": "2025-08-18 19:01:13.708217",
  "custom_blocks": [],
  "docstatus": 0,
@@ -117,84 +109,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Warehouse Management",
-   "link_count": 2,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Storage Location Usage",
-   "link_count": 0,
-   "link_to": "Storage Location Usage",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "ABC Report",
-   "link_count": 0,
-   "link_to": "ABC Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customer Setup",
-   "link_count": 4,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customer",
-   "link_count": 0,
-   "link_to": "Customer",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customer Items",
-   "link_count": 0,
-   "link_to": "Warehouse Item",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Price List",
-   "link_count": 0,
-   "link_to": "Price List",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Contract",
-   "link_count": 0,
-   "link_to": "Warehouse Contract",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Productivity",
    "link_count": 2,
    "link_type": "DocType",
@@ -269,9 +183,87 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Setup",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Items",
+   "link_count": 0,
+   "link_to": "Warehouse Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contract",
+   "link_count": 0,
+   "link_to": "Warehouse Contract",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse Management",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Storage Location Usage",
+   "link_count": 0,
+   "link_to": "Storage Location Usage",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "ABC Report",
+   "link_count": 0,
+   "link_to": "ABC Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse Settings",
+   "link_count": 0,
+   "link_to": "Warehouse Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-09-28 08:53:16.238953",
+ "modified": "2025-10-10 00:36:03.600902",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",
@@ -281,7 +273,7 @@
  "public": 1,
  "quick_lists": [],
  "roles": [],
- "sequence_id": 5.0,
+ "sequence_id": 6.0,
  "shortcuts": [
   {
    "color": "Grey",
@@ -296,6 +288,21 @@
    "doc_view": "List",
    "label": "VAS Order",
    "link_to": "VAS Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Plate Scanner",
+   "link_to": "plate_scanner",
+   "type": "Page"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Gate Pass",
+   "link_to": "Gate Pass",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -323,6 +330,13 @@
    "link_to": "Periodic Billing",
    "stats_filter": "[]",
    "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Count Sheet",
+   "link_to": "count-sheet",
+   "type": "Page"
   },
   {
    "color": "Grey",

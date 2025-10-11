@@ -1,0 +1,870 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title or "Transport Job Detail" }}{% endblock %}
+
+{% block page_content %}
+<div class="transport-job-detail-container">
+    <!-- Header Section -->
+    <div class="job-header">
+        <div class="header-content">
+            <div class="job-title-section">
+                <h1 class="job-title">🚛 {{ job.name }}</h1>
+                <div class="job-status {{ job.status.lower().replace(' ', '-') }}">{{ job.status }}</div>
+            </div>
+            <div class="job-actions">
+                <button class="btn btn-primary" onclick="window.print()">🖨️ Print</button>
+                <button class="btn btn-secondary" onclick="window.history.back()">← Back to Jobs</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Information Grid -->
+    <div class="job-info-grid">
+        <!-- Basic Information -->
+        <div class="info-card">
+            <div class="card-header">
+                <h3>📋 Job Information</h3>
+            </div>
+            <div class="card-content">
+                <div class="info-row">
+                    <div class="info-label">Customer</div>
+                    <div class="info-value">{{ customer_name }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Booking Date</div>
+                    <div class="info-value">{{ job.booking_date }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Vehicle Type</div>
+                    <div class="info-value">{{ job.vehicle_type or 'N/A' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Load Type</div>
+                    <div class="info-value">{{ job.load_type or 'N/A' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Customer Reference</div>
+                    <div class="info-value">{{ job.customer_ref_no or 'N/A' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Transport Order</div>
+                    <div class="info-value">{{ job.transport_order or 'N/A' }}</div>
+                </div>
+                {% if job.hazardous %}
+                <div class="info-row">
+                    <div class="info-label">Hazardous</div>
+                    <div class="info-value warning">⚠️ Yes</div>
+                </div>
+                {% endif %}
+                {% if job.refrigeration %}
+                <div class="info-row">
+                    <div class="info-label">Refrigeration</div>
+                    <div class="info-value info">❄️ Yes</div>
+                </div>
+                {% endif %}
+                {% if job.container_type %}
+                <div class="info-row">
+                    <div class="info-label">Container Type</div>
+                    <div class="info-value">{{ job.container_type }}</div>
+                </div>
+                {% endif %}
+                {% if job.container_no %}
+                <div class="info-row">
+                    <div class="info-label">Container Number</div>
+                    <div class="info-value">{{ job.container_no }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Vehicle Information -->
+        {% if job.vehicle %}
+        <div class="info-card">
+            <div class="card-header">
+                <h3>🚛 Vehicle Information</h3>
+            </div>
+            <div class="card-content">
+                <div class="info-row">
+                    <div class="info-label">Vehicle</div>
+                    <div class="info-value">{{ job.vehicle.name }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Plate Number</div>
+                    <div class="info-value">{{ job.vehicle.plate_number or 'N/A' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Driver</div>
+                    <div class="info-value">{{ job.vehicle.driver_name or 'N/A' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Status</div>
+                    <div class="info-value">
+                        <span class="status-badge {{ job.vehicle.status.lower().replace(' ', '-') }}">
+                            {{ job.vehicle.status }}
+                        </span>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Run Sheet</div>
+                    <div class="info-value">{{ job.vehicle.run_sheet or 'N/A' }}</div>
+                </div>
+                {% if job.vehicle.location %}
+                <div class="info-row">
+                    <div class="info-label">Last Location</div>
+                    <div class="info-value">
+                        {{ "%.4f"|format(job.vehicle.location.lat) }}, {{ "%.4f"|format(job.vehicle.location.lng) }}
+                        {% if job.vehicle.location.timestamp %}
+                        <br><small class="text-muted">{{ job.vehicle.location.timestamp }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Transport Legs -->
+        <div class="info-card legs-card">
+            <div class="card-header">
+                <h3>🛣️ Transport Legs</h3>
+                <span class="legs-count">{{ job.legs | length }} legs</span>
+            </div>
+            <div class="card-content">
+                {% if job.legs %}
+                    {% for leg in job.legs %}
+                    <div class="leg-item">
+                        <div class="leg-header">
+                            <div class="leg-order">Leg {{ leg.order }}</div>
+                            <div class="leg-status {{ leg.status.lower().replace(' ', '-') }}">{{ leg.status }}</div>
+                        </div>
+                        <div class="leg-route">
+                            <div class="route-from">
+                                <div class="facility-name">{{ leg.facility_from_name or leg.facility_from }}</div>
+                                {% if leg.facility_from_address %}
+                                <div class="facility-address">{{ leg.facility_from_address }}</div>
+                                {% endif %}
+                                {% if leg.pick_window_start and leg.pick_window_end %}
+                                <div class="time-window">
+                                    Pickup: {{ leg.pick_window_start }} - {{ leg.pick_window_end }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="route-arrow">→</div>
+                            <div class="route-to">
+                                <div class="facility-name">{{ leg.facility_to_name or leg.facility_to }}</div>
+                                {% if leg.facility_to_address %}
+                                <div class="facility-address">{{ leg.facility_to_address }}</div>
+                                {% endif %}
+                                {% if leg.drop_window_start and leg.drop_window_end %}
+                                <div class="time-window">
+                                    Delivery: {{ leg.drop_window_start }} - {{ leg.drop_window_end }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="leg-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Distance:</span>
+                                <span class="detail-value">{{ leg.distance_km or 0 }} km</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Duration:</span>
+                                <span class="detail-value">{{ leg.duration_min or 0 }} min</span>
+                            </div>
+                        </div>
+                        {% if leg.remarks %}
+                        <div class="leg-remarks">
+                            <strong>Remarks:</strong> {{ leg.remarks }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-data">
+                        <p>No transport legs found for this job.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Status History -->
+        {% if job.status_history %}
+        <div class="info-card">
+            <div class="card-header">
+                <h3>📊 Status History</h3>
+            </div>
+            <div class="card-content">
+                {% for history in job.status_history %}
+                <div class="status-history-item">
+                    <div class="status-change">
+                        <span class="old-status">{{ history.old_value }}</span>
+                        <span class="arrow">→</span>
+                        <span class="new-status">{{ history.new_value }}</span>
+                    </div>
+                    <div class="status-meta">
+                        <span class="timestamp">{{ history.timestamp }}</span>
+                        <span class="user">by {{ history.user }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Documents -->
+        {% if job.documents %}
+        <div class="info-card">
+            <div class="card-header">
+                <h3>📄 Documents</h3>
+            </div>
+            <div class="card-content">
+                {% for doc in job.documents %}
+                <div class="document-item">
+                    <div class="document-name">{{ doc.file_name }}</div>
+                    <div class="document-actions">
+                        <a href="{{ doc.file_url }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Map Section -->
+    {% if show_vehicle_tracking and job.vehicle and job.vehicle.location %}
+    <div class="map-section">
+        <div class="map-header">
+            <h3>🗺️ Vehicle Location</h3>
+            <p class="map-subtitle">Vehicle location is shown because a transport leg has started</p>
+        </div>
+        <div class="map-container">
+            <div id="map" class="map"></div>
+        </div>
+    </div>
+    {% elif job.vehicle and job.vehicle.location %}
+    <div class="map-section disabled">
+        <div class="map-header">
+            <h3>🗺️ Vehicle Location</h3>
+            <p class="map-subtitle">Vehicle location will be shown when a transport leg starts</p>
+        </div>
+        <div class="map-container disabled">
+            <div class="map-placeholder">
+                <div class="placeholder-content">
+                    <div class="placeholder-icon">🚛</div>
+                    <h4>Vehicle Location Hidden</h4>
+                    <p>Vehicle location will be displayed once a transport leg status changes to "Started"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Remarks Section -->
+    {% if job.remarks %}
+    <div class="remarks-section">
+        <div class="remarks-header">
+            <h3>📝 Remarks</h3>
+        </div>
+        <div class="remarks-content">
+            <p>{{ job.remarks }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+/* Transport Job Detail Styles */
+.transport-job-detail-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.job-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30px;
+}
+
+.job-title-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.job-title {
+    font-size: 28px;
+    margin: 0;
+    font-weight: 700;
+}
+
+.job-status {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.job-status.draft {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.job-status.planned {
+    background: #d4edda;
+    color: #155724;
+}
+
+.job-status.in-progress {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.job-status.completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.job-status.cancelled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.job-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.btn-primary:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.btn-secondary:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+}
+
+.job-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.info-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.card-header {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.legs-count {
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.card-content {
+    padding: 20px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-size: 14px;
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: uppercase;
+    min-width: 120px;
+}
+
+.info-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+    text-align: right;
+}
+
+.info-value.warning {
+    color: #e74c3c;
+}
+
+.info-value.info {
+    color: #3498db;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-badge.available {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.in-transit {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.leg-item {
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: #f8f9fa;
+}
+
+.leg-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.leg-order {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.leg-status {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.leg-status.draft {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.leg-status.planned {
+    background: #d4edda;
+    color: #155724;
+}
+
+.leg-status.in-progress {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.leg-status.completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.leg-route {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+
+.route-from, .route-to {
+    flex: 1;
+}
+
+.facility-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.facility-address {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-bottom: 5px;
+}
+
+.time-window {
+    font-size: 12px;
+    color: #3498db;
+    font-weight: 500;
+}
+
+.route-arrow {
+    font-size: 24px;
+    color: #3498db;
+    font-weight: bold;
+}
+
+.leg-details {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+}
+
+.detail-item {
+    display: flex;
+    gap: 5px;
+}
+
+.detail-label {
+    color: #7f8c8d;
+    font-weight: 600;
+}
+
+.detail-value {
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.leg-remarks {
+    margin-top: 10px;
+    padding: 10px;
+    background: #e8f4fd;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.status-history-item {
+    padding: 15px;
+    border-left: 4px solid #3498db;
+    background: #f8f9fa;
+    margin-bottom: 10px;
+    border-radius: 0 6px 6px 0;
+}
+
+.status-change {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.old-status {
+    color: #e74c3c;
+}
+
+.arrow {
+    margin: 0 10px;
+    color: #3498db;
+}
+
+.new-status {
+    color: #27ae60;
+}
+
+.status-meta {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.timestamp {
+    margin-right: 15px;
+}
+
+.document-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #e1e8ed;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.document-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.document-actions .btn {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-outline-primary {
+    background: transparent;
+    color: #3498db;
+    border: 1px solid #3498db;
+}
+
+.btn-outline-primary:hover {
+    background: #3498db;
+    color: white;
+}
+
+.map-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.map-header {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 20px;
+}
+
+.map-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.map-container {
+    height: 400px;
+}
+
+.map {
+    width: 100%;
+    height: 100%;
+}
+
+.map-subtitle {
+    margin: 5px 0 0 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.map-section.disabled {
+    opacity: 0.7;
+}
+
+.map-container.disabled {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.map-placeholder {
+    text-align: center;
+    padding: 40px;
+}
+
+.placeholder-content {
+    max-width: 300px;
+}
+
+.placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.placeholder-content h4 {
+    color: #6c757d;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.placeholder-content p {
+    color: #6c757d;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.remarks-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.remarks-header {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    color: white;
+    padding: 20px;
+}
+
+.remarks-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.remarks-content {
+    padding: 20px;
+}
+
+.remarks-content p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #2c3e50;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+}
+
+.text-muted {
+    color: #7f8c8d;
+}
+
+@media (max-width: 768px) {
+    .job-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .job-title-section {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .leg-route {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .route-arrow {
+        transform: rotate(90deg);
+    }
+    
+    .leg-details {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+</style>
+
+{% if show_vehicle_tracking and job.vehicle and job.vehicle.location %}
+<script>
+// Include Leaflet CSS and JS
+document.head.insertAdjacentHTML('beforeend', 
+    '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />'
+);
+
+// Load Leaflet JS
+const script = document.createElement('script');
+script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+script.onload = function() {
+    initializeMap();
+};
+document.head.appendChild(script);
+
+function initializeMap() {
+    const vehicle = {{ job.vehicle | tojson }};
+    
+    if (vehicle && vehicle.location) {
+        const map = L.map('map').setView([vehicle.location.lat, vehicle.location.lng], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add vehicle marker
+        const vehicleIcon = L.divIcon({
+            className: 'vehicle-marker',
+            html: `
+                <div style="
+                    background: #3498db;
+                    color: white;
+                    border-radius: 50%;
+                    width: 30px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                ">🚛</div>
+            `,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+        
+        L.marker([vehicle.location.lat, vehicle.location.lng], { icon: vehicleIcon })
+            .addTo(map)
+            .bindPopup(`
+                <div style="min-width: 200px;">
+                    <h4>${vehicle.name}</h4>
+                    <p><strong>Plate:</strong> ${vehicle.plate_number || 'N/A'}</p>
+                    <p><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
+                    <p><strong>Status:</strong> ${vehicle.status}</p>
+                    <p><strong>Job:</strong> {{ job.name }}</p>
+                </div>
+            `);
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

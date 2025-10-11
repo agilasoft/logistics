@@ -1,0 +1,199 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "default_view": "Form",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cargo_xml_section",
+  "cargo_xml_enabled",
+  "cargo_xml_endpoint",
+  "cargo_xml_username",
+  "cargo_xml_password",
+  "column_break_1",
+  "dg_autocheck_enabled",
+  "dg_autocheck_api_key",
+  "cass_section",
+  "cass_enabled",
+  "cass_participant_code",
+  "cass_api_endpoint",
+  "column_break_2",
+  "tact_section",
+  "tact_subscription",
+  "tact_api_key",
+  "tact_endpoint",
+  "other_integrations_section",
+  "net_rates_enabled",
+  "track_trace_enabled",
+  "epic_enabled",
+  "column_break_3",
+  "testing_section",
+  "test_mode",
+  "test_endpoint",
+  "debug_logging"
+ ],
+ "fields": [
+  {
+   "fieldname": "cargo_xml_section",
+   "fieldtype": "Section Break",
+   "label": "Cargo-XML Configuration"
+  },
+  {
+   "default": "0",
+   "fieldname": "cargo_xml_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Cargo-XML"
+  },
+  {
+   "fieldname": "cargo_xml_endpoint",
+   "fieldtype": "Data",
+   "label": "Cargo-XML Endpoint URL"
+  },
+  {
+   "fieldname": "cargo_xml_username",
+   "fieldtype": "Data",
+   "label": "Username"
+  },
+  {
+   "fieldname": "cargo_xml_password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "dg_autocheck_enabled",
+   "fieldtype": "Check",
+   "label": "Enable DG AutoCheck"
+  },
+  {
+   "fieldname": "dg_autocheck_api_key",
+   "fieldtype": "Password",
+   "label": "DG AutoCheck API Key"
+  },
+  {
+   "fieldname": "cass_section",
+   "fieldtype": "Section Break",
+   "label": "CASSLink Configuration"
+  },
+  {
+   "default": "0",
+   "fieldname": "cass_enabled",
+   "fieldtype": "Check",
+   "label": "Enable CASSLink"
+  },
+  {
+   "fieldname": "cass_participant_code",
+   "fieldtype": "Data",
+   "label": "CASS Participant Code"
+  },
+  {
+   "fieldname": "cass_api_endpoint",
+   "fieldtype": "Data",
+   "label": "CASS API Endpoint"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tact_section",
+   "fieldtype": "Section Break",
+   "label": "TACT Configuration"
+  },
+  {
+   "default": "0",
+   "fieldname": "tact_subscription",
+   "fieldtype": "Check",
+   "label": "Enable TACT Subscription"
+  },
+  {
+   "fieldname": "tact_api_key",
+   "fieldtype": "Password",
+   "label": "TACT API Key"
+  },
+  {
+   "fieldname": "tact_endpoint",
+   "fieldtype": "Data",
+   "label": "TACT Endpoint"
+  },
+  {
+   "fieldname": "other_integrations_section",
+   "fieldtype": "Section Break",
+   "label": "Other Integrations"
+  },
+  {
+   "default": "0",
+   "fieldname": "net_rates_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Net Rates"
+  },
+  {
+   "default": "0",
+   "fieldname": "track_trace_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Track & Trace"
+  },
+  {
+   "default": "0",
+   "fieldname": "epic_enabled",
+   "fieldtype": "Check",
+   "label": "Enable EPIC Partner Verification"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "testing_section",
+   "fieldtype": "Section Break",
+   "label": "Testing & Debug"
+  },
+  {
+   "default": "0",
+   "fieldname": "test_mode",
+   "fieldtype": "Check",
+   "label": "Test Mode"
+  },
+  {
+   "fieldname": "test_endpoint",
+   "fieldtype": "Data",
+   "label": "Test Endpoint URL"
+  },
+  {
+   "default": "0",
+   "fieldname": "debug_logging",
+   "fieldtype": "Check",
+   "label": "Enable Debug Logging"
+  }
+ ],
+ "icon": "fa fa-plane",
+ "is_single": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "IATA Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

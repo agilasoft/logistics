@@ -151,7 +151,11 @@ def execute(filters=None):
     chart = {
         "data": {
             "labels": ["A", "B", "C"],
-            "datasets": [{"name":"Count", "values": [cnt.get("A",0), cnt.get("B",0), cnt.get("C",0)]}]
+            "datasets": [{
+                "name":"Count", 
+                "values": [cnt.get("A",0), cnt.get("B",0), cnt.get("C",0)],
+                "colors": ["#28a745", "#ffc107", "#dc3545"]  # Green, Yellow, Red for A, B, C
+            }]
         },
         "type": "pie"
     }

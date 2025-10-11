@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:requirement_name",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "requirement_name",
+  "requirement_type",
+  "column_break_1",
+  "required_value",
+  "operator",
+  "section_break_details",
+  "description",
+  "mandatory",
+  "column_break_2",
+  "validation_rule",
+  "error_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "requirement_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Requirement Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "requirement_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Requirement Type",
+   "options": "Vehicle Registration\nInsurance\nWeight Limit\nDimension Limit\nDriver License\nHours of Service\nHazardous Material\nRefrigeration\nEnvironmental\nSafety Equipment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "required_value",
+   "fieldtype": "Data",
+   "label": "Required Value"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Select",
+   "label": "Operator",
+   "options": "=\n!=\n>\n<\n>=\n<=\nContains\nNot Contains"
+  },
+  {
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  },
+  {
+   "default": "1",
+   "fieldname": "mandatory",
+   "fieldtype": "Check",
+   "label": "Mandatory"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "validation_rule",
+   "fieldtype": "Code",
+   "label": "Validation Rule",
+   "options": "Python"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Text",
+   "label": "Error Message"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Road Compliance Requirement",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+
+
+

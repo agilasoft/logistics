@@ -1,0 +1,38 @@
+{
+ "allow_roles": [
+  {
+   "role": "Land Transport Manager"
+  }
+ ],
+ "creation": "2025-08-30 11:54:29.901444",
+ "docstatus": 0,
+ "doctype": "Module Onboarding",
+ "documentation_url": "https://www.erpnext.com",
+ "idx": 0,
+ "is_complete": 0,
+ "modified": "2025-10-01 22:07:50.928044",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Land Transport",
+ "owner": "Administrator",
+ "steps": [
+  {
+   "step": "Create a Transport Company"
+  },
+  {
+   "step": "Create a Dispatcher"
+  },
+  {
+   "step": "Create a Shipper"
+  },
+  {
+   "step": "Create a Consignee"
+  },
+  {
+   "step": "Create a Transport Job"
+  }
+ ],
+ "subtitle": "Jobs, Dispatchers, Transport Companies, Facilities, and more.",
+ "success_message": "You're ready to hit the road! Your Land Transport operations are now set up.",
+ "title": "Let\u2019s Set Up the Land Transport Module!"
+}

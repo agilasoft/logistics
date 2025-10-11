@@ -78,23 +78,545 @@ async function render_run_sheet_route_map(frm) {
     // Create unique map container ID
     const mapId = `runsheet-route-map-${frm.doc.name || 'new'}-${Date.now()}`;
     
+    // Vehicle info for header
+    const vehicleType = frm.doc.vehicle_type || 'Not assigned';
+    const vehicleName = frm.doc.vehicle || 'Not assigned';
+    const transportCompany = frm.doc.transport_company || 'Not assigned';
+    const driverName = frm.doc.driver_name || frm.doc.driver || 'Not assigned';
+    const runSheetId = frm.doc.name || 'New';
+    const runDate = frm.doc.run_date || 'Not set';
+    const status = frm.doc.status || 'Draft';
+    
     const mapHtml = `
-      <div class="text-muted small" style="margin-bottom: 10px; display: flex; gap: 20px; align-items: center; justify-content: center;">
-        <a href="#" id="${mapId}-google-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
-          <i class="fa fa-external-link"></i> Google Maps
-        </a>
-        <a href="#" id="${mapId}-osm-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
-          <i class="fa fa-external-link"></i> OpenStreetMap
-        </a>
-        <a href="#" id="${mapId}-apple-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
-          <i class="fa fa-external-link"></i> Apple Maps
-        </a>
-      </div>
-      <div style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
-        <div id="${mapId}" style="width: 100%; height: 100%;"></div>
-        <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 1000;">
-          <span style="color: blue;">●</span> ${legs.length} Stops
+      <style>
+        .run-sheet-header {
+          background: #ffffff;
+          border: 1px solid #e0e0e0;
+          border-radius: 6px;
+          margin-bottom: 20px;
+          padding: 12px 16px;
+        }
+        
+        .header-main {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+        }
+        
+        .header-vehicle-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0px;
+        }
+        
+        .section-label {
+          font-size: 10px;
+          color: #6c757d;
+          text-transform: uppercase;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+          margin-bottom: -2px;
+        }
+        
+        .vehicle-name {
+          font-size: 18px;
+          font-weight: 700;
+          color: #007bff;
+          margin-top: -2px;
+        }
+        
+        .header-details {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+        }
+        
+        .header-item {
+          display: flex;
+          align-items: baseline;
+          gap: 5px;
+        }
+        
+        .header-item label {
+          font-size: 10px;
+          color: #6c757d;
+          font-weight: 600;
+        }
+        
+        .header-item span {
+          font-size: 11px;
+          color: #2c3e50;
+          font-weight: 500;
+        }
+        
+        .route-container {
+          display: flex;
+          gap: 20px;
+          margin: 20px 0;
+          align-items: flex-start;
+        }
+        
+        .leg-cards-sidebar {
+          flex: 1;
+          max-width: 300px;
+        }
+        
+        .map-main-container {
+          flex: 2;
+          align-self: flex-start;
+          position: relative;
+          z-index: 1;
+        }
+        
+        .map-container {
+          width: 100%;
+          height: 500px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          overflow: hidden;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          position: relative;
+        }
+        
+        .map-view {
+          width: 100%;
+          height: 100%;
+        }
+        
+        .map-controls {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          display: flex;
+          gap: 6px;
+          z-index: 1000;
+        }
+        
+        .map-btn {
+          background: white;
+          border: 1px solid #d1d5db;
+          padding: 6px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 11px;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+          color: #6b7280;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+        
+        .map-btn:hover {
+          background: #f8f9fa;
+          border-color: #9ca3af;
+        }
+        
+        .locate-btn {
+          background: #2563eb;
+          color: white;
+          border: none;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .locate-btn:hover {
+          background: #1d4ed8;
+        }
+        
+        .leg-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .transport-leg-card {
+          background: white;
+          border: 1px solid #e0e0e0;
+          border-radius: 6px;
+          padding: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: all 0.3s ease;
+          border-left: 4px solid #667eea;
+        }
+        
+        .transport-leg-card:hover {
+          box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .leg-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 6px;
+        }
+        
+        .leg-card-header h5 {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #333;
+          line-height: 1.2;
+        }
+        
+        .leg-number {
+          background: #667eea;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: 600;
+        }
+        
+        .leg-details {
+          font-size: 11px;
+          color: #6c757d;
+          line-height: 1.4;
+          margin-bottom: 8px;
+        }
+        
+        .leg-actions {
+          display: flex;
+          gap: 6px;
+          margin-top: 8px;
+        }
+        
+        .action-icon {
+          font-size: 14px;
+          cursor: pointer;
+          transition: opacity 0.2s ease;
+        }
+        
+        .action-icon:hover {
+          opacity: 0.7;
+        }
+        
+        .status-badge {
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: 500;
+          text-transform: uppercase;
+        }
+        
+        .status-badge.completed, .status-badge.billed {
+          background: #d4edda;
+          color: #155724;
+        }
+        
+        .status-badge.started {
+          background: #cfe2ff;
+          color: #084298;
+        }
+        
+        .status-badge.assigned {
+          background: #fff3cd;
+          color: #856404;
+        }
+        
+        .status-badge.open {
+          background: #e2e3e5;
+          color: #6c757d;
+        }
+        
+        .transport-leg-card.completed {
+          border-left-color: #28a745;
+        }
+        
+        .transport-leg-card.started {
+          border-left-color: #007bff;
+        }
+        
+        .transport-leg-card.assigned {
+          border-left-color: #ffc107;
+        }
+        
+        @media (max-width: 768px) {
+          .route-container {
+            flex-direction: column;
+            padding: 0;
+          }
+          
+          .leg-cards-sidebar {
+            max-width: none;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            order: 1;
+          }
+          
+          .map-main-container {
+            position: relative;
+            top: auto;
+            max-height: none;
+            order: 2;
+            padding: 0 10px;
+          }
+          
+          .map-container {
+            height: 400px;
+          }
+          
+          .map-controls {
+            top: 8px;
+            left: 8px;
+            gap: 4px;
+          }
+          
+          .map-btn {
+            padding: 4px 8px;
+            font-size: 10px;
+          }
+          
+          .transport-leg-card {
+            margin-bottom: 8px;
+            padding: 12px;
+          }
+          
+          .leg-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+          
+          .leg-card-header h5 {
+            font-size: 14px;
+            margin: 0;
+          }
+          
+          .leg-actions {
+            justify-content: center;
+            margin-top: 10px;
+            gap: 12px;
+          }
+          
+          .action-icon {
+            font-size: 18px;
+            padding: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 36px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .status-badge {
+            font-size: 9px;
+            padding: 3px 8px;
+          }
+          
+          .leg-number {
+            font-size: 11px;
+          }
+          
+          .leg-details {
+            font-size: 11px;
+            margin-bottom: 10px;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .route-container {
+            padding: 0;
+          }
+          
+          .leg-cards-sidebar {
+            padding: 5px;
+          }
+          
+          .map-main-container {
+            padding: 0 5px;
+          }
+          
+          .map-container {
+            height: 350px;
+          }
+          
+          .map-controls {
+            top: 6px;
+            left: 6px;
+            gap: 3px;
+          }
+          
+          .map-btn {
+            padding: 3px 6px;
+            font-size: 9px;
+          }
+          
+          .transport-leg-card {
+            padding: 10px;
+            margin-bottom: 6px;
+          }
+          
+          .leg-card-header h5 {
+            font-size: 13px;
+          }
+          
+          .leg-details {
+            font-size: 10px;
+          }
+          
+          .action-icon {
+            font-size: 16px;
+            padding: 6px;
+            min-width: 32px;
+            min-height: 32px;
+          }
+          
+          .status-badge {
+            font-size: 8px;
+            padding: 2px 6px;
+          }
+          
+          .leg-number {
+            font-size: 10px;
+          }
+        }
+        
+        @media (max-width: 360px) {
+          .transport-leg-card {
+            padding: 8px;
+          }
+          
+          .leg-card-header h5 {
+            font-size: 12px;
+          }
+          
+          .action-icon {
+            font-size: 14px;
+            padding: 4px;
+            min-width: 28px;
+            min-height: 28px;
+          }
+          
+          .leg-actions {
+            gap: 8px;
+          }
+          
+          .map-container {
+            height: 300px;
+          }
+          
+          .map-controls {
+            top: 4px;
+            left: 4px;
+            gap: 2px;
+          }
+          
+          .map-btn {
+            padding: 2px 4px;
+            font-size: 8px;
+          }
+        }
+        
+        /* Mobile styles for header */
+        @media (max-width: 768px) {
+          .run-sheet-header {
+            padding: 10px 12px;
+            margin-bottom: 12px;
+          }
+          
+          .header-main {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          
+          .header-details {
+            gap: 12px;
+            flex-wrap: wrap;
+            width: 100%;
+          }
+          
+          .vehicle-name {
+            font-size: 16px;
+          }
+          
+          .header-item-value {
+            font-size: 12px;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .run-sheet-header {
+            padding: 8px 10px;
+            margin-bottom: 10px;
+          }
+          
+          .header-details {
+            gap: 8px;
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          
+          .header-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+          }
+          
+          .vehicle-name {
+            font-size: 15px;
+          }
+          
+          .header-item-value {
+            font-size: 11px;
+          }
+          
+          .section-label {
+            font-size: 9px;
+          }
+        }
+      </style>
+      
+      <div class="run-sheet-header">
+        <div class="header-main">
+          <div class="header-vehicle-section">
+            <label class="section-label">${vehicleType}</label>
+            <div class="vehicle-name">${vehicleName}</div>
+            <div style="font-size: 11px; color: #6c757d; margin-top: 4px;">
+              <div><i class="fa fa-building"></i> ${transportCompany}</div>
+              <div><i class="fa fa-user"></i> ${driverName}</div>
+              <div><i class="fa fa-file-text"></i> ${runSheetId}</div>
+            </div>
+          </div>
+          <div class="header-details">
+            <div class="header-item">
+              <label><i class="fa fa-calendar"></i> Run Date:</label>
+              <span>${runDate}</span>
+            </div>
+            <div class="header-item">
+              <label><i class="fa fa-info-circle"></i> Status:</label>
+              <span>${status}</span>
+            </div>
+            <div class="header-item">
+              <label><i class="fa fa-route"></i> Legs:</label>
+              <span>${legs.length}</span>
+            </div>
+          </div>
         </div>
+      </div>
+      
+      <div class="route-container">
+        <div class="leg-cards-sidebar">
+          <div class="leg-list" id="${mapId}-leg-cards"></div>
+        </div>
+        
+        <div class="map-main-container">
+          <div class="map-container">
+            <div id="${mapId}" class="map-view"></div>
+            <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 1000;">
+              <span style="color: blue;">●</span> ${legs.length} Stops
+            </div>
+            <div class="map-controls">
+              <button id="${mapId}-refresh-vehicle" class="map-btn" title="Refresh vehicle position">
+                <i class="fa fa-refresh"></i>
+              </button>
+              <button id="${mapId}-locate-vehicle" class="map-btn locate-btn" title="Locate vehicle on map">
+                <i class="fa fa-location-arrow"></i> Locate
+              </button>
+            </div>
         <div id="${mapId}-fallback" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); display: flex; align-items: center; justify-content: center; flex-direction: column;">
           <div style="text-align: center; color: #6c757d;">
             <i class="fa fa-map" style="font-size: 32px; margin-bottom: 15px;"></i>
@@ -122,16 +644,188 @@ async function render_run_sheet_route_map(frm) {
           </div>
         </div>
       </div>
+      <div class="text-muted small" style="margin-top: 10px; display: flex; gap: 20px; align-items: center; justify-content: center;">
+        <a href="#" id="${mapId}-google-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
+          <i class="fa fa-external-link"></i> Google Maps
+        </a>
+        <a href="#" id="${mapId}-osm-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
+          <i class="fa fa-external-link"></i> OpenStreetMap
+        </a>
+        <a href="#" id="${mapId}-apple-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
+          <i class="fa fa-external-link"></i> Apple Maps
+        </a>
+      </div>
+    </div>
+  </div>
     `;
     
     $wrapper.html(mapHtml);
     
+    // Populate leg cards with status and conditional action buttons
+    const legCardsContainer = document.getElementById(`${mapId}-leg-cards`);
+    if (legCardsContainer) {
+      const legCardsHtml = await Promise.all(legs.map(async (leg, index) => {
+        let status = 'Open';
+        let startDate = null;
+        let endDate = null;
+        let customer = leg.customer || 'No Customer';
+        let facilityTypeFrom = leg.facility_type_from || '';
+        let facilityFrom = leg.facility_from || '';
+        let facilityTypeTo = leg.facility_type_to || '';
+        let facilityTo = leg.facility_to || '';
+        
+        // Get Transport Leg details for status
+        if (leg.transport_leg) {
+          try {
+            const legDoc = await frappe.db.get_doc("Transport Leg", leg.transport_leg);
+            status = legDoc.status || 'Open';
+            startDate = legDoc.start_date;
+            endDate = legDoc.end_date;
+          } catch(e) {
+            console.warn('Could not fetch leg status:', e);
+          }
+        }
+        
+        // Determine status class
+        const statusClass = status.toLowerCase().replace(' ', '-');
+        
+        // Build action icons - hide start if started, hide end if ended
+        const actionIcons = [];
+        
+        // Add drag handle icon (always first)
+        actionIcons.push(`<i class="fa fa-grip-vertical drag-handle" 
+           title="Drag to Reorder" 
+           style="color: #6c757d; cursor: move;"></i>`);
+        
+        if (!startDate) {
+          actionIcons.push(`<i class="fa fa-play-circle action-icon" 
+             title="Start Leg" 
+             onclick="startTransportLeg('${leg.transport_leg}')"
+             style="color: #28a745; cursor: pointer;"></i>`);
+        }
+        if (!endDate) {
+          actionIcons.push(`<i class="fa fa-stop-circle action-icon" 
+             title="End Leg" 
+             onclick="endTransportLeg('${leg.transport_leg}')"
+             style="color: #dc3545; cursor: pointer;"></i>`);
+        }
+        // Always show view icon
+        actionIcons.push(`<i class="fa fa-eye action-icon" 
+           title="View Leg" 
+           onclick="viewTransportLeg('${leg.transport_leg}')"
+           style="color: #007bff; cursor: pointer;"></i>`);
+        
+        return `
+          <div class="transport-leg-card ${statusClass}" data-transport-leg="${leg.transport_leg}" data-idx="${index + 1}">
+            <div class="leg-card-header">
+              <h5><i class="fa fa-user"></i> ${customer}</h5>
+              <span class="leg-number">#${index + 1}</span>
+            </div>
+            
+            <div class="leg-details">
+              <div class="route-display">
+                <div class="route-point">
+                  <div class="route-label">${facilityTypeFrom}</div>
+                  <div class="route-value">${facilityFrom || 'Not set'}</div>
+                </div>
+                
+                <div class="route-arrow">
+                  <i class="fa fa-arrow-right"></i>
+                </div>
+                
+                <div class="route-point">
+                  <div class="route-label">${facilityTypeTo}</div>
+                  <div class="route-value">${facilityTo || 'Not set'}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="leg-card-footer">
+              ${actionIcons.length > 0 ? `<div class="leg-actions">${actionIcons.join('')}</div>` : '<div></div>'}
+              <div class="leg-info-right">
+                <div style="font-size: 10px; color: #999;">
+                  ${leg.transport_leg || '<em>Not linked</em>'}
+                </div>
+                <span class="status-badge ${statusClass}">${status}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }));
+      
+      legCardsContainer.innerHTML = legCardsHtml.join('');
+      
+      // Initialize drag-and-drop sorting
+      initializeLegCardSorting(legCardsContainer, frm);
+    }
+    
     // Show fallback initially
     showMapFallback(mapId);
     
-    // Initialize multi-leg route map
+    // Add refresh button handler
     setTimeout(() => {
-      initializeRunSheetRouteMap(mapId, legs, mapRenderer);
+      const refreshBtn = document.getElementById(`${mapId}-refresh-vehicle`);
+      if (refreshBtn) {
+        refreshBtn.onclick = async () => {
+          console.log('Refreshing vehicle data...');
+          refreshBtn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Refreshing...';
+          refreshBtn.disabled = true;
+          
+          try {
+            // Call the new refresh API to get fresh telematics data
+            const refreshResult = await frappe.call({
+              method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
+              args: {
+                vehicle_name: frm.doc.vehicle
+              }
+            });
+            
+            if (refreshResult.message && refreshResult.message.success) {
+              console.log('✓ Vehicle data refreshed successfully:', refreshResult.message);
+              
+              // Update the stored vehicle position with fresh data
+              window[`${mapId}_vehiclePosition`] = refreshResult.message;
+              
+              // Re-render the map with fresh data
+              await render_run_sheet_route_map(frm);
+              
+              frappe.show_alert({
+                message: __('Vehicle data refreshed - Ignition: {0}, Speed: {1} km/h', [
+                  refreshResult.message.ignition ? 'ON' : 'OFF',
+                  refreshResult.message.speed_kph ? refreshResult.message.speed_kph.toFixed(1) : 'N/A'
+                ]), 
+                indicator: 'green'
+              });
+            } else {
+              console.warn('Vehicle refresh failed:', refreshResult.message);
+              frappe.show_alert({
+                message: __('Failed to refresh vehicle data: {0}', [refreshResult.message?.error || 'Unknown error']),
+                indicator: 'orange'
+              });
+              
+              // Still re-render the map to show current data
+              await render_run_sheet_route_map(frm);
+            }
+          } catch (error) {
+            console.error('Error refreshing vehicle data:', error);
+            frappe.show_alert({
+              message: __('Error refreshing vehicle data: {0}', [error.message || 'Unknown error']),
+              indicator: 'red'
+            });
+            
+            // Still re-render the map to show current data
+            await render_run_sheet_route_map(frm);
+          } finally {
+            refreshBtn.innerHTML = '<i class="fa fa-refresh"></i> Refresh Vehicle';
+            refreshBtn.disabled = false;
+          }
+        };
+      }
+    }, 200);
+    
+    // Initialize multi-leg route map with vehicle tracking
+    setTimeout(() => {
+      initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm);
     }, 100);
     
   } catch (error) {
@@ -141,13 +835,70 @@ async function render_run_sheet_route_map(frm) {
 }
 
 // Initialize multi-leg route map
-async function initializeRunSheetRouteMap(mapId, legs, mapRenderer) {
+async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
   try {
     // Get coordinates for all legs
     const legCoords = [];
     const allCoords = [];
     
     const missingAddresses = [];
+    
+    // Fetch vehicle position if vehicle is assigned
+    let vehiclePosition = null;
+    if (frm && frm.doc && frm.doc.vehicle) {
+      try {
+        console.log('Fetching vehicle position for:', frm.doc.vehicle);
+        const vehicleData = await frappe.call({
+          method: 'logistics.transport.api_vehicle_tracking.get_vehicle_position',
+          args: {
+            vehicle_name: frm.doc.vehicle
+          }
+        });
+        
+        console.log('Vehicle API response:', vehicleData);
+        
+        if (vehicleData.message && vehicleData.message.success) {
+          vehiclePosition = vehicleData.message;
+          console.log('✓ Vehicle position loaded successfully:', vehiclePosition);
+          console.log('  Latitude:', vehiclePosition.latitude);
+          console.log('  Longitude:', vehiclePosition.longitude);
+          console.log('  Speed:', vehiclePosition.speed_kph);
+          console.log('  Ignition:', vehiclePosition.ignition);
+        } else {
+          console.warn('Vehicle position API returned unsuccessful:', vehicleData.message);
+          // Show alert to user
+          frappe.show_alert({
+            message: __('Vehicle tracking data not available: {0}', [vehicleData.message?.error || 'No position data']),
+            indicator: 'orange'
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching vehicle position:', e);
+        frappe.show_alert({
+          message: __('Could not fetch vehicle position: {0}', [e.message || 'Unknown error']),
+          indicator: 'red'
+        });
+      }
+    } else {
+      console.log('No vehicle assigned to this run sheet');
+    }
+    
+    // Fetch Transport Leg details for status badges
+    const transportLegDetails = {};
+    for (const leg of legs) {
+      if (leg.transport_leg) {
+        try {
+          const legDoc = await frappe.db.get_doc("Transport Leg", leg.transport_leg);
+          transportLegDetails[leg.name] = {
+            status: legDoc.status,
+            start_date: legDoc.start_date,
+            end_date: legDoc.end_date
+          };
+        } catch(e) {
+          console.warn('Could not fetch leg details:', e);
+        }
+      }
+    }
     
     for (const leg of legs) {
       if (leg.transport_leg) {
@@ -230,15 +981,15 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer) {
     // Update external links with first and last coordinates
     updateExternalLinks(mapId, legCoords);
     
-    // Initialize map based on renderer
+    // Initialize map based on renderer (pass vehicle position for tracking)
     if (mapRenderer && mapRenderer.toLowerCase() === 'google maps') {
-      initializeGoogleRouteMap(mapId, legCoords);
+      initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm);
     } else if (mapRenderer && mapRenderer.toLowerCase() === 'mapbox') {
-      initializeMapboxRouteMap(mapId, legCoords);
+      initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm);
     } else if (mapRenderer && mapRenderer.toLowerCase() === 'maplibre') {
-      initializeMapLibreRouteMap(mapId, legCoords);
+      initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm);
     } else {
-      initializeOpenStreetRouteMap(mapId, legCoords);
+      initializeOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm);
     }
     
   } catch (error) {
@@ -406,7 +1157,7 @@ function clearExistingWarnings(mapId) {
 }
 
 // Initialize OpenStreetMap for multi-leg route
-function initializeOpenStreetRouteMap(mapId, legCoords) {
+function initializeOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm) {
   // Load Leaflet CSS and JS if not already loaded
   if (!window.L) {
     // Load Leaflet CSS
@@ -423,19 +1174,27 @@ function initializeOpenStreetRouteMap(mapId, legCoords) {
     leafletJS.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
     leafletJS.crossOrigin = 'anonymous';
     leafletJS.onload = () => {
-      createOpenStreetRouteMap(mapId, legCoords);
+      createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm);
     };
     document.head.appendChild(leafletJS);
   } else {
-    createOpenStreetRouteMap(mapId, legCoords);
+    createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm);
   }
 }
 
-function createOpenStreetRouteMap(mapId, legCoords) {
+function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm) {
+  console.log('createOpenStreetRouteMap called with:');
+  console.log('  mapId:', mapId);
+  console.log('  legCoords:', legCoords);
+  console.log('  vehiclePosition:', vehiclePosition);
+  console.log('  frm:', frm ? 'present' : 'missing');
+  
   const checkElement = () => {
     const mapElement = document.getElementById(mapId);
     if (mapElement) {
       try {
+        console.log('Map element found, creating map...');
+        
         // Calculate bounds
         const allLats = [];
         const allLons = [];
@@ -443,6 +1202,16 @@ function createOpenStreetRouteMap(mapId, legCoords) {
           allLats.push(leg.pick.lat, leg.drop.lat);
           allLons.push(leg.pick.lon, leg.drop.lon);
         });
+        
+        // Include vehicle position in bounds if available
+        console.log('Checking vehicle position for bounds:', vehiclePosition);
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          console.log('✓ Adding vehicle position to bounds');
+          allLats.push(vehiclePosition.latitude);
+          allLons.push(vehiclePosition.longitude);
+        } else {
+          console.log('✗ Vehicle position not valid for bounds');
+        }
         
         const centerLat = (Math.min(...allLats) + Math.max(...allLats)) / 2;
         const centerLon = (Math.min(...allLons) + Math.max(...allLons)) / 2;
@@ -519,9 +1288,232 @@ function createOpenStreetRouteMap(mapId, legCoords) {
           `);
         }
         
+        // Add vehicle/truck marker if position is available
+        console.log('=== TRUCK MARKER SECTION ===');
+        console.log('Checking if we should add truck marker...');
+        console.log('vehiclePosition exists?', !!vehiclePosition);
+        console.log('vehiclePosition.latitude?', vehiclePosition?.latitude);
+        console.log('vehiclePosition.longitude?', vehiclePosition?.longitude);
+        console.log('Full vehiclePosition:', vehiclePosition);
+        
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          console.log('✓ CONDITION MET - Adding truck marker at:', vehiclePosition.latitude, vehiclePosition.longitude);
+          
+          const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+          const ignition = vehiclePosition.ignition ? 'ON' : 'OFF';
+          const ignitionOn = vehiclePosition.ignition;
+          
+          // Font Awesome truck in white circle
+          const truckIcon = L.divIcon({
+            className: 'custom-truck-marker',
+            html: `
+              <div style="position: relative; width: 80px; height: 68px;">
+                <!-- Ignition status card (above truck) -->
+                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${ignitionOn ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                  Ignition: ${ignition}
+                </div>
+                
+                <!-- White circle with blue truck icon -->
+                <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid #e5e7eb; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                  <i class="fa fa-truck" style="color: #2563eb; font-size: 20px;"></i>
+                  <!-- Small ignition circle -->
+                  <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${ignitionOn ? '#10b981' : '#ef4444'}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+                </div>
+                
+                <!-- Vehicle name label (below truck) -->
+                <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: #007bff; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;">
+                  ${vehicleName}
+                </div>
+              </div>
+            `,
+            iconSize: [80, 68],
+            iconAnchor: [40, 34]
+          });
+          
+          console.log('Creating L.marker with icon...');
+          const truckMarker = L.marker([vehiclePosition.latitude, vehiclePosition.longitude], {
+            icon: truckIcon,
+            zIndexOffset: 10000,  // Ensure it's on top
+            riseOnHover: true,
+            title: `${vehicleName} - Current Location`
+          }).addTo(map);
+          
+          console.log('✓ L.marker created and added to map');
+          
+          // Add detailed popup for truck
+          const speedDisplay = vehiclePosition.speed_kph ? `${vehiclePosition.speed_kph.toFixed(1)} km/h` : 'N/A';
+          const timestampDisplay = vehiclePosition.timestamp || 'N/A';
+          const odometerDisplay = vehiclePosition.odometer_km ? `${vehiclePosition.odometer_km.toFixed(1)} km` : null;
+          
+          console.log('Creating truck popup...');
+          console.log('Vehicle position fuel_level:', vehiclePosition.fuel_level);
+          console.log('Vehicle position odometer_km:', vehiclePosition.odometer_km);
+          const fuelDisplay = vehiclePosition.fuel_level ? `${vehiclePosition.fuel_level}%` : null;
+          
+          truckMarker.bindPopup(`
+            <div style="padding: 6px;">
+              <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
+              <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+                <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
+                ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
+                ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
+                <span style="font-size: 10px; color: #9ca3af;">${timestampDisplay}</span>
+              </div>
+            </div>
+          `);
+          
+          console.log('Adding truck marker to markers array...');
+          allMarkers.push(truckMarker);
+          console.log('Total markers now:', allMarkers.length);
+          
+          console.log('✓✓✓ TRUCK MARKER ADDED SUCCESSFULLY TO MAP! ✓✓✓');
+          console.log('  Truck coordinates:', vehiclePosition.latitude, vehiclePosition.longitude);
+          console.log('  Look for: Blue square with truck icon and vehicle name label');
+          
+          // Store map and truck marker reference for locate button
+          window[`${mapId}_map`] = map;
+          window[`${mapId}_truckMarker`] = truckMarker;
+          window[`${mapId}_vehiclePosition`] = vehiclePosition;
+          
+          // Setup locate truck button
+          setTimeout(() => {
+            const locateBtn = document.getElementById(`${mapId}-locate-vehicle`);
+            if (locateBtn) {
+              locateBtn.onclick = async () => {
+                console.log('Locating truck on map...');
+                locateBtn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Locating...';
+                locateBtn.disabled = true;
+                
+                try {
+                  // First refresh vehicle data to get latest position and ignition status
+                  const refreshResult = await frappe.call({
+                    method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
+                    args: {
+                      vehicle_name: frm.doc.vehicle
+                    }
+                  });
+                  
+                  let currentPosition = vehiclePosition;
+                  let refreshMessage = '';
+                  
+                  if (refreshResult.message && refreshResult.message.success) {
+                    console.log('✓ Vehicle data refreshed for location:', refreshResult.message);
+                    currentPosition = refreshResult.message;
+                    
+                    // Update stored position
+                    window[`${mapId}_vehiclePosition`] = currentPosition;
+                    
+                    refreshMessage = ` - Ignition: ${currentPosition.ignition ? 'ON' : 'OFF'}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
+                  } else {
+                    console.warn('Could not refresh vehicle data, using cached position');
+                    refreshMessage = ' (using cached position)';
+                  }
+                  
+                  const storedMap = window[`${mapId}_map`];
+                  const storedMarker = window[`${mapId}_truckMarker`];
+                  
+                  if (storedMap && currentPosition) {
+                    // Update marker position if we have fresh data
+                    if (refreshResult.message && refreshResult.message.success) {
+                      storedMarker.setLatLng([currentPosition.latitude, currentPosition.longitude]);
+                      
+                      // Update marker popup with fresh data
+                      const speedDisplay = currentPosition.speed_kph ? `${currentPosition.speed_kph.toFixed(1)} km/h` : 'N/A';
+                      const fuelDisplay = currentPosition.fuel_level ? `${currentPosition.fuel_level}%` : null;
+                      const odometerDisplay = currentPosition.odometer_km ? `${currentPosition.odometer_km.toFixed(1)} km` : null;
+                      const ignition = currentPosition.ignition ? 'ON' : 'OFF';
+                      const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                      
+                      storedMarker.setPopupContent(`
+                        <div style="padding: 6px;">
+                          <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
+                          <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+                            <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                            ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
+                            ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
+                            ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
+                            <span style="font-size: 10px; color: #9ca3af;">${currentPosition.timestamp || 'N/A'}</span>
+                          </div>
+                        </div>
+                      `);
+                    }
+                    
+                    // Pan to truck location
+                    storedMap.setView([currentPosition.latitude, currentPosition.longitude], 15, {
+                      animate: true,
+                      duration: 1
+                    });
+                    
+                    // Open popup
+                    storedMarker.openPopup();
+                    
+                    // Add temporary highlight
+                    locateBtn.innerHTML = '<i class="fa fa-check"></i>';
+                    locateBtn.style.background = '#10b981';
+                    
+                    setTimeout(() => {
+                      locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                      locateBtn.style.background = '#2563eb';
+                    }, 1500);
+                    
+                    frappe.show_alert({
+                      message: __('Truck located at {0}, {1}{2}', [
+                        currentPosition.latitude.toFixed(5),
+                        currentPosition.longitude.toFixed(5),
+                        refreshMessage
+                      ]),
+                      indicator: 'green'
+                    });
+                  } else {
+                    frappe.show_alert({
+                      message: __('Could not locate truck on map'),
+                      indicator: 'red'
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error locating truck:', error);
+                  frappe.show_alert({
+                    message: __('Error locating truck: {0}', [error.message || 'Unknown error']),
+                    indicator: 'red'
+                  });
+                } finally {
+                  locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                  locateBtn.disabled = false;
+                }
+              };
+              
+              // Enable the button
+              locateBtn.disabled = false;
+              locateBtn.style.opacity = '1';
+              console.log('✓ Locate truck button enabled');
+            }
+          }, 500);
+          
+        } else {
+          console.log('ℹ️ Vehicle position not available for mapping');
+          if (frm && frm.doc && frm.doc.vehicle) {
+            console.log('  Vehicle assigned:', frm.doc.vehicle);
+            console.log('  Reason: No telematics data or coordinates missing');
+            console.log('  To fix: Ensure vehicle has telematics configured and position data available');
+          } else {
+            console.log('  No vehicle assigned to this run sheet');
+          }
+          
+          // Hide locate button if no vehicle position
+          setTimeout(() => {
+            const locateBtn = document.getElementById(`${mapId}-locate-vehicle`);
+            if (locateBtn) {
+              locateBtn.style.display = 'none';
+            }
+          }, 100);
+        }
+        
         // Fit map to show all markers
-        const group = new L.featureGroup(allMarkers);
-        map.fitBounds(group.getBounds().pad(0.1));
+        if (allMarkers.length > 0) {
+          const group = new L.featureGroup(allMarkers);
+          map.fitBounds(group.getBounds().pad(0.1));
+        }
         
         // Hide fallback when map loads successfully
         hideMapFallback(mapId);
@@ -540,7 +1532,7 @@ function createOpenStreetRouteMap(mapId, legCoords) {
 }
 
 // Initialize Google Maps for multi-leg route
-function initializeGoogleRouteMap(mapId, legCoords) {
+function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
   // For Google Maps, we'll use a static map with waypoints
   // This is more reliable than trying to load the full Google Maps API
   const waypoints = [];
@@ -548,6 +1540,11 @@ function initializeGoogleRouteMap(mapId, legCoords) {
     waypoints.push(`${legData.pick.lat},${legData.pick.lon}`);
     waypoints.push(`${legData.drop.lat},${legData.drop.lon}`);
   });
+  
+  // Add vehicle position as a marker if available
+  if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+    waypoints.push(`${vehiclePosition.latitude},${vehiclePosition.longitude}`);
+  }
   
   const firstPick = legCoords[0].pick;
   const lastDrop = legCoords[legCoords.length - 1].drop;
@@ -595,7 +1592,7 @@ function initializeGoogleRouteMap(mapId, legCoords) {
 }
 
 // Initialize Mapbox for multi-leg route
-function initializeMapboxRouteMap(mapId, legCoords) {
+function initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
   // Load Mapbox GL JS if not already loaded
   if (!window.mapboxgl) {
     // Load Mapbox GL JS CSS
@@ -610,19 +1607,26 @@ function initializeMapboxRouteMap(mapId, legCoords) {
     mapboxJS.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js';
     mapboxJS.crossOrigin = 'anonymous';
     mapboxJS.onload = () => {
-      createMapboxRouteMap(mapId, legCoords);
+      createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm);
     };
     document.head.appendChild(mapboxJS);
   } else {
-    createMapboxRouteMap(mapId, legCoords);
+    createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm);
   }
 }
 
-function createMapboxRouteMap(mapId, legCoords) {
+function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
+  console.log('createMapboxRouteMap called with:');
+  console.log('  mapId:', mapId);
+  console.log('  legCoords:', legCoords);
+  console.log('  vehiclePosition:', vehiclePosition);
+  
   const checkElement = () => {
     const mapElement = document.getElementById(mapId);
     if (mapElement) {
       try {
+        console.log('Mapbox: Map element found, creating map...');
+        
         // Calculate bounds
         const allLats = [];
         const allLons = [];
@@ -630,6 +1634,13 @@ function createMapboxRouteMap(mapId, legCoords) {
           allLats.push(leg.pick.lat, leg.drop.lat);
           allLons.push(leg.pick.lon, leg.drop.lon);
         });
+        
+        // Include vehicle position in bounds if available
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          console.log('Mapbox: ✓ Adding vehicle position to bounds');
+          allLats.push(vehiclePosition.latitude);
+          allLons.push(vehiclePosition.longitude);
+        }
         
         const centerLat = (Math.min(...allLats) + Math.max(...allLats)) / 2;
         const centerLon = (Math.min(...allLons) + Math.max(...allLons)) / 2;
@@ -710,6 +1721,156 @@ function createMapboxRouteMap(mapId, legCoords) {
           });
         }
         
+        // Add vehicle/truck marker if position is available (Mapbox)
+        console.log('=== MAPBOX TRUCK MARKER SECTION ===');
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          console.log('Mapbox: ✓ Adding truck marker');
+          
+          const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+          const ignition = vehiclePosition.ignition ? 'ON' : 'OFF';
+          const ignitionOn = vehiclePosition.ignition;
+          
+          // Font Awesome truck in white circle (Mapbox)
+          const truckEl = document.createElement('div');
+          truckEl.innerHTML = `
+            <div style="position: relative; width: 80px; height: 68px;">
+              <!-- Ignition status card (above truck) -->
+              <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${ignitionOn ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                Ignition: ${ignition}
+              </div>
+              
+              <!-- White circle with blue truck icon -->
+              <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid #e5e7eb; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                <i class="fa fa-truck" style="color: #2563eb; font-size: 20px;"></i>
+                <!-- Small ignition circle -->
+                <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${ignitionOn ? '#10b981' : '#ef4444'}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+              </div>
+              
+              <!-- Vehicle name label (below truck) -->
+              <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: #007bff; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;">
+                ${vehicleName}
+              </div>
+            </div>
+          `;
+          
+          const truckMarker = new mapboxgl.Marker({element: truckEl, anchor: 'center'})
+            .setLngLat([vehiclePosition.longitude, vehiclePosition.latitude])
+            .addTo(map);
+          
+          // Add popup with fuel level
+          const speedDisplay = vehiclePosition.speed_kph ? `${vehiclePosition.speed_kph.toFixed(1)} km/h` : 'N/A';
+          const timestampDisplay = vehiclePosition.timestamp || 'N/A';
+          const odometerDisplay = vehiclePosition.odometer_km ? `${vehiclePosition.odometer_km.toFixed(1)} km` : null;
+          console.log('Mapbox: Vehicle position fuel_level:', vehiclePosition.fuel_level);
+          console.log('Mapbox: Vehicle position odometer_km:', vehiclePosition.odometer_km);
+          const fuelDisplay = vehiclePosition.fuel_level ? `${vehiclePosition.fuel_level}%` : null;
+          
+          truckMarker.setPopup(new mapboxgl.Popup({offset: 25}).setHTML(`
+            <div style="padding: 6px;">
+              <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
+              <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+                <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
+                ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
+                ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
+                <span style="font-size: 10px; color: #9ca3af;">${timestampDisplay}</span>
+              </div>
+            </div>
+          `));
+          
+          allMarkers.push(truckMarker);
+          allWaypoints.push([vehiclePosition.longitude, vehiclePosition.latitude]);
+          
+          console.log('Mapbox: ✓✓✓ TRUCK MARKER ADDED!');
+          
+          // Store for locate button
+          window[`${mapId}_map`] = map;
+          window[`${mapId}_truckMarker`] = truckMarker;
+          
+          setTimeout(() => {
+            const locateBtn = document.getElementById(`${mapId}-locate-vehicle`);
+            if (locateBtn) {
+              locateBtn.onclick = async () => {
+                console.log('Mapbox: Locating truck on map...');
+                locateBtn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Locating...';
+                locateBtn.disabled = true;
+                
+                try {
+                  // First refresh vehicle data to get latest position and ignition status
+                  const refreshResult = await frappe.call({
+                    method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
+                    args: {
+                      vehicle_name: frm.doc.vehicle
+                    }
+                  });
+                  
+                  let currentPosition = vehiclePosition;
+                  let refreshMessage = '';
+                  
+                  if (refreshResult.message && refreshResult.message.success) {
+                    console.log('Mapbox: ✓ Vehicle data refreshed for location:', refreshResult.message);
+                    currentPosition = refreshResult.message;
+                    
+                    // Update stored position
+                    window[`${mapId}_vehiclePosition`] = currentPosition;
+                    
+                    refreshMessage = ` - Ignition: ${currentPosition.ignition ? 'ON' : 'OFF'}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
+                    
+                    // Update marker position if we have fresh data
+                    truckMarker.setLngLat([currentPosition.longitude, currentPosition.latitude]);
+                    
+                    // Update marker popup with fresh data
+                    const speedDisplay = currentPosition.speed_kph ? `${currentPosition.speed_kph.toFixed(1)} km/h` : 'N/A';
+                    const fuelDisplay = currentPosition.fuel_level ? `${currentPosition.fuel_level}%` : null;
+                    const odometerDisplay = currentPosition.odometer_km ? `${currentPosition.odometer_km.toFixed(1)} km` : null;
+                    const ignition = currentPosition.ignition ? 'ON' : 'OFF';
+                    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                    
+                    truckMarker.setPopup(new mapboxgl.Popup({offset: 25}).setHTML(`
+                      <div style="padding: 6px;">
+                        <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
+                        <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+                          <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                          ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
+                          ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
+                          ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
+                          <span style="font-size: 10px; color: #9ca3af;">${currentPosition.timestamp || 'N/A'}</span>
+                        </div>
+                      </div>
+                    `));
+                  } else {
+                    console.warn('Mapbox: Could not refresh vehicle data, using cached position');
+                    refreshMessage = ' (using cached position)';
+                  }
+                  
+                  // Fly to truck location
+                  map.flyTo({center: [currentPosition.longitude, currentPosition.latitude], zoom: 15});
+                  truckMarker.togglePopup();
+                  
+                  frappe.show_alert({
+                    message: __('Truck located at {0}, {1}{2}', [
+                      currentPosition.latitude.toFixed(5),
+                      currentPosition.longitude.toFixed(5),
+                      refreshMessage
+                    ]),
+                    indicator: 'green'
+                  });
+                } catch (error) {
+                  console.error('Mapbox: Error locating truck:', error);
+                  frappe.show_alert({
+                    message: __('Error locating truck: {0}', [error.message || 'Unknown error']),
+                    indicator: 'red'
+                  });
+                } finally {
+                  locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                  locateBtn.disabled = false;
+                }
+              };
+              locateBtn.disabled = false;
+            }
+          }, 500);
+        }
+        
         // Fit map to show all markers
         const bounds = new mapboxgl.LngLatBounds();
         allWaypoints.forEach(coord => bounds.extend(coord));
@@ -731,7 +1892,7 @@ function createMapboxRouteMap(mapId, legCoords) {
   checkElement();
 }
 
-function initializeMapLibreRouteMap(mapId, legCoords) {
+function initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
   // Load MapLibre GL JS if not already loaded
   if (!window.maplibregl) {
     // Load MapLibre GL JS CSS
@@ -748,19 +1909,27 @@ function initializeMapLibreRouteMap(mapId, legCoords) {
     mapLibreJS.integrity = 'sha256-xGCE32m7qplbMBpRUnSobsU5BceEWbgNzLwnoMC40Ts=';
     mapLibreJS.crossOrigin = 'anonymous';
     mapLibreJS.onload = () => {
-      createMapLibreRouteMap(mapId, legCoords);
+      createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm);
     };
     document.head.appendChild(mapLibreJS);
   } else {
-    createMapLibreRouteMap(mapId, legCoords);
+    createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm);
   }
 }
 
-function createMapLibreRouteMap(mapId, legCoords) {
+function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
+  console.log('createMapLibreRouteMap called with:');
+  console.log('  mapId:', mapId);
+  console.log('  legCoords:', legCoords);
+  console.log('  vehiclePosition:', vehiclePosition);
+  console.log('  frm:', frm ? 'present' : 'missing');
+  
   const checkElement = () => {
     const mapElement = document.getElementById(mapId);
     if (mapElement) {
       try {
+        console.log('MapLibre: Map element found, creating map...');
+        
         // Calculate bounds
         const allLats = [];
         const allLons = [];
@@ -768,6 +1937,16 @@ function createMapLibreRouteMap(mapId, legCoords) {
           allLats.push(leg.pick.lat, leg.drop.lat);
           allLons.push(leg.pick.lon, leg.drop.lon);
         });
+        
+        // Include vehicle position in bounds if available
+        console.log('MapLibre: Checking vehicle position for bounds:', vehiclePosition);
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          console.log('MapLibre: ✓ Adding vehicle position to bounds');
+          allLats.push(vehiclePosition.latitude);
+          allLons.push(vehiclePosition.longitude);
+        } else {
+          console.log('MapLibre: ✗ Vehicle position not valid for bounds');
+        }
         
         const centerLat = (Math.min(...allLats) + Math.max(...allLats)) / 2;
         const centerLon = (Math.min(...allLons) + Math.max(...allLons)) / 2;
@@ -863,6 +2042,209 @@ function createMapLibreRouteMap(mapId, legCoords) {
           });
         }
         
+        // Add vehicle/truck marker if position is available (MapLibre)
+        console.log('=== MAPLIBRE TRUCK MARKER SECTION ===');
+        console.log('Checking if we should add truck marker...');
+        console.log('vehiclePosition exists?', !!vehiclePosition);
+        console.log('vehiclePosition.latitude?', vehiclePosition?.latitude);
+        console.log('vehiclePosition.longitude?', vehiclePosition?.longitude);
+        
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          console.log('MapLibre: ✓ CONDITION MET - Adding truck marker');
+          
+          const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+          const ignition = vehiclePosition.ignition ? 'ON' : 'OFF';
+          const ignitionOn = vehiclePosition.ignition;
+          
+          // Font Awesome truck in white circle (MapLibre)
+          const truckEl = document.createElement('div');
+          truckEl.className = 'maplibre-truck-marker';
+          truckEl.innerHTML = `
+            <div style="position: relative; width: 80px; height: 68px;">
+              <!-- Ignition status card (above truck) -->
+              <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${ignitionOn ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                Ignition: ${ignition}
+              </div>
+              
+              <!-- White circle with blue truck icon -->
+              <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid #e5e7eb; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                <i class="fa fa-truck" style="color: #2563eb; font-size: 20px;"></i>
+                <!-- Small ignition circle -->
+                <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${ignitionOn ? '#10b981' : '#ef4444'}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+              </div>
+              
+              <!-- Vehicle name label (below truck) -->
+              <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: #007bff; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;">
+                ${vehicleName}
+              </div>
+            </div>
+          `;
+          
+          const truckMarker = new maplibregl.Marker({
+            element: truckEl,
+            anchor: 'center'
+          }).setLngLat([vehiclePosition.longitude, vehiclePosition.latitude]).addTo(map);
+          
+          console.log('MapLibre: ✓ Truck marker created and added');
+          
+          // Add popup with fuel level
+          const speedDisplay = vehiclePosition.speed_kph ? `${vehiclePosition.speed_kph.toFixed(1)} km/h` : 'N/A';
+          const timestampDisplay = vehiclePosition.timestamp || 'N/A';
+          const odometerDisplay = vehiclePosition.odometer_km ? `${vehiclePosition.odometer_km.toFixed(1)} km` : null;
+          console.log('MapLibre: Vehicle position fuel_level:', vehiclePosition.fuel_level);
+          console.log('MapLibre: Vehicle position odometer_km:', vehiclePosition.odometer_km);
+          const fuelDisplay = vehiclePosition.fuel_level ? `${vehiclePosition.fuel_level}%` : null;
+          
+          truckMarker.setPopup(new maplibregl.Popup({offset: 25}).setHTML(`
+            <div style="padding: 6px;">
+              <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
+              <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+                <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
+                ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
+                ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
+                <span style="font-size: 10px; color: #9ca3af;">${timestampDisplay}</span>
+              </div>
+            </div>
+          `));
+          
+          allMarkers.push(truckMarker);
+          
+          // Add truck circle to bounds
+          allWaypoints.push([vehiclePosition.longitude, vehiclePosition.latitude]);
+          
+          console.log('MapLibre: ✓✓✓ TRUCK MARKER ADDED SUCCESSFULLY! ✓✓✓');
+          console.log('  Truck at:', vehiclePosition.latitude, vehiclePosition.longitude);
+          
+          // Store map and truck marker reference for locate button
+          window[`${mapId}_map`] = map;
+          window[`${mapId}_truckMarker`] = truckMarker;
+          window[`${mapId}_vehiclePosition`] = vehiclePosition;
+          
+          // Setup locate truck button (MapLibre version)
+          setTimeout(() => {
+            const locateBtn = document.getElementById(`${mapId}-locate-vehicle`);
+            if (locateBtn) {
+              locateBtn.onclick = async () => {
+                console.log('MapLibre: Locating truck on map...');
+                locateBtn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Locating...';
+                locateBtn.disabled = true;
+                
+                try {
+                  // First refresh vehicle data to get latest position and ignition status
+                  const refreshResult = await frappe.call({
+                    method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
+                    args: {
+                      vehicle_name: frm.doc.vehicle
+                    }
+                  });
+                  
+                  let currentPosition = vehiclePosition;
+                  let refreshMessage = '';
+                  
+                  if (refreshResult.message && refreshResult.message.success) {
+                    console.log('MapLibre: ✓ Vehicle data refreshed for location:', refreshResult.message);
+                    currentPosition = refreshResult.message;
+                    
+                    // Update stored position
+                    window[`${mapId}_vehiclePosition`] = currentPosition;
+                    
+                    refreshMessage = ` - Ignition: ${currentPosition.ignition ? 'ON' : 'OFF'}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
+                    
+                    // Update marker position if we have fresh data
+                    truckMarker.setLngLat([currentPosition.longitude, currentPosition.latitude]);
+                    
+                    // Update marker popup with fresh data
+                    const speedDisplay = currentPosition.speed_kph ? `${currentPosition.speed_kph.toFixed(1)} km/h` : 'N/A';
+                    const fuelDisplay = currentPosition.fuel_level ? `${currentPosition.fuel_level}%` : null;
+                    const odometerDisplay = currentPosition.odometer_km ? `${currentPosition.odometer_km.toFixed(1)} km` : null;
+                    const ignition = currentPosition.ignition ? 'ON' : 'OFF';
+                    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                    
+                    truckMarker.setPopup(new maplibregl.Popup({offset: 25}).setHTML(`
+                      <div style="padding: 6px;">
+                        <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
+                        <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
+                          <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                          ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
+                          ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
+                          ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
+                          <span style="font-size: 10px; color: #9ca3af;">${currentPosition.timestamp || 'N/A'}</span>
+                        </div>
+                      </div>
+                    `));
+                  } else {
+                    console.warn('MapLibre: Could not refresh vehicle data, using cached position');
+                    refreshMessage = ' (using cached position)';
+                  }
+                  
+                  const storedMap = window[`${mapId}_map`];
+                  const storedMarker = window[`${mapId}_truckMarker`];
+                  
+                  if (storedMap && storedMarker) {
+                    // Fly to truck location
+                    storedMap.flyTo({
+                      center: [currentPosition.longitude, currentPosition.latitude],
+                      zoom: 15,
+                      duration: 2000
+                    });
+                    
+                    // Open popup
+                    storedMarker.togglePopup();
+                    
+                    // Add temporary highlight
+                    locateBtn.innerHTML = '<i class="fa fa-check"></i>';
+                    locateBtn.style.background = '#10b981';
+                    
+                    setTimeout(() => {
+                      locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                      locateBtn.style.background = '#2563eb';
+                    }, 1500);
+                    
+                    frappe.show_alert({
+                      message: __('Truck located at {0}, {1}{2}', [
+                        currentPosition.latitude.toFixed(5),
+                        currentPosition.longitude.toFixed(5),
+                        refreshMessage
+                      ]),
+                      indicator: 'green'
+                    });
+                  } else {
+                    frappe.show_alert({
+                      message: __('Could not locate truck on map'),
+                      indicator: 'red'
+                    });
+                  }
+                } catch (error) {
+                  console.error('MapLibre: Error locating truck:', error);
+                  frappe.show_alert({
+                    message: __('Error locating truck: {0}', [error.message || 'Unknown error']),
+                    indicator: 'red'
+                  });
+                } finally {
+                  locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                  locateBtn.disabled = false;
+                }
+              };
+              
+              locateBtn.disabled = false;
+              locateBtn.style.opacity = '1';
+              console.log('MapLibre: ✓ Locate truck button enabled');
+            }
+          }, 500);
+          
+        } else {
+          console.log('MapLibre: ℹ️ Vehicle position not available');
+          
+          // Hide locate button if no vehicle position
+          setTimeout(() => {
+            const locateBtn = document.getElementById(`${mapId}-locate-vehicle`);
+            if (locateBtn) {
+              locateBtn.style.display = 'none';
+            }
+          }, 100);
+        }
+        
         // Fit map to show all markers
         const bounds = new maplibregl.LngLatBounds();
         allWaypoints.forEach(coord => bounds.extend(coord));
@@ -905,11 +2287,86 @@ function createMarkerElement(text, color) {
   return el;
 }
 
+// ---------- Transport Leg Action Functions ----------
+window.startTransportLeg = function(transportLegName) {
+  console.log('Start Transport Leg:', transportLegName);
+  if (!transportLegName) {
+    frappe.show_alert({message: __('No transport leg linked'), indicator: 'orange'});
+    return;
+  }
+  
+  frappe.call({
+    method: 'logistics.transport.doctype.transport_leg.transport_leg.set_dates_and_update_status',
+    args: {
+      name: transportLegName,
+      start_date: frappe.datetime.now_datetime()
+    },
+    callback: function(r) {
+      if (!r.exc && r.message && r.message.ok) {
+        frappe.show_alert({message: __('Leg started - Status: {0}', [r.message.status]), indicator: 'green'});
+        // Refresh the map to update status badges
+        if (cur_frm) {
+          render_run_sheet_route_map(cur_frm);
+        }
+      } else {
+        frappe.show_alert({message: __('Error starting leg: {0}', [r.message?.message || 'Unknown error']), indicator: 'red'});
+      }
+    }
+  });
+}
+
+window.endTransportLeg = function(transportLegName) {
+  console.log('End Transport Leg:', transportLegName);
+  if (!transportLegName) {
+    frappe.show_alert({message: __('No transport leg linked'), indicator: 'orange'});
+    return;
+  }
+  
+  frappe.call({
+    method: 'logistics.transport.doctype.transport_leg.transport_leg.set_dates_and_update_status',
+    args: {
+      name: transportLegName,
+      end_date: frappe.datetime.now_datetime()
+    },
+    callback: function(r) {
+      if (!r.exc && r.message && r.message.ok) {
+        frappe.show_alert({message: __('Leg ended - Status: {0}', [r.message.status]), indicator: 'green'});
+        // Refresh the map to update status badges
+        if (cur_frm) {
+          render_run_sheet_route_map(cur_frm);
+        }
+      } else {
+        frappe.show_alert({message: __('Error ending leg: {0}', [r.message?.message || 'Unknown error']), indicator: 'red'});
+      }
+    }
+  });
+}
+
+window.viewTransportLeg = function(transportLegName) {
+  console.log('View Transport Leg:', transportLegName);
+  if (transportLegName) {
+    frappe.set_route('Form', 'Transport Leg', transportLegName);
+  } else {
+    frappe.show_alert({message: __('No transport leg linked'), indicator: 'orange'});
+  }
+}
+
 // ---------- form bindings ----------
 frappe.ui.form.on('Run Sheet', {
   refresh(frm) {
     if (frm.doc.name) {
       render_run_sheet_route_map(frm);
+      
+      // Add Refresh Legs button
+      if (!frm.is_new()) {
+        frm.add_custom_button(__('Refresh Legs'), function() {
+          refresh_legs_from_transport_leg(frm);
+        }, __('Actions'));
+        
+        frm.add_custom_button(__('Sync to Transport Legs'), function() {
+          sync_legs_to_transport_leg(frm);
+        }, __('Actions'));
+      }
     }
   },
   
@@ -919,3 +2376,565 @@ frappe.ui.form.on('Run Sheet', {
     }
   }
 });
+
+// Refresh legs from Transport Leg doctype
+async function refresh_legs_from_transport_leg(frm) {
+  frappe.show_alert({
+    message: __('Refreshing legs from Transport Leg...'),
+    indicator: 'blue'
+  });
+  
+  try {
+    const result = await frappe.call({
+      method: 'logistics.transport.doctype.run_sheet.run_sheet.refresh_legs',
+      args: {
+        run_sheet_name: frm.doc.name
+      }
+    });
+    
+    if (result.message && result.message.status === 'success') {
+      frm.reload_doc();
+      frappe.show_alert({
+        message: __('Legs refreshed successfully'),
+        indicator: 'green'
+      });
+    }
+  } catch (error) {
+    frappe.show_alert({
+      message: __('Error refreshing legs: ') + error.message,
+      indicator: 'red'
+    });
+  }
+}
+
+// Sync legs to Transport Leg doctype
+async function sync_legs_to_transport_leg(frm) {
+  frappe.show_alert({
+    message: __('Syncing legs to Transport Leg...'),
+    indicator: 'blue'
+  });
+  
+  try {
+    const result = await frappe.call({
+      method: 'logistics.transport.doctype.run_sheet.run_sheet.sync_legs_to_transport',
+      args: {
+        run_sheet_name: frm.doc.name
+      }
+    });
+    
+    if (result.message && result.message.status === 'success') {
+      frappe.show_alert({
+        message: __('Legs synced successfully'),
+        indicator: 'green'
+      });
+    }
+  } catch (error) {
+    frappe.show_alert({
+      message: __('Error syncing legs: ') + error.message,
+      indicator: 'red'
+    });
+  }
+}
+
+// Initialize drag-and-drop sorting for leg cards
+function initializeLegCardSorting(container, frm) {
+  if (!container || !frm) return;
+  
+  // Make the container sortable using simple drag-and-drop
+  let draggedElement = null;
+  let placeholder = null;
+  
+  const cards = container.querySelectorAll('.transport-leg-card');
+  
+  cards.forEach(card => {
+    // Make cards draggable
+    card.setAttribute('draggable', 'true');
+    
+    // Add visual cue for draggable items
+    card.style.cursor = 'move';
+    
+    // Drag start
+    card.addEventListener('dragstart', function(e) {
+      draggedElement = this;
+      
+      // Add dragging class to actual card (without transparency)
+      this.classList.add('dragging');
+      
+      // Create placeholder that can receive drops
+      placeholder = document.createElement('div');
+      placeholder.className = 'drag-placeholder';
+      placeholder.style.height = this.offsetHeight + 'px';
+      
+      // Make placeholder accept drops
+      placeholder.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-placeholder-active');
+        console.log('📍 Hovering over placeholder');
+        return false;
+      });
+      
+      placeholder.addEventListener('dragleave', function(e) {
+        this.classList.remove('drag-placeholder-active');
+      });
+      
+      placeholder.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('💧 DROPPED ON PLACEHOLDER!');
+        
+        if (!draggedElement) {
+          console.warn('⚠️ No dragged element found');
+          return false;
+        }
+        
+        // Insert dragged element before placeholder
+        if (this.parentNode) {
+          this.parentNode.insertBefore(draggedElement, this);
+          console.log('✅ Card inserted before placeholder');
+          
+          // Remove placeholder
+          this.parentNode.removeChild(this);
+          
+          // Update card numbers
+          const updatedCards = Array.from(container.children).filter(c => 
+            c.classList.contains('transport-leg-card')
+          );
+          
+          updatedCards.forEach((card, idx) => {
+            const legNumber = card.querySelector('.leg-card-header h5');
+            const badge = card.querySelector('.leg-number');
+            
+            if (legNumber) {
+              const icon = '<i class="fa fa-truck"></i>';
+              legNumber.innerHTML = `${icon} Leg ${idx + 1}`;
+            }
+            
+            if (badge) {
+              badge.textContent = `#${idx + 1}`;
+            }
+          });
+          
+          console.log('🔵 Updated card numbers in DOM');
+          
+          // Save to backend
+          updateLegOrderFromCards(container, frm);
+        }
+        
+        return false;
+      });
+      
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.getAttribute('data-transport-leg'));
+      
+      console.log('🟢 Started dragging:', this.getAttribute('data-transport-leg'));
+    });
+    
+    // Drag end
+    card.addEventListener('dragend', function(e) {
+      console.log('🔴 Drag ended');
+      
+      this.classList.remove('dragging');
+      
+      // Remove placeholder
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+      }
+      placeholder = null;
+      
+      // Remove all drag-over classes from all cards
+      const allCards = container.querySelectorAll('.transport-leg-card');
+      allCards.forEach(c => {
+        c.classList.remove('drag-over-top');
+        c.classList.remove('drag-over-bottom');
+      });
+      
+      // Reset dragged element reference
+      draggedElement = null;
+    });
+    
+    // Drag over
+    card.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      e.dataTransfer.dropEffect = 'move';
+      
+      if (!draggedElement || draggedElement === this) {
+        return false;
+      }
+      
+      // Remove placeholder from all positions
+      container.querySelectorAll('.drag-placeholder').forEach(p => {
+        if (p !== placeholder) p.remove();
+      });
+      
+      // Remove drag-over from all cards
+      container.querySelectorAll('.transport-leg-card').forEach(c => {
+        c.classList.remove('drag-over-top');
+        c.classList.remove('drag-over-bottom');
+      });
+      
+      // Determine if we should insert before or after
+      const allCards = Array.from(container.children).filter(c => 
+        c.classList.contains('transport-leg-card')
+      );
+      
+      const draggedIndex = allCards.indexOf(draggedElement);
+      const targetIndex = allCards.indexOf(this);
+      
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        if (draggedIndex < targetIndex) {
+          // Dragging down - show placeholder after target
+          this.classList.add('drag-over-bottom');
+          if (placeholder) {
+            if (this.nextSibling && this.nextSibling !== placeholder) {
+              container.insertBefore(placeholder, this.nextSibling);
+            } else if (!this.nextSibling) {
+              container.appendChild(placeholder);
+            }
+          }
+        } else {
+          // Dragging up - show placeholder before target
+          this.classList.add('drag-over-top');
+          if (placeholder && this.previousSibling !== placeholder) {
+            container.insertBefore(placeholder, this);
+          }
+        }
+      }
+      
+      return false;
+    });
+    
+    // Drag enter
+    card.addEventListener('dragenter', function(e) {
+      e.preventDefault();
+      // Handled in dragover
+    });
+    
+    // Drag leave
+    card.addEventListener('dragleave', function(e) {
+      // Only remove if we're actually leaving (not entering a child element)
+      const rect = this.getBoundingClientRect();
+      if (e.clientX < rect.left || e.clientX >= rect.right ||
+          e.clientY < rect.top || e.clientY >= rect.bottom) {
+        this.classList.remove('drag-over-top');
+        this.classList.remove('drag-over-bottom');
+      }
+    });
+    
+    // Drop
+    card.addEventListener('drop', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      console.log('💧 Drop event triggered on:', this.getAttribute('data-transport-leg'));
+      
+      if (!draggedElement) {
+        console.warn('⚠️ No dragged element found');
+        return false;
+      }
+      
+      if (draggedElement === this) {
+        console.log('ℹ️ Dropped on self, ignoring');
+        return false;
+      }
+      
+      // Get all cards (excluding placeholder)
+      const allCards = Array.from(container.children).filter(c => 
+        c.classList.contains('transport-leg-card')
+      );
+      
+      const draggedIndex = allCards.indexOf(draggedElement);
+      const targetIndex = allCards.indexOf(this);
+      
+      console.log(`🔄 Moving card from position ${draggedIndex + 1} to ${targetIndex + 1}`);
+      
+      if (draggedIndex === -1 || targetIndex === -1) {
+        console.error('❌ Could not find card indices');
+        return false;
+      }
+      
+      // Remove placeholder first
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+      }
+      
+      // Determine insert position based on drag direction
+      if (draggedIndex < targetIndex) {
+        // Moving down - insert after target
+        console.log('⬇️ Moving DOWN - inserting after target');
+        if (this.nextSibling) {
+          container.insertBefore(draggedElement, this.nextSibling);
+        } else {
+          container.appendChild(draggedElement);
+        }
+      } else {
+        // Moving up - insert before target
+        console.log('⬆️ Moving UP - inserting before target');
+        container.insertBefore(draggedElement, this);
+      }
+      
+      // Update card numbers immediately
+      const updatedCards = Array.from(container.children).filter(c => 
+        c.classList.contains('transport-leg-card')
+      );
+      
+      updatedCards.forEach((card, idx) => {
+        const legNumber = card.querySelector('.leg-card-header h5');
+        const badge = card.querySelector('.leg-number');
+        
+        if (legNumber) {
+          const icon = '<i class="fa fa-truck"></i>';
+          legNumber.innerHTML = `${icon} Leg ${idx + 1}`;
+        }
+        
+        if (badge) {
+          badge.textContent = `#${idx + 1}`;
+        }
+      });
+      
+      console.log('🔵 Updated card numbers in DOM');
+      
+      // Clean up drag-over classes
+      this.classList.remove('drag-over-top');
+      this.classList.remove('drag-over-bottom');
+      
+      // Update the order on backend
+      updateLegOrderFromCards(container, frm);
+      
+      return false;
+    });
+  });
+  
+  // Add CSS for smooth drag-and-drop
+  if (!document.getElementById('leg-card-drag-styles')) {
+    const style = document.createElement('style');
+    style.id = 'leg-card-drag-styles';
+    style.textContent = `
+      /* Smooth transitions for cards */
+      .transport-leg-card[draggable="true"] {
+        transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+        position: relative;
+        margin-bottom: 8px;
+      }
+      
+      /* Dragging state - keep card fully visible */
+      .transport-leg-card.dragging {
+        cursor: grabbing !important;
+        z-index: 1000;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        border: 3px solid #667eea;
+        opacity: 1 !important;
+        background: #ffffff !important;
+      }
+      
+      /* Drop zone indicator - create visible space */
+      .transport-leg-card.drag-over-top {
+        margin-top: 60px !important;
+        border-top: 4px dashed #667eea;
+        padding-top: 12px;
+        background: linear-gradient(to bottom, rgba(102, 126, 234, 0.15) 0%, transparent 50%);
+      }
+      
+      .transport-leg-card.drag-over-bottom {
+        margin-bottom: 60px !important;
+        border-bottom: 4px dashed #667eea;
+        padding-bottom: 12px;
+        background: linear-gradient(to top, rgba(102, 126, 234, 0.15) 0%, transparent 50%);
+      }
+      
+      /* Visual placeholder for drop position */
+      .drag-placeholder {
+        height: 100px;
+        margin: 8px 0;
+        border: 3px dashed #667eea;
+        border-radius: 6px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #667eea;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s ease;
+        position: relative;
+        cursor: pointer;
+      }
+      
+      .drag-placeholder::before {
+        content: "↓ Drop here ↓";
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      
+      .drag-placeholder-active {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.25) 0%, rgba(102, 126, 234, 0.15) 100%);
+        border-color: #4a5de6;
+        border-width: 4px;
+        transform: scale(1.02);
+      }
+      
+      .drag-placeholder-active::before {
+        content: "✓ Drop now! ✓";
+        color: #4a5de6;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.05); }
+      }
+      
+      /* Drag handle cursor */
+      .drag-handle {
+        cursor: grab !important;
+      }
+      
+      .drag-handle:active {
+        cursor: grabbing !important;
+      }
+      
+      /* Route display styling */
+      .route-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+      }
+      
+      .route-point {
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .route-label {
+        font-size: 9px;
+        color: #6c757d;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+      }
+      
+      .route-value {
+        font-size: 12px;
+        color: #2c3e50;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .route-arrow {
+        color: #667eea;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      
+      /* Card footer layout */
+      .leg-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #e0e0e0;
+      }
+      
+      .leg-info-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Update leg order based on current card positions
+async function updateLegOrderFromCards(container, frm) {
+  const cards = container.querySelectorAll('.transport-leg-card');
+  const legOrder = [];
+  
+  console.log('📊 Reading current card order from DOM...');
+  
+  cards.forEach((card, index) => {
+    const transportLeg = card.getAttribute('data-transport-leg');
+    if (transportLeg) {
+      legOrder.push({
+        transport_leg: transportLeg,
+        idx: index + 1
+      });
+      // Update the data-idx attribute
+      card.setAttribute('data-idx', index + 1);
+      console.log(`  ${index + 1}. ${transportLeg}`);
+    }
+  });
+  
+  if (legOrder.length === 0) {
+    console.warn('⚠️ No legs found in cards');
+    return;
+  }
+  
+  console.log('💾 Calling backend to save order...');
+  
+  try {
+    const result = await frappe.call({
+      method: 'logistics.transport.doctype.run_sheet.run_sheet.update_leg_order',
+      args: {
+        run_sheet_name: frm.doc.name,
+        leg_order: legOrder
+      }
+    });
+    
+    console.log('✅ Backend response:', result.message);
+    
+    if (result.message && result.message.status === 'success') {
+      frappe.show_alert({
+        message: __('Saved: {0} legs reordered', [result.message.count]),
+        indicator: 'green'
+      });
+      
+      // Update the child table in the form without full reload
+      console.log('🔄 Updating child table...');
+      
+      // Update frm.doc.legs order to match
+      if (frm.doc.legs && frm.doc.legs.length > 0) {
+        const legMap = {};
+        legOrder.forEach((item, idx) => {
+          legMap[item.transport_leg] = idx;
+        });
+        
+        frm.doc.legs.sort((a, b) => {
+          const orderA = legMap[a.transport_leg] !== undefined ? legMap[a.transport_leg] : 999;
+          const orderB = legMap[b.transport_leg] !== undefined ? legMap[b.transport_leg] : 999;
+          return orderA - orderB;
+        });
+        
+        frm.refresh_field('legs');
+        console.log('✅ Child table updated');
+      }
+      
+      // Reload doc after short delay to sync everything
+      setTimeout(() => {
+        console.log('🔄 Reloading document...');
+        frm.reload_doc();
+      }, 800);
+    }
+  } catch (error) {
+    console.error('❌ Error saving order:', error);
+    frappe.show_alert({
+      message: __('Error: ') + (error.message || error),
+      indicator: 'red'
+    });
+    
+    // Reload to restore original order on error
+    setTimeout(() => {
+      frm.reload_doc();
+    }, 1000);
+  }
+}

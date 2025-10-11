@@ -1,0 +1,2084 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title or "Warehousing Portal" }}{% endblock %}
+
+{% block head_include %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block page_content %}
+{% if error_message %}
+<div class="error-container">
+    <h1>Warehousing Portal</h1>
+    <p class="error-message">{{ error_message }}</p>
+</div>
+{% else %}
+<div class="warehousing-portal-container">
+    <!-- Header Section -->
+    <div class="portal-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <h1 class="portal-title">Warehousing Portal</h1>
+                <p class="portal-subtitle">Manage inventory, track stock movements, monitor expiry risks, and create warehouse orders</p>
+            </div>
+            <div class="customer-info">
+                {% if show_customer_dropdown %}
+                <div class="customer-selection">
+                    <div class="customer-field-container">
+                        <div id="customer-field" class="customer-field" onclick="showCustomerOptions()">
+                            {{ selected_customer or 'Select Customer' }}
+                        </div>
+                        <div class="customer-options" id="customer-options" style="display: none;">
+                            {% for cust in all_customers %}
+                            <div class="customer-option" onclick="selectCustomer('{{ cust }}')" 
+                                 {% if cust == selected_customer %}class="selected"{% endif %}>
+                                {{ cust }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="customer-name">{{ customer_name or "Customer" }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Branch Selector -->
+        <div class="branch-selector">
+            <form method="GET" class="branch-form">
+                <div class="branch-field-container">
+                    <div id="branch-field" class="branch-field" onclick="showBranchOptions()">
+                        {{ selected_branch or 'All Branches' }}
+                    </div>
+                    <div class="branch-options" id="branch-options" style="display: none;">
+                        <div class="branch-option" onclick="selectBranch('')" {% if not selected_branch %}class="selected"{% endif %}>
+                            All Branches
+                        </div>
+                        {% for wh in available_warehouses %}
+                        <div class="branch-option" onclick="selectBranch('{{ wh.name }}')" 
+                             {% if warehouse == wh.name %}class="selected"{% endif %}>
+                            {{ wh.warehouse_name or wh.name }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Statistics Section -->
+    <div class="stats-section">
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_items }}</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_quantity | int }}</div>
+                <div class="stat-label">Total Quantity</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ handling_units_count }}</div>
+                <div class="stat-label">Handling Units</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ transaction_metrics.this_month }}</div>
+                <div class="stat-label">Transactions This Month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ transaction_metrics.this_year }}</div>
+                <div class="stat-label">Transactions This Year</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {% if pending_orders.total_pending > 0 %}pending-highlight{% endif %}">{{ pending_orders.total_pending }}</div>
+                <div class="stat-label">Pending Orders</div>
+            </div>
+        </div>
+        
+        <!-- Expiry Risk Dashboard -->
+        <div class="expiry-risk-dashboard">
+            <div class="dashboard-header">
+                <h3>Expiry Risk Overview</h3>
+            </div>
+            
+            <div class="expiry-cards">
+                <!-- OK Items -->
+                <div class="expiry-card ok-card">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ expiry_risk_data.ok_items or 0 }}</div>
+                        <div class="card-label">Items OK</div>
+                        <div class="card-subtitle">No expiry risk</div>
+                    </div>
+                </div>
+                
+                <!-- Expiring Items -->
+                <div class="expiry-card expiring-card">
+                    <div class="card-icon">⚠️</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ expiry_risk_data.expiring_30_days or 0 }}</div>
+                        <div class="card-label">Expiring Soon</div>
+                        <div class="card-subtitle">Next 30 days</div>
+                    </div>
+                </div>
+                
+                <!-- Expired Items -->
+                <div class="expiry-card expired-card">
+                    <div class="card-icon">❌</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ expiry_risk_data.expired_items or 0 }}</div>
+                        <div class="card-label">Expired</div>
+                        <div class="card-subtitle">Action required</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pending Orders Cards -->
+            <div class="pending-orders-cards">
+                <div class="order-card inbound-card" onclick="createInboundOrder()">
+                    <div class="card-icon">📥</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ pending_orders.inbound_count or 0 }}</div>
+                        <div class="card-label">Pending Inbound Orders</div>
+                        <div class="card-subtitle">(Click to add new)</div>
+                    </div>
+                </div>
+                
+                <div class="order-card release-card" onclick="createReleaseOrder()">
+                    <div class="card-icon">📤</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ pending_orders.release_count or 0 }}</div>
+                        <div class="card-label">Pending Release Orders</div>
+                        <div class="card-subtitle">(Click to add new)</div>
+                    </div>
+                </div>
+                
+                <div class="order-card vas-card" onclick="createVASOrder()">
+                    <div class="card-icon">⚙️</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ pending_orders.vas_count or 0 }}</div>
+                        <div class="card-label">Pending VAS Orders</div>
+                        <div class="card-subtitle">(Click to add new)</div>
+                    </div>
+                </div>
+                
+                <div class="order-card transfer-card" onclick="createTransferOrder()">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ pending_orders.transfer_count or 0 }}</div>
+                        <div class="card-label">Pending Transfer Orders</div>
+                        <div class="card-subtitle">(Click to add new)</div>
+                    </div>
+                </div>
+                
+                <div class="order-card stocktake-card" onclick="createStocktakeOrder()">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <div class="card-value">{{ pending_orders.stocktake_count or 0 }}</div>
+                        <div class="card-label">Pending Stocktake Orders</div>
+                        <div class="card-subtitle">(Click to add new)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Risk Level Indicator -->
+            <div class="risk-indicator">
+                <div class="risk-header">
+                    <span class="risk-title">Overall Risk Level</span>
+                    <span class="risk-percentage">{{ expiry_risk_data.risk_percentage or 0 }}%</span>
+                </div>
+                <div class="risk-bar">
+                    <div class="risk-progress" style="width: {{ expiry_risk_data.risk_percentage or 0 }}%"></div>
+                </div>
+                <div class="risk-labels">
+                    <span class="risk-low">Low Risk</span>
+                    <span class="risk-high">High Risk</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monthly Trend Chart -->
+        <div class="trend-chart-dashboard">
+            <div class="dashboard-header">
+                <h3>Handling Unit Usage Trend</h3>
+                <div class="chart-subtitle">Monthly usage for {{ current_year }}</div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="handlingUnitsChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="chart-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total This Year</span>
+                    <span class="stat-value">{{ handling_units_trend.total_year or 0 }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Average Monthly</span>
+                    <span class="stat-value">{{ handling_units_trend.avg_monthly or 0 }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Peak Month</span>
+                    <span class="stat-value">{{ handling_units_trend.peak_month or 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Sections -->
+    <div class="dashboard-sections">
+        <!-- Expiry Risk Dashboard -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h2>Expiry Risk Dashboard</h2>
+                <div class="section-actions">
+                    <button class="btn btn-secondary" onclick="refreshExpiryData()" title="Refresh Expiry Data">
+                        <svg class="octicon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="expiry-content">
+                <div class="expiry-summary">
+                    <div class="expiry-card critical">
+                        <div class="expiry-count">{{ expiry_risk_data.expiring_30_days }}</div>
+                        <div class="expiry-label">Critical (30 days)</div>
+                    </div>
+                    <div class="expiry-card warning">
+                        <div class="expiry-count">{{ expiry_risk_data.expiring_90_days - expiry_risk_data.expiring_30_days }}</div>
+                        <div class="expiry-label">Warning (90 days)</div>
+                    </div>
+                </div>
+                {% if expiry_risk_data.expiring_items %}
+                <div class="expiry-items">
+                    <h4>Items Expiring Soon</h4>
+                    <div class="expiry-table-container">
+                        <table class="expiry-table">
+                            <thead>
+                                <tr>
+                                    <th>Item Code</th>
+                                    <th>Item Name</th>
+                                    <th>Quantity</th>
+                                    <th>Expiry Date</th>
+                                    <th>Days to Expiry</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in expiry_risk_data.expiring_items %}
+                                <tr class="expiry-row {% if item.days_to_expiry <= 30 %}critical{% elif item.days_to_expiry <= 90 %}warning{% endif %}">
+                                    <td class="item-code">{{ item.item_code }}</td>
+                                    <td class="item-name">{{ item.item_name }}</td>
+                                    <td class="quantity">{{ item.quantity | round(2) }}</td>
+                                    <td class="expiry-date">{{ item.expiry_date }}</td>
+                                    <td class="days-to-expiry {% if item.days_to_expiry <= 30 %}critical{% elif item.days_to_expiry <= 90 %}warning{% endif %}">
+                                        {{ item.days_to_expiry }} days
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <div class="no-data-icon">✅</div>
+                    <h3>No Expiry Risk</h3>
+                    <p>No items are expiring in the next 90 days.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Pending Orders Section -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h2>Pending Orders</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" onclick="createNewOrder()" title="Create New Order">
+                        <svg class="octicon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                        </svg>
+                        Create Order
+                    </button>
+                </div>
+            </div>
+            <div class="pending-orders-content">
+                {% if pending_orders.pending_jobs or pending_orders.pending_stock_entries %}
+                <div class="pending-orders-grid">
+                    {% if pending_orders.pending_jobs %}
+                    <div class="pending-section">
+                        <h4>Pending Warehouse Jobs</h4>
+                        <div class="pending-table-container">
+                            <table class="pending-table">
+                                <thead>
+                                    <tr>
+                                        <th>Job ID</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Scheduled</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for job in pending_orders.pending_jobs %}
+                                    <tr class="pending-row">
+                                        <td class="job-id">{{ job.name }}</td>
+                                        <td class="job-type">{{ job.job_type }}</td>
+                                        <td class="status">{{ job.status }}</td>
+                                        <td class="created">{{ job.creation }}</td>
+                                        <td class="scheduled">{{ job.scheduled_date or 'N/A' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if pending_orders.pending_stock_entries %}
+                    <div class="pending-section">
+                        <h4>Pending Stock Entries</h4>
+                        <div class="pending-table-container">
+                            <table class="pending-table">
+                                <thead>
+                                    <tr>
+                                        <th>Entry ID</th>
+                                        <th>Purpose</th>
+                                        <th>Status</th>
+                                        <th>Posting Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in pending_orders.pending_stock_entries %}
+                                    <tr class="pending-row">
+                                        <td class="entry-id">{{ entry.name }}</td>
+                                        <td class="purpose">{{ entry.purpose }}</td>
+                                        <td class="status">{{ entry.status }}</td>
+                                        <td class="posting-date">{{ entry.posting_date }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <div class="no-data-icon">📋</div>
+                    <h3>No Pending Orders</h3>
+                    <p>All orders are up to date.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Order Creation Section -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h2>Create Orders</h2>
+                <div class="section-actions">
+                    <button class="btn btn-secondary" onclick="refreshOrders()" title="Refresh Orders">
+                        <svg class="octicon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="order-creation-content">
+                <div class="order-buttons-grid">
+                    <button class="order-btn" onclick="createInboundOrder()">
+                        <div class="order-icon">📥</div>
+                        <div class="order-title">Inbound Order</div>
+                        <div class="order-description">Create inbound stock order</div>
+                    </button>
+                    <button class="order-btn" onclick="createReleaseOrder()">
+                        <div class="order-icon">📤</div>
+                        <div class="order-title">Release Order</div>
+                        <div class="order-description">Create stock release order</div>
+                    </button>
+                    <button class="order-btn" onclick="createVASOrder()">
+                        <div class="order-icon">⚙️</div>
+                        <div class="order-title">VAS Order</div>
+                        <div class="order-description">Create value-added service order</div>
+                    </button>
+                    <button class="order-btn" onclick="createTransferOrder()">
+                        <div class="order-icon">🔄</div>
+                        <div class="order-title">Transfer Order</div>
+                        <div class="order-description">Create stock transfer order</div>
+                    </button>
+                    <button class="order-btn" onclick="createStocktakeOrder()">
+                        <div class="order-icon">📊</div>
+                        <div class="order-title">Stocktake Order</div>
+                        <div class="order-description">Create stock count order</div>
+                    </button>
+                    <button class="order-btn" onclick="viewStockBalance()">
+                        <div class="order-icon">📈</div>
+                        <div class="order-title">View Stock Balance</div>
+                        <div class="order-description">View current stock levels</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endif %}
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div id="error-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Error</h3>
+            <span class="close">×</span>
+        </div>
+        <div class="modal-body">
+            <p id="error-message"></p>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Warehousing Portal Styles */
+.error-container {
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 20px;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.error-container h1 {
+    color: #495057;
+    margin-bottom: 20px;
+}
+
+.error-message {
+    color: #dc3545;
+    font-size: 16px;
+    background: #f8d7da;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #f5c6cb;
+}
+
+.warehousing-portal-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.portal-header {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    padding: 12px;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-section h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+    color: #495057;
+}
+
+.portal-subtitle {
+    font-size: 12px;
+    color: #6c757d;
+    margin: 0;
+}
+
+.customer-info {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.customer-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: #007bff;
+}
+
+/* Branch Selector */
+.branch-selector {
+    margin-top: 0;
+}
+
+.branch-field-container {
+    position: relative;
+    display: inline-block;
+}
+
+.branch-field {
+    font-size: 14px;
+    font-weight: 500;
+    color: #000;
+    cursor: pointer;
+    padding: 2px 0;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.2s ease;
+    display: inline-block;
+}
+
+.branch-field:hover {
+    text-decoration-color: #000;
+}
+
+.branch-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.branch-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #495057;
+    transition: background-color 0.2s ease;
+}
+
+.branch-option:hover {
+    background-color: #f8f9fa;
+}
+
+.branch-option.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+.customer-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.customer-selection label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+.customer-field-container {
+    position: relative;
+    min-width: 200px;
+}
+
+.customer-field {
+    font-size: 18px;
+    font-weight: 600;
+    color: #007bff;
+    cursor: pointer;
+    padding: 4px 0;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.2s ease;
+}
+
+.customer-field:hover {
+    text-decoration-color: #007bff;
+}
+
+.customer-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.customer-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.customer-option:hover {
+    background-color: #f8f9fa;
+}
+
+.customer-option.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+.customer-option:last-child {
+    border-bottom: none;
+}
+
+
+.header-filters {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #dee2e6;
+}
+
+.header-filters .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    align-items: end;
+}
+
+.header-filters .filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.header-filters .filter-group label {
+    color: #6c757d;
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.header-filters .filter-input {
+    background: white;
+    border: 1px solid #ced4da;
+    color: #495057;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 13px;
+    height: 32px;
+    box-sizing: border-box;
+}
+
+.header-filters .filter-input[multiple] {
+    height: auto;
+    min-height: 38px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+
+.header-filters .filter-input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.header-filters .filter-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #dee2e6;
+}
+
+
+.octicon {
+    width: 16px;
+    height: 16px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+    border-color: #545b62;
+}
+
+.filters-section {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    padding: 15px;
+}
+
+.filters-form {
+    margin: 0;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 4px;
+}
+
+.filter-input {
+    padding: 6px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    font-size: 12px;
+    background: white;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.filter-btn, .clear-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+}
+
+.filter-btn {
+    background: #007bff;
+    color: white;
+}
+
+.filter-btn:hover {
+    background: #0056b3;
+}
+
+.clear-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.clear-btn:hover {
+    background: #545b62;
+}
+
+.stats-section {
+    margin-bottom: 10px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+/* Expiry Risk Dashboard */
+.expiry-risk-dashboard {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 10px;
+}
+
+.dashboard-header {
+    margin-bottom: 20px;
+}
+
+.dashboard-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #495057;
+    margin: 0;
+}
+
+.expiry-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.expiry-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.expiry-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.ok-card {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-color: #28a745;
+}
+
+.expiring-card {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border-color: #fd7e14;
+}
+
+.expired-card {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    border-color: #dc3545;
+}
+
+.card-icon {
+    font-size: 24px;
+    margin-right: 15px;
+}
+
+.card-content {
+    flex: 1;
+}
+
+.card-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 4px;
+}
+
+.card-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 2px;
+}
+
+.card-subtitle {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.risk-indicator {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+.risk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.risk-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.risk-percentage {
+    font-size: 18px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.risk-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.risk-progress {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745 0%, #fd7e14 50%, #dc3545 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.risk-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* Pending Orders Cards */
+.pending-orders-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.order-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.order-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-3px);
+}
+
+.inbound-card {
+    border-left: 4px solid #28a745;
+}
+
+.inbound-card:hover {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+}
+
+.release-card {
+    border-left: 4px solid #dc3545;
+}
+
+.release-card:hover {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+}
+
+.vas-card {
+    border-left: 4px solid #fd7e14;
+}
+
+.vas-card:hover {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+}
+
+.transfer-card {
+    border-left: 4px solid #6f42c1;
+}
+
+.transfer-card:hover {
+    background: linear-gradient(135deg, #e2d9f3 0%, #d1c4e9 100%);
+}
+
+.stocktake-card {
+    border-left: 4px solid #17a2b8;
+}
+
+.stocktake-card:hover {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+}
+
+/* Trend Chart Dashboard */
+.trend-chart-dashboard {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 10px;
+}
+
+.chart-subtitle {
+    font-size: 14px;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+.chart-container {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.chart-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.stat-item .stat-label {
+    display: block;
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.stat-item .stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.stat-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    transition: box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.stat-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 2px;
+}
+
+.stat-value.expired-highlight {
+    color: #e74c3c;
+    background-color: #fdf2f2;
+    border-radius: 4px;
+    padding: 4px 8px;
+    border: 1px solid #f5c6cb;
+}
+
+.stat-value.pending-highlight {
+    color: #f39c12;
+    background-color: #fef9e7;
+    border-radius: 4px;
+    padding: 4px 8px;
+    border: 1px solid #f7dc6f;
+}
+
+.stat-label {
+    font-size: 10px;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.stock-section {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.section-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.section-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.section-actions .btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 10px;
+    transition: background 0.2s ease;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+
+.stock-content {
+    padding: 10px;
+}
+
+.stock-table-container {
+    overflow-x: auto;
+}
+
+.stock-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.stock-table th {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.stock-table td {
+    border: 1px solid #dee2e6;
+    padding: 6px 8px;
+    vertical-align: top;
+}
+
+.stock-row:hover {
+    background: #f8f9fa;
+}
+
+.item-code {
+    font-family: monospace;
+    font-size: 10px;
+    color: #007bff;
+}
+
+.item-name {
+    font-weight: 500;
+    color: #495057;
+}
+
+.warehouse {
+    color: #6c757d;
+    font-size: 10px;
+}
+
+.quantity {
+    text-align: right;
+}
+
+.qty-value {
+    font-weight: bold;
+    color: #28a745;
+}
+
+.qty-unit {
+    font-size: 9px;
+    color: #6c757d;
+    margin-left: 2px;
+}
+
+.stock-value {
+    text-align: right;
+    font-weight: 500;
+    color: #495057;
+}
+
+.last-transaction {
+    font-size: 10px;
+    color: #6c757d;
+}
+
+.voucher {
+    font-size: 9px;
+}
+
+.voucher-type {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.voucher-no {
+    color: #007bff;
+    font-family: monospace;
+    margin-left: 4px;
+}
+
+.loading {
+    text-align: center;
+    padding: 15px;
+    color: #6c757d;
+}
+
+.no-data {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+}
+
+.no-data-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    background: white;
+    padding: 15px;
+    border-radius: 3px;
+    text-align: center;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 3px;
+    max-width: 300px;
+    width: 90%;
+}
+
+.modal-header {
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #495057;
+    font-size: 14px;
+}
+
+.close {
+    font-size: 16px;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.close:hover {
+    color: #495057;
+}
+
+.modal-body {
+    padding: 10px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .warehousing-portal-container {
+        padding: 10px;
+    }
+    
+    .portal-header {
+        padding: 15px;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .customer-info {
+        text-align: left;
+        width: 100%;
+    }
+    
+    .customer-selection {
+        width: 100%;
+    }
+    
+    .customer-field-container {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .customer-field {
+        font-size: 16px;
+    }
+    
+    .header-filters .filters-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .header-filters .filter-actions {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .header-filters .filter-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .section-actions {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .section-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .stock-table-container {
+        overflow-x: auto;
+    }
+    
+    .stock-table {
+        min-width: 600px;
+    }
+    
+    .stock-table th,
+    .stock-table td {
+        padding: 8px 4px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .warehousing-portal-container {
+        padding: 5px;
+    }
+    
+    .portal-header {
+        padding: 10px;
+    }
+    
+    .portal-title {
+        font-size: 16px;
+    }
+    
+    .portal-subtitle {
+        font-size: 11px;
+    }
+    
+    .customer-name {
+        font-size: 12px;
+    }
+    
+    .header-filters .filter-group label {
+        font-size: 11px;
+    }
+    
+    .header-filters .filter-input {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+    
+    .btn {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+    
+    .stat-value {
+        font-size: 18px;
+    }
+    
+    .stat-label {
+        font-size: 10px;
+    }
+}
+
+/* Dashboard Sections Styles */
+.dashboard-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.dashboard-section {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.expiry-content {
+    padding: 15px;
+}
+
+.expiry-summary {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.expiry-card {
+    flex: 1;
+    padding: 15px;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+
+.expiry-card.critical {
+    background-color: #fdf2f2;
+    border-color: #f5c6cb;
+}
+
+.expiry-card.warning {
+    background-color: #fef9e7;
+    border-color: #f7dc6f;
+}
+
+.expiry-count {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.expiry-card.critical .expiry-count {
+    color: #e74c3c;
+}
+
+.expiry-card.warning .expiry-count {
+    color: #f39c12;
+}
+
+.expiry-label {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.expiry-items h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.expiry-table-container {
+    overflow-x: auto;
+}
+
+.expiry-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.expiry-table th {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.expiry-table td {
+    border: 1px solid #dee2e6;
+    padding: 8px 10px;
+    vertical-align: top;
+}
+
+.expiry-row.critical {
+    background-color: #fdf2f2;
+}
+
+.expiry-row.warning {
+    background-color: #fef9e7;
+}
+
+.days-to-expiry.critical {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.days-to-expiry.warning {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.pending-orders-content {
+    padding: 15px;
+}
+
+.pending-orders-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pending-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.pending-table-container {
+    overflow-x: auto;
+}
+
+.pending-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.pending-table th {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.pending-table td {
+    border: 1px solid #dee2e6;
+    padding: 8px 10px;
+    vertical-align: top;
+}
+
+.pending-row:hover {
+    background: #f8f9fa;
+}
+
+.order-creation-content {
+    padding: 15px;
+}
+
+.order-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.order-btn {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.order-btn:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.order-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.order-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.order-description {
+    font-size: 11px;
+    color: #6c757d;
+    line-height: 1.3;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .header-filters .filters-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .order-buttons-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+
+<script>
+function showCustomerOptions() {
+    const options = document.getElementById('customer-options');
+    if (options.style.display === 'none') {
+        options.style.display = 'block';
+    } else {
+        options.style.display = 'none';
+    }
+}
+
+function selectCustomer(customer) {
+    // Update the field text
+    const field = document.getElementById('customer-field');
+    field.textContent = customer;
+    
+    // Hide the options
+    const options = document.getElementById('customer-options');
+    options.style.display = 'none';
+    
+    // Redirect to the same page with customer parameter
+    const url = new URL(window.location);
+    url.searchParams.set('customer', customer);
+    window.location.href = url.toString();
+}
+
+// Close options when clicking outside
+document.addEventListener('click', function(event) {
+    const container = document.querySelector('.customer-field-container');
+    const options = document.getElementById('customer-options');
+    
+    if (container && !container.contains(event.target)) {
+        if (options) {
+            options.style.display = 'none';
+        }
+    }
+});
+
+// Branch Selector Functions
+function showBranchOptions() {
+    const options = document.getElementById('branch-options');
+    if (options.style.display === 'none') {
+        options.style.display = 'block';
+    } else {
+        options.style.display = 'none';
+    }
+}
+
+function selectBranch(branch) {
+    // Update the field text
+    const field = document.getElementById('branch-field');
+    if (branch === '') {
+        field.textContent = 'All Branches';
+    } else {
+        field.textContent = branch;
+    }
+    
+    // Hide the options
+    const options = document.getElementById('branch-options');
+    options.style.display = 'none';
+    
+    // Redirect to the same page with branch parameter
+    const url = new URL(window.location);
+    if (branch === '') {
+        url.searchParams.delete('warehouse');
+    } else {
+        url.searchParams.set('warehouse', branch);
+    }
+    window.location.href = url.toString();
+}
+
+// Close branch options when clicking outside
+document.addEventListener('click', function(event) {
+    const branchContainer = document.querySelector('.branch-field-container');
+    const branchOptions = document.getElementById('branch-options');
+    
+    if (branchContainer && !branchContainer.contains(event.target)) {
+        if (branchOptions) {
+            branchOptions.style.display = 'none';
+        }
+    }
+});
+
+function initializeWarehousingPortal() {
+    class WarehousingPortal {
+        constructor() {
+            this.init();
+        }
+
+        init() {
+            console.log('🚀 Initializing warehousing portal...');
+            this.setupEventListeners();
+            this.initChart();
+            console.log('✅ Portal initialization complete!');
+        }
+
+        setupEventListeners() {
+            const refreshBtn = document.getElementById('refresh-data');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    window.location.reload();
+                });
+            }
+
+            const exportBtn = document.getElementById('export-data');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    this.exportData();
+                });
+            }
+
+            const printBtn = document.getElementById('print-report');
+            if (printBtn) {
+                printBtn.addEventListener('click', () => {
+                    this.printReport();
+                });
+            }
+
+            // Close modal
+            const closeBtn = document.querySelector('.close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    const modal = document.getElementById('error-modal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+
+        }
+
+        initChart() {
+            const canvas = document.getElementById('handlingUnitsChart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const chartData = {{ handling_units_trend.monthly_data | tojson }};
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Handling Units',
+                        data: chartData,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#007bff',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#e9ecef'
+                            },
+                            ticks: {
+                                color: '#6c757d'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#e9ecef'
+                            },
+                            ticks: {
+                                color: '#6c757d'
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            hoverBackgroundColor: '#007bff'
+                        }
+                    }
+                }
+            });
+        }
+
+        exportData() {
+            // Create CSV content
+            const table = document.querySelector('.stock-table');
+            if (!table) return;
+
+            let csv = 'Item Code,Item Name,Warehouse,Quantity,Stock Value,Last Transaction,Voucher Type,Voucher No\n';
+            
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = Array.from(cells).map(cell => {
+                    return '"' + cell.textContent.trim().replace(/"/g, '""') + '"';
+                });
+                csv += rowData.join(',') + '\n';
+            });
+
+            // Download CSV
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'stock_balance_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        printReport() {
+            window.print();
+        }
+
+        showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-modal').style.display = 'flex';
+        }
+    }
+
+    // Order creation functions
+    function createInboundOrder() {
+        showOrderModal('Inbound Order', 'Create a new inbound stock order to receive inventory.');
+    }
+
+    function createReleaseOrder() {
+        showOrderModal('Release Order', 'Create a new stock release order to ship inventory.');
+    }
+
+    function createVASOrder() {
+        showOrderModal('VAS Order', 'Create a new value-added service order for inventory processing.');
+    }
+
+    function createTransferOrder() {
+        showOrderModal('Transfer Order', 'Create a new stock transfer order between locations.');
+    }
+
+    function createStocktakeOrder() {
+        showOrderModal('Stocktake Order', 'Create a new stock count order for inventory verification.');
+    }
+
+    function viewStockBalance() {
+        // Redirect to stock balance page
+        window.location.href = '/stock-balance?customer={{ customer }}';
+    }
+
+    function createNewOrder() {
+        showOrderModal('Create Order', 'Select the type of order you want to create.');
+    }
+
+    function refreshExpiryData() {
+        window.location.reload();
+    }
+
+    function refreshOrders() {
+        window.location.reload();
+    }
+
+    function showOrderModal(title, description) {
+        // Create modal for order creation
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>${title}</h3>
+                    <span class="close" onclick="closeModal(this)">×</span>
+                </div>
+                <div class="modal-body">
+                    <p>${description}</p>
+                    <p><strong>Note:</strong> This feature will redirect you to the ERPNext system to create the order.</p>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" onclick="proceedToERPNext('${title}')">Proceed to ERPNext</button>
+                        <button class="btn btn-secondary" onclick="closeModal(this)">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    function closeModal(element) {
+        const modal = element.closest('.modal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    function proceedToERPNext(orderType) {
+        // Redirect to ERPNext with appropriate doctype
+        let doctype = '';
+        switch(orderType) {
+            case 'Inbound Order':
+                doctype = 'Stock Entry';
+                break;
+            case 'Release Order':
+                doctype = 'Stock Entry';
+                break;
+            case 'VAS Order':
+                doctype = 'Warehouse Job';
+                break;
+            case 'Transfer Order':
+                doctype = 'Stock Entry';
+                break;
+            case 'Stocktake Order':
+                doctype = 'Stock Entry';
+                break;
+            default:
+                doctype = 'Warehouse Job';
+        }
+        
+        // Redirect to ERPNext desk
+        const erpnextUrl = '/app/' + doctype.toLowerCase().replace(' ', '-');
+        window.open(erpnextUrl, '_blank');
+        
+        // Close modal
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => modal.remove());
+    }
+
+    // Initialize portal
+    window.warehousingPortal = new WarehousingPortal();
+}
+
+function clearFilters() {
+    document.getElementById('date_from').value = '';
+    document.getElementById('date_to').value = '';
+    document.getElementById('item_code').value = '';
+    document.getElementById('warehouse').value = '';
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', initializeWarehousingPortal);
+</script>
+{% endblock %}

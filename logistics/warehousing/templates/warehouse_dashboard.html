@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            padding: 20px;
+            height: 100vh;
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .section h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .gate-passes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .gate-pass-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .gate-pass-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .gate-pass-card.selected {
+            border-color: #3498db;
+            background: #f8f9ff;
+        }
+
+        .gp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .gp-name {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .gp-status {
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .gp-status.draft {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .gp-status.authorized {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .gp-status.in-progress {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .gp-status.completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .gp-status.cancelled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .gp-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .gp-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .gp-info-label {
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 1px;
+        }
+
+        .gp-info-value {
+            font-weight: 500;
+            font-size: 12px;
+        }
+
+        .handling-units-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .handling-unit-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .handling-unit-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .handling-unit-card.selected {
+            border-color: #3498db;
+            background: #f8f9ff;
+        }
+
+        .hu-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .hu-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .hu-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .hu-status.available {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .hu-status.in-use {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .hu-status.under-maintenance {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .hu-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .hu-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hu-info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .hu-info-value {
+            font-weight: 500;
+        }
+
+        .hu-info-item.volume-info .hu-info-value {
+            color: #3498db;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .hu-info-item.weight-info .hu-info-value {
+            color: #e74c3c;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .hu-info-item.volume-info .hu-info-label {
+            color: #2980b9;
+            font-weight: 500;
+        }
+
+        .hu-info-item.weight-info .hu-info-label {
+            color: #c0392b;
+            font-weight: 500;
+        }
+
+        .hu-badges {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            justify-content: center;
+        }
+
+        .volume-badge, .weight-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .volume-badge {
+            background: #3498db;
+            color: white;
+        }
+
+        .weight-badge {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .hu-item-badges {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .hu-item-qty, .hu-item-volume, .hu-item-weight {
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .hu-item-qty {
+            background: #007bff;
+            color: white;
+        }
+
+        .hu-item-volume {
+            background: #28a745;
+            color: white;
+        }
+
+        .hu-item-weight {
+            background: #dc3545;
+            color: white;
+        }
+
+        .capacity-bar {
+            width: 100%;
+            height: 4px;
+            background: #ecf0f1;
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .capacity-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .volume-fill {
+            background: linear-gradient(90deg, #3498db, #5dade2);
+        }
+
+        .weight-fill {
+            background: linear-gradient(90deg, #e74c3c, #ec7063);
+        }
+
+        .hu-items-toggle {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s ease;
+        }
+
+        .hu-items-toggle:hover {
+            background: #2980b9;
+        }
+
+        .hu-items-toggle.expanded {
+            background: #e74c3c;
+        }
+
+        .hu-items-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: block;
+        }
+
+        .hu-items-list.hidden {
+            display: none;
+        }
+
+        .hu-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .hu-item:last-child {
+            border-bottom: none;
+        }
+
+        .hu-item-name {
+            font-weight: 500;
+        }
+
+        .hu-item-qty {
+            background: #3498db;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .warehouse-map {
+            height: 500px;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+
+        .map-level {
+            margin: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .map-level-header {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+
+        .map-location {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 12px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid #bdc3c7;
+        }
+
+        .map-location:hover {
+            background: #d5dbdb;
+            transform: scale(1.05);
+        }
+
+        .map-location.available {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .map-location.occupied {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .map-location.selected {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .location-details {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .location-details.show {
+            display: block;
+        }
+
+        .location-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .location-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .location-info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .location-info-value {
+            font-weight: 500;
+        }
+
+        .location-stock {
+            margin-top: 15px;
+        }
+
+        .stock-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stock-item:last-child {
+            border-bottom: none;
+        }
+
+        .stock-item-name {
+            font-weight: 500;
+        }
+
+        .stock-item-qty {
+            background: #27ae60;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .handling-units-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="left-panel">
+            <div class="section">
+                <h3>Warehouse Statistics</h3>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="loading">Loading statistics...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Gate Passes</h3>
+                <div class="gate-passes-grid" id="gate-passes-grid">
+                    <div class="loading">Loading gate passes...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Handling Units</h3>
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="dashboard-search" placeholder="Search handling units and locations..." 
+                           style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div class="handling-units-grid" id="handling-units-grid">
+                    <div class="loading">Loading handling units...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="section">
+                <h3>Warehouse Map</h3>
+                <div class="warehouse-map" id="warehouse-map">
+                    <div class="loading">Loading warehouse map...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Location Details</h3>
+                <div class="location-details" id="location-details">
+                    <p>Select a location from the map to view details.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class WarehouseDashboard {
+            constructor() {
+                console.log('🏗️ WarehouseDashboard constructor called');
+                this.selectedHandlingUnit = null;
+                this.selectedLocation = null;
+                this.dashboardData = null;
+                this.init();
+            }
+
+            async init() {
+                console.log('🔄 Starting dashboard initialization...');
+                try {
+                    console.log('📡 Loading dashboard data...');
+                    await this.loadDashboardData();
+                    console.log('📊 Rendering stats...');
+                    this.renderStats();
+                    console.log('🚪 Rendering gate passes...');
+                    this.renderGatePasses();
+                    console.log('📦 Rendering handling units...');
+                    this.renderHandlingUnits();
+                    console.log('🗺️ Rendering warehouse map...');
+                    this.renderWarehouseMap();
+                    console.log('🎯 Setting up event listeners...');
+                    this.setupEventListeners();
+                    console.log('✅ Dashboard initialization complete!');
+                } catch (error) {
+                    console.error('❌ Error initializing dashboard:', error);
+                    this.showError('Failed to load dashboard data');
+                }
+            }
+
+            async loadDashboardData() {
+                const company = '{{company}}' || '';
+                const branch = '{{branch}}' || '';
+                const warehouse_job = '{{warehouse_job}}' || 'WHO000000157';
+                
+                console.log('Loading dashboard data for company:', company, 'branch:', branch, 'warehouse_job:', warehouse_job);
+                
+                const params = new URLSearchParams();
+                if (company) params.append('company', company);
+                if (branch) params.append('branch', branch);
+                if (warehouse_job) params.append('warehouse_job', warehouse_job);
+                
+                const url = `/api/method/logistics.warehousing.warehouse_dashboard.get_warehouse_dashboard_data?${params.toString()}`;
+                console.log('API URL:', url);
+                alert('Calling API: ' + url);
+                
+                try {
+                    const response = await fetch(url);
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('API Error:', errorText);
+                        throw new Error(`Failed to fetch dashboard data: ${response.status} ${errorText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('API Response data:', data);
+                    alert('API Response received with ' + (data.message?.handling_units?.length || 0) + ' handling units');
+                    this.dashboardData = data;
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    console.log('🔄 Using fallback data due to API error');
+                    this.dashboardData = this.getFallbackData();
+                    this.showFallbackNotice();
+                }
+            }
+            
+            getFallbackData() {
+                return {
+                    gate_passes: [
+                        {
+                            name: "GP-00000001",
+                            status: "Authorized",
+                            job_type: "Putaway",
+                            dock_door: "DOCK-001",
+                            plate_no: "ABC-123",
+                            eta: "2025-01-27 10:30:00",
+                            transport_company: "Transport Co 1"
+                        },
+                        {
+                            name: "GP-00000002",
+                            status: "In Progress",
+                            job_type: "Pick",
+                            dock_door: "DOCK-002",
+                            plate_no: "XYZ-789",
+                            eta: "2025-01-27 14:15:00",
+                            transport_company: "Transport Co 2"
+                        }
+                    ],
+                    handling_units: [
+                        {
+                            name: "HU-001",
+                            type: "Pallet",
+                            brand: "Standard",
+                            status: "Available",
+                            total_items: 5,
+                            total_quantity: 150,
+                            items: [
+                                { item_name: "Widget A", current_qty: 50 },
+                                { item_name: "Widget B", current_qty: 30 },
+                                { item_name: "Widget C", current_qty: 70 }
+                            ]
+                        },
+                        {
+                            name: "HU-002", 
+                            type: "Container",
+                            brand: "Premium",
+                            status: "In Use",
+                            total_items: 3,
+                            total_quantity: 75,
+                            items: [
+                                { item_name: "Gadget X", current_qty: 25 },
+                                { item_name: "Gadget Y", current_qty: 30 },
+                                { item_name: "Gadget Z", current_qty: 20 }
+                            ]
+                        }
+                    ],
+                    storage_locations: [
+                        {
+                            name: "A-01-01-01",
+                            site: "Main Site",
+                            building: "Building A",
+                            zone: "Zone 1",
+                            aisle: "Aisle 1",
+                            bay: "Bay 1",
+                            level: "Level 1",
+                            status: "Available"
+                        },
+                        {
+                            name: "A-01-01-02",
+                            site: "Main Site", 
+                            building: "Building A",
+                            zone: "Zone 1",
+                            aisle: "Aisle 1",
+                            bay: "Bay 1",
+                            level: "Level 2",
+                            status: "Occupied"
+                        }
+                    ],
+                    warehouse_map: {
+                        "Main Site": {
+                            "Building A": {
+                                "Zone 1": {
+                                    "Aisle 1": {
+                                        "Bay 1": {
+                                            "Level 1": {
+                                                location_count: 1,
+                                                available_count: 1,
+                                                utilization: 100
+                                            },
+                                            "Level 2": {
+                                                location_count: 1,
+                                                available_count: 0,
+                                                utilization: 0
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+
+            renderStats() {
+                const statsGrid = document.getElementById('stats-grid');
+                const hus = this.dashboardData?.handling_units || [];
+                const locations = this.dashboardData?.storage_locations || [];
+                const gatePasses = this.dashboardData?.gate_passes || [];
+                
+                console.log('Rendering stats with:', { hus: hus.length, locations: locations.length, gatePasses: gatePasses.length });
+                
+                const totalHUs = hus.length;
+                const availableHUs = hus.filter(hu => hu.status === 'Available').length;
+                const totalLocations = locations.length;
+                const availableLocations = locations.filter(loc => loc.status === 'Available').length;
+                const totalGatePasses = gatePasses.length;
+                const activeGatePasses = gatePasses.filter(gp => ['Authorized', 'In Progress'].includes(gp.status)).length;
+
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${totalGatePasses}</div>
+                        <div class="stat-label">Gate Passes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${activeGatePasses}</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${totalHUs}</div>
+                        <div class="stat-label">Total HUs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${availableHUs}</div>
+                        <div class="stat-label">Available HUs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${totalLocations}</div>
+                        <div class="stat-label">Total Locations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${availableLocations}</div>
+                        <div class="stat-label">Available Locations</div>
+                    </div>
+                `;
+            }
+
+            renderGatePasses() {
+                const grid = document.getElementById('gate-passes-grid');
+                const gatePasses = this.dashboardData?.gate_passes || [];
+                
+                console.log('Rendering gate passes:', gatePasses.length);
+
+                if (gatePasses.length === 0) {
+                    grid.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #666; grid-column: 1 / -1;">
+                            <p>No gate passes found for this warehouse job.</p>
+                            <small>Create gate passes from the docking entries to track vehicle movements.</small>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = gatePasses.map(gp => `
+                        <div class="gate-pass-card" data-gp-id="${gp.name}" onclick="dashboard.selectGatePass('${gp.name}')">
+                            <div class="gp-header">
+                                <div class="gp-name">${gp.name}</div>
+                                <div class="gp-status ${gp.status.toLowerCase().replace(' ', '-')}">${gp.status}</div>
+                            </div>
+                            <div class="gp-info">
+                                <div class="gp-info-item">
+                                    <div class="gp-info-label">Job Type</div>
+                                    <div class="gp-info-value">${gp.job_type || 'N/A'}</div>
+                                </div>
+                                <div class="gp-info-item">
+                                    <div class="gp-info-label">Dock Door</div>
+                                    <div class="gp-info-value">${gp.dock_door || 'N/A'}</div>
+                                </div>
+                                <div class="gp-info-item">
+                                    <div class="gp-info-label">Vehicle</div>
+                                    <div class="gp-info-value">${gp.plate_no || 'N/A'}</div>
+                                </div>
+                                <div class="gp-info-item">
+                                    <div class="gp-info-label">ETA</div>
+                                    <div class="gp-info-value">${gp.eta ? new Date(gp.eta).toLocaleString() : 'N/A'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            renderHandlingUnits() {
+                const grid = document.getElementById('handling-units-grid');
+                const hus = this.dashboardData?.handling_units || [];
+                
+                console.log('Rendering handling units:', hus.length);
+
+                if (hus.length === 0) {
+                    grid.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #666;">
+                            <p>No handling units found.</p>
+                            <small>Check your company and branch settings, or create some handling units.</small>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = hus.map(hu => `
+                        <div class="handling-unit-card" data-hu-id="${hu.name}">
+                            <div class="hu-header">
+                                <div class="hu-name">${hu.name}</div>
+                                <div class="hu-status ${hu.status.toLowerCase().replace(' ', '-')}">${hu.status}</div>
+                            </div>
+                            <div class="hu-info">
+                                <div class="hu-info-item">
+                                    <div class="hu-info-label">Type</div>
+                                    <div class="hu-info-value">${hu.type || 'N/A'}</div>
+                                </div>
+                                <div class="hu-info-item">
+                                    <div class="hu-info-label">Brand</div>
+                                    <div class="hu-info-value">${hu.brand || 'N/A'}</div>
+                                </div>
+                                <div class="hu-info-item volume-info">
+                                    <div class="hu-info-label">Volume</div>
+                                    <div class="hu-info-value">${hu.total_volume || 0} m³</div>
+                                </div>
+                                <div class="hu-info-item weight-info">
+                                    <div class="hu-info-label">Weight</div>
+                                    <div class="hu-info-value">${hu.total_weight || 0} kg</div>
+                                </div>
+                                <div class="hu-info-item">
+                                    <div class="hu-info-label">Items</div>
+                                    <div class="hu-info-value">${hu.total_items || 0}</div>
+                                </div>
+                                <div class="hu-info-item">
+                                    <div class="hu-info-label">Total Qty</div>
+                                    <div class="hu-info-value">${hu.total_quantity || 0}</div>
+                                </div>
+                            </div>
+                            <button class="hu-items-toggle" onclick="dashboard.toggleHuItems('${hu.name}')">
+                                Show Items (${hu.total_items || 0})
+                            </button>
+                            <div class="hu-items-list" id="hu-items-${hu.name}">
+                                ${this.renderHuItems(hu.items || [])}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            renderHuItems(items) {
+                console.log('🔍 renderHuItems called with:', items);
+                alert('renderHuItems called with ' + (items ? items.length : 0) + ' items');
+                
+                if (!items || items.length === 0) {
+                    return '<p>No items in this handling unit.</p>';
+                }
+
+                return items.map(item => {
+                    console.log('📦 Processing item:', item);
+                    
+                    // Calculate item volume and weight
+                    const itemVolume = item.volume || (item.length && item.width && item.height ? item.length * item.width * item.height : 0);
+                    const itemWeight = item.weight || 0;
+                    const totalVolume = itemVolume * (item.quantity || 0);
+                    const totalWeight = itemWeight * (item.quantity || 0);
+                    
+                    console.log('📊 Calculated values:', { itemVolume, itemWeight, totalVolume, totalWeight });
+                    
+                    return `
+                        <div class="hu-item">
+                            <div class="hu-item-name">${item.item || 'Unknown Item'}</div>
+                            <div class="hu-item-badges">
+                                <span class="hu-item-qty">${item.quantity || 0}</span>
+                                <span class="hu-item-volume" style="background: #28a745; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px; font-weight: 600; display: inline-block;">${totalVolume.toFixed(2)} m³</span>
+                                <span class="hu-item-weight" style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px; font-weight: 600; display: inline-block;">${totalWeight.toFixed(2)} kg</span>
+                            </div>
+                            <div style="background: yellow; padding: 5px; margin: 5px 0; border: 2px solid red;">
+                                DEBUG: renderHuItems working! Item: ${item.item}, Qty: ${item.quantity}, Vol: ${totalVolume}, Wt: ${totalWeight}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderWarehouseMap() {
+                const mapContainer = document.getElementById('warehouse-map');
+                const mapData = this.dashboardData?.warehouse_map || {};
+                
+                console.log('Rendering warehouse map:', Object.keys(mapData).length, 'sites');
+
+                if (Object.keys(mapData).length === 0) {
+                    mapContainer.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #666;">
+                            <p>No warehouse map data available.</p>
+                            <small>Check your company and branch settings, or create some storage locations.</small>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let mapHtml = '';
+                for (const [site, buildings] of Object.entries(mapData)) {
+                    mapHtml += `<div class="map-level">
+                        <div class="map-level-header">Site: ${site}</div>`;
+                    
+                    for (const [building, zones] of Object.entries(buildings)) {
+                        mapHtml += `<div style="margin-left: 20px;">
+                            <strong>Building: ${building}</strong>`;
+                        
+                        for (const [zone, aisles] of Object.entries(zones)) {
+                            mapHtml += `<div style="margin-left: 20px;">
+                                <strong>Zone: ${zone}</strong>`;
+                            
+                            for (const [aisle, bays] of Object.entries(aisles)) {
+                                mapHtml += `<div style="margin-left: 20px;">
+                                    <strong>Aisle: ${aisle}</strong>`;
+                                
+                                for (const [bay, levels] of Object.entries(bays)) {
+                                    mapHtml += `<div style="margin-left: 20px;">
+                                        <strong>Bay: ${bay}</strong>`;
+                                    
+                                    for (const [level, data] of Object.entries(levels)) {
+                                        const utilization = data.utilization || 0;
+                                        const statusClass = utilization > 80 ? 'occupied' : utilization > 50 ? 'partial' : 'available';
+                                        
+                                        mapHtml += `
+                                            <div class="map-location ${statusClass}" 
+                                                 data-location="${site}/${building}/${zone}/${aisle}/${bay}/${level}"
+                                                 onclick="dashboard.selectLocation('${site}/${building}/${zone}/${aisle}/${bay}/${level}')">
+                                                ${level}<br>
+                                                <small>${data.available_count}/${data.location_count}</small>
+                                            </div>
+                                        `;
+                                    }
+                                    
+                                    mapHtml += '</div>';
+                                }
+                                
+                                mapHtml += '</div>';
+                            }
+                            
+                            mapHtml += '</div>';
+                        }
+                        
+                        mapHtml += '</div>';
+                    }
+                    
+                    mapHtml += '</div>';
+                }
+
+                mapContainer.innerHTML = mapHtml;
+            }
+
+            setupEventListeners() {
+                // Handle handling unit card clicks
+                document.addEventListener('click', (e) => {
+                    const huCard = e.target.closest('.handling-unit-card');
+                    if (huCard) {
+                        this.selectHandlingUnit(huCard.dataset.huId);
+                    }
+                });
+            }
+
+            selectGatePass(gpId) {
+                // Remove previous selection
+                document.querySelectorAll('.gate-pass-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+
+                // Add selection to clicked card
+                const selectedCard = document.querySelector(`[data-gp-id="${gpId}"]`);
+                if (selectedCard) {
+                    selectedCard.classList.add('selected');
+                }
+
+                this.selectedGatePass = gpId;
+                this.loadGatePassDetails(gpId);
+            }
+
+            selectHandlingUnit(huId) {
+                // Remove previous selection
+                document.querySelectorAll('.handling-unit-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+
+                // Add selection to clicked card
+                const selectedCard = document.querySelector(`[data-hu-id="${huId}"]`);
+                if (selectedCard) {
+                    selectedCard.classList.add('selected');
+                }
+
+                this.selectedHandlingUnit = huId;
+                this.loadHandlingUnitDetails(huId);
+            }
+
+            selectLocation(locationPath) {
+                // Remove previous selection
+                document.querySelectorAll('.map-location').forEach(loc => {
+                    loc.classList.remove('selected');
+                });
+
+                // Add selection to clicked location
+                const selectedLocation = document.querySelector(`[data-location="${locationPath}"]`);
+                if (selectedLocation) {
+                    selectedLocation.classList.add('selected');
+                }
+
+                this.selectedLocation = locationPath;
+                this.loadLocationDetails(locationPath);
+            }
+
+            async loadGatePassDetails(gpId) {
+                try {
+                    const response = await fetch(`/api/method/logistics.warehousing.doctype.gate_pass.gate_pass.get_gate_pass_details?gate_pass=${gpId}`);
+                    if (response.ok) {
+                        const details = await response.json();
+                        console.log('Gate pass details:', details);
+                        // You can implement detailed view here or open the gate pass form
+                        window.open(`/app/gate-pass/${gpId}`, '_blank');
+                    }
+                } catch (error) {
+                    console.error('Error loading gate pass details:', error);
+                }
+            }
+
+            async loadHandlingUnitDetails(huId) {
+                try {
+                    const response = await fetch(`/api/method/logistics.warehousing.warehouse_dashboard.get_handling_unit_details?handling_unit=${huId}`);
+                    if (response.ok) {
+                        const details = await response.json();
+                        console.log('Handling unit details:', details);
+                        // You can implement detailed view here
+                    }
+                } catch (error) {
+                    console.error('Error loading handling unit details:', error);
+                }
+            }
+
+            async loadLocationDetails(locationPath) {
+                try {
+                    const response = await fetch(`/api/method/logistics.warehousing.warehouse_dashboard.get_location_details?location=${locationPath}`);
+                    if (response.ok) {
+                        const details = await response.json();
+                        this.renderLocationDetails(details);
+                    }
+                } catch (error) {
+                    console.error('Error loading location details:', error);
+                }
+            }
+
+            renderLocationDetails(details) {
+                const container = document.getElementById('location-details');
+                container.classList.add('show');
+                
+                container.innerHTML = `
+                    <div class="location-info">
+                        <div class="location-info-item">
+                            <div class="location-info-label">Location</div>
+                            <div class="location-info-value">${details.name}</div>
+                        </div>
+                        <div class="location-info-item">
+                            <div class="location-info-label">Status</div>
+                            <div class="location-info-value">${details.status}</div>
+                        </div>
+                        <div class="location-info-item">
+                            <div class="location-info-label">Storage Type</div>
+                            <div class="location-info-value">${details.storage_type || 'N/A'}</div>
+                        </div>
+                        <div class="location-info-item">
+                            <div class="location-info-label">Max HU Slots</div>
+                            <div class="location-info-value">${details.max_hu_slot || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="location-stock">
+                        <h4>Current Stock (${details.current_stock.length} items)</h4>
+                        ${this.renderLocationStock(details.current_stock)}
+                    </div>
+                `;
+            }
+
+            renderLocationStock(stock) {
+                if (!stock || stock.length === 0) {
+                    return '<p>No stock in this location.</p>';
+                }
+
+                return stock.map(item => `
+                    <div class="stock-item">
+                        <div class="stock-item-name">${item.item_name || item.item}</div>
+                        <div class="stock-item-qty">${item.quantity}</div>
+                    </div>
+                `).join('');
+            }
+
+            toggleHuItems(huId) {
+                const itemsList = document.getElementById(`hu-items-${huId}`);
+                const toggleBtn = itemsList.previousElementSibling;
+                
+                if (itemsList.classList.contains('hidden')) {
+                    itemsList.classList.remove('hidden');
+                    toggleBtn.textContent = 'Hide Items';
+                    toggleBtn.classList.add('expanded');
+                } else {
+                    itemsList.classList.add('hidden');
+                    toggleBtn.textContent = `Show Items (${toggleBtn.textContent.match(/\d+/)[0]})`;
+                    toggleBtn.classList.remove('expanded');
+                }
+            }
+
+            showError(message) {
+                console.error('Dashboard Error:', message);
+                const container = document.querySelector('.dashboard-container');
+                container.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${message}
+                        <br><br>
+                        <small>Check the browser console for more details.</small>
+                    </div>
+                `;
+            }
+            
+            showFallbackNotice() {
+                // Add a notice at the top of the dashboard
+                const notice = document.createElement('div');
+                notice.style.cssText = `
+                    background: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    color: #856404;
+                    padding: 10px 15px;
+                    margin: 10px;
+                    border-radius: 4px;
+                    font-size: 14px;
+                `;
+                notice.innerHTML = `
+                    <strong>⚠️ Demo Mode:</strong> Using sample data. 
+                    API endpoint may not be accessible. 
+                    <small>Check console for details.</small>
+                `;
+                
+                const container = document.querySelector('.dashboard-container');
+                container.insertBefore(notice, container.firstChild);
+            }
+        }
+
+        // Initialize dashboard when page loads
+        let dashboard;
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Initializing warehouse dashboard...');
+            dashboard = new WarehouseDashboard();
+        });
+    </script>
+</body>
+</html>

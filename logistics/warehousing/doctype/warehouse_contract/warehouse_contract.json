@@ -62,6 +62,7 @@
    "fieldtype": "Section Break"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "items",
    "fieldtype": "Table",
    "options": "Warehouse Contract Item"
@@ -115,7 +116,7 @@
    "link_fieldname": "contract"
   }
  ],
- "modified": "2025-09-28 00:57:09.221204",
+ "modified": "2025-10-01 10:51:34.442480",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",

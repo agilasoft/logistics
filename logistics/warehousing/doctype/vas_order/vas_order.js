@@ -16,6 +16,9 @@ frappe.ui.form.on("VAS Order", {
         __("Create")
       );
     }
+    
+    // Update UOM fields for child table items
+    update_uom_fields_for_items(frm);
   },
 });
 
@@ -166,7 +169,7 @@ frappe.ui.form.on("VAS Order", {
 function maybe_set_planned_date(frm, force=false) {
   if (!force && (frm.doc.planned_date || frm.__planned_date_set)) return;
 
-  frappe.db.get_single_value("Warehouse Settings", "planned_date_offset_days")
+  frappe.db.get_value("Warehouse Settings", frappe.defaults.get_user_default("Company"), "planned_date_offset_days")
     .then((val) => {
       const offset = parseInt(val, 10) || 0;
       const nowStr = frappe.datetime.now_datetime(); // "YYYY-MM-DD HH:mm:ss"
@@ -231,4 +234,46 @@ frappe.ui.form.on("VAS Order Item", {
       frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
     }
   }
-});
+});// Update UOM fields for child table items
+function update_uom_fields_for_items(frm) {
+    console.log("Auto-populating UOM fields for VAS Order Items");
+    
+    // Get UOM values from Warehouse Settings
+    const company = frappe.defaults.get_user_default("Company");
+    console.log("Company:", company);
+    
+    frappe.call({
+        method: "frappe.client.get_value",
+        args: {
+            doctype: "Warehouse Settings",
+            name: company,
+            fieldname: ["default_volume_uom", "default_weight_uom"]
+        },
+        callback: function(r) {
+            console.log("UOM response:", r);
+            if (r.message) {
+                const volume_uom = r.message.default_volume_uom;
+                const weight_uom = r.message.default_weight_uom;
+                console.log("Volume UOM:", volume_uom, "Weight UOM:", weight_uom);
+                
+                // Update UOM fields for all items in the child table
+                if (frm.doc.items && frm.doc.items.length > 0) {
+                    frm.doc.items.forEach(function(item, index) {
+                        if (volume_uom) {
+                            frappe.model.set_value("VAS Order Item", item.name, "volume_uom", volume_uom);
+                        }
+                        if (weight_uom) {
+                            frappe.model.set_value("VAS Order Item", item.name, "weight_uom", weight_uom);
+                        }
+                    });
+                    frm.refresh_field("items");
+                    console.log("Updated UOM fields for", frm.doc.items.length, "items");
+                } else {
+                    console.log("No items found in the order");
+                }
+            } else {
+                console.log("No UOM message received");
+            }
+        }
+    });
+}

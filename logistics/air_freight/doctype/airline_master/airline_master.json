@@ -1,0 +1,373 @@
+{
+ "actions": [],
+ "autoname": "field:iata_code",
+ "creation": "2025-10-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+  "field_order": [
+    "airline_information_section",
+    "airline_name",
+    "iata_code",
+    "icao_code",
+    "callsign",
+    "column_break_1",
+    "country",
+    "airline_type",
+    "is_active",
+    "capabilities_section",
+    "is_cargo_carrier",
+    "is_passenger_carrier",
+    "supports_dangerous_goods",
+    "column_break_2",
+    "supports_live_animals",
+    "supports_refrigerated",
+    "supports_oversized",
+    "performance_section",
+    "airline_performance_score",
+    "on_time_performance",
+    "damage_rate",
+    "capacity_utilization",
+    "column_break_performance",
+    "preferred_carrier",
+    "carrier_contract_terms",
+    "fuel_surcharge_rate",
+    "security_surcharge",
+    "contact_section",
+    "website",
+    "phone",
+    "email",
+    "column_break_3",
+    "address_line_1",
+    "address_line_2",
+    "city",
+    "postal_code",
+    "api_section",
+    "has_api_integration",
+    "api_endpoint",
+    "api_key",
+    "column_break_4",
+    "api_username",
+    "api_password",
+    "metadata_section",
+    "data_source",
+    "last_synced",
+    "column_break_5",
+    "disabled"
+  ],
+ "fields": [
+  {
+   "fieldname": "airline_information_section",
+   "fieldtype": "Section Break",
+   "label": "Airline Information"
+  },
+  {
+   "fieldname": "airline_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Airline Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "iata_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "IATA Code",
+   "length": 2,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "icao_code",
+   "fieldtype": "Data",
+   "label": "ICAO Code",
+   "length": 3,
+   "unique": 1
+  },
+  {
+   "fieldname": "callsign",
+   "fieldtype": "Data",
+   "label": "Callsign"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Country",
+   "options": "Country"
+  },
+  {
+   "default": "Scheduled Airline",
+   "fieldname": "airline_type",
+   "fieldtype": "Select",
+   "label": "Airline Type",
+   "options": "Scheduled Airline\nCharter Airline\nCargo Only\nRegional\nLow Cost"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "capabilities_section",
+   "fieldtype": "Section Break",
+   "label": "Capabilities"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cargo_carrier",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Cargo Carrier"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_passenger_carrier",
+   "fieldtype": "Check",
+   "label": "Is Passenger Carrier"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Supports Dangerous Goods"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_live_animals",
+   "fieldtype": "Check",
+   "label": "Supports Live Animals"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_refrigerated",
+   "fieldtype": "Check",
+   "label": "Supports Refrigerated Cargo"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_oversized",
+   "fieldtype": "Check",
+   "label": "Supports Oversized Cargo"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "performance_section",
+   "fieldtype": "Section Break",
+   "label": "Performance & Operations"
+  },
+  {
+   "fieldname": "airline_performance_score",
+   "fieldtype": "Float",
+   "label": "Airline Performance Score",
+   "precision": 2
+  },
+  {
+   "fieldname": "on_time_performance",
+   "fieldtype": "Percent",
+   "label": "On-Time Performance %",
+   "precision": 2
+  },
+  {
+   "fieldname": "damage_rate",
+   "fieldtype": "Percent",
+   "label": "Damage Rate %",
+   "precision": 2
+  },
+  {
+   "fieldname": "capacity_utilization",
+   "fieldtype": "Percent",
+   "label": "Capacity Utilization %",
+   "precision": 2
+  },
+  {
+   "fieldname": "column_break_performance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "preferred_carrier",
+   "fieldtype": "Check",
+   "label": "Preferred Carrier"
+  },
+  {
+   "fieldname": "carrier_contract_terms",
+   "fieldtype": "Long Text",
+   "label": "Contract Terms"
+  },
+  {
+   "fieldname": "fuel_surcharge_rate",
+   "fieldtype": "Currency",
+   "label": "Fuel Surcharge Rate"
+  },
+  {
+   "fieldname": "security_surcharge",
+   "fieldtype": "Currency",
+   "label": "Security Surcharge"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "contact_section",
+   "fieldtype": "Section Break",
+   "label": "Contact Information"
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Website"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "address_line_1",
+   "fieldtype": "Data",
+   "label": "Address Line 1"
+  },
+  {
+   "fieldname": "address_line_2",
+   "fieldtype": "Data",
+   "label": "Address Line 2"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "postal_code",
+   "fieldtype": "Data",
+   "label": "Postal Code"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "api_section",
+   "fieldtype": "Section Break",
+   "label": "API Integration"
+  },
+  {
+   "default": "0",
+   "fieldname": "has_api_integration",
+   "fieldtype": "Check",
+   "label": "Has API Integration"
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_endpoint",
+   "fieldtype": "Data",
+   "label": "API Endpoint"
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_username",
+   "fieldtype": "Data",
+   "label": "API Username"
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_password",
+   "fieldtype": "Password",
+   "label": "API Password"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Data",
+   "label": "Data Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled"
+  }
+ ],
+ "links": [],
+ "modified": "2025-10-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Airline Master",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Logistics User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "airline_name,iata_code,icao_code,country",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "airline_name",
+ "track_changes": 1
+}
+
+

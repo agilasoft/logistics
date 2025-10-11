@@ -58,7 +58,7 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
             if level_limit_label and staging_area:
                 scope_note.append(_("Within {0} of staging {1}").format(level_limit_label, staging_area))
             warnings.append(_("No allocatable stock for Item {0} (Row {1}) within scope{2}.")
-                            .format(item, row.get("name"), f" [{', '.join(scope_note)}]" if scope_note else ""))
+                            .format(item, row.get("idx"), f" [{', '.join(scope_note)}]" if scope_note else ""))
 
         created_rows, created_qty = _append_job_items(
             job=job, source_parent=job.name, source_child=row["name"],
@@ -80,8 +80,6 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
     frappe.db.commit()
 
     msg = _("Allocated {0} units across {1} pick rows.").format(flt(total_created_qty), int(total_created_rows))
-    if warnings:
-        msg += " " + _("Notes") + ": " + " | ".join(warnings)
 
     return {
         "ok": True, "message": msg,
@@ -164,7 +162,7 @@ def initiate_vas_pick(warehouse_job: str, clear_existing: int = 1):
                 if company: scope_note.append(_("Company = {0}").format(company))
                 if branch:  scope_note.append(_("Branch = {0}").format(branch))
                 warnings.append(_("No allocatable stock for VAS component {0} (Row {1}) within scope{2}.")
-                                .format(c_item, comp.get("name"), f" [{', '.join(scope_note)}]" if scope_note else ""))
+                                .format(c_item, comp.get("idx"), f" [{', '.join(scope_note)}]" if scope_note else ""))
 
             # NEGATIVE for VAS pick
             allocs_neg = []

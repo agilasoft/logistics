@@ -1,7 +1,0 @@
-## Logistics
-
-Logistics
-
-#### License
-
-MIT

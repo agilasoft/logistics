@@ -16,6 +16,7 @@
   "transport_order",
   "column_break_tjia",
   "vehicle_type",
+  "load_type",
   "container_type",
   "container_no",
   "hazardous",
@@ -44,7 +45,7 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "TR.#########"
+   "options": "TRJ.#########"
   },
   {
    "fieldname": "customer",
@@ -77,6 +78,13 @@
    "label": "Vehicle Type",
    "options": "Vehicle Type",
    "reqd": 1
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"transport\",\"=\",1]]",
+   "options": "Load Type"
   },
   {
    "default": "0",
@@ -232,8 +240,8 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-29 20:45:33.827748",
- "modified_by": "Administrator",
+ "modified": "2025-10-09 10:51:02.353348",
+ "modified_by": "johnalexander.castro@agilasoft.com",
  "module": "Transport",
  "name": "Transport Job",
  "naming_rule": "By \"Naming Series\" field",

@@ -21,7 +21,16 @@
   "batch_no",
   "batch_expiry",
   "handling_unit_type",
-  "handling_unit"
+  "handling_unit",
+  "dimensions_section",
+  "length",
+  "width",
+  "height",
+  "column_break_drkz",
+  "volume",
+  "volume_uom",
+  "weight",
+  "weight_uom"
  ],
  "fields": [
   {
@@ -152,13 +161,70 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name"
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Dimensions & Weight"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length",
+   "precision": "3"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width",
+   "precision": "3"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height",
+   "precision": "3"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_drkz",
+   "fieldtype": "Column Break"
   }
  ],
+ "client_script": "logistics.warehousing.doctype.inbound_order_item.inbound_order_item",
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-18 13:51:14.298761",
+ "modified": "2025-10-08 13:35:13.173460",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order Item",

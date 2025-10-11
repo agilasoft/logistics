@@ -5,7 +5,7 @@
  "creation": "2025-08-18 13:15:25.722151",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "site",
   "building",
   "zone",
@@ -27,6 +27,22 @@
   "bin_priority",
   "max_hu_slot",
   "item",
+  "capacity_tab",
+  "max_volume",
+  "max_weight",
+  "max_height",
+  "max_width",
+  "max_length",
+  "capacity_uom",
+  "weight_uom",
+  "current_volume",
+  "current_weight",
+  "utilization_percentage",
+  "capacity_alerts_tab",
+  "enable_capacity_alerts",
+  "volume_alert_threshold",
+  "weight_alert_threshold",
+  "utilization_alert_threshold",
   "entity_tab",
   "company",
   "branch"
@@ -173,20 +189,118 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Available\nIn Use\nUnder Maintenance\nInactive",
-   "read_only": 1
+   "options": "Available\nIn Use\nUnder Maintenance\nInactive"
   },
   {
    "default": "0",
    "fieldname": "pick_face",
    "fieldtype": "Check",
    "label": "Pick Face"
+  },
+  {
+   "fieldname": "capacity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capacity Management"
+  },
+  {
+   "fieldname": "max_volume",
+   "fieldtype": "Float",
+   "label": "Max Volume",
+   "precision": "3"
+  },
+  {
+   "fieldname": "max_weight",
+   "fieldtype": "Float",
+   "label": "Max Weight",
+   "precision": "2"
+  },
+  {
+   "fieldname": "max_height",
+   "fieldtype": "Float",
+   "label": "Max Height",
+   "precision": "2"
+  },
+  {
+   "fieldname": "max_width",
+   "fieldtype": "Float",
+   "label": "Max Width",
+   "precision": "2"
+  },
+  {
+   "fieldname": "max_length",
+   "fieldtype": "Float",
+   "label": "Max Length",
+   "precision": "2"
+  },
+  {
+   "fieldname": "capacity_uom",
+   "fieldtype": "Link",
+   "label": "Capacity UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "current_volume",
+   "fieldtype": "Float",
+   "label": "Current Volume",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_weight",
+   "fieldtype": "Float",
+   "label": "Current Weight",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "utilization_percentage",
+   "fieldtype": "Percent",
+   "label": "Utilization %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "capacity_alerts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capacity Alerts"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_capacity_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Capacity Alerts"
+  },
+  {
+   "depends_on": "enable_capacity_alerts",
+   "fieldname": "volume_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Volume Alert Threshold",
+   "default": "80"
+  },
+  {
+   "depends_on": "enable_capacity_alerts",
+   "fieldname": "weight_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Weight Alert Threshold",
+   "default": "80"
+  },
+  {
+   "depends_on": "enable_capacity_alerts",
+   "fieldname": "utilization_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Utilization Alert Threshold",
+   "default": "90"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-28 10:26:14.705168",
+ "modified": "2025-09-30 16:48:46.494606",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Storage Location",

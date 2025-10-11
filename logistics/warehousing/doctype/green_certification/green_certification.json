@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{parent}-{certification_name}",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "certification_name",
+  "certification_type",
+  "certification_body",
+  "certification_date",
+  "expiry_date",
+  "certification_level",
+  "certification_number",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "certification_name",
+   "fieldtype": "Data",
+   "label": "Certification Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "certification_type",
+   "fieldtype": "Select",
+   "label": "Certification Type",
+   "options": "Energy Efficiency\nCarbon Neutral\nLEED\nBREEAM\nISO 14001\nGreen Building\nRenewable Energy\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "certification_body",
+   "fieldtype": "Data",
+   "label": "Certification Body"
+  },
+  {
+   "fieldname": "certification_date",
+   "fieldtype": "Date",
+   "label": "Certification Date"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Expiry Date"
+  },
+  {
+   "fieldname": "certification_level",
+   "fieldtype": "Select",
+   "label": "Certification Level",
+   "options": "Platinum\nGold\nSilver\nBronze\nCertified\nBasic"
+  },
+  {
+   "fieldname": "certification_number",
+   "fieldtype": "Data",
+   "label": "Certification Number"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Green Certification",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

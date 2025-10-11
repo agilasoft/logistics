@@ -1,0 +1,14 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Stock Balance Test{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <h1>Stock Balance Test</h1>
+    <p>Customer: {{ customer_name or "No customer" }}</p>
+    <p>Total Items: {{ total_items or 0 }}</p>
+    <p>Stock Balance Count: {{ stock_balance|length if stock_balance else 0 }}</p>
+    <p>Available Items Count: {{ available_items|length if available_items else 0 }}</p>
+    <p>Available Branches Count: {{ available_branches|length if available_branches else 0 }}</p>
+</div>
+{% endblock %}

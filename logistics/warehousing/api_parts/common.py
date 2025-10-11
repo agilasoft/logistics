@@ -1,5 +1,4 @@
 from __future__ import annotations
-from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Set
 from datetime import date, timedelta
 import frappe
@@ -48,8 +47,7 @@ def _hu_fields():
     return _safe_meta_fieldnames("Handling Unit")
 
 def _hu_balance(hu: Optional[str]) -> float:
-
-if not hu: return 0.0
+    if not hu: return 0.0
     r = frappe.db.sql("SELECT COALESCE(SUM(quantity),0) FROM `tabWarehouse Stock Ledger` WHERE handling_unit=%s", (hu,))
     return float(r[0][0] if r else 0.0)
 
@@ -87,7 +85,8 @@ def _assert_hu_in_job_scope(hu: Optional[str], job_company: Optional[str],
 def _get_allocation_level_limit() -> Optional[str]:
     """Return the label (e.g., 'Aisle') set in Warehouse Settings, else None."""
     try:
-        val = frappe.db.get_single_value("Warehouse Settings", "allocation_level_limit")
+        company = frappe.defaults.get_user_default("Company")
+        val = frappe.db.get_value("Warehouse Settings", company, "allocation_level_limit")
         val = (val or "").strip()
         return val or None
     except Exception:
@@ -744,6 +743,7 @@ def _select_dest_for_hu(
     used_locations: Set[str],
     exclude_locations: Optional[List[str]],
 ) -> Optional[str]:
+    from .putaway import _putaway_candidate_locations
     candidates = _putaway_candidate_locations(item=item, company=company, branch=branch, exclude_locations=exclude_locations or [])
     # filter by allocation level (same path as staging)
     filtered = []

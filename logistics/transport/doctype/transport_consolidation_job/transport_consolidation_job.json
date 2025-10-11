@@ -1,0 +1,77 @@
+{
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "transport_job",
+  "customer",
+  "column_break_1",
+  "weight",
+  "volume",
+  "column_break_2",
+  "pick_address",
+  "drop_address"
+ ],
+ "fields": [
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Job",
+   "options": "Transport Job",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "transport_job.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight (kg)"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume (m³)"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pick_address",
+   "fieldtype": "Link",
+   "label": "Pick Address",
+   "options": "Address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drop_address",
+   "fieldtype": "Link",
+   "label": "Drop Address",
+   "options": "Address",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Consolidation Job",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

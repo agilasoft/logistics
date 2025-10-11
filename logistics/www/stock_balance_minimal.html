@@ -1,0 +1,11 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Stock Balance{% endblock %}
+
+{% block page_content %}
+<div>
+    <h1>Stock Balance</h1>
+    <p>Customer: {{ customer_name or "No customer" }}</p>
+    <p>Total Items: {{ total_items or 0 }}</p>
+</div>
+{% endblock %}
