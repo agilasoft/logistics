@@ -142,7 +142,7 @@
    "fieldname": "location_type",
    "fieldtype": "Link",
    "label": "Location Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Location\",\"Transport Zone\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Location\",\"Transport Zone\",\"UNLOCO\"]]]",
    "options": "DocType"
   },
   {

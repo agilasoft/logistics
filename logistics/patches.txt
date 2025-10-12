@@ -1,2 +1,4 @@
 logistics.warehousing.patches.add_wsl_indexes
 logistics.transport.patches.add_telematics_indexes
+logistics.patches.v1_0_install_dimensions.execute
+logistics.patches.v1_0_install_master_data.execute

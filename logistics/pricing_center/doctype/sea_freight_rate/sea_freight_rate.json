@@ -118,13 +118,13 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "shipping_line",
@@ -161,7 +161,7 @@
   {
    "fieldname": "volume_m3",
    "fieldtype": "Float",
-   "label": "Volume (m³)"
+   "label": "Volume (m\u00b3)"
   },
   {
    "fieldname": "packages",

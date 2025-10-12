@@ -1,0 +1,441 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:unlocode",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_info_tab",
+  "unlocode",
+  "location_name",
+  "country",
+  "country_code",
+  "subdivision",
+  "city",
+  "location_type",
+  "function",
+  "status",
+  "coordinates_tab",
+  "latitude",
+  "longitude",
+  "description",
+  "identifiers_tab",
+  "iata_code",
+  "icao_code",
+  "railway_code",
+  "port_code",
+  "alternative_names",
+  "logistics_tab",
+  "timezone",
+  "currency",
+  "language",
+  "utc_offset",
+  "operating_hours",
+  "function_tab",
+  "has_post",
+  "has_customs",
+  "has_unload",
+  "has_airport",
+  "has_rail",
+  "has_road",
+  "has_store",
+  "has_terminal",
+  "has_discharge",
+  "has_seaport",
+  "has_outport",
+  "regulatory_tab",
+  "customs_office",
+  "immigration_office",
+  "quarantine_facility",
+  "health_authority",
+  "auto_populate_tab",
+  "auto_populate",
+  "last_updated",
+  "data_source"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "unlocode",
+   "fieldtype": "Data",
+   "label": "UNLOCO Code",
+   "reqd": 1,
+   "unique": 1,
+   "description": "United Nations Code for Trade and Transport Locations (5 characters)"
+  },
+  {
+   "fieldname": "location_name",
+   "fieldtype": "Data",
+   "label": "Location Name",
+   "reqd": 1,
+   "description": "Official location name"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Data",
+   "label": "Country",
+   "reqd": 0,
+   "description": "Country name"
+  },
+  {
+   "fieldname": "country_code",
+   "fieldtype": "Data",
+   "label": "Country Code",
+   "reqd": 0,
+   "description": "ISO 3166-1 alpha-2 country code"
+  },
+  {
+   "fieldname": "subdivision",
+   "fieldtype": "Data",
+   "label": "Subdivision",
+   "reqd": 0,
+   "description": "State/Province/Region"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City",
+   "reqd": 0,
+   "description": "City name"
+  },
+  {
+   "fieldname": "location_type",
+   "fieldtype": "Select",
+   "label": "Location Type",
+   "options": "Airport\nPort\nRailway Station\nRoad Terminal\nBorder Crossing\nPostal Office\nMultimodal Terminal\nOther",
+   "reqd": 0,
+   "description": "Type of transport location"
+  },
+  {
+   "fieldname": "function",
+   "fieldtype": "Select",
+   "label": "Function",
+   "options": "0 - Not known\n1 - Port\n2 - Rail\n3 - Road\n4 - Airport\n5 - Postal Exchange Office\n6 - Reserved for multimodal functions\n7 - Reserved for fixed transport functions\nB - Border crossing",
+   "reqd": 0,
+   "description": "UNLOCO function code"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "AA - Approved by competent national government agency\nAC - Approved by Customs authority\nAF - Approved by national facilitation body\nAS - Approved by national standardisation body\nRL - Recognised location\nRN - Request from national authority\nRQ - Request under consideration\nRR - Request rejected\nUR - Under review by the secretariat\nXX - Entry that will be removed from the next issue of UN/LOCODE",
+   "reqd": 0,
+   "description": "UNLOCO status code"
+  },
+  {
+   "fieldname": "coordinates_tab",
+   "fieldtype": "Tab Break",
+   "label": "Coordinates"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": 6,
+   "reqd": 0,
+   "description": "Latitude coordinate"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": 6,
+   "reqd": 0,
+   "description": "Longitude coordinate"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description",
+   "reqd": 0,
+   "description": "Detailed description of the location"
+  },
+  {
+   "fieldname": "identifiers_tab",
+   "fieldtype": "Tab Break",
+   "label": "Identifiers"
+  },
+  {
+   "fieldname": "iata_code",
+   "fieldtype": "Data",
+   "label": "IATA Code",
+   "reqd": 0,
+   "description": "International Air Transport Association code"
+  },
+  {
+   "fieldname": "icao_code",
+   "fieldtype": "Data",
+   "label": "ICAO Code",
+   "reqd": 0,
+   "description": "International Civil Aviation Organization code"
+  },
+  {
+   "fieldname": "railway_code",
+   "fieldtype": "Data",
+   "label": "Railway Code",
+   "reqd": 0,
+   "description": "Railway station code"
+  },
+  {
+   "fieldname": "port_code",
+   "fieldtype": "Data",
+   "label": "Port Code",
+   "reqd": 0,
+   "description": "Port code"
+  },
+  {
+   "fieldname": "alternative_names",
+   "fieldtype": "Text",
+   "label": "Alternative Names",
+   "reqd": 0,
+   "description": "Alternative names for the location"
+  },
+  {
+   "fieldname": "logistics_tab",
+   "fieldtype": "Tab Break",
+   "label": "Logistics Details"
+  },
+  {
+   "fieldname": "timezone",
+   "fieldtype": "Data",
+   "label": "Timezone",
+   "reqd": 0,
+   "description": "Timezone identifier (e.g., America/New_York)"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Data",
+   "label": "Currency",
+   "reqd": 0,
+   "description": "Local currency code (e.g., USD, EUR)"
+  },
+  {
+   "fieldname": "language",
+   "fieldtype": "Data",
+   "label": "Language",
+   "reqd": 0,
+   "description": "Primary language code (e.g., en, es, fr)"
+  },
+  {
+   "fieldname": "utc_offset",
+   "fieldtype": "Data",
+   "label": "UTC Offset",
+   "reqd": 0,
+   "description": "UTC offset (e.g., +05:30, -08:00)"
+  },
+  {
+   "fieldname": "operating_hours",
+   "fieldtype": "Text",
+   "label": "Operating Hours",
+   "reqd": 0,
+   "description": "Operating hours information"
+  },
+  {
+   "fieldname": "function_tab",
+   "fieldtype": "Tab Break",
+   "label": "Function Capabilities"
+  },
+  {
+   "fieldname": "has_post",
+   "fieldtype": "Check",
+   "label": "Has Post",
+   "reqd": 0,
+   "description": "Has postal exchange office"
+  },
+  {
+   "fieldname": "has_customs",
+   "fieldtype": "Check",
+   "label": "Has Customs",
+   "reqd": 0,
+   "description": "Has customs office"
+  },
+  {
+   "fieldname": "has_unload",
+   "fieldtype": "Check",
+   "label": "Has Unload",
+   "reqd": 0,
+   "description": "Has unloading facilities"
+  },
+  {
+   "fieldname": "has_airport",
+   "fieldtype": "Check",
+   "label": "Has Airport",
+   "reqd": 0,
+   "description": "Has airport facilities"
+  },
+  {
+   "fieldname": "has_rail",
+   "fieldtype": "Check",
+   "label": "Has Rail",
+   "reqd": 0,
+   "description": "Has railway facilities"
+  },
+  {
+   "fieldname": "has_road",
+   "fieldtype": "Check",
+   "label": "Has Road",
+   "reqd": 0,
+   "description": "Has road transport facilities"
+  },
+  {
+   "fieldname": "has_store",
+   "fieldtype": "Check",
+   "label": "Has Store",
+   "reqd": 0,
+   "description": "Has storage facilities"
+  },
+  {
+   "fieldname": "has_terminal",
+   "fieldtype": "Check",
+   "label": "Has Terminal",
+   "reqd": 0,
+   "description": "Has terminal facilities"
+  },
+  {
+   "fieldname": "has_discharge",
+   "fieldtype": "Check",
+   "label": "Has Discharge",
+   "reqd": 0,
+   "description": "Has discharge facilities"
+  },
+  {
+   "fieldname": "has_seaport",
+   "fieldtype": "Check",
+   "label": "Has Seaport",
+   "reqd": 0,
+   "description": "Has seaport facilities"
+  },
+  {
+   "fieldname": "has_outport",
+   "fieldtype": "Check",
+   "label": "Has Outport",
+   "reqd": 0,
+   "description": "Has outport facilities"
+  },
+  {
+   "fieldname": "regulatory_tab",
+   "fieldtype": "Tab Break",
+   "label": "Regulatory Facilities"
+  },
+  {
+   "fieldname": "customs_office",
+   "fieldtype": "Check",
+   "label": "Customs Office",
+   "reqd": 0,
+   "description": "Has customs office"
+  },
+  {
+   "fieldname": "immigration_office",
+   "fieldtype": "Check",
+   "label": "Immigration Office",
+   "reqd": 0,
+   "description": "Has immigration office"
+  },
+  {
+   "fieldname": "quarantine_facility",
+   "fieldtype": "Check",
+   "label": "Quarantine Facility",
+   "reqd": 0,
+   "description": "Has quarantine facility"
+  },
+  {
+   "fieldname": "health_authority",
+   "fieldtype": "Check",
+   "label": "Health Authority",
+   "reqd": 0,
+   "description": "Has health authority"
+  },
+  {
+   "fieldname": "auto_populate_tab",
+   "fieldtype": "Tab Break",
+   "label": "Auto-Populate Settings"
+  },
+  {
+   "fieldname": "auto_populate",
+   "fieldtype": "Check",
+   "label": "Auto-Populate UNLOCO Details",
+   "default": 1,
+   "reqd": 0,
+   "description": "Automatically populate UNLOCO details when UNLOCO code is entered"
+  },
+  {
+   "fieldname": "last_updated",
+   "fieldtype": "Datetime",
+   "label": "Last Updated",
+   "reqd": 0,
+   "description": "Last time UNLOCO details were updated"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Select",
+   "label": "Data Source",
+   "options": "Internal Database\nUNECE Official\nDataHub.io\nCustom API",
+   "default": "Internal Database",
+   "reqd": 0,
+   "description": "Source of UNLOCO data"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "UNLOCO",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 0,
+   "role": "All",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "search_fields": "unlocode,location_name,country,city",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "location_name",
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

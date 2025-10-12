@@ -198,7 +198,8 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "Location"
+   "options": "UNLOCO",
+   "description": "Origin port UNLOCO code"
   },
   {
    "fieldname": "column_break_oxhc",
@@ -208,7 +209,8 @@
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "Location"
+   "options": "UNLOCO",
+   "description": "Destination port UNLOCO code"
   },
   {
    "fieldname": "column_break_uvws",

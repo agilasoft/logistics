@@ -285,13 +285,13 @@
    "fieldname": "location_from",
    "fieldtype": "Link",
    "label": "Location From",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "location_to",
    "fieldtype": "Link",
    "label": "Location To",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "depends_on": "eval:doc.load_type == \"FCL\"",
