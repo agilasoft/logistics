@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
 
 [project]
 name = "logistics"
-version = "0.0.1"
-description = "CargoNext - Comprehensive Logistics Management System"
 authors = [
     {name = "Agilasoft Cloud Technologies Inc.", email = "info@agilasoft.com"}
 ]
-readme = "README.md"
+description = "CargoNext - Comprehensive Logistics Management System"
 requires-python = ">=3.8"
+readme = "README.md"
+dynamic = ["version"]
 dependencies = [
     "frappe",
     "zeep>=4.2"
