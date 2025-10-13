@@ -2,32 +2,39 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:code",
- "creation": "2025-05-22 19:01:53.421309",
+ "creation": "2025-05-22 18:39:05.683491",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "network_name",
-  "organization_tab",
+  "freight_agent_name",
+  "column_break_pbzu",
+  "tab_2_tab",
   "customer",
-  "supplier"
+  "supplier",
+  "related_parties_tab",
+  "ar_netting_group",
+  "ap_netting_group"
  ],
  "fields": [
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Code",
    "unique": 1
   },
   {
-   "fieldname": "network_name",
+   "fieldname": "freight_agent_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Network Name"
+   "label": "Freight Agent Name"
   },
   {
-   "fieldname": "organization_tab",
+   "fieldname": "column_break_pbzu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tab_2_tab",
    "fieldtype": "Tab Break",
    "label": "Organization"
   },
@@ -42,15 +49,32 @@
    "fieldtype": "Link",
    "label": "Supplier",
    "options": "Supplier"
+  },
+  {
+   "fieldname": "related_parties_tab",
+   "fieldtype": "Tab Break",
+   "label": "Related Parties"
+  },
+  {
+   "fieldname": "ar_netting_group",
+   "fieldtype": "Link",
+   "label": "AR Netting Group",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "ap_netting_group",
+   "fieldtype": "Link",
+   "label": "AP Netting Group",
+   "options": "Supplier"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-22 19:10:40.761744",
+ "modified": "2025-10-13 21:54:04.636966",
  "modified_by": "Administrator",
- "module": "Forwarding",
- "name": "Agent Network",
+ "module": "Logistics",
+ "name": "Freight Agent",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
@@ -68,7 +92,10 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "freight_agent_name",
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "freight_agent_name"
 }
