@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logistics"
+version = "0.0.1"
+description = "CargoNext - Comprehensive Logistics Management System"
+authors = [
+    {name = "Agilasoft Cloud Technologies Inc.", email = "info@agilasoft.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "frappe",
+    "zeep>=4.2"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/agilasoft/logistics"
+Repository = "https://github.com/agilasoft/logistics"
+Issues = "https://github.com/agilasoft/logistics/issues"
+
+[tool.setuptools]
+packages = ["logistics"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.txt", "*.md", "*.py", "*.yml", "*.yaml", "*.html", "*.js", "*.css"]
