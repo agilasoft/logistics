@@ -1,6 +1,5 @@
 Logistics
 Transport
-Forwarding
 Warehousing
 Customs
 Sea Freight

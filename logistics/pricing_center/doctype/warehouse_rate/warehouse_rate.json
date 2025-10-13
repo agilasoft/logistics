@@ -1,63 +1,65 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:rate_name",
- "creation": "2024-01-01 00:00:00.000000",
+ "creation": "2024-01-01 00:00:00",
  "default_view": "List",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "item_code",
+  "item_charge",
   "description",
   "is_active",
   "valid_from",
   "valid_to",
+  "column_break_qpzc",
+  "storage_charge",
+  "inbound_charge",
+  "outbound_charge",
+  "transfer_charge",
+  "vas_charge",
+  "stocktake_charge",
   "section_break_5",
+  "column_break_oijb",
+  "handling_unit_type",
+  "storage_type",
   "calculation_method",
-  "rate_value",
+  "unit_type",
+  "volume_calculation_method",
+  "column_break_zaxi",
+  "uom",
   "currency",
+  "rate",
   "minimum_charge",
   "maximum_charge",
-  "column_break_11",
-  "warehouse_section",
-  "warehouse",
-  "storage_type",
-  "handling_type",
-  "column_break_16",
-  "cargo_section",
-  "weight_kg",
-  "volume_m3",
-  "area_sqm",
-  "handling_units",
-  "skus",
-  "packages",
-  "column_break_23",
-  "item_section",
-  "item",
-  "item_name",
-  "item_description",
-  "item_group"
+  "billing_time_section",
+  "billing_time_unit",
+  "column_break_nrhl",
+  "billing_time_multiplier",
+  "minimum_billing_time"
  ],
  "fields": [
   {
-   "fieldname": "item_code",
+   "fieldname": "item_charge",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Item Code",
+   "label": "Item Charge",
+   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
    "options": "Item",
    "reqd": 1
   },
   {
+   "fetch_from": "item_charge.item_name",
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Description"
   },
   {
+   "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
-   "label": "Is Active",
-   "default": "1"
+   "label": "Is Active"
   },
   {
    "fieldname": "valid_from",
@@ -76,16 +78,116 @@
    "label": "Rate Configuration"
   },
   {
+   "default": "0",
+   "depends_on": "storage_charge",
+   "fetch_from": "item_charge.custom_storage_charge",
+   "fieldname": "storage_charge",
+   "fieldtype": "Check",
+   "label": "Storage Charge",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "inbound_charge",
+   "fetch_from": "item_charge.custom_inbound_charge",
+   "fieldname": "inbound_charge",
+   "fieldtype": "Check",
+   "label": "Inbound Charge",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "outbound_charge",
+   "fetch_from": "item_charge.custom_outbound_charge",
+   "fieldname": "outbound_charge",
+   "fieldtype": "Check",
+   "label": "Outbound Charge",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "transfer_charge",
+   "fetch_from": "item_charge.custom_transfer_charge",
+   "fieldname": "transfer_charge",
+   "fieldtype": "Check",
+   "label": "Transfer Charge",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "vas_charge",
+   "fetch_from": "item_charge.custom_vas_charge",
+   "fieldname": "vas_charge",
+   "fieldtype": "Check",
+   "label": "VAS Charge",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "stocktake_charge",
+   "fetch_from": "item_charge.custom_stocktake_charge",
+   "fieldname": "stocktake_charge",
+   "fieldtype": "Check",
+   "label": "Stocktake Charge",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_oijb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.storage_charge",
+   "fieldname": "handling_unit_type",
+   "fieldtype": "Link",
+   "label": "Handling Unit Type",
+   "options": "Handling Unit Type"
+  },
+  {
+   "depends_on": "eval:doc.storage_charge",
+   "fieldname": "storage_type",
+   "fieldtype": "Link",
+   "label": "Storage Type",
+   "options": "Storage Type"
+  },
+  {
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Fixed Amount\nFlat Rate\nPer Unit\nPer Package\nMinimum Charge\nMaximum Charge\nPercentage\nPer Hour\nPer Day\nPer Month\nTime Based\nSplit Month\nWarehouse Pack Type\nWarehouse Location Type\nWarehouse Handling\nVolume Equalization\nTiered Pricing\nVolume Breaks",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage",
    "reqd": 1
   },
   {
-   "fieldname": "rate_value",
+   "default": "Volume",
+   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Handling Unit\nWeight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
+  },
+  {
+   "default": "Daily Volume",
+   "depends_on": "eval:doc.storage_charge && doc.billing_method == 'Per Volume'",
+   "fieldname": "volume_calculation_method",
+   "fieldtype": "Select",
+   "label": "Volume Calculation Method",
+   "options": "Daily Volume\nPeak Volume\nAverage Volume\nEnd Volume"
+  },
+  {
+   "fieldname": "column_break_zaxi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "rate",
    "fieldtype": "Currency",
-   "label": "Rate Value",
+   "in_list_view": 1,
+   "label": "Rate",
    "reqd": 1
   },
   {
@@ -106,135 +208,63 @@
    "label": "Maximum Charge"
   },
   {
-   "fieldname": "column_break_11",
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.billing_method == 'Per Hour')",
+   "fieldname": "billing_time_section",
+   "fieldtype": "Section Break",
+   "label": "Billing Time Settings"
+  },
+  {
+   "default": "Day",
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.billing_method == 'Per Hour')",
+   "fieldname": "billing_time_unit",
+   "fieldtype": "Select",
+   "label": "Billing Time Unit",
+   "options": "Day\nWeek\nHour"
+  },
+  {
+   "fieldname": "column_break_nrhl",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "warehouse_section",
-   "fieldtype": "Section Break",
-   "label": "Warehouse Details"
+   "default": "1.0",
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.billing_method == 'Per Hour')",
+   "description": "Multiplier for billing time calculation (e.g., 1.5 for 1.5x rate)",
+   "fieldname": "billing_time_multiplier",
+   "fieldtype": "Float",
+   "label": "Billing Time Multiplier"
   },
   {
-   "fieldname": "warehouse",
-   "fieldtype": "Link",
-   "label": "Warehouse",
-   "options": "Warehouse"
+   "default": "1.0",
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.billing_method == 'Per Hour')",
+   "description": "Minimum billing time to charge (e.g., minimum 1 day)",
+   "fieldname": "minimum_billing_time",
+   "fieldtype": "Float",
+   "label": "Minimum Billing Time"
   },
   {
+   "depends_on": "eval:doc.storage_charge",
    "fieldname": "storage_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Storage Type",
-   "options": "Bulk Storage\nRack Storage\nCold Storage\nDangerous Goods\nHigh Value\nGeneral"
+   "options": "Storage Type"
   },
   {
-   "fieldname": "handling_type",
-   "fieldtype": "Select",
-   "label": "Handling Type",
-   "options": "Manual\nForklift\nCrane\nConveyor\nAutomated"
-  },
-  {
-   "fieldname": "column_break_16",
+   "fieldname": "column_break_qpzc",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "cargo_section",
-   "fieldtype": "Section Break",
-   "label": "Cargo Details"
-  },
-  {
-   "fieldname": "weight_kg",
-   "fieldtype": "Float",
-   "label": "Weight (kg)"
-  },
-  {
-   "fieldname": "volume_m3",
-   "fieldtype": "Float",
-   "label": "Volume (m³)"
-  },
-  {
-   "fieldname": "area_sqm",
-   "fieldtype": "Float",
-   "label": "Area (m²)"
-  },
-  {
-   "fieldname": "handling_units",
-   "fieldtype": "Int",
-   "label": "Handling Units"
-  },
-  {
-   "fieldname": "skus",
-   "fieldtype": "Int",
-   "label": "SKUs"
-  },
-  {
-   "fieldname": "packages",
-   "fieldtype": "Int",
-   "label": "Packages"
-  },
-  {
-   "fieldname": "column_break_23",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "item_section",
-   "fieldtype": "Section Break",
-   "label": "Item Integration"
-  },
-  {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "label": "Item",
-   "options": "Item",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_warehouse_charge\",\"=\",1]]"
-  },
-  {
-   "fieldname": "item_name",
-   "fieldtype": "Data",
-   "label": "Item Name",
-   "fetch_from": "item.item_name",
-   "read_only": 1
-  },
-  {
-   "fieldname": "item_description",
-   "fieldtype": "Small Text",
-   "label": "Item Description",
-   "fetch_from": "item.description",
-   "read_only": 1
-  },
-  {
-   "fieldname": "item_group",
-   "fieldtype": "Link",
-   "label": "Item Group",
-   "options": "Item Group",
-   "fetch_from": "item.item_group",
-   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "istable": 1,
  "links": [],
- "modified": "2024-01-01 00:00:00.000000",
+ "modified": "2025-10-13 22:10:27.686433",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Warehouse Rate",
- "naming_rule": "By fieldname",
  "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
+ "permissions": [],
  "quick_entry": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
 }
-

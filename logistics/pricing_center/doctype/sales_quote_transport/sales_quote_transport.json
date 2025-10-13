@@ -14,7 +14,7 @@
   "calculation_method",
   "uom",
   "currency",
-  "rate",
+  "unit_rate",
   "unit_type",
   "minimum_quantity",
   "minimum_charge",
@@ -22,10 +22,16 @@
   "base_amount",
   "estimated_revenue",
   "column_break_pndm",
-  "calculation_method_copy",
+  "cost_calculation_method",
   "cost_uom",
   "cost_currency",
-  "cost_rate"
+  "unit_cost",
+  "cost_unit_type",
+  "cost_minimum_quantity",
+  "cost_minimum_charge",
+  "cost_maximum_charge",
+  "cost_base_amount",
+  "estimated_cost"
  ],
  "fields": [
   {
@@ -69,11 +75,6 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency"
-  },
-  {
-   "fieldname": "rate",
-   "fieldtype": "Currency",
-   "label": "Rate"
   },
   {
    "fieldname": "column_break_pndm",
@@ -124,12 +125,6 @@
    "label": "Estimated Revenue"
   },
   {
-   "fieldname": "calculation_method_copy",
-   "fieldtype": "Select",
-   "label": "Calculation Method Copy",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
-  },
-  {
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
@@ -142,16 +137,65 @@
    "options": "Currency"
   },
   {
-   "fieldname": "cost_rate",
+   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
+   "fieldname": "cost_unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
+   "fieldname": "cost_minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
-   "label": "Rate"
+   "label": "Unit Rate"
+  },
+  {
+   "fieldname": "unit_cost",
+   "fieldtype": "Currency",
+   "label": "Unit Cost"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
+   "fieldname": "cost_minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
+   "fieldname": "cost_maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\"",
+   "fieldname": "cost_base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Cost"
+  },
+  {
+   "fieldname": "cost_calculation_method",
+   "fieldtype": "Select",
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-09 22:51:17.217521",
+ "modified": "2025-10-13 22:35:47.013090",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Transport",
