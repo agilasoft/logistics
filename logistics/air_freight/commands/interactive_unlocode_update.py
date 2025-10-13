@@ -433,8 +433,6 @@ def main():
             execute_update(preferences)
         else:
             print("❌ Update cancelled by user")
-        else:
-            print("❌ Update cancelled by user")
         
     except Exception as e:
         print(f"❌ Error in interactive update: {str(e)}")
