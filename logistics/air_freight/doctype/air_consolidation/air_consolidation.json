@@ -56,7 +56,7 @@
   "branch",
   "cost_center",
   "profit_center",
-  "job_reference"
+  "job_costing_number"
  ],
  "fields": [
   {
@@ -355,17 +355,17 @@
    "options": "Profit Center"
   },
   {
-   "fieldname": "job_reference",
+   "fieldname": "job_costing_number",
    "fieldtype": "Link",
-   "label": "Job Reference",
-   "options": "Job Reference"
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   }
  ],
  "hide_toolbar": 1,
  "in_create": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-04 23:36:09.673659",
+ "modified": "2025-10-14 10:31:32.592217",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",

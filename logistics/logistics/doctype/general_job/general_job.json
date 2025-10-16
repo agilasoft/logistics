@@ -18,7 +18,7 @@
   "profit_center",
   "cost_center",
   "column_break_zmfn",
-  "job_reference"
+  "job_costing_number"
  ],
  "fields": [
   {
@@ -98,10 +98,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "job_reference",
+   "fieldname": "job_costing_number",
    "fieldtype": "Link",
-   "label": "Job Reference",
-   "options": "Job Reference"
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   }
  ],
  "grid_page_length": 50,

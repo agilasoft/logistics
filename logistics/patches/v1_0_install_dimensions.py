@@ -12,8 +12,8 @@ def execute():
     # Define dimensions to create
     dimensions = [
         {
-            "name": "Job Reference",
-            "document_type": "Job Reference",
+            "name": "Job Costing Number",
+            "document_type": "Job Costing Number",
             "disabled": 0,
             "is_mandatory": 0,
             "default_dimension": None,
@@ -32,6 +32,15 @@ def execute():
         {
             "name": "Profit Center",
             "document_type": "Profit Center",
+            "disabled": 0,
+            "is_mandatory": 0,
+            "default_dimension": None,
+            "company": None,
+            "applicable_for": "GL Entry"
+        },
+        {
+            "name": "Branch",
+            "document_type": "Branch",
             "disabled": 0,
             "is_mandatory": 0,
             "default_dimension": None,

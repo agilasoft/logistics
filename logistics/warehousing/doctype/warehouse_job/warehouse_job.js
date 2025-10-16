@@ -7,6 +7,24 @@ frappe.ui.form.on('Warehouse Job', {
         console.log('Warehouse Job onload triggered, doc name:', frm.doc.name);
         
         if (frm.doc.name) {
+            // Check if this is an unsaved job
+            if (frm.doc.name.startsWith('new-warehouse-job-') || (frm.doc.name.startsWith('WRO') && frm.doc.name.length > 10)) {
+                console.log('Unsaved job detected, showing save prompt');
+                const $wrapper = frm.get_field('warehouse_job_html').$wrapper;
+                if ($wrapper) {
+                    $wrapper.html(`
+                        <div style="padding: 24px; text-align: center; color: #64748b; background: #fef3c7; border-radius: 8px; border: 1px solid #fbbf24;">
+                            <h3 style="color: #d97706; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Save Required</h3>
+                            <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;">This warehouse job has not been saved yet. Please save the job first to load the dashboard.</p>
+                            <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                                <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 500;">Click the "Save" button to save your changes and then refresh the dashboard.</p>
+                            </div>
+                        </div>
+                    `);
+                }
+                return;
+            }
+            
             console.log('Loading dashboard for job:', frm.doc.name);
             
             frappe.call({
@@ -259,6 +277,72 @@ frappe.ui.form.on('Warehouse Job', {
             frm.add_custom_button(__('Calculate Charges'), function() {
                 calculate_charges_from_contract(frm);
             }, __('Actions'));
+        }
+        
+        // Add Post Standard Costs button - show only when submitted and has charges with standard costs
+        console.log('Checking for Post Standard Costs button:', {
+            docstatus: frm.doc.docstatus,
+            has_charges: frm.doc.charges && frm.doc.charges.length > 0,
+            charges_length: frm.doc.charges ? frm.doc.charges.length : 0
+        });
+        
+        if (frm.doc.docstatus === 1 && frm.doc.charges && frm.doc.charges.length > 0) {
+            // Check if any charge has standard cost
+            let has_standard_cost = false;
+            let standard_cost_items = [];
+            
+            frm.doc.charges.forEach(function(charge) {
+                console.log('Checking charge:', {
+                    item_code: charge.item_code,
+                    total_standard_cost: charge.total_standard_cost,
+                    flt_value: flt(charge.total_standard_cost)
+                });
+                
+                if (charge.total_standard_cost && flt(charge.total_standard_cost) > 0) {
+                    has_standard_cost = true;
+                    standard_cost_items.push(charge.item_code);
+                }
+            });
+            
+            console.log('Standard cost check result:', {
+                has_standard_cost: has_standard_cost,
+                standard_cost_items: standard_cost_items
+            });
+            
+            if (has_standard_cost) {
+                console.log('Adding Post Standard Costs button');
+                frm.add_custom_button(__('Post Standard Costs'), function() {
+                    post_standard_costs(frm);
+                }, __('Post'));
+            } else {
+                console.log('No standard costs found, button not added');
+            }
+        } else {
+            console.log('Button conditions not met:', {
+                docstatus_ok: frm.doc.docstatus === 1,
+                has_charges: frm.doc.charges && frm.doc.charges.length > 0
+            });
+        }
+        
+        // Temporary test button - always show for debugging
+        if (frm.doc.docstatus === 1) {
+            frm.add_custom_button(__('Test Standard Costs'), function() {
+                // Show detailed info about charges
+                let charges_info = [];
+                if (frm.doc.charges && frm.doc.charges.length > 0) {
+                    frm.doc.charges.forEach(function(charge, index) {
+                        charges_info.push(`Charge ${index + 1}: ${charge.item_code} - Standard Cost: ${charge.total_standard_cost}`);
+                    });
+                } else {
+                    charges_info.push('No charges found');
+                }
+                
+                frappe.msgprint({
+                    title: 'Charges Debug Info',
+                    message: charges_info.join('<br>'),
+                    indicator: 'blue'
+                });
+            }, __('Post'));
         }
     },
     items: function(frm) {
@@ -920,6 +1004,70 @@ function calculate_charges_from_contract(frm) {
                         frappe.msgprint({
                             title: __('Error'),
                             message: r.message ? r.message.message : __('Failed to calculate charges'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post Standard Costs function
+function post_standard_costs(frm) {
+    if (!frm.doc.charges || frm.doc.charges.length === 0) {
+        frappe.msgprint(__('No charges found. Please add charges first.'));
+        return;
+    }
+    
+    // Check if any charge has standard cost
+    let has_standard_cost = false;
+    frm.doc.charges.forEach(function(charge) {
+        if (charge.total_standard_cost && flt(charge.total_standard_cost) > 0) {
+            has_standard_cost = true;
+        }
+    });
+    
+    if (!has_standard_cost) {
+        frappe.msgprint(__('No standard costs found in charges.'));
+        return;
+    }
+    
+    frappe.confirm(
+        __('This will create journal entries for standard costs. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.post_standard_costs',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                freeze: true,
+                freeze_message: __('Creating journal entries for standard costs...'),
+                callback: function(r) {
+                    console.log('Post Standard Costs Response:', r);
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Standard Costs Posted'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ Standard Costs Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'Journal entries created successfully for standard costs.'}</p>
+                                    <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                        <p style="margin: 5px 0;"><strong>Journal Entry:</strong> ${r.message.journal_entry || 'N/A'}</p>
+                                        <p style="margin: 5px 0;"><strong>Total Amount:</strong> ${r.message.total_amount || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        console.log('Post Standard Costs Error:', r.message);
+                        frappe.msgprint({
+                            title: __('Error'),
+                            message: r.message ? r.message.message : __('Failed to post standard costs'),
                             indicator: 'red'
                         });
                     }

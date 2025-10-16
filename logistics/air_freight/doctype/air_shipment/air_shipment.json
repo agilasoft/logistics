@@ -95,7 +95,7 @@
   "branch",
   "cost_center",
   "profit_center",
-  "job_reference"
+  "job_costing_number"
  ],
  "fields": [
   {
@@ -546,10 +546,10 @@
    "options": "Profit Center"
   },
   {
-   "fieldname": "job_reference",
+   "fieldname": "job_costing_number",
    "fieldtype": "Link",
-   "label": "Job Reference",
-   "options": "Job Reference"
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "packages",

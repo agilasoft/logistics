@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestJobReference(FrappeTestCase):
+class TestJobCostingNumber(FrappeTestCase):
 	pass

@@ -24,7 +24,7 @@ def create_sales_invoice(booking_name, posting_date, customer, tax_category=None
     invoice.naming_series = naming_series or None
     invoice.invoice_type = invoice_type or None  # Optional: standard field if exists
     invoice.custom_invoice_type = invoice_type or None  # Custom field explicitly filled
-    invoice.job_reference = booking_name  # Optional: link to booking
+    invoice.job_costing_number = booking_name  # Optional: link to booking
 
     for charge in booking.charges:
         if charge.bill_to == customer and charge.invoice_type == invoice_type:

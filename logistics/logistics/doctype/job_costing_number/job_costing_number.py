@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class JobReference(Document):
+class JobCostingNumber(Document):
 	pass

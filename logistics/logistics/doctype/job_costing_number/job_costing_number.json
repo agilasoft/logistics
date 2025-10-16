@@ -28,7 +28,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Job Reference",
+   "options": "Job Costing Number",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -41,7 +41,7 @@
  "modified": "2025-10-01 22:07:19.581390",
  "modified_by": "Administrator",
  "module": "Logistics",
- "name": "Job Reference",
+ "name": "Job Costing Number",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
