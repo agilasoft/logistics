@@ -186,7 +186,6 @@ doc_events = {
     },
     "Sales Invoice": {
         "validate": [
-            "logistics.setup.dimension_hooks.update_dimensions_on_item_change",
             "logistics.setup.bir_2307_hooks.validate_bir_2307_fields",
             "logistics.setup.bir_2307_hooks.auto_populate_tin_fields",
             "logistics.setup.bir_2307_hooks.auto_populate_atc_details"
@@ -194,14 +193,10 @@ doc_events = {
     },
     "Purchase Invoice": {
         "validate": [
-            "logistics.setup.dimension_hooks.update_dimensions_on_item_change",
             "logistics.setup.bir_2307_hooks.validate_bir_2307_fields",
             "logistics.setup.bir_2307_hooks.auto_populate_tin_fields",
             "logistics.setup.bir_2307_hooks.auto_populate_atc_details"
         ],
-    },
-    "Journal Entry": {
-        "validate": "logistics.setup.dimension_hooks.update_dimensions_on_item_change",
     },
     "ATC Code": {
         "validate": "logistics.setup.bir_2307_hooks.validate_atc_code",

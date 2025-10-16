@@ -1,0 +1,211 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-16 13:09:25.822460",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "item_name",
+  "storage_charge",
+  "inbound_charge",
+  "outbound_charge",
+  "vas_charge",
+  "stocktake_charge",
+  "column_break_rbqm",
+  "handling_unit_type",
+  "storage_type",
+  "calculation_method",
+  "unit_type",
+  "volume_calculation_method",
+  "uom",
+  "column_break_gyhp",
+  "billing_time_unit",
+  "billing_time_multiplier",
+  "minimum_billing_time",
+  "section_break_btnr",
+  "selling_currency",
+  "unit_rate",
+  "column_break_vkhw",
+  "cost_currency",
+  "unit_cost"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name"
+  },
+  {
+   "default": "0",
+   "fieldname": "storage_charge",
+   "fieldtype": "Check",
+   "label": "Storage Charge"
+  },
+  {
+   "default": "0",
+   "fieldname": "inbound_charge",
+   "fieldtype": "Check",
+   "label": "Inbound Charge"
+  },
+  {
+   "default": "0",
+   "fieldname": "outbound_charge",
+   "fieldtype": "Check",
+   "label": "Outbound Charge"
+  },
+  {
+   "default": "0",
+   "fieldname": "vas_charge",
+   "fieldtype": "Check",
+   "label": "VAS Charge"
+  },
+  {
+   "default": "0",
+   "fieldname": "stocktake_charge",
+   "fieldtype": "Check",
+   "label": "Stocktake Charge"
+  },
+  {
+   "fieldname": "column_break_rbqm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "handling_unit_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Handling Unit Type",
+   "options": "Handling Unit Type"
+  },
+  {
+   "columns": 1,
+   "fieldname": "storage_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Storage Type",
+   "options": "Storage Type"
+  },
+  {
+   "columns": 1,
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+  },
+  {
+   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Handling Unit\nWeight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
+  },
+  {
+   "depends_on": "eval:doc.storage_charge && doc.billing_method == 'Per Volume'",
+   "fieldname": "volume_calculation_method",
+   "fieldtype": "Select",
+   "label": "Volume Calculation Method",
+   "options": "Daily Volume\nPeak Volume\nAverage Volume\nEnd Volume"
+  },
+  {
+   "fieldname": "column_break_gyhp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.unit_type == 'Operation Time')",
+   "fieldname": "billing_time_unit",
+   "fieldtype": "Select",
+   "label": "Billing Time Unit",
+   "options": "Day\nWeek\nHour"
+  },
+  {
+   "default": "1.0",
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.unit_type == 'Operation Time')",
+   "fieldname": "billing_time_multiplier",
+   "fieldtype": "Float",
+   "label": "Billing Time Multiplier"
+  },
+  {
+   "default": "1.0",
+   "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.unit_type == 'Operation Time')",
+   "fieldname": "minimum_billing_time",
+   "fieldtype": "Float",
+   "label": "Minimum Billing Time"
+  },
+  {
+   "columns": 1,
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "section_break_btnr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "selling_currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "columns": 1,
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unit Rate"
+  },
+  {
+   "fieldname": "column_break_vkhw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "cost_currency",
+   "fieldtype": "Link",
+   "in_preview": 1,
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "columns": 1,
+   "fieldname": "unit_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unit Cost"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-10-16 13:31:34.006882",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Sales Quote Warehouse",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

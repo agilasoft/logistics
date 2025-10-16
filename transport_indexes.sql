@@ -13,7 +13,7 @@
 ALTER TABLE `tabTransport Leg` 
 ADD INDEX IF NOT EXISTS idx_runsheet_date_status (run_sheet, date, docstatus);
 
--- 2. Transport Leg - Job Reference
+-- 2. Transport Leg - Job Costing Number
 -- Used by: Job leg lookups, reporting
 -- Impact: 5-10x faster
 ALTER TABLE `tabTransport Leg` 

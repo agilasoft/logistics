@@ -99,7 +99,7 @@
   "recognition_date",
   "job_description",
   "column_break_arzm",
-  "job_reference",
+  "job_costing_number",
   "quote_no",
   "section_break_elec",
   "charges",
@@ -442,10 +442,10 @@
    "label": "Job Description"
   },
   {
-   "fieldname": "job_reference",
+   "fieldname": "job_costing_number",
    "fieldtype": "Link",
-   "label": "Job Reference",
-   "options": "Job Reference"
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "column_break_arzm",
@@ -637,17 +637,17 @@
   {
    "group": "Accounting",
    "link_doctype": "Sales Invoice",
-   "link_fieldname": "job_reference"
+   "link_fieldname": "job_costing_number"
   },
   {
    "group": "Accounting",
    "link_doctype": "Purchase Invoice",
-   "link_fieldname": "job_reference"
+   "link_fieldname": "job_costing_number"
   },
   {
    "group": "Operations",
    "link_doctype": "Transport Order",
-   "link_fieldname": "job_reference"
+   "link_fieldname": "job_costing_number"
   },
   {
    "group": "Operations",
@@ -656,7 +656,7 @@
    "table_fieldname": "routes"
   }
  ],
- "modified": "2025-09-17 16:39:22.765193",
+ "modified": "2025-10-14 10:31:30.736628",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Job",

@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2025-10-09 15:07:40.013726",
+ "creation": "2025-10-12 16:25:22.081485",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -40,6 +40,8 @@
   "transport",
   "customs_tab",
   "warehousing_tab",
+  "site",
+  "warehousing",
   "accounts_tab",
   "sales_rep",
   "operations_rep",
@@ -299,13 +301,25 @@
    "fieldtype": "Link",
    "label": "Container Type",
    "options": "Container Type"
+  },
+  {
+   "fieldname": "warehousing",
+   "fieldtype": "Table",
+   "options": "Sales Quote Warehouse"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
+   "options": "Storage Location Configurator"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-09 22:53:59.161703",
+ "modified": "2025-10-16 13:27:33.587317",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

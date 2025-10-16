@@ -37,7 +37,7 @@
   "company",
   "branch",
   "column_break_xphe",
-  "job_reference",
+  "job_costing_number",
   "sales_invoice"
  ],
  "fields": [
@@ -226,10 +226,10 @@
   },
   {
    "description": "This will be used when posting financial transactions to this job.",
-   "fieldname": "job_reference",
+   "fieldname": "job_costing_number",
    "fieldtype": "Link",
-   "label": "Job Reference",
-   "options": "Job Reference"
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "sales_invoice",
@@ -240,8 +240,8 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-09 10:51:02.353348",
- "modified_by": "johnalexander.castro@agilasoft.com",
+ "modified": "2025-10-14 10:31:33.351855",
+ "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
  "naming_rule": "By \"Naming Series\" field",

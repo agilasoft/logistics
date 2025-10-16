@@ -193,6 +193,15 @@ class WarehouseJob(Document):
                     
         except Exception as e:
             frappe.logger().warning(f"[WarehouseJob.before_save] charges autofill warning: {e}")
+        
+        # Job Costing Number will be created in after_insert method
+
+    def after_insert(self):
+        """Create Job Costing Number after document is inserted"""
+        self.create_job_costing_number_if_needed()
+        # Save the document to persist the job_costing_number field
+        if self.job_costing_number:
+            self.save(ignore_permissions=True)
 
     @frappe.whitelist()
     def get_warehouse_dashboard_html(self, job_name=None):
@@ -1816,49 +1825,33 @@ class WarehouseJob(Document):
             if has_items:
                 # Items exist but no handling units assigned
                 return f"""
-                    <div style="text-align: center; padding: 30px; color: #666; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                        <div style="font-size: 48px; margin-bottom: 16px;">📦</div>
-                        <h3 style="color: #495057; margin-bottom: 12px;">Items Found, No Handling Units</h3>
-                        <p style="margin-bottom: 16px; font-size: 16px;">This job has {len(self.items)} item(s) but no handling units are assigned yet.</p>
-                        <div style="background: #e3f2fd; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #2196f3;">
-                            <p style="margin: 0; font-weight: 500; color: #1976d2;">Next Steps:</p>
-                            <ul style="text-align: left; margin: 8px 0 0 0; padding-left: 20px; color: #424242;">
-                                <li>Add handling units to the items in the Items table</li>
-                                <li>Or use the "Allocate" button to automatically assign handling units</li>
-                            </ul>
+                    <div style="padding: 24px; text-align: center; color: #64748b; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
+                        <h3 style="color: #0369a1; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Items Ready for Assignment</h3>
+                        <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;">This job has {len(self.items)} item(s) but no handling units are assigned yet.</p>
+                        <div style="background: #dbeafe; padding: 12px; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                            <p style="margin: 0; font-size: 13px; color: #1e40af; font-weight: 500;">Add handling units to items in the Items table or use the "Allocate" button to automatically assign them.</p>
                         </div>
                     </div>
                 """
             elif has_orders:
                 # Orders exist but no items allocated
                 return f"""
-                    <div style="text-align: center; padding: 30px; color: #666; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                        <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
-                        <h3 style="color: #495057; margin-bottom: 12px;">Orders Found, No Items Allocated</h3>
-                        <p style="margin-bottom: 16px; font-size: 16px;">This job has {len(self.orders)} order(s) but no items have been allocated yet.</p>
-                        <div style="background: #fff3e0; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #ff9800;">
-                            <p style="margin: 0; font-weight: 500; color: #f57c00;">Next Steps:</p>
-                            <ul style="text-align: left; margin: 8px 0 0 0; padding-left: 20px; color: #424242;">
-                                <li>Click the "Allocate" button to allocate items from orders</li>
-                                <li>Or manually add items to the Items table</li>
-                            </ul>
+                    <div style="padding: 24px; text-align: center; color: #64748b; background: #fffbeb; border-radius: 8px; border: 1px solid #fed7aa;">
+                        <h3 style="color: #d97706; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Orders Ready for Allocation</h3>
+                        <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;">This job has {len(self.orders)} order(s) but no items have been allocated yet.</p>
+                        <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                            <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 500;">Click the "Allocate" button to allocate items from orders or manually add items to the Items table.</p>
                         </div>
                     </div>
                 """
             else:
                 # No items or orders
                 return f"""
-                    <div style="text-align: center; padding: 30px; color: #666; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                        <div style="font-size: 48px; margin-bottom: 16px;">🏗️</div>
-                        <h3 style="color: #495057; margin-bottom: 12px;">No Items in This Job</h3>
-                        <p style="margin-bottom: 16px; font-size: 16px;">This warehouse job doesn't have any items allocated yet.</p>
-                        <div style="background: #e8f5e8; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #4caf50;">
-                            <p style="margin: 0; font-weight: 500; color: #2e7d32;">Getting Started:</p>
-                            <ul style="text-align: left; margin: 8px 0 0 0; padding-left: 20px; color: #424242;">
-                                <li>Add orders to this job first</li>
-                                <li>Then use the "Allocate" button to allocate items from orders</li>
-                                <li>Or manually add items to the Items table</li>
-                            </ul>
+                    <div style="padding: 24px; text-align: center; color: #64748b; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+                        <h3 style="color: #16a34a; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Ready to Get Started</h3>
+                        <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;">This warehouse job doesn't have any items allocated yet.</p>
+                        <div style="background: #dcfce7; padding: 12px; border-radius: 6px; border-left: 3px solid #22c55e;">
+                            <p style="margin: 0; font-size: 13px; color: #166534; font-weight: 500;">Add orders to this job first, then use the "Allocate" button to allocate items or manually add items to the Items table.</p>
                         </div>
                     </div>
                 """
@@ -2528,6 +2521,35 @@ class WarehouseJob(Document):
         self.total_volume = total_volume
         self.total_weight = total_weight
         self.total_handling_units = len(unique_handling_units)
+
+    def create_job_costing_number_if_needed(self):
+        """Create Job Costing Number when document is first saved"""
+        # Only create if job_costing_number is not set
+        if not self.job_costing_number:
+            # Check if this is the first save (no existing Job Costing Number)
+            existing_job_ref = frappe.db.get_value("Job Costing Number", {
+                "job_type": "Warehouse Job",
+                "job_no": self.name
+            })
+            
+            if not existing_job_ref:
+                # Create Job Costing Number
+                job_ref = frappe.new_doc("Job Costing Number")
+                job_ref.job_type = "Warehouse Job"
+                job_ref.job_no = self.name
+                job_ref.company = self.company
+                job_ref.branch = self.branch
+                job_ref.cost_center = self.cost_center
+                job_ref.profit_center = self.profit_center
+                # Leave recognition_date blank - will be filled in separate function
+                # Use warehouse job's job_open_date instead
+                job_ref.job_open_date = self.job_open_date
+                job_ref.insert(ignore_permissions=True)
+                
+                # Set the job_costing_number field
+                self.job_costing_number = job_ref.name
+                
+                frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
 
     def on_submit(self):
         job_type = (getattr(self, "type", "") or "").strip()
@@ -3218,29 +3240,35 @@ def get_warehouse_dashboard_html(job_name):
         # Validate job_name
         if not job_name or job_name == 'new-warehouse-job':
             return f"""
-                <div style="padding: 20px; text-align: center; color: #666;">
-                    <h3>Warehouse Dashboard</h3>
-                    <p>Please save the warehouse job first to load the dashboard.</p>
+                <div style="padding: 24px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <h3 style="color: #334155; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Dashboard Ready</h3>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.5;">Save the warehouse job to view the dashboard and start tracking your operations.</p>
                 </div>
             """
         
         # Check if job exists
         if not frappe.db.exists("Warehouse Job", job_name):
-            return f"""
-                <div style="padding: 30px; text-align: center; color: #666; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-                    <h3 style="color: #dc3545; margin-bottom: 12px;">Warehouse Job Not Found</h3>
-                    <p style="margin-bottom: 16px; font-size: 16px;">The warehouse job <strong>{job_name}</strong> does not exist or has been deleted.</p>
-                    <div style="background: #fff3cd; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #ffc107;">
-                        <p style="margin: 0; font-weight: 500; color: #856404;">Possible Solutions:</p>
-                        <ul style="text-align: left; margin: 8px 0 0 0; padding-left: 20px; color: #856404;">
-                            <li>Check if the job name is correct</li>
-                            <li>Refresh the page to load a different job</li>
-                            <li>Create a new warehouse job</li>
-                        </ul>
+            # Check if this looks like an unsaved job (temporary name pattern)
+            if job_name and (job_name.startswith('new-warehouse-job-') or job_name.startswith('WRO') and len(job_name) > 10):
+                return f"""
+                    <div style="padding: 24px; text-align: center; color: #64748b; background: #fef3c7; border-radius: 8px; border: 1px solid #fbbf24;">
+                        <h3 style="color: #d97706; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Save Required</h3>
+                        <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;">This warehouse job has not been saved yet. Please save the job first to load the dashboard.</p>
+                        <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                            <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 500;">Click the "Save" button to save your changes and then refresh the dashboard.</p>
+                        </div>
                     </div>
-                </div>
-            """
+                """
+            else:
+                return f"""
+                    <div style="padding: 24px; text-align: center; color: #64748b; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+                        <h3 style="color: #dc2626; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Job Not Available</h3>
+                        <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;">The warehouse job <strong>{job_name}</strong> could not be found. It may have been deleted or moved.</p>
+                        <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                            <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 500;">Try refreshing the page or creating a new warehouse job to get started.</p>
+                        </div>
+                    </div>
+                """
         
         job = frappe.get_doc("Warehouse Job", job_name)
         return job.get_warehouse_dashboard_html(job_name)
@@ -3248,18 +3276,17 @@ def get_warehouse_dashboard_html(job_name):
     except frappe.DoesNotExistError:
         frappe.logger().error(f"Warehouse Job {job_name} does not exist")
         return f"""
-            <div style="padding: 20px; text-align: center; color: #666;">
-                <h3>Warehouse Dashboard</h3>
-                <p>Warehouse Job {job_name} not found.</p>
+            <div style="padding: 24px; text-align: center; color: #64748b; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+                <h3 style="color: #dc2626; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Job Not Available</h3>
+                <p style="margin: 0; font-size: 14px; line-height: 1.5;">Warehouse Job {job_name} could not be found.</p>
             </div>
         """
     except Exception as e:
         frappe.logger().error(f"Error loading warehouse dashboard for {job_name}: {e}")
         return f"""
-            <div style="padding: 20px; text-align: center; color: #666;">
-                <h3>Warehouse Dashboard</h3>
-                <p>Error loading dashboard: {str(e)}</p>
-                <p>Please refresh the page or contact support.</p>
+            <div style="padding: 24px; text-align: center; color: #64748b; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+                <h3 style="color: #dc2626; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Dashboard Error</h3>
+                <p style="margin: 0; font-size: 14px; line-height: 1.5;">Unable to load the dashboard. Please refresh the page or contact support if the issue persists.</p>
             </div>
         """
 
@@ -3963,3 +3990,127 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
     except Exception as e:
         frappe.logger().warning(f"Error generating contract charge calculation notes: {e}")
         return f"Calculation notes generation error: {str(e)}"
+
+
+@frappe.whitelist()
+def post_standard_costs(warehouse_job: str) -> dict:
+    """
+    Create Journal Entry for standard costs from warehouse job charges.
+    
+    Args:
+        warehouse_job: Name of the warehouse job
+        
+    Returns:
+        dict: Result with success status, message, journal_entry, and total_amount
+    """
+    try:
+        # Get the warehouse job document
+        job = frappe.get_doc("Warehouse Job", warehouse_job)
+        
+        if not job.charges:
+            return {"ok": False, "message": "No charges found in warehouse job"}
+        
+        # Filter charges that have standard costs
+        charges_with_standard_cost = []
+        for charge in job.charges:
+            if charge.total_standard_cost and flt(charge.total_standard_cost) > 0:
+                charges_with_standard_cost.append(charge)
+        
+        if not charges_with_standard_cost:
+            return {"ok": False, "message": "No charges with standard costs found"}
+        
+        # Create Journal Entry
+        je = frappe.new_doc("Journal Entry")
+        je.voucher_type = "Journal Entry"
+        je.posting_date = frappe.utils.today()
+        je.company = job.company
+        je.branch = job.branch
+        je.cost_center = job.cost_center
+        je.profit_center = job.profit_center
+        je.job_costing_number = job.job_costing_number
+        
+        # Set reference to warehouse job
+        je.user_remark = f"Standard Costs for Warehouse Job: {job.name}"
+        
+        total_amount = 0
+        je_entries = []
+        
+        for charge in charges_with_standard_cost:
+            if not charge.item_code:
+                continue
+                
+            # Get item details to fetch standard cost accounts
+            item_doc = frappe.get_doc("Item", charge.item_code)
+            
+            # Get standard cost accounts from item
+            standard_cost_account = item_doc.get("custom_standard_cost_account")
+            applied_standard_cost_account = item_doc.get("custom_applied_standard_cost_account")
+            
+            if not standard_cost_account or not applied_standard_cost_account:
+                frappe.logger().warning(f"Standard cost accounts not configured for item: {charge.item_code}")
+                continue
+            
+            amount = flt(charge.total_standard_cost)
+            if amount <= 0:
+                continue
+                
+            total_amount += amount
+            
+            # Debit: Standard Cost Account
+            je_entries.append({
+                "account": standard_cost_account,
+                "debit_in_account_currency": amount,
+                "credit_in_account_currency": 0,
+                "cost_center": job.cost_center,
+                "profit_center": job.profit_center,
+                "job_costing_number": job.job_costing_number,
+                "item": charge.item_code,
+                "reference_type": "",
+                "reference_name": "",
+                "party_type": None,
+                "party": None,
+                "against_account": applied_standard_cost_account,
+                "user_remark": f"Standard cost for {charge.item_code} - {charge.item_name or charge.item_code} (Warehouse Job: {job.name})"
+            })
+            
+            # Credit: Applied Standard Cost Account
+            je_entries.append({
+                "account": applied_standard_cost_account,
+                "debit_in_account_currency": 0,
+                "credit_in_account_currency": amount,
+                "cost_center": job.cost_center,
+                "profit_center": job.profit_center,
+                "job_costing_number": job.job_costing_number,
+                "item": charge.item_code,
+                "reference_type": "",
+                "reference_name": "",
+                "party_type": None,
+                "party": None,
+                "against_account": standard_cost_account,
+                "user_remark": f"Applied standard cost for {charge.item_code} - {charge.item_name or charge.item_code} (Warehouse Job: {job.name})"
+            })
+        
+        if not je_entries:
+            return {"ok": False, "message": "No valid journal entries could be created"}
+        
+        # Add entries to journal entry
+        for entry in je_entries:
+            je.append("accounts", entry)
+        
+        # Save and submit the journal entry
+        je.insert(ignore_permissions=True)
+        je.submit()
+        
+        return {
+            "ok": True,
+            "message": f"Journal Entry {je.name} created successfully for standard costs",
+            "journal_entry": je.name,
+            "total_amount": total_amount
+        }
+        
+    except Exception as e:
+        frappe.logger().error(f"Error posting standard costs for warehouse job {warehouse_job}: {str(e)}")
+        return {
+            "ok": False,
+            "message": f"Error creating journal entry: {str(e)}"
+        }

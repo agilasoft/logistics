@@ -12,6 +12,7 @@
   "job_type",
   "job_no",
   "recognition_date",
+  "job_open_date",
   "column_break_muik",
   "company",
   "branch",
@@ -37,7 +38,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Job Reference",
+   "options": "Job Costing Number",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -89,16 +90,21 @@
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date"
+  },
+  {
+   "fieldname": "job_open_date",
+   "fieldtype": "Date",
+   "label": "Job Open Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-01 23:03:57.167265",
+ "modified": "2025-10-14 11:57:40.776103",
  "modified_by": "Administrator",
  "module": "Job Management",
- "name": "Job Reference",
+ "name": "Job Costing Number",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [

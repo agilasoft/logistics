@@ -20,8 +20,14 @@ class AirConsolidation(Document):
         self.update_consolidation_status()
         self.calculate_total_charges()
         self.optimize_consolidation_ratio()
-        # Create Job Reference if this is the first save
-        self.create_job_reference_if_needed()
+        # Job Costing Number will be created in after_insert method
+    
+    def after_insert(self):
+        """Create Job Costing Number after document is inserted"""
+        self.create_job_costing_number_if_needed()
+        # Save the document to persist the job_costing_number field
+        if self.job_costing_number:
+            self.save(ignore_permissions=True)
     
     def on_update(self):
         """Actions after document update"""
@@ -557,29 +563,31 @@ class AirConsolidation(Document):
                 frappe.throw(_("Branch {0} does not belong to Company {1}").format(
                     self.branch, self.company))
     
-    def create_job_reference_if_needed(self):
-        """Create Job Reference when document is first saved"""
-        # Only create if this is a new document and job_reference is not set
-        if not self.job_reference and not self.get("__islocal"):
-            # Check if this is the first save (no existing Job Reference)
-            existing_job_ref = frappe.db.get_value("Job Reference", {
+    def create_job_costing_number_if_needed(self):
+        """Create Job Costing Number when document is first saved"""
+        # Only create if job_costing_number is not set
+        if not self.job_costing_number:
+            # Check if this is the first save (no existing Job Costing Number)
+            existing_job_ref = frappe.db.get_value("Job Costing Number", {
                 "job_type": "Air Consolidation",
                 "job_no": self.name
             })
             
             if not existing_job_ref:
-                # Create Job Reference
-                job_ref = frappe.new_doc("Job Reference")
+                # Create Job Costing Number
+                job_ref = frappe.new_doc("Job Costing Number")
                 job_ref.job_type = "Air Consolidation"
                 job_ref.job_no = self.name
                 job_ref.company = self.company
                 job_ref.branch = self.branch
                 job_ref.cost_center = self.cost_center
                 job_ref.profit_center = self.profit_center
-                job_ref.recognition_date = frappe.utils.today()
+                # Leave recognition_date blank - will be filled in separate function
+                # Use air consolidation's consolidation_date instead
+                job_ref.job_open_date = self.consolidation_date
                 job_ref.insert(ignore_permissions=True)
                 
-                # Set the job_reference field
-                self.job_reference = job_ref.name
+                # Set the job_costing_number field
+                self.job_costing_number = job_ref.name
                 
-                frappe.msgprint(_("Job Reference {0} created successfully").format(job_ref.name))
+                frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
