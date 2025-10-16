@@ -1544,18 +1544,18 @@ class AirShipment(Document):
 			})
 			
 			if not existing_job_ref:
-			# Create Job Costing Number
-			job_ref = frappe.new_doc("Job Costing Number")
-			job_ref.job_type = "Air Shipment"
-			job_ref.job_no = self.name
-			job_ref.company = self.company
-			job_ref.branch = self.branch
-			job_ref.cost_center = self.cost_center
-			job_ref.profit_center = self.profit_center
-			# Leave recognition_date blank - will be filled in separate function
-			# Use air shipment's booking_date instead
-			job_ref.job_open_date = self.booking_date
-			job_ref.insert(ignore_permissions=True)
+				# Create Job Costing Number
+				job_ref = frappe.new_doc("Job Costing Number")
+				job_ref.job_type = "Air Shipment"
+				job_ref.job_no = self.name
+				job_ref.company = self.company
+				job_ref.branch = self.branch
+				job_ref.cost_center = self.cost_center
+				job_ref.profit_center = self.profit_center
+				# Leave recognition_date blank - will be filled in separate function
+				# Use air shipment's booking_date instead
+				job_ref.job_open_date = self.booking_date
+				job_ref.insert(ignore_permissions=True)
 				
 				# Set the job_costing_number field
 				self.job_costing_number = job_ref.name
