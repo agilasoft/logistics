@@ -48,11 +48,13 @@ def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict
     child_fields = _safe_meta_fieldnames("Warehouse Job Operations")
     has_desc  = "description" in child_fields
     has_notes = "notes" in child_fields
-    has_uom   = False  # handling_uom column doesn't exist in database
+    has_uom   = "handling_uom" in child_fields  # Check if handling_uom field exists
     has_qty   = "quantity" in child_fields
     has_unith = "unit_std_hours" in child_fields
     has_totalh= "total_std_hours" in child_fields
     has_actual= "actual_hours" in child_fields
+    
+    # Debug: Show available fields (removed for production)
 
     created = 0
     for op in ops:
@@ -63,7 +65,16 @@ def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict
         qty = flt(qty_baseline or 0)
         payload: Dict[str, Any] = {"operation": code}
         if has_desc:   payload["description"] = op.get("operation_name")
-        if has_uom and op.get("handling_uom"): payload["handling_uom"] = op.get("handling_uom")
+        if has_uom:
+            # Get UOM from the first item in the job
+            handling_uom = None
+            if orders:
+                first_item = orders[0].get("item")
+                if first_item:
+                    handling_uom = frappe.db.get_value("Warehouse Item", first_item, "uom")
+            
+            if handling_uom:
+                payload["handling_uom"] = handling_uom
         if has_qty:    payload["quantity"] = qty
         if has_unith:  payload["unit_std_hours"] = unit_std
         if has_totalh: payload["total_std_hours"] = unit_std * qty

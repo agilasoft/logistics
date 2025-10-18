@@ -530,6 +530,13 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
     if (job.type or "").strip() != "Putaway":
         frappe.throw(_("Allocate Putaway can only run for Warehouse Job Type = Putaway."))
 
+    # Clear existing items before allocation
+    job.set("items", [])
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(f"Cleared existing items from job {warehouse_job}")
+    frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
+
     print(f"Job type: {job.type}, Staging area: {getattr(job, 'staging_area', None)}")
     frappe.logger().info(f"Job type: {job.type}, Staging area: {getattr(job, 'staging_area', None)}")
     created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
@@ -539,15 +546,16 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
     # Save items directly to database without triggering hooks
     # This bypasses all validation hooks that might interfere
     try:
+        # Get available fields in Warehouse Job Item
+        from .common import _safe_meta_fieldnames
+        item_fields = _safe_meta_fieldnames("Warehouse Job Item")
+        
         # Save the job items directly to the database
         for item in job.items:
             if item.get("__islocal") or not item.get("name"):
-                # Insert new item directly
-                frappe.db.sql("""
-                    INSERT INTO `tabWarehouse Job Item` 
-                    (name, parent, parentfield, parenttype, idx, item, quantity, location, handling_unit, uom, serial_no, batch_no, source_row, source_parent, creation, modified, modified_by, owner, docstatus)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
+                # Build dynamic SQL based on available fields
+                columns = ["name", "parent", "parentfield", "parenttype", "idx", "item", "quantity", "location", "handling_unit", "uom", "serial_no", "batch_no", "creation", "modified", "modified_by", "owner", "docstatus"]
+                values = [
                     item.name or frappe.generate_hash(length=10),
                     job.name,
                     "items", 
@@ -560,14 +568,31 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
                     item.uom,
                     item.serial_no,
                     item.batch_no,
-                    item.source_row,
-                    item.source_parent,
                     frappe.utils.now(),
                     frappe.utils.now(),
                     frappe.session.user,
                     frappe.session.user,
                     0
-                ))
+                ]
+                
+                # Add optional fields if they exist
+                if "source_row" in item_fields:
+                    columns.append("source_row")
+                    values.append(getattr(item, 'source_row', None))
+                
+                if "source_parent" in item_fields:
+                    columns.append("source_parent")
+                    values.append(getattr(item, 'source_parent', None))
+                
+                # Build and execute SQL
+                columns_str = ", ".join(columns)
+                placeholders = ", ".join(["%s"] * len(values))
+                
+                frappe.db.sql(f"""
+                    INSERT INTO `tabWarehouse Job Item` 
+                    ({columns_str})
+                    VALUES ({placeholders})
+                """, tuple(values))
         
         # Update the job's modified timestamp
         frappe.db.set_value("Warehouse Job", job.name, "modified", frappe.utils.now())
@@ -595,6 +620,13 @@ def allocate_vas_putaway(warehouse_job: str):
         frappe.throw(_("Initiate VAS Putaway can only run for Warehouse Job Type = VAS."))
     if int(job.docstatus or 0) != 0:
         frappe.throw(_("Initiate VAS Putaway must be run before submission."))
+
+    # Clear existing items before allocation
+    job.set("items", [])
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(f"Cleared existing items from job {warehouse_job}")
+    frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
     # Delegate to HU-anchored allocator (it already handles warnings)
     created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)

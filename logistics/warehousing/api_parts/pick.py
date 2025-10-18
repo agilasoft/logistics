@@ -12,6 +12,13 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
     if (job.type or "").strip() != "Pick":
         frappe.throw(_("Allocate Picks can only run for Warehouse Job Type = Pick."))
 
+    # Clear existing items before allocation
+    job.set("items", [])
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(f"Cleared existing items from job {warehouse_job}")
+    frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
+
     company, branch = _get_job_scope(job)
     jo_items = _fetch_job_order_items(job.name)
     if not jo_items:

@@ -1228,3 +1228,90 @@ def _ops_time_fields():
     start_f = "start_datetime" if "start_datetime" in f else ("start_date" if "start_date" in f else None)
     end_f   = "end_datetime"   if "end_datetime"   in f else ("end_date"   if "end_date"   in f else None)
     return start_f, end_f
+
+def _get_replenish_policy_flags(item: Optional[str]) -> Tuple[bool, bool]:
+    """Return (replenish_mode, pick_face_first) based on Warehouse Settings and item rules.
+    - Replenish mode if Warehouse Settings.replenishment_policy in ['replenish','replenishment','pick face first','pick_face_first']
+    - pick_face_first if Warehouse Item rules has primary_pick_face_first=1
+    Best-effort; silently ignores missing fields/doctype.
+    """
+    replen = False
+    try:
+        policy = frappe.db.get_single_value("Warehouse Settings", "replenishment_policy")
+        if policy and isinstance(policy, str):
+            replen = policy.strip().lower() in ("replenish", "replenishment", "pick face first", "pick_face_first")
+    except Exception:
+        replen = False
+
+    pick_face_first = False
+    try:
+        rules = _get_item_rules(item) if item else {}
+        pick_face_first = bool(int(rules.get("primary_pick_face_first") or 0))
+    except Exception:
+        pick_face_first = False
+
+    return replen, pick_face_first
+
+def _get_item_storage_type_prefs(item: Optional[str]) -> Tuple[Optional[str], List[str]]:
+    """Return (preferred_storage_type, allowed_storage_types[]) for the item.
+    preferred_storage_type: Link to Storage Type (single), may be None
+    allowed_storage_types:  List from child table 'Warehouse Item Storage Type' (field 'storage_type'), may be empty
+    """
+    preferred = None
+    allowed: List[str] = []
+    if not item:
+        return preferred, allowed
+
+    # Read preferred storage type from Warehouse Item
+    try:
+        preferred = frappe.db.get_value("Warehouse Item", item, "preferred_storage_type")
+    except Exception:
+        preferred = None
+
+    # Read allowed storage types child rows
+    try:
+        rows = frappe.get_all(
+            "Warehouse Item Storage Type",
+            filters={"parent": item, "parenttype": "Warehouse Item"},
+            fields=["storage_type"],
+            ignore_permissions=True,
+        ) or []
+        for r in rows:
+            st = (r.get("storage_type") or "").strip()
+            if st:
+                allowed.append(st)
+        # De-duplicate preserving order
+        seen = set()
+        allowed = [x for x in allowed if not (x in seen or seen.add(x))]
+    except Exception:
+        allowed = []
+
+    return preferred, allowed
+
+def _ensure_batch(
+    batch_code: Optional[str],
+    item: Optional[str] = None,
+    customer: Optional[str] = None,
+    expiry: Optional[str] = None,
+    uom: Optional[str] = None,
+) -> str:
+    if not batch_code:
+        return ""
+    if frappe.db.exists("Warehouse Batch", batch_code):
+        if uom:
+            current_uom = frappe.db.get_value("Warehouse Batch", batch_code, "batch_uom")
+            if not current_uom:
+                frappe.db.set_value("Warehouse Batch", batch_code, "batch_uom", uom)
+        return batch_code
+    doc = frappe.new_doc("Warehouse Batch")
+    doc.batch_no = batch_code  # autoname=field:batch_no
+    if hasattr(doc, "item_code") and item:
+        doc.item_code = item
+    if hasattr(doc, "customer") and customer:
+        doc.customer = customer
+    if hasattr(doc, "expiry_date") and expiry:
+        doc.expiry_date = expiry
+    if hasattr(doc, "batch_uom") and uom:
+        doc.batch_uom = uom
+    doc.insert()
+    return doc.name

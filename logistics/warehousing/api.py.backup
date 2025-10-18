@@ -35,7 +35,7 @@ from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 
 # Import functions from api_parts modules
-from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom, _find_child_table_field, _wjo_fields, _ops_time_fields
+from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom
 from .api_parts.putaway import _putaway_candidate_locations, allocate_putaway, post_putaway, allocate_vas_putaway
 from .api_parts.pick import allocate_pick, post_pick, initiate_vas_pick
 from .api_parts.ops import populate_job_operations, create_sales_invoice_from_job, update_job_operations_times
@@ -56,7 +56,15 @@ def _safe_meta_fieldnames(doctype: str) -> set:
     return fieldnames
 
 
-# _find_child_table_field moved to api_parts/common.py
+def _find_child_table_field(parent_doctype: str, child_doctype: str) -> Optional[str]:
+    """Find the fieldname of the Table field on parent that points to child_doctype."""
+    meta = frappe.get_meta(parent_doctype)
+    for df in meta.get("fields", []) or []:
+        if (getattr(df, "fieldtype", None) or df.get("fieldtype")) == "Table":
+            opts = getattr(df, "options", None) or df.get("options")
+            if opts == child_doctype:
+                return getattr(df, "fieldname", None) or df.get("fieldname")
+    return None
 
 
 def _hu_location_fields() -> List[str]:
@@ -477,7 +485,33 @@ def _ensure_serial(serial_code: Optional[str], item: Optional[str] = None, custo
     return doc.name
 
 
-# Function moved to api_parts/common.py
+def _ensure_batch(
+    batch_code: Optional[str],
+    item: Optional[str] = None,
+    customer: Optional[str] = None,
+    expiry: Optional[str] = None,
+    uom: Optional[str] = None,
+) -> str:
+    if not batch_code:
+        return ""
+    if frappe.db.exists("Warehouse Batch", batch_code):
+        if uom:
+            current_uom = frappe.db.get_value("Warehouse Batch", batch_code, "batch_uom")
+            if not current_uom:
+                frappe.db.set_value("Warehouse Batch", batch_code, "batch_uom", uom)
+        return batch_code
+    doc = frappe.new_doc("Warehouse Batch")
+    doc.batch_no = batch_code  # autoname=field:batch_no
+    if hasattr(doc, "item_code") and item:
+        doc.item_code = item
+    if hasattr(doc, "customer") and customer:
+        doc.customer = customer
+    if hasattr(doc, "expiry_date") and expiry:
+        doc.expiry_date = expiry
+    if hasattr(doc, "batch_uom") and uom:
+        doc.batch_uom = uom
+    doc.insert()
+    return doc.name
 
 
 # =============================================================================
@@ -844,7 +878,66 @@ def _append_job_items(
 # =============================================================================
 
 
-# Functions moved to api_parts/common.py
+def _get_replenish_policy_flags(item: Optional[str]) -> Tuple[bool, bool]:
+    """Return (replenish_mode, pick_face_first) based on Warehouse Settings and item rules.
+    - Replenish mode if Warehouse Settings.replenishment_policy in ['replenish','replenishment','pick face first','pick_face_first']
+    - pick_face_first if Warehouse Item rules has primary_pick_face_first=1
+    Best-effort; silently ignores missing fields/doctype.
+    """
+    replen = False
+    try:
+        policy = frappe.db.get_single_value("Warehouse Settings", "replenishment_policy")
+        if policy and isinstance(policy, str):
+            replen = policy.strip().lower() in ("replenish", "replenishment", "pick face first", "pick_face_first")
+    except Exception:
+        replen = False
+
+    pick_face_first = False
+    try:
+        rules = _get_item_rules(item) if item else {}
+        pick_face_first = bool(int(rules.get("primary_pick_face_first") or 0))
+    except Exception:
+        pick_face_first = False
+
+    return replen, pick_face_first
+
+
+# === Storage-type preferences (Warehouse Item) ================================
+def _get_item_storage_type_prefs(item: Optional[str]) -> Tuple[Optional[str], List[str]]:
+    """Return (preferred_storage_type, allowed_storage_types[]) for the item.
+    preferred_storage_type: Link to Storage Type (single), may be None
+    allowed_storage_types:  List from child table 'Warehouse Item Storage Type' (field 'storage_type'), may be empty
+    """
+    preferred = None
+    allowed: List[str] = []
+    if not item:
+        return preferred, allowed
+
+    # Read preferred storage type from Warehouse Item
+    try:
+        preferred = frappe.db.get_value("Warehouse Item", item, "preferred_storage_type")
+    except Exception:
+        preferred = None
+
+    # Read allowed storage types child rows
+    try:
+        rows = frappe.get_all(
+            "Warehouse Item Storage Type",
+            filters={"parent": item, "parenttype": "Warehouse Item"},
+            fields=["storage_type"],
+            ignore_permissions=True,
+        ) or []
+        for r in rows:
+            st = (r.get("storage_type") or "").strip()
+            if st:
+                allowed.append(st)
+        # De-duplicate preserving order
+        seen = set()
+        allowed = [x for x in allowed if not (x in seen or seen.add(x))]
+    except Exception:
+        allowed = []
+
+    return preferred, allowed
 # ALLOWED/PREFERRED storage-type filter + pick_face preference applied below
 # Function moved to api_parts/putaway.py
 
@@ -1486,7 +1579,106 @@ def populate_stocktake_adjustments(warehouse_job: str, clear_existing: int = 1) 
 # Create Sales Invoice from Warehouse Job Charges
 # =============================================================================
 
-# create_sales_invoice_from_job moved to api_parts/ops.py
+@frappe.whitelist()
+def create_sales_invoice_from_job(
+    warehouse_job: str,
+    customer: Optional[str] = None,
+    company: Optional[str] = None,
+    posting_date: Optional[str] = None,
+    cost_center: Optional[str] = None,
+) -> Dict[str, Any]:
+    if not warehouse_job:
+        frappe.throw(_("warehouse_job is required"))
+
+    job = frappe.get_doc("Warehouse Job", warehouse_job)
+
+    charges_field = _find_child_table_field("Warehouse Job", "Warehouse Job Charges") or "charges"
+    charges: List[Any] = list(getattr(job, charges_field, []) or [])
+    if not charges:
+        frappe.throw(_("No rows found in {0}.").format(_("Warehouse Job Charges")))
+
+    jf = _safe_meta_fieldnames("Warehouse Job")
+    customer = customer or (getattr(job, "customer", None) if "customer" in jf else None)
+    company  = company  or (getattr(job, "company",  None) if "company"  in jf else None)
+    if not customer: frappe.throw(_("Customer is required (set Customer on Warehouse Job or pass it here)."))
+    if not company:  frappe.throw(_("Company is required."))
+
+    cf = _safe_meta_fieldnames("Warehouse Job Charges")
+    row_has_currency = "currency" in cf
+    row_has_rate     = "rate" in cf
+    row_has_total    = "total" in cf
+    row_has_uom      = "uom" in cf
+    row_has_itemname = "item_name" in cf
+    row_has_qty      = "quantity" in cf
+
+    currencies = set()
+    valid_rows: List[Dict[str, Any]] = []
+    for ch in charges:
+        item_code = getattr(ch, "item_code", None)
+        if not item_code:
+            continue
+        qty   = flt(getattr(ch, "quantity", 0.0)) if row_has_qty   else 0.0
+        rate  = flt(getattr(ch, "rate", 0.0))     if row_has_rate  else 0.0
+        total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
+        uom = (getattr(ch, "uom", None) or None) if row_has_uom else None
+        item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None
+        curr = (getattr(ch, "currency", None) or "").strip() if row_has_currency else ""
+
+        if row_has_currency and curr:
+            currencies.add(curr)
+
+        if qty and not rate and total:
+            rate = total / qty
+        if (not qty or qty == 0) and total and not rate:
+            qty, rate = 1.0, total
+        if not qty and not rate and not total:
+            continue
+
+        valid_rows.append({
+            "item_code": item_code,
+            "item_name": item_name,
+            "qty": flt(qty) if qty else (1.0 if (total or rate) else 0.0),
+            "rate": flt(rate) if rate else (flt(total) if (not qty and total) else 0.0),
+            "uom": uom,
+            "currency": curr or None,
+        })
+
+    if not valid_rows:
+        frappe.throw(_("No valid charge rows to invoice."))
+
+    chosen_currency = None
+    if row_has_currency:
+        currencies = {c for c in currencies if c}
+        if len(currencies) > 1:
+            frappe.throw(_("All charge rows must have the same currency. Found: {0}").format(", ".join(sorted(currencies))))
+        chosen_currency = (list(currencies)[0] if currencies else None)
+
+    si = frappe.new_doc("Sales Invoice")
+    si.customer = customer
+    si.company  = company
+    if posting_date: si.posting_date = posting_date
+
+    sif = _safe_meta_fieldnames("Sales Invoice")
+    if "warehouse_job" in sif:
+        setattr(si, "warehouse_job", job.name)
+    else:
+        base_remarks = (getattr(si, "remarks", "") or "").strip()
+        note = _("Auto-created from Warehouse Job {0}").format(job.name)
+        si.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+
+    if chosen_currency and "currency" in sif:
+        si.currency = chosen_currency
+
+    sif_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
+    for r in valid_rows:
+        row_payload = {"item_code": r["item_code"], "qty": r["qty"] or 0.0, "rate": r["rate"] or 0.0}
+        if "uom" in sif_item_fields and r.get("uom"): row_payload["uom"] = r["uom"]
+        if "item_name" in sif_item_fields and r.get("item_name"): row_payload["item_name"] = r["item_name"]
+        if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
+        si.append("items", row_payload)
+
+    si.insert()
+    return {"ok": True, "message": _("Sales Invoice {0} created.").format(si.name), "sales_invoice": si.name}
 
 
 # =============================================================================
@@ -2378,7 +2570,8 @@ from typing import TypedDict
 def _wj_fields():
     return _safe_meta_fieldnames("Warehouse Job")
 
-# _wjo_fields moved to api_parts/common.py
+def _wjo_fields():
+    return _safe_meta_fieldnames("Warehouse Job Operations")
 
 @frappe.whitelist()
 def resolve_warehouse_job(scanned: str) -> dict:
@@ -2450,7 +2643,76 @@ def get_warehouse_job_overview(warehouse_job: str) -> dict:
 
     return {"ok": True, "header": header, "operations": ops_rows}
 
-# update_job_operations_times moved to api_parts/ops.py
+@frappe.whitelist()
+def update_job_operations_times(warehouse_job: str, updates_json: str) -> dict:
+    """
+    updates_json: JSON list like
+      [{ "name": "<child_name>", "start_datetime": "<iso>", "end_datetime": "<iso>" }, ...]
+    - Works whether your doctype fields are start_datetime/end_datetime OR start_date/end_date.
+    - Computes duration in hours into 'actual_hours' when both ends present (if field exists).
+    """
+    if not warehouse_job:
+        frappe.throw(_("warehouse_job is required"))
+    job = frappe.get_doc("Warehouse Job", warehouse_job)
+
+    ops_fn = _find_child_table_field("Warehouse Job", "Warehouse Job Operations")
+    if not ops_fn:
+        frappe.throw(_("Warehouse Job has no Operations child table."))
+
+    childf = _wjo_fields()
+    has = lambda f: (f in childf)
+    start_f, end_f = _ops_time_fields()
+
+    try:
+        updates = frappe.parse_json(updates_json or "[]")
+        if not isinstance(updates, list):
+            raise ValueError("updates_json must be a JSON array")
+    except Exception as e:
+        frappe.throw(_("Invalid updates_json: {0}").format(e))
+
+    by_name = {getattr(r, "name", None): r for r in getattr(job, ops_fn, []) or []}
+    changed = 0
+    results = []
+
+    for u in updates:
+        cname = (u.get("name") or "").strip()
+        if not cname or cname not in by_name:
+            continue
+        row = by_name[cname]
+
+        
+        # sequencing enforcement: cannot start/finish this op if any prior op (by 'order' or idx) is incomplete
+        _assert_prior_ops_completed(job, ops_fn, row)
+        s_raw = u.get("start_datetime")
+        e_raw = u.get("end_datetime")
+        s_dt = get_datetime(s_raw) if s_raw else None
+        e_dt = get_datetime(e_raw) if e_raw else None
+
+        # assign to actual fieldnames present
+        if s_dt and start_f and has(start_f):
+            setattr(row, start_f, s_dt)
+        if e_dt and end_f and has(end_f):
+            setattr(row, end_f, e_dt)
+
+        dur_hours = None
+        if s_dt and e_dt and has("actual_hours"):
+            sec = max(0.0, (e_dt - s_dt).total_seconds())
+            dur_hours = round(sec / 3600.0, 4)
+            setattr(row, "actual_hours", dur_hours)
+
+        results.append({
+            "name": cname,
+            "start_datetime": (s_dt or (getattr(row, start_f, None) if (start_f and has(start_f)) else None)),
+            "end_datetime":   (e_dt or (getattr(row, end_f,   None) if (end_f   and has(end_f))   else None)),
+            "actual_hours": (dur_hours if dur_hours is not None else (float(getattr(row, "actual_hours", 0) or 0) if has("actual_hours") else None)),
+        })
+        changed += 1
+
+    if changed:
+        job.save(ignore_permissions=True)
+        frappe.db.commit()
+
+    return {"ok": True, "updated": changed, "rows": results}
 
 @frappe.whitelist()
 def post_job_by_scan(
@@ -2474,7 +2736,11 @@ def post_job_by_scan(
     )
 
 # --- helpers for ops date fields (supports start_datetime/end_datetime OR start_date/end_date) ---
-# _ops_time_fields moved to api_parts/common.py
+def _ops_time_fields():
+    f = _safe_meta_fieldnames("Warehouse Job Operations")
+    start_f = "start_datetime" if "start_datetime" in f else ("start_date" if "start_date" in f else None)
+    end_f   = "end_datetime"   if "end_datetime"   in f else ("end_date"   if "end_date"   in f else None)
+    return start_f, end_f
 
 
 # --- sequencing helpers for Warehouse Job Operations ---

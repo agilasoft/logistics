@@ -103,8 +103,6 @@ frappe.ui.form.on('Warehouse Job', {
                     });
                 }
             });
-        } else {
-            console.log('No job name, skipping dashboard load');
         }
         
         // Add gate pass methods to the form
@@ -258,15 +256,8 @@ frappe.ui.form.on('Warehouse Job', {
             }, __('Actions'));
         }
         
-        // Add Calculate Charges button - show for jobs with contract and existing charges
+        // Add Calculate Charges button - show for jobs with contract and charges that have standard costs
         if ((frm.doc.warehouse_contract || frm.doc.customer) && frm.doc.charges && frm.doc.charges.length > 0) {
-            frm.add_custom_button(__('Calculate Charges'), function() {
-                calculate_charges_from_contract(frm);
-            }, __('Actions'));
-        }
-        
-        // Add Post Standard Costs button - show only when submitted and has charges with standard costs
-        if (frm.doc.docstatus === 1 && frm.doc.charges && frm.doc.charges.length > 0) {
             // Check if any charge has standard cost
             let has_standard_cost = false;
             
@@ -277,36 +268,30 @@ frappe.ui.form.on('Warehouse Job', {
             });
             
             if (has_standard_cost) {
+                frm.add_custom_button(__('Calculate Charges'), function() {
+                    calculate_charges_from_contract(frm);
+                }, __('Actions'));
+            }
+        }
+        
+        // Add Post Standard Costs button - show only when submitted and has charges with standard costs that haven't been posted
+        if (frm.doc.docstatus === 1 && frm.doc.charges && frm.doc.charges.length > 0) {
+            // Check if any charge has standard cost and hasn't been posted
+            let has_unposted_standard_cost = false;
+            
+            frm.doc.charges.forEach(function(charge) {
+                if (charge.total_standard_cost && flt(charge.total_standard_cost) > 0 && !charge.standard_cost_posted) {
+                    has_unposted_standard_cost = true;
+                }
+            });
+            
+            if (has_unposted_standard_cost) {
                 frm.add_custom_button(__('Post Standard Costs'), function() {
                     post_standard_costs(frm);
                 }, __('Post'));
             }
         }
         
-        // Debug button to check button conditions
-        if (frm.doc.docstatus === 1) {
-            frm.add_custom_button(__('Debug Standard Costs'), function() {
-                let debug_info = [];
-                debug_info.push(`Document Status: ${frm.doc.docstatus}`);
-                debug_info.push(`Has Charges: ${frm.doc.charges ? 'Yes' : 'No'}`);
-                debug_info.push(`Charges Count: ${frm.doc.charges ? frm.doc.charges.length : 0}`);
-                
-                if (frm.doc.charges && frm.doc.charges.length > 0) {
-                    debug_info.push('Charge Details:');
-                    frm.doc.charges.forEach(function(charge, index) {
-                        debug_info.push(`  Charge ${index + 1}: ${charge.item_code}`);
-                        debug_info.push(`    Standard Cost: ${charge.total_standard_cost || 'None'}`);
-                        debug_info.push(`    Flt Value: ${flt(charge.total_standard_cost) || 0}`);
-                    });
-                }
-                
-                frappe.msgprint({
-                    title: __('Standard Costs Debug'),
-                    message: debug_info.join('<br>'),
-                    indicator: 'blue'
-                });
-            }, __('Debug'));
-        }
         
     },
     items: function(frm) {
@@ -424,8 +409,6 @@ function calculate_job_totals(frm) {
 }
 
 function calculate_item_volume(frm, cdt, cdn) {
-    console.log("Calculating volume for warehouse job item");
-    
     // Get the current item row
     const item = locals[cdt][cdn];
     if (!item) return;
@@ -435,16 +418,12 @@ function calculate_item_volume(frm, cdt, cdn) {
     const width = flt(item.width || 0);
     const height = flt(item.height || 0);
     
-    console.log("Item dimensions - Length:", length, "Width:", width, "Height:", height);
-    
     // Calculate volume if all dimensions are provided
     if (length > 0 && width > 0 && height > 0) {
         const volume = length * width * height;
-        console.log("Calculated item volume:", volume);
         frappe.model.set_value(cdt, cdn, "volume", volume);
     } else {
         // Clear volume if dimensions are incomplete
-        console.log("Incomplete dimensions, clearing item volume");
         frappe.model.set_value(cdt, cdn, "volume", 0);
     }
 }
@@ -969,16 +948,36 @@ function calculate_charges_from_contract(frm) {
                 freeze: true,
                 freeze_message: __('Calculating charges...'),
                 callback: function(r) {
-                    console.log('Calculate Charges Response:', r);
                     if (r.message && r.message.ok) {
-                        frappe.msgprint({
-                            title: __('Charges Calculated'),
-                            message: r.message.message,
-                            indicator: 'green'
-                        });
+                        // Check if there are warnings
+                        if (r.message.warnings && r.message.warnings.length > 0) {
+                            frappe.msgprint({
+                                title: __('Charges Calculated with Warnings'),
+                                message: `
+                                    <div style="padding: 15px; font-size: 14px;">
+                                        <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                            <strong>✅ Charges Calculated!</strong>
+                                        </p>
+                                        <p style="text-align: center; margin-bottom: 15px;">${r.message.message}</p>
+                                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                            <p style="margin: 5px 0; color: #856404;"><strong>⚠️ Standard Cost Warnings:</strong></p>
+                                            <ul style="margin: 5px 0; color: #856404;">
+                                                ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                `,
+                                indicator: 'orange'
+                            });
+                        } else {
+                            frappe.msgprint({
+                                title: __('Charges Calculated'),
+                                message: r.message.message,
+                                indicator: 'green'
+                            });
+                        }
                         frm.refresh_field('charges');
                     } else {
-                        console.log('Calculate Charges Error:', r.message);
                         frappe.msgprint({
                             title: __('Error'),
                             message: r.message ? r.message.message : __('Failed to calculate charges'),
@@ -998,16 +997,30 @@ function post_standard_costs(frm) {
         return;
     }
     
-    // Check if any charge has standard cost
-    let has_standard_cost = false;
+    // Check if any charge has standard cost and hasn't been posted
+    let has_unposted_standard_cost = false;
+    let already_posted_charges = [];
+    
     frm.doc.charges.forEach(function(charge) {
         if (charge.total_standard_cost && flt(charge.total_standard_cost) > 0) {
-            has_standard_cost = true;
+            if (charge.standard_cost_posted) {
+                already_posted_charges.push(charge.item_code || charge.item || 'Unknown');
+            } else {
+                has_unposted_standard_cost = true;
+            }
         }
     });
     
-    if (!has_standard_cost) {
-        frappe.msgprint(__('No standard costs found in charges.'));
+    if (!has_unposted_standard_cost) {
+        if (already_posted_charges.length > 0) {
+            frappe.msgprint({
+                title: __('Standard Costs Already Posted'),
+                message: __('All charges with standard costs have already been posted. Posted charges: ') + already_posted_charges.join(', '),
+                indicator: 'orange'
+            });
+        } else {
+            frappe.msgprint(__('No standard costs found in charges.'));
+        }
         return;
     }
     
@@ -1022,7 +1035,6 @@ function post_standard_costs(frm) {
                 freeze: true,
                 freeze_message: __('Creating journal entries for standard costs...'),
                 callback: function(r) {
-                    console.log('Post Standard Costs Response:', r);
                     if (r.message && r.message.ok) {
                         frappe.msgprint({
                             title: __('Standard Costs Posted'),
@@ -1035,6 +1047,7 @@ function post_standard_costs(frm) {
                                     <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
                                         <p style="margin: 5px 0;"><strong>Journal Entry:</strong> ${r.message.journal_entry || 'N/A'}</p>
                                         <p style="margin: 5px 0;"><strong>Total Amount:</strong> ${r.message.total_amount || 'N/A'}</p>
+                                        <p style="margin: 5px 0;"><strong>Charges Posted:</strong> ${r.message.charges_posted || 'N/A'}</p>
                                     </div>
                                 </div>
                             `,
@@ -1042,7 +1055,6 @@ function post_standard_costs(frm) {
                         });
                         frm.reload_doc();
                     } else {
-                        console.log('Post Standard Costs Error:', r.message);
                         frappe.msgprint({
                             title: __('Error'),
                             message: r.message ? r.message.message : __('Failed to post standard costs'),

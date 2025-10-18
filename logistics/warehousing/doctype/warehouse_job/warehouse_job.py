@@ -1748,7 +1748,6 @@ class WarehouseJob(Document):
                 operationCard.className = 'operation-card in-progress';
                 
                 // Save to backend using custom API method
-                console.log('Starting operation:', operationId, 'for job:', '{self.name}');
                 frappe.call({{
                     method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.update_operation_start',
                     args: {{
@@ -1783,7 +1782,6 @@ class WarehouseJob(Document):
                 operationCard.className = 'operation-card completed';
                 
                 // Save to backend using custom API method
-                console.log('Ending operation:', operationId, 'for job:', '{self.name}');
                 frappe.call({{
                     method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.update_operation_end',
                     args: {{
@@ -2739,6 +2737,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
         # Recalculate existing charges
         charges_updated = 0
         job_type = getattr(job, "type", "Generic")
+        standard_cost_warnings = []
         
         for charge in job.charges:
             item_code = getattr(charge, "item_code", None)
@@ -2769,7 +2768,9 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 )
                 
                 # Calculate and set standard cost if enabled
-                _calculate_standard_cost_for_charge(charge, job)
+                warnings = _calculate_standard_cost_for_charge(charge, job)
+                if warnings:
+                    standard_cost_warnings.extend(warnings)
                 
                 charges_updated += 1
         
@@ -2777,10 +2778,16 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
         job.save(ignore_permissions=True)
         frappe.db.commit()
         
+        # Prepare response message
+        message = f"Recalculated {charges_updated} charge(s) based on contract."
+        if standard_cost_warnings:
+            message += f"\n\nStandard Cost Warnings:\n" + "\n".join([f"• {warning}" for warning in standard_cost_warnings])
+        
         return {
             "ok": True, 
-            "message": f"Recalculated {charges_updated} charge(s) based on contract.",
-            "charges_updated": charges_updated
+            "message": message,
+            "charges_updated": charges_updated,
+            "warnings": standard_cost_warnings
         }
         
     except Exception as e:
@@ -2790,38 +2797,49 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 
 def _calculate_standard_cost_for_charge(charge, job):
     """Calculate and set standard cost for a charge if standard costing is enabled."""
+    warnings = []
+    
     try:
         # Check if standard costing is enabled in warehouse settings
         # Warehouse Settings is keyed by company, not a singleton
         company = getattr(job, 'company', None)
         
         if not company:
-            return
+            frappe.logger().info("No company found for job, skipping standard cost calculation")
+            warnings.append("No company found for job, skipping standard cost calculation")
+            return warnings
         
         enable_standard_costing = frappe.db.get_value("Warehouse Settings", company, "enable_standard_costing")
+        frappe.logger().info(f"Standard costing enabled for company {company}: {enable_standard_costing}")
         
         if not enable_standard_costing:
-            return
+            frappe.logger().info(f"Standard costing not enabled for company {company}")
+            warnings.append(f"Standard costing is not enabled for company {company}. Please enable it in Warehouse Settings.")
+            return warnings
         
         # Get item code
         item_code = getattr(charge, 'item_code', None) or getattr(charge, 'item', None)
+        frappe.logger().info(f"Processing standard cost for item: {item_code}")
         
         if not item_code:
-            return
+            frappe.logger().info("No item code found for charge, skipping standard cost calculation")
+            warnings.append("No item code found for charge, skipping standard cost calculation")
+            return warnings
         
         # Get standard unit cost from item
         item_doc = frappe.get_doc("Item", item_code)
         standard_unit_cost = flt(getattr(item_doc, 'custom_standard_unit_cost', 0))
+        frappe.logger().info(f"Standard unit cost for item {item_code}: {standard_unit_cost}")
         
         if standard_unit_cost > 0:
             # Calculate standard cost (quantity × standard unit cost)
             quantity = flt(getattr(charge, 'quantity', 0))
             standard_cost = quantity * standard_unit_cost
+            frappe.logger().info(f"Calculated standard cost: {quantity} × {standard_unit_cost} = {standard_cost}")
             
             # Set standard unit cost and total standard cost
             charge.standard_unit_cost = standard_unit_cost
             charge.total_standard_cost = standard_cost
-            
             
             # Add standard cost to calculation notes if it exists
             if hasattr(charge, 'calculation_notes') and charge.calculation_notes:
@@ -2837,9 +2855,15 @@ def _calculate_standard_cost_for_charge(charge, job):
   • Quantity: {quantity}
   • Standard Unit Cost: {standard_unit_cost}
   • Standard Cost: {quantity} × {standard_unit_cost} = {standard_cost}"""
+        else:
+            frappe.logger().info(f"No standard unit cost found for item {item_code} (value: {standard_unit_cost})")
+            warnings.append(f"No standard unit cost found for item {item_code}. Please set the 'Standard Unit Cost' field in the Item master.")
             
     except Exception as e:
         frappe.log_error(f"Error calculating standard cost for charge: {str(e)}")
+        warnings.append(f"Error calculating standard cost: {str(e)}")
+    
+    return warnings
 
 
 @frappe.whitelist()
@@ -3110,7 +3134,19 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             operation.description = template.notes or template.operation_name
             operation.unit_std_hours = template.unit_std_hours or 0
             operation.handling_basis = template.handling_basis or "Item Unit"
-            # operation.handling_uom = template.handling_uom  # handling_uom column doesn't exist in database
+            
+            # Set handling_uom if field exists
+            if hasattr(operation, 'handling_uom'):
+                # Get UOM from the first item in the job
+                handling_uom = None
+                if job.items:
+                    first_item = job.items[0].get("item")
+                    if first_item:
+                        handling_uom = frappe.db.get_value("Warehouse Item", first_item, "uom")
+                
+                if handling_uom:
+                    operation.handling_uom = handling_uom
+            
             operation.order = template.order or 0
             
             # Calculate quantity based on handling_basis
@@ -4010,14 +4046,22 @@ def post_standard_costs(warehouse_job: str) -> dict:
         if not job.charges:
             return {"ok": False, "message": "No charges found in warehouse job"}
         
-        # Filter charges that have standard costs
+        # Filter charges that have standard costs and are not already posted
         charges_with_standard_cost = []
+        already_posted_charges = []
+        
         for charge in job.charges:
             if charge.total_standard_cost and flt(charge.total_standard_cost) > 0:
-                charges_with_standard_cost.append(charge)
+                if getattr(charge, 'standard_cost_posted', False):
+                    already_posted_charges.append(charge.item_code or charge.item or 'Unknown')
+                else:
+                    charges_with_standard_cost.append(charge)
         
         if not charges_with_standard_cost:
-            return {"ok": False, "message": "No charges with standard costs found"}
+            if already_posted_charges:
+                return {"ok": False, "message": f"All charges with standard costs have already been posted. Posted charges: {', '.join(already_posted_charges)}"}
+            else:
+                return {"ok": False, "message": "No charges with standard costs found"}
         
         # Create Journal Entry
         je = frappe.new_doc("Journal Entry")
@@ -4101,11 +4145,22 @@ def post_standard_costs(warehouse_job: str) -> dict:
         je.insert(ignore_permissions=True)
         je.submit()
         
+        # Update charges to mark them as posted
+        for charge in charges_with_standard_cost:
+            charge.standard_cost_posted = 1
+            charge.standard_cost_posted_at = frappe.utils.now()
+            charge.journal_entry_reference = je.name
+        
+        # Save the job with updated charge information
+        job.save(ignore_permissions=True)
+        frappe.db.commit()
+        
         return {
             "ok": True,
             "message": f"Journal Entry {je.name} created successfully for standard costs",
             "journal_entry": je.name,
-            "total_amount": total_amount
+            "total_amount": total_amount,
+            "charges_posted": len(charges_with_standard_cost)
         }
         
     except Exception as e:
