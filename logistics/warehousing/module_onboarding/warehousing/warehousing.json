@@ -23,10 +23,28 @@
    "step": "Storage Location Configurator"
   },
   {
+   "step": "Storage Type"
+  },
+  {
+   "step": "Storage Location"
+  },
+  {
+   "step": "Dock Door"
+  },
+  {
+   "step": "Storage Environment"
+  },
+  {
+   "step": "Storage Tracking Modes"
+  },
+  {
    "step": "Handling Unit Type"
+  },
+  {
+   "step": "Warehouse Item"
   }
  ],
- "subtitle": "Centralized control over warehouse locations, stock operations, and value-added services (VAS)",
- "success_message": "You're all set!",
+ "subtitle": "Complete setup for warehouse operations including storage configuration, dock management, item tracking, and environmental controls",
+ "success_message": "Your warehousing module is fully configured and ready for operations!",
  "title": "Let\u2019s Set Up the Warehousing Module!"
 }

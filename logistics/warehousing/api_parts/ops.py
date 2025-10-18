@@ -27,7 +27,7 @@ def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict
 
     params: List[Any] = [job_type]
     sql = """
-        SELECT name, operation_name, IFNULL(unit_std_hours, 0) AS unit_std_hours, handling_uom, notes
+        SELECT name, operation_name, IFNULL(unit_std_hours, 0) AS unit_std_hours, notes
         FROM `tabWarehouse Operation Item` WHERE used_in = %s
     """
     if job_type == "VAS" and getattr(job, "vas_order_type", None):
@@ -48,7 +48,7 @@ def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict
     child_fields = _safe_meta_fieldnames("Warehouse Job Operations")
     has_desc  = "description" in child_fields
     has_notes = "notes" in child_fields
-    has_uom   = "handling_uom" in child_fields
+    has_uom   = False  # handling_uom column doesn't exist in database
     has_qty   = "quantity" in child_fields
     has_unith = "unit_std_hours" in child_fields
     has_totalh= "total_std_hours" in child_fields

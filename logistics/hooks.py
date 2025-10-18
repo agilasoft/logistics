@@ -48,6 +48,12 @@ portal_menu_items = [
         "route": "/warehouse-jobs",
         "reference_doctype": "Warehouse Job",
         "icon": "fa fa-tasks"
+    },
+    {
+        "title": "Wiki & Documentation",
+        "route": "/wiki",
+        "reference_doctype": "Web Page",
+        "icon": "fa fa-book"
     }
 ]
 
@@ -74,6 +80,10 @@ website_route_rules = [
         "to_route": "transport_job_detail",
         "defaults": {"doctype": "Transport Job", "parents": [{"label": "Transport Jobs", "route": "transport-jobs"}]},
     },
+    # Wiki Routes
+    {"from_route": "/wiki", "to_route": "wiki"},
+    {"from_route": "/wiki/space/<path:space>", "to_route": "wiki_space"},
+    {"from_route": "/wiki/page/<path:page>", "to_route": "wiki_page"},
 ]
 
 # include js in page

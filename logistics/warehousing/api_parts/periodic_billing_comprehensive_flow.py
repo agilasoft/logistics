@@ -141,7 +141,7 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
                 contract_item_data = {
                     "volume_uom": contract_item.get("volume_uom", "CBM"),
                     "weight_uom": contract_item.get("weight_uom", "Kg"),
-                    "time_uom": contract_item.get("time_uom", "Days")
+                    "billing_time_unit": contract_item.get("billing_time_unit", "Day")
                 }
                 
                 # Add billing time settings only for storage charges
@@ -208,7 +208,7 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
                         elif billing_method in ["Per Day", "Per Week", "Per Hour"]:
                             charge.update({
                                 "time_quantity": billing_quantity,
-                                "time_uom": contract_item.time_uom or "Days"
+                                "billing_time_unit": contract_item.billing_time_unit or "Day"
                             })
                         
                         # Add computation details

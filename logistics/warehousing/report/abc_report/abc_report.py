@@ -16,7 +16,7 @@ def _dt_range(from_date, to_date):
 def _fetch_rows(f):
     """
     Summarize beginning qty, receipts, issues, ending qty per Warehouse Item
-    using Warehouse Stock Ledger. Note: ledger field is 'quantiy' (intentional).
+    using Warehouse Stock Ledger. Note: ledger field is 'quantity'.
     """
     dfrom, dto = _dt_range(f.from_date, f.to_date)
 
@@ -38,18 +38,18 @@ def _fetch_rows(f):
             wi.abc_class          AS current_abc,
 
             COALESCE(SUM(CASE
-                WHEN l.posting_date < %(dfrom)s THEN l.quantiy ELSE 0 END), 0) AS beg_qty,
+                WHEN l.posting_date < %(dfrom)s THEN l.quantity ELSE 0 END), 0) AS beg_qty,
 
             COALESCE(SUM(CASE
-                WHEN l.posting_date BETWEEN %(dfrom)s AND %(dto)s AND l.quantiy > 0
-                THEN l.quantiy ELSE 0 END), 0) AS receipts,
+                WHEN l.posting_date BETWEEN %(dfrom)s AND %(dto)s AND l.quantity > 0
+                THEN l.quantity ELSE 0 END), 0) AS receipts,
 
             ABS(COALESCE(SUM(CASE
-                WHEN l.posting_date BETWEEN %(dfrom)s AND %(dto)s AND l.quantiy < 0
-                THEN l.quantiy ELSE 0 END), 0)) AS issues,
+                WHEN l.posting_date BETWEEN %(dfrom)s AND %(dto)s AND l.quantity < 0
+                THEN l.quantity ELSE 0 END), 0)) AS issues,
 
             COALESCE(SUM(CASE
-                WHEN l.posting_date <= %(dto)s THEN l.quantiy ELSE 0 END), 0) AS end_qty
+                WHEN l.posting_date <= %(dto)s THEN l.quantity ELSE 0 END), 0) AS end_qty
 
         FROM `tabWarehouse Item` wi
         LEFT JOIN `tabWarehouse Stock Ledger` l

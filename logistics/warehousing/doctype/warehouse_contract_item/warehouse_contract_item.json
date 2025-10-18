@@ -22,6 +22,8 @@
   "volume_calculation_method",
   "column_break_zaxi",
   "uom",
+  "time_uom",
+  "storage_uom",
   "currency",
   "rate",
   "billing_time_section",
@@ -130,6 +132,18 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "time_uom",
+   "fieldtype": "Link",
+   "label": "Time UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "storage_uom",
+   "fieldtype": "Link",
+   "label": "Storage UOM",
    "options": "UOM"
   },
   {

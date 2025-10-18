@@ -124,7 +124,7 @@ def get_data(filters):
         where_sql += " AND " + " AND ".join(where_clauses)
 
     # Aggregate balance per storage_location from Warehouse Stock Ledger
-    # NOTE: field is spelled 'quantiy' in your DocType — we use that.
+    # NOTE: field is spelled 'quantity' in the DocType
     sql = f"""
         SELECT
             sl.name                   AS storage_location,
@@ -145,7 +145,7 @@ def get_data(filters):
         LEFT JOIN (
             SELECT
                 storage_location,
-                SUM(COALESCE(quantiy, 0)) AS qty
+                SUM(COALESCE(quantity, 0)) AS qty
             FROM `tabWarehouse Stock Ledger`
             GROUP BY storage_location
         ) bal

@@ -29,7 +29,7 @@ def execute(filters=None):
             wb.name            AS batch,
             wb.expiry_date,
             DATEDIFF(wb.expiry_date, %(as_of)s) AS days_to_expiry,
-            COALESCE(SUM(l.quantiy), 0)         AS qty,
+            COALESCE(SUM(l.quantity), 0)         AS qty,
             wb.batch_uom                         AS uom,
             COUNT(DISTINCT l.storage_location)   AS locations
         FROM `tabWarehouse Batch` wb

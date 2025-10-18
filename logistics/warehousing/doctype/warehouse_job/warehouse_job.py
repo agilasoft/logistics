@@ -2596,9 +2596,9 @@ class WarehouseJob(Document):
             if end < 0:
                 frappe.throw(
                     _(
-                        "Row #{idx}: Insufficient stock to move/pick {qty}. "
-                        "Beginning qty: {beg}, would end at {end}."
-                    ).format(idx=ji.idx, qty=abs(delta), beg=beg, end=end)
+                        "Row #{0}: Insufficient stock to move/pick {1}. "
+                        "Beginning qty: {2}, would end at {3}."
+                    ).format(ji.idx, abs(delta), beg, end)
                 )
 
             _make_ledger_row(self, ji, delta, beg, end, posting_dt)
@@ -3087,7 +3087,7 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             filters={
                 "used_in": job.type
             },
-            fields=["name", "code", "operation_name", "unit_std_hours", "handling_uom", "handling_basis", "notes", "order"],
+            fields=["name", "code", "operation_name", "unit_std_hours", "handling_basis", "notes", "order"],
             order_by="`order` asc, operation_name asc"
         )
         
@@ -3110,7 +3110,7 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             operation.description = template.notes or template.operation_name
             operation.unit_std_hours = template.unit_std_hours or 0
             operation.handling_basis = template.handling_basis or "Item Unit"
-            operation.handling_uom = template.handling_uom
+            # operation.handling_uom = template.handling_uom  # handling_uom column doesn't exist in database
             operation.order = template.order or 0
             
             # Calculate quantity based on handling_basis

@@ -2,12 +2,16 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
+from logistics.setup.install_master_data import execute as install_master_data
 
 def after_install():
     """Run after installation of the logistics app"""
     frappe.log_error("Starting logistics app after_install process", "Logistics Install")
     
     try:
+        # Install master data first
+        install_master_data()
+        
         # Index Master Air Way Bill DocType
         index_master_air_waybill()
         

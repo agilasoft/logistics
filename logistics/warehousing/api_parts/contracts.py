@@ -16,7 +16,7 @@ def get_contract_charge(contract: str, item_code: str, context: str):
     flag = CTX_FLAG.get(ctx)
     if flag:
         filters[flag] = 1
-    fields = ["rate", "currency", "handling_uom", "time_uom", "storage_uom", "storage_charge"]
+    fields = ["rate", "currency", "uom"]
     rows = frappe.get_all("Warehouse Contract Item", filters=filters, fields=fields, limit=1, ignore_permissions=True)
     if not rows and flag:
         rows = frappe.get_all("Warehouse Contract Item", filters=base, fields=fields, limit=1, ignore_permissions=True)

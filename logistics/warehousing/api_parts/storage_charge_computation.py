@@ -121,7 +121,7 @@ def _get_billing_settings(contract_item: Dict[str, Any], storage_type_doc) -> Di
         "storage_type_multiplier": 1.0,
         "volume_uom": "CBM",
         "weight_uom": "Kg",
-        "time_uom": "Days"
+        "billing_time_unit": "Day"
     }
     
     # Get settings from contract item
@@ -132,14 +132,14 @@ def _get_billing_settings(contract_item: Dict[str, Any], storage_type_doc) -> Di
             "minimum_billing_time": flt(contract_item.get("minimum_billing_time", 1.0)),
             "volume_uom": contract_item.get("volume_uom", "CBM"),
             "weight_uom": contract_item.get("weight_uom", "Kg"),
-            "time_uom": contract_item.get("time_uom", "Days")
+            "billing_time_unit": contract_item.get("billing_time_unit", "Day")
         })
     
     # Get settings from storage type
     if storage_type_doc:
         settings.update({
             "storage_type_multiplier": _get_storage_type_multiplier(storage_type_doc),
-            "time_uom": storage_type_doc.get("time_unit", "Day")
+            "billing_time_unit": storage_type_doc.get("time_unit", "Day")
         })
     
     return settings

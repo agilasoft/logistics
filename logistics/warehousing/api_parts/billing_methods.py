@@ -591,9 +591,9 @@ def _get_billing_uom(contract_item: Dict[str, Any], context: str) -> str:
     if billing_method == "Per Volume":
         return contract_item.get("volume_uom", "CBM")
     elif context == "storage":
-        return contract_item.get("storage_uom", "Day")
+        return contract_item.get("billing_time_unit", "Day")
     else:
-        return contract_item.get("handling_uom", "Nos")
+        return contract_item.get("uom", "Nos")
 
 
 def _get_billing_method_from_contract(contract_item: Dict[str, Any], context: str) -> str:
@@ -706,7 +706,7 @@ def _get_contract_items_for_context(contract: str, context: str) -> List[Dict[st
     
     fields = [
         "item_charge", "description", "rate", "currency",
-        "storage_uom", "handling_uom", "time_uom",
+        "billing_time_unit", "uom", "billing_time_multiplier", "minimum_billing_time",
         "billing_method",
         "volume_uom", "volume_calculation_method"
     ]

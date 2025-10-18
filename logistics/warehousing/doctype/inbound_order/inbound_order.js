@@ -74,7 +74,7 @@ function _apply_vals(cdt, cdn, m) {
   if (m.currency) frappe.model.set_value(cdt, cdn, "currency", m.currency);
 
   // strictly use UOM from Contract
-  const contract_uom = (m.storage_charge && m.storage_uom) ? m.storage_uom : (m.handling_uom || null);
+  const contract_uom = (m.storage_charge && m.billing_time_unit) ? m.billing_time_unit : (m.handling_uom || null);
   if (contract_uom) {
     frappe.model.set_value(cdt, cdn, "uom", contract_uom);
   } else {
