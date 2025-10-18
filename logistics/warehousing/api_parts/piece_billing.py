@@ -109,14 +109,14 @@ def create_piece_based_charge_line(vas_order: str, date_from: str, date_to: str,
     charge_line = {
         "item_code": contract_item.get("item_charge"),
         "item_name": contract_item.get("description", ""),
-        "uom": contract_item.get("handling_uom", "Nos"),
+        "uom": contract_item.get("uom", "Nos"),
         "quantity": piece_quantity,
         "currency": currency,
         "rate": rate,
         "total": total,
         "billing_method": billing_method,
         "piece_quantity": piece_quantity,
-        "piece_uom": contract_item.get("handling_uom", "Nos")
+        "piece_uom": contract_item.get("uom", "Nos")
     }
     
     return charge_line
@@ -256,14 +256,14 @@ def calculate_vas_job_piece_charges(warehouse_job: str, clear_existing: int = 1)
         charge_line = {
             "item_code": contract_item.get("item_charge"),
             "item_name": contract_item.get("description", ""),
-            "uom": contract_item.get("handling_uom", "Nos"),
+            "uom": contract_item.get("uom", "Nos"),
             "quantity": total_pieces,
             "currency": currency,
             "rate": rate,
             "total": total,
             "billing_method": "Per Piece",
             "piece_quantity": total_pieces,
-            "piece_uom": contract_item.get("handling_uom", "Nos")
+            "piece_uom": contract_item.get("uom", "Nos")
         }
         
         job_doc.append("charges", charge_line)

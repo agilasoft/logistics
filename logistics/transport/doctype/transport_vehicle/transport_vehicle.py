@@ -82,11 +82,15 @@ class TransportVehicle(Document):
 			timestamp = vehicle_position.get("timestamp")
 			if timestamp:
 				try:
-					# Use robust datetime parsing for proper timezone handling
-					from dateutil import parser
+					# Handle ISO timestamp with Z timezone properly
+					timestamp_str = str(timestamp)
+					
+					# Replace Z with +00:00 for proper ISO parsing
+					if timestamp_str.endswith('Z'):
+						timestamp_str = timestamp_str.replace('Z', '+00:00')
 					
 					# Parse the ISO timestamp
-					dt = parser.parse(str(timestamp))
+					dt = datetime.fromisoformat(timestamp_str)
 					
 					# Convert to system timezone if it's timezone-aware
 					if dt.tzinfo is not None:

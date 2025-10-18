@@ -1,0 +1,4 @@
+Module,Component,Feature,Description,Guide Questions,Priority,Complexity,Integration Points,Notes
+Warehousing Module,Facility Management,Dock Door,Dock door management,"How do you manage dock doors? What are your dock scheduling requirements? How do you optimize dock usage? How do you handle dock maintenance?",Medium,Medium,Job/Order,Dock management
+Warehousing Module,Facility Management,Gate Pass,Gate pass management for warehouse access,"How do you manage warehouse access? What are your gate pass requirements? How do you track access? How do you handle security?",Medium,Medium,Job/Person,Access control
+Warehousing Module,Facility Management,Gate Pass Item,Items in gate passes,"How do you manage items in gate passes? What are your gate pass item requirements? How do you track gate pass items? How do you handle item validation?",Medium,Medium,Gate Pass/Item,Gate pass items

@@ -4,12 +4,9 @@
 frappe.ui.form.on('Warehouse Job', {
     onload: function(frm) {
         // Load dashboard HTML when document is loaded
-        console.log('Warehouse Job onload triggered, doc name:', frm.doc.name);
-        
         if (frm.doc.name) {
             // Check if this is an unsaved job
             if (frm.doc.name.startsWith('new-warehouse-job-') || (frm.doc.name.startsWith('WRO') && frm.doc.name.length > 10)) {
-                console.log('Unsaved job detected, showing save prompt');
                 const $wrapper = frm.get_field('warehouse_job_html').$wrapper;
                 if ($wrapper) {
                     $wrapper.html(`
@@ -25,35 +22,26 @@ frappe.ui.form.on('Warehouse Job', {
                 return;
             }
             
-            console.log('Loading dashboard for job:', frm.doc.name);
-            
             frappe.call({
                 method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.get_warehouse_dashboard_html',
                 args: {
                     job_name: frm.doc.name
                 },
                 callback: function(r) {
-                    console.log('Dashboard callback received:', r);
                     if (r.message) {
-                        console.log('Setting dashboard HTML content');
-                        console.log('HTML content length:', r.message.length);
-                        console.log('HTML content preview:', r.message.substring(0, 200) + '...');
-                        
                         try {
                             // Use the same pattern as run_sheet - get field wrapper and set HTML directly
                             const $wrapper = frm.get_field('warehouse_job_html').$wrapper;
                             if ($wrapper) {
                                 $wrapper.html(r.message);
-                                console.log('Dashboard HTML set using wrapper.html()');
                                 
                                 // Force a small delay to ensure rendering
                                 setTimeout(function() {
                                     $wrapper.find('.handling-unit-card').each(function() {
-                                        console.log('Found handling unit card:', $(this).text().substring(0, 50));
+                                        // Cards loaded successfully
                                     });
                                 }, 100);
                             } else {
-                                console.log('Field wrapper not found, falling back to document assignment');
                                 frm.doc.warehouse_job_html = r.message;
                                 frm.refresh_field('warehouse_job_html');
                             }
@@ -67,7 +55,6 @@ frappe.ui.form.on('Warehouse Job', {
                             });
                         }
                     } else {
-                        console.log('No message received from dashboard method');
                         // Show user-friendly error message
                         frappe.msgprint({
                             title: __('Dashboard Error'),
@@ -77,7 +64,6 @@ frappe.ui.form.on('Warehouse Job', {
                     }
                 },
                 error: function(r) {
-                    console.log('Dashboard error:', r);
                     
                     // Handle different types of errors
                     let errorMessage = __('Failed to load warehouse dashboard.');
@@ -280,70 +266,48 @@ frappe.ui.form.on('Warehouse Job', {
         }
         
         // Add Post Standard Costs button - show only when submitted and has charges with standard costs
-        console.log('Checking for Post Standard Costs button:', {
-            docstatus: frm.doc.docstatus,
-            has_charges: frm.doc.charges && frm.doc.charges.length > 0,
-            charges_length: frm.doc.charges ? frm.doc.charges.length : 0
-        });
-        
         if (frm.doc.docstatus === 1 && frm.doc.charges && frm.doc.charges.length > 0) {
             // Check if any charge has standard cost
             let has_standard_cost = false;
-            let standard_cost_items = [];
             
             frm.doc.charges.forEach(function(charge) {
-                console.log('Checking charge:', {
-                    item_code: charge.item_code,
-                    total_standard_cost: charge.total_standard_cost,
-                    flt_value: flt(charge.total_standard_cost)
-                });
-                
                 if (charge.total_standard_cost && flt(charge.total_standard_cost) > 0) {
                     has_standard_cost = true;
-                    standard_cost_items.push(charge.item_code);
                 }
-            });
-            
-            console.log('Standard cost check result:', {
-                has_standard_cost: has_standard_cost,
-                standard_cost_items: standard_cost_items
             });
             
             if (has_standard_cost) {
-                console.log('Adding Post Standard Costs button');
                 frm.add_custom_button(__('Post Standard Costs'), function() {
                     post_standard_costs(frm);
                 }, __('Post'));
-            } else {
-                console.log('No standard costs found, button not added');
             }
-        } else {
-            console.log('Button conditions not met:', {
-                docstatus_ok: frm.doc.docstatus === 1,
-                has_charges: frm.doc.charges && frm.doc.charges.length > 0
-            });
         }
         
-        // Temporary test button - always show for debugging
+        // Debug button to check button conditions
         if (frm.doc.docstatus === 1) {
-            frm.add_custom_button(__('Test Standard Costs'), function() {
-                // Show detailed info about charges
-                let charges_info = [];
+            frm.add_custom_button(__('Debug Standard Costs'), function() {
+                let debug_info = [];
+                debug_info.push(`Document Status: ${frm.doc.docstatus}`);
+                debug_info.push(`Has Charges: ${frm.doc.charges ? 'Yes' : 'No'}`);
+                debug_info.push(`Charges Count: ${frm.doc.charges ? frm.doc.charges.length : 0}`);
+                
                 if (frm.doc.charges && frm.doc.charges.length > 0) {
+                    debug_info.push('Charge Details:');
                     frm.doc.charges.forEach(function(charge, index) {
-                        charges_info.push(`Charge ${index + 1}: ${charge.item_code} - Standard Cost: ${charge.total_standard_cost}`);
+                        debug_info.push(`  Charge ${index + 1}: ${charge.item_code}`);
+                        debug_info.push(`    Standard Cost: ${charge.total_standard_cost || 'None'}`);
+                        debug_info.push(`    Flt Value: ${flt(charge.total_standard_cost) || 0}`);
                     });
-                } else {
-                    charges_info.push('No charges found');
                 }
                 
                 frappe.msgprint({
-                    title: 'Charges Debug Info',
-                    message: charges_info.join('<br>'),
+                    title: __('Standard Costs Debug'),
+                    message: debug_info.join('<br>'),
                     indicator: 'blue'
                 });
-            }, __('Post'));
+            }, __('Debug'));
         }
+        
     },
     items: function(frm) {
         calculate_job_totals(frm);
@@ -504,15 +468,15 @@ function allocate_items(frm) {
         confirm_message = __('This will allocate VAS putaway tasks from orders. Continue?');
     }
     
-          frappe.confirm(
+    frappe.confirm(
         confirm_message,
-            function() {
-      frappe.call({
+        function() {
+            frappe.call({
                 method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.allocate_items',
-        args: {
+                args: {
                     job_name: frm.doc.name
-        },
-        callback: function(r) {
+                },
+                callback: function(r) {
                     if (r.message && r.message.success) {
                         let message = r.message.message || __('Items allocated successfully.');
                         let allocated_count = r.message.allocated_count || 0;
@@ -550,7 +514,7 @@ function allocate_items(frm) {
                             message: html_message,
                             indicator: 'green'
                         });
-            frm.reload_doc();
+                        frm.reload_doc();
                     } else {
                         let error_message = r.message.error || __('Failed to allocate items.');
                         
@@ -570,7 +534,7 @@ function allocate_items(frm) {
                                     <ul style="margin: 5px 0; color: #856404;">
                                         ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
                                     </ul>
-          </div>
+                                </div>
                             `;
                         }
                         
@@ -926,11 +890,8 @@ function post_by_scan(frm) {
 
 // Update UOM fields for child table items
 function update_uom_fields_for_items(frm) {
-    console.log("Auto-populating UOM fields for Warehouse Job Items");
-    
     // Get UOM values from Warehouse Settings
     const company = frappe.defaults.get_user_default("Company");
-    console.log("Company:", company);
     
     frappe.call({
         method: "frappe.client.get_value",
@@ -940,11 +901,9 @@ function update_uom_fields_for_items(frm) {
             fieldname: ["default_volume_uom", "default_weight_uom"]
         },
         callback: function(r) {
-            console.log("UOM response:", r);
             if (r.message) {
                 const volume_uom = r.message.default_volume_uom;
                 const weight_uom = r.message.default_weight_uom;
-                console.log("Volume UOM:", volume_uom, "Weight UOM:", weight_uom);
                 
                 // Update UOM fields for all items in the child table
                 if (frm.doc.items && frm.doc.items.length > 0) {
@@ -957,12 +916,7 @@ function update_uom_fields_for_items(frm) {
                         }
                     });
                     frm.refresh_field("items");
-                    console.log("Updated UOM fields for", frm.doc.items.length, "items");
-                } else {
-                    console.log("No items found in the job");
                 }
-            } else {
-                console.log("No UOM message received");
             }
         }
     });

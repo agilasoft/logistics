@@ -127,12 +127,14 @@ def apply_default_uoms_to_contract_item(contract_item_name):
         default_uoms = get_default_uoms()
         
         # Apply default UOMs
-        if not contract_item.storage_uom:
-            contract_item.storage_uom = default_uoms.get('volume_uom')
-        if not contract_item.time_uom:
-            contract_item.time_uom = default_uoms.get('volume_uom')
-        if not contract_item.handling_uom:
-            contract_item.handling_uom = default_uoms.get('weight_uom')
+        if not contract_item.billing_time_unit:
+            contract_item.billing_time_unit = default_uoms.get('volume_uom')
+        if not contract_item.billing_time_multiplier:
+            contract_item.billing_time_multiplier = 1.0
+        if not contract_item.minimum_billing_time:
+            contract_item.minimum_billing_time = 1.0
+        if not contract_item.uom:
+            contract_item.uom = default_uoms.get('weight_uom')
             
         contract_item.save()
         return {"status": "success", "message": "Default UOMs applied successfully"}

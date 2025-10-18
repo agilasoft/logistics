@@ -1,0 +1,4 @@
+Module,Component,Feature,Description,Guide Questions,Priority,Complexity,Integration Points,Notes
+Warehousing Module,Billing Management,Periodic Billing,Periodic billing for warehouse services,"How do you bill customers? What are your billing cycles? How do you calculate charges? How do you handle billing disputes?",High,High,Contract/Job/Billing,Billing management
+Warehousing Module,Billing Management,Periodic Billing Charges,Charges in periodic billing,"How do you calculate billing charges? What are your charge types? How do you manage charge calculations? How do you handle charge disputes?",High,High,Billing/Contract,Billing charges
+Warehousing Module,Billing Management,VAR Order Charges,Charges for VAS orders,"How do you charge for value-added services? What are your service charge types? How do you calculate service charges? How do you handle charge disputes?",Medium,Medium,VAS/Billing,Service charges

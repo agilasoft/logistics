@@ -636,35 +636,25 @@
                 const branch = '{{branch}}' || '';
                 const warehouse_job = '{{warehouse_job}}' || 'WHO000000157';
                 
-                console.log('Loading dashboard data for company:', company, 'branch:', branch, 'warehouse_job:', warehouse_job);
-                
                 const params = new URLSearchParams();
                 if (company) params.append('company', company);
                 if (branch) params.append('branch', branch);
                 if (warehouse_job) params.append('warehouse_job', warehouse_job);
                 
                 const url = `/api/method/logistics.warehousing.warehouse_dashboard.get_warehouse_dashboard_data?${params.toString()}`;
-                console.log('API URL:', url);
-                alert('Calling API: ' + url);
                 
                 try {
                     const response = await fetch(url);
-                    console.log('Response status:', response.status);
-                    console.log('Response ok:', response.ok);
                     
                     if (!response.ok) {
                         const errorText = await response.text();
-                        console.error('API Error:', errorText);
                         throw new Error(`Failed to fetch dashboard data: ${response.status} ${errorText}`);
                     }
                     
                     const data = await response.json();
-                    console.log('API Response data:', data);
-                    alert('API Response received with ' + (data.message?.handling_units?.length || 0) + ' handling units');
                     this.dashboardData = data;
                 } catch (error) {
-                    console.error('Fetch error:', error);
-                    console.log('🔄 Using fallback data due to API error');
+                    console.error('Dashboard API error:', error);
                     this.dashboardData = this.getFallbackData();
                     this.showFallbackNotice();
                 }

@@ -316,7 +316,7 @@ def create_volume_based_charge_line(handling_unit: str, date_from: str, date_to:
         return {
             "item": contract_item.get("item_code"),
             "item_name": "Storage Charge (Daily)",
-            "uom": contract_item.get("storage_uom", "Day"),
+            "uom": contract_item.get("billing_time_unit", "Day"),
             "quantity": days,
             "rate": flt(contract_item.get("rate", 0)),
             "total": flt(days) * flt(contract_item.get("rate", 0)),

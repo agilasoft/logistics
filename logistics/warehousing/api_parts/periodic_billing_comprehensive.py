@@ -199,7 +199,7 @@ def _get_storage_contract_items(contract: str, handling_unit: str) -> List[Dict[
     
     fields = [
         "item_charge", "description", "rate", "currency",
-        "storage_uom", "handling_uom", "time_uom",
+        "billing_time_unit", "uom", "billing_time_multiplier", "minimum_billing_time",
         "billing_method", "volume_uom", "volume_calculation_method",
         "handling_unit_type", "storage_type"
     ]
@@ -479,7 +479,7 @@ def _get_contract_items_for_context(contract: str, context: str) -> List[Dict[st
     
     fields = [
         "item_charge", "description", "rate", "currency",
-        "storage_uom", "handling_uom", "time_uom",
+        "billing_time_unit", "uom", "billing_time_multiplier", "minimum_billing_time",
         "billing_method",
         "volume_uom", "volume_calculation_method"
     ]

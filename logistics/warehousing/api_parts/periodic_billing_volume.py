@@ -137,7 +137,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
                 # Try exact match first (handling_unit_type + storage_type)
                 if hu_type and storage_type:
                     rows = frappe.db.sql("""
-                        SELECT item_charge AS item_code, rate, currency, storage_uom, time_uom, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
+                        SELECT item_charge AS item_code, rate, currency, billing_time_unit, billing_time_multiplier, minimum_billing_time, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
                         FROM `tabWarehouse Contract Item`
                         WHERE parent = %s AND parenttype = 'Warehouse Contract' AND storage_charge = 1
                         AND handling_unit_type = %s AND storage_type = %s
@@ -149,7 +149,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
                 # Try handling_unit_type only
                 if not sci and hu_type:
                     rows = frappe.db.sql("""
-                        SELECT item_charge AS item_code, rate, currency, storage_uom, time_uom, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
+                        SELECT item_charge AS item_code, rate, currency, billing_time_unit, billing_time_multiplier, minimum_billing_time, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
                         FROM `tabWarehouse Contract Item`
                         WHERE parent = %s AND parenttype = 'Warehouse Contract' AND storage_charge = 1
                         AND handling_unit_type = %s AND (storage_type IS NULL OR storage_type = '')
@@ -161,7 +161,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
                 # Try storage_type only
                 if not sci and storage_type:
                     rows = frappe.db.sql("""
-                        SELECT item_charge AS item_code, rate, currency, storage_uom, time_uom, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
+                        SELECT item_charge AS item_code, rate, currency, billing_time_unit, billing_time_multiplier, minimum_billing_time, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
                         FROM `tabWarehouse Contract Item`
                         WHERE parent = %s AND parenttype = 'Warehouse Contract' AND storage_charge = 1
                         AND storage_type = %s AND (handling_unit_type IS NULL OR handling_unit_type = '')
@@ -173,7 +173,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
                 # Fallback to generic storage charge
                 if not sci:
                     rows = frappe.db.sql("""
-                        SELECT item_charge AS item_code, rate, currency, storage_uom, time_uom, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
+                        SELECT item_charge AS item_code, rate, currency, billing_time_unit, billing_time_multiplier, minimum_billing_time, handling_unit_type, storage_type, billing_method, volume_uom, volume_calculation_method
                         FROM `tabWarehouse Contract Item`
                         WHERE parent = %s AND parenttype = 'Warehouse Contract' AND storage_charge = 1
                         AND (handling_unit_type IS NULL OR handling_unit_type = '')
@@ -205,7 +205,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
                 charge_line = {
                     "item": sci.get("item_code"),
                     "item_name": _("Storage Charge ({0})").format(hu_type or "Generic"),
-                    "uom": sci.get("storage_uom") or "Day",
+                    "uom": sci.get("billing_time_unit") or "Day",
                     "quantity": days,
                     "rate": flt(sci.get("rate") or 0.0),
                     "total": flt(days) * flt(sci.get("rate") or 0.0),
