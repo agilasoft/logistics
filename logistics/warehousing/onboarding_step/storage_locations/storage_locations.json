@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Storage Locations",
+ "creation": "2025-10-18 12:09:09.596362",
+ "description": "Storage Locations are the actual physical spaces where inventory is stored within your warehouse hierarchy. Create specific locations using the configured hierarchy (Site/Building/Zone/Aisle/Bay/Level) with capacity limits, storage rules, and operational settings for efficient inventory management.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:09:09.596362",
+ "modified_by": "Administrator",
+ "name": "Storage Locations",
+ "owner": "Administrator",
+ "reference_document": "Storage Location",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Create Storage Locations",
+ "validate_action": 1
+}

@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Dock Doors",
+ "creation": "2025-10-18 12:09:47.338998",
+ "description": "Dock Doors are the entry and exit points for goods in your warehouse. They are essential for managing inbound and outbound operations, scheduling deliveries, and optimizing warehouse traffic flow. Configure leveler, ramp, flush dock, and grade-level doors with site and facility assignments.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:09:47.338998",
+ "modified_by": "Administrator",
+ "name": "Dock Doors",
+ "owner": "Administrator",
+ "reference_document": "Dock Door",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Set Up Dock Doors",
+ "validate_action": 1
+}

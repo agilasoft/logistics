@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Storage Environments",
+ "creation": "2025-10-18 12:02:46.027752",
+ "description": "Storage Environments define the environmental conditions required for storing specific items (temperature, humidity, lighting, etc.). This is crucial for items with special storage requirements like pharmaceuticals, food products, or chemicals. Configure ambient, cold storage, frozen, controlled atmosphere, hazardous, and bonded storage environments.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:02:46.027752",
+ "modified_by": "Administrator",
+ "name": "Storage Environments",
+ "owner": "Administrator",
+ "reference_document": "Storage Environment",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Set Up Storage Environments",
+ "validate_action": 1
+}

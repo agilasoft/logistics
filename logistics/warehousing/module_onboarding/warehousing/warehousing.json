@@ -10,7 +10,7 @@
  "documentation_url": "www.agilasoft.com",
  "idx": 0,
  "is_complete": 0,
- "modified": "2025-08-27 20:05:57.414404",
+ "modified": "2025-10-18 12:20:49.673675",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",
@@ -20,31 +20,46 @@
    "step": "Warehouse Settings"
   },
   {
+   "step": "Storage Environments"
+  },
+  {
+   "step": "Security and Compliance Types"
+  },
+  {
    "step": "Storage Location Configurator"
   },
   {
-   "step": "Storage Type"
-  },
-  {
-   "step": "Storage Location"
-  },
-  {
-   "step": "Dock Door"
-  },
-  {
-   "step": "Storage Environment"
-  },
-  {
-   "step": "Storage Tracking Modes"
+   "step": "Storage Types"
   },
   {
    "step": "Handling Unit Type"
   },
   {
-   "step": "Warehouse Item"
+   "step": "Handling Units"
+  },
+  {
+   "step": "Storage Locations"
+  },
+  {
+   "step": "Dock Doors"
+  },
+  {
+   "step": "UOM Configuration"
+  },
+  {
+   "step": "Warehouse Items"
+  },
+  {
+   "step": "VAS Order Types"
+  },
+  {
+   "step": "Warehousing Charge Items"
+  },
+  {
+   "step": "Warehouse Operation Items"
   }
  ],
- "subtitle": "Complete setup for warehouse operations including storage configuration, dock management, item tracking, and environmental controls",
- "success_message": "Your warehousing module is fully configured and ready for operations!",
+ "subtitle": "Centralized control over warehouse locations, stock operations, and value-added services (VAS)",
+ "success_message": "You're all set!",
  "title": "Let\u2019s Set Up the Warehousing Module!"
 }

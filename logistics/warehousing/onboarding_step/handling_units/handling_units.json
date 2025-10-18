@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Handling Units",
+ "creation": "2025-10-18 12:08:16.765754",
+ "description": "Handling Units are the physical containers or transport units used to move and store inventory in your warehouse. Create individual handling units based on defined types with capacity management, status tracking, and utilization monitoring for efficient warehouse operations.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:08:16.765754",
+ "modified_by": "Administrator",
+ "name": "Handling Units",
+ "owner": "Administrator",
+ "reference_document": "Handling Unit",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Create Handling Units",
+ "validate_action": 1
+}
