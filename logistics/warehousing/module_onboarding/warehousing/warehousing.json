@@ -10,7 +10,7 @@
  "documentation_url": "www.agilasoft.com",
  "idx": 0,
  "is_complete": 0,
- "modified": "2025-10-18 12:20:49.673675",
+ "modified": "2025-10-18 12:32:58.944682",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",
@@ -57,6 +57,12 @@
   },
   {
    "step": "Warehouse Operation Items"
+  },
+  {
+   "step": "Energy Consumption Setup"
+  },
+  {
+   "step": "Carbon Footprint Configuration"
   }
  ],
  "subtitle": "Centralized control over warehouse locations, stock operations, and value-added services (VAS)",

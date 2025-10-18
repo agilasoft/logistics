@@ -34,6 +34,10 @@ def _get_default_company_safe() -> Optional[str]:
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 
+# Import functions from api_parts modules
+from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations
+from .api_parts.putaway import _putaway_candidate_locations
+
 # =============================================================================
 # Meta helpers
 # =============================================================================
@@ -932,152 +936,10 @@ def _get_item_storage_type_prefs(item: Optional[str]) -> Tuple[Optional[str], Li
 
     return preferred, allowed
 # ALLOWED/PREFERRED storage-type filter + pick_face preference applied below
-def _putaway_candidate_locations(
-    item: str,
-    company: Optional[str],
-    branch: Optional[str],
-    exclude_locations: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
-    """Return candidate locations honoring status/scope.
-       Pref order:
-       1) (If replenish or pick-face-first policy) EMPTY pick-face bins for this item
-       2) Consolidation bins that already contain this item (not staging)
-       3) Other valid bins (not staging)
-    """
-    exclude_locations = exclude_locations or []
-    slf = _sl_fields()
-    status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
-
-    # Storage-type prefs from Warehouse Item
-    preferred_st, allowed_sts = _get_item_storage_type_prefs(item)
-    st_filter_empty = st_filter_cons = st_filter_other = ""
-    st_params_empty: List[Any] = []
-    st_params_cons:  List[Any] = []
-    st_params_other: List[Any] = []
-    if allowed_sts:
-        marks = ", ".join(["%s"] * len(allowed_sts))
-        st_filter_empty = f" AND sl.storage_type IN ({marks})"
-        st_filter_cons  = f" AND sl.storage_type IN ({marks})"
-        st_filter_other = f" AND sl.storage_type IN ({marks})"
-        st_params_empty.extend(allowed_sts)
-        st_params_cons.extend(allowed_sts)
-        st_params_other.extend(allowed_sts)
-
-    replen_mode, pick_face_first = _get_replenish_policy_flags(item)
-
-    empty_pick_faces: List[Dict[str, Any]] = []
-    if replen_mode or pick_face_first:
-        scope_params: List[Any] = []
-        scope_sql = ""
-        if company and ("company" in slf):
-            scope_sql += " AND sl.company = %s"; scope_params.append(company)
-        if branch and ("branch" in slf):
-            scope_sql += " AND sl.branch = %s"; scope_params.append(branch)
-
-        excl_sql = (" AND sl.name NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""
-        
-        # Construct parameters in the correct order to match the SQL placeholders
-        sql_params = [item]  # For the WHERE item = %s in the subquery
-        sql_params.extend(st_params_other)  # For st_filter_other at line 999
-        sql_params.extend(exclude_locations)  # For the NOT IN clause
-        sql_params.extend(scope_params)  # For company/branch filters  
-        sql_params.extend(st_params_empty)  # For storage type filters
-
-        empty_pick_faces = frappe.db.sql(
-            f"""
-            SELECT sl.name AS location,
-                   IFNULL(sl.bin_priority, 999999) AS bin_priority,
-                   IFNULL(st.picking_rank, 999999) AS storage_type_rank
-            FROM `tabStorage Location` sl
-            LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
-            LEFT JOIN (
-                SELECT storage_location, SUM(quantity) AS qty
-                FROM `tabWarehouse Stock Ledger`
-                WHERE item = %s
-                GROUP BY storage_location
-            ) agg ON agg.storage_location = sl.name
-            WHERE IFNULL(sl.staging_area, 0) = 0
-          {st_filter_other}
-              AND IFNULL(sl.pick_face, 0) = 1
-              {status_filter}
-              {excl_sql}
-              {scope_sql}
-              AND COALESCE(agg.qty, 0) = 0
-              {st_filter_empty}
-            ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
-            """,
-            tuple(sql_params),
-            as_dict=True,
-        ) or []
-
-    # Construct parameters for the cons query
-    cons_params = [item]  # For l.item = %s
-    cons_params.extend(exclude_locations)  # For NOT IN clause
-    cons_params.extend(st_params_cons)  # For storage type filters
-    cons_params.extend([company, company, branch, branch])  # For company/branch filters
-
-    cons = frappe.db.sql(
-        f"""
-        SELECT l.storage_location AS location,
-               IFNULL(sl.bin_priority, 999999) AS bin_priority,
-               IFNULL(st.picking_rank, 999999) AS storage_type_rank
-        FROM `tabWarehouse Stock Ledger` l
-        LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
-        LEFT JOIN `tabStorage Type`   st ON st.name = sl.storage_type
-        WHERE l.item = %s
-          AND IFNULL(sl.staging_area, 0) = 0
-          {st_filter_cons}
-          {status_filter}
-          {("AND l.storage_location NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""}
-          AND (%s IS NULL OR sl.company = %s)
-          AND (%s IS NULL OR sl.branch  = %s)
-        GROUP BY l.storage_location, sl.bin_priority, st.picking_rank
-        HAVING SUM(l.quantity) > 0
-        ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
-        """,
-        tuple(cons_params),
-        as_dict=True,
-    ) or []
-    chosen = {c["location"] for c in (empty_pick_faces + cons)}
-
-    # Construct parameters for the others query
-    others_params = []
-    others_params.extend(exclude_locations)  # For NOT IN clause
-    others_params.extend(st_params_other)  # For storage type filters
-    others_params.extend([company, company, branch, branch])  # For company/branch filters
-
-    others = frappe.db.sql(
-        f"""
-        SELECT sl.name AS location,
-               IFNULL(sl.bin_priority, 999999) AS bin_priority,
-               IFNULL(st.picking_rank, 999999) AS storage_type_rank
-        FROM `tabStorage Location` sl
-        LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
-        WHERE IFNULL(sl.staging_area, 0) = 0
-          {st_filter_other}
-          {status_filter}
-          {("AND sl.name NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""}
-          AND (%s IS NULL OR sl.company = %s)
-          AND (%s IS NULL OR sl.branch  = %s)
-        ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
-        """,
-        tuple(others_params),
-        as_dict=True,
-    ) or []
-    others = [r for r in others if r["location"] not in chosen]
-
-    return (empty_pick_faces + cons + others)
+# Function moved to api_parts/putaway.py
 
 
-def _filter_locations_by_level(candidates: List[Dict[str, Any]], staging_area: Optional[str], limit_label: Optional[str]) -> List[Dict[str, Any]]:
-    if not (staging_area and limit_label):
-        return candidates
-    out: List[Dict[str, Any]] = []
-    for c in candidates:
-        loc = c.get("storage_location") or c.get("location")
-        if _match_upto_limit(staging_area, loc, limit_label):
-            out.append(c)
-    return out
+# Function moved to api_parts/common.py
 
 @frappe.whitelist()
 def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
@@ -1204,66 +1066,39 @@ def _hu_consolidation_violations(hu: str, items_in_hu: Set[str]) -> List[str]:
     return msgs
 
 
-def _select_dest_for_hu(
-    item: str,
-    company: Optional[str],
-    branch: Optional[str],
-    staging_area: Optional[str],
-    level_limit_label: Optional[str],
-    used_locations: Set[str],
-    exclude_locations: Optional[List[str]],
-) -> Optional[str]:
-    replen_mode, pick_face_first = _get_replenish_policy_flags(item)
-    preferred_st, allowed_sts = _get_item_storage_type_prefs(item)
-    candidates = _putaway_candidate_locations(item=item, company=company, branch=branch, exclude_locations=exclude_locations or [])
-    # Maps for ranking
-    loc_names = [r['location'] for r in candidates]
-    st_map = {}; pf_map = {}
-    if loc_names:
-        q_marks = ', '.join(['%s'] * len(loc_names))
-        rows = frappe.db.sql(
-            f"SELECT name, storage_type, IFNULL(pick_face,0) AS pick_face FROM `tabStorage Location` WHERE name IN ({q_marks})",
-            tuple(loc_names), as_dict=True
-        ) or []
-        for r in rows:
-            st_map[r['name']] = r.get('storage_type')
-            try:
-                pf_map[r['name']] = int(r.get('pick_face') or 0)
-            except Exception:
-                pf_map[r['name']] = 0
-
-    if replen_mode or pick_face_first:
-        loc_names = [r["location"] for r in candidates]
-        pf_map = {}
-        if loc_names:
-            q = ", ".join(["%s"] * len(loc_names))
-            rows = frappe.db.sql(f"SELECT name, IFNULL(pick_face,0) AS pick_face FROM `tabStorage Location` WHERE name IN ({q})", tuple(loc_names), as_dict=True) or []
-            pf_map = {r["name"]: int(r.get("pick_face") or 0) for r in rows}
-        
-    filtered = []
-    for r in candidates:
-        loc = r["location"]
-        if loc in used_locations:
-            continue
-        if _match_upto_limit(staging_area, loc, level_limit_label):
-            filtered.append(r)
-    return filtered[0]["location"] if filtered else None
+# Function moved to api_parts/common.py
 
 
 def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[str, Any]], List[str]]:
     """Impose HU → single destination; unique location per HU; warnings for violations."""
+    print("*** DEBUG: _hu_anchored_putaway_from_orders called ***")
+    print(f"=== HU ANCHORED PUTAWAY STARTED for job {job.name} ===")
     company, branch = _get_job_scope(job)
+    print(f"Job scope: Company={company}, Branch={branch}")
+    
+    # Inform user about the allocation process
+    frappe.msgprint(f"Starting putaway allocation for job {job.name}")
+    frappe.msgprint(f"Job scope: Company={company or 'Any'}, Branch={branch or 'Any'}")
+    
     jf = _safe_meta_fieldnames("Warehouse Job Item")
     dest_loc_field = "location" if "location" in jf else ("to_location" if "to_location" in jf else None)
 
     orders = _fetch_job_order_items(job.name)
+    print(f"Found {len(orders)} order items")
+    
+    # No need to show processing steps
+    
     created_rows = 0
     created_qty  = 0.0
     details: List[Dict[str, Any]] = []
     warnings: List[str] = []
 
     if not orders:
+        print("No orders found, returning empty results")
+        frappe.msgprint("No order items found to process")
         return created_rows, created_qty, details, warnings
+    
+    print("DEBUG: About to process orders...")
 
     # Allocation Level Limit context
     staging_area = getattr(job, "staging_area", None)
@@ -1284,27 +1119,56 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         else:
             rows_without_hu.append(r)
 
+    print(f"Grouped by HU: {len(by_hu)} HUs found")
+    print(f"Rows without HU: {len(rows_without_hu)}")
+    for hu, rows in by_hu.items():
+        print(f"HU {hu}: {len(rows)} rows")
+    
+    # No need to show grouping steps
+
     if rows_without_hu:
-        warnings.append(_("Some order rows have no Handling Unit; operator must supply HU for putaway."))
+        warning_msg = _("Some order rows have no Handling Unit; operator must supply HU for putaway.")
+        warnings.append(warning_msg)
+        frappe.msgprint(f"⚠️ WARNING: {warning_msg}")
 
     used_locations: Set[str] = set()  # ensure different HUs don't share the same destination
 
     for hu, rows in by_hu.items():
+        print(f"Processing HU {hu} with {len(rows)} rows")
+        print(f"DEBUG: Starting HU processing for {hu}")
+        
+        # Inform user about HU processing
+        frappe.msgprint(f"Processing handling unit {hu} with {len(rows)} items")
+        
         # pick a representative item (first row) to get a good destination; then apply to all rows for this HU
         rep_item = None
         for rr in rows:
             if rr.get("item"):
                 rep_item = rr["item"]; break
         if not rep_item:
+            print(f"HU {hu}: No representative item found, skipping")
+            frappe.msgprint(f"Warning: HU {hu} has no valid items, skipping")
             warnings.append(_("HU {0}: has rows without item; skipped.").format(hu))
             continue
 
+        print(f"HU {hu}: Representative item = {rep_item}")
+        print(f"DEBUG: About to call _select_dest_for_hu for {hu}")
+
         # choose destination for this HU (must be unique and match level limit)
+        print(f"HU {hu}: Looking for destination for item {rep_item}")
+        print(f"HU {hu}: Company={company}, Branch={branch}, Staging={staging_area}, Level limit={level_limit_label}")
+        print(f"HU {hu}: Used locations={list(used_locations)}, Exclude={exclude}")
+
         dest = _select_dest_for_hu(
             item=rep_item, company=company, branch=branch,
             staging_area=staging_area, level_limit_label=level_limit_label,
             used_locations=used_locations, exclude_locations=exclude
         )
+
+        print(f"HU {hu}: Destination selected = {dest}")
+        
+        # No need to show individual destination results
+        
         if not dest:
             # last resort: try again allowing reuse (but still honoring level limit)
             fallback = _select_dest_for_hu(
@@ -1318,7 +1182,8 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 dest = fallback
 
         if not dest:
-            warnings.append(_("HU {0}: no destination location available in scope.").format(hu))
+            warning_msg = _("HU {0}: no destination location available in scope.").format(hu)
+            warnings.append(warning_msg)
             continue
 
         # mark used to avoid assigning the same location to a different HU
@@ -1360,6 +1225,14 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
             details.append({"order_row": rr.get("name"), "item": item, "qty": qty, "dest_location": dest, "dest_handling_unit": hu})
 
+    # Show only essential final results
+    if warnings:
+        failed_hus = [w for w in warnings if "HU" in w and "no destination" in w]
+        frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")
+        frappe.msgprint(f"⚠️ {len(failed_hus)} handling units failed allocation")
+    else:
+        frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")
+
     return created_rows, created_qty, details, warnings
 
 
@@ -1370,52 +1243,53 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 @frappe.whitelist()
 def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
     """Prepare putaway rows from Orders with HU anchoring & allocation-level rules."""
+    print(f"=== ALLOCATE PUTAWAY STARTED for job {warehouse_job} ===")
+    frappe.logger().info(f"=== ALLOCATE PUTAWAY STARTED for job {warehouse_job} ===")
+    
+    # Inform user about the allocation process
+    frappe.msgprint(f"Starting putaway allocation for job {warehouse_job}")
+    
     try:
         job = frappe.get_doc("Warehouse Job", warehouse_job)
         
         if (job.type or "").strip() != "Putaway":
             frappe.throw(_("Allocate Putaway can only run for Warehouse Job Type = Putaway."))
 
-        created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
-
-        # Save items directly to database without triggering hooks
-        # This bypasses all validation hooks that might interfere
+        print(f"Job type: {job.type}, Staging area: {getattr(job, 'staging_area', None)}")
+        frappe.logger().info(f"Job type: {job.type}, Staging area: {getattr(job, 'staging_area', None)}")
         
-        for i, item in enumerate(job.items):
+        # Show only essential job info
+        if getattr(job, 'staging_area', None):
+            frappe.msgprint(f"Staging area: {job.staging_area}")
+
+        created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
+        print(f"=== ALLOCATE PUTAWAY COMPLETED: {created_rows} rows, {created_qty} qty ===")
+        frappe.logger().info(f"=== ALLOCATE PUTAWAY COMPLETED: {created_rows} rows, {created_qty} qty ===")
+
+        # Clear existing Warehouse Job Items before inserting new ones
+        job.set("items", [])
+        job.save()
+        frappe.msgprint("Cleared existing putaway records")
+
+        # Add new items to the job using the details from allocation
+        for i, detail in enumerate(details):
             try:
-                if item.get("__islocal") or not item.get("name"):
-                    # Insert new item directly
-                    item_name = item.name or frappe.generate_hash(length=10)
-                    
-                    frappe.db.sql("""
-                        INSERT INTO `tabWarehouse Job Item` 
-                        (name, parent, parentfield, parenttype, idx, item, quantity, location, handling_unit, uom, serial_no, batch_no, source_row, source_parent, creation, modified, modified_by, owner, docstatus)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        item_name,
-                        job.name,
-                        "items", 
-                        "Warehouse Job",
-                        item.idx,
-                        item.item,
-                        item.quantity,
-                        item.location,
-                        item.handling_unit,
-                        item.uom,
-                        item.serial_no,
-                        item.batch_no,
-                        item.source_row,
-                        item.source_parent,
-                        frappe.utils.now(),
-                        frappe.utils.now(),
-                        frappe.session.user,
-                        frappe.session.user,
-                        0
-                    ))
-                    
+                # Create new item and add to job
+                new_item = job.append("items", {
+                    "item": detail.get("item"),
+                    "quantity": detail.get("qty"),
+                    "location": detail.get("dest_location"),
+                    "handling_unit": detail.get("dest_handling_unit"),
+                    "source_row": detail.get("order_row")
+                })
+                new_item.idx = i + 1  # Set proper idx
+                
             except Exception as item_error:
                 frappe.log_error(f"ERROR: Failed to process item {i+1}: {str(item_error)}")
                 frappe.throw(_("Error processing item {0}: {1}").format(i+1, str(item_error)))
+        
+        # Save the job with new items
+        job.save()
         
         # Update the job's modified timestamp
         frappe.db.set_value("Warehouse Job", job.name, "modified", frappe.utils.now())

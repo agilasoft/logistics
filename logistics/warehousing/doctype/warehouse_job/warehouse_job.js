@@ -344,6 +344,30 @@ frappe.ui.form.on('Warehouse Job Item', {
     }
 });
 
+frappe.ui.form.on('Warehouse Job Order Items', {
+    length: function(frm, cdt, cdn) {
+        calculate_item_volume(frm, cdt, cdn);
+        calculate_job_totals(frm);
+    },
+    width: function(frm, cdt, cdn) {
+        calculate_item_volume(frm, cdt, cdn);
+        calculate_job_totals(frm);
+    },
+    height: function(frm, cdt, cdn) {
+        calculate_item_volume(frm, cdt, cdn);
+        calculate_job_totals(frm);
+    },
+    volume: function(frm, cdt, cdn) {
+        calculate_job_totals(frm);
+    },
+    weight: function(frm, cdt, cdn) {
+        calculate_job_totals(frm);
+    },
+    orders_remove: function(frm) {
+        calculate_job_totals(frm);
+    }
+});
+
 function calculate_job_totals(frm) {
     if (!frm.doc.items) {
         frm.set_value('total_volume', 0);
