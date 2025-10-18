@@ -1,4 +1,0 @@
-Module,Component,Feature,Description,Guide Questions,Priority,Complexity,Integration Points,Notes
-Warehousing Module,Order Management,Transfer Order,Internal transfer orders,"How do you manage internal transfers? What are your transfer procedures? How do you track transfer movements? How do you handle transfer exceptions?",Medium,Medium,Job/Item,Internal transfers
-Warehousing Module,Order Management,Transfer Order Item,Items in transfer orders,"How do you manage transferred items? What are your transfer documentation requirements? How do you handle transfer discrepancies? What are your quality control requirements?",Medium,Medium,Item/Handling Unit/Job,Item transfers
-Warehousing Module,Order Management,Transfer Order Charges,Charges for transfer operations,"What are your transfer service charges? How do you calculate transfer fees? What are your billing requirements? How do you handle charge disputes?",Low,Low,Order/Billing,Transfer billing
