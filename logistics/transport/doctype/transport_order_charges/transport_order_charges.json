@@ -13,10 +13,6 @@
   "vehicle_type",
   "container_type",
   "quantity",
-  "column_break_tvfb",
-  "location_type",
-  "location_from",
-  "location_to",
   "rate_calculation_section",
   "calculation_method",
   "uom",
@@ -82,10 +78,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_tvfb",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "item_code",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -148,35 +140,13 @@
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount"
-  },
-  {
-   "fieldname": "location_type",
-   "fieldtype": "Link",
-   "label": "Location Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Location\",\"Transport Zone\"]]]",
-   "options": "DocType",
-   "reqd": 1
-  },
-  {
-   "fieldname": "location_from",
-   "fieldtype": "Dynamic Link",
-   "label": "Location From",
-   "options": "location_type",
-   "reqd": 1
-  },
-  {
-   "fieldname": "location_to",
-   "fieldtype": "Dynamic Link",
-   "label": "Location To",
-   "options": "location_type",
-   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-22 10:41:31.981929",
+ "modified": "2025-10-22 11:20:30.707807",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Charges",

@@ -17,6 +17,10 @@
   "load_type",
   "hazardous",
   "refrigeration",
+  "column_break_xzix",
+  "location_type",
+  "location_from",
+  "location_to",
   "section_break_ofjt",
   "packages",
   "leg_plan_tab",
@@ -211,11 +215,34 @@
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote"
+  },
+  {
+   "fieldname": "column_break_xzix",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"=\",\"UNLOCO,Transport Zone\"]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Location From",
+   "options": "location_type"
+  },
+  {
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Location To",
+   "options": "location_type"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-21 10:11:11.287451",
+ "modified": "2025-10-22 11:22:03.676139",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order",

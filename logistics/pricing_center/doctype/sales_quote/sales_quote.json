@@ -12,6 +12,7 @@
   "customer",
   "date",
   "valid_until",
+  "one_off",
   "column_break_abll",
   "shipper",
   "consignee",
@@ -30,10 +31,12 @@
   "air_tab",
   "air_load_type",
   "transport_tab",
+  "transport_template",
   "load_type",
   "vehicle_type",
   "container_type",
   "column_break_cxfw",
+  "location_type",
   "location_from",
   "location_to",
   "section_break_disr",
@@ -50,6 +53,7 @@
   "company",
   "branch",
   "profit_center",
+  "cost_center",
   "connections_tab"
  ],
  "fields": [
@@ -285,15 +289,15 @@
   },
   {
    "fieldname": "location_from",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Location From",
-   "options": "UNLOCO"
+   "options": "location_type"
   },
   {
    "fieldname": "location_to",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Location To",
-   "options": "UNLOCO"
+   "options": "location_type"
   },
   {
    "depends_on": "eval:doc.load_type == \"FCL\"",
@@ -313,13 +317,44 @@
    "label": "Site",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
    "options": "Storage Location Configurator"
+  },
+  {
+   "default": "0",
+   "fieldname": "one_off",
+   "fieldtype": "Check",
+   "label": "One-Off"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2025-10-16 13:27:33.587317",
+ "links": [
+  {
+   "group": "Orders",
+   "link_doctype": "Transport Order",
+   "link_fieldname": "sales_quote"
+  }
+ ],
+ "modified": "2025-10-22 11:42:29.056738",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

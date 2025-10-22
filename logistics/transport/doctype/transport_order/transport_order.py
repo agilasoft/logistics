@@ -30,6 +30,202 @@ class TransportOrder(Document):
                 )
                 self.set(legs_field, [])
 
+    def before_submit(self):
+        """Validate transport legs before submitting the Transport Order."""
+        self._validate_transport_legs()
+
+    def _validate_transport_legs(self):
+        """Validate that transport legs have complete details and scheduled_date if filled."""
+        legs_field = _find_child_table_fieldname(
+            "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+        )
+        legs = self.get(legs_field) or []
+        
+        if not legs:
+            frappe.throw(_("Transport Order must have at least one leg. Please add transport legs before submitting."))
+        
+        for i, leg in enumerate(legs, 1):
+            # Check for required fields
+            missing_fields = []
+            
+            # Check facility details
+            if not leg.get("facility_type_from"):
+                missing_fields.append("Facility Type From")
+            if not leg.get("facility_from"):
+                missing_fields.append("Facility From")
+            if not leg.get("facility_type_to"):
+                missing_fields.append("Facility Type To")
+            if not leg.get("facility_to"):
+                missing_fields.append("Facility To")
+            
+            # Check transport details
+            if not leg.get("vehicle_type"):
+                missing_fields.append("Vehicle Type")
+            if not leg.get("transport_job_type"):
+                missing_fields.append("Transport Job Type")
+            
+            # Check scheduled_date if it's filled
+            if leg.get("scheduled_date"):
+                try:
+                    from frappe.utils import getdate
+                    getdate(leg.scheduled_date)  # Validate date format
+                except Exception:
+                    frappe.throw(_("Row {0}: Invalid scheduled date format. Please use a valid date format.").format(i))
+            
+            # Check if scheduled_date is required but missing
+            if not leg.get("scheduled_date") and leg.get("day_offset") is not None:
+                frappe.throw(_("Row {0}: Scheduled date is required when day offset is specified.").format(i))
+            
+            # Report missing fields
+            if missing_fields:
+                frappe.throw(_("Row {0}: Missing required fields: {1}").format(i, ", ".join(missing_fields)))
+            
+            # Validate address details if pick/drop mode requires them
+            if leg.get("pick_mode") == "Address" and not leg.get("pick_address"):
+                frappe.throw(_("Row {0}: Pick address is required when pick mode is 'Address'.").format(i))
+            
+            if leg.get("drop_mode") == "Address" and not leg.get("drop_address"):
+                frappe.throw(_("Row {0}: Drop address is required when drop mode is 'Address'.").format(i))
+
+    def on_change(self):
+        """Handle changes to the document."""
+        if self.has_value_changed("sales_quote"):
+            if self.sales_quote:
+                self._populate_charges_from_sales_quote()
+            else:
+                # Clear charges if sales_quote is removed
+                self.set("charges", [])
+                frappe.msgprint(
+                    "Charges cleared as Sales Quote was removed",
+                    title="Charges Updated",
+                    indicator="blue"
+                )
+
+    def _populate_charges_from_sales_quote(self):
+        """Populate charges based on sales_quote_transport of the filled sales_quote."""
+        if not self.sales_quote:
+            return
+
+        try:
+            # Verify that the sales_quote exists
+            if not frappe.db.exists("Sales Quote", self.sales_quote):
+                frappe.msgprint(
+                    f"Sales Quote {self.sales_quote} does not exist",
+                    title="Error",
+                    indicator="red"
+                )
+                return
+
+            # Clear existing charges
+            self.set("charges", [])
+
+            # Fetch sales_quote_transport records from the selected sales_quote
+            sales_quote_transport_records = frappe.get_all(
+                "Sales Quote Transport",
+                filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+                fields=[
+                    "item_code",
+                    "item_name", 
+                    "calculation_method",
+                    "uom",
+                    "currency",
+                    "unit_rate",
+                    "unit_type",
+                    "minimum_quantity",
+                    "minimum_charge",
+                    "maximum_charge",
+                    "base_amount"
+                ],
+                order_by="idx"
+            )
+
+            if not sales_quote_transport_records:
+                frappe.msgprint(
+                    f"No transport charges found in Sales Quote: {self.sales_quote}",
+                    title="No Charges Found",
+                    indicator="orange"
+                )
+                return
+
+            # Map and populate charges
+            charges_added = 0
+            for sqt_record in sales_quote_transport_records:
+                charge_row = self._map_sales_quote_transport_to_charge(sqt_record)
+                if charge_row:
+                    self.append("charges", charge_row)
+                    charges_added += 1
+
+            if charges_added > 0:
+                frappe.msgprint(
+                    f"Successfully populated {charges_added} charges from Sales Quote: {self.sales_quote}",
+                    title="Charges Updated",
+                    indicator="green"
+                )
+            else:
+                frappe.msgprint(
+                    f"No valid charges could be mapped from Sales Quote: {self.sales_quote}",
+                    title="No Valid Charges",
+                    indicator="orange"
+                )
+
+        except Exception as e:
+            frappe.log_error(
+                f"Error populating charges from sales quote {self.sales_quote}: {str(e)}",
+                "Transport Order Charges Population Error"
+            )
+            frappe.msgprint(
+                f"Error populating charges: {str(e)}",
+                title="Error",
+                indicator="red"
+            )
+
+    def _map_sales_quote_transport_to_charge(self, sqt_record):
+        """Map sales_quote_transport record to transport_order_charges format."""
+        try:
+            # Get the item details to fetch additional required fields
+            item_doc = frappe.get_doc("Item", sqt_record.item_code)
+            
+            # Get default currency from system settings
+            default_currency = frappe.get_system_settings("currency") or "USD"
+            
+            # Get default vehicle type if not set in transport order
+            default_vehicle_type = self.vehicle_type
+            if not default_vehicle_type:
+                # Try to get a default vehicle type from the system
+                vehicle_types = frappe.get_all("Vehicle Type", limit=1)
+                default_vehicle_type = vehicle_types[0].name if vehicle_types else ""
+            
+            # Map the fields from sales_quote_transport to transport_order_charges
+            charge_data = {
+                "item_code": sqt_record.item_code,
+                "item_name": sqt_record.item_name or item_doc.item_name,
+                "calculation_method": sqt_record.calculation_method or "Per Unit",
+                "uom": sqt_record.uom or item_doc.stock_uom,
+                "currency": sqt_record.currency or default_currency,
+                "rate": sqt_record.unit_rate or 0,
+                "unit_type": sqt_record.unit_type,
+                "minimum_quantity": sqt_record.minimum_quantity,
+                "minimum_charge": sqt_record.minimum_charge,
+                "maximum_charge": sqt_record.maximum_charge,
+                "base_amount": sqt_record.base_amount,
+                # Set default values for required fields in transport_order_charges
+                "load_type": self.load_type or "FTL",  # Use from transport order or default
+                "vehicle_type": default_vehicle_type,  # Required field
+                "location_type": "Location",  # Default to Location
+                "location_from": "",  # Will need to be set manually or from transport order
+                "location_to": "",  # Will need to be set manually or from transport order
+                "quantity": 1  # Default quantity
+            }
+
+            return charge_data
+
+        except Exception as e:
+            frappe.log_error(
+                f"Error mapping sales quote transport record: {str(e)}",
+                "Transport Order Charge Mapping Error"
+            )
+            return None
+
 
 # -------------------------------------------------------------------
 # Internal helpers
