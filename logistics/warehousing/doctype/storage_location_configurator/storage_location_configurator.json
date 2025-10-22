@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-08-18 13:30:51.494739",
@@ -44,8 +45,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-18 14:21:04.157887",
- "modified_by": "Administrator",
+ "modified": "2025-10-22 15:35:19.051964",
+ "modified_by": "paulinemae.cabile@agilasoft.com",
  "module": "Warehousing",
  "name": "Storage Location Configurator",
  "naming_rule": "By fieldname",

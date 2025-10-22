@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-08-18 16:50:12.399698",
@@ -176,8 +177,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-22 07:27:15.505348",
- "modified_by": "Administrator",
+ "modified": "2025-10-22 15:34:38.204101",
+ "modified_by": "johnalexander.castro@agilasoft.com",
  "module": "Warehousing",
  "name": "Handling Unit Type",
  "naming_rule": "By fieldname",

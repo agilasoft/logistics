@@ -5,21 +5,112 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "commodity",
+  "hs_code",
+  "reference_no",
+  "column_break_1",
   "description",
+  "goods_description",
+  "column_break_2",
+  "no_of_packs",
   "quantity",
+  "uom",
   "weight",
+  "volume",
+  "column_break_3",
   "length",
   "widht",
   "height",
-  "volume",
-  "atl"
+  "atl",
+  "section_break_dg_identification",
+  "dg_identification_section",
+  "contains_dangerous_goods",
+  "dg_substance",
+  "un_number",
+  "proper_shipping_name",
+  "dg_class",
+  "packing_group",
+  "column_break_dg_enhanced",
+  "dg_division",
+  "subsidiary_risks",
+  "packing_instruction",
+  "net_quantity_per_package",
+  "flash_point",
+  "section_break_dg_emergency",
+  "emergency_contact_section",
+  "emergency_contact_name",
+  "emergency_contact_phone",
+  "emergency_contact_email",
+  "column_break_dg_handling",
+  "handling_instructions",
+  "segregation_requirements",
+  "special_provisions",
+  "section_break_dg_restrictions",
+  "transport_restrictions_section",
+  "transport_mode_restrictions",
+  "erg_code",
+  "environmental_hazards",
+  "section_break_dg_temperature",
+  "temperature_control_section",
+  "temp_controlled",
+  "min_temperature",
+  "max_temperature",
+  "section_break_dg_radioactive",
+  "radioactive_section",
+  "is_radioactive",
+  "transport_index",
+  "radiation_level",
+  "criticality_safety_index",
+  "section_break_dg_documentation",
+  "documentation_section",
+  "shippers_declaration_status",
+  "dg_declaration_number",
+  "additional_handling_instructions"
  ],
  "fields": [
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Commodity",
+   "options": "Commodity"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "HS Code",
+   "options": "Customs Tariff Number"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
   {
    "fieldname": "description",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Description"
+  },
+  {
+   "fieldname": "goods_description",
+   "fieldtype": "Long Text",
+   "label": "Goods Description"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "no_of_packs",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "No of Packs"
   },
   {
    "columns": 1,
@@ -29,11 +120,22 @@
    "label": "Quantity"
   },
   {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
    "columns": 1,
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Weight"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
   },
   {
    "columns": 1,
@@ -70,6 +172,224 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "ATL"
+  },
+  {
+   "fieldname": "section_break_dg_identification",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods Identification"
+  },
+  {
+   "fieldname": "dg_identification_section",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "fieldname": "dg_substance",
+   "fieldtype": "Link",
+   "label": "DG Substance",
+   "options": "Dangerous Goods"
+  },
+  {
+   "fieldname": "un_number",
+   "fieldtype": "Data",
+   "label": "UN Number"
+  },
+  {
+   "fieldname": "proper_shipping_name",
+   "fieldtype": "Data",
+   "label": "Proper Shipping Name"
+  },
+  {
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "fieldname": "packing_group",
+   "fieldtype": "Select",
+   "label": "Packing Group",
+   "options": "\nI\nII\nIII"
+  },
+  {
+   "fieldname": "column_break_dg_enhanced",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dg_division",
+   "fieldtype": "Data",
+   "label": "DG Division"
+  },
+  {
+   "fieldname": "subsidiary_risks",
+   "fieldtype": "Data",
+   "label": "Subsidiary Risks"
+  },
+  {
+   "fieldname": "packing_instruction",
+   "fieldtype": "Data",
+   "label": "Packing Instruction Number"
+  },
+  {
+   "fieldname": "net_quantity_per_package",
+   "fieldtype": "Float",
+   "label": "Net Quantity per Package"
+  },
+  {
+   "fieldname": "flash_point",
+   "fieldtype": "Float",
+   "label": "Flash Point"
+  },
+  {
+   "fieldname": "section_break_dg_emergency",
+   "fieldtype": "Section Break",
+   "label": "Emergency Contact Information"
+  },
+  {
+   "fieldname": "emergency_contact_section",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "emergency_contact_name",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Name"
+  },
+  {
+   "fieldname": "emergency_contact_phone",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Phone"
+  },
+  {
+   "fieldname": "emergency_contact_email",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Email"
+  },
+  {
+   "fieldname": "column_break_dg_handling",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Handling Instructions"
+  },
+  {
+   "fieldname": "segregation_requirements",
+   "fieldtype": "Long Text",
+   "label": "Segregation Requirements"
+  },
+  {
+   "fieldname": "special_provisions",
+   "fieldtype": "Long Text",
+   "label": "Special Provisions"
+  },
+  {
+   "fieldname": "section_break_dg_restrictions",
+   "fieldtype": "Section Break",
+   "label": "Transport Restrictions"
+  },
+  {
+   "fieldname": "transport_restrictions_section",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transport_mode_restrictions",
+   "fieldtype": "Long Text",
+   "label": "Transport Mode Restrictions"
+  },
+  {
+   "fieldname": "erg_code",
+   "fieldtype": "Data",
+   "label": "ERG Code"
+  },
+  {
+   "fieldname": "environmental_hazards",
+   "fieldtype": "Long Text",
+   "label": "Environmental Hazards"
+  },
+  {
+   "fieldname": "section_break_dg_temperature",
+   "fieldtype": "Section Break",
+   "label": "Temperature Control"
+  },
+  {
+   "fieldname": "temperature_control_section",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "temp_controlled",
+   "fieldtype": "Check",
+   "label": "Temp Controlled"
+  },
+  {
+   "fieldname": "min_temperature",
+   "fieldtype": "Float",
+   "label": "Min Temperature (°C)"
+  },
+  {
+   "fieldname": "max_temperature",
+   "fieldtype": "Float",
+   "label": "Max Temperature (°C)"
+  },
+  {
+   "fieldname": "section_break_dg_radioactive",
+   "fieldtype": "Section Break",
+   "label": "Radioactive Materials"
+  },
+  {
+   "fieldname": "radioactive_section",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_radioactive",
+   "fieldtype": "Check",
+   "label": "Is Radioactive Material"
+  },
+  {
+   "fieldname": "transport_index",
+   "fieldtype": "Float",
+   "label": "Transport Index"
+  },
+  {
+   "fieldname": "radiation_level",
+   "fieldtype": "Float",
+   "label": "Radiation Level"
+  },
+  {
+   "fieldname": "criticality_safety_index",
+   "fieldtype": "Float",
+   "label": "Criticality Safety Index"
+  },
+  {
+   "fieldname": "section_break_dg_documentation",
+   "fieldtype": "Section Break",
+   "label": "Documentation & Declaration"
+  },
+  {
+   "fieldname": "documentation_section",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "shippers_declaration_status",
+   "fieldtype": "Check",
+   "label": "Shipper's Declaration Status"
+  },
+  {
+   "fieldname": "dg_declaration_number",
+   "fieldtype": "Data",
+   "label": "DG Declaration Number"
+  },
+  {
+   "fieldname": "additional_handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Additional Handling Instructions"
   }
  ],
  "istable": 1,

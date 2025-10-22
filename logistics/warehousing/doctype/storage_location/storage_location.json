@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "format:{site}/{building}/{zone}/{aisle}/{bay}/{level}/{location_code}",
  "creation": "2025-08-18 13:15:25.722151",
@@ -298,8 +299,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-22 06:55:13.522265",
- "modified_by": "Administrator",
+ "modified": "2025-10-22 15:15:39.114522",
+ "modified_by": "paulinemae.cabile@agilasoft.com",
  "module": "Warehousing",
  "name": "Storage Location",
  "naming_rule": "Expression",
