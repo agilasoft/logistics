@@ -256,22 +256,11 @@ frappe.ui.form.on('Warehouse Job', {
             }, __('Actions'));
         }
         
-        // Add Calculate Charges button - show for jobs with contract and charges that have standard costs
+        // Add Calculate Charges button - show for jobs with contract and charges
         if ((frm.doc.warehouse_contract || frm.doc.customer) && frm.doc.charges && frm.doc.charges.length > 0) {
-            // Check if any charge has standard cost
-            let has_standard_cost = false;
-            
-            frm.doc.charges.forEach(function(charge) {
-                if (charge.total_standard_cost && flt(charge.total_standard_cost) > 0) {
-                    has_standard_cost = true;
-                }
-            });
-            
-            if (has_standard_cost) {
-                frm.add_custom_button(__('Calculate Charges'), function() {
-                    calculate_charges_from_contract(frm);
-                }, __('Actions'));
-            }
+            frm.add_custom_button(__('Calculate Charges'), function() {
+                calculate_charges_from_contract(frm);
+            }, __('Actions'));
         }
         
         // Add Post Standard Costs button - show only when submitted and has charges with standard costs that haven't been posted

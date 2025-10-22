@@ -54,3 +54,60 @@ function update_uom_fields(frm) {
         }
     });
 }
+
+function fetch_uom_from_contract(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    const item = row.item;
+    
+    // Access the parent form to get the contract
+    const parent_frm = frm.frm;
+    if (!parent_frm) {
+        console.log("Parent form not found");
+        return;
+    }
+    
+    const contract = parent_frm.doc.contract;
+    
+    // Check if we have both item and contract
+    if (!item || !contract) {
+        console.log("Missing item or contract for UOM fetch. Item:", item, "Contract:", contract);
+        return;
+    }
+    
+    console.log("Fetching UOM from contract for item:", item, "contract:", contract);
+    
+    frappe.call({
+        method: "logistics.warehousing.api.get_contract_charge",
+        args: {
+            contract: contract,
+            item_code: item,
+            context: "inbound"
+        },
+        callback: function(r) {
+            console.log("Contract charge response:", r);
+            if (r.message && r.message.uom) {
+                frappe.model.set_value(cdt, cdn, "uom", r.message.uom);
+                console.log("Set UOM from contract to:", r.message.uom);
+            } else {
+                console.log("No UOM found in contract for this item");
+                // Fallback to item's default UOM if no contract UOM found
+                if (row.item) {
+                    frappe.call({
+                        method: "frappe.client.get_value",
+                        args: {
+                            doctype: "Warehouse Item",
+                            name: row.item,
+                            fieldname: ["uom"]
+                        },
+                        callback: function(item_r) {
+                            if (item_r.message && item_r.message.uom) {
+                                frappe.model.set_value(cdt, cdn, "uom", item_r.message.uom);
+                                console.log("Set UOM from item default to:", item_r.message.uom);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    });
+}

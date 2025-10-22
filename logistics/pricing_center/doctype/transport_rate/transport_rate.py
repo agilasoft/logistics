@@ -47,14 +47,8 @@ class TransportRate(Document):
     def get_rate_info(self):
         """Get rate information for display."""
         return {
-            'rate_name': self.rate_name,
             'calculation_method': self.calculation_method,
-            'rate_value': self.rate_value,
+            'rate': self.rate,
             'currency': self.currency,
-            'origin_zone': self.origin_zone,
-            'destination_zone': self.destination_zone,
-            'vehicle_type': self.vehicle_type,
-            'valid_from': self.valid_from,
-            'valid_to': self.valid_to,
-            'is_active': self.is_active
+            'unit_type': self.unit_type
         }

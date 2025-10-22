@@ -2601,6 +2601,16 @@ class WarehouseJob(Document):
 
             _make_ledger_row(self, ji, delta, beg, end, posting_dt)
 
+        # Update storage location statuses after all ledger entries are created
+        from logistics.warehousing.api import _set_sl_status_by_balance
+        affected_locations = set()
+        for ji in self.items:
+            if getattr(ji, "location", None):
+                affected_locations.add(ji.location)
+        
+        for location in affected_locations:
+            _set_sl_status_by_balance(location)
+
     def _get_milestone_status(self, handling_unit_name, job_type):
         """Get milestone status for a handling unit"""
         try:
@@ -3111,7 +3121,7 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             filters={
                 "used_in": job.type
             },
-            fields=["name", "code", "operation_name", "unit_std_hours", "handling_basis", "notes", "order"],
+            fields=["name", "code", "operation_name", "unit_std_hours", "handling_basis", "handling_uom", "notes", "order"],
             order_by="`order` asc, operation_name asc"
         )
         
@@ -3135,11 +3145,12 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             operation.unit_std_hours = template.unit_std_hours or 0
             operation.handling_basis = template.handling_basis or "Item Unit"
             
-            # Set handling_uom if field exists
+            # Set handling_uom if field exists - use from template first, fallback to first job item
             if hasattr(operation, 'handling_uom'):
-                # Get UOM from the first item in the job
-                handling_uom = None
-                if job.items:
+                handling_uom = template.handling_uom
+                
+                # If template doesn't have handling_uom, get from first job item as fallback
+                if not handling_uom and job.items:
                     first_item = job.items[0].get("item")
                     if first_item:
                         handling_uom = frappe.db.get_value("Warehouse Item", first_item, "uom")

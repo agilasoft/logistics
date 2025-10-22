@@ -6,29 +6,30 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "item",
+  "item_code",
   "item_name",
-  "transport_charge",
-  "vas_charge",
   "column_break_oaqs",
-  "uom",
-  "quantity",
+  "load_type",
   "vehicle_type",
-  "zone",
+  "container_type",
+  "quantity",
   "column_break_tvfb",
+  "location_type",
+  "location_from",
+  "location_to",
+  "rate_calculation_section",
+  "calculation_method",
+  "uom",
   "currency",
   "rate",
-  "total"
+  "column_break_pedq",
+  "unit_type",
+  "minimum_quantity",
+  "minimum_charge",
+  "maximum_charge",
+  "base_amount"
  ],
  "fields": [
-  {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_land_transport_charge\",\"=\",1]]",
-   "options": "Item"
-  },
   {
    "fetch_from": "item.item_name",
    "fieldname": "item_name",
@@ -41,18 +42,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "transport_charge",
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
    "options": "Vehicle Type"
-  },
-  {
-   "depends_on": "transport_charge",
-   "fieldname": "zone",
-   "fieldtype": "Link",
-   "label": "Zone",
-   "options": "Transport Zone"
   },
   {
    "fieldname": "currency",
@@ -66,24 +59,6 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Rate"
-  },
-  {
-   "fieldname": "total",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Total"
-  },
-  {
-   "default": "0",
-   "fieldname": "transport_charge",
-   "fieldtype": "Check",
-   "label": "Transport Charge"
-  },
-  {
-   "default": "0",
-   "fieldname": "vas_charge",
-   "fieldtype": "Check",
-   "label": "VAS Charge"
   },
   {
    "depends_on": "\n",
@@ -103,13 +78,92 @@
   {
    "fieldname": "column_break_tvfb",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_land_transport_charge\",\"=\",1]]",
+   "options": "Item"
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "options": "Container Type"
+  },
+  {
+   "fieldname": "rate_calculation_section",
+   "fieldtype": "Section Break",
+   "label": "Rate Calculation"
+  },
+  {
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "label": "Calculation Method"
+  },
+  {
+   "fieldname": "column_break_pedq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+  },
+  {
+   "fieldname": "minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  },
+  {
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Location\",\"Transport Zone\"]]]",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Location From",
+   "options": "location_type"
+  },
+  {
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Location To",
+   "options": "location_type"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-03 06:26:17.613127",
+ "modified": "2025-10-21 10:42:09.735800",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Charges",

@@ -168,6 +168,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -183,7 +184,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-09 23:28:51.333664",
+ "modified": "2025-10-19 14:40:20.672554",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order",

@@ -5,7 +5,7 @@
  "creation": "2025-08-18 13:15:25.722151",
  "doctype": "DocType",
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "site",
   "building",
   "zone",
@@ -56,7 +56,6 @@
   {
    "fieldname": "site",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Site",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
    "options": "Storage Location Configurator"
@@ -92,7 +91,6 @@
   {
    "fieldname": "building",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Building",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Building\"]]",
    "options": "Storage Location Configurator"
@@ -189,7 +187,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Available\nIn Use\nUnder Maintenance\nInactive"
+   "options": "Available\nAssigned\nIn Use\nUnder Maintenance\nInactive"
   },
   {
    "default": "0",
@@ -276,31 +274,31 @@
    "label": "Enable Capacity Alerts"
   },
   {
+   "default": "80",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "volume_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Volume Alert Threshold",
-   "default": "80"
+   "label": "Volume Alert Threshold"
   },
   {
+   "default": "80",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "weight_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Weight Alert Threshold",
-   "default": "80"
+   "label": "Weight Alert Threshold"
   },
   {
+   "default": "90",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "utilization_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Utilization Alert Threshold",
-   "default": "90"
+   "label": "Utilization Alert Threshold"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-30 16:48:46.494606",
+ "modified": "2025-10-22 06:55:13.522265",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Storage Location",

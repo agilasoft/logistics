@@ -57,7 +57,7 @@
    "fieldname": "used_in",
    "fieldtype": "Select",
    "label": "Used in",
-   "options": "Staging In\nStaging Out\nPutaway\nPick\nMove\nVAS\nStocktake"
+   "options": "Putaway\nPick\nMove\nVAS\nStocktake"
   },
   {
    "depends_on": "eval:doc.used_in == 'VAS'",
@@ -85,8 +85,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-09 19:15:42.511339",
- "modified_by": "Administrator",
+ "modified": "2025-10-21 10:53:26.953661",
+ "modified_by": "johnalexander.castro@agilasoft.com",
  "module": "Warehousing",
  "name": "Warehouse Operation Item",
  "naming_rule": "By fieldname",

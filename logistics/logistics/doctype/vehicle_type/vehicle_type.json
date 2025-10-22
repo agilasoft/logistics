@@ -9,11 +9,12 @@
   "code",
   "description",
   "classifications",
-  "column_break_afzb",
-  "capacity",
-  "typical_cargo",
   "containerized",
-  "reefer"
+  "reefer",
+  "column_break_afzb",
+  "typical_cargo",
+  "allowed_load_types",
+  "capacity_management_tab"
  ],
  "fields": [
   {
@@ -40,12 +41,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "capacity",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Capacity"
-  },
-  {
    "fieldname": "typical_cargo",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -62,10 +57,21 @@
    "fieldname": "reefer",
    "fieldtype": "Check",
    "label": "Reefer"
+  },
+  {
+   "fieldname": "allowed_load_types",
+   "fieldtype": "Table MultiSelect",
+   "label": "Allowed Load Types",
+   "options": "Vehicle Type Load Types"
+  },
+  {
+   "fieldname": "capacity_management_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capacity Management"
   }
  ],
  "links": [],
- "modified": "2025-10-13 22:17:19.300156",
+ "modified": "2025-10-21 10:22:58.908789",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Vehicle Type",
@@ -87,7 +93,7 @@
  ],
  "quick_entry": 1,
  "row_format": "Dynamic",
- "search_fields": "code,description,classifications,capacity,typical_cargo",
+ "search_fields": "code,description,classifications,typical_cargo",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

@@ -73,14 +73,27 @@ function _apply_vals(cdt, cdn, m) {
   if (typeof m.rate === "number") frappe.model.set_value(cdt, cdn, "rate", m.rate);
   if (m.currency) frappe.model.set_value(cdt, cdn, "currency", m.currency);
 
-  // strictly use UOM from Contract
-  const contract_uom = (m.storage_charge && m.billing_time_unit) ? m.billing_time_unit : (m.handling_uom || null);
-  if (contract_uom) {
-    frappe.model.set_value(cdt, cdn, "uom", contract_uom);
+  // Use UOM from Contract
+  if (m.uom) {
+    frappe.model.set_value(cdt, cdn, "uom", m.uom);
   } else {
-    // ensure Item default doesn't stick
-    frappe.model.set_value(cdt, cdn, "uom", "");
-    frappe.show_alert({ message: __("No UOM set on Warehouse Contract for this charge."), indicator: "orange" });
+    // Fallback to item's default UOM if no contract UOM found
+    const row = locals[cdt][cdn];
+    if (row.item) {
+      frappe.call({
+        method: "frappe.client.get_value",
+        args: {
+          doctype: "Warehouse Item",
+          name: row.item,
+          fieldname: ["uom"]
+        },
+        callback: function(item_r) {
+          if (item_r.message && item_r.message.uom) {
+            frappe.model.set_value(cdt, cdn, "uom", item_r.message.uom);
+          }
+        }
+      });
+    }
   }
 }
 
@@ -211,6 +224,11 @@ frappe.ui.form.on("Inbound Order Item", {
       frappe.model.set_value(cdt, cdn, "quantity", 1);
       frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
     }
+  },
+
+  item(frm, cdt, cdn) {
+    // When item is selected, fetch UOM from warehouse contract using existing pattern
+    _fetch(frm, cdt, cdn, "inbound");
   }
 });
 
@@ -257,4 +275,3 @@ function update_uom_fields_for_items(frm) {
         }
     });
 }
-

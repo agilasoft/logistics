@@ -66,9 +66,11 @@ def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict
         payload: Dict[str, Any] = {"operation": code}
         if has_desc:   payload["description"] = op.get("operation_name")
         if has_uom:
-            # Get UOM from the first item in the job
-            handling_uom = None
-            if orders:
+            # Get UOM from the operation template first, fallback to first item in the job
+            handling_uom = op.get("handling_uom")
+            
+            # If template doesn't have handling_uom, get from first job item as fallback
+            if not handling_uom and orders:
                 first_item = orders[0].get("item")
                 if first_item:
                     handling_uom = frappe.db.get_value("Warehouse Item", first_item, "uom")
