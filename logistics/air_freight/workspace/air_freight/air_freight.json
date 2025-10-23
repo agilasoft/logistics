@@ -18,8 +18,8 @@
  "is_hidden": 0,
  "label": "Air Freight",
  "links": [],
- "modified": "2025-10-17 16:34:35.102040",
- "modified_by": "johnalexander.castro@agilasoft.com",
+ "modified": "2025-10-23 12:49:34.155148",
+ "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight",
  "number_cards": [
@@ -37,11 +37,11 @@
   }
  ],
  "owner": "Administrator",
- "parent_page": "Sea Freight",
+ "parent_page": "",
  "public": 1,
  "quick_lists": [],
  "roles": [],
- "sequence_id": 4.0,
+ "sequence_id": 3.0,
  "shortcuts": [
   {
    "color": "Grey",
