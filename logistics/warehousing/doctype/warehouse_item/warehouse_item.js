@@ -55,8 +55,6 @@ function calculate_volume(frm) {
     const width = flt(frm.get_value('width') || 0);
     const height = flt(frm.get_value('height') || 0);
     
-    console.log("Dimensions - Length:", length, "Width:", width, "Height:", height);
-    
     // Validate dimensions
     if (length < 0 || width < 0 || height < 0) {
         frappe.msgprint(__("Dimensions cannot be negative. Please enter valid values."));
@@ -66,7 +64,6 @@ function calculate_volume(frm) {
     // Calculate volume if all dimensions are provided
     if (length > 0 && width > 0 && height > 0) {
         const volume = length * width * height;
-        console.log("Calculated volume:", volume);
         frm.set_value('volume', volume);
         
         // Validate reasonable volume (prevent unrealistic values)
@@ -75,7 +72,6 @@ function calculate_volume(frm) {
         }
     } else {
         // Clear volume if dimensions are incomplete
-        console.log("Incomplete dimensions, clearing volume");
         frm.set_value('volume', 0);
     }
 }
@@ -95,5 +91,4 @@ function validate_weight(frm) {
         frappe.msgprint(__("Warning: Weight seems unusually high. Please verify the value."));
     }
     
-    console.log("Weight validated:", weight);
 }

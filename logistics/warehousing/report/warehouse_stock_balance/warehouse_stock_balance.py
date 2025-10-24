@@ -1,6 +1,7 @@
 # warehouse_stock_balance.py  (fixed joins for company/branch)
 
 import frappe
+from frappe.utils import getdate
 
 def execute(filters=None):
     f = frappe._dict(filters or {})
@@ -15,7 +16,11 @@ def execute(filters=None):
         {"label": "Ending",     "fieldname": "ending_qty", "fieldtype": "Float","width": 120},
     ]
 
-    params = {"from_date": f.from_date, "to_date": f.to_date}
+    # Proper datetime handling: from_date at 00:00:00, to_date at end of day
+    params = {
+        "from_date": f"{getdate(f.from_date)} 00:00:00",
+        "to_date": str(getdate(f.to_date))
+    }
     where_bits = ["1=1"]
 
     # Optional filters (kept)
@@ -23,6 +28,10 @@ def execute(filters=None):
         where_bits.append("wsl.item = %(item)s"); params["item"] = f.item
     if f.get("customer"):
         where_bits.append("wi.customer = %(customer)s"); params["customer"] = f.customer
+    if f.get("storage_location"):
+        where_bits.append("wsl.storage_location = %(storage_location)s"); params["storage_location"] = f.storage_location
+    if f.get("handling_unit"):
+        where_bits.append("wsl.handling_unit = %(handling_unit)s"); params["handling_unit"] = f.handling_unit
     if f.get("company"):
         where_bits.append("COALESCE(hu.company, sl.company) = %(company)s"); params["company"] = f.company
     if f.get("branch"):
@@ -36,7 +45,8 @@ def execute(filters=None):
             SELECT
                 wsl.item,
                 wsl.posting_date,
-                wsl.quantity,
+                -- Use same quantity logic as Warehouse Stock Ledger: prefer quantity, fallback to delta
+                COALESCE(wsl.quantity, wsl.end_qty - wsl.beg_quantity, 0) AS quantity,
                 wsl.creation,
                 COALESCE(hu.company, sl.company) AS company,
                 COALESCE(hu.branch,  sl.branch)  AS branch
@@ -45,40 +55,30 @@ def execute(filters=None):
             LEFT JOIN `tabHandling Unit`   hu ON hu.name = wsl.handling_unit
             LEFT JOIN `tabWarehouse Item`  wi ON wi.name = wsl.item
             WHERE {where_sql}
-        ),
-        first_on_day AS (
-            SELECT item, MIN(creation) AS first_creation
-            FROM base
-            WHERE posting_date = %(from_date)s
-            GROUP BY item
         )
         SELECT
             b.item,
 
-            -- Beginning: balance after the first entry on from_date
-            COALESCE(SUM(CASE WHEN b.posting_date < %(from_date)s THEN b.quantity ELSE 0 END), 0)
-            +
-            COALESCE(SUM(CASE
-                WHEN b.posting_date = %(from_date)s AND b.creation = fod.first_creation
-                THEN b.quantity ELSE 0 END), 0) AS beg_qty,
+            -- Beginning: sum all quantities before from_date
+            COALESCE(SUM(CASE WHEN b.posting_date < %(from_date)s THEN b.quantity ELSE 0 END), 0) AS beg_qty,
 
-            -- In within window
+            -- In within window (positive quantities) - use proper datetime range
             COALESCE(SUM(CASE
-                WHEN b.posting_date BETWEEN %(from_date)s AND %(to_date)s
+                WHEN b.posting_date >= %(from_date)s 
+                 AND b.posting_date < DATE_ADD(%(to_date)s, INTERVAL 1 DAY)
                  AND b.quantity > 0 THEN b.quantity ELSE 0 END), 0) AS in_qty,
 
-            -- Out within window
+            -- Out within window (negative quantities, show as positive) - use proper datetime range
             COALESCE(SUM(CASE
-                WHEN b.posting_date BETWEEN %(from_date)s AND %(to_date)s
+                WHEN b.posting_date >= %(from_date)s 
+                 AND b.posting_date < DATE_ADD(%(to_date)s, INTERVAL 1 DAY)
                  AND b.quantity < 0 THEN -b.quantity ELSE 0 END), 0) AS out_qty,
 
-            -- Ending up to to_date
+            -- Ending: sum all quantities up to end of to_date
             COALESCE(SUM(CASE
-                WHEN b.posting_date <= %(to_date)s THEN b.quantity ELSE 0 END), 0) AS ending_qty
+                WHEN b.posting_date < DATE_ADD(%(to_date)s, INTERVAL 1 DAY) THEN b.quantity ELSE 0 END), 0) AS ending_qty
 
         FROM base b
-        LEFT JOIN first_on_day fod
-          ON fod.item = b.item
         GROUP BY b.item
         ORDER BY b.item
         """.format(where_sql=where_sql),

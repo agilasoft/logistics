@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "naming_series:",
  "creation": "2025-10-12 16:25:22.081485",
@@ -352,10 +353,15 @@
    "group": "Orders",
    "link_doctype": "Transport Order",
    "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Contracts",
+   "link_doctype": "Warehouse Contract",
+   "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2025-10-22 11:42:29.056738",
- "modified_by": "Administrator",
+ "modified": "2025-10-23 15:34:17.375045",
+ "modified_by": "johnalexander.castro@agilasoft.com",
  "module": "Pricing Center",
  "name": "Sales Quote",
  "naming_rule": "By \"Naming Series\" field",

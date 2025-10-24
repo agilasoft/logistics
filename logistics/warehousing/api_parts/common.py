@@ -909,8 +909,14 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
     ch_rows,   charges_fieldname = _get_child_rows(job, "Warehouse Job Charges", fallback_fieldname="charges")
 
     if on_submit:
-        if not item_rows:
+        # For Stocktake jobs, allow empty items if populate adjustment has been triggered
+        if not item_rows and job_type != "Stocktake":
             errors.append(_("Items table is empty. Add at least one item row."))
+        elif not item_rows and job_type == "Stocktake":
+            # Check if populate adjustment has been triggered
+            populate_triggered = getattr(job, "populate_adjustment_triggered", False)
+            if not populate_triggered:
+                errors.append(_("Items table is empty. Either add items manually or use 'Populate Adjustments' button."))
         if not op_rows:
             errors.append(_("Operations table is empty. Add at least one operation row."))
         if not ch_rows:

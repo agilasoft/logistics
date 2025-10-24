@@ -1,9 +1,12 @@
 from __future__ import annotations
-from .common import *  # shared helpers
+from typing import Any, Dict, List, Optional
 
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
+
+# Import specific functions from common
+from .common import _get_job_scope, _safe_meta_fieldnames, _get_item_uom
 
 @frappe.whitelist()
 def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1):
@@ -12,6 +15,7 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     if (job.type or "").strip() != "Stocktake":
         frappe.throw(_("Fetch Count Sheet is only available for Warehouse Job Type = Stocktake."))
 
+    # Get items from Orders table
     order_items = frappe.get_all(
         "Warehouse Job Order Items",
         filters={"parent": job.name, "parenttype": "Warehouse Job"},
@@ -20,10 +24,59 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     )
     item_list = [r["item"] for r in order_items if (r.get("item") or "").strip()]
     item_set  = set(item_list)
-    if not item_set:
-        return {"ok": True, "message": _("No items found in Orders. Add items in the Orders table first."), "created_rows": 0}
-
+    
     company, branch = _get_job_scope(job)
+    
+    # If no items in Orders, get items from stock ledger based on job scope and filters
+    if not item_set:
+        # Get customer from job
+        customer = getattr(job, "customer", None)
+        
+        # Get field names for filtering
+        slf = _safe_meta_fieldnames("Storage Location")
+        huf = _safe_meta_fieldnames("Handling Unit")
+        llf = _safe_meta_fieldnames("Warehouse Stock Ledger")
+        
+        # Build additional filters for stock ledger query
+        additional_filters = []
+        additional_params = []
+        
+        # Add customer filter if present
+        if customer:
+            # Check if customer field exists in Warehouse Item
+            wi_fields = _safe_meta_fieldnames("Warehouse Item")
+            if "customer" in wi_fields:
+                additional_filters.append("wi.customer = %s")
+                additional_params.append(customer)
+        
+        # Get items from stock ledger that match the job scope
+        stock_items_query = f"""
+            SELECT DISTINCT l.item
+            FROM `tabWarehouse Stock Ledger` l
+            LEFT JOIN `tabStorage Location` sl ON l.storage_location = sl.name
+            LEFT JOIN `tabHandling Unit` hu ON l.handling_unit = hu.name
+            LEFT JOIN `tabWarehouse Item` wi ON l.item = wi.name
+            WHERE l.quantity > 0
+        """
+        
+        # Add company/branch filters
+        if company and (("company" in slf) or ("company" in huf) or ("company" in llf)):
+            stock_items_query += " AND COALESCE(hu.company, sl.company, l.company) = %s"
+            additional_params.append(company)
+        if branch and (("branch" in slf) or ("branch" in huf) or ("branch" in llf)):
+            stock_items_query += " AND COALESCE(hu.branch, sl.branch, l.branch) = %s"
+            additional_params.append(branch)
+        
+        # Add additional filters
+        if additional_filters:
+            stock_items_query += " AND " + " AND ".join(additional_filters)
+        
+        stock_items = frappe.db.sql(stock_items_query, tuple(additional_params), as_dict=True) or []
+        item_list = [r["item"] for r in stock_items if (r.get("item") or "").strip()]
+        item_set = set(item_list)
+        
+        if not item_set:
+            return {"ok": True, "message": _("No items found in Orders or Stock Ledger. Add items in the Orders table first or check your filters."), "created_rows": 0}
 
     if int(clear_existing or 0):
         job.set("counts", [])
@@ -40,6 +93,7 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
                 if v not in (None, "") and not getattr(job, k, None):
                     setattr(job, k, v)
 
+    # Get field names for filtering
     slf = _safe_meta_fieldnames("Storage Location")
     huf = _safe_meta_fieldnames("Handling Unit")
     llf = _safe_meta_fieldnames("Warehouse Stock Ledger")
@@ -106,16 +160,11 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
         existing_keys.add(key)
         created_rows += 1
 
+    # Only create count rows for items that actually exist in stock ledger
     for a in aggregates:
         if a.get("item") not in item_set: continue
         _append_count_row(a.get("item"), a.get("storage_location"), a.get("handling_unit"),
                           a.get("batch_no"), a.get("serial_no"), flt(a.get("system_qty") or 0))
-
-    for it in item_set:
-        for loc in locations:
-            _append_count_row(it, loc["name"], None, None, None, 0)
-        for hu in hus:
-            _append_count_row(it, None, hu["name"], None, None, 0)
 
     job.save(ignore_permissions=True)
     frappe.db.commit()
@@ -175,6 +224,9 @@ def populate_stocktake_adjustments(warehouse_job: str, clear_existing: int = 1) 
         created  += 1
         net_delta+= delta
 
+    # Set the populate adjustment triggered flag
+    job.populate_adjustment_triggered = 1
+    
     job.save(ignore_permissions=True)
     frappe.db.commit()
     return {"ok": True, "message": _("Created {0} adjustment item(s). Net delta: {1}").format(int(created), flt(net_delta)),

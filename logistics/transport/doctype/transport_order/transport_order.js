@@ -24,6 +24,20 @@ frappe.ui.form.on('Transport Order', {
                 });
               }
               frm.reload_doc();
+              
+              // Auto-fill transport_job_type and vehicle_type to all legs after reload
+              setTimeout(() => {
+                if (frm.doc.transport_job_type || frm.doc.vehicle_type) {
+                  frm.doc.legs.forEach((leg) => {
+                    if (frm.doc.transport_job_type && !leg.transport_job_type) {
+                      frappe.model.set_value("Transport Order Legs", leg.name, "transport_job_type", frm.doc.transport_job_type);
+                    }
+                    if (frm.doc.vehicle_type && !leg.vehicle_type) {
+                      frappe.model.set_value("Transport Order Legs", leg.name, "vehicle_type", frm.doc.vehicle_type);
+                    }
+                  });
+                }
+              }, 500); // Small delay to ensure reload is complete
             }
           });
         };
@@ -33,6 +47,64 @@ frappe.ui.form.on('Transport Order', {
         }
         await run();
       }, __('Actions'));
+      
+      // Add button to apply parent values to all legs
+      frm.add_custom_button(__('Apply Parent Values to All Legs'), () => {
+        if (!frm.doc.legs || frm.doc.legs.length === 0) {
+          frappe.msgprint(__('No legs found. Please add legs first.'));
+          return;
+        }
+        
+        let updated = 0;
+        frm.doc.legs.forEach((leg) => {
+          let changed = false;
+          
+          // Apply transport_job_type if parent has it and leg doesn't
+          if (frm.doc.transport_job_type && !leg.transport_job_type) {
+            frappe.model.set_value("Transport Order Legs", leg.name, "transport_job_type", frm.doc.transport_job_type);
+            changed = true;
+          }
+          
+          // Apply vehicle_type if parent has it and leg doesn't
+          if (frm.doc.vehicle_type && !leg.vehicle_type) {
+            frappe.model.set_value("Transport Order Legs", leg.name, "vehicle_type", frm.doc.vehicle_type);
+            changed = true;
+          }
+          
+          if (changed) updated++;
+        });
+        
+        if (updated > 0) {
+          frappe.show_alert({
+            message: __(`Applied parent values to ${updated} leg(s).`),
+            indicator: 'green'
+          });
+        } else {
+          frappe.msgprint(__('All legs already have values or parent values are not set.'));
+        }
+      }, __('Actions'));
+    }
+  },
+  
+  // Auto-fill transport_job_type to all existing legs when parent changes
+  transport_job_type(frm) {
+    if (frm.doc.transport_job_type && frm.doc.legs) {
+      frm.doc.legs.forEach((leg, index) => {
+        if (!leg.transport_job_type) {
+          frappe.model.set_value("Transport Order Legs", leg.name, "transport_job_type", frm.doc.transport_job_type);
+        }
+      });
+    }
+  },
+  
+  // Auto-fill vehicle_type to all existing legs when parent changes
+  vehicle_type(frm) {
+    if (frm.doc.vehicle_type && frm.doc.legs) {
+      frm.doc.legs.forEach((leg, index) => {
+        if (!leg.vehicle_type) {
+          frappe.model.set_value("Transport Order Legs", leg.name, "vehicle_type", frm.doc.vehicle_type);
+        }
+      });
     }
   }
 });
@@ -123,6 +195,9 @@ frappe.ui.form.on("Transport Order Legs", {
   facility_from(frm, cdt, cdn) {
     frappe.model.set_value(cdt, cdn, "pick_address", null);
     frappe.model.set_value(cdt, cdn, "pick_address_html", "");
+    
+    // Auto-fill pick address from facility
+    auto_fill_address_from_facility(cdt, cdn, "pick");
   },
   facility_type_to(frm, cdt, cdn) {
     frappe.model.set_value(cdt, cdn, "drop_address", null);
@@ -131,6 +206,9 @@ frappe.ui.form.on("Transport Order Legs", {
   facility_to(frm, cdt, cdn) {
     frappe.model.set_value(cdt, cdn, "drop_address", null);
     frappe.model.set_value(cdt, cdn, "drop_address_html", "");
+    
+    // Auto-fill drop address from facility
+    auto_fill_address_from_facility(cdt, cdn, "drop");
   },
 
   // When an address is picked, format HTML using ERPNext's formatter
@@ -165,6 +243,45 @@ frappe.ui.form.on("Transport Order Legs", {
         if (!row.scheduled_date && frm.doc.scheduled_date) {
             frappe.model.set_value(cdt, cdn, "scheduled_date", frm.doc.scheduled_date);
         }
+        
+        // Auto-fill transport_job_type from parent
+        if (!row.transport_job_type && frm.doc.transport_job_type) {
+            frappe.model.set_value(cdt, cdn, "transport_job_type", frm.doc.transport_job_type);
+        }
+        
+        // Auto-fill vehicle_type from parent
+        if (!row.vehicle_type && frm.doc.vehicle_type) {
+            frappe.model.set_value(cdt, cdn, "vehicle_type", frm.doc.vehicle_type);
+        }
     }
 });
+
+// Auto-fill address from facility
+function auto_fill_address_from_facility(cdt, cdn, direction) {
+    const row = locals[cdt][cdn];
+    const facility_type = direction === "pick" ? row.facility_type_from : row.facility_type_to;
+    const facility_name = direction === "pick" ? row.facility_from : row.facility_to;
+    const address_field = direction === "pick" ? "pick_address" : "drop_address";
+    const mode_field = direction === "pick" ? "pick_mode" : "drop_mode";
+    
+    if (facility_type && facility_name) {
+        frappe.call({
+            method: "frappe.client.get",
+            args: {
+                doctype: facility_type,
+                name: facility_name
+            },
+            callback: function(r) {
+                if (r && r.message && r.message.address) {
+                    frappe.model.set_value(cdt, cdn, address_field, r.message.address);
+                    frappe.model.set_value(cdt, cdn, mode_field, "Address");
+                    
+                    // Format the address HTML
+                    const html_field = direction === "pick" ? "pick_address_html" : "drop_address_html";
+                    format_row_address_html(cdt, cdn, address_field, html_field);
+                }
+            }
+        });
+    }
+}
 

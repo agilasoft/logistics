@@ -13,6 +13,9 @@
   "customer_ref_no",
   "column_break_5",
   "scheduled_date",
+  "transport_job_type",
+  "container_type",
+  "container_no",
   "vehicle_type",
   "load_type",
   "hazardous",
@@ -171,6 +174,28 @@
    "fieldname": "scheduled_date",
    "fieldtype": "Date",
    "label": "Scheduled Date"
+  },
+  {
+   "fieldname": "transport_job_type",
+   "fieldtype": "Select",
+   "label": "Transport Job Type",
+   "options": "Container\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "mandatory_depends_on": "eval:doc.transport_job_type=='Container'",
+   "options": "Container Type"
+  },
+  {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No.",
+   "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
   },
   {
    "fieldname": "tab_5_tab",

@@ -17,7 +17,12 @@
   "sales_quote",
   "section_break_cvch",
   "items",
-  "connections_tab"
+  "connections_tab",
+  "accounts_tab",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center"
  ],
  "fields": [
   {
@@ -87,6 +92,37 @@
    "label": "Sales Quote",
    "link_filters": "[[\"Sales Quote\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Sales Quote"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center"
   }
  ],
  "grid_page_length": 50,
@@ -124,7 +160,7 @@
    "link_fieldname": "contract"
   }
  ],
- "modified": "2025-10-18 15:20:14.330934",
+ "modified": "2025-10-24 18:41:03.193294",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",

@@ -179,13 +179,15 @@ class WarehouseJob(Document):
                 for ch in self.charges:
                     item_code = getattr(ch, 'item_code', None) or getattr(ch, 'item', None)
                     
-                    # Only auto-fill rates and currency, not quantities
+                    # Only auto-fill rates, currency, and uom, not quantities
                     if item_code and (getattr(ch, 'rate', None) in (None, '') or flt(ch.rate) == 0):
-                        rate, cur = _get_charge_price_from_contract(contract, item_code)
+                        rate, cur, uom = _get_charge_price_from_contract(contract, item_code)
                         if rate is not None:
                             ch.rate = rate
                         if cur and hasattr(ch, 'currency'):
                             ch.currency = cur
+                        if uom and hasattr(ch, 'uom'):
+                            ch.uom = uom
                     
                     # (re)compute total if quantity and rate are available
                     if hasattr(ch, 'total') and getattr(ch, 'quantity', 0) and getattr(ch, 'rate', 0):
@@ -2553,7 +2555,13 @@ class WarehouseJob(Document):
         job_type = (getattr(self, "type", "") or "").strip()
 
         if not getattr(self, "items", None):
-            frappe.throw(_("No items to post to the Warehouse Stock Ledger."))
+            # For Stocktake jobs, allow empty items if populate adjustment has been triggered
+            if job_type == "Stocktake":
+                populate_triggered = getattr(self, "populate_adjustment_triggered", False)
+                if not populate_triggered:
+                    frappe.throw(_("No items to post to the Warehouse Stock Ledger. Either add items manually or use 'Populate Adjustments' button."))
+            else:
+                frappe.throw(_("No items to post to the Warehouse Stock Ledger."))
 
         posting_dt = now_datetime()
 
@@ -2678,28 +2686,28 @@ def _find_customer_contract(customer: str | None) -> str | None:
 
 
 def _get_charge_price_from_contract(contract: str | None, item_code: str | None):
-    """Return (rate, currency) for a charge item from Warehouse Contract Item; None if not found."""
+    """Return (rate, currency, uom) for a charge item from Warehouse Contract Item; None if not found."""
     if not contract or not item_code:
-        return None, None
+        return None, None, None
     row = frappe.get_all(
         "Warehouse Contract Item",
         filters={"parent": contract, "parenttype": "Warehouse Contract", "item_charge": item_code},
-        fields=["rate", "currency"],
+        fields=["rate", "currency", "uom"],
         limit=1,
         ignore_permissions=True,
     )
     if row:
-        return flt(row[0].get("rate") or 0.0), row[0].get("currency")
-    return None, None
+        return flt(row[0].get("rate") or 0.0), row[0].get("currency"), row[0].get("uom")
+    return None, None, None
 
 
 @frappe.whitelist()
 def warehouse_job_fetch_charge_price(warehouse_job: str, item_code: str) -> dict:
-    """Client helper: fetch rate/currency for charge item based on the Job's contract (or customer's)."""
+    """Client helper: fetch rate/currency/uom for charge item based on the Job's contract (or customer's)."""
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     contract = getattr(job, "warehouse_contract", None) or _find_customer_contract(getattr(job, "customer", None))
-    rate, currency = _get_charge_price_from_contract(contract, item_code)
-    return {"rate": flt(rate or 0.0), "currency": currency}
+    rate, currency, uom = _get_charge_price_from_contract(contract, item_code)
+    return {"rate": flt(rate or 0.0), "currency": currency, "uom": uom}
 
 
 @frappe.whitelist()
@@ -4179,4 +4187,67 @@ def post_standard_costs(warehouse_job: str) -> dict:
         return {
             "ok": False,
             "message": f"Error creating journal entry: {str(e)}"
+        }
+
+
+@frappe.whitelist()
+def get_contract_charge_items(warehouse_contract: str, context: str = None) -> dict:
+    """Get all allowed charge items from a warehouse contract for a specific context."""
+    try:
+        if not warehouse_contract:
+            return {"ok": False, "message": "Warehouse contract is required"}
+        
+        # Build filters based on context
+        filters = {
+            "parent": warehouse_contract,
+            "parenttype": "Warehouse Contract"
+        }
+        
+        # Add context-specific filters
+        if context:
+            context = context.lower().strip()
+            if context == "inbound":
+                filters["inbound_charge"] = 1
+            elif context == "outbound":
+                filters["outbound_charge"] = 1
+            elif context == "transfer":
+                filters["transfer_charge"] = 1
+            elif context == "vas":
+                filters["vas_charge"] = 1
+            elif context == "storage":
+                filters["storage_charge"] = 1
+            elif context == "stocktake":
+                filters["stocktake_charge"] = 1
+        
+        # Get contract items
+        contract_items = frappe.get_all(
+            "Warehouse Contract Item",
+            filters=filters,
+            fields=[
+                "item_charge",
+                "item_name",
+                "rate",
+                "currency",
+                "uom",
+                "inbound_charge",
+                "outbound_charge", 
+                "transfer_charge",
+                "vas_charge",
+                "storage_charge",
+                "stocktake_charge"
+            ],
+            order_by="item_charge"
+        )
+        
+        return {
+            "ok": True,
+            "items": contract_items,
+            "count": len(contract_items)
+        }
+        
+    except Exception as e:
+        frappe.logger().error(f"Error getting contract charge items: {str(e)}")
+        return {
+            "ok": False,
+            "message": f"Error retrieving contract items: {str(e)}"
         }

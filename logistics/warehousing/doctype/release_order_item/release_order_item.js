@@ -1,7 +1,7 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('VAS Order Item', {
+frappe.ui.form.on('Release Order Item', {
     refresh: function(frm) {
         update_uom_fields(frm);
     },

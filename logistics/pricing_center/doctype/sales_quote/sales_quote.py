@@ -38,6 +38,7 @@ class SalesQuote(Document):
 			transport_order.transport_template = getattr(self, 'transport_template', None)
 			transport_order.load_type = self.load_type
 			transport_order.vehicle_type = self.vehicle_type
+			transport_order.transport_job_type = getattr(self, 'transport_job_type', None)
 			transport_order.company = self.company
 			transport_order.branch = self.branch
 			transport_order.cost_center = self.cost_center
@@ -113,6 +114,66 @@ class SalesQuote(Document):
 			)
 			frappe.throw(f"Error creating Transport Order: {str(e)}")
 
+	@frappe.whitelist()
+	def create_warehouse_contract_from_sales_quote(self):
+		"""
+		Create a Warehouse Contract from a Sales Quote when the quote is submitted and has warehousing items.
+		
+		Returns:
+			dict: Result with created Warehouse Contract name and status
+		"""
+		try:
+			# Check if the quote is submitted
+			if self.docstatus != 1:
+				frappe.throw(_("This Sales Quote must be submitted before creating a Warehouse Contract."))
+			
+			# Check if Sales Quote has warehousing details
+			if not self.warehousing:
+				frappe.throw(_("No warehousing details found in this Sales Quote."))
+			
+			# Create new Warehouse Contract
+			warehouse_contract = frappe.new_doc("Warehouse Contract")
+			
+			# Map basic fields from Sales Quote to Warehouse Contract
+			warehouse_contract.customer = self.customer
+			warehouse_contract.date = today()
+			warehouse_contract.valid_until = self.valid_until
+			warehouse_contract.site = self.site
+			warehouse_contract.sales_quote = self.name
+			warehouse_contract.company = self.company
+			warehouse_contract.branch = self.branch
+			warehouse_contract.profit_center = self.profit_center
+			warehouse_contract.cost_center = self.cost_center
+			
+			# Insert the Warehouse Contract
+			warehouse_contract.insert(ignore_permissions=True)
+			
+			# Import rates from Sales Quote using the existing function
+			from logistics.warehousing.doctype.warehouse_contract.warehouse_contract import get_rates_from_sales_quote
+			get_rates_from_sales_quote(warehouse_contract.name, self.name)
+			
+			# Prepare success message
+			success_msg = f"Warehouse Contract {warehouse_contract.name} created successfully from Sales Quote {self.name}"
+			
+			frappe.msgprint(
+				success_msg,
+				title="Warehouse Contract Created",
+				indicator="green"
+			)
+			
+			return {
+				"success": True,
+				"message": f"Warehouse Contract {warehouse_contract.name} created successfully.",
+				"warehouse_contract": warehouse_contract.name
+			}
+			
+		except Exception as e:
+			frappe.log_error(
+				f"Error creating Warehouse Contract from Sales Quote {self.name}: {str(e)}",
+				"Sales Quote to Warehouse Contract Creation Error"
+			)
+			frappe.throw(f"Error creating Warehouse Contract: {str(e)}")
+
 
 @frappe.whitelist()
 def create_transport_order_from_sales_quote(sales_quote_name):
@@ -122,6 +183,16 @@ def create_transport_order_from_sales_quote(sales_quote_name):
 	"""
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
 	return sales_quote.create_transport_order_from_sales_quote()
+
+
+@frappe.whitelist()
+def create_warehouse_contract_from_sales_quote(sales_quote_name):
+	"""
+	Standalone function to create Warehouse Contract from Sales Quote.
+	This function can be called from JavaScript.
+	"""
+	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	return sales_quote.create_warehouse_contract_from_sales_quote()
 
 
 def _populate_charges_from_sales_quote(transport_order, sales_quote):

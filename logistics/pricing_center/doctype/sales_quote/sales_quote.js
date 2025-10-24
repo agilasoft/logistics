@@ -20,6 +20,23 @@ frappe.ui.form.on("Sales Quote", {
 				}
 			});
 		}
+		
+		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items
+		if (frm.doc.docstatus === 1 && frm.doc.warehousing && frm.doc.warehousing.length > 0 && !frm.doc.__islocal) {
+			frm.add_custom_button(__("Create Warehouse Contract"), function() {
+				create_warehouse_contract_from_sales_quote(frm);
+			}, __("Create"));
+			
+			// Also add a button to view existing Warehouse Contracts if any exist
+			frappe.db.get_value("Warehouse Contract", {"sales_quote": frm.doc.name}, "name", function(r) {
+				if (r && r.name) {
+					frm.add_custom_button(__("View Warehouse Contracts"), function() {
+						frappe.route_options = {"sales_quote": frm.doc.name};
+						frappe.set_route("List", "Warehouse Contract");
+					}, __("View"));
+				}
+			});
+		}
 	},
 });
 
@@ -69,6 +86,60 @@ function create_transport_order_from_sales_quote(frm) {
 					frappe.msgprint({
 						title: __("Error"),
 						message: __("Failed to create Transport Order. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+	);
+}
+
+function create_warehouse_contract_from_sales_quote(frm) {
+	// Show confirmation dialog
+	frappe.confirm(
+		__("Are you sure you want to create a Warehouse Contract from this Sales Quote?"),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Creating Warehouse Contract..."));
+			
+			// Call the server method
+			frappe.call({
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_warehouse_contract_from_sales_quote",
+				args: {
+					sales_quote_name: frm.doc.name
+				},
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					
+					if (r.message && r.message.success) {
+						// Show success message
+						frappe.msgprint({
+							title: __("Warehouse Contract Created"),
+							message: __("Warehouse Contract {0} has been created successfully.", [r.message.warehouse_contract]),
+							indicator: "green"
+						});
+						
+						// Open the created Warehouse Contract
+						frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+					} else if (r.message && r.message.message) {
+						// Show info message
+						frappe.msgprint({
+							title: __("Information"),
+							message: r.message.message,
+							indicator: "blue"
+						});
+						
+						// Open existing Warehouse Contract if available
+						if (r.message.warehouse_contract) {
+							frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+						}
+					}
+				},
+				error: function(r) {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to create Warehouse Contract. Please try again."),
 						indicator: "red"
 					});
 				}

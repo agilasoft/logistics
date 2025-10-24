@@ -1,11 +1,132 @@
 from __future__ import annotations
 from .common import *  # shared helpers
-from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level  # explicit imports
+from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs  # explicit imports
 from .capacity_management import CapacityManager, CapacityValidationError
 
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
+
+def _validate_storage_type_restrictions(item: str, company: Optional[str], branch: Optional[str]) -> Dict[str, Any]:
+    """Validate storage type restrictions for an item and return detailed information about available locations.
+    
+    Args:
+        item: Item code to validate
+        company: Company filter
+        branch: Branch filter
+        
+    Returns:
+        Dict with validation results including available locations and detailed error messages
+    """
+    try:
+        # Get item's storage type preferences
+        preferred_storage_type, allowed_storage_types = _get_item_storage_type_prefs(item)
+        
+        # Get all available storage locations (without storage type filtering first)
+        slf = _sl_fields()
+        status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
+        
+        all_locations = frappe.db.sql(
+            f"""
+            SELECT sl.name AS location,
+                   sl.storage_type,
+                   st.description AS storage_type_description,
+                   sl.company,
+                   sl.branch
+            FROM `tabStorage Location` sl
+            LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
+            WHERE IFNULL(sl.staging_area, 0) = 0
+              {status_filter}
+              AND (%s IS NULL OR sl.company = %s)
+              AND (%s IS NULL OR sl.branch = %s)
+            ORDER BY sl.name ASC
+            """,
+            (company, company, branch, branch),
+            as_dict=True,
+        ) or []
+        
+        # Filter locations by storage type restrictions
+        valid_locations = []
+        invalid_locations = []
+        
+        for loc in all_locations:
+            storage_type = loc.get("storage_type")
+            if not storage_type:
+                invalid_locations.append({
+                    "location": loc["location"],
+                    "reason": "No storage type assigned",
+                    "storage_type": None
+                })
+                continue
+                
+            # Check if storage type is allowed
+            if allowed_storage_types:
+                if storage_type in allowed_storage_types:
+                    valid_locations.append(loc)
+                else:
+                    invalid_locations.append({
+                        "location": loc["location"],
+                        "reason": f"Storage type '{storage_type}' not in allowed types",
+                        "storage_type": storage_type,
+                        "allowed_types": allowed_storage_types
+                    })
+            elif preferred_storage_type:
+                if storage_type == preferred_storage_type:
+                    valid_locations.append(loc)
+                else:
+                    invalid_locations.append({
+                        "location": loc["location"],
+                        "reason": f"Storage type '{storage_type}' does not match preferred type '{preferred_storage_type}'",
+                        "storage_type": storage_type,
+                        "preferred_type": preferred_storage_type
+                    })
+            else:
+                # No storage type restrictions - all locations are valid
+                valid_locations.append(loc)
+        
+        # Generate detailed error message if no valid locations found
+        error_details = []
+        if not valid_locations:
+            if allowed_storage_types:
+                error_details.append(f"Item '{item}' requires storage types: {', '.join(allowed_storage_types)}")
+            elif preferred_storage_type:
+                error_details.append(f"Item '{item}' requires storage type: {preferred_storage_type}")
+            
+            if invalid_locations:
+                error_details.append(f"Found {len(invalid_locations)} locations with incompatible storage types:")
+                for inv_loc in invalid_locations[:5]:  # Show first 5 examples
+                    error_details.append(f"  - {inv_loc['location']}: {inv_loc['reason']}")
+                if len(invalid_locations) > 5:
+                    error_details.append(f"  ... and {len(invalid_locations) - 5} more locations")
+            
+            # Check if there are any locations at all
+            if not all_locations:
+                error_details.append("No storage locations found in the specified company/branch scope")
+            elif len(all_locations) > 0:
+                error_details.append(f"Total locations available: {len(all_locations)}, but none match storage type requirements")
+        
+        return {
+            "valid": len(valid_locations) > 0,
+            "valid_locations": valid_locations,
+            "invalid_locations": invalid_locations,
+            "total_locations": len(all_locations),
+            "error_details": error_details,
+            "item_storage_requirements": {
+                "preferred_storage_type": preferred_storage_type,
+                "allowed_storage_types": allowed_storage_types
+            }
+        }
+        
+    except Exception as e:
+        frappe.logger().error(f"Error validating storage type restrictions for item {item}: {str(e)}")
+        return {
+            "valid": False,
+            "error": f"Validation error: {str(e)}",
+            "valid_locations": [],
+            "invalid_locations": [],
+            "total_locations": 0,
+            "error_details": [f"Validation failed: {str(e)}"]
+        }
 
 def _dest_loc_fieldname_for_putaway() -> str:
     jf = _safe_meta_fieldnames("Warehouse Job Item")
@@ -21,10 +142,27 @@ def _putaway_candidate_locations(
 ) -> List[Dict[str, Any]]:
     """Return candidate locations preferring consolidation bins first, then others.
        Excludes staging locations and honors status filters.
-       Now includes comprehensive capacity validation with improved fallback logic."""
+       Now includes comprehensive capacity validation with improved fallback logic.
+       STRICTLY validates allowed_storage_type for items."""
     exclude_locations = exclude_locations or []
     slf = _sl_fields()
     status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
+
+    # Get item's allowed storage types for strict validation
+    preferred_storage_type, allowed_storage_types = _get_item_storage_type_prefs(item)
+    
+    # Build storage type filter for SQL queries
+    storage_type_filter = ""
+    storage_type_params = []
+    if allowed_storage_types:
+        # Only allow locations with storage types that are in the item's allowed list
+        placeholders = ", ".join(["%s"] * len(allowed_storage_types))
+        storage_type_filter = f"AND sl.storage_type IN ({placeholders})"
+        storage_type_params = allowed_storage_types
+    elif preferred_storage_type:
+        # If no allowed types but has preferred, use preferred type
+        storage_type_filter = "AND sl.storage_type = %s"
+        storage_type_params = [preferred_storage_type]
 
     # Consolidation bins that already contain this item (not staging)
     # Build parameters correctly
@@ -32,13 +170,15 @@ def _putaway_candidate_locations(
     if exclude_locations:
         params.extend(exclude_locations)
     params.extend([company, company, branch, branch])
+    params.extend(storage_type_params)  # Add storage type parameters
     
     cons = frappe.db.sql(
         f"""
         SELECT l.storage_location AS location,
                IFNULL(sl.bin_priority, 999999) AS bin_priority,
                IFNULL(st.picking_rank, 999999) AS storage_type_rank,
-               SUM(l.quantity) AS current_quantity
+               SUM(l.quantity) AS current_quantity,
+               sl.storage_type
         FROM `tabWarehouse Stock Ledger` l
         INNER JOIN `tabStorage Location` sl ON sl.name = l.storage_location
         LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
@@ -48,7 +188,8 @@ def _putaway_candidate_locations(
           {("AND l.storage_location NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""}
           AND (%s IS NULL OR sl.company = %s)
           AND (%s IS NULL OR sl.branch  = %s)
-        GROUP BY l.storage_location, sl.bin_priority, st.picking_rank
+          {storage_type_filter}
+        GROUP BY l.storage_location, sl.bin_priority, st.picking_rank, sl.storage_type
         HAVING SUM(l.quantity) > 0
         ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
         """,
@@ -63,6 +204,7 @@ def _putaway_candidate_locations(
     if exclude_locations:
         others_params.extend(exclude_locations)
     others_params.extend([company, company, branch, branch])
+    others_params.extend(storage_type_params)  # Add storage type parameters
     
     # Build the NOT IN clause for consolidation locations
     cons_exclusion = ""
@@ -75,7 +217,8 @@ def _putaway_candidate_locations(
         SELECT sl.name AS location,
                IFNULL(sl.bin_priority, 999999) AS bin_priority,
                IFNULL(st.picking_rank, 999999) AS storage_type_rank,
-               0 AS current_quantity
+               0 AS current_quantity,
+               sl.storage_type
         FROM `tabStorage Location` sl
         LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
         WHERE IFNULL(sl.staging_area, 0) = 0
@@ -83,6 +226,7 @@ def _putaway_candidate_locations(
           {("AND sl.name NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""}
           AND (%s IS NULL OR sl.company = %s)
           AND (%s IS NULL OR sl.branch  = %s)
+          {storage_type_filter}
           {cons_exclusion}
         ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
         """,
@@ -146,6 +290,84 @@ def _putaway_candidate_locations(
         return fallback_candidates[:5]  # Return top 5 fallback candidates
     
     return validated_candidates
+
+
+def _get_storage_type_validation_summary(items: List[str], company: Optional[str], branch: Optional[str]) -> Dict[str, Any]:
+    """Get a summary of storage type validation for multiple items.
+    
+    Args:
+        items: List of item codes to validate
+        company: Company filter
+        branch: Branch filter
+        
+    Returns:
+        Dict with validation summary including overall status and detailed results
+    """
+    summary = {
+        "overall_valid": True,
+        "total_items": len(items),
+        "valid_items": 0,
+        "invalid_items": 0,
+        "item_results": {},
+        "common_issues": [],
+        "recommendations": []
+    }
+    
+    # Track common storage types and issues
+    all_storage_types = set()
+    common_issues = {}
+    
+    for item in items:
+        validation_result = _validate_storage_type_restrictions(item, company, branch)
+        summary["item_results"][item] = validation_result
+        
+        if validation_result["valid"]:
+            summary["valid_items"] += 1
+        else:
+            summary["invalid_items"] += 1
+            summary["overall_valid"] = False
+            
+            # Track common issues
+            for error_detail in validation_result["error_details"]:
+                if error_detail not in common_issues:
+                    common_issues[error_detail] = 0
+                common_issues[error_detail] += 1
+        
+        # Collect storage types from valid locations
+        for loc in validation_result.get("valid_locations", []):
+            if loc.get("storage_type"):
+                all_storage_types.add(loc["storage_type"])
+    
+    # Generate recommendations
+    if not summary["overall_valid"]:
+        summary["common_issues"] = sorted(common_issues.items(), key=lambda x: x[1], reverse=True)
+        
+        if len(all_storage_types) > 0:
+            summary["recommendations"].append(f"Consider creating storage locations with these types: {', '.join(sorted(all_storage_types))}")
+        
+        # Check if items have conflicting storage type requirements
+        item_requirements = {}
+        for item, result in summary["item_results"].items():
+            if not result["valid"]:
+                req = result.get("item_storage_requirements", {})
+                allowed = req.get("allowed_storage_types", [])
+                preferred = req.get("preferred_storage_type")
+                
+                if allowed:
+                    item_requirements[item] = {"type": "allowed", "values": allowed}
+                elif preferred:
+                    item_requirements[item] = {"type": "preferred", "values": [preferred]}
+        
+        # Check for conflicts
+        if len(item_requirements) > 1:
+            all_required_types = set()
+            for req in item_requirements.values():
+                all_required_types.update(req["values"])
+            
+            if len(all_required_types) > len(set().union(*[req["values"] for req in item_requirements.values()])):
+                summary["recommendations"].append("Items have conflicting storage type requirements. Consider reviewing item storage type configurations.")
+    
+    return summary
 
 
 def _select_dest_for_hu_with_capacity_validation(
@@ -467,17 +689,36 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 dest = emergency_dest
 
         if not dest:
-            # Additional debugging: check what locations are actually available
-            debug_candidates = _putaway_candidate_locations(
-                item=rep_item, company=company, branch=branch,
-                exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
-            )
-            frappe.logger().error(f"Failed to find destination for HU {hu} with item {rep_item}")
-            frappe.logger().error(f"Debug: Found {len(debug_candidates)} total candidates")
-            if debug_candidates:
-                frappe.logger().error(f"Debug: Available locations: {[c['location'] for c in debug_candidates[:5]]}")
+            # Perform detailed storage type validation to provide specific error messages
+            validation_result = _validate_storage_type_restrictions(rep_item, company, branch)
             
-            warnings.append(_("HU {0}: no destination location available in scope.").format(hu))
+            if not validation_result["valid"]:
+                # Generate detailed error message with storage type restrictions
+                error_msg = f"HU {hu}: No storage location found for item {rep_item}. "
+                error_msg += " ".join(validation_result["error_details"])
+                
+                # Add storage type requirements to the message
+                requirements = validation_result.get("item_storage_requirements", {})
+                if requirements.get("allowed_storage_types"):
+                    error_msg += f" Item requires storage types: {', '.join(requirements['allowed_storage_types'])}"
+                elif requirements.get("preferred_storage_type"):
+                    error_msg += f" Item requires storage type: {requirements['preferred_storage_type']}"
+                
+                warnings.append(error_msg)
+                frappe.logger().error(f"Storage type validation failed for HU {hu}: {error_msg}")
+            else:
+                # Storage type validation passed but still no destination found
+                # This could be due to capacity constraints or other factors
+                debug_candidates = _putaway_candidate_locations(
+                    item=rep_item, company=company, branch=branch,
+                    exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
+                )
+                frappe.logger().error(f"Failed to find destination for HU {hu} with item {rep_item}")
+                frappe.logger().error(f"Debug: Found {len(debug_candidates)} total candidates")
+                if debug_candidates:
+                    frappe.logger().error(f"Debug: Available locations: {[c['location'] for c in debug_candidates[:5]]}")
+                
+                warnings.append(_("HU {0}: no destination location available in scope (capacity or other constraints).").format(hu))
             continue
 
         # mark used to avoid assigning the same location to a different HU
@@ -523,8 +764,8 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
 @frappe.whitelist()
 def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
-    """Prepare putaway rows from Orders with HU anchoring & allocation-level rules."""
-    print(f"=== ALLOCATE PUTAWAY STARTED for job {warehouse_job} ===")
+    """Prepare putaway rows from Orders with HU anchoring & allocation-level rules.
+    Now includes strict storage type validation with detailed error messages."""
     frappe.logger().info(f"=== ALLOCATE PUTAWAY STARTED for job {warehouse_job} ===")
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     if (job.type or "").strip() != "Putaway":
@@ -534,13 +775,47 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
     job.set("items", [])
     job.save(ignore_permissions=True)
     frappe.db.commit()
-    print(f"Cleared existing items from job {warehouse_job}")
     frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
-    print(f"Job type: {job.type}, Staging area: {getattr(job, 'staging_area', None)}")
     frappe.logger().info(f"Job type: {job.type}, Staging area: {getattr(job, 'staging_area', None)}")
+    
+    # Pre-validate storage type restrictions for all items in the job
+    company, branch = _get_job_scope(job)
+    orders = _fetch_job_order_items(job.name)
+    
+    # Check storage type restrictions for all unique items
+    storage_type_warnings = []
+    unique_items = list(set(order.get("item") for order in orders if order.get("item")))
+    
+    if unique_items:
+        # Get comprehensive validation summary
+        validation_summary = _get_storage_type_validation_summary(unique_items, company, branch)
+        
+        if not validation_summary["overall_valid"]:
+            # Add summary warning
+            summary_msg = f"Storage type validation failed for {validation_summary['invalid_items']}/{validation_summary['total_items']} items"
+            storage_type_warnings.append(summary_msg)
+            
+            # Add detailed warnings for each invalid item
+            for item, result in validation_summary["item_results"].items():
+                if not result["valid"]:
+                    error_msg = f"Item {item}: {'. '.join(result['error_details'])}"
+                    storage_type_warnings.append(error_msg)
+                    frappe.logger().warning(f"Storage type validation failed for item {item}: {error_msg}")
+            
+            # Add recommendations if available
+            if validation_summary["recommendations"]:
+                for rec in validation_summary["recommendations"]:
+                    storage_type_warnings.append(f"Recommendation: {rec}")
+                    frappe.logger().info(f"Storage type recommendation: {rec}")
+        else:
+            frappe.logger().info(f"Storage type validation passed for all {len(unique_items)} items")
+    
     created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
-    print(f"=== ALLOCATE PUTAWAY COMPLETED: {created_rows} rows, {created_qty} qty ===")
+    
+    # Add storage type warnings to the main warnings list
+    warnings.extend(storage_type_warnings)
+    
     frappe.logger().info(f"=== ALLOCATE PUTAWAY COMPLETED: {created_rows} rows, {created_qty} qty ===")
 
     # Save items directly to database without triggering hooks
@@ -625,7 +900,6 @@ def allocate_vas_putaway(warehouse_job: str):
     job.set("items", [])
     job.save(ignore_permissions=True)
     frappe.db.commit()
-    print(f"Cleared existing items from job {warehouse_job}")
     frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
     # Delegate to HU-anchored allocator (it already handles warnings)

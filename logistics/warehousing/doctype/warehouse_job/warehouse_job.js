@@ -1,8 +1,21 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+
 frappe.ui.form.on('Warehouse Job', {
+    warehouse_contract: function(frm) {
+        // Refresh charges table when warehouse contract changes
+        if (frm.doc.warehouse_contract) {
+            frm.refresh_field('charges');
+            frappe.show_alert({
+                message: __('Charge list updated based on new warehouse contract'),
+                indicator: 'green'
+            });
+        }
+    },
+    
     onload: function(frm) {
+        
         // Load dashboard HTML when document is loaded
         if (frm.doc.name) {
             // Check if this is an unsaved job
@@ -477,7 +490,7 @@ function allocate_items(frm) {
                         let html_message = `
                             <div style="padding: 15px; font-size: 14px;">
                                 <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
-                                    <strong>Allocation Successful!</strong>
+                                    <strong>Allocation Completed</strong>
                                 </p>
                                 <p style="text-align: center; margin-bottom: 15px;">${message}</p>
                                 <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
