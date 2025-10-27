@@ -41,17 +41,9 @@ def setup_portal_menu_items():
     else:
         print("ℹ️ Transport Jobs portal menu item already exists")
     
-    # Add Stock Balance portal menu item if not exists
-    if "Stock Balance" not in existing_titles:
-        portal_settings.append("portal_menu_items", {
-            "title": "Stock Balance",
-            "route": "/warehousing-portal",
-            "reference_doctype": "Stock Ledger Entry",
-            "icon": "fa fa-warehouse"
-        })
-        print("✅ Stock Balance portal menu item added")
-    else:
-        print("ℹ️ Stock Balance portal menu item already exists")
+    # Stock Balance is already defined in hooks.py
+    # No need to add it here to avoid duplicates
+    print("ℹ️ Stock Balance menu item is managed by hooks.py")
     
     # Save the portal settings
     portal_settings.save(ignore_permissions=True)

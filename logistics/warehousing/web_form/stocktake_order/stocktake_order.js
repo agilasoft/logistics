@@ -4,7 +4,7 @@ frappe.ready(function() {
 	
 	// Add click handler
 	returnButton.click(function() {
-		window.location.href = '/inbound-orders';
+		window.location.href = '/stocktake-orders';
 	});
 	
 	// Insert the button after the page title

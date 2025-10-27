@@ -29,14 +29,9 @@ def add_portal_items_to_settings():
         })
         print("✅ Transport Jobs menu item added")
         
-        # Add Stock Balance
-        portal_settings.append("menu", {
-            "title": "Stock Balance", 
-            "route": "/stock-balance",
-            "reference_doctype": "Item",
-            "icon": "fa fa-warehouse"
-        })
-        print("✅ Stock Balance menu item added")
+        # Stock Balance is already defined in hooks.py
+        # No need to add it here to avoid duplicates
+        print("ℹ️ Stock Balance menu item is managed by hooks.py")
         
         # Save the settings
         portal_settings.save(ignore_permissions=True)

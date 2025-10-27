@@ -21,18 +21,9 @@ def create_portal_menu_items():
     else:
         print("ℹ️ Transport Jobs portal menu item already exists")
     
-    # Create Stock Balance portal menu item
-    if not frappe.db.exists("Portal Menu Item", "Stock Balance"):
-        frappe.get_doc({
-            "doctype": "Portal Menu Item",
-            "title": "Stock Balance",
-            "route": "/warehousing-portal",
-            "reference_doctype": "Stock Ledger Entry",
-            "icon": "fa fa-warehouse"
-        }).insert(ignore_permissions=True)
-        print("✅ Stock Balance portal menu item created")
-    else:
-        print("ℹ️ Stock Balance portal menu item already exists")
+    # Stock Balance is already defined in hooks.py
+    # No need to add it here to avoid duplicates
+    print("ℹ️ Stock Balance menu item is managed by hooks.py")
     
     frappe.db.commit()
     print("✅ Portal menu items created successfully")

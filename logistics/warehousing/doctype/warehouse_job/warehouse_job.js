@@ -844,7 +844,7 @@ function populate_stocktake_adjustments(frm) {
         __('This will populate stocktake adjustments. Continue?'),
         function() {
       frappe.call({
-                method: 'logistics.warehousing.api.populate_stocktake_adjustments',
+                method: 'logistics.warehousing.api_parts.stocktake.populate_stocktake_adjustments',
         args: {
           warehouse_job: frm.doc.name,
                     clear_existing: 1

@@ -248,20 +248,13 @@ function update_uom_fields(frm, cdt, cdn) {
 }
 
 function calculate_volume(frm, cdt, cdn) {
-    console.log('calculate_volume called for', cdt, cdn);
     const doc = frappe.get_doc(cdt, cdn);
     const length = parseFloat(doc.length) || 0;
     const width = parseFloat(doc.width) || 0;
     const height = parseFloat(doc.height) || 0;
     
-    console.log('Dimensions:', {length, width, height});
-    
     if (length > 0 && width > 0 && height > 0) {
         const volume = length * width * height;
-        console.log('Calculated volume:', volume);
         frappe.model.set_value(cdt, cdn, 'volume', volume);
-        console.log('Volume set to:', volume);
-    } else {
-        console.log('Not all dimensions provided');
     }
 }

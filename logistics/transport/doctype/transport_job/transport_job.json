@@ -36,9 +36,11 @@
   "entity_tab",
   "company",
   "branch",
+  "profit_center",
+  "cost_center",
   "column_break_xphe",
   "job_costing_number",
-  "sales_invoice"
+  "connections_tab"
  ],
  "fields": [
   {
@@ -232,15 +234,46 @@
    "options": "Job Costing Number"
   },
   {
-   "fieldname": "sales_invoice",
+   "fieldname": "profit_center",
    "fieldtype": "Link",
-   "label": "Sales Invoice",
-   "options": "Sales Invoice"
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "is_submittable": 1,
- "links": [],
- "modified": "2025-10-14 10:31:33.351855",
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  },
+  {
+   "group": "Accounts",
+   "link_doctype": "Job Costing Number",
+   "link_fieldname": "job_no"
+  },
+  {
+   "group": "Operations",
+   "link_doctype": "Transport Leg",
+   "link_fieldname": "transport_job"
+  }
+ ],
+ "modified": "2025-10-25 09:45:34.609167",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
