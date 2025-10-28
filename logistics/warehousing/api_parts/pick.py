@@ -1,5 +1,6 @@
 from __future__ import annotations
 from .common import *  # shared helpers
+from .common import _get_job_scope, _fetch_job_order_items, _get_allocation_level_limit, _get_item_rules, _query_available_candidates, _filter_locations_by_level, _greedy_allocate, _order_candidates, _append_job_items, _posting_datetime, _row_is_already_posted, _validate_status_for_action, _insert_ledger_entry, _mark_row_posted, _maybe_set_staging_area_on_row, _set_sl_status_by_balance, _set_hu_status_by_balance
 
 import frappe
 from frappe import _
@@ -11,6 +12,13 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     if (job.type or "").strip() != "Pick":
         frappe.throw(_("Allocate Picks can only run for Warehouse Job Type = Pick."))
+
+    # Clear existing items before allocation
+    job.set("items", [])
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(f"Cleared existing items from job {warehouse_job}")
+    frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
     company, branch = _get_job_scope(job)
     jo_items = _fetch_job_order_items(job.name)

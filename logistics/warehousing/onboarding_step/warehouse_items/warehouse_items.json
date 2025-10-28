@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Warehouse Items",
+ "creation": "2025-10-18 12:10:28.447776",
+ "description": "Warehouse Items define the specific products and materials stored in your warehouse with their handling characteristics, storage preferences, and operational rules. Configure item codes, dimensions, weight, tracking requirements, putaway policies, and picking preferences for optimal warehouse operations.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:29:52.581064",
+ "modified_by": "Administrator",
+ "name": "Warehouse Items",
+ "owner": "Administrator",
+ "reference_document": "Warehouse Item",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Set Up Warehouse Items",
+ "validate_action": 1
+}

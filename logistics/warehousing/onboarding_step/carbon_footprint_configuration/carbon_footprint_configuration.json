@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Carbon Footprint",
+ "creation": "2025-10-18 12:32:44.260683",
+ "description": "Carbon Footprint tracking provides environmental impact monitoring for warehouse operations. Configure emission factors, carbon calculations, sustainability metrics, and green certifications to measure and reduce environmental impact while ensuring compliance with environmental regulations.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:32:44.260683",
+ "modified_by": "Administrator",
+ "name": "Carbon Footprint Configuration",
+ "owner": "Administrator",
+ "reference_document": "Carbon Footprint",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Set Up Carbon Footprint Tracking",
+ "validate_action": 1
+}

@@ -1,0 +1,267 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-25 10:14:53.730375",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "column_break_jbbp",
+  "use_tariff_in_revenue",
+  "use_tariff_in_cost",
+  "tariff",
+  "section_break_yyll",
+  "revenue_column",
+  "calculation_method",
+  "quantity",
+  "uom",
+  "currency",
+  "unit_rate",
+  "unit_type",
+  "minimum_quantity",
+  "minimum_charge",
+  "maximum_charge",
+  "base_amount",
+  "estimated_revenue",
+  "column_break_pndm",
+  "cost_calculation_method",
+  "cost_quantity",
+  "cost_uom",
+  "cost_currency",
+  "unit_cost",
+  "cost_unit_type",
+  "cost_minimum_quantity",
+  "cost_minimum_charge",
+  "cost_maximum_charge",
+  "cost_base_amount",
+  "estimated_cost",
+  "calculation_notes_section",
+  "revenue_calc_notes",
+  "column_break_crci",
+  "cost_calc_notes"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "column_break_jbbp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_yyll",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "revenue_column",
+   "fieldtype": "Column Break",
+   "label": "Revenue"
+  },
+  {
+   "columns": 1,
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "label": "Unit Rate"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
+   "fieldname": "minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\"",
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Revenue"
+  },
+  {
+   "fieldname": "column_break_pndm",
+   "fieldtype": "Column Break",
+   "label": "Cost"
+  },
+  {
+   "fieldname": "cost_calculation_method",
+   "fieldtype": "Select",
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
+  },
+  {
+   "fieldname": "cost_quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "cost_uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "cost_currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "unit_cost",
+   "fieldtype": "Currency",
+   "label": "Unit Cost"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
+   "fieldname": "cost_unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
+   "fieldname": "cost_minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
+   "fieldname": "cost_minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
+   "fieldname": "cost_maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\"",
+   "fieldname": "cost_base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Cost"
+  },
+  {
+   "fieldname": "calculation_notes_section",
+   "fieldtype": "Section Break",
+   "label": "Calculation Notes"
+  },
+  {
+   "fieldname": "revenue_calc_notes",
+   "fieldtype": "Long Text",
+   "label": "Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_crci",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_calc_notes",
+   "fieldtype": "Long Text",
+   "label": "Cost",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "use_tariff_in_revenue",
+   "fieldtype": "Check",
+   "label": "Use Tariff in Revenue"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_tariff_in_cost",
+   "fieldtype": "Check",
+   "label": "Use Tariff in Cost"
+  },
+  {
+   "depends_on": "eval:doc.use_tariff_in_revenue || doc.use_tariff_in_cost",
+   "fieldname": "tariff",
+   "fieldtype": "Link",
+   "label": "Tariff",
+   "options": "Tariff"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-10-25 10:19:18.499790",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Transport Order Charges",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

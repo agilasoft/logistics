@@ -8,6 +8,33 @@ import json
 from frappe.utils import get_datetime, now
 from typing import TypedDict
 
+def _get_default_currency(company: Optional[str] = None) -> str:
+    """Get default currency for company or system default from ERPNext."""
+    try:
+        if company:
+            # Get currency from ERPNext Company
+            currency = frappe.db.get_value("Company", company, "default_currency")
+            if currency:
+                return currency
+        
+        # Fallback to system default currency from Global Defaults
+        currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+        if currency:
+            return currency
+            
+        # Final fallback - get first company's currency
+        first_company = frappe.db.get_value("Company", filters={"enabled": 1}, fieldname="name")
+        if first_company:
+            currency = frappe.db.get_value("Company", first_company, "default_currency")
+            if currency:
+                return currency
+                
+        # Ultimate fallback
+        return "USD"
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get default currency: {str(e)}")
+        return "USD"
+
 def _hu_location_fields() -> List[str]:
     """Return plausible location fieldnames present on Handling Unit."""
     hf = _safe_meta_fieldnames("Handling Unit")
@@ -91,6 +118,15 @@ def _get_allocation_level_limit() -> Optional[str]:
         return val or None
     except Exception:
         return None
+
+def _get_allow_emergency_fallback() -> bool:
+    """Return True if emergency fallback is allowed in Warehouse Settings, else False."""
+    try:
+        company = frappe.defaults.get_user_default("Company")
+        val = frappe.db.get_value("Warehouse Settings", company, "allow_emergency_fallback")
+        return bool(val)
+    except Exception:
+        return False
 
 def _level_path_for_location(location: Optional[str]) -> Dict[str, Optional[str]]:
     """Return {field: value} for hierarchical level fields that exist."""
@@ -909,8 +945,14 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
     ch_rows,   charges_fieldname = _get_child_rows(job, "Warehouse Job Charges", fallback_fieldname="charges")
 
     if on_submit:
-        if not item_rows:
+        # For Stocktake jobs, allow empty items if populate adjustment has been triggered
+        if not item_rows and job_type != "Stocktake":
             errors.append(_("Items table is empty. Add at least one item row."))
+        elif not item_rows and job_type == "Stocktake":
+            # Check if populate adjustment has been triggered
+            populate_triggered = getattr(job, "populate_adjustment_triggered", False)
+            if not populate_triggered:
+                errors.append(_("Items table is empty. Either add items manually or use 'Populate Adjustments' button."))
         if not op_rows:
             errors.append(_("Operations table is empty. Add at least one operation row."))
         if not ch_rows:
@@ -1216,8 +1258,8 @@ def get_warehouse_job_overview(warehouse_job: str) -> dict:
                 "unit_std_hours": float(getattr(r, "unit_std_hours", 0) or 0) if has("unit_std_hours") else None,
                 "total_std_hours": float(getattr(r, "total_std_hours", 0) or 0) if has("total_std_hours") else None,
                 "actual_hours": float(getattr(r, "actual_hours", 0) or 0) if has("actual_hours") else None,
-                "start_datetime": getattr(r, "start_datetime", None) if has("start_datetime") else None,
-                "end_datetime": getattr(r, "end_datetime", None) if has("end_datetime") else None,
+                "start_date": getattr(r, "start_date", None) if has("start_date") else None,
+                "end_date": getattr(r, "end_date", None) if has("end_date") else None,
             }
             ops_rows.append(row)
 
@@ -1228,3 +1270,90 @@ def _ops_time_fields():
     start_f = "start_datetime" if "start_datetime" in f else ("start_date" if "start_date" in f else None)
     end_f   = "end_datetime"   if "end_datetime"   in f else ("end_date"   if "end_date"   in f else None)
     return start_f, end_f
+
+def _get_replenish_policy_flags(item: Optional[str]) -> Tuple[bool, bool]:
+    """Return (replenish_mode, pick_face_first) based on Warehouse Settings and item rules.
+    - Replenish mode if Warehouse Settings.replenishment_policy in ['replenish','replenishment','pick face first','pick_face_first']
+    - pick_face_first if Warehouse Item rules has primary_pick_face_first=1
+    Best-effort; silently ignores missing fields/doctype.
+    """
+    replen = False
+    try:
+        policy = frappe.db.get_single_value("Warehouse Settings", "replenishment_policy")
+        if policy and isinstance(policy, str):
+            replen = policy.strip().lower() in ("replenish", "replenishment", "pick face first", "pick_face_first")
+    except Exception:
+        replen = False
+
+    pick_face_first = False
+    try:
+        rules = _get_item_rules(item) if item else {}
+        pick_face_first = bool(int(rules.get("primary_pick_face_first") or 0))
+    except Exception:
+        pick_face_first = False
+
+    return replen, pick_face_first
+
+def _get_item_storage_type_prefs(item: Optional[str]) -> Tuple[Optional[str], List[str]]:
+    """Return (preferred_storage_type, allowed_storage_types[]) for the item.
+    preferred_storage_type: Link to Storage Type (single), may be None
+    allowed_storage_types:  List from child table 'Warehouse Item Storage Type' (field 'storage_type'), may be empty
+    """
+    preferred = None
+    allowed: List[str] = []
+    if not item:
+        return preferred, allowed
+
+    # Read preferred storage type from Warehouse Item
+    try:
+        preferred = frappe.db.get_value("Warehouse Item", item, "preferred_storage_type")
+    except Exception:
+        preferred = None
+
+    # Read allowed storage types child rows
+    try:
+        rows = frappe.get_all(
+            "Warehouse Item Storage Type",
+            filters={"parent": item, "parenttype": "Warehouse Item"},
+            fields=["storage_type"],
+            ignore_permissions=True,
+        ) or []
+        for r in rows:
+            st = (r.get("storage_type") or "").strip()
+            if st:
+                allowed.append(st)
+        # De-duplicate preserving order
+        seen = set()
+        allowed = [x for x in allowed if not (x in seen or seen.add(x))]
+    except Exception:
+        allowed = []
+
+    return preferred, allowed
+
+def _ensure_batch(
+    batch_code: Optional[str],
+    item: Optional[str] = None,
+    customer: Optional[str] = None,
+    expiry: Optional[str] = None,
+    uom: Optional[str] = None,
+) -> str:
+    if not batch_code:
+        return ""
+    if frappe.db.exists("Warehouse Batch", batch_code):
+        if uom:
+            current_uom = frappe.db.get_value("Warehouse Batch", batch_code, "batch_uom")
+            if not current_uom:
+                frappe.db.set_value("Warehouse Batch", batch_code, "batch_uom", uom)
+        return batch_code
+    doc = frappe.new_doc("Warehouse Batch")
+    doc.batch_no = batch_code  # autoname=field:batch_no
+    if hasattr(doc, "item_code") and item:
+        doc.item_code = item
+    if hasattr(doc, "customer") and customer:
+        doc.customer = customer
+    if hasattr(doc, "expiry_date") and expiry:
+        doc.expiry_date = expiry
+    if hasattr(doc, "batch_uom") and uom:
+        doc.batch_uom = uom
+    doc.insert()
+    return doc.name

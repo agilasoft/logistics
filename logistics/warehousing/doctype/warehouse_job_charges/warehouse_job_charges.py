@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
+from frappe import _
 from logistics.warehousing.api_parts.billing_methods import get_billing_quantity
 
 
@@ -73,3 +74,23 @@ class WarehouseJobCharges(Document):
 			return parent_doc.job_type.lower()
 		else:
 			return "storage"
+	
+
+
+def _find_customer_contract(customer):
+	"""Find warehouse contract for customer"""
+	if not customer:
+		return None
+	
+	contracts = frappe.get_all(
+		"Warehouse Contract",
+		filters={
+			"customer": customer,
+			"status": "Active"
+		},
+		fields=["name"],
+		order_by="creation desc",
+		limit=1
+	)
+	
+	return contracts[0]["name"] if contracts else None

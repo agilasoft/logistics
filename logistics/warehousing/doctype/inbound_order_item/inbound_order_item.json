@@ -168,18 +168,21 @@
    "label": "Dimensions & Weight"
   },
   {
+   "fetch_from": "item.length",
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
    "precision": "3"
   },
   {
+   "fetch_from": "item.width",
    "fieldname": "width",
    "fieldtype": "Float",
    "label": "Width",
    "precision": "3"
   },
   {
+   "fetch_from": "item.height",
    "fieldname": "height",
    "fieldtype": "Float",
    "label": "Height",
@@ -189,10 +192,10 @@
    "fieldname": "volume",
    "fieldtype": "Float",
    "label": "Volume",
-   "precision": "3",
-   "read_only": 1
+   "precision": "3"
   },
   {
+   "fetch_from": "item.weight",
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",
@@ -219,13 +222,12 @@
    "fieldtype": "Column Break"
   }
  ],
- "client_script": "logistics.warehousing.doctype.inbound_order_item.inbound_order_item",
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-08 13:35:13.173460",
- "modified_by": "Administrator",
+ "modified": "2025-10-25 13:52:44.721038",
+ "modified_by": "johnalexander.castro@agilasoft.com",
  "module": "Warehousing",
  "name": "Inbound Order Item",
  "owner": "Administrator",

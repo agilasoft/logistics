@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Storage Types",
+ "creation": "2025-10-18 12:07:21.819539",
+ "description": "Storage Types define the physical characteristics and operational rules for different storage areas in your warehouse. Configure floor storage, rack storage, bulk storage, container storage, cold storage, hazardous storage, and bonded storage with capacity limits, compliance requirements, and billing settings.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 1,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:29:52.555299",
+ "modified_by": "Administrator",
+ "name": "Storage Types",
+ "owner": "Administrator",
+ "reference_document": "Storage Type",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Set Up Storage Types",
+ "validate_action": 1
+}

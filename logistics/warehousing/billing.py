@@ -10,6 +10,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timedelta
+from logistics.warehousing.api_parts.common import _get_default_currency
 
 
 @frappe.whitelist()
@@ -21,6 +22,13 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
     based on the contract setup and handling units.
     """
     try:
+        # Input validation
+        if not periodic_billing:
+            frappe.throw(_("Periodic Billing is required"))
+        
+        if not frappe.db.exists("Periodic Billing", periodic_billing):
+            frappe.throw(_("Invalid Periodic Billing: {0}").format(periodic_billing))
+        
         # Get periodic billing document
         pb = frappe.get_doc("Periodic Billing", periodic_billing)
         customer = getattr(pb, "customer", None)
@@ -149,7 +157,7 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
                     "quantity": flt(charge.get("quantity", 0)),
                     "rate": flt(charge.get("rate", 0)),
                     "total": flt(charge.get("total", 0)),
-                    "currency": charge.get("currency", "PHP"),
+                    "currency": charge.get("currency", _get_default_currency(company)),
                     "warehouse_job": job.name,
                     "calculation_notes": charge.get("calculation_notes", "Existing warehouse job charge")
                 })
@@ -212,7 +220,7 @@ def get_warehouse_job_charges(customer: str, date_from: str, date_to: str, compa
                 "quantity": float(days),
                 "rate": 100.0,  # Default rate - should come from contract
                 "total": float(days) * 100.0,
-                "currency": "PHP",
+                "currency": _get_default_currency(company),
                 "warehouse_job": job.name,
                 "calculation_notes": f"""Warehouse Job Charge:
   • Job: {job.name}
@@ -255,7 +263,6 @@ def get_storage_charges_from_contract(customer: str, date_from: str, date_to: st
             ORDER BY handling_unit_type, storage_type
         """, (warehouse_contract,), as_dict=True)
         
-        frappe.logger().info(f"DEBUG: Found {len(contract_items)} contract items: {contract_items}")
         
         if not contract_items:
             warnings.append(_("No storage charge items found in contract."))
@@ -422,7 +429,6 @@ def calculate_handling_unit_storage_charges(hu: str, hu_details: Dict, contract_
         
         # Create charge line
         item_code = contract_item.get("item_code")
-        frappe.logger().info(f"DEBUG: Creating charge with item_code: {item_code}")
         
         charge = {
             "item": item_code,
@@ -431,7 +437,7 @@ def calculate_handling_unit_storage_charges(hu: str, hu_details: Dict, contract_
             "quantity": billing_quantity,
             "rate": rate,
             "total": total,
-            "currency": contract_item.get("currency", "PHP"),
+            "currency": contract_item.get("currency", _get_default_currency(company)),
             "handling_unit": hu,
             "storage_location": hu_details.get("storage_location"),
             "handling_unit_type": hu_details.get("handling_unit_type"),
@@ -518,7 +524,7 @@ def generate_job_calculation_notes(charge: Dict, job: Dict) -> str:
   • Rate per {charge.get('uom', 'N/A')}: {charge.get('rate', 0)}
   • Quantity: {charge.get('quantity', 0)}
   • Calculation: {charge.get('quantity', 0)} × {charge.get('rate', 0)} = {charge.get('total', 0)}
-  • Currency: {charge.get('currency', 'PHP')}
+  • Currency: {charge.get('currency', _get_default_currency(company))}
   • Contract Setup Applied:
     - Rate sourced from Warehouse Job Charges table
     - Applied based on job execution and contract terms

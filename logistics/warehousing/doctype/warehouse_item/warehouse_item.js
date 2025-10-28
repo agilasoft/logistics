@@ -4,6 +4,18 @@
 frappe.ui.form.on('Warehouse Item', {
     refresh: function(frm) {
         update_uom_fields(frm);
+    },
+    length: function(frm) {
+        calculate_volume(frm);
+    },
+    width: function(frm) {
+        calculate_volume(frm);
+    },
+    height: function(frm) {
+        calculate_volume(frm);
+    },
+    weight: function(frm) {
+        validate_weight(frm);
     }
 });
 
@@ -35,4 +47,48 @@ function update_uom_fields(frm) {
             }
         }
     });
+}
+
+function calculate_volume(frm) {
+    // Get dimension values
+    const length = flt(frm.get_value('length') || 0);
+    const width = flt(frm.get_value('width') || 0);
+    const height = flt(frm.get_value('height') || 0);
+    
+    // Validate dimensions
+    if (length < 0 || width < 0 || height < 0) {
+        frappe.msgprint(__("Dimensions cannot be negative. Please enter valid values."));
+        return;
+    }
+    
+    // Calculate volume if all dimensions are provided
+    if (length > 0 && width > 0 && height > 0) {
+        const volume = length * width * height;
+        frm.set_value('volume', volume);
+        
+        // Validate reasonable volume (prevent unrealistic values)
+        if (volume > 1000000) { // 1 million cubic units
+            frappe.msgprint(__("Warning: Calculated volume seems unusually large. Please verify dimensions."));
+        }
+    } else {
+        // Clear volume if dimensions are incomplete
+        frm.set_value('volume', 0);
+    }
+}
+
+function validate_weight(frm) {
+    const weight = flt(frm.get_value('weight') || 0);
+    
+    // Validate weight
+    if (weight < 0) {
+        frappe.msgprint(__("Weight cannot be negative. Please enter a valid value."));
+        frm.set_value('weight', 0);
+        return;
+    }
+    
+    // Validate reasonable weight (prevent unrealistic values)
+    if (weight > 10000) { // 10,000 weight units
+        frappe.msgprint(__("Warning: Weight seems unusually high. Please verify the value."));
+    }
+    
 }

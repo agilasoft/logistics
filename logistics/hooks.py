@@ -28,32 +28,27 @@ portal_menu_items = [
     {
         "title": "Warehousing Portal",
         "route": "/warehousing-portal",
-        "reference_doctype": "Warehouse Job",
-        "icon": "fa fa-warehouse"
+        "reference_doctype": "Warehouse Job"
     },
     {
         "title": "Transport Jobs",
         "route": "/transport-jobs",
-        "reference_doctype": "Transport Job",
-        "icon": "fa fa-truck"
+        "reference_doctype": "Transport Job"
     },
     {
         "title": "Stock Balance",
         "route": "/stock-balance",
-        "reference_doctype": "Item",
-        "icon": "fa fa-chart-line"
+        "reference_doctype": "Item"
     },
     {
         "title": "Warehouse Jobs",
         "route": "/warehouse-jobs",
-        "reference_doctype": "Warehouse Job",
-        "icon": "fa fa-tasks"
+        "reference_doctype": "Warehouse Job"
     },
     {
         "title": "Wiki & Documentation",
         "route": "/wiki",
-        "reference_doctype": "Web Page",
-        "icon": "fa fa-book"
+        "reference_doctype": "Web Page"
     }
 ]
 
@@ -75,6 +70,12 @@ website_route_rules = [
     {"from_route": "/warehouse-jobs", "to_route": "warehouse_jobs"},
     {"from_route": "/warehousing-portal", "to_route": "warehousing_portal"},
     {"from_route": "/customer-debug-portal", "to_route": "customer_debug_portal"},
+    # Order Views
+    {"from_route": "/release-orders", "to_route": "release_orders"},
+    {"from_route": "/inbound-orders", "to_route": "inbound_orders"},
+    {"from_route": "/vas-orders", "to_route": "vas_orders"},
+    {"from_route": "/transfer-orders", "to_route": "transfer_orders"},
+    {"from_route": "/stocktake-orders", "to_route": "stocktake_orders"},
     {
         "from_route": "/transport-jobs/<path:name>",
         "to_route": "transport_job_detail",
@@ -134,7 +135,7 @@ after_install = "logistics.install.after_install.after_install"
 # permission_query_conditions = {
 # 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
 # }
-#
+
 # has_permission = {
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
 # }
@@ -210,5 +211,9 @@ doc_events = {
     },
     "ATC Code": {
         "validate": "logistics.setup.bir_2307_hooks.validate_atc_code",
+    },
+    "Customer": {
+        "after_save": "logistics.customer_hooks.add_portal_user_permissions",
+        "on_update": "logistics.customer_hooks.remove_portal_user_permissions",
     }
 }

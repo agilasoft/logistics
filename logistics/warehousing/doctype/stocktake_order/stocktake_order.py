@@ -85,15 +85,15 @@ def stocktake_get_count_items(
     elif customer and ("customer" not in wi_fields):
         warnings.append(_("Customer filter ignored: 'customer' field not found on Warehouse Item."))
 
+    # Company and Branch filters are not applicable to Warehouse Item by design
+    # These filters are handled at the Storage Location/Handling Unit level instead
     if company and ("company" in wi_fields):
         wi_filters["company"] = company
-    elif company and ("company" not in wi_fields):
-        warnings.append(_("Company filter ignored: 'company' field not found on Warehouse Item."))
+    # Note: No warning for company filter as it's not expected on Warehouse Item
 
     if branch and ("branch" in wi_fields):
         wi_filters["branch"] = branch
-    elif branch and ("branch" not in wi_fields):
-        warnings.append(_("Branch filter ignored: 'branch' field not found on Warehouse Item."))
+    # Note: No warning for branch filter as it's not expected on Warehouse Item
 
     if storage_type:
         if "storage_type" in wi_fields:

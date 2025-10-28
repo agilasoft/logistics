@@ -148,3 +148,56 @@ frappe.ui.form.on("Release Order", {
     frm.refresh_field("charges");
   }
 });
+
+// Child table event handlers for dimension and weight auto-population
+frappe.ui.form.on('Release Order Item', {
+    refresh: function(frm, cdt, cdn) {
+        update_uom_fields(frm, cdt, cdn);
+    },
+    length: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    width: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    height: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    }
+});
+
+// Helper functions for dimension and weight auto-population
+function update_uom_fields(frm, cdt, cdn) {
+    const company = frappe.defaults.get_user_default("Company");
+    frappe.call({
+        method: "frappe.client.get_value",
+        args: {
+            doctype: "Warehouse Settings",
+            name: company,
+            fieldname: ["default_volume_uom", "default_weight_uom"]
+        },
+        callback: function(r) {
+            if (r.message) {
+                const volume_uom = r.message.default_volume_uom;
+                const weight_uom = r.message.default_weight_uom;
+                if (volume_uom) {
+                    frappe.model.set_value(cdt, cdn, 'volume_uom', volume_uom);
+                }
+                if (weight_uom) {
+                    frappe.model.set_value(cdt, cdn, 'weight_uom', weight_uom);
+                }
+            }
+        }
+    });
+}
+
+function calculate_volume(frm, cdt, cdn) {
+    const doc = frappe.get_doc(cdt, cdn);
+    const length = parseFloat(doc.length) || 0;
+    const width = parseFloat(doc.width) || 0;
+    const height = parseFloat(doc.height) || 0;
+    
+    if (length > 0 && width > 0 && height > 0) {
+        const volume = length * width * height;
+        frappe.model.set_value(cdt, cdn, 'volume', volume);
+    }
+}

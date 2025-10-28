@@ -8,9 +8,11 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
+  "default_cost_center",
   "column_break_tsti",
   "planned_date_offset_days",
   "allocation_level_limit",
+  "allow_emergency_fallback",
   "replenishment_policy",
   "default_site",
   "default_facility",
@@ -170,31 +172,31 @@
   },
   {
    "default": "2",
+   "description": "Enter volume in m\u00b3",
    "fieldname": "default_pallet_volume",
    "fieldtype": "Float",
-   "label": "Default Pallet Volume",
-   "description": "Enter volume in m³"
+   "label": "Default Pallet Volume"
   },
   {
    "default": "1000",
+   "description": "Enter weight in kg",
    "fieldname": "default_pallet_weight",
    "fieldtype": "Float",
-   "label": "Default Pallet Weight",
-   "description": "Enter weight in kg"
+   "label": "Default Pallet Weight"
   },
   {
    "default": "0.1",
+   "description": "Enter volume in m\u00b3",
    "fieldname": "default_box_volume",
    "fieldtype": "Float",
-   "label": "Default Box Volume",
-   "description": "Enter volume in m³"
+   "label": "Default Box Volume"
   },
   {
    "default": "50",
+   "description": "Enter weight in kg",
    "fieldname": "default_box_weight",
    "fieldtype": "Float",
-   "label": "Default Box Weight",
-   "description": "Enter weight in kg"
+   "label": "Default Box Weight"
   },
   {
    "fieldname": "billing_tab",
@@ -240,11 +242,24 @@
   {
    "fieldname": "column_break_tsti",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_cost_center",
+   "fieldtype": "Link",
+   "label": "Default Cost Center",
+   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval.doc.company\"]]",
+   "options": "Cost Center"
+  },
+  {
+   "default": "0",
+   "description": "Check this if emergency fallback allocation is allowed. ",
+   "fieldname": "allow_emergency_fallback",
+   "fieldtype": "Check",
+   "label": "Allow Emergency Fallback"
   }
  ],
- "client_script": "logistics.warehousing.doctype.warehouse_settings.warehouse_settings",
  "links": [],
- "modified": "2025-10-08 11:47:45.454241",
+ "modified": "2025-10-28 18:30:03.652223",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",

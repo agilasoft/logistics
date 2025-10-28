@@ -17,22 +17,32 @@ def _get_default_company_safe() -> Optional[str]:
         val = frappe.db.get_default("company")
         if val:
             return val
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get company from frappe.db.get_default: {str(e)}")
+    
     # Try frappe.defaults.get_user_default (older patterns)
     try:
         val = frappe.defaults.get_user_default("company")
         if val:
             return val
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get company from frappe.defaults.get_user_default: {str(e)}")
+    
     # Try Global Defaults doctype
     try:
         return frappe.db.get_value("Global Defaults", "Global Defaults", "default_company")
-    except Exception:
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get company from Global Defaults: {str(e)}")
         return None
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
+
+# Import functions from api_parts modules
+from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _get_allow_emergency_fallback, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom, _find_child_table_field, _wjo_fields, _ops_time_fields, get_warehouse_job_overview
+from .api_parts.putaway import _putaway_candidate_locations, allocate_putaway, post_putaway, allocate_vas_putaway
+from .api_parts.pick import allocate_pick, post_pick, initiate_vas_pick
+from .api_parts.ops import populate_job_operations, create_sales_invoice_from_job, update_job_operations_times
+from .api_parts.transfer import allocate_move
 
 # =============================================================================
 # Meta helpers
@@ -49,15 +59,7 @@ def _safe_meta_fieldnames(doctype: str) -> set:
     return fieldnames
 
 
-def _find_child_table_field(parent_doctype: str, child_doctype: str) -> Optional[str]:
-    """Find the fieldname of the Table field on parent that points to child_doctype."""
-    meta = frappe.get_meta(parent_doctype)
-    for df in meta.get("fields", []) or []:
-        if (getattr(df, "fieldtype", None) or df.get("fieldtype")) == "Table":
-            opts = getattr(df, "options", None) or df.get("options")
-            if opts == child_doctype:
-                return getattr(df, "fieldname", None) or df.get("fieldname")
-    return None
+# _find_child_table_field moved to api_parts/common.py
 
 
 def _hu_location_fields() -> List[str]:
@@ -369,7 +371,8 @@ def _get_allocation_level_limit() -> Optional[str]:
         val = frappe.db.get_single_value("Warehouse Settings", "allocation_level_limit")
         val = (val or "").strip()
         return val or None
-    except Exception:
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get allocation_level_limit from Warehouse Settings: {str(e)}")
         return None
 
 def _existing_level_fields() -> List[str]:
@@ -478,33 +481,7 @@ def _ensure_serial(serial_code: Optional[str], item: Optional[str] = None, custo
     return doc.name
 
 
-def _ensure_batch(
-    batch_code: Optional[str],
-    item: Optional[str] = None,
-    customer: Optional[str] = None,
-    expiry: Optional[str] = None,
-    uom: Optional[str] = None,
-) -> str:
-    if not batch_code:
-        return ""
-    if frappe.db.exists("Warehouse Batch", batch_code):
-        if uom:
-            current_uom = frappe.db.get_value("Warehouse Batch", batch_code, "batch_uom")
-            if not current_uom:
-                frappe.db.set_value("Warehouse Batch", batch_code, "batch_uom", uom)
-        return batch_code
-    doc = frappe.new_doc("Warehouse Batch")
-    doc.batch_no = batch_code  # autoname=field:batch_no
-    if hasattr(doc, "item_code") and item:
-        doc.item_code = item
-    if hasattr(doc, "customer") and customer:
-        doc.customer = customer
-    if hasattr(doc, "expiry_date") and expiry:
-        doc.expiry_date = expiry
-    if hasattr(doc, "batch_uom") and uom:
-        doc.batch_uom = uom
-    doc.insert()
-    return doc.name
+# Function moved to api_parts/common.py
 
 
 # =============================================================================
@@ -519,8 +496,8 @@ def create_serial_and_batch_for_inbound(inbound_order: str):
     try:
         parent = frappe.get_doc("Inbound Order", inbound_order)
         customer = getattr(parent, "customer", None)
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get customer from Inbound Order {inbound_order}: {str(e)}")
 
     rows = frappe.get_all(
         "Inbound Order Item",
@@ -658,12 +635,14 @@ def _get_item_consolidation_policy(item: str) -> Dict[str, int]:
     # Coerce to ints with safe defaults
     try:
         lot = int(lot) if lot is not None else 0
-    except Exception:
+    except (ValueError, TypeError) as e:
+        frappe.logger().debug(f"Failed to convert lot_consolidation to int: {str(e)}, using default 0")
         lot = 0
 
     try:
         mix = int(mix) if mix is not None else 0
-    except Exception:
+    except (ValueError, TypeError) as e:
+        frappe.logger().debug(f"Failed to convert allow_mix_with_other_customers to int: {str(e)}, using default 0")
         mix = 0
 
     return {
@@ -871,285 +850,22 @@ def _append_job_items(
 # =============================================================================
 
 
-def _get_replenish_policy_flags(item: Optional[str]) -> Tuple[bool, bool]:
-    """Return (replenish_mode, pick_face_first) based on Warehouse Settings and item rules.
-    - Replenish mode if Warehouse Settings.replenishment_policy in ['replenish','replenishment','pick face first','pick_face_first']
-    - pick_face_first if Warehouse Item rules has primary_pick_face_first=1
-    Best-effort; silently ignores missing fields/doctype.
-    """
-    replen = False
-    try:
-        policy = frappe.db.get_single_value("Warehouse Settings", "replenishment_policy")
-        if policy and isinstance(policy, str):
-            replen = policy.strip().lower() in ("replenish", "replenishment", "pick face first", "pick_face_first")
-    except Exception:
-        replen = False
-
-    pick_face_first = False
-    try:
-        rules = _get_item_rules(item) if item else {}
-        pick_face_first = bool(int(rules.get("primary_pick_face_first") or 0))
-    except Exception:
-        pick_face_first = False
-
-    return replen, pick_face_first
-
-
-# === Storage-type preferences (Warehouse Item) ================================
-def _get_item_storage_type_prefs(item: Optional[str]) -> Tuple[Optional[str], List[str]]:
-    """Return (preferred_storage_type, allowed_storage_types[]) for the item.
-    preferred_storage_type: Link to Storage Type (single), may be None
-    allowed_storage_types:  List from child table 'Warehouse Item Storage Type' (field 'storage_type'), may be empty
-    """
-    preferred = None
-    allowed: List[str] = []
-    if not item:
-        return preferred, allowed
-
-    # Read preferred storage type from Warehouse Item
-    try:
-        preferred = frappe.db.get_value("Warehouse Item", item, "preferred_storage_type")
-    except Exception:
-        preferred = None
-
-    # Read allowed storage types child rows
-    try:
-        rows = frappe.get_all(
-            "Warehouse Item Storage Type",
-            filters={"parent": item, "parenttype": "Warehouse Item"},
-            fields=["storage_type"],
-            ignore_permissions=True,
-        ) or []
-        for r in rows:
-            st = (r.get("storage_type") or "").strip()
-            if st:
-                allowed.append(st)
-        # De-duplicate preserving order
-        seen = set()
-        allowed = [x for x in allowed if not (x in seen or seen.add(x))]
-    except Exception:
-        allowed = []
-
-    return preferred, allowed
+# Functions moved to api_parts/common.py
 # ALLOWED/PREFERRED storage-type filter + pick_face preference applied below
-def _putaway_candidate_locations(
-    item: str,
-    company: Optional[str],
-    branch: Optional[str],
-    exclude_locations: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
-    """Return candidate locations honoring status/scope.
-       Pref order:
-       1) (If replenish or pick-face-first policy) EMPTY pick-face bins for this item
-       2) Consolidation bins that already contain this item (not staging)
-       3) Other valid bins (not staging)
-    """
-    exclude_locations = exclude_locations or []
-    slf = _sl_fields()
-    status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
-
-    # Storage-type prefs from Warehouse Item
-    preferred_st, allowed_sts = _get_item_storage_type_prefs(item)
-    st_filter_empty = st_filter_cons = st_filter_other = ""
-    st_params_empty: List[Any] = []
-    st_params_cons:  List[Any] = []
-    st_params_other: List[Any] = []
-    if allowed_sts:
-        marks = ", ".join(["%s"] * len(allowed_sts))
-        st_filter_empty = f" AND sl.storage_type IN ({marks})"
-        st_filter_cons  = f" AND sl.storage_type IN ({marks})"
-        st_filter_other = f" AND sl.storage_type IN ({marks})"
-        st_params_empty.extend(allowed_sts)
-        st_params_cons.extend(allowed_sts)
-        st_params_other.extend(allowed_sts)
-
-    replen_mode, pick_face_first = _get_replenish_policy_flags(item)
-
-    empty_pick_faces: List[Dict[str, Any]] = []
-    if replen_mode or pick_face_first:
-        scope_params: List[Any] = []
-        scope_sql = ""
-        if company and ("company" in slf):
-            scope_sql += " AND sl.company = %s"; scope_params.append(company)
-        if branch and ("branch" in slf):
-            scope_sql += " AND sl.branch = %s"; scope_params.append(branch)
-
-        excl_sql = (" AND sl.name NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""
-        
-        # Construct parameters in the correct order to match the SQL placeholders
-        sql_params = [item]  # For the WHERE item = %s in the subquery
-        sql_params.extend(st_params_other)  # For st_filter_other at line 999
-        sql_params.extend(exclude_locations)  # For the NOT IN clause
-        sql_params.extend(scope_params)  # For company/branch filters  
-        sql_params.extend(st_params_empty)  # For storage type filters
-
-        empty_pick_faces = frappe.db.sql(
-            f"""
-            SELECT sl.name AS location,
-                   IFNULL(sl.bin_priority, 999999) AS bin_priority,
-                   IFNULL(st.picking_rank, 999999) AS storage_type_rank
-            FROM `tabStorage Location` sl
-            LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
-            LEFT JOIN (
-                SELECT storage_location, SUM(quantity) AS qty
-                FROM `tabWarehouse Stock Ledger`
-                WHERE item = %s
-                GROUP BY storage_location
-            ) agg ON agg.storage_location = sl.name
-            WHERE IFNULL(sl.staging_area, 0) = 0
-          {st_filter_other}
-              AND IFNULL(sl.pick_face, 0) = 1
-              {status_filter}
-              {excl_sql}
-              {scope_sql}
-              AND COALESCE(agg.qty, 0) = 0
-              {st_filter_empty}
-            ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
-            """,
-            tuple(sql_params),
-            as_dict=True,
-        ) or []
-
-    # Construct parameters for the cons query
-    cons_params = [item]  # For l.item = %s
-    cons_params.extend(exclude_locations)  # For NOT IN clause
-    cons_params.extend(st_params_cons)  # For storage type filters
-    cons_params.extend([company, company, branch, branch])  # For company/branch filters
-
-    cons = frappe.db.sql(
-        f"""
-        SELECT l.storage_location AS location,
-               IFNULL(sl.bin_priority, 999999) AS bin_priority,
-               IFNULL(st.picking_rank, 999999) AS storage_type_rank
-        FROM `tabWarehouse Stock Ledger` l
-        LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
-        LEFT JOIN `tabStorage Type`   st ON st.name = sl.storage_type
-        WHERE l.item = %s
-          AND IFNULL(sl.staging_area, 0) = 0
-          {st_filter_cons}
-          {status_filter}
-          {("AND l.storage_location NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""}
-          AND (%s IS NULL OR sl.company = %s)
-          AND (%s IS NULL OR sl.branch  = %s)
-        GROUP BY l.storage_location, sl.bin_priority, st.picking_rank
-        HAVING SUM(l.quantity) > 0
-        ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
-        """,
-        tuple(cons_params),
-        as_dict=True,
-    ) or []
-    chosen = {c["location"] for c in (empty_pick_faces + cons)}
-
-    # Construct parameters for the others query
-    others_params = []
-    others_params.extend(exclude_locations)  # For NOT IN clause
-    others_params.extend(st_params_other)  # For storage type filters
-    others_params.extend([company, company, branch, branch])  # For company/branch filters
-
-    others = frappe.db.sql(
-        f"""
-        SELECT sl.name AS location,
-               IFNULL(sl.bin_priority, 999999) AS bin_priority,
-               IFNULL(st.picking_rank, 999999) AS storage_type_rank
-        FROM `tabStorage Location` sl
-        LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
-        WHERE IFNULL(sl.staging_area, 0) = 0
-          {st_filter_other}
-          {status_filter}
-          {("AND sl.name NOT IN (" + ", ".join(["%s"]*len(exclude_locations)) + ")") if exclude_locations else ""}
-          AND (%s IS NULL OR sl.company = %s)
-          AND (%s IS NULL OR sl.branch  = %s)
-        ORDER BY storage_type_rank ASC, bin_priority ASC, sl.name ASC
-        """,
-        tuple(others_params),
-        as_dict=True,
-    ) or []
-    others = [r for r in others if r["location"] not in chosen]
-
-    return (empty_pick_faces + cons + others)
+# Function moved to api_parts/putaway.py
 
 
-def _filter_locations_by_level(candidates: List[Dict[str, Any]], staging_area: Optional[str], limit_label: Optional[str]) -> List[Dict[str, Any]]:
-    if not (staging_area and limit_label):
-        return candidates
-    out: List[Dict[str, Any]] = []
-    for c in candidates:
-        loc = c.get("storage_location") or c.get("location")
-        if _match_upto_limit(staging_area, loc, limit_label):
-            out.append(c)
-    return out
+# Function moved to api_parts/common.py
 
-@frappe.whitelist()
-def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
-    """Build pick-lines from Orders, applying Company/Branch scope and item rules."""
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    if (job.type or "").strip() != "Pick":
-        frappe.throw(_("Allocate Picks can only run for Warehouse Job Type = Pick."))
 
-    company, branch = _get_job_scope(job)
-    jo_items = _fetch_job_order_items(job.name)
-    if not jo_items:
-        return {"ok": True, "message": _("No items found on Warehouse Job Order Items."), "created_rows": 0, "created_qty": 0}
+# Function moved to api_parts/pick.py
 
-    # Allocation Level Limit (relative to staging)
-    staging_area = getattr(job, "staging_area", None)
-    level_limit_label = _get_allocation_level_limit()
 
-    total_created_rows = 0
-    total_created_qty  = 0.0
-    details: List[Dict[str, Any]] = []
-    warnings: List[str] = []
 
-    for row in jo_items:
-        item   = row.get("item")
-        req_qty = flt(row.get("quantity"))
-        if not item or req_qty <= 0:
-            continue
 
-        fixed_serial = row.get("serial_no") or None
-        fixed_batch  = row.get("batch_no")  or None
-        rules = _get_item_rules(item)
 
-        if fixed_serial or fixed_batch:
-            candidates = _query_available_candidates(item=item, batch_no=fixed_batch, serial_no=fixed_serial,
-                                                     company=company, branch=branch)
-        else:
-            candidates = _query_available_candidates(item=item, company=company, branch=branch)
 
-        # Filter by allocation level (same path as staging up to configured level)
-        candidates = _filter_locations_by_level(candidates, staging_area, level_limit_label)
 
-        if fixed_serial or fixed_batch:
-            allocations = _greedy_allocate(candidates, req_qty, rules, force_exact=True)
-        else:
-            ordered    = _order_candidates(candidates, rules, req_qty)
-            allocations= _greedy_allocate(ordered, req_qty, rules, force_exact=False)
-
-        if not allocations:
-            scope_note = []
-            if company: scope_note.append(_("Company = {0}").format(company))
-            if branch:  scope_note.append(_("Branch = {0}").format(branch))
-            if level_limit_label and staging_area:
-                scope_note.append(_("Within {0} of staging {1}").format(level_limit_label, staging_area))
-            scope_text = f" [{', '.join(scope_note)}]" if scope_note else ""
-            warnings.append(_("No allocatable stock for Item {0} (Row {1}) within scope{2}.")
-                            .format(item, row.get("name"), scope_text))
-
-        created_rows, created_qty = _append_job_items(
-            job=job, source_parent=job.name, source_child=row["name"],
-            item=item, uom=row.get("uom"), allocations=allocations,
-        )
-        total_created_rows += created_rows
-        total_created_qty  += created_qty
-
-        details.append({
-            "job_order_item": row["name"],
-            "item": item,
-            "requested_qty": req_qty,
-            "created_rows": created_rows,
-            "created_qty": created_qty,
-            "short_qty": max(0.0, req_qty - abs(created_qty)),
-        })
 
     job.save(ignore_permissions=True)
     frappe.db.commit()
@@ -1204,66 +920,33 @@ def _hu_consolidation_violations(hu: str, items_in_hu: Set[str]) -> List[str]:
     return msgs
 
 
-def _select_dest_for_hu(
-    item: str,
-    company: Optional[str],
-    branch: Optional[str],
-    staging_area: Optional[str],
-    level_limit_label: Optional[str],
-    used_locations: Set[str],
-    exclude_locations: Optional[List[str]],
-) -> Optional[str]:
-    replen_mode, pick_face_first = _get_replenish_policy_flags(item)
-    preferred_st, allowed_sts = _get_item_storage_type_prefs(item)
-    candidates = _putaway_candidate_locations(item=item, company=company, branch=branch, exclude_locations=exclude_locations or [])
-    # Maps for ranking
-    loc_names = [r['location'] for r in candidates]
-    st_map = {}; pf_map = {}
-    if loc_names:
-        q_marks = ', '.join(['%s'] * len(loc_names))
-        rows = frappe.db.sql(
-            f"SELECT name, storage_type, IFNULL(pick_face,0) AS pick_face FROM `tabStorage Location` WHERE name IN ({q_marks})",
-            tuple(loc_names), as_dict=True
-        ) or []
-        for r in rows:
-            st_map[r['name']] = r.get('storage_type')
-            try:
-                pf_map[r['name']] = int(r.get('pick_face') or 0)
-            except Exception:
-                pf_map[r['name']] = 0
-
-    if replen_mode or pick_face_first:
-        loc_names = [r["location"] for r in candidates]
-        pf_map = {}
-        if loc_names:
-            q = ", ".join(["%s"] * len(loc_names))
-            rows = frappe.db.sql(f"SELECT name, IFNULL(pick_face,0) AS pick_face FROM `tabStorage Location` WHERE name IN ({q})", tuple(loc_names), as_dict=True) or []
-            pf_map = {r["name"]: int(r.get("pick_face") or 0) for r in rows}
-        
-    filtered = []
-    for r in candidates:
-        loc = r["location"]
-        if loc in used_locations:
-            continue
-        if _match_upto_limit(staging_area, loc, level_limit_label):
-            filtered.append(r)
-    return filtered[0]["location"] if filtered else None
+# Function moved to api_parts/common.py
 
 
 def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[str, Any]], List[str]]:
     """Impose HU → single destination; unique location per HU; warnings for violations."""
     company, branch = _get_job_scope(job)
+    
+    # Inform user about the allocation process
+    frappe.msgprint(f"Starting putaway allocation for job {job.name}")
+    frappe.msgprint(f"Job scope: Company={company or 'Any'}, Branch={branch or 'Any'}")
+    
     jf = _safe_meta_fieldnames("Warehouse Job Item")
     dest_loc_field = "location" if "location" in jf else ("to_location" if "to_location" in jf else None)
 
     orders = _fetch_job_order_items(job.name)
+    
+    # No need to show processing steps
+    
     created_rows = 0
     created_qty  = 0.0
     details: List[Dict[str, Any]] = []
     warnings: List[str] = []
 
     if not orders:
+        frappe.msgprint("No order items found to process")
         return created_rows, created_qty, details, warnings
+    
 
     # Allocation Level Limit context
     staging_area = getattr(job, "staging_area", None)
@@ -1284,27 +967,41 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         else:
             rows_without_hu.append(r)
 
+    # No need to show grouping steps
+
     if rows_without_hu:
-        warnings.append(_("Some order rows have no Handling Unit; operator must supply HU for putaway."))
+        warning_msg = _("Some order rows have no Handling Unit; operator must supply HU for putaway.")
+        warnings.append(warning_msg)
+        frappe.msgprint(f"⚠️ WARNING: {warning_msg}")
 
     used_locations: Set[str] = set()  # ensure different HUs don't share the same destination
 
     for hu, rows in by_hu.items():
+        
+        # Inform user about HU processing
+        frappe.msgprint(f"Processing handling unit {hu} with {len(rows)} items")
+        
         # pick a representative item (first row) to get a good destination; then apply to all rows for this HU
         rep_item = None
         for rr in rows:
             if rr.get("item"):
                 rep_item = rr["item"]; break
         if not rep_item:
+            frappe.msgprint(f"Warning: HU {hu} has no valid items, skipping")
             warnings.append(_("HU {0}: has rows without item; skipped.").format(hu))
             continue
 
         # choose destination for this HU (must be unique and match level limit)
+
         dest = _select_dest_for_hu(
             item=rep_item, company=company, branch=branch,
             staging_area=staging_area, level_limit_label=level_limit_label,
             used_locations=used_locations, exclude_locations=exclude
         )
+
+        
+        # No need to show individual destination results
+        
         if not dest:
             # last resort: try again allowing reuse (but still honoring level limit)
             fallback = _select_dest_for_hu(
@@ -1318,7 +1015,8 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 dest = fallback
 
         if not dest:
-            warnings.append(_("HU {0}: no destination location available in scope.").format(hu))
+            warning_msg = _("HU {0}: no destination location available in scope.").format(hu)
+            warnings.append(warning_msg)
             continue
 
         # mark used to avoid assigning the same location to a different HU
@@ -1360,6 +1058,14 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
             details.append({"order_row": rr.get("name"), "item": item, "qty": qty, "dest_location": dest, "dest_handling_unit": hu})
 
+    # Show only essential final results
+    if warnings:
+        failed_hus = [w for w in warnings if "HU" in w and "no destination" in w]
+        frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")
+        frappe.msgprint(f"⚠️ {len(failed_hus)} handling units failed allocation")
+    else:
+        frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")
+
     return created_rows, created_qty, details, warnings
 
 
@@ -1367,81 +1073,6 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 # Allocate PUTAWAY from orders (policy + scoped, staging excluded) — HU anchored
 # =============================================================================
 
-@frappe.whitelist()
-def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
-    """Prepare putaway rows from Orders with HU anchoring & allocation-level rules."""
-    try:
-        job = frappe.get_doc("Warehouse Job", warehouse_job)
-        
-        if (job.type or "").strip() != "Putaway":
-            frappe.throw(_("Allocate Putaway can only run for Warehouse Job Type = Putaway."))
-
-        created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
-
-        # Save items directly to database without triggering hooks
-        # This bypasses all validation hooks that might interfere
-        
-        for i, item in enumerate(job.items):
-            try:
-                if item.get("__islocal") or not item.get("name"):
-                    # Insert new item directly
-                    item_name = item.name or frappe.generate_hash(length=10)
-                    
-                    frappe.db.sql("""
-                        INSERT INTO `tabWarehouse Job Item` 
-                        (name, parent, parentfield, parenttype, idx, item, quantity, location, handling_unit, uom, serial_no, batch_no, source_row, source_parent, creation, modified, modified_by, owner, docstatus)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        item_name,
-                        job.name,
-                        "items", 
-                        "Warehouse Job",
-                        item.idx,
-                        item.item,
-                        item.quantity,
-                        item.location,
-                        item.handling_unit,
-                        item.uom,
-                        item.serial_no,
-                        item.batch_no,
-                        item.source_row,
-                        item.source_parent,
-                        frappe.utils.now(),
-                        frappe.utils.now(),
-                        frappe.session.user,
-                        frappe.session.user,
-                        0
-                    ))
-                    
-            except Exception as item_error:
-                frappe.log_error(f"ERROR: Failed to process item {i+1}: {str(item_error)}")
-                frappe.throw(_("Error processing item {0}: {1}").format(i+1, str(item_error)))
-        
-        # Update the job's modified timestamp
-        frappe.db.set_value("Warehouse Job", job.name, "modified", frappe.utils.now())
-        frappe.db.commit()
-        
-    except Exception as e:
-        frappe.log_error(f"ERROR: allocate_putaway failed: {str(e)}")
-        frappe.log_error(f"ERROR: Exception type: {type(e).__name__}")
-        frappe.log_error(f"ERROR: Exception args: {e.args}")
-        import traceback
-        frappe.log_error(f"ERROR: Traceback: {traceback.format_exc()}")
-        frappe.throw(_("Allocation Failed: {0}").format(str(e)))
-
-    try:
-        msg = _("Prepared {0} units across {1} putaway rows (staging excluded).").format(flt(created_qty), int(created_rows))
-        if warnings:
-            msg += " " + _("Notes") + ": " + " | ".join(warnings)
-
-        return {
-            "ok": True, "message": msg,
-            "created_rows": created_rows, "created_qty": created_qty,
-            "lines": details, "warnings": warnings,
-        }
-    except Exception as msg_error:
-        frappe.log_error(f"ERROR: Failed to create success message: {str(msg_error)}")
-        frappe.throw(_("Allocation Failed: Error creating success message: {0}").format(str(msg_error)))
 
 
 # =============================================================================
@@ -1547,7 +1178,8 @@ def initiate_vas_pick(warehouse_job: str, clear_existing: int = 1):
         reverse_bom = 0
         try:
             reverse_bom = int(frappe.db.get_value("Warehouse Item VAS BOM", bom, "reverse_bom") or 0)
-        except Exception:
+        except (ValueError, TypeError) as e:
+            frappe.logger().debug(f"Failed to get reverse_bom for VAS BOM {bom}: {str(e)}, using default 0")
             reverse_bom = 0
 
             skipped.append(_("No VAS BOM for {0} (type={1}, customer={2})").format(p_item, vas_type or "N/A", customer or "N/A"))
@@ -1751,16 +1383,11 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
         existing_keys.add(key)
         created_rows += 1
 
+    # Only create count rows for items that actually exist in stock ledger
     for a in aggregates:
         if a.get("item") not in item_set: continue
         _append_count_row(a.get("item"), a.get("storage_location"), a.get("handling_unit"),
                           a.get("batch_no"), a.get("serial_no"), flt(a.get("system_qty") or 0))
-
-    for it in item_set:
-        for loc in locations:
-            _append_count_row(it, loc["name"], None, None, None, 0)
-        for hu in hus:
-            _append_count_row(it, None, hu["name"], None, None, 0)
 
     job.save(ignore_permissions=True)
     frappe.db.commit()
@@ -1777,245 +1404,18 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
                        "qa_required": int(getattr(job, "qa_required", 0) or 0)}}
 
 
-# =============================================================================
-# STOCKTAKE: Populate Adjustments
-# =============================================================================
-
-@frappe.whitelist()
-def populate_stocktake_adjustments(warehouse_job: str, clear_existing: int = 1) -> Dict[str, Any]:
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    if (job.type or "").strip() != "Stocktake":
-        frappe.throw(_("This action is only available for Warehouse Job Type = Stocktake."))
-
-    if int(clear_existing or 0):
-        job.set("items", [])
-
-    item_fields = _safe_meta_fieldnames("Warehouse Job Item")
-    has_uom = "uom" in item_fields
-    has_location = "location" in item_fields
-    has_handling = "handling_unit" in item_fields
-    has_source_row = "source_row" in item_fields
-    has_source_par = "source_parent" in item_fields
-
-    created = 0
-    net_delta = 0.0
-
-    for r in (job.counts or []):
-        if (getattr(r, "actual_quantity", None) in (None, "")) or (getattr(r, "system_count", None) in (None, "")):
-            continue
-        actual = flt(getattr(r, "actual_quantity", 0))
-        system = flt(getattr(r, "system_count", 0))
-        delta = actual - system
-        if delta == 0:
-            continue
-
-        payload: Dict[str, Any] = {
-            "item": getattr(r, "item", None),
-            "quantity": delta,
-            "serial_no": getattr(r, "serial_no", None) or None,
-            "batch_no": getattr(r, "batch_no", None) or None,
-        }
-        if has_location: payload["location"] = getattr(r, "location", None) or None
-        if has_handling: payload["handling_unit"] = getattr(r, "handling_unit", None) or None
-        if has_uom:      payload["uom"] = _get_item_uom(payload["item"])
-        if has_source_row: payload["source_row"] = f"COUNT:{getattr(r, 'name', '')}"
-        if has_source_par: payload["source_parent"] = job.name
-
-        job.append("items", payload)
-        created  += 1
-        net_delta+= delta
-
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-    return {"ok": True, "message": _("Created {0} adjustment item(s). Net delta: {1}").format(int(created), flt(net_delta)),
-            "created_rows": int(created), "net_delta": flt(net_delta)}
 
 
 # =============================================================================
 # CREATE → JOB OPERATIONS
 # =============================================================================
 
-@frappe.whitelist()
-def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict[str, Any]:
-    if not warehouse_job:
-        frappe.throw(_("warehouse_job is required"))
-
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    job_type = (job.type or "").strip()
-    if not job_type:
-        frappe.throw(_("Warehouse Job Type is required to create Job Operations."))
-
-    ops_field = _find_child_table_field("Warehouse Job", "Warehouse Job Operations")
-    if not ops_field:
-        frappe.throw(_("Warehouse Job has no Operations child table."))
-
-    if int(clear_existing or 0):
-        job.set(ops_field, [])
-
-    orders = _fetch_job_order_items(job.name)
-    qty_baseline = sum([flt(o.get("quantity") or 0) for o in orders])
-
-    params: List[Any] = [job_type]
-    sql = """
-        SELECT name, operation_name, IFNULL(unit_std_hours, 0) AS unit_std_hours, `order`, notes
-        FROM `tabWarehouse Operation Item` WHERE used_in = %s
-    """
-    if job_type == "VAS" and getattr(job, "vas_order_type", None):
-        sql += " AND (vas_order_type = %s OR IFNULL(vas_order_type, '') = '')"
-        params.append(job.vas_order_type)
-    sql += " ORDER BY `order` ASC, idx ASC, name ASC"
-
-    ops = frappe.db.sql(sql, tuple(params), as_dict=True) or []
-    if not ops:
-        return {"ok": True, "message": _("No Warehouse Operation Item found for type {0}.").format(job_type),
-                "created_rows": 0, "qty_baseline": qty_baseline}
-
-    existing_codes = set()
-    for r in (getattr(job, ops_field) or []):
-        code = getattr(r, "operation", None)
-        if code: existing_codes.add(code)
-
-    child_fields = _safe_meta_fieldnames("Warehouse Job Operations")
-    has_desc  = "description" in child_fields
-    has_notes = "notes" in child_fields
-    has_uom   = False  # handling_uom column doesn't exist in database
-    has_qty   = "quantity" in child_fields
-    has_unith = "unit_std_hours" in child_fields
-    has_totalh= "total_std_hours" in child_fields
-    has_actual= "actual_hours" in child_fields
-
-    created = 0
-    for op in ops:
-        code = op["name"]
-        if code in existing_codes:
-            continue
-        unit_std = flt(op.get("unit_std_hours") or 0)
-        qty = flt(qty_baseline or 0)
-        payload: Dict[str, Any] = {"operation": code}
-        if has_desc:   payload["description"] = op.get("operation_name")
-        if has_uom and op.get("handling_uom"): payload["handling_uom"] = op.get("handling_uom")
-        if has_qty:    payload["quantity"] = qty
-        if has_unith:  payload["unit_std_hours"] = unit_std
-        if has_totalh: payload["total_std_hours"] = unit_std * qty
-        if has_actual: payload["actual_hours"] = None
-        if has_notes and op.get("notes"): payload["notes"] = op.get("notes")
-        
-        # set order from template if child field exists
-        if "order" in child_fields and "order" in op:
-            payload["order"] = op.get("order")
-        job.append(ops_field, payload)
-        created += 1
-
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-    return {"ok": True, "message": _("Added {0} operation(s).").format(created),
-            "created_rows": created, "qty_baseline": qty_baseline, "ops_field": ops_field}
-
 
 # =============================================================================
 # Create Sales Invoice from Warehouse Job Charges
 # =============================================================================
 
-@frappe.whitelist()
-def create_sales_invoice_from_job(
-    warehouse_job: str,
-    customer: Optional[str] = None,
-    company: Optional[str] = None,
-    posting_date: Optional[str] = None,
-    cost_center: Optional[str] = None,
-) -> Dict[str, Any]:
-    if not warehouse_job:
-        frappe.throw(_("warehouse_job is required"))
-
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-
-    charges_field = _find_child_table_field("Warehouse Job", "Warehouse Job Charges") or "charges"
-    charges: List[Any] = list(getattr(job, charges_field, []) or [])
-    if not charges:
-        frappe.throw(_("No rows found in {0}.").format(_("Warehouse Job Charges")))
-
-    jf = _safe_meta_fieldnames("Warehouse Job")
-    customer = customer or (getattr(job, "customer", None) if "customer" in jf else None)
-    company  = company  or (getattr(job, "company",  None) if "company"  in jf else None)
-    if not customer: frappe.throw(_("Customer is required (set Customer on Warehouse Job or pass it here)."))
-    if not company:  frappe.throw(_("Company is required."))
-
-    cf = _safe_meta_fieldnames("Warehouse Job Charges")
-    row_has_currency = "currency" in cf
-    row_has_rate     = "rate" in cf
-    row_has_total    = "total" in cf
-    row_has_uom      = "uom" in cf
-    row_has_itemname = "item_name" in cf
-    row_has_qty      = "quantity" in cf
-
-    currencies = set()
-    valid_rows: List[Dict[str, Any]] = []
-    for ch in charges:
-        item_code = getattr(ch, "item_code", None)
-        if not item_code:
-            continue
-        qty   = flt(getattr(ch, "quantity", 0.0)) if row_has_qty   else 0.0
-        rate  = flt(getattr(ch, "rate", 0.0))     if row_has_rate  else 0.0
-        total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
-        uom = (getattr(ch, "uom", None) or None) if row_has_uom else None
-        item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None
-        curr = (getattr(ch, "currency", None) or "").strip() if row_has_currency else ""
-
-        if row_has_currency and curr:
-            currencies.add(curr)
-
-        if qty and not rate and total:
-            rate = total / qty
-        if (not qty or qty == 0) and total and not rate:
-            qty, rate = 1.0, total
-        if not qty and not rate and not total:
-            continue
-
-        valid_rows.append({
-            "item_code": item_code,
-            "item_name": item_name,
-            "qty": flt(qty) if qty else (1.0 if (total or rate) else 0.0),
-            "rate": flt(rate) if rate else (flt(total) if (not qty and total) else 0.0),
-            "uom": uom,
-            "currency": curr or None,
-        })
-
-    if not valid_rows:
-        frappe.throw(_("No valid charge rows to invoice."))
-
-    chosen_currency = None
-    if row_has_currency:
-        currencies = {c for c in currencies if c}
-        if len(currencies) > 1:
-            frappe.throw(_("All charge rows must have the same currency. Found: {0}").format(", ".join(sorted(currencies))))
-        chosen_currency = (list(currencies)[0] if currencies else None)
-
-    si = frappe.new_doc("Sales Invoice")
-    si.customer = customer
-    si.company  = company
-    if posting_date: si.posting_date = posting_date
-
-    sif = _safe_meta_fieldnames("Sales Invoice")
-    if "warehouse_job" in sif:
-        setattr(si, "warehouse_job", job.name)
-    else:
-        base_remarks = (getattr(si, "remarks", "") or "").strip()
-        note = _("Auto-created from Warehouse Job {0}").format(job.name)
-        si.remarks = f"{base_remarks}\n{note}" if base_remarks else note
-
-    if chosen_currency and "currency" in sif:
-        si.currency = chosen_currency
-
-    sif_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
-    for r in valid_rows:
-        row_payload = {"item_code": r["item_code"], "qty": r["qty"] or 0.0, "rate": r["rate"] or 0.0}
-        if "uom" in sif_item_fields and r.get("uom"): row_payload["uom"] = r["uom"]
-        if "item_name" in sif_item_fields and r.get("item_name"): row_payload["item_name"] = r["item_name"]
-        if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
-        si.append("items", row_payload)
-
-    si.insert()
-    return {"ok": True, "message": _("Sales Invoice {0} created.").format(si.name), "sales_invoice": si.name}
+# create_sales_invoice_from_job moved to api_parts/ops.py
 
 
 # =============================================================================
@@ -2581,8 +1981,14 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
     ch_rows,   charges_fieldname = _get_child_rows(job, "Warehouse Job Charges", fallback_fieldname="charges")
 
     if on_submit:
+        # For Stocktake jobs, allow empty items if populate adjustment has been triggered
         if not item_rows and job_type != "Stocktake":
             errors.append(_("Items table is empty. Add at least one item row."))
+        elif not item_rows and job_type == "Stocktake":
+            # Check if populate adjustment has been triggered
+            populate_triggered = getattr(job, "populate_adjustment_triggered", False)
+            if not populate_triggered:
+                errors.append(_("Items table is empty. Either add items manually or use 'Populate Adjustments' button."))
         if not op_rows:
             errors.append(_("Operations table is empty. Add at least one operation row."))
         if not ch_rows:
@@ -2772,8 +2178,8 @@ def create_sales_invoice_from_periodic_billing(
                 si_name = out.get("sales_invoice")
                 if si_name and "branch" in _safe_meta_fieldnames("Sales Invoice"):
                     frappe.db.set_value("Sales Invoice", si_name, "branch", branch)
-        except Exception:
-            pass
+        except Exception as e:
+            frappe.logger().debug(f"Failed to set branch on Sales Invoice {si_name}: {str(e)}")
         return out
 
     if not periodic_billing:
@@ -2907,8 +2313,7 @@ from typing import TypedDict
 def _wj_fields():
     return _safe_meta_fieldnames("Warehouse Job")
 
-def _wjo_fields():
-    return _safe_meta_fieldnames("Warehouse Job Operations")
+# _wjo_fields moved to api_parts/common.py
 
 @frappe.whitelist()
 def resolve_warehouse_job(scanned: str) -> dict:
@@ -2931,125 +2336,8 @@ def resolve_warehouse_job(scanned: str) -> dict:
 
     return {"ok": False, "message": _("No Warehouse Job found for: {0}").format(scanned)}
 
-@frappe.whitelist()
-def get_warehouse_job_overview(warehouse_job: str) -> dict:
-    """
-    Return core header and operations summary for the scan page.
-    Safe-field aware to work across schema variations.
-    """
-    if not warehouse_job:
-        frappe.throw(_("warehouse_job is required"))
-
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    jf  = _wj_fields()
-
-    header = {
-        "name": job.name,
-        "type": getattr(job, "type", None),
-        "status": getattr(job, "status", None) if "status" in jf else None,
-        "docstatus": int(getattr(job, "docstatus", 0) or 0),
-        "customer": getattr(job, "customer", None) if "customer" in jf else None,
-        "company": getattr(job, "company", None) if "company" in jf else None,
-        "branch": getattr(job, "branch", None) if "branch" in jf else None,
-        "staging_area": getattr(job, "staging_area", None) if "staging_area" in jf else None,
-        "job_open_date": getattr(job, "job_open_date", None) if "job_open_date" in jf else None,
-    }
-
-    # Operations (child table may be named "Warehouse Job Operations")
-    ops_fn = _find_child_table_field("Warehouse Job", "Warehouse Job Operations")
-    ops_rows = []
-    if ops_fn:
-        childf = _wjo_fields()
-        # Pre-compute which fields exist
-        has = lambda f: (f in childf)
-        for r in getattr(job, ops_fn, []) or []:
-            row = {
-                "name": getattr(r, "name", None),
-                "idx": getattr(r, "idx", None),
-                "operation": getattr(r, "operation", None) if has("operation") else None,
-                "description": getattr(r, "description", None) if has("description") else None,
-                "quantity": float(getattr(r, "quantity", 0) or 0) if has("quantity") else None,
-                "unit_std_hours": float(getattr(r, "unit_std_hours", 0) or 0) if has("unit_std_hours") else None,
-                "total_std_hours": float(getattr(r, "total_std_hours", 0) or 0) if has("total_std_hours") else None,
-                "order": getattr(r, "order", None) if has("order") else None,
-                "actual_hours": float(getattr(r, "actual_hours", 0) or 0) if has("actual_hours") else None,
-                "start_datetime": getattr(r, "start_datetime", None) if has("start_datetime") else None,
-                "end_datetime": getattr(r, "end_datetime", None) if has("end_datetime") else None,
-            }
-            ops_rows.append(row)
-
-    return {"ok": True, "header": header, "operations": ops_rows}
-
-@frappe.whitelist()
-def update_job_operations_times(warehouse_job: str, updates_json: str) -> dict:
-    """
-    updates_json: JSON list like
-      [{ "name": "<child_name>", "start_datetime": "<iso>", "end_datetime": "<iso>" }, ...]
-    - Works whether your doctype fields are start_datetime/end_datetime OR start_date/end_date.
-    - Computes duration in hours into 'actual_hours' when both ends present (if field exists).
-    """
-    if not warehouse_job:
-        frappe.throw(_("warehouse_job is required"))
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-
-    ops_fn = _find_child_table_field("Warehouse Job", "Warehouse Job Operations")
-    if not ops_fn:
-        frappe.throw(_("Warehouse Job has no Operations child table."))
-
-    childf = _wjo_fields()
-    has = lambda f: (f in childf)
-    start_f, end_f = _ops_time_fields()
-
-    try:
-        updates = frappe.parse_json(updates_json or "[]")
-        if not isinstance(updates, list):
-            raise ValueError("updates_json must be a JSON array")
-    except Exception as e:
-        frappe.throw(_("Invalid updates_json: {0}").format(e))
-
-    by_name = {getattr(r, "name", None): r for r in getattr(job, ops_fn, []) or []}
-    changed = 0
-    results = []
-
-    for u in updates:
-        cname = (u.get("name") or "").strip()
-        if not cname or cname not in by_name:
-            continue
-        row = by_name[cname]
-
-        
-        # sequencing enforcement: cannot start/finish this op if any prior op (by 'order' or idx) is incomplete
-        _assert_prior_ops_completed(job, ops_fn, row)
-        s_raw = u.get("start_datetime")
-        e_raw = u.get("end_datetime")
-        s_dt = get_datetime(s_raw) if s_raw else None
-        e_dt = get_datetime(e_raw) if e_raw else None
-
-        # assign to actual fieldnames present
-        if s_dt and start_f and has(start_f):
-            setattr(row, start_f, s_dt)
-        if e_dt and end_f and has(end_f):
-            setattr(row, end_f, e_dt)
-
-        dur_hours = None
-        if s_dt and e_dt and has("actual_hours"):
-            sec = max(0.0, (e_dt - s_dt).total_seconds())
-            dur_hours = round(sec / 3600.0, 4)
-            setattr(row, "actual_hours", dur_hours)
-
-        results.append({
-            "name": cname,
-            "start_datetime": (s_dt or (getattr(row, start_f, None) if (start_f and has(start_f)) else None)),
-            "end_datetime":   (e_dt or (getattr(row, end_f,   None) if (end_f   and has(end_f))   else None)),
-            "actual_hours": (dur_hours if dur_hours is not None else (float(getattr(row, "actual_hours", 0) or 0) if has("actual_hours") else None)),
-        })
-        changed += 1
-
-    if changed:
-        job.save(ignore_permissions=True)
-        frappe.db.commit()
-
-    return {"ok": True, "updated": changed, "rows": results}
+# get_warehouse_job_overview moved to api_parts/common.py
+# update_job_operations_times moved to api_parts/ops.py
 
 @frappe.whitelist()
 def post_job_by_scan(
@@ -3073,11 +2361,7 @@ def post_job_by_scan(
     )
 
 # --- helpers for ops date fields (supports start_datetime/end_datetime OR start_date/end_date) ---
-def _ops_time_fields():
-    f = _safe_meta_fieldnames("Warehouse Job Operations")
-    start_f = "start_datetime" if "start_datetime" in f else ("start_date" if "start_date" in f else None)
-    end_f   = "end_datetime"   if "end_datetime"   in f else ("end_date"   if "end_date"   in f else None)
-    return start_f, end_f
+# _ops_time_fields moved to api_parts/common.py
 
 
 # --- sequencing helpers for Warehouse Job Operations ---
@@ -3086,7 +2370,8 @@ def _wjo_order_value(row: Any) -> int:
     try:
         v = getattr(row, "order", None)
         return int(v) if (v not in (None, "",)) else int(getattr(row, "idx", 0) or 0)
-    except Exception:
+    except (ValueError, TypeError, AttributeError) as e:
+        frappe.logger().debug(f"Failed to get order value from row: {str(e)}, using idx")
         return int(getattr(row, "idx", 0) or 0)
 
 def _wjo_is_completed(row: Any) -> bool:
@@ -3098,8 +2383,8 @@ def _wjo_is_completed(row: Any) -> bool:
             return True
         if end_f and end_f in fields and getattr(row, end_f, None):
             return True
-    except Exception:
-        pass
+    except (AttributeError, TypeError) as e:
+        frappe.logger().debug(f"Failed to check completion status for row: {str(e)}")
     return False
 
 def _assert_prior_ops_completed(job: Any, ops_fieldname: str, current_row: Any) -> None:
@@ -3789,8 +3074,8 @@ def create_sales_invoice_from_periodic_billing(
     if "sales_invoice" in pbf:
         try:
             setattr(pb, "sales_invoice", si.name)
-        except Exception:
-            pass
+        except (AttributeError, TypeError) as e:
+            frappe.logger().debug(f"Failed to set sales_invoice on Periodic Billing: {str(e)}")
 
     # Children: mark invoiced=1 and link SI if fields exist
     cf_fields = _safe_meta_fieldnames("Periodic Billing Charges")
@@ -3800,203 +3085,21 @@ def create_sales_invoice_from_periodic_billing(
         if "invoiced" in cf_fields:
             try:
                 setattr(ch, "invoiced", 1)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as e:
+                frappe.logger().debug(f"Failed to set invoiced on Periodic Billing Charges: {str(e)}")
         if "sales_invoice" in cf_fields:
             try:
                 setattr(ch, "sales_invoice", si.name)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as e:
+                frappe.logger().debug(f"Failed to set sales_invoice on Periodic Billing Charges: {str(e)}")
         updated_pb_rows += 1
 
     try:
         pb.save(ignore_permissions=True)
         frappe.db.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().error(f"Failed to save Periodic Billing after creating Sales Invoice: {str(e)}")
+        frappe.throw(_("Failed to update Periodic Billing after creating Sales Invoice. Please check the logs."))
 
     return {"ok": True, "message": _("Sales Invoice {0} created.").format(si.name), "sales_invoice": si.name, "created_rows": created_rows, "updated_pb_rows": updated_pb_rows}
 
-# =============================================================================
-# STOCKTAKE: Fetch Count Sheet
-# =============================================================================
-
-@frappe.whitelist()
-def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1):
-    """Build Count Sheet for items present in Orders; respects Job scope."""
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    if (job.type or "").strip() != "Stocktake":
-        frappe.throw(_("Fetch Count Sheet is only available for Warehouse Job Type = Stocktake."))
-
-    order_items = frappe.get_all(
-        "Warehouse Job Order Items",
-        filters={"parent": job.name, "parenttype": "Warehouse Job"},
-        fields=["distinct item AS item"],
-        ignore_permissions=True,
-    )
-    item_list = [r["item"] for r in order_items if (r.get("item") or "").strip()]
-    item_set  = set(item_list)
-    if not item_set:
-        return {"ok": True, "message": _("No items found in Orders. Add items in the Orders table first."), "created_rows": 0}
-
-    company, branch = _get_job_scope(job)
-
-    if int(clear_existing or 0):
-        job.set("counts", [])
-
-    # optional sync from Stocktake Order header
-    if (job.reference_order_type or "").strip() == "Stocktake Order" and getattr(job, "reference_order", None):
-        so_meta = _safe_meta_fieldnames("Stocktake Order")
-        desired = ["count_type", "blind_count", "qa_required", "count_date"]
-        fields_to_fetch = [f for f in desired if f in so_meta]
-        if fields_to_fetch:
-            so = frappe.db.get_value("Stocktake Order", job.reference_order, fields_to_fetch, as_dict=True) or {}
-            for k in fields_to_fetch:
-                v = so.get(k)
-                if v not in (None, "") and not getattr(job, k, None):
-                    setattr(job, k, v)
-
-    slf = _safe_meta_fieldnames("Storage Location")
-    huf = _safe_meta_fieldnames("Handling Unit")
-    llf = _safe_meta_fieldnames("Warehouse Stock Ledger")
-
-    conds = ["l.item IN ({})".format(", ".join(["%s"] * len(item_set)))]
-    params: List[Any] = list(item_set)
-
-    if company and (("company" in slf) or ("company" in huf) or ("company" in llf)) :
-        conds.append("COALESCE(hu.company, sl.company, l.company) = %s"); params.append(company)
-    if branch and  (("branch"  in slf) or ("branch"  in huf) or ("branch"  in llf)):
-        conds.append("COALESCE(hu.branch,  sl.branch,  l.branch)  = %s"); params.append(branch)
-
-    aggregates = frappe.db.sql(f"""
-        SELECT l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no,
-               SUM(l.quantity) AS system_qty
-        FROM `tabWarehouse Stock Ledger` l
-        LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
-        LEFT JOIN `tabHandling Unit`    hu ON hu.name = l.handling_unit
-        WHERE {' AND '.join(conds)}
-        GROUP BY l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no
-        HAVING SUM(l.quantity) > 0
-    """, tuple(params), as_dict=True) or []
-
-    # zero-stock placeholders
-    loc_params, loc_conds = [], []
-    if company and ("company" in slf): loc_conds.append("sl.company = %s"); loc_params.append(company)
-    if branch  and ("branch"  in slf): loc_conds.append("sl.branch  = %s"); loc_params.append(branch)
-    loc_where = ("WHERE " + " AND ".join(loc_conds)) if loc_conds else ""
-    locations = frappe.db.sql(f"SELECT sl.name AS name FROM `tabStorage Location` sl {loc_where}",
-                              tuple(loc_params), as_dict=True) or []
-
-    hu_params, hu_conds = [], []
-    if company and ("company" in huf): hu_conds.append("hu.company = %s"); hu_params.append(company)
-    if branch  and ("branch"  in huf): hu_conds.append("hu.branch  = %s");  hu_params.append(branch)
-    hu_where = ("WHERE " + " AND ".join(hu_conds)) if hu_conds else ""
-    hus = frappe.db.sql(f"SELECT hu.name AS name FROM `tabHandling Unit` hu {hu_where}",
-                        tuple(hu_params), as_dict=True) or []
-
-    existing_keys = set()
-    for r in (job.counts or []):
-        k = (r.item or "", r.location or "", r.handling_unit or "", r.batch_no or "", r.serial_no or "")
-        existing_keys.add(k)
-
-    created_rows = 0
-    blind = int(getattr(job, "blind_count", 0) or 0)
-
-    def _append_count_row(item: str, location: Optional[str], handling_unit: Optional[str],
-                          batch_no: Optional[str], serial_no: Optional[str], sys_qty: Optional[float]):
-        nonlocal created_rows
-        key = (item or "", location or "", handling_unit or "", batch_no or "", serial_no or "")
-        if key in existing_keys:
-            return
-        payload = {
-            "item": item,
-            "location": location,
-            "handling_unit": handling_unit,
-            "batch_no": batch_no,
-            "serial_no": serial_no,
-            "system_count": (None if blind else flt(sys_qty or 0)),
-            "actual_quantity": None,
-            "blind_count": blind,
-        }
-        job.append("counts", payload)
-        existing_keys.add(key)
-        created_rows += 1
-
-    for a in aggregates:
-        if a.get("item") not in item_set: continue
-        _append_count_row(a.get("item"), a.get("storage_location"), a.get("handling_unit"),
-                          a.get("batch_no"), a.get("serial_no"), flt(a.get("system_qty") or 0))
-
-    for it in item_set:
-        for loc in locations:
-            _append_count_row(it, loc["name"], None, None, None, 0)
-        for hu in hus:
-            _append_count_row(it, None, hu["name"], None, None, 0)
-
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-
-    msg_bits = [_("Created {0} count line(s).").format(created_rows)]
-    if blind: msg_bits.append(_("Blind: system counts hidden"))
-    if company: msg_bits.append(_("Company: {0}").format(company))
-    if branch:  msg_bits.append(_("Branch: {0}").format(branch))
-
-    return {"ok": True, "message": " | ".join(msg_bits), "created_rows": created_rows,
-            "header": {"count_date": getattr(job, "count_date", None),
-                       "count_type": getattr(job, "count_type", None),
-                       "blind_count": blind,
-                       "qa_required": int(getattr(job, "qa_required", 0) or 0)}}
-
-
-# =============================================================================
-# STOCKTAKE: Populate Adjustments
-# =============================================================================
-
-@frappe.whitelist()
-def populate_stocktake_adjustments(warehouse_job: str, clear_existing: int = 1) -> Dict[str, Any]:
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    if (job.type or "").strip() != "Stocktake":
-        frappe.throw(_("This action is only available for Warehouse Job Type = Stocktake."))
-
-    if int(clear_existing or 0):
-        job.set("items", [])
-
-    item_fields = _safe_meta_fieldnames("Warehouse Job Item")
-    has_uom = "uom" in item_fields
-    has_location = "location" in item_fields
-    has_handling = "handling_unit" in item_fields
-    has_source_row = "source_row" in item_fields
-    has_source_par = "source_parent" in item_fields
-
-    created = 0
-    net_delta = 0.0
-
-    for r in (job.counts or []):
-        if (getattr(r, "actual_quantity", None) in (None, "")) or (getattr(r, "system_count", None) in (None, "")):
-            continue
-        actual = flt(getattr(r, "actual_quantity", 0))
-        system = flt(getattr(r, "system_count", 0))
-        delta = actual - system
-        if delta == 0:
-            continue
-
-        payload: Dict[str, Any] = {
-            "item": getattr(r, "item", None),
-            "quantity": delta,
-            "serial_no": getattr(r, "serial_no", None) or None,
-            "batch_no": getattr(r, "batch_no", None) or None,
-        }
-        if has_location: payload["location"] = getattr(r, "location", None) or None
-        if has_handling: payload["handling_unit"] = getattr(r, "handling_unit", None) or None
-        if has_uom:      payload["uom"] = _get_item_uom(payload["item"])
-        if has_source_row: payload["source_row"] = f"COUNT:{getattr(r, 'name', '')}"
-        if has_source_par: payload["source_parent"] = job.name
-
-        job.append("items", payload)
-        created  += 1
-        net_delta+= delta
-
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-    return {"ok": True, "message": _("Created {0} adjustment item(s). Net delta: {1}").format(int(created), flt(net_delta)),
-            "created_rows": int(created), "net_delta": flt(net_delta)}

@@ -244,23 +244,8 @@ def get_green_operations_metrics(site=None, facility=None, from_date=None, to_da
 
 def get_green_certifications(site=None, facility=None):
 	"""Get green certifications for the site/facility"""
-	filters = {}
-	if site:
-		filters["site"] = site
-	if facility:
-		filters["facility"] = facility
-	
-	# Get certifications from energy consumption records
-	certifications = frappe.get_all("Energy Consumption", 
-		filters=filters,
-		fields=["green_certifications"],
-		limit=1
-	)
-	
-	if certifications and certifications[0].green_certifications:
-		# Parse certifications (this would need to be implemented based on the actual structure)
-		return certifications[0].green_certifications
-	
+	# Placeholder function - green certifications would be stored in a separate doctype
+	# For now, return empty list to prevent database errors
 	return []
 
 

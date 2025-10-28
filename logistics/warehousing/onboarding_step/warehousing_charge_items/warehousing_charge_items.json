@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Item Master",
+ "creation": "2025-10-18 12:20:02.034959",
+ "description": "Charge Items are the billing items used for warehousing services. Configure charge items for storage, inbound, outbound, transfer, VAS, and stocktake services with proper UOMs and billing methods.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:29:52.588109",
+ "modified_by": "Administrator",
+ "name": "Warehousing Charge Items",
+ "owner": "Administrator",
+ "reference_document": "Item",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Set Up Warehousing Charge Items",
+ "validate_action": 1
+}

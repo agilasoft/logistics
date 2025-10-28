@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "creation": "2025-09-08 17:58:19.053132",
  "doctype": "DocType",
@@ -23,8 +24,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-08 18:19:07.877693",
- "modified_by": "Administrator",
+ "modified": "2025-10-24 11:19:48.436671",
+ "modified_by": "richardjohn.delarosa@agilasoft.com",
  "module": "Warehousing",
  "name": "Warehouse Job Operations Template",
  "owner": "Administrator",

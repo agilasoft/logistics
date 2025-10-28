@@ -10,6 +10,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timedelta
+from logistics.warehousing.api_parts.common import _get_default_currency
 
 
 @frappe.whitelist()
@@ -25,6 +26,27 @@ def get_warehouse_job_charges_with_contract(customer: str, date_from: str, date_
     warnings = []
     
     try:
+        # Input validation
+        if not customer:
+            frappe.throw(_("Customer is required"))
+        
+        if not frappe.db.exists("Customer", customer):
+            frappe.throw(_("Invalid Customer: {0}").format(customer))
+        
+        if not date_from or not date_to:
+            frappe.throw(_("Date From and Date To are required"))
+        
+        if not warehouse_contract:
+            frappe.throw(_("Warehouse Contract is required"))
+        
+        if not frappe.db.exists("Warehouse Contract", warehouse_contract):
+            frappe.throw(_("Invalid Warehouse Contract: {0}").format(warehouse_contract))
+        
+        if company and not frappe.db.exists("Company", company):
+            frappe.throw(_("Invalid Company: {0}").format(company))
+        
+        if branch and not frappe.db.exists("Branch", branch):
+            frappe.throw(_("Invalid Branch: {0}").format(branch))
         # Get warehouse jobs for the customer in the date range
         filters = {
             "docstatus": 1, 
@@ -179,16 +201,11 @@ def find_matching_contract_items_for_job(job_type: str, contract_items: List[Dic
     
     charge_type = job_type_mapping.get(job_type, "inbound_charge")  # Default to inbound
     
-    # Debug logging
-    frappe.logger().debug(f"Finding contract items for job_type: {job_type}, charge_type: {charge_type}")
-    frappe.logger().debug(f"Available contract items: {len(contract_items)}")
     
     for item in contract_items:
         if item.get(charge_type, 0):
-            frappe.logger().debug(f"Found matching contract item: {item.get('item_code')} for {charge_type}")
             matching_items.append(item)
     
-    frappe.logger().debug(f"Total matching items found: {len(matching_items)}")
     return matching_items
 
 
@@ -218,7 +235,7 @@ def calculate_single_job_charge(job: Dict, job_doc, contract_item: Dict, date_fr
             "quantity": billing_quantity,
             "rate": rate,
             "total": total,
-            "currency": contract_item.get("currency", "PHP"),
+            "currency": contract_item.get("currency", _get_default_currency(company)),
             "warehouse_job": job.get("name"),
             "calculation_notes": generate_job_charge_calculation_notes(job, contract_item, billing_quantity, rate, unit_type, date_to)
         }
@@ -354,10 +371,6 @@ def calculate_job_piece_quantity(job_doc) -> float:
     try:
         total_pieces = 0.0
         
-        # Debug logging
-        frappe.logger().debug(f"Calculating pieces for job: {job_doc.name}")
-        frappe.logger().debug(f"Job has items attribute: {hasattr(job_doc, 'items')}")
-        frappe.logger().debug(f"Items count: {len(job_doc.items or [])}")
         
         for item in job_doc.items or []:
             # Try both dictionary access and attribute access
@@ -366,10 +379,7 @@ def calculate_job_piece_quantity(job_doc) -> float:
             else:
                 quantity = flt(item.get("quantity", 0))
             
-            frappe.logger().debug(f"Item: {item.item if hasattr(item, 'item') else item.get('item', 'Unknown')}, Quantity: {quantity}")
             total_pieces += quantity
-        
-        frappe.logger().debug(f"Total pieces calculated: {total_pieces}")
         return total_pieces
         
     except Exception as e:
@@ -410,7 +420,7 @@ def generate_job_charge_calculation_notes(job: Dict, contract_item: Dict, billin
   • Rate per {contract_item.get('uom', 'N/A')}: {rate}
   • Billing Quantity: {billing_quantity}
   • Calculation: {billing_quantity} × {rate} = {billing_quantity * rate}
-  • Currency: {contract_item.get('currency', 'PHP')}
+  • Currency: {contract_item.get('currency', _get_default_currency(company))}
   • Contract Setup Applied:
     - Rate sourced from Warehouse Contract Item
     - Applied based on actual stock movements in Warehouse Stock Ledger

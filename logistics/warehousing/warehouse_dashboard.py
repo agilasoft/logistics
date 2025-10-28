@@ -10,6 +10,16 @@ import json
 def get_warehouse_dashboard_data(company: Optional[str] = None, branch: Optional[str] = None, warehouse_job: Optional[str] = None) -> Dict[str, Any]:
     """Get data for warehouse dashboard including handling units, locations, and gate passes"""
     
+    # Input validation
+    if company and not frappe.db.exists("Company", company):
+        frappe.throw(_("Invalid Company: {0}").format(company))
+    
+    if branch and not frappe.db.exists("Branch", branch):
+        frappe.throw(_("Invalid Branch: {0}").format(branch))
+    
+    if warehouse_job and not frappe.db.exists("Warehouse Job", warehouse_job):
+        frappe.throw(_("Invalid Warehouse Job: {0}").format(warehouse_job))
+    
     # Get handling units with their current stock
     handling_units = get_handling_units_data(company, branch, warehouse_job)
     
@@ -34,51 +44,63 @@ def get_warehouse_dashboard_data(company: Optional[str] = None, branch: Optional
 def get_handling_units_data(company: Optional[str] = None, branch: Optional[str] = None, warehouse_job: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get handling units with their current stock and items"""
     
-    # Build company/branch filters
-    filters = {"status": ["in", ["Available", "In Use"]]}
-    if company:
-        filters["company"] = company
-    if branch:
-        filters["branch"] = branch
-    
-    # Get handling units
-    handling_units = frappe.get_all(
-        "Handling Unit",
-        filters=filters,
-        fields=[
-            "name", "type", "brand", "supplier", "status", 
-            "company", "branch", "notes"
-        ],
-        order_by="name"
-    )
+    try:
+        # Build company/branch filters
+        filters = {"status": ["in", ["Available", "In Use"]]}
+        if company:
+            filters["company"] = company
+        if branch:
+            filters["branch"] = branch
+        
+        # Get handling units
+        handling_units = frappe.get_all(
+            "Handling Unit",
+            filters=filters,
+            fields=[
+                "name", "type", "brand", "supplier", "status", 
+                "company", "branch", "notes"
+            ],
+            order_by="name"
+        )
+    except Exception as e:
+        frappe.log_error(f"Error getting handling units data: {str(e)}")
+        frappe.throw(_("Failed to retrieve handling units data. Please try again or contact support."))
     
     # Filter by warehouse job if specified
     if warehouse_job:
-        # Get handling units that are associated with this warehouse job
-        warehouse_job_hus = frappe.db.sql("""
-            SELECT DISTINCT handling_unit 
-            FROM `tabWarehouse Job Item` 
-            WHERE parent = %s AND handling_unit IS NOT NULL
-        """, (warehouse_job,), as_dict=True)
-        
-        warehouse_job_hu_names = [row.handling_unit for row in warehouse_job_hus]
-        handling_units = [hu for hu in handling_units if hu.name in warehouse_job_hu_names]
+        try:
+            # Get handling units that are associated with this warehouse job
+            warehouse_job_hus = frappe.db.sql("""
+                SELECT DISTINCT handling_unit 
+                FROM `tabWarehouse Job Item` 
+                WHERE parent = %s AND handling_unit IS NOT NULL
+            """, (warehouse_job,), as_dict=True)
+            
+            warehouse_job_hu_names = [row.handling_unit for row in warehouse_job_hus]
+            handling_units = [hu for hu in handling_units if hu.name in warehouse_job_hu_names]
+        except Exception as e:
+            frappe.log_error(f"Error filtering handling units by warehouse job: {str(e)}")
+            # Continue without filtering rather than failing completely
     
     # Get stock data for each handling unit
     for hu in handling_units:
-        # Get items from warehouse job items table for this handling unit
-        stock_data = frappe.db.sql("""
-            SELECT 
-                wji.item,
-                wji.quantity,
-                wji.length,
-                wji.width,
-                wji.height,
-                wji.volume,
-                wji.weight
-            FROM `tabWarehouse Job Item` wji
-            WHERE wji.handling_unit = %s
-        """, (hu.name,), as_dict=True)
+        try:
+            # Get items from warehouse job items table for this handling unit
+            stock_data = frappe.db.sql("""
+                SELECT 
+                    wji.item,
+                    wji.quantity,
+                    wji.length,
+                    wji.width,
+                    wji.height,
+                    wji.volume,
+                    wji.weight
+                FROM `tabWarehouse Job Item` wji
+                WHERE wji.handling_unit = %s
+            """, (hu.name,), as_dict=True)
+        except Exception as e:
+            frappe.log_error(f"Error getting stock data for handling unit {hu.name}: {str(e)}")
+            stock_data = []  # Continue with empty data rather than failing
         
         
         hu["items"] = stock_data
@@ -114,58 +136,70 @@ def get_handling_units_data(company: Optional[str] = None, branch: Optional[str]
         
         
         # Get current location of this handling unit
-        location_data = frappe.db.sql("""
-            SELECT DISTINCT l.storage_location, sl.site, sl.building, sl.zone, sl.aisle, sl.bay, sl.level
-            FROM `tabWarehouse Stock Ledger` l
-            LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
-            WHERE l.handling_unit = %s AND l.quantity > 0
-            ORDER BY l.posting_date DESC
-            LIMIT 1
-        """, (hu.name,), as_dict=True)
-        
-        hu["current_location"] = location_data[0] if location_data else None
+        try:
+            location_data = frappe.db.sql("""
+                SELECT DISTINCT l.storage_location, sl.site, sl.building, sl.zone, sl.aisle, sl.bay, sl.level
+                FROM `tabWarehouse Stock Ledger` l
+                LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
+                WHERE l.handling_unit = %s AND l.quantity > 0
+                ORDER BY l.posting_date DESC
+                LIMIT 1
+            """, (hu.name,), as_dict=True)
+            
+            hu["current_location"] = location_data[0] if location_data else None
+        except Exception as e:
+            frappe.log_error(f"Error getting location data for handling unit {hu.name}: {str(e)}")
+            hu["current_location"] = None
     
     return handling_units
 
 def get_storage_locations_data(company: Optional[str] = None, branch: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get storage locations with their current status and occupancy"""
     
-    # Build company/branch filters
-    filters = {}
-    if company:
-        filters["company"] = company
-    if branch:
-        filters["branch"] = branch
-    
-    # Get storage locations
-    locations = frappe.get_all(
-        "Storage Location",
-        filters=filters,
-        fields=[
-            "name", "site", "building", "zone", "aisle", "bay", "level", 
-            "location_code", "status", "storage_type", "bin_priority",
-            "max_hu_slot", "staging_area", "pick_face"
-        ],
-        order_by="site, building, zone, aisle, bay, level"
-    )
+    try:
+        # Build company/branch filters
+        filters = {}
+        if company:
+            filters["company"] = company
+        if branch:
+            filters["branch"] = branch
+        
+        # Get storage locations
+        locations = frappe.get_all(
+            "Storage Location",
+            filters=filters,
+            fields=[
+                "name", "site", "building", "zone", "aisle", "bay", "level", 
+                "location_code", "status", "storage_type", "bin_priority",
+                "max_hu_slot", "staging_area", "pick_face"
+            ],
+            order_by="site, building, zone, aisle, bay, level"
+        )
+    except Exception as e:
+        frappe.log_error(f"Error getting storage locations data: {str(e)}")
+        frappe.throw(_("Failed to retrieve storage locations data. Please try again or contact support."))
     
     # Get occupancy data for each location
     for loc in locations:
-        # Get current stock in this location
-        stock_data = frappe.db.sql("""
-            SELECT 
-                COUNT(DISTINCT l.handling_unit) as hu_count,
-                COUNT(DISTINCT l.item) as item_count,
-                SUM(l.quantity) as total_quantity
-            FROM `tabWarehouse Stock Ledger` l
-            WHERE l.storage_location = %s AND l.quantity > 0
-        """, (loc.name,), as_dict=True)
+        try:
+            # Get current stock in this location
+            stock_data = frappe.db.sql("""
+                SELECT 
+                    COUNT(DISTINCT l.handling_unit) as hu_count,
+                    COUNT(DISTINCT l.item) as item_count,
+                    SUM(l.quantity) as total_quantity
+                FROM `tabWarehouse Stock Ledger` l
+                WHERE l.storage_location = %s AND l.quantity > 0
+            """, (loc.name,), as_dict=True)
+        except Exception as e:
+            frappe.log_error(f"Error getting occupancy data for location {loc.name}: {str(e)}")
+            stock_data = []
         
         if stock_data:
             loc["occupancy"] = stock_data[0]
             loc["occupancy"]["utilization"] = (
-                stock_data[0]["hu_count"] / loc["max_hu_slot"] * 100 
-                if loc["max_hu_slot"] else 0
+                (stock_data[0]["hu_count"] / loc["max_hu_slot"] * 100) 
+                if loc["max_hu_slot"] and loc["max_hu_slot"] > 0 else 0
             )
         else:
             loc["occupancy"] = {"hu_count": 0, "item_count": 0, "total_quantity": 0, "utilization": 0}
@@ -271,6 +305,13 @@ def get_gate_passes_data(company: Optional[str] = None, branch: Optional[str] = 
 def get_handling_unit_details(handling_unit: str) -> Dict[str, Any]:
     """Get detailed information about a specific handling unit"""
     
+    # Input validation
+    if not handling_unit:
+        frappe.throw(_("Handling Unit is required"))
+    
+    if not frappe.db.exists("Handling Unit", handling_unit):
+        frappe.throw(_("Invalid Handling Unit: {0}").format(handling_unit))
+    
     # Get handling unit basic info
     hu_doc = frappe.get_doc("Handling Unit", handling_unit)
     hu_data = {
@@ -345,6 +386,13 @@ def get_handling_unit_details(handling_unit: str) -> Dict[str, Any]:
 def get_location_details(location: str) -> Dict[str, Any]:
     """Get detailed information about a specific storage location"""
     
+    # Input validation
+    if not location:
+        frappe.throw(_("Storage Location is required"))
+    
+    if not frappe.db.exists("Storage Location", location):
+        frappe.throw(_("Invalid Storage Location: {0}").format(location))
+    
     # Get location basic info
     loc_doc = frappe.get_doc("Storage Location", location)
     loc_data = {
@@ -399,6 +447,13 @@ def get_location_details(location: str) -> Dict[str, Any]:
 @frappe.whitelist()
 def get_gate_pass_details(gate_pass: str) -> Dict[str, Any]:
     """Get detailed information about a specific gate pass"""
+    
+    # Input validation
+    if not gate_pass:
+        frappe.throw(_("Gate Pass is required"))
+    
+    if not frappe.db.exists("Gate Pass", gate_pass):
+        frappe.throw(_("Invalid Gate Pass: {0}").format(gate_pass))
     
     # Get gate pass basic info
     gp_doc = frappe.get_doc("Gate Pass", gate_pass)

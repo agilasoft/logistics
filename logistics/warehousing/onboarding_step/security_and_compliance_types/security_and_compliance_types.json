@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Security and Compliance Types",
+ "creation": "2025-10-18 12:05:16.628675",
+ "description": "Security and Compliance Types define the regulatory and certification requirements for warehouse operations. Set up compliance categories like ISO 9001, ISO 14001, OHSAS 18001, HACCP, GDP, and customs compliance to ensure regulatory adherence and quality standards.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 1,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:29:52.542737",
+ "modified_by": "Administrator",
+ "name": "Security and Compliance Types",
+ "owner": "Administrator",
+ "reference_document": "Security and Compliance Type",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Configure Security and Compliance Types",
+ "validate_action": 1
+}

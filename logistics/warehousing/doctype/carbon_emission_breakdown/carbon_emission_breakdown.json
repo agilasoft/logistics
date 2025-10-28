@@ -2,8 +2,9 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:{parent}-{emission_source}",
- "creation": "2025-01-27 10:00:00.000000",
+ "creation": "2025-01-27 10:00:00",
  "doctype": "DocType",
+ "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "emission_source",
@@ -18,6 +19,7 @@
   {
    "fieldname": "emission_source",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Emission Source",
    "options": "Electricity\nNatural Gas\nDiesel\nGasoline\nPropane\nTransportation\nWaste\nOther",
    "reqd": 1
@@ -25,27 +27,34 @@
   {
    "fieldname": "activity_data",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Activity Data",
    "precision": "3",
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "unit_of_measure",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Unit of Measure",
    "options": "UOM",
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "emission_factor",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Emission Factor (kg CO2e per unit)",
    "precision": "6",
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "emission_value",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Emission Value (kg CO2e)",
    "precision": "3",
    "read_only": 1
@@ -53,6 +62,7 @@
   {
    "fieldname": "percentage_of_total",
    "fieldtype": "Percent",
+   "in_list_view": 1,
    "label": "Percentage of Total",
    "precision": "2",
    "read_only": 1
@@ -66,13 +76,14 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-01-27 10:00:00.000000",
+ "modified": "2025-10-18 12:45:16.698857",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Carbon Emission Breakdown",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

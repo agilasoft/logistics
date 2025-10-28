@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to UOM Setup",
+ "creation": "2025-10-18 12:17:30.301852",
+ "description": "Units of Measure (UOM) configuration is essential for accurate capacity management and billing calculations. Set up CBM, Kg, M, CM, MM, Nos, Pallets, and Boxes with proper conversion factors and precision settings for volume, weight, and dimensional calculations in warehouse operations.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:29:52.576928",
+ "modified_by": "Administrator",
+ "name": "UOM Configuration",
+ "owner": "Administrator",
+ "reference_document": "UOM",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Configure Units of Measure",
+ "validate_action": 1
+}

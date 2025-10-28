@@ -1,11 +1,12 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "naming_series:",
  "creation": "2025-08-18 16:48:46.364258",
  "doctype": "DocType",
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "type",
   "naming_series",
   "column_break_vrcu",
@@ -195,31 +196,31 @@
    "label": "Enable Capacity Alerts"
   },
   {
+   "default": "80",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "volume_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Volume Alert Threshold",
-   "default": "80"
+   "label": "Volume Alert Threshold"
   },
   {
+   "default": "80",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "weight_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Weight Alert Threshold",
-   "default": "80"
+   "label": "Weight Alert Threshold"
   },
   {
+   "default": "90",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "utilization_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Utilization Alert Threshold",
-   "default": "90"
+   "label": "Utilization Alert Threshold"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-22 07:29:31.743440",
+ "modified": "2025-10-22 14:28:17.147141",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Handling Unit",
@@ -237,6 +238,24 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  }
+ ],
+ "indexes": [
+  {
+   "index_name": "idx_status_company",
+   "fields": ["status", "company"]
+  },
+  {
+   "index_name": "idx_type_company",
+   "fields": ["type", "company"]
+  },
+  {
+   "index_name": "idx_company_branch",
+   "fields": ["company", "branch"]
+  },
+  {
+   "index_name": "idx_supplier_status",
+   "fields": ["supplier", "status"]
   }
  ],
  "row_format": "Dynamic",

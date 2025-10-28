@@ -73,14 +73,27 @@ function _apply_vals(cdt, cdn, m) {
   if (typeof m.rate === "number") frappe.model.set_value(cdt, cdn, "rate", m.rate);
   if (m.currency) frappe.model.set_value(cdt, cdn, "currency", m.currency);
 
-  // strictly use UOM from Contract
-  const contract_uom = (m.storage_charge && m.billing_time_unit) ? m.billing_time_unit : (m.handling_uom || null);
-  if (contract_uom) {
-    frappe.model.set_value(cdt, cdn, "uom", contract_uom);
+  // Use UOM from Contract
+  if (m.uom) {
+    frappe.model.set_value(cdt, cdn, "uom", m.uom);
   } else {
-    // ensure Item default doesn't stick
-    frappe.model.set_value(cdt, cdn, "uom", "");
-    frappe.show_alert({ message: __("No UOM set on Warehouse Contract for this charge."), indicator: "orange" });
+    // Fallback to item's default UOM if no contract UOM found
+    const row = locals[cdt][cdn];
+    if (row.item) {
+      frappe.call({
+        method: "frappe.client.get_value",
+        args: {
+          doctype: "Warehouse Item",
+          name: row.item,
+          fieldname: ["uom"]
+        },
+        callback: function(item_r) {
+          if (item_r.message && item_r.message.uom) {
+            frappe.model.set_value(cdt, cdn, "uom", item_r.message.uom);
+          }
+        }
+      });
+    }
   }
 }
 
@@ -211,6 +224,11 @@ frappe.ui.form.on("Inbound Order Item", {
       frappe.model.set_value(cdt, cdn, "quantity", 1);
       frappe.show_alert(__("Serial-tracked items must have Quantity = 1"));
     }
+  },
+
+  item(frm, cdt, cdn) {
+    // When item is selected, fetch UOM from warehouse contract using existing pattern
+    _fetch(frm, cdt, cdn, "inbound");
   }
 });
 
@@ -258,3 +276,55 @@ function update_uom_fields_for_items(frm) {
     });
 }
 
+// Child table event handlers for dimension and weight auto-population
+frappe.ui.form.on('Inbound Order Item', {
+    refresh: function(frm, cdt, cdn) {
+        update_uom_fields(frm, cdt, cdn);
+    },
+    length: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    width: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    height: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    }
+});
+
+// Helper functions for dimension and weight auto-population
+function update_uom_fields(frm, cdt, cdn) {
+    const company = frappe.defaults.get_user_default("Company");
+    frappe.call({
+        method: "frappe.client.get_value",
+        args: {
+            doctype: "Warehouse Settings",
+            name: company,
+            fieldname: ["default_volume_uom", "default_weight_uom"]
+        },
+        callback: function(r) {
+            if (r.message) {
+                const volume_uom = r.message.default_volume_uom;
+                const weight_uom = r.message.default_weight_uom;
+                if (volume_uom) {
+                    frappe.model.set_value(cdt, cdn, 'volume_uom', volume_uom);
+                }
+                if (weight_uom) {
+                    frappe.model.set_value(cdt, cdn, 'weight_uom', weight_uom);
+                }
+            }
+        }
+    });
+}
+
+function calculate_volume(frm, cdt, cdn) {
+    const doc = frappe.get_doc(cdt, cdn);
+    const length = parseFloat(doc.length) || 0;
+    const width = parseFloat(doc.width) || 0;
+    const height = parseFloat(doc.height) || 0;
+    
+    if (length > 0 && width > 0 && height > 0) {
+        const volume = length * width * height;
+        frappe.model.set_value(cdt, cdn, 'volume', volume);
+    }
+}

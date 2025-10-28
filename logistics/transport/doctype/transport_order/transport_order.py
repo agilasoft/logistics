@@ -1,4 +1,4 @@
-# apps/logistics/logistics/transport/doctype/transport_order/transport_order.py
+    # apps/logistics/logistics/transport/doctype/transport_order/transport_order.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,6 +29,520 @@ class TransportOrder(Document):
                     "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
                 )
                 self.set(legs_field, [])
+        
+        # Validate transport job type specific rules
+        self._validate_transport_job_type()
+
+    def before_submit(self):
+        """Validate transport legs before submitting the Transport Order."""
+        self._validate_transport_legs()
+
+    def _validate_transport_legs(self):
+        """Validate that transport legs have complete details and scheduled_date if filled."""
+        legs_field = _find_child_table_fieldname(
+            "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+        )
+        legs = self.get(legs_field) or []
+        
+        if not legs:
+            frappe.throw(_("Transport Order must have at least one leg. Please add transport legs before submitting."))
+        
+        for i, leg in enumerate(legs, 1):
+            # Check for required fields
+            missing_fields = []
+            
+            # Check facility details
+            if not leg.get("facility_type_from"):
+                missing_fields.append("Facility Type From")
+            if not leg.get("facility_from"):
+                missing_fields.append("Facility From")
+            if not leg.get("facility_type_to"):
+                missing_fields.append("Facility Type To")
+            if not leg.get("facility_to"):
+                missing_fields.append("Facility To")
+            
+            # Check transport details
+            if not leg.get("vehicle_type"):
+                missing_fields.append("Vehicle Type")
+            if not leg.get("transport_job_type"):
+                missing_fields.append("Transport Job Type")
+            
+            # Check scheduled_date if it's filled
+            if leg.get("scheduled_date"):
+                try:
+                    from frappe.utils import getdate
+                    getdate(leg.scheduled_date)  # Validate date format
+                except Exception:
+                    frappe.throw(_("Row {0}: Invalid scheduled date format. Please use a valid date format.").format(i))
+            
+            # Note: day_offset is not a field in Transport Order Legs table
+            # It's only used during template mapping
+            
+            # Report missing fields
+            if missing_fields:
+                frappe.throw(_("Row {0}: Missing required fields: {1}").format(i, ", ".join(missing_fields)))
+            
+            # Validate address details if pick/drop mode requires them
+            if leg.get("pick_mode") == "Address" and not leg.get("pick_address"):
+                frappe.throw(_("Row {0}: Pick address is required when pick mode is 'Address'.").format(i))
+            
+            if leg.get("drop_mode") == "Address" and not leg.get("drop_address"):
+                frappe.throw(_("Row {0}: Drop address is required when drop mode is 'Address'.").format(i))
+            
+            # Auto-fill addresses from facilities if not set
+            self._auto_fill_leg_addresses(leg, i)
+
+    def _auto_fill_leg_addresses(self, leg, leg_index):
+        """Auto-fill addresses from facilities if not already set."""
+        try:
+            # Auto-fill pick address from facility
+            if not leg.get("pick_address") and leg.get("facility_type_from") and leg.get("facility_from"):
+                facility_doc = frappe.get_doc(leg.facility_type_from, leg.facility_from)
+                if hasattr(facility_doc, 'address') and facility_doc.address:
+                    leg.pick_address = facility_doc.address
+                    leg.pick_mode = "Address"
+                    # Update the leg in the document
+                    legs_field = _find_child_table_fieldname(
+                        "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+                    )
+                    self.set_value(legs_field, leg_index - 1, "pick_address", facility_doc.address)
+                    self.set_value(legs_field, leg_index - 1, "pick_mode", "Address")
+            
+            # Auto-fill drop address from facility
+            if not leg.get("drop_address") and leg.get("facility_type_to") and leg.get("facility_to"):
+                facility_doc = frappe.get_doc(leg.facility_type_to, leg.facility_to)
+                if hasattr(facility_doc, 'address') and facility_doc.address:
+                    leg.drop_address = facility_doc.address
+                    leg.drop_mode = "Address"
+                    # Update the leg in the document
+                    legs_field = _find_child_table_fieldname(
+                        "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+                    )
+                    self.set_value(legs_field, leg_index - 1, "drop_address", facility_doc.address)
+                    self.set_value(legs_field, leg_index - 1, "drop_mode", "Address")
+                    
+        except Exception as e:
+            # Log error but don't fail validation
+            frappe.log_error(f"Error auto-filling addresses for leg {leg_index}: {str(e)}", "Transport Order Address Auto-fill")
+
+    def _validate_transport_job_type(self):
+        """Validate transport job type specific business rules."""
+        if not self.transport_job_type:
+            return
+        
+        # Container type validations
+        if self.transport_job_type == "Container":
+            self._validate_container_requirements()
+        elif self.transport_job_type == "Heavy Haul":
+            self._validate_heavy_haul_requirements()
+        elif self.transport_job_type == "Oversized":
+            self._validate_oversized_requirements()
+        elif self.transport_job_type == "Special":
+            self._validate_special_requirements()
+        elif self.transport_job_type == "Multimodal":
+            self._validate_multimodal_requirements()
+        
+        # Vehicle type compatibility validation
+        self._validate_vehicle_type_compatibility()
+        
+        # Load type compatibility validation
+        self._validate_load_type_compatibility()
+
+    def _validate_container_requirements(self):
+        """Validate container-specific requirements."""
+        if not self.container_type:
+            frappe.throw(_("Container Type is required for Container transport jobs."))
+        
+        if not self.container_no:
+            frappe.throw(_("Container Number is required for Container transport jobs."))
+        
+        # Validate container number format if needed
+        if self.container_no and len(self.container_no) < 4:
+            frappe.throw(_("Container Number must be at least 4 characters long."))
+
+    def _validate_heavy_haul_requirements(self):
+        """Validate heavy haul specific requirements."""
+        # Check if vehicle type is suitable for heavy haul
+        if self.vehicle_type:
+            vehicle_type_doc = frappe.get_doc("Vehicle Type", self.vehicle_type)
+            if hasattr(vehicle_type_doc, 'max_weight') and vehicle_type_doc.max_weight:
+                if self.get_total_weight() > vehicle_type_doc.max_weight:
+                    frappe.throw(_("Total weight exceeds maximum capacity for selected vehicle type."))
+        
+        # Check for special permits or documentation
+        if not self.internal_notes:
+            frappe.msgprint(_("Heavy Haul transport may require special permits. Please add relevant information in Internal Notes."))
+
+    def _validate_oversized_requirements(self):
+        """Validate oversized cargo requirements."""
+        # Check dimensions if available
+        if hasattr(self, 'packages') and self.packages:
+            for package in self.packages:
+                if hasattr(package, 'length') and hasattr(package, 'width') and hasattr(package, 'height'):
+                    if (package.length > 12 or package.width > 2.5 or package.height > 4):
+                        frappe.msgprint(_("Oversized cargo detected. Special routing and permits may be required."))
+                        break
+        
+        # Check for special handling notes
+        if not self.internal_notes:
+            frappe.msgprint(_("Oversized transport may require special handling. Please add relevant information in Internal Notes."))
+
+    def _validate_special_requirements(self):
+        """Validate special transport requirements."""
+        if not self.internal_notes:
+            frappe.throw(_("Special transport requires detailed instructions in Internal Notes."))
+        
+        # Check for hazardous materials
+        if self.hazardous:
+            frappe.msgprint(_("Hazardous materials require special handling and documentation."))
+
+    def _validate_multimodal_requirements(self):
+        """Validate multimodal transport requirements."""
+        # Check if multiple transport modes are specified
+        if not self.internal_notes:
+            frappe.msgprint(_("Multimodal transport requires coordination details in Internal Notes."))
+        
+        # Validate that legs have different transport modes if applicable
+        legs_field = _find_child_table_fieldname(
+            "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+        )
+        legs = self.get(legs_field) or []
+        if len(legs) < 2:
+            frappe.msgprint(_("Multimodal transport typically requires multiple legs."))
+
+    def _validate_vehicle_type_compatibility(self):
+        """Validate vehicle type compatibility with transport job type."""
+        if not self.vehicle_type or not self.transport_job_type:
+            return
+        
+        # Get vehicle type restrictions
+        vehicle_type_doc = frappe.get_doc("Vehicle Type", self.vehicle_type)
+        
+        # Check if vehicle type is suitable for the job type
+        if hasattr(vehicle_type_doc, 'suitable_for'):
+            suitable_for = vehicle_type_doc.suitable_for or []
+            if self.transport_job_type not in suitable_for:
+                frappe.msgprint(_("Selected vehicle type may not be suitable for {0} transport.").format(self.transport_job_type))
+
+    def _validate_load_type_compatibility(self):
+        """Validate load type compatibility with transport job type."""
+        if not self.load_type or not self.transport_job_type:
+            return
+        
+        # Get load type restrictions
+        load_type_doc = frappe.get_doc("Load Type", self.load_type)
+        
+        # Check if load type is compatible with job type
+        if hasattr(load_type_doc, 'compatible_job_types'):
+            compatible_types = load_type_doc.compatible_job_types or []
+            if self.transport_job_type not in compatible_types:
+                frappe.msgprint(_("Selected load type may not be compatible with {0} transport.").format(self.transport_job_type))
+
+    def get_total_weight(self):
+        """Calculate total weight from packages."""
+        total_weight = 0
+        if hasattr(self, 'packages') and self.packages:
+            for package in self.packages:
+                if hasattr(package, 'weight') and package.weight:
+                    total_weight += float(package.weight or 0)
+        return total_weight
+
+    def get_total_volume(self):
+        """Calculate total volume from packages."""
+        total_volume = 0
+        if hasattr(self, 'packages') and self.packages:
+            for package in self.packages:
+                if hasattr(package, 'volume') and package.volume:
+                    total_volume += float(package.volume or 0)
+        return total_volume
+
+    def get_required_permits(self):
+        """Get list of required permits based on transport job type."""
+        permits = []
+        
+        if self.transport_job_type == "Heavy Haul":
+            permits.extend(["Heavy Vehicle Permit", "Oversize Load Permit"])
+        elif self.transport_job_type == "Oversized":
+            permits.extend(["Oversize Load Permit", "Route Clearance"])
+        elif self.transport_job_type == "Special":
+            permits.extend(["Special Transport Permit"])
+        elif self.transport_job_type == "Hazardous":
+            permits.extend(["Hazardous Materials Permit", "Environmental Clearance"])
+        
+        if self.hazardous:
+            permits.extend(["Hazardous Materials Permit", "Environmental Clearance"])
+        
+        return list(set(permits))  # Remove duplicates
+
+    def get_estimated_cost_factors(self):
+        """Get cost factors based on transport job type."""
+        factors = {
+            "base_rate": 1.0,
+            "surcharge": 0.0,
+            "special_handling": False
+        }
+        
+        if self.transport_job_type == "Heavy Haul":
+            factors["surcharge"] = 0.5  # 50% surcharge
+            factors["special_handling"] = True
+        elif self.transport_job_type == "Oversized":
+            factors["surcharge"] = 0.3  # 30% surcharge
+            factors["special_handling"] = True
+        elif self.transport_job_type == "Special":
+            factors["surcharge"] = 0.4  # 40% surcharge
+            factors["special_handling"] = True
+        elif self.transport_job_type == "Multimodal":
+            factors["surcharge"] = 0.2  # 20% surcharge
+        
+        if self.hazardous:
+            factors["surcharge"] += 0.3  # Additional 30% for hazardous
+            factors["special_handling"] = True
+        
+        if self.refrigeration:
+            factors["surcharge"] += 0.2  # Additional 20% for refrigeration
+        
+        return factors
+
+    def get_vehicle_requirements(self):
+        """Get vehicle requirements based on transport job type."""
+        requirements = {
+            "min_capacity_weight": 0,
+            "min_capacity_volume": 0,
+            "special_equipment": [],
+            "driver_qualifications": []
+        }
+        
+        if self.transport_job_type == "Heavy Haul":
+            requirements["min_capacity_weight"] = 50000  # 50 tons
+            requirements["special_equipment"].extend(["Heavy Duty Trailer", "Crane"])
+            requirements["driver_qualifications"].extend(["Heavy Vehicle License", "Crane Operator License"])
+        elif self.transport_job_type == "Oversized":
+            requirements["min_capacity_volume"] = 100  # 100 m³
+            requirements["special_equipment"].extend(["Oversize Trailer", "Escort Vehicle"])
+            requirements["driver_qualifications"].extend(["Oversize Load License"])
+        elif self.transport_job_type == "Special":
+            requirements["special_equipment"].extend(["Specialized Equipment"])
+            requirements["driver_qualifications"].extend(["Special Transport License"])
+        
+        if self.hazardous:
+            requirements["special_equipment"].extend(["Hazmat Equipment"])
+            requirements["driver_qualifications"].extend(["Hazmat License"])
+        
+        if self.refrigeration:
+            requirements["special_equipment"].extend(["Refrigerated Unit"])
+            requirements["driver_qualifications"].extend(["Temperature Control Training"])
+        
+        return requirements
+
+    def get_consolidation_eligibility(self):
+        """Check if this transport order can be consolidated with others."""
+        if not self.transport_job_type or not self.load_type:
+            return False
+        
+        # Get load type document
+        try:
+            load_type_doc = frappe.get_doc("Load Type", self.load_type)
+            if not getattr(load_type_doc, 'can_consolidate', False):
+                return False
+            
+            # Check if job type is suitable for consolidation
+            if self.transport_job_type in ["Heavy Haul", "Oversized", "Special"]:
+                return False  # These typically cannot be consolidated
+            
+            return True
+        except Exception:
+            return False
+
+    def get_estimated_duration(self):
+        """Get estimated duration based on transport job type."""
+        base_duration = 2  # hours
+        
+        if self.transport_job_type == "Heavy Haul":
+            return base_duration * 3  # 6 hours
+        elif self.transport_job_type == "Oversized":
+            return base_duration * 2.5  # 5 hours
+        elif self.transport_job_type == "Special":
+            return base_duration * 2  # 4 hours
+        elif self.transport_job_type == "Multimodal":
+            return base_duration * 4  # 8 hours
+        else:
+            return base_duration  # 2 hours
+
+    def get_priority_score(self):
+        """Calculate priority score based on transport job type and other factors."""
+        score = 0
+        
+        # Base score by job type
+        if self.transport_job_type == "Heavy Haul":
+            score += 10
+        elif self.transport_job_type == "Oversized":
+            score += 8
+        elif self.transport_job_type == "Special":
+            score += 6
+        elif self.transport_job_type == "Multimodal":
+            score += 4
+        else:
+            score += 2
+        
+        # Additional factors
+        if self.hazardous:
+            score += 5
+        if self.refrigeration:
+            score += 3
+        
+        return score
+
+    def get_route_restrictions(self):
+        """Get route restrictions based on transport job type."""
+        restrictions = []
+        
+        if self.transport_job_type == "Heavy Haul":
+            restrictions.extend(["No Low Bridges", "Heavy Vehicle Routes Only"])
+        elif self.transport_job_type == "Oversized":
+            restrictions.extend(["Oversize Load Routes", "Escort Required"])
+        elif self.transport_job_type == "Hazardous":
+            restrictions.extend(["Hazmat Routes", "No Residential Areas"])
+        
+        return restrictions
+
+    def on_change(self):
+        """Handle changes to the document."""
+        if self.has_value_changed("sales_quote"):
+            if self.sales_quote:
+                self._populate_charges_from_sales_quote()
+            else:
+                # Clear charges if sales_quote is removed
+                self.set("charges", [])
+                frappe.msgprint(
+                    "Charges cleared as Sales Quote was removed",
+                    title="Charges Updated",
+                    indicator="blue"
+                )
+
+    def _populate_charges_from_sales_quote(self):
+        """Populate charges based on sales_quote_transport of the filled sales_quote."""
+        if not self.sales_quote:
+            return
+
+        try:
+            # Verify that the sales_quote exists
+            if not frappe.db.exists("Sales Quote", self.sales_quote):
+                frappe.msgprint(
+                    f"Sales Quote {self.sales_quote} does not exist",
+                    title="Error",
+                    indicator="red"
+                )
+                return
+
+            # Clear existing charges
+            self.set("charges", [])
+
+            # Fetch sales_quote_transport records from the selected sales_quote
+            sales_quote_transport_records = frappe.get_all(
+                "Sales Quote Transport",
+                filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+                fields=[
+                    "item_code",
+                    "item_name", 
+                    "calculation_method",
+                    "uom",
+                    "currency",
+                    "unit_rate",
+                    "unit_type",
+                    "minimum_quantity",
+                    "minimum_charge",
+                    "maximum_charge",
+                    "base_amount"
+                ],
+                order_by="idx"
+            )
+
+            if not sales_quote_transport_records:
+                frappe.msgprint(
+                    f"No transport charges found in Sales Quote: {self.sales_quote}",
+                    title="No Charges Found",
+                    indicator="orange"
+                )
+                return
+
+            # Map and populate charges
+            charges_added = 0
+            for sqt_record in sales_quote_transport_records:
+                charge_row = self._map_sales_quote_transport_to_charge(sqt_record)
+                if charge_row:
+                    self.append("charges", charge_row)
+                    charges_added += 1
+
+            if charges_added > 0:
+                frappe.msgprint(
+                    f"Successfully populated {charges_added} charges from Sales Quote: {self.sales_quote}",
+                    title="Charges Updated",
+                    indicator="green"
+                )
+            else:
+                frappe.msgprint(
+                    f"No valid charges could be mapped from Sales Quote: {self.sales_quote}",
+                    title="No Valid Charges",
+                    indicator="orange"
+                )
+
+        except Exception as e:
+            frappe.log_error(
+                f"Error populating charges from sales quote {self.sales_quote}: {str(e)}",
+                "Transport Order Charges Population Error"
+            )
+            frappe.msgprint(
+                f"Error populating charges: {str(e)}",
+                title="Error",
+                indicator="red"
+            )
+
+    def _map_sales_quote_transport_to_charge(self, sqt_record):
+        """Map sales_quote_transport record to transport_order_charges format."""
+        try:
+            # Get the item details to fetch additional required fields
+            item_doc = frappe.get_doc("Item", sqt_record.item_code)
+            
+            # Get default currency from system settings
+            default_currency = frappe.get_system_settings("currency") or "USD"
+            
+            # Get default vehicle type if not set in transport order
+            default_vehicle_type = self.vehicle_type
+            if not default_vehicle_type:
+                # Try to get a default vehicle type from the system
+                vehicle_types = frappe.get_all("Vehicle Type", limit=1)
+                default_vehicle_type = vehicle_types[0].name if vehicle_types else ""
+            
+            # Map the fields from sales_quote_transport to transport_order_charges
+            charge_data = {
+                "item_code": sqt_record.item_code,
+                "item_name": sqt_record.item_name or item_doc.item_name,
+                "calculation_method": sqt_record.calculation_method or "Per Unit",
+                "uom": sqt_record.uom or item_doc.stock_uom,
+                "currency": sqt_record.currency or default_currency,
+                "rate": sqt_record.unit_rate or 0,
+                "unit_type": sqt_record.unit_type,
+                "minimum_quantity": sqt_record.minimum_quantity,
+                "minimum_charge": sqt_record.minimum_charge,
+                "maximum_charge": sqt_record.maximum_charge,
+                "base_amount": sqt_record.base_amount,
+                # Set default values for required fields in transport_order_charges
+                "load_type": self.load_type or "FTL",  # Use from transport order or default
+                "vehicle_type": default_vehicle_type,  # Required field
+                "location_type": "Location",  # Default to Location
+                "location_from": "",  # Will need to be set manually or from transport order
+                "location_to": "",  # Will need to be set manually or from transport order
+                "quantity": 1  # Default quantity
+            }
+
+            return charge_data
+
+        except Exception as e:
+            frappe.log_error(
+                f"Error mapping sales quote transport record: {str(e)}",
+                "Transport Order Charge Mapping Error"
+            )
+            return None
 
 
 # -------------------------------------------------------------------
@@ -214,6 +728,14 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
         row_data = _map_template_row_to_order_row(order_child_dt, tr, base_date)
         if not row_data:
             continue
+        
+        # Auto-fill transport_job_type and vehicle_type from parent if not set in template
+        if not row_data.get("transport_job_type") and getattr(doc, "transport_job_type", None):
+            row_data["transport_job_type"] = doc.transport_job_type
+        
+        if not row_data.get("vehicle_type") and getattr(doc, "vehicle_type", None):
+            row_data["vehicle_type"] = doc.vehicle_type
+        
         doc.append(order_child_field, row_data)
         created += 1
 
@@ -273,6 +795,7 @@ def action_create_transport_job(docname: str):
         header_map = {
             "transport_order": doc.name,
             "transport_template": getattr(doc, "transport_template", None),
+            "transport_job_type": getattr(doc, "transport_job_type", None),
             "customer": getattr(doc, "customer", None),
             "booking_date": getattr(doc, "booking_date", None),
             "customer_ref_no": getattr(doc, "customer_ref_no", None),
@@ -280,6 +803,8 @@ def action_create_transport_job(docname: str):
             "refrigeration": getattr(doc, "refrigeration", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
             "load_type": getattr(doc, "load_type", None),
+            "container_type": getattr(doc, "container_type", None),
+            "container_no": getattr(doc, "container_no", None),
             "pick_address": getattr(doc, "pick_address", None),
             "drop_address": getattr(doc, "drop_address", None),
             "company": getattr(doc, "company", None),
@@ -321,10 +846,201 @@ def action_create_transport_job(docname: str):
         job.save(ignore_permissions=False)
         frappe.db.commit()
         return {"name": job.name, "created": True, "already_exists": False}
+        
+    except Exception as e:
+        frappe.log_error(f"Error creating transport job: {str(e)}")
+        frappe.throw(_("Failed to create Transport Job: {0}").format(str(e)))
 
-    except Exception:
-        frappe.log_error(title="Create Transport Job failed", message=frappe.get_traceback())
-        raise
+
+# -------------------------------------------------------------------
+# API Endpoints for Transport Job Type functionality
+# -------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_transport_job_type_info(transport_job_type: str) -> Dict[str, Any]:
+    """Get information about a specific transport job type."""
+    if not transport_job_type:
+        return {}
+    
+    info = {
+        "name": transport_job_type,
+        "description": "",
+        "requirements": [],
+        "restrictions": [],
+        "cost_factors": {},
+        "vehicle_requirements": {}
+    }
+    
+    if transport_job_type == "Container":
+        info.update({
+            "description": "Standardized container transport",
+            "requirements": ["Container Type", "Container Number"],
+            "restrictions": ["Standard Routes", "Container Handling Equipment"]
+        })
+    elif transport_job_type == "Heavy Haul":
+        info.update({
+            "description": "Heavy cargo transport requiring specialized equipment",
+            "requirements": ["Heavy Vehicle Permit", "Route Clearance", "Special Equipment"],
+            "restrictions": ["No Low Bridges", "Heavy Vehicle Routes Only"]
+        })
+    elif transport_job_type == "Oversized":
+        info.update({
+            "description": "Oversized cargo transport requiring special routing",
+            "requirements": ["Oversize Load Permit", "Escort Vehicle", "Route Planning"],
+            "restrictions": ["Oversize Load Routes", "Escort Required"]
+        })
+    elif transport_job_type == "Special":
+        info.update({
+            "description": "Special transport requiring custom handling",
+            "requirements": ["Special Transport Permit", "Custom Equipment"],
+            "restrictions": ["Special Routes", "Custom Handling"]
+        })
+    elif transport_job_type == "Multimodal":
+        info.update({
+            "description": "Transport involving multiple modes of transportation",
+            "requirements": ["Multi-mode Coordination", "Transfer Planning"],
+            "restrictions": ["Mode-specific Routes", "Transfer Points"]
+        })
+    elif transport_job_type == "Non-Container":
+        info.update({
+            "description": "General cargo transport without containers",
+            "requirements": ["Standard Equipment"],
+            "restrictions": ["Standard Routes"]
+        })
+    
+    return info
+
+
+@frappe.whitelist()
+def get_vehicle_compatibility(transport_job_type: str, vehicle_type: str = None) -> Dict[str, Any]:
+    """Get vehicle compatibility information for a transport job type."""
+    if not transport_job_type:
+        return {}
+    
+    compatibility = {
+        "suitable_vehicle_types": [],
+        "required_capacity": {},
+        "special_equipment": [],
+        "driver_qualifications": []
+    }
+    
+    if transport_job_type == "Heavy Haul":
+        compatibility.update({
+            "suitable_vehicle_types": ["Heavy Truck", "Crane Truck", "Low Loader"],
+            "required_capacity": {"min_weight": 50000, "min_volume": 0},
+            "special_equipment": ["Heavy Duty Trailer", "Crane", "Winch"],
+            "driver_qualifications": ["Heavy Vehicle License", "Crane Operator License"]
+        })
+    elif transport_job_type == "Oversized":
+        compatibility.update({
+            "suitable_vehicle_types": ["Oversize Truck", "Flatbed", "Low Loader"],
+            "required_capacity": {"min_weight": 0, "min_volume": 100},
+            "special_equipment": ["Oversize Trailer", "Escort Vehicle", "Warning Lights"],
+            "driver_qualifications": ["Oversize Load License", "Escort Training"]
+        })
+    elif transport_job_type == "Container":
+        compatibility.update({
+            "suitable_vehicle_types": ["Container Truck", "Flatbed"],
+            "required_capacity": {"min_weight": 0, "min_volume": 0},
+            "special_equipment": ["Container Chassis", "Twist Locks"],
+            "driver_qualifications": ["Container Handling License"]
+        })
+    elif transport_job_type == "Special":
+        compatibility.update({
+            "suitable_vehicle_types": ["Specialized Vehicle", "Custom Truck"],
+            "required_capacity": {"min_weight": 0, "min_volume": 0},
+            "special_equipment": ["Specialized Equipment", "Custom Trailer"],
+            "driver_qualifications": ["Special Transport License", "Custom Training"]
+        })
+    elif transport_job_type == "Multimodal":
+        compatibility.update({
+            "suitable_vehicle_types": ["Multi-purpose Vehicle", "Transfer Truck"],
+            "required_capacity": {"min_weight": 0, "min_volume": 0},
+            "special_equipment": ["Transfer Equipment", "Loading Equipment"],
+            "driver_qualifications": ["Multi-mode License", "Transfer Training"]
+        })
+    else:  # Non-Container
+        compatibility.update({
+            "suitable_vehicle_types": ["Standard Truck", "Van", "Pickup"],
+            "required_capacity": {"min_weight": 0, "min_volume": 0},
+            "special_equipment": ["Standard Equipment"],
+            "driver_qualifications": ["Standard License"]
+        })
+    
+    return compatibility
+
+
+@frappe.whitelist()
+def get_cost_estimation(transport_job_type: str, base_cost: float = 1000) -> Dict[str, Any]:
+    """Get cost estimation based on transport job type."""
+    if not transport_job_type or not base_cost:
+        return {}
+    
+    factors = {
+        "base_cost": base_cost,
+        "surcharge_rate": 0.0,
+        "surcharge_amount": 0.0,
+        "total_cost": base_cost,
+        "special_handling": False
+    }
+    
+    if transport_job_type == "Heavy Haul":
+        factors["surcharge_rate"] = 0.5
+        factors["special_handling"] = True
+    elif transport_job_type == "Oversized":
+        factors["surcharge_rate"] = 0.3
+        factors["special_handling"] = True
+    elif transport_job_type == "Special":
+        factors["surcharge_rate"] = 0.4
+        factors["special_handling"] = True
+    elif transport_job_type == "Multimodal":
+        factors["surcharge_rate"] = 0.2
+    elif transport_job_type == "Container":
+        factors["surcharge_rate"] = 0.1
+    else:  # Non-Container
+        factors["surcharge_rate"] = 0.0
+    
+    factors["surcharge_amount"] = base_cost * factors["surcharge_rate"]
+    factors["total_cost"] = base_cost + factors["surcharge_amount"]
+    
+    return factors
+
+
+@frappe.whitelist()
+def get_consolidation_opportunities(transport_order_name: str) -> Dict[str, Any]:
+    """Get consolidation opportunities for a transport order."""
+    try:
+        doc = frappe.get_doc("Transport Order", transport_order_name)
+        
+        if not doc.get_consolidation_eligibility():
+            return {"eligible": False, "reason": "Transport order not eligible for consolidation"}
+        
+        # Find other eligible transport orders
+        eligible_orders = frappe.get_all(
+            "Transport Order",
+            filters={
+                "transport_job_type": doc.transport_job_type,
+                "load_type": doc.load_type,
+                "company": doc.company,
+                "branch": doc.branch,
+                "docstatus": 1,
+                "name": ["!=", doc.name]
+            },
+            fields=["name", "customer", "booking_date", "scheduled_date"],
+            limit=10
+        )
+        
+        return {
+            "eligible": True,
+            "current_order": doc.name,
+            "job_type": doc.transport_job_type,
+            "load_type": doc.load_type,
+            "opportunities": eligible_orders
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Error getting consolidation opportunities: {str(e)}")
+        return {"eligible": False, "error": str(e)}
 
 
 # =========================
@@ -400,6 +1116,10 @@ def _create_and_attach_job_legs_from_order_legs(
         _safe_set(leg, "facility_to", getattr(ol, "facility_to", None))
         _safe_set(leg, "drop_mode", getattr(ol, "drop_mode", None))
         _safe_set(leg, "drop_address", getattr(ol, "drop_address", None))
+        
+        # Map transport details from order leg
+        _safe_set(leg, "vehicle_type", getattr(ol, "vehicle_type", None))
+        _safe_set(leg, "transport_job_type", getattr(ol, "transport_job_type", None))
 
         leg.insert(ignore_permissions=False)
 
@@ -416,6 +1136,8 @@ def _create_and_attach_job_legs_from_order_legs(
                 "facility_to": getattr(ol, "facility_to", None),
                 "drop_mode": getattr(ol, "drop_mode", None),
                 "drop_address": getattr(ol, "drop_address", None),
+                "vehicle_type": getattr(ol, "vehicle_type", None),
+                "transport_job_type": getattr(ol, "transport_job_type", None),
             },
         )
 

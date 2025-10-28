@@ -1,11 +1,12 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "format:{site}/{building}/{zone}/{aisle}/{bay}/{level}/{location_code}",
  "creation": "2025-08-18 13:15:25.722151",
  "doctype": "DocType",
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "site",
   "building",
   "zone",
@@ -56,7 +57,6 @@
   {
    "fieldname": "site",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Site",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
    "options": "Storage Location Configurator"
@@ -92,7 +92,6 @@
   {
    "fieldname": "building",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Building",
    "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Building\"]]",
    "options": "Storage Location Configurator"
@@ -189,7 +188,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Available\nIn Use\nUnder Maintenance\nInactive"
+   "options": "Available\nAssigned\nIn Use\nUnder Maintenance\nInactive"
   },
   {
    "default": "0",
@@ -276,32 +275,32 @@
    "label": "Enable Capacity Alerts"
   },
   {
+   "default": "80",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "volume_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Volume Alert Threshold",
-   "default": "80"
+   "label": "Volume Alert Threshold"
   },
   {
+   "default": "80",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "weight_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Weight Alert Threshold",
-   "default": "80"
+   "label": "Weight Alert Threshold"
   },
   {
+   "default": "90",
    "depends_on": "enable_capacity_alerts",
    "fieldname": "utilization_alert_threshold",
    "fieldtype": "Percent",
-   "label": "Utilization Alert Threshold",
-   "default": "90"
+   "label": "Utilization Alert Threshold"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-30 16:48:46.494606",
- "modified_by": "Administrator",
+ "modified": "2025-10-22 15:15:39.114522",
+ "modified_by": "paulinemae.cabile@agilasoft.com",
  "module": "Warehousing",
  "name": "Storage Location",
  "naming_rule": "Expression",
@@ -319,6 +318,28 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  }
+ ],
+ "indexes": [
+  {
+   "index_name": "idx_status_company",
+   "fields": ["status", "company"]
+  },
+  {
+   "index_name": "idx_site_building_zone",
+   "fields": ["site", "building", "zone"]
+  },
+  {
+   "index_name": "idx_company_branch",
+   "fields": ["company", "branch"]
+  },
+  {
+   "index_name": "idx_storage_type_status",
+   "fields": ["storage_type", "status"]
+  },
+  {
+   "index_name": "idx_aisle_bay_level",
+   "fields": ["aisle", "bay", "level"]
   }
  ],
  "row_format": "Dynamic",

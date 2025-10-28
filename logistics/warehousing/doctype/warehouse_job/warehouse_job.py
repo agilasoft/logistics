@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 from frappe import _
+from logistics.warehousing.api_parts.common import _get_default_currency
 
 # ---------------------------------------------------------------------------
 # Meta helpers
@@ -179,13 +180,15 @@ class WarehouseJob(Document):
                 for ch in self.charges:
                     item_code = getattr(ch, 'item_code', None) or getattr(ch, 'item', None)
                     
-                    # Only auto-fill rates and currency, not quantities
+                    # Only auto-fill rates, currency, and uom, not quantities
                     if item_code and (getattr(ch, 'rate', None) in (None, '') or flt(ch.rate) == 0):
-                        rate, cur = _get_charge_price_from_contract(contract, item_code)
+                        rate, cur, uom = _get_charge_price_from_contract(contract, item_code)
                         if rate is not None:
                             ch.rate = rate
                         if cur and hasattr(ch, 'currency'):
                             ch.currency = cur
+                        if uom and hasattr(ch, 'uom'):
+                            ch.uom = uom
                     
                     # (re)compute total if quantity and rate are available
                     if hasattr(ch, 'total') and getattr(ch, 'quantity', 0) and getattr(ch, 'rate', 0):
@@ -1748,7 +1751,6 @@ class WarehouseJob(Document):
                 operationCard.className = 'operation-card in-progress';
                 
                 // Save to backend using custom API method
-                console.log('Starting operation:', operationId, 'for job:', '{self.name}');
                 frappe.call({{
                     method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.update_operation_start',
                     args: {{
@@ -1783,7 +1785,6 @@ class WarehouseJob(Document):
                 operationCard.className = 'operation-card completed';
                 
                 // Save to backend using custom API method
-                console.log('Ending operation:', operationId, 'for job:', '{self.name}');
                 frappe.call({{
                     method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.update_operation_end',
                     args: {{
@@ -2225,7 +2226,7 @@ class WarehouseJob(Document):
                                 <span>{end_date}</span>
                             </div>
                             {f'<div class="date-row"><label>Qty:</label><span>{op["quantity"]}</span></div>' if op.get('quantity', 0) > 0 else ''}
-                            {f'<div class="date-row"><label>Hours:</label><span>{op["actual_hours"]}</span></div>' if op.get('actual_hours', 0) > 0 else ''}
+                            {f'<div class="date-row"><label>Hours:</label><span>{op["actual_hours"]}</span></div>' if op.get('actual_hours') is not None and op.get('actual_hours') != "" else ''}
                         </div>
                     </div>
                 """)
@@ -2555,7 +2556,13 @@ class WarehouseJob(Document):
         job_type = (getattr(self, "type", "") or "").strip()
 
         if not getattr(self, "items", None):
-            frappe.throw(_("No items to post to the Warehouse Stock Ledger."))
+            # For Stocktake jobs, allow empty items if populate adjustment has been triggered
+            if job_type == "Stocktake":
+                populate_triggered = getattr(self, "populate_adjustment_triggered", False)
+                if not populate_triggered:
+                    frappe.throw(_("No items to post to the Warehouse Stock Ledger. Either add items manually or use 'Populate Adjustments' button."))
+            else:
+                frappe.throw(_("No items to post to the Warehouse Stock Ledger."))
 
         posting_dt = now_datetime()
 
@@ -2602,6 +2609,16 @@ class WarehouseJob(Document):
                 )
 
             _make_ledger_row(self, ji, delta, beg, end, posting_dt)
+
+        # Update storage location statuses after all ledger entries are created
+        from logistics.warehousing.api import _set_sl_status_by_balance
+        affected_locations = set()
+        for ji in self.items:
+            if getattr(ji, "location", None):
+                affected_locations.add(ji.location)
+        
+        for location in affected_locations:
+            _set_sl_status_by_balance(location)
 
     def _get_milestone_status(self, handling_unit_name, job_type):
         """Get milestone status for a handling unit"""
@@ -2670,28 +2687,28 @@ def _find_customer_contract(customer: str | None) -> str | None:
 
 
 def _get_charge_price_from_contract(contract: str | None, item_code: str | None):
-    """Return (rate, currency) for a charge item from Warehouse Contract Item; None if not found."""
+    """Return (rate, currency, uom) for a charge item from Warehouse Contract Item; None if not found."""
     if not contract or not item_code:
-        return None, None
+        return None, None, None
     row = frappe.get_all(
         "Warehouse Contract Item",
         filters={"parent": contract, "parenttype": "Warehouse Contract", "item_charge": item_code},
-        fields=["rate", "currency"],
+        fields=["rate", "currency", "uom"],
         limit=1,
         ignore_permissions=True,
     )
     if row:
-        return flt(row[0].get("rate") or 0.0), row[0].get("currency")
-    return None, None
+        return flt(row[0].get("rate") or 0.0), row[0].get("currency"), row[0].get("uom")
+    return None, None, None
 
 
 @frappe.whitelist()
 def warehouse_job_fetch_charge_price(warehouse_job: str, item_code: str) -> dict:
-    """Client helper: fetch rate/currency for charge item based on the Job's contract (or customer's)."""
+    """Client helper: fetch rate/currency/uom for charge item based on the Job's contract (or customer's)."""
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     contract = getattr(job, "warehouse_contract", None) or _find_customer_contract(getattr(job, "customer", None))
-    rate, currency = _get_charge_price_from_contract(contract, item_code)
-    return {"rate": flt(rate or 0.0), "currency": currency}
+    rate, currency, uom = _get_charge_price_from_contract(contract, item_code)
+    return {"rate": flt(rate or 0.0), "currency": currency, "uom": uom}
 
 
 @frappe.whitelist()
@@ -2739,6 +2756,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
         # Recalculate existing charges
         charges_updated = 0
         job_type = getattr(job, "type", "Generic")
+        standard_cost_warnings = []
         
         for charge in job.charges:
             item_code = getattr(charge, "item_code", None)
@@ -2758,7 +2776,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 
                 # Update charge with contract values
                 charge.rate = flt(contract_item.get("rate", 0))
-                charge.currency = contract_item.get("currency", "PHP")
+                charge.currency = contract_item.get("currency", _get_default_currency(job.company))
                 charge.uom = contract_item.get("uom", "Day")
                 charge.quantity = billing_qty
                 charge.total = billing_qty * flt(contract_item.get("rate", 0))
@@ -2769,7 +2787,9 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 )
                 
                 # Calculate and set standard cost if enabled
-                _calculate_standard_cost_for_charge(charge, job)
+                warnings = _calculate_standard_cost_for_charge(charge, job)
+                if warnings:
+                    standard_cost_warnings.extend(warnings)
                 
                 charges_updated += 1
         
@@ -2777,10 +2797,16 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
         job.save(ignore_permissions=True)
         frappe.db.commit()
         
+        # Prepare response message
+        message = f"Recalculated {charges_updated} charge(s) based on contract."
+        if standard_cost_warnings:
+            message += f"\n\nStandard Cost Warnings:\n" + "\n".join([f"• {warning}" for warning in standard_cost_warnings])
+        
         return {
             "ok": True, 
-            "message": f"Recalculated {charges_updated} charge(s) based on contract.",
-            "charges_updated": charges_updated
+            "message": message,
+            "charges_updated": charges_updated,
+            "warnings": standard_cost_warnings
         }
         
     except Exception as e:
@@ -2790,38 +2816,49 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 
 def _calculate_standard_cost_for_charge(charge, job):
     """Calculate and set standard cost for a charge if standard costing is enabled."""
+    warnings = []
+    
     try:
         # Check if standard costing is enabled in warehouse settings
         # Warehouse Settings is keyed by company, not a singleton
         company = getattr(job, 'company', None)
         
         if not company:
-            return
+            frappe.logger().info("No company found for job, skipping standard cost calculation")
+            warnings.append("No company found for job, skipping standard cost calculation")
+            return warnings
         
         enable_standard_costing = frappe.db.get_value("Warehouse Settings", company, "enable_standard_costing")
+        frappe.logger().info(f"Standard costing enabled for company {company}: {enable_standard_costing}")
         
         if not enable_standard_costing:
-            return
+            frappe.logger().info(f"Standard costing not enabled for company {company}")
+            warnings.append(f"Standard costing is not enabled for company {company}. Please enable it in Warehouse Settings.")
+            return warnings
         
         # Get item code
         item_code = getattr(charge, 'item_code', None) or getattr(charge, 'item', None)
+        frappe.logger().info(f"Processing standard cost for item: {item_code}")
         
         if not item_code:
-            return
+            frappe.logger().info("No item code found for charge, skipping standard cost calculation")
+            warnings.append("No item code found for charge, skipping standard cost calculation")
+            return warnings
         
         # Get standard unit cost from item
         item_doc = frappe.get_doc("Item", item_code)
         standard_unit_cost = flt(getattr(item_doc, 'custom_standard_unit_cost', 0))
+        frappe.logger().info(f"Standard unit cost for item {item_code}: {standard_unit_cost}")
         
         if standard_unit_cost > 0:
             # Calculate standard cost (quantity × standard unit cost)
             quantity = flt(getattr(charge, 'quantity', 0))
             standard_cost = quantity * standard_unit_cost
+            frappe.logger().info(f"Calculated standard cost: {quantity} × {standard_unit_cost} = {standard_cost}")
             
             # Set standard unit cost and total standard cost
             charge.standard_unit_cost = standard_unit_cost
             charge.total_standard_cost = standard_cost
-            
             
             # Add standard cost to calculation notes if it exists
             if hasattr(charge, 'calculation_notes') and charge.calculation_notes:
@@ -2837,9 +2874,15 @@ def _calculate_standard_cost_for_charge(charge, job):
   • Quantity: {quantity}
   • Standard Unit Cost: {standard_unit_cost}
   • Standard Cost: {quantity} × {standard_unit_cost} = {standard_cost}"""
+        else:
+            frappe.logger().info(f"No standard unit cost found for item {item_code} (value: {standard_unit_cost})")
+            warnings.append(f"No standard unit cost found for item {item_code}. Please set the 'Standard Unit Cost' field in the Item master.")
             
     except Exception as e:
         frappe.log_error(f"Error calculating standard cost for charge: {str(e)}")
+        warnings.append(f"Error calculating standard cost: {str(e)}")
+    
+    return warnings
 
 
 @frappe.whitelist()
@@ -2863,6 +2906,24 @@ def update_operation_start(job_name, operation_id, start_date):
             # Update the start date
             operation.start_date = start_date
             frappe.logger().info(f"Set start_date to: {operation.start_date}")
+            
+            # Compute actual_hours if both start and end dates are present
+            if operation.start_date and operation.end_date:
+                from frappe.utils import get_datetime
+                start_dt = get_datetime(operation.start_date)
+                end_dt = get_datetime(operation.end_date)
+                frappe.logger().info(f"update_operation_start: start_dt={start_dt} (type: {type(start_dt)})")
+                frappe.logger().info(f"update_operation_start: end_dt={end_dt} (type: {type(end_dt)})")
+                if start_dt and end_dt:
+                    # Handle timezone-aware datetimes by converting to naive datetimes
+                    if hasattr(start_dt, 'replace'):
+                        start_dt = start_dt.replace(tzinfo=None)
+                    if hasattr(end_dt, 'replace'):
+                        end_dt = end_dt.replace(tzinfo=None)
+                    
+                    sec = max(0.0, (end_dt - start_dt).total_seconds())
+                    operation.actual_hours = round(sec / 3600.0, 4)
+                    frappe.logger().info(f"Computed actual_hours: {operation.actual_hours} from {sec} seconds")
             
             # Save the job
             job.save()
@@ -2905,6 +2966,22 @@ def update_operation_end(job_name, operation_id, end_date):
             # Update the end date
             operation.end_date = end_date
             frappe.logger().info(f"Set end_date to: {operation.end_date}")
+            
+            # Compute actual_hours if both start and end dates are present
+            if operation.start_date and operation.end_date:
+                from frappe.utils import get_datetime
+                start_dt = get_datetime(operation.start_date)
+                end_dt = get_datetime(operation.end_date)
+                if start_dt and end_dt:
+                    # Handle timezone-aware datetimes by converting to naive datetimes
+                    if hasattr(start_dt, 'replace'):
+                        start_dt = start_dt.replace(tzinfo=None)
+                    if hasattr(end_dt, 'replace'):
+                        end_dt = end_dt.replace(tzinfo=None)
+                    
+                    sec = max(0.0, (end_dt - start_dt).total_seconds())
+                    operation.actual_hours = round(sec / 3600.0, 4)
+                    frappe.logger().info(f"Computed actual_hours: {operation.actual_hours} from {sec} seconds")
             
             # Save the job
             job.save()
@@ -3087,7 +3164,7 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             filters={
                 "used_in": job.type
             },
-            fields=["name", "code", "operation_name", "unit_std_hours", "handling_basis", "notes", "order"],
+            fields=["name", "code", "operation_name", "unit_std_hours", "handling_basis", "handling_uom", "notes", "order"],
             order_by="`order` asc, operation_name asc"
         )
         
@@ -3110,7 +3187,20 @@ def create_operations(job_name: str) -> Dict[str, Any]:
             operation.description = template.notes or template.operation_name
             operation.unit_std_hours = template.unit_std_hours or 0
             operation.handling_basis = template.handling_basis or "Item Unit"
-            # operation.handling_uom = template.handling_uom  # handling_uom column doesn't exist in database
+            
+            # Set handling_uom if field exists - use from template first, fallback to first job item
+            if hasattr(operation, 'handling_uom'):
+                handling_uom = template.handling_uom
+                
+                # If template doesn't have handling_uom, get from first job item as fallback
+                if not handling_uom and job.items:
+                    first_item = job.items[0].get("item")
+                    if first_item:
+                        handling_uom = frappe.db.get_value("Warehouse Item", first_item, "uom")
+                
+                if handling_uom:
+                    operation.handling_uom = handling_uom
+            
             operation.order = template.order or 0
             
             # Calculate quantity based on handling_basis
@@ -3563,7 +3653,7 @@ def _generate_comprehensive_calculation_notes(charge, job, contract_item, billin
         rate = flt(getattr(charge, 'rate', 0))
         total = flt(getattr(charge, 'total', 0))
         uom = getattr(charge, 'uom', 'N/A')
-        currency = getattr(charge, 'currency', 'PHP')
+        currency = getattr(charge, 'currency', _get_default_currency(job.company))
         
         job_name = getattr(job, 'name', 'N/A')
         job_type = getattr(job, 'job_type', 'N/A')
@@ -3639,7 +3729,7 @@ def _generate_comprehensive_calculation_notes(charge, job, contract_item, billin
     - Contract Unit Type: {contract_item.get('unit_type', 'N/A')}
     - Time billing settings: {contract_item.get('billing_time_unit', 'N/A')} unit, {contract_item.get('billing_time_multiplier', 1)} multiplier, {contract_item.get('minimum_billing_time', 1)} minimum
     - Contract UOM: {contract_item.get('uom', 'N/A')}
-    - Contract Currency: {contract_item.get('currency', 'PHP')}"""
+    - Contract Currency: {contract_item.get('currency', _get_default_currency(job.company))}"""
         else:
             notes += f"""
   • Contract Setup Applied:
@@ -3690,7 +3780,7 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
             "quantity": billing_qty,
             "rate": rate,
             "total": total,
-            "currency": contract_item.get("currency", "PHP"),
+            "currency": contract_item.get("currency", _get_default_currency(job.company)),
             "calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(
                 job, contract_item, billing_method, billing_qty
             )
@@ -3709,8 +3799,6 @@ def _calculate_contract_based_quantity_for_job(job, contract_item: dict) -> tupl
         unit_type = contract_item.get('unit_type', 'Day')
         billing_method = _map_unit_type_to_billing_method(unit_type)
         
-        # Debug logging
-        frappe.logger().debug(f"Calculating quantity for job {job.name}: unit_type={unit_type}, billing_method={billing_method}")
         
         if billing_method == 'Per Day':
             qty = _calculate_per_day_quantity_for_job(job)
@@ -3731,8 +3819,6 @@ def _calculate_contract_based_quantity_for_job(job, contract_item: dict) -> tupl
         else:
             qty = 1.0
         
-        # Debug logging
-        frappe.logger().debug(f"Calculated quantity: {qty} for billing_method: {billing_method}")
             
         return qty, billing_method
             
@@ -3783,15 +3869,11 @@ def _calculate_per_piece_quantity_for_job_contract(job) -> float:
     try:
         total_pieces = 0.0
         items = getattr(job, 'items', []) or []
-        frappe.logger().debug(f"Calculating pieces for job {job.name}: {len(items)} items")
         
         for item in items:
             quantity = flt(getattr(item, 'quantity', 0))
             item_code = getattr(item, 'item', 'Unknown')
-            frappe.logger().debug(f"Item {item_code}: quantity={quantity}")
             total_pieces += quantity
-        
-        frappe.logger().debug(f"Total pieces calculated: {total_pieces}")
         return total_pieces
     except Exception as e:
         frappe.logger().warning(f"Error calculating per piece quantity: {e}")
@@ -3861,26 +3943,21 @@ def _calculate_per_handling_unit_quantity_for_job_contract(job) -> float:
         if job_type == 'Stocktake':
             # For stocktake jobs, use counts table
             counts = getattr(job, 'counts', []) or []
-            frappe.logger().info(f"DEBUG: Stocktake job {job.name} has {len(counts)} counts")
             
             for count in counts:
                 hu = getattr(count, 'handling_unit', None)
-                frappe.logger().info(f"DEBUG: Count {count.item} has handling unit: {hu}")
                 if hu:
                     handling_units.add(hu)
         else:
             # For other job types, use items table
             items = getattr(job, 'items', []) or []
-            frappe.logger().info(f"DEBUG: Job {job.name} has {len(items)} items")
             
             for item in items:
                 hu = getattr(item, 'handling_unit', None)
-                frappe.logger().info(f"DEBUG: Item {item.item} has handling unit: {hu}")
                 if hu:
                     handling_units.add(hu)
         
         result = float(len(handling_units)) if handling_units else 1.0
-        frappe.logger().info(f"DEBUG: Found {len(handling_units)} unique handling units: {sorted(handling_units)}")
         return result
     except Exception as e:
         frappe.logger().warning(f"Error calculating per handling unit quantity: {e}")
@@ -3907,7 +3984,7 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
         rate = flt(contract_item.get("rate", 0))
         total = billing_qty * rate
         uom = contract_item.get("uom", "N/A")
-        currency = contract_item.get("currency", "PHP")
+        currency = contract_item.get("currency", _get_default_currency(job.company))
         
         job_name = getattr(job, 'name', 'N/A')
         job_type = getattr(job, 'type', 'N/A')
@@ -3982,7 +4059,7 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
     - Contract Unit Type: {contract_item.get('unit_type', 'N/A')}
     - Time billing settings: {contract_item.get('billing_time_unit', 'N/A')} unit, {contract_item.get('billing_time_multiplier', 1)} multiplier, {contract_item.get('minimum_billing_time', 1)} minimum
     - Contract UOM: {contract_item.get('uom', 'N/A')}
-    - Contract Currency: {contract_item.get('currency', 'PHP')}
+    - Contract Currency: {contract_item.get('currency', _get_default_currency(job.company))}
     - Contract Item: {contract_item.get('item_code', 'N/A')}"""
         
         return notes
@@ -4010,14 +4087,22 @@ def post_standard_costs(warehouse_job: str) -> dict:
         if not job.charges:
             return {"ok": False, "message": "No charges found in warehouse job"}
         
-        # Filter charges that have standard costs
+        # Filter charges that have standard costs and are not already posted
         charges_with_standard_cost = []
+        already_posted_charges = []
+        
         for charge in job.charges:
             if charge.total_standard_cost and flt(charge.total_standard_cost) > 0:
-                charges_with_standard_cost.append(charge)
+                if getattr(charge, 'standard_cost_posted', False):
+                    already_posted_charges.append(charge.item_code or charge.item or 'Unknown')
+                else:
+                    charges_with_standard_cost.append(charge)
         
         if not charges_with_standard_cost:
-            return {"ok": False, "message": "No charges with standard costs found"}
+            if already_posted_charges:
+                return {"ok": False, "message": f"All charges with standard costs have already been posted. Posted charges: {', '.join(already_posted_charges)}"}
+            else:
+                return {"ok": False, "message": "No charges with standard costs found"}
         
         # Create Journal Entry
         je = frappe.new_doc("Journal Entry")
@@ -4101,11 +4186,22 @@ def post_standard_costs(warehouse_job: str) -> dict:
         je.insert(ignore_permissions=True)
         je.submit()
         
+        # Update charges to mark them as posted
+        for charge in charges_with_standard_cost:
+            charge.standard_cost_posted = 1
+            charge.standard_cost_posted_at = frappe.utils.now()
+            charge.journal_entry_reference = je.name
+        
+        # Save the job with updated charge information
+        job.save(ignore_permissions=True)
+        frappe.db.commit()
+        
         return {
             "ok": True,
             "message": f"Journal Entry {je.name} created successfully for standard costs",
             "journal_entry": je.name,
-            "total_amount": total_amount
+            "total_amount": total_amount,
+            "charges_posted": len(charges_with_standard_cost)
         }
         
     except Exception as e:
@@ -4113,4 +4209,67 @@ def post_standard_costs(warehouse_job: str) -> dict:
         return {
             "ok": False,
             "message": f"Error creating journal entry: {str(e)}"
+        }
+
+
+@frappe.whitelist()
+def get_contract_charge_items(warehouse_contract: str, context: str = None) -> dict:
+    """Get all allowed charge items from a warehouse contract for a specific context."""
+    try:
+        if not warehouse_contract:
+            return {"ok": False, "message": "Warehouse contract is required"}
+        
+        # Build filters based on context
+        filters = {
+            "parent": warehouse_contract,
+            "parenttype": "Warehouse Contract"
+        }
+        
+        # Add context-specific filters
+        if context:
+            context = context.lower().strip()
+            if context == "inbound":
+                filters["inbound_charge"] = 1
+            elif context == "outbound":
+                filters["outbound_charge"] = 1
+            elif context == "transfer":
+                filters["transfer_charge"] = 1
+            elif context == "vas":
+                filters["vas_charge"] = 1
+            elif context == "storage":
+                filters["storage_charge"] = 1
+            elif context == "stocktake":
+                filters["stocktake_charge"] = 1
+        
+        # Get contract items
+        contract_items = frappe.get_all(
+            "Warehouse Contract Item",
+            filters=filters,
+            fields=[
+                "item_charge",
+                "item_name",
+                "rate",
+                "currency",
+                "uom",
+                "inbound_charge",
+                "outbound_charge", 
+                "transfer_charge",
+                "vas_charge",
+                "storage_charge",
+                "stocktake_charge"
+            ],
+            order_by="item_charge"
+        )
+        
+        return {
+            "ok": True,
+            "items": contract_items,
+            "count": len(contract_items)
+        }
+        
+    except Exception as e:
+        frappe.logger().error(f"Error getting contract charge items: {str(e)}")
+        return {
+            "ok": False,
+            "message": f"Error retrieving contract items: {str(e)}"
         }

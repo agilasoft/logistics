@@ -1,0 +1,21 @@
+{
+ "action": "Create Entry",
+ "action_label": "Go to Energy Consumption",
+ "creation": "2025-10-18 12:32:00.497088",
+ "description": "Energy Consumption tracking enables monitoring of warehouse energy usage for sustainability and cost management. Set up electricity, natural gas, diesel, solar, wind, and hydro energy tracking with equipment breakdown, efficiency metrics, and carbon footprint calculations for environmental compliance.",
+ "docstatus": 0,
+ "doctype": "Onboarding Step",
+ "idx": 0,
+ "is_complete": 0,
+ "is_single": 0,
+ "is_skipped": 0,
+ "modified": "2025-10-18 12:32:00.497088",
+ "modified_by": "Administrator",
+ "name": "Energy Consumption Setup",
+ "owner": "Administrator",
+ "reference_document": "Energy Consumption",
+ "show_form_tour": 0,
+ "show_full_form": 1,
+ "title": "Configure Energy Consumption Tracking",
+ "validate_action": 1
+}

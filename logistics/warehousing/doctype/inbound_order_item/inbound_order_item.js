@@ -4,16 +4,21 @@
 frappe.ui.form.on('Inbound Order Item', {
     refresh: function(frm) {
         update_uom_fields(frm);
+    },
+    length: function(frm) {
+        calculate_volume(frm);
+    },
+    width: function(frm) {
+        calculate_volume(frm);
+    },
+    height: function(frm) {
+        calculate_volume(frm);
     }
 });
 
 function update_uom_fields(frm) {
-    console.log("Auto-populating UOM fields from Warehouse Settings");
-    console.log("Form fields available:", Object.keys(frm.fields_dict));
-    
     // Get UOM values from Warehouse Settings
     const company = frappe.defaults.get_user_default("Company");
-    console.log("Company:", company);
     
     frappe.call({
         method: "frappe.client.get_value",
@@ -23,34 +28,39 @@ function update_uom_fields(frm) {
             fieldname: ["default_volume_uom", "default_weight_uom"]
         },
         callback: function(r) {
-            console.log("UOM response:", r);
             if (r.message) {
                 const volume_uom = r.message.default_volume_uom;
                 const weight_uom = r.message.default_weight_uom;
-                console.log("Volume UOM:", volume_uom, "Weight UOM:", weight_uom);
-                
-                // Check if fields exist
-                console.log("volume_uom field exists:", !!frm.fields_dict.volume_uom);
-                console.log("weight_uom field exists:", !!frm.fields_dict.weight_uom);
                 
                 // Auto-populate volume UOM field
                 if (frm.fields_dict.volume_uom && volume_uom) {
                     frm.set_value("volume_uom", volume_uom);
-                    console.log("Set volume_uom to:", volume_uom);
-                } else {
-                    console.log("Cannot set volume_uom - field missing or no value");
                 }
                 
                 // Auto-populate weight UOM field
                 if (frm.fields_dict.weight_uom && weight_uom) {
                     frm.set_value("weight_uom", weight_uom);
-                    console.log("Set weight_uom to:", weight_uom);
-                } else {
-                    console.log("Cannot set weight_uom - field missing or no value");
                 }
-            } else {
-                console.log("No UOM message received");
             }
         }
     });
+}
+
+// Calculate volume from dimensions
+function calculate_volume(frm) {
+    console.log('calculate_volume called');
+    const length = parseFloat(frm.doc.length) || 0;
+    const width = parseFloat(frm.doc.width) || 0;
+    const height = parseFloat(frm.doc.height) || 0;
+    
+    console.log('Dimensions:', {length, width, height});
+    
+    if (length > 0 && width > 0 && height > 0) {
+        const volume = length * width * height;
+        console.log('Calculated volume:', volume);
+        frm.set_value("volume", volume);
+        console.log('Volume set to:', frm.doc.volume);
+    } else {
+        console.log('Not all dimensions provided');
+    }
 }

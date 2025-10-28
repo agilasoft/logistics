@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:{site}/{facility}/{date}",
- "creation": "2025-01-27 10:00:00.000000",
+ "creation": "2025-01-27 10:00:00",
  "doctype": "DocType",
  "documentation": "https://cargonext.io/cargonext/warehousing/carbon-footprint",
  "engine": "InnoDB",
@@ -15,8 +15,9 @@
   "scope",
   "total_emissions",
   "unit_of_measure",
+  "emission_factors_tab",
   "emission_factors",
-  "section_break_breakdown",
+  "emission_breakdown_tab",
   "emission_breakdown",
   "sustainability_tab",
   "reduction_targets",
@@ -27,7 +28,8 @@
   "transaction_entity_tab",
   "company",
   "branch",
-  "cost_center"
+  "cost_center",
+  "amended_from"
  ],
  "fields": [
   {
@@ -93,11 +95,6 @@
    "options": "Carbon Emission Factor"
   },
   {
-   "fieldname": "section_break_breakdown",
-   "fieldtype": "Section Break",
-   "label": "Emission Breakdown"
-  },
-  {
    "fieldname": "emission_breakdown",
    "fieldtype": "Table",
    "label": "Emission Breakdown",
@@ -161,12 +158,32 @@
    "fieldtype": "Link",
    "label": "Cost Center",
    "options": "Cost Center"
+  },
+  {
+   "fieldname": "emission_factors_tab",
+   "fieldtype": "Tab Break",
+   "label": "Emission Factors"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Carbon Footprint",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "emission_breakdown_tab",
+   "fieldtype": "Tab Break",
+   "label": "Emission Breakdown"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-01-27 10:00:00.000000",
+ "modified": "2025-10-18 12:41:23.216806",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Carbon Footprint",
@@ -194,6 +211,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

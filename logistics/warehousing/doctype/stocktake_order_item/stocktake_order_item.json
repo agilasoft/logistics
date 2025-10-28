@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "item",
   "item_name",
   "uom",
@@ -16,7 +16,16 @@
   "handling_unit_type",
   "handling_unit",
   "serial_no",
-  "batch_no"
+  "batch_no",
+  "dimensions_section",
+  "length",
+  "width",
+  "height",
+  "column_break_drkz",
+  "volume",
+  "volume_uom",
+  "weight",
+  "weight_uom"
  ],
  "fields": [
   {
@@ -103,6 +112,61 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name"
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Dimensions & Weight"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length",
+   "precision": "3"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width",
+   "precision": "3"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height",
+   "precision": "3"
+  },
+  {
+   "fieldname": "column_break_drkz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume",
+   "precision": "3"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
