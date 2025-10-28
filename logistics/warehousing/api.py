@@ -17,19 +17,22 @@ def _get_default_company_safe() -> Optional[str]:
         val = frappe.db.get_default("company")
         if val:
             return val
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get company from frappe.db.get_default: {str(e)}")
+    
     # Try frappe.defaults.get_user_default (older patterns)
     try:
         val = frappe.defaults.get_user_default("company")
         if val:
             return val
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get company from frappe.defaults.get_user_default: {str(e)}")
+    
     # Try Global Defaults doctype
     try:
         return frappe.db.get_value("Global Defaults", "Global Defaults", "default_company")
-    except Exception:
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get company from Global Defaults: {str(e)}")
         return None
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
@@ -368,7 +371,8 @@ def _get_allocation_level_limit() -> Optional[str]:
         val = frappe.db.get_single_value("Warehouse Settings", "allocation_level_limit")
         val = (val or "").strip()
         return val or None
-    except Exception:
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get allocation_level_limit from Warehouse Settings: {str(e)}")
         return None
 
 def _existing_level_fields() -> List[str]:
@@ -492,8 +496,8 @@ def create_serial_and_batch_for_inbound(inbound_order: str):
     try:
         parent = frappe.get_doc("Inbound Order", inbound_order)
         customer = getattr(parent, "customer", None)
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get customer from Inbound Order {inbound_order}: {str(e)}")
 
     rows = frappe.get_all(
         "Inbound Order Item",
@@ -631,12 +635,14 @@ def _get_item_consolidation_policy(item: str) -> Dict[str, int]:
     # Coerce to ints with safe defaults
     try:
         lot = int(lot) if lot is not None else 0
-    except Exception:
+    except (ValueError, TypeError) as e:
+        frappe.logger().debug(f"Failed to convert lot_consolidation to int: {str(e)}, using default 0")
         lot = 0
 
     try:
         mix = int(mix) if mix is not None else 0
-    except Exception:
+    except (ValueError, TypeError) as e:
+        frappe.logger().debug(f"Failed to convert allow_mix_with_other_customers to int: {str(e)}, using default 0")
         mix = 0
 
     return {
@@ -919,10 +925,7 @@ def _hu_consolidation_violations(hu: str, items_in_hu: Set[str]) -> List[str]:
 
 def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[str, Any]], List[str]]:
     """Impose HU → single destination; unique location per HU; warnings for violations."""
-    print("*** DEBUG: _hu_anchored_putaway_from_orders called ***")
-    print(f"=== HU ANCHORED PUTAWAY STARTED for job {job.name} ===")
     company, branch = _get_job_scope(job)
-    print(f"Job scope: Company={company}, Branch={branch}")
     
     # Inform user about the allocation process
     frappe.msgprint(f"Starting putaway allocation for job {job.name}")
@@ -932,7 +935,6 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
     dest_loc_field = "location" if "location" in jf else ("to_location" if "to_location" in jf else None)
 
     orders = _fetch_job_order_items(job.name)
-    print(f"Found {len(orders)} order items")
     
     # No need to show processing steps
     
@@ -942,11 +944,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
     warnings: List[str] = []
 
     if not orders:
-        print("No orders found, returning empty results")
         frappe.msgprint("No order items found to process")
         return created_rows, created_qty, details, warnings
     
-    print("DEBUG: About to process orders...")
 
     # Allocation Level Limit context
     staging_area = getattr(job, "staging_area", None)
@@ -967,11 +967,6 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         else:
             rows_without_hu.append(r)
 
-    print(f"Grouped by HU: {len(by_hu)} HUs found")
-    print(f"Rows without HU: {len(rows_without_hu)}")
-    for hu, rows in by_hu.items():
-        print(f"HU {hu}: {len(rows)} rows")
-    
     # No need to show grouping steps
 
     if rows_without_hu:
@@ -982,8 +977,6 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
     used_locations: Set[str] = set()  # ensure different HUs don't share the same destination
 
     for hu, rows in by_hu.items():
-        print(f"Processing HU {hu} with {len(rows)} rows")
-        print(f"DEBUG: Starting HU processing for {hu}")
         
         # Inform user about HU processing
         frappe.msgprint(f"Processing handling unit {hu} with {len(rows)} items")
@@ -994,18 +987,11 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             if rr.get("item"):
                 rep_item = rr["item"]; break
         if not rep_item:
-            print(f"HU {hu}: No representative item found, skipping")
             frappe.msgprint(f"Warning: HU {hu} has no valid items, skipping")
             warnings.append(_("HU {0}: has rows without item; skipped.").format(hu))
             continue
 
-        print(f"HU {hu}: Representative item = {rep_item}")
-        print(f"DEBUG: About to call _select_dest_for_hu for {hu}")
-
         # choose destination for this HU (must be unique and match level limit)
-        print(f"HU {hu}: Looking for destination for item {rep_item}")
-        print(f"HU {hu}: Company={company}, Branch={branch}, Staging={staging_area}, Level limit={level_limit_label}")
-        print(f"HU {hu}: Used locations={list(used_locations)}, Exclude={exclude}")
 
         dest = _select_dest_for_hu(
             item=rep_item, company=company, branch=branch,
@@ -1013,7 +999,6 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             used_locations=used_locations, exclude_locations=exclude
         )
 
-        print(f"HU {hu}: Destination selected = {dest}")
         
         # No need to show individual destination results
         
@@ -1193,7 +1178,8 @@ def initiate_vas_pick(warehouse_job: str, clear_existing: int = 1):
         reverse_bom = 0
         try:
             reverse_bom = int(frappe.db.get_value("Warehouse Item VAS BOM", bom, "reverse_bom") or 0)
-        except Exception:
+        except (ValueError, TypeError) as e:
+            frappe.logger().debug(f"Failed to get reverse_bom for VAS BOM {bom}: {str(e)}, using default 0")
             reverse_bom = 0
 
             skipped.append(_("No VAS BOM for {0} (type={1}, customer={2})").format(p_item, vas_type or "N/A", customer or "N/A"))
@@ -2192,8 +2178,8 @@ def create_sales_invoice_from_periodic_billing(
                 si_name = out.get("sales_invoice")
                 if si_name and "branch" in _safe_meta_fieldnames("Sales Invoice"):
                     frappe.db.set_value("Sales Invoice", si_name, "branch", branch)
-        except Exception:
-            pass
+        except Exception as e:
+            frappe.logger().debug(f"Failed to set branch on Sales Invoice {si_name}: {str(e)}")
         return out
 
     if not periodic_billing:
@@ -2384,7 +2370,8 @@ def _wjo_order_value(row: Any) -> int:
     try:
         v = getattr(row, "order", None)
         return int(v) if (v not in (None, "",)) else int(getattr(row, "idx", 0) or 0)
-    except Exception:
+    except (ValueError, TypeError, AttributeError) as e:
+        frappe.logger().debug(f"Failed to get order value from row: {str(e)}, using idx")
         return int(getattr(row, "idx", 0) or 0)
 
 def _wjo_is_completed(row: Any) -> bool:
@@ -2396,8 +2383,8 @@ def _wjo_is_completed(row: Any) -> bool:
             return True
         if end_f and end_f in fields and getattr(row, end_f, None):
             return True
-    except Exception:
-        pass
+    except (AttributeError, TypeError) as e:
+        frappe.logger().debug(f"Failed to check completion status for row: {str(e)}")
     return False
 
 def _assert_prior_ops_completed(job: Any, ops_fieldname: str, current_row: Any) -> None:
@@ -3087,8 +3074,8 @@ def create_sales_invoice_from_periodic_billing(
     if "sales_invoice" in pbf:
         try:
             setattr(pb, "sales_invoice", si.name)
-        except Exception:
-            pass
+        except (AttributeError, TypeError) as e:
+            frappe.logger().debug(f"Failed to set sales_invoice on Periodic Billing: {str(e)}")
 
     # Children: mark invoiced=1 and link SI if fields exist
     cf_fields = _safe_meta_fieldnames("Periodic Billing Charges")
@@ -3098,20 +3085,21 @@ def create_sales_invoice_from_periodic_billing(
         if "invoiced" in cf_fields:
             try:
                 setattr(ch, "invoiced", 1)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as e:
+                frappe.logger().debug(f"Failed to set invoiced on Periodic Billing Charges: {str(e)}")
         if "sales_invoice" in cf_fields:
             try:
                 setattr(ch, "sales_invoice", si.name)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as e:
+                frappe.logger().debug(f"Failed to set sales_invoice on Periodic Billing Charges: {str(e)}")
         updated_pb_rows += 1
 
     try:
         pb.save(ignore_permissions=True)
         frappe.db.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.logger().error(f"Failed to save Periodic Billing after creating Sales Invoice: {str(e)}")
+        frappe.throw(_("Failed to update Periodic Billing after creating Sales Invoice. Please check the logs."))
 
     return {"ok": True, "message": _("Sales Invoice {0} created.").format(si.name), "sales_invoice": si.name, "created_rows": created_rows, "updated_pb_rows": updated_pb_rows}
 

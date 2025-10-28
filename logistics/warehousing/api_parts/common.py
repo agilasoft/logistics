@@ -8,6 +8,33 @@ import json
 from frappe.utils import get_datetime, now
 from typing import TypedDict
 
+def _get_default_currency(company: Optional[str] = None) -> str:
+    """Get default currency for company or system default from ERPNext."""
+    try:
+        if company:
+            # Get currency from ERPNext Company
+            currency = frappe.db.get_value("Company", company, "default_currency")
+            if currency:
+                return currency
+        
+        # Fallback to system default currency from Global Defaults
+        currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+        if currency:
+            return currency
+            
+        # Final fallback - get first company's currency
+        first_company = frappe.db.get_value("Company", filters={"enabled": 1}, fieldname="name")
+        if first_company:
+            currency = frappe.db.get_value("Company", first_company, "default_currency")
+            if currency:
+                return currency
+                
+        # Ultimate fallback
+        return "USD"
+    except Exception as e:
+        frappe.logger().debug(f"Failed to get default currency: {str(e)}")
+        return "USD"
+
 def _hu_location_fields() -> List[str]:
     """Return plausible location fieldnames present on Handling Unit."""
     hf = _safe_meta_fieldnames("Handling Unit")

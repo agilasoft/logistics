@@ -148,6 +148,28 @@
    "write": 1
   }
  ],
+ "indexes": [
+  {
+   "index_name": "idx_warehouse_job_handling_unit",
+   "fields": ["warehouse_job", "handling_unit"]
+  },
+  {
+   "index_name": "idx_storage_location_posting_date",
+   "fields": ["storage_location", "posting_date"]
+  },
+  {
+   "index_name": "idx_company_branch",
+   "fields": ["company", "branch"]
+  },
+  {
+   "index_name": "idx_handling_unit_quantity",
+   "fields": ["handling_unit", "quantity"]
+  },
+  {
+   "index_name": "idx_item_posting_date",
+   "fields": ["item", "posting_date"]
+  }
+ ],
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",

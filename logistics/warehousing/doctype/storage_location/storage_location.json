@@ -320,6 +320,28 @@
    "write": 1
   }
  ],
+ "indexes": [
+  {
+   "index_name": "idx_status_company",
+   "fields": ["status", "company"]
+  },
+  {
+   "index_name": "idx_site_building_zone",
+   "fields": ["site", "building", "zone"]
+  },
+  {
+   "index_name": "idx_company_branch",
+   "fields": ["company", "branch"]
+  },
+  {
+   "index_name": "idx_storage_type_status",
+   "fields": ["storage_type", "status"]
+  },
+  {
+   "index_name": "idx_aisle_bay_level",
+   "fields": ["aisle", "bay", "level"]
+  }
+ ],
  "row_format": "Dynamic",
  "search_fields": "location_code,storage_type",
  "sort_field": "modified",

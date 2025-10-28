@@ -412,6 +412,24 @@
    "write": 1
   }
  ],
+ "indexes": [
+  {
+   "index_name": "idx_customer_job_open_date",
+   "fields": ["customer", "job_open_date"]
+  },
+  {
+   "index_name": "idx_type_company",
+   "fields": ["type", "company"]
+  },
+  {
+   "index_name": "idx_company_branch",
+   "fields": ["company", "branch"]
+  },
+  {
+   "index_name": "idx_docstatus_job_open_date",
+   "fields": ["docstatus", "job_open_date"]
+  }
+ ],
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",

@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 from frappe import _
+from logistics.warehousing.api_parts.common import _get_default_currency
 
 # ---------------------------------------------------------------------------
 # Meta helpers
@@ -2775,7 +2776,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 
                 # Update charge with contract values
                 charge.rate = flt(contract_item.get("rate", 0))
-                charge.currency = contract_item.get("currency", "PHP")
+                charge.currency = contract_item.get("currency", _get_default_currency(job.company))
                 charge.uom = contract_item.get("uom", "Day")
                 charge.quantity = billing_qty
                 charge.total = billing_qty * flt(contract_item.get("rate", 0))
@@ -3652,7 +3653,7 @@ def _generate_comprehensive_calculation_notes(charge, job, contract_item, billin
         rate = flt(getattr(charge, 'rate', 0))
         total = flt(getattr(charge, 'total', 0))
         uom = getattr(charge, 'uom', 'N/A')
-        currency = getattr(charge, 'currency', 'PHP')
+        currency = getattr(charge, 'currency', _get_default_currency(job.company))
         
         job_name = getattr(job, 'name', 'N/A')
         job_type = getattr(job, 'job_type', 'N/A')
@@ -3728,7 +3729,7 @@ def _generate_comprehensive_calculation_notes(charge, job, contract_item, billin
     - Contract Unit Type: {contract_item.get('unit_type', 'N/A')}
     - Time billing settings: {contract_item.get('billing_time_unit', 'N/A')} unit, {contract_item.get('billing_time_multiplier', 1)} multiplier, {contract_item.get('minimum_billing_time', 1)} minimum
     - Contract UOM: {contract_item.get('uom', 'N/A')}
-    - Contract Currency: {contract_item.get('currency', 'PHP')}"""
+    - Contract Currency: {contract_item.get('currency', _get_default_currency(job.company))}"""
         else:
             notes += f"""
   • Contract Setup Applied:
@@ -3779,7 +3780,7 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
             "quantity": billing_qty,
             "rate": rate,
             "total": total,
-            "currency": contract_item.get("currency", "PHP"),
+            "currency": contract_item.get("currency", _get_default_currency(job.company)),
             "calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(
                 job, contract_item, billing_method, billing_qty
             )
@@ -3798,8 +3799,6 @@ def _calculate_contract_based_quantity_for_job(job, contract_item: dict) -> tupl
         unit_type = contract_item.get('unit_type', 'Day')
         billing_method = _map_unit_type_to_billing_method(unit_type)
         
-        # Debug logging
-        frappe.logger().debug(f"Calculating quantity for job {job.name}: unit_type={unit_type}, billing_method={billing_method}")
         
         if billing_method == 'Per Day':
             qty = _calculate_per_day_quantity_for_job(job)
@@ -3820,8 +3819,6 @@ def _calculate_contract_based_quantity_for_job(job, contract_item: dict) -> tupl
         else:
             qty = 1.0
         
-        # Debug logging
-        frappe.logger().debug(f"Calculated quantity: {qty} for billing_method: {billing_method}")
             
         return qty, billing_method
             
@@ -3872,15 +3869,11 @@ def _calculate_per_piece_quantity_for_job_contract(job) -> float:
     try:
         total_pieces = 0.0
         items = getattr(job, 'items', []) or []
-        frappe.logger().debug(f"Calculating pieces for job {job.name}: {len(items)} items")
         
         for item in items:
             quantity = flt(getattr(item, 'quantity', 0))
             item_code = getattr(item, 'item', 'Unknown')
-            frappe.logger().debug(f"Item {item_code}: quantity={quantity}")
             total_pieces += quantity
-        
-        frappe.logger().debug(f"Total pieces calculated: {total_pieces}")
         return total_pieces
     except Exception as e:
         frappe.logger().warning(f"Error calculating per piece quantity: {e}")
@@ -3950,26 +3943,21 @@ def _calculate_per_handling_unit_quantity_for_job_contract(job) -> float:
         if job_type == 'Stocktake':
             # For stocktake jobs, use counts table
             counts = getattr(job, 'counts', []) or []
-            frappe.logger().info(f"DEBUG: Stocktake job {job.name} has {len(counts)} counts")
             
             for count in counts:
                 hu = getattr(count, 'handling_unit', None)
-                frappe.logger().info(f"DEBUG: Count {count.item} has handling unit: {hu}")
                 if hu:
                     handling_units.add(hu)
         else:
             # For other job types, use items table
             items = getattr(job, 'items', []) or []
-            frappe.logger().info(f"DEBUG: Job {job.name} has {len(items)} items")
             
             for item in items:
                 hu = getattr(item, 'handling_unit', None)
-                frappe.logger().info(f"DEBUG: Item {item.item} has handling unit: {hu}")
                 if hu:
                     handling_units.add(hu)
         
         result = float(len(handling_units)) if handling_units else 1.0
-        frappe.logger().info(f"DEBUG: Found {len(handling_units)} unique handling units: {sorted(handling_units)}")
         return result
     except Exception as e:
         frappe.logger().warning(f"Error calculating per handling unit quantity: {e}")
@@ -3996,7 +3984,7 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
         rate = flt(contract_item.get("rate", 0))
         total = billing_qty * rate
         uom = contract_item.get("uom", "N/A")
-        currency = contract_item.get("currency", "PHP")
+        currency = contract_item.get("currency", _get_default_currency(job.company))
         
         job_name = getattr(job, 'name', 'N/A')
         job_type = getattr(job, 'type', 'N/A')
@@ -4071,7 +4059,7 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
     - Contract Unit Type: {contract_item.get('unit_type', 'N/A')}
     - Time billing settings: {contract_item.get('billing_time_unit', 'N/A')} unit, {contract_item.get('billing_time_multiplier', 1)} multiplier, {contract_item.get('minimum_billing_time', 1)} minimum
     - Contract UOM: {contract_item.get('uom', 'N/A')}
-    - Contract Currency: {contract_item.get('currency', 'PHP')}
+    - Contract Currency: {contract_item.get('currency', _get_default_currency(job.company))}
     - Contract Item: {contract_item.get('item_code', 'N/A')}"""
         
         return notes

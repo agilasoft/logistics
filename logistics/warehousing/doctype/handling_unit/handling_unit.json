@@ -240,6 +240,24 @@
    "write": 1
   }
  ],
+ "indexes": [
+  {
+   "index_name": "idx_status_company",
+   "fields": ["status", "company"]
+  },
+  {
+   "index_name": "idx_type_company",
+   "fields": ["type", "company"]
+  },
+  {
+   "index_name": "idx_company_branch",
+   "fields": ["company", "branch"]
+  },
+  {
+   "index_name": "idx_supplier_status",
+   "fields": ["supplier", "status"]
+  }
+ ],
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
