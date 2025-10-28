@@ -35,7 +35,7 @@ from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 
 # Import functions from api_parts modules
-from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom, _find_child_table_field, _wjo_fields, _ops_time_fields
+from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _get_allow_emergency_fallback, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom, _find_child_table_field, _wjo_fields, _ops_time_fields, get_warehouse_job_overview
 from .api_parts.putaway import _putaway_candidate_locations, allocate_putaway, post_putaway, allocate_vas_putaway
 from .api_parts.pick import allocate_pick, post_pick, initiate_vas_pick
 from .api_parts.ops import populate_job_operations, create_sales_invoice_from_job, update_job_operations_times
@@ -2350,55 +2350,7 @@ def resolve_warehouse_job(scanned: str) -> dict:
 
     return {"ok": False, "message": _("No Warehouse Job found for: {0}").format(scanned)}
 
-@frappe.whitelist()
-def get_warehouse_job_overview(warehouse_job: str) -> dict:
-    """
-    Return core header and operations summary for the scan page.
-    Safe-field aware to work across schema variations.
-    """
-    if not warehouse_job:
-        frappe.throw(_("warehouse_job is required"))
-
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    jf  = _wj_fields()
-
-    header = {
-        "name": job.name,
-        "type": getattr(job, "type", None),
-        "status": getattr(job, "status", None) if "status" in jf else None,
-        "docstatus": int(getattr(job, "docstatus", 0) or 0),
-        "customer": getattr(job, "customer", None) if "customer" in jf else None,
-        "company": getattr(job, "company", None) if "company" in jf else None,
-        "branch": getattr(job, "branch", None) if "branch" in jf else None,
-        "staging_area": getattr(job, "staging_area", None) if "staging_area" in jf else None,
-        "job_open_date": getattr(job, "job_open_date", None) if "job_open_date" in jf else None,
-    }
-
-    # Operations (child table may be named "Warehouse Job Operations")
-    ops_fn = _find_child_table_field("Warehouse Job", "Warehouse Job Operations")
-    ops_rows = []
-    if ops_fn:
-        childf = _wjo_fields()
-        # Pre-compute which fields exist
-        has = lambda f: (f in childf)
-        for r in getattr(job, ops_fn, []) or []:
-            row = {
-                "name": getattr(r, "name", None),
-                "idx": getattr(r, "idx", None),
-                "operation": getattr(r, "operation", None) if has("operation") else None,
-                "description": getattr(r, "description", None) if has("description") else None,
-                "quantity": float(getattr(r, "quantity", 0) or 0) if has("quantity") else None,
-                "unit_std_hours": float(getattr(r, "unit_std_hours", 0) or 0) if has("unit_std_hours") else None,
-                "total_std_hours": float(getattr(r, "total_std_hours", 0) or 0) if has("total_std_hours") else None,
-                "order": getattr(r, "order", None) if has("order") else None,
-                "actual_hours": float(getattr(r, "actual_hours", 0) or 0) if has("actual_hours") else None,
-                "start_datetime": getattr(r, "start_datetime", None) if has("start_datetime") else None,
-                "end_datetime": getattr(r, "end_datetime", None) if has("end_datetime") else None,
-            }
-            ops_rows.append(row)
-
-    return {"ok": True, "header": header, "operations": ops_rows}
-
+# get_warehouse_job_overview moved to api_parts/common.py
 # update_job_operations_times moved to api_parts/ops.py
 
 @frappe.whitelist()

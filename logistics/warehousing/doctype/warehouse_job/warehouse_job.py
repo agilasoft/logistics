@@ -2225,7 +2225,7 @@ class WarehouseJob(Document):
                                 <span>{end_date}</span>
                             </div>
                             {f'<div class="date-row"><label>Qty:</label><span>{op["quantity"]}</span></div>' if op.get('quantity', 0) > 0 else ''}
-                            {f'<div class="date-row"><label>Hours:</label><span>{op["actual_hours"]}</span></div>' if op.get('actual_hours', 0) > 0 else ''}
+                            {f'<div class="date-row"><label>Hours:</label><span>{op["actual_hours"]}</span></div>' if op.get('actual_hours') is not None and op.get('actual_hours') != "" else ''}
                         </div>
                     </div>
                 """)
@@ -2906,6 +2906,24 @@ def update_operation_start(job_name, operation_id, start_date):
             operation.start_date = start_date
             frappe.logger().info(f"Set start_date to: {operation.start_date}")
             
+            # Compute actual_hours if both start and end dates are present
+            if operation.start_date and operation.end_date:
+                from frappe.utils import get_datetime
+                start_dt = get_datetime(operation.start_date)
+                end_dt = get_datetime(operation.end_date)
+                frappe.logger().info(f"update_operation_start: start_dt={start_dt} (type: {type(start_dt)})")
+                frappe.logger().info(f"update_operation_start: end_dt={end_dt} (type: {type(end_dt)})")
+                if start_dt and end_dt:
+                    # Handle timezone-aware datetimes by converting to naive datetimes
+                    if hasattr(start_dt, 'replace'):
+                        start_dt = start_dt.replace(tzinfo=None)
+                    if hasattr(end_dt, 'replace'):
+                        end_dt = end_dt.replace(tzinfo=None)
+                    
+                    sec = max(0.0, (end_dt - start_dt).total_seconds())
+                    operation.actual_hours = round(sec / 3600.0, 4)
+                    frappe.logger().info(f"Computed actual_hours: {operation.actual_hours} from {sec} seconds")
+            
             # Save the job
             job.save()
             frappe.db.commit()
@@ -2947,6 +2965,22 @@ def update_operation_end(job_name, operation_id, end_date):
             # Update the end date
             operation.end_date = end_date
             frappe.logger().info(f"Set end_date to: {operation.end_date}")
+            
+            # Compute actual_hours if both start and end dates are present
+            if operation.start_date and operation.end_date:
+                from frappe.utils import get_datetime
+                start_dt = get_datetime(operation.start_date)
+                end_dt = get_datetime(operation.end_date)
+                if start_dt and end_dt:
+                    # Handle timezone-aware datetimes by converting to naive datetimes
+                    if hasattr(start_dt, 'replace'):
+                        start_dt = start_dt.replace(tzinfo=None)
+                    if hasattr(end_dt, 'replace'):
+                        end_dt = end_dt.replace(tzinfo=None)
+                    
+                    sec = max(0.0, (end_dt - start_dt).total_seconds())
+                    operation.actual_hours = round(sec / 3600.0, 4)
+                    frappe.logger().info(f"Computed actual_hours: {operation.actual_hours} from {sec} seconds")
             
             # Save the job
             job.save()

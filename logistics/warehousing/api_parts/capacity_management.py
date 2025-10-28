@@ -643,3 +643,176 @@ def get_capacity_utilization_report(
     except Exception as e:
         frappe.log_error(f"Capacity utilization report error: {str(e)}")
         return {"error": str(e)}
+
+
+@frappe.whitelist()
+def refresh_capacity_data():
+    """Refresh capacity data for all handling units and storage locations"""
+    try:
+        updated_count = 0
+        
+        # Refresh handling unit capacity data
+        handling_units = frappe.get_all(
+            "Handling Unit",
+            filters={"docstatus": ["!=", 2]},
+            fields=["name"]
+        )
+        
+        for hu in handling_units:
+            try:
+                hu_doc = frappe.get_doc("Handling Unit", hu.name)
+                
+                # Calculate current capacity usage
+                current_volume = calculate_handling_unit_current_volume(hu.name)
+                current_weight = calculate_handling_unit_current_weight(hu.name)
+                
+                # Calculate utilization percentage
+                max_volume = flt(hu_doc.max_volume)
+                max_weight = flt(hu_doc.max_weight)
+                
+                volume_utilization = (current_volume / max_volume * 100) if max_volume > 0 else 0
+                weight_utilization = (current_weight / max_weight * 100) if max_weight > 0 else 0
+                
+                # Use the higher of volume or weight utilization
+                utilization_percentage = max(volume_utilization, weight_utilization)
+                
+                # Update the handling unit
+                hu_doc.current_volume = current_volume
+                hu_doc.current_weight = current_weight
+                hu_doc.utilization_percentage = utilization_percentage
+                hu_doc.save(ignore_permissions=True)
+                
+                updated_count += 1
+                
+            except Exception as e:
+                frappe.log_error(f"Error updating handling unit {hu.name}: {str(e)}")
+                continue
+        
+        # Refresh storage location capacity data
+        storage_locations = frappe.get_all(
+            "Storage Location",
+            filters={"docstatus": ["!=", 2]},
+            fields=["name"]
+        )
+        
+        for sl in storage_locations:
+            try:
+                sl_doc = frappe.get_doc("Storage Location", sl.name)
+                
+                # Calculate current capacity usage
+                current_volume = calculate_storage_location_current_volume(sl.name)
+                current_weight = calculate_storage_location_current_weight(sl.name)
+                
+                # Calculate utilization percentage
+                max_volume = flt(sl_doc.max_volume)
+                max_weight = flt(sl_doc.max_weight)
+                
+                volume_utilization = (current_volume / max_volume * 100) if max_volume > 0 else 0
+                weight_utilization = (current_weight / max_weight * 100) if max_weight > 0 else 0
+                
+                # Use the higher of volume or weight utilization
+                utilization_percentage = max(volume_utilization, weight_utilization)
+                
+                # Update the storage location
+                sl_doc.current_volume = current_volume
+                sl_doc.current_weight = current_weight
+                sl_doc.utilization_percentage = utilization_percentage
+                sl_doc.save(ignore_permissions=True)
+                
+                updated_count += 1
+                
+            except Exception as e:
+                frappe.log_error(f"Error updating storage location {sl.name}: {str(e)}")
+                continue
+        
+        frappe.db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Capacity data refreshed successfully for {updated_count} units",
+            "updated_count": updated_count
+        }
+        
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(f"Capacity data refresh error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def calculate_handling_unit_current_volume(handling_unit_name):
+    """Calculate current volume usage for a handling unit"""
+    try:
+        # Get stock ledger entries for this handling unit
+        stock_entries = frappe.db.sql("""
+            SELECT 
+                SUM(COALESCE(quantity, 0) * COALESCE(wi.volume, 0)) as total_volume
+            FROM `tabWarehouse Stock Ledger` wsl
+            LEFT JOIN `tabWarehouse Item` wi ON wsl.item = wi.name
+            WHERE wsl.handling_unit = %s
+        """, (handling_unit_name,), as_dict=True)
+        
+        return flt(stock_entries[0].total_volume) if stock_entries else 0
+        
+    except Exception as e:
+        frappe.log_error(f"Error calculating handling unit volume: {str(e)}")
+        return 0
+
+
+def calculate_handling_unit_current_weight(handling_unit_name):
+    """Calculate current weight usage for a handling unit"""
+    try:
+        # Get stock ledger entries for this handling unit
+        stock_entries = frappe.db.sql("""
+            SELECT 
+                SUM(COALESCE(quantity, 0) * COALESCE(wi.weight, 0)) as total_weight
+            FROM `tabWarehouse Stock Ledger` wsl
+            LEFT JOIN `tabWarehouse Item` wi ON wsl.item = wi.name
+            WHERE wsl.handling_unit = %s
+        """, (handling_unit_name,), as_dict=True)
+        
+        return flt(stock_entries[0].total_weight) if stock_entries else 0
+        
+    except Exception as e:
+        frappe.log_error(f"Error calculating handling unit weight: {str(e)}")
+        return 0
+
+
+def calculate_storage_location_current_volume(storage_location_name):
+    """Calculate current volume usage for a storage location"""
+    try:
+        # Get stock ledger entries for this storage location
+        stock_entries = frappe.db.sql("""
+            SELECT 
+                SUM(COALESCE(quantity, 0) * COALESCE(wi.volume, 0)) as total_volume
+            FROM `tabWarehouse Stock Ledger` wsl
+            LEFT JOIN `tabWarehouse Item` wi ON wsl.item = wi.name
+            WHERE wsl.storage_location = %s
+        """, (storage_location_name,), as_dict=True)
+        
+        return flt(stock_entries[0].total_volume) if stock_entries else 0
+        
+    except Exception as e:
+        frappe.log_error(f"Error calculating storage location volume: {str(e)}")
+        return 0
+
+
+def calculate_storage_location_current_weight(storage_location_name):
+    """Calculate current weight usage for a storage location"""
+    try:
+        # Get stock ledger entries for this storage location
+        stock_entries = frappe.db.sql("""
+            SELECT 
+                SUM(COALESCE(quantity, 0) * COALESCE(wi.weight, 0)) as total_weight
+            FROM `tabWarehouse Stock Ledger` wsl
+            LEFT JOIN `tabWarehouse Item` wi ON wsl.item = wi.name
+            WHERE wsl.storage_location = %s
+        """, (storage_location_name,), as_dict=True)
+        
+        return flt(stock_entries[0].total_weight) if stock_entries else 0
+        
+    except Exception as e:
+        frappe.log_error(f"Error calculating storage location weight: {str(e)}")
+        return 0

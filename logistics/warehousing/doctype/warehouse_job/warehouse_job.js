@@ -178,6 +178,14 @@ frappe.ui.form.on('Warehouse Job', {
         calculate_job_totals(frm);
         update_uom_fields_for_items(frm);
         
+        // Refresh dashboard to show updated actual_hours
+        if (frm.doc.name && frm.doc.name !== 'new-warehouse-job') {
+            // Check if refresh_dashboard_data function exists before calling it
+            if (typeof frm.refresh_dashboard_data === 'function') {
+                frm.refresh_dashboard_data();
+            }
+        }
+        
         // Add Allocate button if job is not completed (exclude Stocktake jobs)
         if (frm.doc.docstatus === 0 && frm.doc.status !== 'Completed' && frm.doc.type !== 'Stocktake') {
             // Determine button text based on job type
@@ -604,7 +612,7 @@ function create_operations(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
-            } else {
+                    } else {
                         frappe.msgprint({
                             title: __('Create Operations Error'),
                             message: `
@@ -622,7 +630,9 @@ function create_operations(frm) {
             });
         }
     );
-}// Additional Warehouse Job Functions
+}
+
+// Additional Warehouse Job Functions
 
 // Post Receiving function
 function post_receiving(frm) {
@@ -649,7 +659,7 @@ function post_receiving(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
-          } else {
+                    } else {
                         frappe.msgprint({
                             title: __('Post Receiving Error'),
                             message: `
@@ -694,7 +704,7 @@ function post_putaway(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
-      } else {
+                    } else {
                         frappe.msgprint({
                             title: __('Post Putaway Error'),
                             message: `
@@ -742,7 +752,7 @@ function post_pick(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
-        } else {
+                    } else {
                         frappe.msgprint({
                             title: __('❌ Post Pick Error'),
                             message: r.message.error || __('Failed to post pick.'),
@@ -791,9 +801,9 @@ function post_release(frm) {
                         });
                     }
                 }
-              });
-            }
-          );
+            });
+        }
+    );
 }
 
 // Fetch Count Sheet function
@@ -825,7 +835,7 @@ function fetch_count_sheet(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
-        } else {
+                    } else {
                         frappe.msgprint({
                             title: __('❌ Fetch Count Sheet Error'),
                             message: r.message.error || __('Failed to fetch count sheet.'),
@@ -866,7 +876,7 @@ function populate_stocktake_adjustments(frm) {
                             `,
                             indicator: 'green'
                         });
-            frm.reload_doc();
+                        frm.reload_doc();
                     } else {
                         frappe.msgprint({
                             title: __('❌ Populate Adjustments Error'),

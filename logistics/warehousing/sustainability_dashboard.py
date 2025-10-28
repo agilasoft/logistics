@@ -12,153 +12,180 @@ import json
 def get_sustainability_dashboard_data(site=None, facility=None, from_date=None, to_date=None):
 	"""Get comprehensive sustainability dashboard data"""
 	
-	# Set default date range if not provided
-	if not from_date:
-		from_date = add_months(getdate(), -12)  # Last 12 months
-	if not to_date:
-		to_date = getdate()
-	
-	# Get energy consumption data
-	energy_data = get_energy_consumption_data(site, facility, from_date, to_date)
-	
-	# Get carbon footprint data
-	carbon_data = get_carbon_footprint_data(site, facility, from_date, to_date)
-	
-	# Get green operations metrics
-	green_metrics = get_green_operations_metrics(site, facility, from_date, to_date)
-	
-	# Calculate sustainability scores
-	sustainability_scores = calculate_sustainability_scores(energy_data, carbon_data, green_metrics)
-	
-	# Get trends and comparisons
-	trends = get_sustainability_trends(site, facility, from_date, to_date)
-	
-	return {
-		"energy_data": energy_data,
-		"carbon_data": carbon_data,
-		"green_metrics": green_metrics,
-		"sustainability_scores": sustainability_scores,
-		"trends": trends,
-		"date_range": {
-			"from_date": from_date,
-			"to_date": to_date
+	try:
+		# Set default date range if not provided
+		if not from_date:
+			from_date = add_months(getdate(), -12)  # Last 12 months
+		if not to_date:
+			to_date = getdate()
+		
+		# Get energy consumption data
+		energy_data = get_energy_consumption_data(site, facility, from_date, to_date)
+		
+		# Get carbon footprint data
+		carbon_data = get_carbon_footprint_data(site, facility, from_date, to_date)
+		
+		# Get green operations metrics
+		green_metrics = get_green_operations_metrics(site, facility, from_date, to_date)
+		
+		# Calculate sustainability scores
+		sustainability_scores = calculate_sustainability_scores(energy_data, carbon_data, green_metrics)
+		
+		# Get trends and comparisons
+		trends = get_sustainability_trends(site, facility, from_date, to_date)
+		
+		return {
+			"energy_data": energy_data,
+			"carbon_data": carbon_data,
+			"green_metrics": green_metrics,
+			"sustainability_scores": sustainability_scores,
+			"trends": trends,
+			"date_range": {
+				"from_date": from_date,
+				"to_date": to_date
+			}
 		}
-	}
+		
+	except Exception as e:
+		frappe.log_error(f"Error in get_sustainability_dashboard_data: {str(e)}")
+		# Return default data structure to prevent frontend errors
+		return {
+			"energy_data": {"summary": {"total_consumption": 0, "total_cost": 0, "average_renewable_percentage": 0, "carbon_intensity": 0}},
+			"carbon_data": {"summary": {"total_emissions": 0, "average_daily_emissions": 0}},
+			"green_metrics": {"green_score": 0, "renewable_percentage": 0},
+			"sustainability_scores": {"overall_score": 0, "energy_score": 0, "carbon_score": 0, "green_score": 0},
+			"trends": {"energy_improvement": 0, "carbon_improvement": 0},
+			"date_range": {"from_date": from_date, "to_date": to_date}
+		}
 
 
 def get_energy_consumption_data(site=None, facility=None, from_date=None, to_date=None):
 	"""Get energy consumption data for dashboard"""
-	filters = {}
-	if site:
-		filters["site"] = site
-	if facility:
-		filters["facility"] = facility
-	if from_date:
-		filters["date"] = [">=", from_date]
-	if to_date:
-		filters["date"] = ["<=", to_date]
-	
-	energy_data = frappe.get_all("Energy Consumption", 
-		filters=filters,
-		fields=["date", "energy_type", "consumption_value", "carbon_footprint", 
-				"renewable_percentage", "total_cost"],
-		order_by="date desc"
-	)
-	
-	# Calculate summary metrics
-	total_consumption = sum(flt(d.consumption_value) for d in energy_data)
-	total_carbon = sum(flt(d.carbon_footprint) for d in energy_data)
-	total_cost = sum(flt(d.total_cost) for d in energy_data)
-	
-	# Calculate renewable energy percentage
-	renewable_energy = sum(flt(d.renewable_percentage or 0) * flt(d.consumption_value) for d in energy_data)
-	avg_renewable_pct = (renewable_energy / total_consumption * 100) if total_consumption > 0 else 0
-	
-	# Energy type breakdown
-	energy_breakdown = {}
-	for data in energy_data:
-		energy_type = data.energy_type
-		if energy_type not in energy_breakdown:
-			energy_breakdown[energy_type] = 0
-		energy_breakdown[energy_type] += flt(data.consumption_value)
-	
-	return {
-		"energy_data": energy_data,
-		"summary": {
-			"total_consumption": total_consumption,
-			"total_carbon_footprint": total_carbon,
-			"total_cost": total_cost,
-			"average_renewable_percentage": avg_renewable_pct,
-			"carbon_intensity": total_carbon / total_consumption if total_consumption > 0 else 0
-		},
-		"energy_breakdown": energy_breakdown
-	}
+	try:
+		filters = {}
+		if site:
+			filters["site"] = site
+		if facility:
+			filters["facility"] = facility
+		if from_date:
+			filters["date"] = [">=", from_date]
+		if to_date:
+			filters["date"] = ["<=", to_date]
+		
+		energy_data = frappe.get_all("Energy Consumption", 
+			filters=filters,
+			fields=["date", "energy_type", "consumption_value", "carbon_footprint", 
+					"renewable_percentage", "total_cost"],
+			order_by="date desc"
+		)
+		
+		# Calculate summary metrics
+		total_consumption = sum(flt(d.consumption_value) for d in energy_data)
+		total_carbon = sum(flt(d.carbon_footprint) for d in energy_data)
+		total_cost = sum(flt(d.total_cost) for d in energy_data)
+		
+		# Calculate renewable energy percentage
+		renewable_energy = sum(flt(d.renewable_percentage or 0) * flt(d.consumption_value) for d in energy_data)
+		avg_renewable_pct = (renewable_energy / total_consumption * 100) if total_consumption > 0 else 0
+		
+		# Energy type breakdown
+		energy_breakdown = {}
+		for data in energy_data:
+			energy_type = data.energy_type
+			if energy_type not in energy_breakdown:
+				energy_breakdown[energy_type] = 0
+			energy_breakdown[energy_type] += flt(data.consumption_value)
+		
+		return {
+			"energy_data": energy_data,
+			"summary": {
+				"total_consumption": total_consumption,
+				"total_carbon_footprint": total_carbon,
+				"total_cost": total_cost,
+				"average_renewable_percentage": avg_renewable_pct,
+				"carbon_intensity": total_carbon / total_consumption if total_consumption > 0 else 0
+			},
+			"energy_breakdown": energy_breakdown
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting energy consumption data: {str(e)}")
+		return {
+			"energy_data": [],
+			"summary": {
+				"total_consumption": 0,
+				"total_carbon_footprint": 0,
+				"total_cost": 0,
+				"average_renewable_percentage": 0,
+				"carbon_intensity": 0
+			},
+			"energy_breakdown": {}
+		}
 
 
 def get_carbon_footprint_data(site=None, facility=None, from_date=None, to_date=None):
 	"""Get carbon footprint data for dashboard"""
-	filters = {}
-	if site:
-		filters["site"] = site
-	if facility:
-		filters["facility"] = facility
-	if from_date:
-		filters["date"] = [">=", from_date]
-	if to_date:
-		filters["date"] = ["<=", to_date]
-	
-	carbon_data = frappe.get_all("Carbon Footprint", 
-		filters=filters,
-		fields=["date", "scope", "total_emissions", "verification_status"],
-		order_by="date desc"
-	)
-	
-	# Calculate summary metrics
-	total_emissions = sum(flt(d.total_emissions) for d in carbon_data)
-	
-	# Scope breakdown
-	scope_breakdown = {}
-	for data in carbon_data:
-		scope = data.scope
-		if scope not in scope_breakdown:
-			scope_breakdown[scope] = 0
-		scope_breakdown[scope] += flt(data.total_emissions)
-	
-	# Verification status breakdown
-	verification_breakdown = {}
-	for data in carbon_data:
-		status = data.verification_status or "Not Verified"
-		if status not in verification_breakdown:
-			verification_breakdown[status] = 0
-		verification_breakdown[status] += flt(data.total_emissions)
-	
-	return {
-		"carbon_data": carbon_data,
-		"summary": {
-			"total_emissions": total_emissions,
-			"average_daily_emissions": total_emissions / len(carbon_data) if carbon_data else 0
-		},
-		"scope_breakdown": scope_breakdown,
-		"verification_breakdown": verification_breakdown
-	}
+	try:
+		filters = {}
+		if site:
+			filters["site"] = site
+		if facility:
+			filters["facility"] = facility
+		if from_date:
+			filters["date"] = [">=", from_date]
+		if to_date:
+			filters["date"] = ["<=", to_date]
+		
+		carbon_data = frappe.get_all("Carbon Footprint", 
+			filters=filters,
+			fields=["date", "scope", "total_emissions", "verification_status"],
+			order_by="date desc"
+		)
+		
+		# Calculate summary metrics
+		total_emissions = sum(flt(d.total_emissions) for d in carbon_data)
+		
+		# Scope breakdown
+		scope_breakdown = {}
+		for data in carbon_data:
+			scope = data.scope
+			if scope not in scope_breakdown:
+				scope_breakdown[scope] = 0
+			scope_breakdown[scope] += flt(data.total_emissions)
+		
+		# Verification status breakdown
+		verification_breakdown = {}
+		for data in carbon_data:
+			status = data.verification_status or "Not Verified"
+			if status not in verification_breakdown:
+				verification_breakdown[status] = 0
+			verification_breakdown[status] += flt(data.total_emissions)
+		
+		return {
+			"carbon_data": carbon_data,
+			"summary": {
+				"total_emissions": total_emissions,
+				"average_daily_emissions": total_emissions / len(carbon_data) if carbon_data else 0
+			},
+			"scope_breakdown": scope_breakdown,
+			"verification_breakdown": verification_breakdown
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting carbon footprint data: {str(e)}")
+		return {
+			"carbon_data": [],
+			"summary": {
+				"total_emissions": 0,
+				"average_daily_emissions": 0
+			},
+			"scope_breakdown": {},
+			"verification_breakdown": {}
+		}
 
 
 def get_green_operations_metrics(site=None, facility=None, from_date=None, to_date=None):
 	"""Get green operations metrics"""
-	
-	# Get green certifications
-	certification_filters = {}
-	if site:
-		certification_filters["site"] = site
-	if facility:
-		certification_filters["facility"] = facility
-	
-	# Get certifications from energy consumption records
-	energy_certs = frappe.get_all("Energy Consumption", 
-		filters=certification_filters,
-		fields=["green_certifications"],
-		limit=1
-	)
 	
 	# Calculate green operations score
 	green_score = calculate_green_operations_score(site, facility)
@@ -169,11 +196,15 @@ def get_green_operations_metrics(site=None, facility=None, from_date=None, to_da
 	# Get water usage metrics (if available)
 	water_metrics = get_water_usage_metrics(site, facility, from_date, to_date)
 	
+	# Get renewable energy percentage from energy consumption data
+	renewable_percentage = get_renewable_energy_percentage(site, facility, from_date, to_date)
+	
 	return {
 		"green_score": green_score,
 		"waste_metrics": waste_metrics,
 		"water_metrics": water_metrics,
-		"certifications": energy_certs
+		"renewable_percentage": renewable_percentage,
+		"certifications": []  # Placeholder for future certifications
 	}
 
 
@@ -306,6 +337,40 @@ def get_water_usage_metrics(site=None, facility=None, from_date=None, to_date=No
 		"water_recycled": 0,
 		"water_efficiency_score": 0
 	}
+
+
+def get_renewable_energy_percentage(site=None, facility=None, from_date=None, to_date=None):
+	"""Get renewable energy percentage from energy consumption data"""
+	try:
+		filters = {}
+		if site:
+			filters["site"] = site
+		if facility:
+			filters["facility"] = facility
+		if from_date:
+			filters["date"] = [">=", from_date]
+		if to_date:
+			filters["date"] = ["<=", to_date]
+		
+		# Get energy consumption data with renewable percentage
+		energy_data = frappe.get_all("Energy Consumption", 
+			filters=filters,
+			fields=["consumption_value", "renewable_percentage"],
+			order_by="date desc"
+		)
+		
+		if not energy_data:
+			return 0
+		
+		# Calculate weighted average renewable percentage
+		total_consumption = sum(flt(d.consumption_value) for d in energy_data)
+		renewable_consumption = sum(flt(d.renewable_percentage or 0) * flt(d.consumption_value) for d in energy_data)
+		
+		return (renewable_consumption / total_consumption * 100) if total_consumption > 0 else 0
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting renewable energy percentage: {str(e)}")
+		return 0
 
 
 @frappe.whitelist()

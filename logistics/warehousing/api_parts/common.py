@@ -92,6 +92,15 @@ def _get_allocation_level_limit() -> Optional[str]:
     except Exception:
         return None
 
+def _get_allow_emergency_fallback() -> bool:
+    """Return True if emergency fallback is allowed in Warehouse Settings, else False."""
+    try:
+        company = frappe.defaults.get_user_default("Company")
+        val = frappe.db.get_value("Warehouse Settings", company, "allow_emergency_fallback")
+        return bool(val)
+    except Exception:
+        return False
+
 def _level_path_for_location(location: Optional[str]) -> Dict[str, Optional[str]]:
     """Return {field: value} for hierarchical level fields that exist."""
     out: Dict[str, Optional[str]] = {}
@@ -1222,8 +1231,8 @@ def get_warehouse_job_overview(warehouse_job: str) -> dict:
                 "unit_std_hours": float(getattr(r, "unit_std_hours", 0) or 0) if has("unit_std_hours") else None,
                 "total_std_hours": float(getattr(r, "total_std_hours", 0) or 0) if has("total_std_hours") else None,
                 "actual_hours": float(getattr(r, "actual_hours", 0) or 0) if has("actual_hours") else None,
-                "start_datetime": getattr(r, "start_datetime", None) if has("start_datetime") else None,
-                "end_datetime": getattr(r, "end_datetime", None) if has("end_datetime") else None,
+                "start_date": getattr(r, "start_date", None) if has("start_date") else None,
+                "end_date": getattr(r, "end_date", None) if has("end_date") else None,
             }
             ops_rows.append(row)
 

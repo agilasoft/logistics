@@ -35,7 +35,7 @@ from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 
 # Import functions from api_parts modules
-from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom
+from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _get_allow_emergency_fallback, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom
 from .api_parts.putaway import _putaway_candidate_locations, allocate_putaway, post_putaway, allocate_vas_putaway
 from .api_parts.pick import allocate_pick, post_pick, initiate_vas_pick
 from .api_parts.ops import populate_job_operations, create_sales_invoice_from_job, update_job_operations_times

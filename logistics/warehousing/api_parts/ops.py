@@ -199,6 +199,8 @@ def update_job_operations_times(warehouse_job: str, updates_json: str) -> dict:
     - Works whether your doctype fields are start_datetime/end_datetime OR start_date/end_date.
     - Computes duration in hours into 'actual_hours' when both ends present (if field exists).
     """
+    frappe.logger().info(f"update_job_operations_times called: warehouse_job={warehouse_job}, updates_json={updates_json}")
+    
     if not warehouse_job:
         frappe.throw(_("warehouse_job is required"))
     job = frappe.get_doc("Warehouse Job", warehouse_job)
@@ -240,15 +242,37 @@ def update_job_operations_times(warehouse_job: str, updates_json: str) -> dict:
             setattr(row, end_f, e_dt)
 
         dur_hours = None
-        if s_dt and e_dt and has("actual_hours"):
-            sec = max(0.0, (e_dt - s_dt).total_seconds())
-            dur_hours = round(sec / 3600.0, 4)
-            setattr(row, "actual_hours", dur_hours)
+        # Always try to compute actual_hours if the field exists
+        if has("actual_hours"):
+            # Get the final start and end dates (from update or existing)
+            final_start = s_dt or (getattr(row, start_f, None) if (start_f and has(start_f)) else None)
+            final_end = e_dt or (getattr(row, end_f, None) if (end_f and has(end_f)) else None)
+            
+            frappe.logger().info(f"Operation {cname}: final_start={final_start}, final_end={final_end}")
+            
+            if final_start and final_end:
+                frappe.logger().info(f"Operation {cname}: final_start={final_start} (type: {type(final_start)})")
+                frappe.logger().info(f"Operation {cname}: final_end={final_end} (type: {type(final_end)})")
+                
+                # Handle timezone-aware datetimes by converting to naive datetimes
+                if hasattr(final_start, 'replace'):
+                    final_start = final_start.replace(tzinfo=None)
+                if hasattr(final_end, 'replace'):
+                    final_end = final_end.replace(tzinfo=None)
+                
+                sec = max(0.0, (final_end - final_start).total_seconds())
+                dur_hours = round(sec / 3600.0, 4)
+                setattr(row, "actual_hours", dur_hours)
+                frappe.logger().info(f"Operation {cname}: computed actual_hours={dur_hours} from {sec} seconds")
+            else:
+                frappe.logger().info(f"Operation {cname}: missing dates - start={final_start}, end={final_end}")
+        else:
+            frappe.logger().info(f"Operation {cname}: actual_hours field not available")
 
         results.append({
             "name": cname,
-            "start_datetime": (s_dt or (getattr(row, start_f, None) if (start_f and has(start_f)) else None)),
-            "end_datetime":   (e_dt or (getattr(row, end_f,   None) if (end_f   and has(end_f))   else None)),
+            "start_date": (s_dt or (getattr(row, start_f, None) if (start_f and has(start_f)) else None)),
+            "end_date":   (e_dt or (getattr(row, end_f,   None) if (end_f   and has(end_f))   else None)),
             "actual_hours": (dur_hours if dur_hours is not None else (float(getattr(row, "actual_hours", 0) or 0) if has("actual_hours") else None)),
         })
         changed += 1

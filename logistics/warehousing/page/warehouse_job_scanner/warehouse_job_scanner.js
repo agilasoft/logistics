@@ -275,8 +275,8 @@ class WarehouseJobScannerPage {
       `);
 
       // Set existing values if present
-      const s = r.start_datetime ? this.to_local_input(r.start_datetime) : "";
-      const e = r.end_datetime ? this.to_local_input(r.end_datetime) : "";
+      const s = r.start_date ? this.to_local_input(r.start_date) : "";
+      const e = r.end_date ? this.to_local_input(r.end_date) : "";
       tr.find('.op-start').val(s);
       tr.find('.op-end').val(e);
 
@@ -296,8 +296,12 @@ class WarehouseJobScannerPage {
       tr.find('.op-start, .op-end').on('change', () => this.compute_row_hours(tr));
 
       $tbody.append(tr);
-      // initial compute
-      this.compute_row_hours(tr);
+      // initial compute - only if both inputs have values
+      const s = this.from_local_input(tr.find('.op-start').val());
+      const e = this.from_local_input(tr.find('.op-end').val());
+      if (s && e) {
+        this.compute_row_hours(tr);
+      }
     });
 
     this.$opsTable.html($tbl);
@@ -319,7 +323,14 @@ class WarehouseJobScannerPage {
   compute_row_hours($tr) {
     const s = this.from_local_input($tr.find('.op-start').val());
     const e = this.from_local_input($tr.find('.op-end').val());
-    if (!s || !e) { $tr.find('.op-hours').text(""); return; }
+    if (!s || !e) { 
+      // Don't clear the hours if we don't have both inputs - preserve server value
+      // Only clear if both inputs are explicitly empty
+      if (!s && !e) {
+        $tr.find('.op-hours').text("");
+      }
+      return; 
+    }
     const ms = moment(e).diff(moment(s), 'seconds');
     const hrs = Math.max(0, ms) / 3600.0;
     $tr.find('.op-hours').text(hrs.toFixed(2));
@@ -338,7 +349,7 @@ class WarehouseJobScannerPage {
       const e = this.from_local_input($tr.find('.op-end').val());
       if (!name) return;
       if (s || e) {
-        updates.push({ name, start_datetime: s, end_datetime: e });
+        updates.push({ name, start_date: s, end_date: e });
       }
     });
     if (!updates.length) {

@@ -12,6 +12,7 @@
   "column_break_tsti",
   "planned_date_offset_days",
   "allocation_level_limit",
+  "allow_emergency_fallback",
   "replenishment_policy",
   "default_site",
   "default_facility",
@@ -248,10 +249,17 @@
    "label": "Default Cost Center",
    "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval.doc.company\"]]",
    "options": "Cost Center"
+  },
+  {
+   "default": "0",
+   "description": "Check this if emergency fallback allocation is allowed. ",
+   "fieldname": "allow_emergency_fallback",
+   "fieldtype": "Check",
+   "label": "Allow Emergency Fallback"
   }
  ],
  "links": [],
- "modified": "2025-10-25 15:25:59.695897",
+ "modified": "2025-10-28 18:30:03.652223",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",

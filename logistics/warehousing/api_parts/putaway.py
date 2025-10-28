@@ -1,6 +1,6 @@
 from __future__ import annotations
 from .common import *  # shared helpers
-from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs  # explicit imports
+from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _get_allow_emergency_fallback, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs  # explicit imports
 from .capacity_management import CapacityManager, CapacityValidationError
 
 import frappe
@@ -406,12 +406,15 @@ def _select_dest_for_hu_with_capacity_validation(
             
             if not candidates:
                 frappe.logger().warning(f"All candidates filtered out by level limit for item {item}")
-                # Try without level filtering as emergency fallback
-                candidates = _putaway_candidate_locations(
-                    item=item, company=company, branch=branch,
-                    exclude_locations=exclude_locations, quantity=quantity, handling_unit=handling_unit
-                )
-                frappe.logger().info(f"Emergency fallback: {len(candidates)} candidates without level filtering")
+                # Try without level filtering as emergency fallback (only if allowed)
+                if _get_allow_emergency_fallback():
+                    candidates = _putaway_candidate_locations(
+                        item=item, company=company, branch=branch,
+                        exclude_locations=exclude_locations, quantity=quantity, handling_unit=handling_unit
+                    )
+                    frappe.logger().info(f"Emergency fallback: {len(candidates)} candidates without level filtering")
+                else:
+                    frappe.logger().warning(f"Emergency fallback disabled - no candidates available for item {item} within level limit")
         
         # Filter out used locations
         available_candidates = [c for c in candidates if c["location"] not in used_locations]
@@ -504,7 +507,19 @@ def _select_dest_for_hu_fallback(
         
         # Filter by allocation level limit
         if staging_area and level_limit_label:
+            original_count = len(candidates)
             candidates = _filter_locations_by_level(candidates, staging_area, level_limit_label)
+            filtered_count = len(candidates)
+            
+            if not candidates and _get_allow_emergency_fallback():
+                # Try without level filtering as emergency fallback
+                frappe.logger().info(f"Fallback: No candidates after level filtering, trying without level limit")
+                candidates = original_candidate_locations(
+                    item=item,
+                    company=company,
+                    branch=branch,
+                    exclude_locations=exclude_locations
+                )
         
         # Filter out used locations
         available_candidates = [c for c in candidates if c["location"] not in used_locations]
@@ -596,6 +611,7 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
     # Allocation Level Limit context
     staging_area = getattr(job, "staging_area", None)
     level_limit_label = _get_allocation_level_limit()
+    allow_emergency_fallback = _get_allow_emergency_fallback()
 
     # exclude: locations flagged staging_area == 1 and the job's own staging area
     exclude = []
@@ -614,6 +630,10 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
     if rows_without_hu:
         warnings.append(_("Some order rows have no Handling Unit; operator must supply HU for putaway."))
+    
+    # Add warning about emergency fallback setting
+    if level_limit_label and not allow_emergency_fallback:
+        warnings.append(_("Emergency fallback is disabled. Items will only be allocated within {0} of staging area.").format(level_limit_label))
 
     used_locations: Set[str] = set()  # ensure different HUs don't share the same destination
 
@@ -677,16 +697,19 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 dest = fallback
         
         if not dest:
-            # Emergency bypass: try without level filtering
-            frappe.logger().warning(f"Emergency bypass: trying without level filtering for HU {hu}")
-            emergency_dest = _select_dest_for_hu_emergency(
-                item=rep_item, company=company, branch=branch,
-                used_locations=used_locations, exclude_locations=exclude
-            )
-            if emergency_dest:
-                warnings.append(_("HU {0}: using emergency location {1} (level filtering bypassed).")
-                                .format(hu, emergency_dest))
-                dest = emergency_dest
+            # Emergency bypass: try without level filtering (only if allowed)
+            if _get_allow_emergency_fallback():
+                frappe.logger().warning(f"Emergency bypass: trying without level filtering for HU {hu}")
+                emergency_dest = _select_dest_for_hu_emergency(
+                    item=rep_item, company=company, branch=branch,
+                    used_locations=used_locations, exclude_locations=exclude
+                )
+                if emergency_dest:
+                    warnings.append(_("HU {0}: using emergency location {1} (level filtering bypassed).")
+                                    .format(hu, emergency_dest))
+                    dest = emergency_dest
+            else:
+                frappe.logger().warning(f"Emergency fallback disabled - no destination found for HU {hu} within level limit")
 
         if not dest:
             # Perform detailed storage type validation to provide specific error messages
