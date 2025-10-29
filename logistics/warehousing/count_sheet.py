@@ -23,7 +23,7 @@ def get_warehouse_job_count_data(warehouse_job: str):
             "Warehouse Job Count",
             filters={"parent": warehouse_job, "parenttype": "Warehouse Job"},
             fields=["name", "location", "handling_unit", "item", 
-                   "system_count", "actual_quantity", "blind_count", "serial_no", "batch_no", "counted"]
+                   "system_count", "actual_quantity", "serial_no", "batch_no", "counted"]
         )
         
         # Group by location
@@ -74,7 +74,7 @@ def get_warehouse_job_count_data(warehouse_job: str):
                 "uom": uom,
                 "system_count": count.get("system_count", 0),
                 "actual_quantity": count.get("actual_quantity"),
-                "blind_count": count.get("blind_count", 0),
+                "blind_count": job.blind_count,
                 "serial_no": count.get("serial_no"),
                 "batch_no": count.get("batch_no"),
                 "counted": count.get("counted", 0)

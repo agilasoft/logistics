@@ -35,6 +35,7 @@
   {
    "fieldname": "item_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Item Name"
   },
   {
@@ -97,6 +98,7 @@
   {
    "fieldname": "storage_location",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Storage Location",
    "options": "Storage Location"
   },
@@ -104,6 +106,7 @@
    "fetch_from": "handling_unit.type",
    "fieldname": "handling_unit_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Handling Unit Type",
    "options": "Handling Unit Type"
   },
@@ -111,6 +114,7 @@
    "fetch_from": "storage_location.storage_type",
    "fieldname": "storage_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Storage Type",
    "options": "Storage Type"
   },
@@ -125,6 +129,7 @@
   {
    "fieldname": "calculation_notes",
    "fieldtype": "Long Text",
+   "in_list_view": 1,
    "label": "Calculation Notes"
   }
  ],

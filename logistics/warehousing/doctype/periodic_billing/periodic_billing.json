@@ -77,7 +77,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Warehouse Contract",
-   "link_filters": "[[\"Warehouse Contract\",\"docstatus\",\"=\",\"1\"],[\"Warehouse Contract\",\"name\",\"=\",\"eval:doc.customer\"]]",
+   "link_filters": "[[\"Warehouse Contract\",\"docstatus\",\"=\",\"1\"],[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Warehouse Contract"
   },
   {
@@ -120,7 +120,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-27 11:10:25.450837",
+ "modified": "2025-10-29 14:25:54.324155",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Periodic Billing",

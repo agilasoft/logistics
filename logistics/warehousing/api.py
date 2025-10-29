@@ -2431,73 +2431,16 @@ def _validate_ops_sequencing(job: Any, ops_rows: List[Any]) -> List[str]:
     return errs
 
 
+# Legacy compatibility function - redirects to the comprehensive billing implementation
 @frappe.whitelist()
-def periodic_billing_get_charges(customer: Optional[str] = None,
+def periodic_billing_get_charges_legacy(customer: Optional[str] = None,
                                  from_date: Optional[str] = None,
                                  to_date: Optional[str] = None,
                                  job: Optional[str] = None) -> Dict[str, Any]:
-    """Return charge lines for periodic billing.
-    This is a compatibility-safe implementation that avoids breaking the client:
-    - If your instance defines specific Doctypes for periodic billing, you can extend this to query them.
-    - For now, it collects billable lines from Warehouse Job Items within the date window, if fields exist.
-    Output shape: {"charges": [...], "filters": {...}, "meta": {...}}
-    """
-    out: Dict[str, Any] = {"charges": [], "filters": {"customer": customer, "from_date": from_date, "to_date": to_date, "job": job}, "meta": {}}
-    # Best-effort: attempt to pull billable lines from Warehouse Job Items / Warehouse Job
-    try:
-        # Build date filters if fields exist
-        conditions = []
-        params: List[Any] = []
-        # Join to Warehouse Job for customer/date if needed
-        join_sql = ""
-        sl_fields = _safe_meta_fieldnames("Warehouse Job Items")
-        job_fields = _safe_meta_fieldnames("Warehouse Job")
-        if "parent" in sl_fields and ("customer" in job_fields or "customer_name" in job_fields):
-            join_sql = " LEFT JOIN `tabWarehouse Job` wj ON wj.name = wji.parent "
-            if customer and "customer" in job_fields:
-                conditions.append("wj.customer = %s"); params.append(customer)
-            elif customer and "customer_name" in job_fields:
-                conditions.append("wj.customer_name = %s"); params.append(customer)
-        # Date fields
-        date_field = None
-        for cand in ["posting_date", "transaction_date", "date", "creation"]:
-            if cand in sl_fields:
-                date_field = cand
-                break
-        if date_field and from_date:
-            conditions.append(f"wji.{date_field} >= %s"); params.append(from_date)
-        if date_field and to_date:
-            conditions.append(f"wji.{date_field} <= %s"); params.append(to_date)
-        if job:
-            conditions.append("wji.parent = %s"); params.append(job)
-        where = f" WHERE {' AND '.join(conditions)} " if conditions else ""
-        # Billable flag / rate fields
-        billable_cond = ""
-        if "is_billable" in sl_fields:
-            billable_cond = " AND IFNULL(wji.is_billable,0)=1 "
-        # Select columns if exist
-        cols = ["wji.name as rowname", "wji.parent as job", "wji.item as item", "wji.uom as uom"]
-        if "qty" in sl_fields: cols.append("wji.qty as qty")
-        if "rate" in sl_fields: cols.append("wji.rate as rate")
-        if "amount" in sl_fields: cols.append("wji.amount as amount")
-        if "description" in sl_fields: cols.append("wji.description as description")
-        col_sql = ", ".join(cols)
-        sql = f"""
-            SELECT {col_sql}
-            FROM `tabWarehouse Job Items` wji
-            {join_sql}
-            {where}
-            {billable_cond}
-            ORDER BY wji.parent ASC, wji.name ASC
-        """
-        rows = frappe.db.sql(sql, tuple(params), as_dict=True) or []
-        out["charges"] = rows
-        out["meta"]["source"] = "Warehouse Job Items"
-        out["meta"]["count"] = len(rows)
-    except Exception as e:
-        # Return empty structure rather than raise, so the client can handle gracefully
-        out["meta"]["error"] = str(e)
-    return out
+    """Legacy compatibility function - use periodic_billing_get_charges instead."""
+    # This function is kept for backward compatibility but should not be used
+    # The main implementation is now in logistics.warehousing.billing.periodic_billing_get_charges
+    return {"charges": [], "filters": {"customer": customer, "from_date": from_date, "to_date": to_date, "job": job}, "meta": {"deprecated": True}}
 
 # =============================================================================
 # PERIODIC BILLING (charges + invoice)
@@ -2607,94 +2550,12 @@ def _pb__count_used_days(hu: str, date_from: str, date_to: str) -> int:
     return used
 
 
+# Redirect to comprehensive billing implementation
 @frappe.whitelist()
 def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1) -> Dict[str, Any]:
-    pb = frappe.get_doc("Periodic Billing", periodic_billing)
-    customer  = getattr(pb, "customer", None)
-    date_from = getattr(pb, "date_from", None)
-    date_to   = getattr(pb, "date_to", None)
-    if not (customer and date_from and date_to):
-        frappe.throw(_("Customer, Date From and Date To are required."))
-
-    charges_field = _pb__charges_fieldname()
-    if not charges_field:
-        return {"ok": False, "message": _("Periodic Billing has no child table for 'Periodic Billing Charges'. Add one."), "created": 0}
-
-    if int(clear_existing or 0):
-        pb.set(charges_field, [])
-
-    warnings: List[str] = []
-    created = 0
-    grand_total = 0.0
-
-    jobs = frappe.get_all(
-        "Warehouse Job",
-        filters={"docstatus": 1, "customer": customer, "job_open_date": ["between", [date_from, date_to]]},
-        fields=["name", "job_open_date"],
-        order_by="job_open_date asc, name asc",
-        ignore_permissions=True,
-    ) or []
-    if jobs:
-        job_names = [j["name"] for j in jobs]
-        placeholders = ", ".join(["%s"] * len(job_names))
-        rows = frappe.db.sql(
-            f"""SELECT c.parent AS warehouse_job, c.item_code, c.item_name, c.uom, c.quantity, c.rate, c.total, c.currency
-                FROM `tabWarehouse Job Charges` c
-                WHERE c.parent IN ({placeholders})
-                ORDER BY FIELD(c.parent, {placeholders})""",
-            tuple(job_names + job_names), as_dict=True,
-        ) or []
-        for r in rows:
-            qty   = flt(r.get("quantity") or 0.0)
-            rate  = flt(r.get("rate") or 0.0)
-            total = flt(r.get("total") or (qty * rate))
-            pb.append(charges_field, {
-                "item": r.get("item_code"),
-                "item_name": r.get("item_name"),
-                "uom": r.get("uom"),
-                "quantity": qty,
-                "rate": rate,
-                "total": total,
-                "currency": r.get("currency"),
-                "warehouse_job": r.get("warehouse_job"),
-            })
-            created += 1
-            grand_total += total
-
-    contract = _pb__find_customer_contract(customer)
-    sci = _pb__get_storage_contract_item(contract)
-    if not sci:
-        warnings.append(_("No Warehouse Contract storage pricing found for this customer; storage charges skipped."))
-    else:
-        storage_item = sci.get("item_code")
-        storage_rate = flt(sci.get("rate") or 0.0)
-        billing_time_unit = sci.get("billing_time_unit") or "Day"
-        currency     = sci.get("currency")
-        hu_list = _pb__distinct_hus_for_customer(customer, date_to)
-        for hu in hu_list:
-            days = _pb__count_used_days(hu, date_from, date_to)
-            if days <= 0:
-                continue
-            total = flt(days) * storage_rate
-            pb.append(charges_field, {
-                "item": storage_item,
-                "item_name": _("Storage Charge"),
-                "uom": billing_time_unit,
-                "quantity": days,
-                "rate": storage_rate,
-                "total": total,
-                "currency": currency,
-                "handling_unit": hu,
-            })
-            created += 1
-            grand_total += total
-
-    pb.save(ignore_permissions=True)
-    frappe.db.commit()
-    msg = _("Added {0} charge line(s). Total: {1}").format(int(created), flt(grand_total))
-    if warnings:
-        msg += " " + _("Notes") + ": " + " | ".join(warnings)
-    return {"ok": True, "message": msg, "created": int(created), "grand_total": flt(grand_total), "warnings": warnings}
+    """Redirect to the comprehensive billing implementation in billing.py"""
+    from logistics.warehousing.billing import periodic_billing_get_charges as billing_get_charges
+    return billing_get_charges(periodic_billing, clear_existing)
 
 
 @frappe.whitelist()
@@ -2891,96 +2752,7 @@ def _pb__count_used_days(hu: str, date_from: str, date_to: str) -> int:
     return used
 
 
-@frappe.whitelist()
-def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1) -> Dict[str, Any]:
-    pb = frappe.get_doc("Periodic Billing", periodic_billing)
-    customer  = getattr(pb, "customer", None)
-    date_from = getattr(pb, "date_from", None)
-    date_to   = getattr(pb, "date_to", None)
-    pb_company = getattr(pb, "company", None)
-    pb_branch  = getattr(pb, "branch", None)
-    if not (customer and date_from and date_to):
-        frappe.throw(_("Customer, Date From and Date To are required."))
-
-    charges_field = _pb__charges_fieldname()
-    if not charges_field:
-        return {"ok": False, "message": _("Periodic Billing has no child table for 'Periodic Billing Charges'. Add one."), "created": 0}
-
-    if int(clear_existing or 0):
-        pb.set(charges_field, [])
-
-    warnings: List[str] = []
-    created = 0
-    grand_total = 0.0
-
-    # Job-based charges
-    jf = _safe_meta_fieldnames("Warehouse Job")
-    job_filters = {"docstatus": 1, "customer": customer, "job_open_date": ["between", [date_from, date_to]]}
-    if "company" in jf and pb_company: job_filters["company"] = pb_company
-    if "branch"  in jf and pb_branch:  job_filters["branch"]  = pb_branch
-    jobs = frappe.get_all("Warehouse Job", filters=job_filters, fields=["name", "job_open_date"], order_by="job_open_date asc, name asc", ignore_permissions=True) or []
-    if jobs:
-        job_names = [j["name"] for j in jobs]
-        placeholders = ", ".join(["%s"] * len(job_names))
-        rows = frappe.db.sql(
-            f"""SELECT c.parent AS warehouse_job, c.item_code, c.item_name, c.uom, c.quantity, c.rate, c.total, c.currency
-                FROM `tabWarehouse Job Charges` c
-                WHERE c.parent IN ({placeholders})
-                ORDER BY FIELD(c.parent, {placeholders})""",
-            tuple(job_names + job_names), as_dict=True,
-        ) or []
-        for r in rows:
-            qty   = flt(r.get("quantity") or 0.0)
-            rate  = flt(r.get("rate") or 0.0)
-            total = flt(r.get("total") or (qty * rate))
-            pb.append(charges_field, {
-                "item": r.get("item_code"),
-                "item_name": r.get("item_name"),
-                "uom": r.get("uom"),
-                "quantity": qty,
-                "rate": rate,
-                "total": total,
-                "currency": r.get("currency"),
-                "warehouse_job": r.get("warehouse_job"),
-            })
-            created += 1
-            grand_total += total
-
-    # Storage charges via contract
-    contract = _pb__find_customer_contract(customer)
-    sci = _pb__get_storage_contract_item(contract)
-    if not sci:
-        warnings.append(_("No Warehouse Contract storage pricing found for this customer; storage charges skipped."))
-    else:
-        storage_item = sci.get("item_code")
-        storage_rate = flt(sci.get("rate") or 0.0)
-        billing_time_unit = sci.get("billing_time_unit") or "Day"
-        currency     = sci.get("currency")
-        hu_list = _pb__distinct_hus_for_customer(customer, date_to, pb_company, pb_branch)
-        for hu in hu_list:
-            days = _pb__count_used_days(hu, date_from, date_to)
-            if days <= 0:
-                continue
-            total = flt(days) * storage_rate
-            pb.append(charges_field, {
-                "item": storage_item,
-                "item_name": _("Storage Charge"),
-                "uom": billing_time_unit,
-                "quantity": days,
-                "rate": storage_rate,
-                "total": total,
-                "currency": currency,
-                "handling_unit": hu,
-            })
-            created += 1
-            grand_total += total
-
-    pb.save(ignore_permissions=True)
-    frappe.db.commit()
-    msg = _("Added {0} charge line(s). Total: {1}").format(int(created), flt(grand_total))
-    if warnings:
-        msg += " " + _("Notes") + ": " + " | ".join(warnings)
-    return {"ok": True, "message": msg, "created": int(created), "grand_total": flt(grand_total), "warnings": warnings}
+# This duplicate implementation has been removed - using billing.py version instead
 
 
 @frappe.whitelist()

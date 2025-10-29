@@ -5,22 +5,6 @@ frappe.ui.form.on('Periodic Billing', {
   refresh(frm) {
     if (frm.is_new()) return;
 
-    // Test button
-    frm.add_custom_button(__('Test'), async () => {
-      console.log('Test button clicked');
-      try {
-        const r = await frappe.call({
-          method: 'logistics.warehousing.api.test_periodic_billing',
-          freeze: true,
-        });
-        console.log('Test response:', r);
-        frappe.msgprint({ title: __('Test'), message: r.message.message, indicator: 'green' });
-      } catch (e) {
-        console.error('Test error:', e);
-        frappe.msgprint({ title: __('Error'), indicator: 'red', message: String(e) });
-      }
-    }, __('Test'));
-
     // Get Charges button
     frm.add_custom_button(__('Get Charges'), async () => {
       console.log('Get Charges button clicked');
@@ -33,6 +17,8 @@ frappe.ui.form.on('Periodic Billing', {
           freeze_message: __('Fetching charges...'),
         });
         console.log('Response received:', r);
+        console.log('Response message:', r.message);
+        console.log('Response type:', typeof r.message);
 
         let msg = '';
         if (r && r.message) {
@@ -47,7 +33,15 @@ frappe.ui.form.on('Periodic Billing', {
           msg = __('Charges fetched.');
         }
 
+        console.log('Final message:', msg);
         frappe.msgprint({ title: __('Get Charges'), message: msg, indicator: 'green' });
+        
+        // Check if charges were actually created
+        if (r && r.message && r.message.created) {
+          console.log('Charges created:', r.message.created);
+          console.log('Grand total:', r.message.grand_total);
+        }
+        
         frm.reload_doc();
       } catch (e) {
         const server = (e && e.message) ? e.message : (e && e._server_messages) ? e._server_messages : e;
@@ -59,6 +53,7 @@ frappe.ui.form.on('Periodic Billing', {
     if (frm.doc.warehouse_contract) {
       frm.add_custom_button(__('Contract Setup Summary'), async () => {
         try {
+          console.log('Loading contract setup summary for:', frm.doc.warehouse_contract);
           const summary = await frappe.call({
             method: 'logistics.warehousing.billing.get_contract_setup_summary',
             args: { warehouse_contract: frm.doc.warehouse_contract },
@@ -66,22 +61,45 @@ frappe.ui.form.on('Periodic Billing', {
             freeze_message: __('Loading contract setup...'),
           });
 
+          console.log('Contract setup summary response:', summary);
+          
           if (summary && summary.message) {
             const s = summary.message;
+            
+            // Check if the response contains an error
+            if (s.error) {
+              frappe.msgprint({ 
+                title: __('Error'), 
+                indicator: 'red', 
+                message: __('Error loading contract setup: ') + s.error
+              });
+              return;
+            }
+            
+            // Validate that we have the required data
+            if (!s.contract_name) {
+              frappe.msgprint({ 
+                title: __('Error'), 
+                indicator: 'red', 
+                message: __('No contract data found. Please check if the contract exists and is valid.') 
+              });
+              return;
+            }
+            
             let msg = `<h4>Contract Setup Summary</h4>
-              <p><strong>Contract:</strong> ${s.contract_name}</p>
-              <p><strong>Customer:</strong> ${s.customer}</p>
+              <p><strong>Contract:</strong> ${s.contract_name || 'N/A'}</p>
+              <p><strong>Customer:</strong> ${s.customer || 'N/A'}</p>
               <p><strong>Valid Until:</strong> ${s.valid_until || 'Not specified'}</p>
-              <p><strong>Total Contract Items:</strong> ${s.total_items}</p>
+              <p><strong>Total Contract Items:</strong> ${s.total_items || 0}</p>
               <hr>
               <h5>Charge Types:</h5>
               <ul>
-                <li>Storage Charges: ${s.storage_charges}</li>
-                <li>Inbound Charges: ${s.inbound_charges}</li>
-                <li>Outbound Charges: ${s.outbound_charges}</li>
-                <li>Transfer Charges: ${s.transfer_charges}</li>
-                <li>VAS Charges: ${s.vas_charges}</li>
-                <li>Stocktake Charges: ${s.stocktake_charges}</li>
+                <li>Storage Charges: ${s.storage_charges || 0}</li>
+                <li>Inbound Charges: ${s.inbound_charges || 0}</li>
+                <li>Outbound Charges: ${s.outbound_charges || 0}</li>
+                <li>Transfer Charges: ${s.transfer_charges || 0}</li>
+                <li>VAS Charges: ${s.vas_charges || 0}</li>
+                <li>Stocktake Charges: ${s.stocktake_charges || 0}</li>
               </ul>`;
             
             frappe.msgprint({ 
@@ -89,12 +107,19 @@ frappe.ui.form.on('Periodic Billing', {
               message: msg, 
               indicator: 'blue' 
             });
+          } else {
+            frappe.msgprint({ 
+              title: __('Error'), 
+              indicator: 'red', 
+              message: __('No data returned from contract setup summary') 
+            });
           }
         } catch (e) {
+          console.error('Error loading contract setup summary:', e);
           frappe.msgprint({ 
             title: __('Error'), 
             indicator: 'red', 
-            message: __('Failed to load contract setup summary') 
+            message: __('Failed to load contract setup summary: ') + (e.message || String(e))
           });
         }
       }, __('Info'));

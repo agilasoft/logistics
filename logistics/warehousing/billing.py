@@ -38,6 +38,12 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
         company = getattr(pb, "company", None)
         branch = getattr(pb, "branch", None)
         
+        # Debug logging
+        frappe.log_error(
+            title="Periodic Billing Get Charges",
+            message=f"periodic_billing={periodic_billing}, customer={customer}, date_from={date_from}, date_to={date_to}, warehouse_contract={warehouse_contract}"
+        )
+        
         # Validate required fields
         if not (customer and date_from and date_to):
             frappe.throw(_("Customer, Date From and Date To are required."))
@@ -52,8 +58,16 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
         
         # Step 1: Process Warehouse Job Charges
         # First, try to get existing charges from warehouse_job_charges table
+        frappe.log_error(
+            title="Getting Warehouse Job Charges",
+            message=f"customer={customer}, date_from={date_from}, date_to={date_to}"
+        )
         job_charges_created, job_total, job_warnings = get_existing_warehouse_job_charges(
             customer, date_from, date_to, company, branch
+        )
+        frappe.log_error(
+            title="Job Charges Found",
+            message=f"Found {len(job_charges_created)} existing job charges"
         )
         
         # If no existing charges found and we have a contract, generate contract-based charges
@@ -76,11 +90,19 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
             job_warnings.extend(basic_warnings)
         
         for charge in job_charges_created:
+            frappe.log_error(
+                title="Adding Job Charge",
+                message=f"Charge: {charge}"
+            )
             pb.append("charges", charge)
             created += 1
             grand_total += flt(charge.get("total", 0))
         
         warnings.extend(job_warnings)
+        frappe.log_error(
+            title="Job Charges Summary",
+            message=f"Created: {len(job_charges_created)}, total: {job_total}"
+        )
         
         # Step 2: Process Storage Charges (if contract specified)
         if warehouse_contract:
@@ -89,11 +111,19 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
             )
             
             for charge in storage_charges_created:
+                frappe.log_error(
+                    title="Adding Storage Charge",
+                    message=f"Charge: {charge}"
+                )
                 pb.append("charges", charge)
                 created += 1
                 grand_total += flt(charge.get("total", 0))
             
             warnings.extend(storage_warnings)
+            frappe.log_error(
+                title="Storage Charges Summary",
+                message=f"Created: {len(storage_charges_created)}, total: {storage_total}"
+            )
         else:
             warnings.append(_("No warehouse contract specified. Only job charges will be processed."))
         
@@ -150,6 +180,19 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
             ) or []
             
             for charge in job_charges:
+                # Generate calculation notes if not present
+                calculation_notes = charge.get("calculation_notes")
+                if not calculation_notes:
+                    calculation_notes = f"""Warehouse Job Charge (Existing):
+  • Warehouse Job: {job.name}
+  • Item: {charge.get('item_code', 'N/A')} - {charge.get('item_name', 'N/A')}
+  • UOM: {charge.get('uom', 'N/A')}
+  • Rate per {charge.get('uom', 'N/A')}: {charge.get('rate', 0)}
+  • Quantity: {charge.get('quantity', 0)}
+  • Calculation: {charge.get('quantity', 0)} × {charge.get('rate', 0)} = {charge.get('total', 0)}
+  • Currency: {charge.get('currency', _get_default_currency(company))}
+  • Source: Existing warehouse job charge"""
+                
                 charges.append({
                     "item": charge.get("item_code"),
                     "item_name": charge.get("item_name"),
@@ -159,7 +202,7 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
                     "total": flt(charge.get("total", 0)),
                     "currency": charge.get("currency", _get_default_currency(company)),
                     "warehouse_job": job.name,
-                    "calculation_notes": charge.get("calculation_notes", "Existing warehouse job charge")
+                    "calculation_notes": calculation_notes
                 })
                 total += flt(charge.get("total", 0))
         
@@ -437,7 +480,7 @@ def calculate_handling_unit_storage_charges(hu: str, hu_details: Dict, contract_
             "quantity": billing_quantity,
             "rate": rate,
             "total": total,
-            "currency": contract_item.get("currency", _get_default_currency(company)),
+            "currency": contract_item.get("currency", _get_default_currency()),
             "handling_unit": hu,
             "storage_location": hu_details.get("storage_location"),
             "handling_unit_type": hu_details.get("handling_unit_type"),
@@ -575,7 +618,7 @@ def get_contract_setup_summary(warehouse_contract: str) -> Dict[str, Any]:
         return {
             "contract_name": contract.name,
             "customer": contract.customer,
-            "valid_from": contract.valid_from,
+            "valid_from": contract.date,
             "valid_until": contract.valid_until,
             "total_items": len(items),
             "storage_charges": storage_count,
