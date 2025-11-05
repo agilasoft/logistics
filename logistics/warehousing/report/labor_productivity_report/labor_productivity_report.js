@@ -56,6 +56,12 @@ frappe.query_reports["Labor Productivity Report"] = {
       options: "UOM"
     },
     {
+      fieldname: "employee",
+      label: "Employee",
+      fieldtype: "Link",
+      options: "Employee"
+    },
+    {
       fieldname: "min_efficiency",
       label: "Minimum Efficiency (%)",
       fieldtype: "Float",

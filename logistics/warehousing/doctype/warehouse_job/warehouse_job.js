@@ -205,6 +205,9 @@ frappe.ui.form.on('Warehouse Job', {
             }, __('Actions'));
         }
         
+        // Note: Allocate Handling Units is now combined into Allocate Putaway
+        // No separate button needed
+        
         // Add Create Operations button if items exist
         if (frm.doc.items && frm.doc.items.length > 0) {
             frm.add_custom_button(__('Create Operations'), function() {
@@ -565,7 +568,108 @@ function allocate_items(frm) {
     );
 }
 
-
+// Allocate Handling Units function
+function allocate_handling_units(frm) {
+    // Check if there are orders to allocate from
+    if (!frm.doc.orders || frm.doc.orders.length === 0) {
+        frappe.msgprint({
+            title: __('No Orders Found'),
+            message: `
+                <div style="padding: 10px; font-size: 14px;">
+                    <p><strong>Orders Required</strong></p>
+                    <p>Please add orders to the job before allocating handling units.</p>
+                </div>
+            `,
+            indicator: 'orange'
+        });
+        return;
+    }
+    
+    frappe.confirm(
+        __('This will allocate available handling units to orders without handling units. Items will be split when capacity exceeds. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api_parts.putaway.allocate_handling_units',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        let message = r.message.message || __('Handling units allocated successfully.');
+                        let allocated_count = r.message.allocated_count || 0;
+                        let updated_rows = r.message.updated_rows || 0;
+                        let new_rows_created = r.message.new_rows_created || 0;
+                        
+                        let html_message = `
+                            <div style="padding: 15px; font-size: 14px;">
+                                <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                    <strong>Allocation Completed</strong>
+                                </p>
+                                <p style="text-align: center; margin-bottom: 15px;">${message}</p>
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0;"><strong>Results:</strong></p>
+                                    <p style="margin: 5px 0;">• Handling Units Allocated: <strong>${allocated_count}</strong></p>
+                                    <p style="margin: 5px 0;">• Order Rows Updated: <strong>${updated_rows}</strong></p>
+                                    ${new_rows_created > 0 ? `<p style="margin: 5px 0;">• New Rows Created (splits): <strong>${new_rows_created}</strong></p>` : ''}
+                                </div>
+                        `;
+                        
+                        // Show warnings if any
+                        if (r.message.warnings && r.message.warnings.length > 0) {
+                            html_message += `
+                                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0; color: #856404;"><strong>Warnings:</strong></p>
+                                    <ul style="margin: 5px 0; color: #856404;">
+                                        ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+                        
+                        html_message += `</div>`;
+                        
+                        frappe.msgprint({
+                            title: __('Allocation Complete'),
+                            message: html_message,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        let error_message = r.message.message || r.message.error || __('Failed to allocate handling units.');
+                        
+                        let html_message = `
+                            <div style="padding: 15px; font-size: 14px;">
+                                <p style="text-align: center; font-size: 18px; color: #dc3545; margin-bottom: 10px;">
+                                    <strong>Allocation Failed</strong>
+                                </p>
+                                <p style="text-align: center; margin-bottom: 15px;">${error_message}</p>
+                        `;
+                        
+                        // Show warnings even on failure
+                        if (r.message.warnings && r.message.warnings.length > 0) {
+                            html_message += `
+                                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <p style="margin: 5px 0; color: #856404;"><strong>Warnings:</strong></p>
+                                    <ul style="margin: 5px 0; color: #856404;">
+                                        ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+                        
+                        html_message += `</div>`;
+                        
+                        frappe.msgprint({
+                            title: __('Allocation Error'),
+                            message: html_message,
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
 
 // Create Operations function
 function create_operations(frm) {

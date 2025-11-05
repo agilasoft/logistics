@@ -24,6 +24,10 @@ def get_columns():
         {"label": "Qty (±)",          "fieldname": "qty",              "fieldtype": "Float",                                     "width": 110, "precision": "3"},
         {"label": "Beg Qty",          "fieldname": "beg_quantity",     "fieldtype": "Float",                                     "width": 110, "precision": "3"},
         {"label": "End Qty",          "fieldname": "end_qty",          "fieldtype": "Float",                                     "width": 110, "precision": "3"},
+        {"label": "Volume",           "fieldname": "volume",           "fieldtype": "Float",                                     "width": 110, "precision": "3"},
+        {"label": "Weight",           "fieldname": "weight",           "fieldtype": "Float",                                     "width": 110, "precision": "3"},
+        {"label": "Total Volume",     "fieldname": "total_volume",     "fieldtype": "Float",                                     "width": 120, "precision": "3"},
+        {"label": "Total Weight",     "fieldname": "total_weight",     "fieldtype": "Float",                                     "width": 120, "precision": "3"},
     ]
 
 def get_data(filters):
@@ -76,7 +80,11 @@ def get_data(filters):
             /* prefer explicit movement qty; fallback to delta; else 0 */
             COALESCE(l.quantity, l.end_qty - l.beg_quantity, 0) AS qty,
             COALESCE(l.beg_quantity, 0)                        AS beg_quantity,
-            COALESCE(l.end_qty, 0)                             AS end_qty
+            COALESCE(l.end_qty, 0)                             AS end_qty,
+            COALESCE(wi.volume, 0)                             AS volume,
+            COALESCE(wi.weight, 0)                             AS weight,
+            COALESCE(wi.volume, 0) * COALESCE(l.quantity, l.end_qty - l.beg_quantity, 0) AS total_volume,
+            COALESCE(wi.weight, 0) * COALESCE(l.quantity, l.end_qty - l.beg_quantity, 0) AS total_weight
         FROM `tabWarehouse Stock Ledger` l
         LEFT JOIN `tabWarehouse Item` wi ON wi.name = l.item
         {where}
