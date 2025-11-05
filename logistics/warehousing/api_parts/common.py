@@ -128,6 +128,17 @@ def _get_allow_emergency_fallback() -> bool:
     except Exception:
         return False
 
+def _get_split_quantity_decimal_precision() -> int:
+    """Return the split quantity decimal precision from Warehouse Settings, default to 2."""
+    try:
+        company = frappe.defaults.get_user_default("Company")
+        val = frappe.db.get_value("Warehouse Settings", company, "split_quantity_decimal_precision")
+        if val is not None:
+            return int(val)
+        return 2  # Default precision
+    except Exception:
+        return 2  # Default precision
+
 def _level_path_for_location(location: Optional[str]) -> Dict[str, Optional[str]]:
     """Return {field: value} for hierarchical level fields that exist."""
     out: Dict[str, Optional[str]] = {}

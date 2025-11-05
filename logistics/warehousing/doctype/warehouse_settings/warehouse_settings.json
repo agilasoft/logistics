@@ -14,6 +14,7 @@
   "stocktake_days_past_zero",
   "allocation_level_limit",
   "allow_emergency_fallback",
+  "split_quantity_decimal_precision",
   "replenishment_policy",
   "default_site",
   "default_facility",
@@ -276,10 +277,15 @@
   {
    "fieldname": "column_break_cwga",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "split_quantity_decimal_precision",
+   "fieldtype": "Int",
+   "label": "Split Quantity Decimal Precision"
   }
  ],
  "links": [],
- "modified": "2025-10-30 16:20:33.457976",
+ "modified": "2025-11-05 20:18:39.104611",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",

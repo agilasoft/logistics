@@ -37,7 +37,7 @@ def execute(filters=None):
     data = [
         [
             r["job"], r["job_open_date"], r["company"], r["branch"], r["customer"], r["type"],
-            r["operation"], r["description"], r["handling_uom"], r["quantity"],
+            r["operation"], r["description"], r["handling_uom"], r.get("employee"), r.get("employee_name"), r["quantity"],
             r["unit_std_hours"], r["total_std_hours"], r["actual_hours"],
             r["efficiency_pct"], r["units_per_hour"], r["variance_hours"]
         ]
@@ -58,6 +58,8 @@ def get_columns():
         {"label": "Operation", "fieldname": "operation", "fieldtype": "Link", "options": "Warehouse Operation Item", "width": 160},
         {"label": "Description", "fieldname": "description", "fieldtype": "Data", "width": 200},
         {"label": "Handling UOM", "fieldname": "handling_uom", "fieldtype": "Link", "options": "UOM", "width": 110},
+        {"label": "Employee", "fieldname": "employee", "fieldtype": "Link", "options": "Employee", "width": 120},
+        {"label": "Employee Name", "fieldname": "employee_name", "fieldtype": "Data", "width": 150},
         {"label": "Quantity", "fieldname": "quantity", "fieldtype": "Float", "width": 100},
         {"label": "Unit Std Hrs", "fieldname": "unit_std_hours", "fieldtype": "Float", "precision": "2", "width": 110},
         {"label": "Total Std Hrs", "fieldname": "total_std_hours", "fieldtype": "Float", "precision": "2", "width": 120},
@@ -110,6 +112,10 @@ def get_rows(filters):
         conditions.append("wjo.handling_uom = %(handling_uom)s")
         params["handling_uom"] = filters.get("handling_uom")
 
+    if filters.get("employee"):
+        conditions.append("wjo.employee = %(employee)s")
+        params["employee"] = filters.get("employee")
+
     if flt(filters.get("min_efficiency")) > 0:
         # Apply later on computed rows
         min_eff = flt(filters.get("min_efficiency"))
@@ -136,6 +142,8 @@ def get_rows(filters):
             wjo.operation,
             wjo.description,
             wjo.handling_uom,
+            wjo.employee,
+            emp.employee_name,
             COALESCE(wjo.quantity, 0) AS quantity,
             COALESCE(wjo.unit_std_hours, 0) AS unit_std_hours,
             COALESCE(wjo.total_std_hours, 0) AS total_std_hours,
@@ -143,6 +151,8 @@ def get_rows(filters):
         FROM `tabWarehouse Job Operations` wjo
         INNER JOIN `tabWarehouse Job` wj
             ON wjo.parent = wj.name
+        LEFT JOIN `tabEmployee` emp
+            ON wjo.employee = emp.name
         WHERE {where}
         ORDER BY wj.job_open_date ASC, wj.name ASC
     """
