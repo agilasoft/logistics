@@ -40,6 +40,13 @@
   "cost_center",
   "column_break_xphe",
   "job_costing_number",
+  "sustainability_tab",
+  "sustainability_section",
+  "total_distance",
+  "fuel_consumption",
+  "estimated_carbon_footprint",
+  "column_break_sustainability",
+  "sustainability_notes",
   "connections_tab"
  ],
  "fields": [
@@ -247,6 +254,43 @@
    "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
+  },
+  {
+   "fieldname": "sustainability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "sustainability_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability Metrics"
+  },
+  {
+   "fieldname": "total_distance",
+   "fieldtype": "Float",
+   "label": "Total Distance (km)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fuel_consumption",
+   "fieldtype": "Float",
+   "label": "Estimated Fuel Consumption (L)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Estimated Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sustainability_notes",
+   "fieldtype": "Text",
+   "label": "Sustainability Notes"
   },
   {
    "fieldname": "connections_tab",

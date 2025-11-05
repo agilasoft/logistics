@@ -1,0 +1,251 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"D2qyuCuSUE\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"7h5Rb1CfPp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Metrics\",\"col\":3}},{\"id\":\"U1g6tPctBi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Carbon Footprint\",\"col\":3}},{\"id\":\"zrubEesaeB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Energy Consumption\",\"col\":3}},{\"id\":\"FobjLJWgPL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Emission Factors\",\"col\":3}},{\"id\":\"3b2f_0az8G\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Goals\",\"col\":3}},{\"id\":\"QncNpyUF3C\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Compliance\",\"col\":3}},{\"id\":\"6G1w8Vy-h2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Settings\",\"col\":3}},{\"id\":\"ZxV9CwjRdh\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"jFyvcxzXt8\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Module Integration</b></span>\",\"col\":12}},{\"id\":\"i_C-8REYVY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Job\",\"col\":3}},{\"id\":\"I1ih1u23TI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"8DptehEfeh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Shipment\",\"col\":3}},{\"id\":\"j94q3u5pje\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Shipment\",\"col\":3}},{\"id\":\"ierOkwWLj7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"lPpjbVObOn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"General Job\",\"col\":3}},{\"id\":\"axCd7vIiuJ\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"n22UXqztaW\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Reports &amp; Analysis<b></b></span>\",\"col\":12}},{\"id\":\"uMxbZbp4lT\",\"type\":\"card\",\"data\":{\"card_name\":\"Core Metrics Reports\",\"col\":4}},{\"id\":\"uD0Uch7e1h\",\"type\":\"card\",\"data\":{\"card_name\":\"Environmental Impact Reports\",\"col\":4}},{\"id\":\"56UsQcwIvi\",\"type\":\"card\",\"data\":{\"card_name\":\"Goals & Compliance Reports\",\"col\":4}},{\"id\":\"2j6Fa9MUCt\",\"type\":\"card\",\"data\":{\"card_name\":\"Analysis Reports\",\"col\":4}}]",
+ "creation": "2025-10-30 10:13:01.738302",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "agriculture",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Sustainability",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Core Metrics Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Metrics Report",
+   "link_count": 0,
+   "link_to": "Sustainability Metrics Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Dashboard Report",
+   "link_count": 0,
+   "link_to": "Sustainability Dashboard Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Environmental Impact Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Report",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Energy Consumption Report",
+   "link_count": 0,
+   "link_to": "Energy Consumption Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Analysis Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Trend Analysis Report",
+   "link_count": 0,
+   "link_to": "Trend Analysis Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Goals & Compliance Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Goals Report",
+   "link_count": 0,
+   "link_to": "Sustainability Goals Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Compliance Report",
+   "link_count": 0,
+   "link_to": "Sustainability Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-11-01 22:41:12.733146",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Sustainability",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Administrator"
+  },
+  {
+   "role": "Accounts User"
+  }
+ ],
+ "sequence_id": 9.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sustainability Metrics",
+   "link_to": "Sustainability Metrics",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Transport Job",
+   "link_to": "Transport Job",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Carbon Footprint",
+   "link_to": "Carbon Footprint",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Warehouse Job",
+   "link_to": "Warehouse Job",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Energy Consumption",
+   "link_to": "Energy Consumption",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Air Shipment",
+   "link_to": "Air Shipment",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Emission Factors",
+   "link_to": "Emission Factors",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sea Shipment",
+   "link_to": "Sea Shipment",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sustainability Goals",
+   "link_to": "Sustainability Goals",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Declaration",
+   "link_to": "Declaration",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sustainability Compliance",
+   "link_to": "Sustainability Compliance",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "General Job",
+   "link_to": "General Job",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sustainability Settings",
+   "link_to": "Sustainability Settings",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Sustainability"
+}

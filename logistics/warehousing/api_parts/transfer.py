@@ -41,6 +41,26 @@ def allocate_move(warehouse_job: str, clear_existing: int = 1):
             "serial_no": getattr(r, "serial_no", None) or None,
             "batch_no": getattr(r, "batch_no", None) or None,
         }
+        
+        # Add physical dimensions from order if available
+        job_item_fields = _safe_meta_fieldnames("Warehouse Job Item")
+        if "length" in job_item_fields and getattr(r, "length", None):
+            common["length"] = flt(getattr(r, "length"))
+        if "width" in job_item_fields and getattr(r, "width", None):
+            common["width"] = flt(getattr(r, "width"))
+        if "height" in job_item_fields and getattr(r, "height", None):
+            common["height"] = flt(getattr(r, "height"))
+        if "volume" in job_item_fields and getattr(r, "volume", None):
+            common["volume"] = flt(getattr(r, "volume"))
+        if "weight" in job_item_fields and getattr(r, "weight", None):
+            common["weight"] = flt(getattr(r, "weight"))
+        if "volume_uom" in job_item_fields and getattr(r, "volume_uom", None):
+            common["volume_uom"] = getattr(r, "volume_uom")
+        if "weight_uom" in job_item_fields and getattr(r, "weight_uom", None):
+            common["weight_uom"] = getattr(r, "weight_uom")
+        if "dimension_uom" in job_item_fields and getattr(r, "dimension_uom", None):
+            common["dimension_uom"] = getattr(r, "dimension_uom")
+        
         job.append("items", {**common, "location": from_loc, "handling_unit": hu_from or None, "quantity": -qty})
         job.append("items", {**common, "location": to_loc,   "handling_unit": hu_to   or None, "quantity":  qty})
         created_pairs += 1

@@ -1,0 +1,317 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Sustainability Dashboard") }}{% endblock %}
+
+{% block page_content %}
+<div class="sustainability-dashboard">
+    <div class="page-header">
+        <h1 class="page-title">{{ _("Sustainability Dashboard") }}</h1>
+        <p class="text-muted">{{ _("Track and monitor sustainability metrics across all logistics modules") }}</p>
+    </div>
+
+    <!-- Key Metrics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{{ _("Total Carbon Footprint") }}</h5>
+                    <h2 class="text-primary">{{ sustainability_data.carbon_footprint.total_emissions_kg_co2e | round(2) or 0 }}</h2>
+                    <small class="text-muted">{{ _("kg CO2e") }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-success">{{ _("Total Energy Consumption") }}</h5>
+                    <h2 class="text-success">{{ sustainability_data.energy_consumption.total_consumption | round(2) or 0 }}</h2>
+                    <small class="text-muted">{{ _("kWh") }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-info">{{ _("Active Goals") }}</h5>
+                    <h2 class="text-info">{{ sustainability_data.goals_progress | length }}</h2>
+                    <small class="text-muted">{{ _("Goals") }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">{{ _("Total Records") }}</h5>
+                    <h2 class="text-warning">{{ (sustainability_data.carbon_footprint.records_count or 0) + (sustainability_data.energy_consumption.records_count or 0) }}</h2>
+                    <small class="text-muted">{{ _("Records") }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module Breakdown -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">{{ _("Module Breakdown") }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>{{ _("Module") }}</th>
+                                    <th>{{ _("Carbon Emissions (kg CO2e)") }}</th>
+                                    <th>{{ _("Energy Consumption (kWh)") }}</th>
+                                    <th>{{ _("Records") }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for module, data in sustainability_data.module_breakdown.items() %}
+                                <tr>
+                                    <td><strong>{{ module }}</strong></td>
+                                    <td>{{ data.carbon_emissions | round(2) }}</td>
+                                    <td>{{ data.energy_consumption | round(2) }}</td>
+                                    <td>{{ data.carbon_records + data.energy_records }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">{{ _("Carbon Footprint Trend") }}</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="carbonChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">{{ _("Energy Consumption Trend") }}</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="energyChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sustainability Goals -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">{{ _("Sustainability Goals") }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if sustainability_data.goals_progress %}
+                    <div class="row">
+                        {% for goal in sustainability_data.goals_progress %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ goal.goal_name }}</h6>
+                                    <p class="text-muted">{{ goal.goal_type }}</p>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: {{ goal.current_progress or 0 }}%"
+                                             aria-valuenow="{{ goal.current_progress or 0 }}" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            {{ goal.current_progress or 0 }}%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ _("Target") }}: {{ goal.target_value }} {{ _("by") }} {{ goal.target_date }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{{ _("No sustainability goals found") }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Records -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">{{ _("Recent Sustainability Records") }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if sustainability_data.recent_records %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>{{ _("Type") }}</th>
+                                    <th>{{ _("Module") }}</th>
+                                    <th>{{ _("Value") }}</th>
+                                    <th>{{ _("Date") }}</th>
+                                    <th>{{ _("Reference") }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in sustainability_data.recent_records %}
+                                <tr>
+                                    <td><span class="badge badge-primary">{{ record.type }}</span></td>
+                                    <td>{{ record.module }}</td>
+                                    <td>{{ record.value | round(2) }} {{ record.unit }}</td>
+                                    <td>{{ record.date }}</td>
+                                    <td>
+                                        {% if record.reference_doctype and record.reference_docname %}
+                                        <a href="/app/{{ record.reference_doctype | lower | replace(' ', '-') }}/{{ record.reference_docname }}">
+                                            {{ record.reference_docname }}
+                                        </a>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">{{ _("No recent sustainability records found") }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Load chart data
+    loadChartData();
+});
+
+function loadChartData() {
+    frappe.call({
+        method: "logistics.sustainability.page.sustainability_dashboard.sustainability_dashboard.get_sustainability_chart_data",
+        args: {
+            period: "12months"
+        },
+        callback: function(r) {
+            if (r.message) {
+                createCarbonChart(r.message.carbon_footprint);
+                createEnergyChart(r.message.energy_consumption);
+            }
+        }
+    });
+}
+
+function createCarbonChart(data) {
+    const ctx = document.getElementById('carbonChart').getContext('2d');
+    const labels = data.map(item => item.month);
+    const values = data.map(item => item.total_emissions);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Carbon Footprint (kg CO2e)',
+                data: values,
+                borderColor: 'rgb(220, 53, 69)',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function createEnergyChart(data) {
+    const ctx = document.getElementById('energyChart').getContext('2d');
+    const labels = data.map(item => item.month);
+    const values = data.map(item => item.total_consumption);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Energy Consumption (kWh)',
+                data: values,
+                backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                borderColor: 'rgb(40, 167, 69)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+</script>
+
+<style>
+.sustainability-dashboard .card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.sustainability-dashboard .card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.sustainability-dashboard .progress {
+    height: 0.5rem;
+}
+
+.sustainability-dashboard .badge {
+    font-size: 0.75rem;
+}
+
+.sustainability-dashboard .table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.sustainability-dashboard .page-header {
+    margin-bottom: 2rem;
+}
+
+.sustainability-dashboard .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #212529;
+}
+</style>
+{% endblock %}

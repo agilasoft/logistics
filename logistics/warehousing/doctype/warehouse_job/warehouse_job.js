@@ -835,6 +835,10 @@ function fetch_count_sheet(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
+                        // Explicitly refresh the counts table after reload
+                        setTimeout(function() {
+                            frm.refresh_field('counts');
+                        }, 500);
                     } else {
                         frappe.msgprint({
                             title: __('❌ Fetch Count Sheet Error'),

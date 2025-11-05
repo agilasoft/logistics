@@ -515,7 +515,8 @@ def _fetch_job_order_items(job_name: str) -> List[Dict[str, Any]]:
     return frappe.get_all(
         "Warehouse Job Order Items",
         filters={"parent": job_name, "parenttype": "Warehouse Job"},
-        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit"],
+        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", 
+                "length", "width", "height", "volume", "weight", "volume_uom", "weight_uom", "dimension_uom"],
         order_by="idx asc",
         ignore_permissions=True,
     ) or []
@@ -729,6 +730,7 @@ def _append_job_items(
     item: str,
     uom: Optional[str],
     allocations: List[Dict[str, Any]],
+    order_data: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, float]:
     created_rows = 0
     created_qty = 0.0
@@ -763,6 +765,25 @@ def _append_job_items(
             payload["source_row"] = source_child
         if has_source_parent:
             payload["source_parent"] = source_parent
+
+        # Override with order-specific physical dimensions if available
+        if order_data:
+            if "length" in job_item_fields and order_data.get("length"):
+                payload["length"] = flt(order_data.get("length"))
+            if "width" in job_item_fields and order_data.get("width"):
+                payload["width"] = flt(order_data.get("width"))
+            if "height" in job_item_fields and order_data.get("height"):
+                payload["height"] = flt(order_data.get("height"))
+            if "volume" in job_item_fields and order_data.get("volume"):
+                payload["volume"] = flt(order_data.get("volume"))
+            if "weight" in job_item_fields and order_data.get("weight"):
+                payload["weight"] = flt(order_data.get("weight"))
+            if "volume_uom" in job_item_fields and order_data.get("volume_uom"):
+                payload["volume_uom"] = order_data.get("volume_uom")
+            if "weight_uom" in job_item_fields and order_data.get("weight_uom"):
+                payload["weight_uom"] = order_data.get("weight_uom")
+            if "dimension_uom" in job_item_fields and order_data.get("dimension_uom"):
+                payload["dimension_uom"] = order_data.get("dimension_uom")
 
         job.append("items", payload)
         created_rows += 1

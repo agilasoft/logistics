@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:factor_name",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "factor_name",
+  "factor_value",
+  "unit_of_measure",
+  "scope",
+  "category",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "factor_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Factor Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "factor_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Factor Value",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Unit of Measure",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "label": "Scope",
+   "options": "Scope 1\nScope 2\nScope 3\nCombined"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Category",
+   "options": "Energy\nTransport\nWaste\nWater\nMaterials\nOther"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Default Emission Factors",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

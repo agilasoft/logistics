@@ -574,7 +574,8 @@ def _fetch_job_order_items(job_name: str) -> List[Dict[str, Any]]:
     return frappe.get_all(
         "Warehouse Job Order Items",
         filters={"parent": job_name, "parenttype": "Warehouse Job"},
-        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit"],
+        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", 
+                "length", "width", "height", "volume", "weight", "volume_uom", "weight_uom", "dimension_uom"],
         order_by="idx asc",
         ignore_permissions=True,
     ) or []
@@ -803,6 +804,7 @@ def _append_job_items(
     item: str,
     uom: Optional[str],
     allocations: List[Dict[str, Any]],
+    order_data: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, float]:
     created_rows = 0
     created_qty = 0.0
@@ -837,6 +839,25 @@ def _append_job_items(
             payload["source_row"] = source_child
         if has_source_parent:
             payload["source_parent"] = source_parent
+
+        # Override with order-specific physical dimensions if available
+        if order_data:
+            if "length" in job_item_fields and order_data.get("length"):
+                payload["length"] = flt(order_data.get("length"))
+            if "width" in job_item_fields and order_data.get("width"):
+                payload["width"] = flt(order_data.get("width"))
+            if "height" in job_item_fields and order_data.get("height"):
+                payload["height"] = flt(order_data.get("height"))
+            if "volume" in job_item_fields and order_data.get("volume"):
+                payload["volume"] = flt(order_data.get("volume"))
+            if "weight" in job_item_fields and order_data.get("weight"):
+                payload["weight"] = flt(order_data.get("weight"))
+            if "volume_uom" in job_item_fields and order_data.get("volume_uom"):
+                payload["volume_uom"] = order_data.get("volume_uom")
+            if "weight_uom" in job_item_fields and order_data.get("weight_uom"):
+                payload["weight_uom"] = order_data.get("weight_uom")
+            if "dimension_uom" in job_item_fields and order_data.get("dimension_uom"):
+                payload["dimension_uom"] = order_data.get("dimension_uom")
 
         job.append("items", payload)
         created_rows += 1
@@ -1303,12 +1324,18 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     company, branch = _get_job_scope(job)
 
     if int(clear_existing or 0):
+        # Delete existing count rows from database first
+        frappe.db.delete("Warehouse Job Count", {"parent": job.name, "parenttype": "Warehouse Job"})
+        frappe.db.commit()
+        # Clear counts from the document
         job.set("counts", [])
+        # Reload the job to ensure counts are cleared
+        job.reload()
 
     # optional sync from Stocktake Order header
     if (job.reference_order_type or "").strip() == "Stocktake Order" and getattr(job, "reference_order", None):
         so_meta = _safe_meta_fieldnames("Stocktake Order")
-        desired = ["count_type", "blind_count", "qa_required", "count_date"]
+        desired = ["count_type", "blind_count", "qa_required", "stocktake_days_past_zero"]
         fields_to_fetch = [f for f in desired if f in so_meta]
         if fields_to_fetch:
             so = frappe.db.get_value("Stocktake Order", job.reference_order, fields_to_fetch, as_dict=True) or {}
@@ -1317,28 +1344,79 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
                 if v not in (None, "") and not getattr(job, k, None):
                     setattr(job, k, v)
 
+    # Set count_date if not already set (count_date is not in Stocktake Order, so set it when fetching count sheet)
+    if not getattr(job, "count_date", None):
+        job.count_date = now_datetime()
+
+    # Get stocktake_days_past_zero from Warehouse Job first, then fall back to Warehouse Settings
+    stocktake_days_past_zero = 0
+    # First try to get from the job
+    if hasattr(job, "stocktake_days_past_zero") and getattr(job, "stocktake_days_past_zero", None) is not None:
+        stocktake_days_past_zero = int(getattr(job, "stocktake_days_past_zero") or 0)
+    # If not set in job, fall back to Warehouse Settings
+    if stocktake_days_past_zero == 0 and company:
+        try:
+            stocktake_days_past_zero = int(frappe.db.get_value("Warehouse Settings", company, "stocktake_days_past_zero") or 0)
+        except:
+            stocktake_days_past_zero = 0
+
     slf = _safe_meta_fieldnames("Storage Location")
     huf = _safe_meta_fieldnames("Handling Unit")
     llf = _safe_meta_fieldnames("Warehouse Stock Ledger")
 
-    conds = ["l.item IN ({})".format(", ".join(["%s"] * len(item_set)))]
+    conds = ["l1.item IN ({})".format(", ".join(["%s"] * len(item_set)))]
     params: List[Any] = list(item_set)
 
     if company and (("company" in slf) or ("company" in huf) or ("company" in llf)) :
-        conds.append("COALESCE(hu.company, sl.company, l.company) = %s"); params.append(company)
+        conds.append("COALESCE(hu1.company, sl1.company, l1.company) = %s"); params.append(company)
     if branch and  (("branch"  in slf) or ("branch"  in huf) or ("branch"  in llf)):
-        conds.append("COALESCE(hu.branch,  sl.branch,  l.branch)  = %s"); params.append(branch)
+        conds.append("COALESCE(hu1.branch,  sl1.branch,  l1.branch)  = %s"); params.append(branch)
 
-    aggregates = frappe.db.sql(f"""
-        SELECT l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no,
-               SUM(l.quantity) AS system_qty
-        FROM `tabWarehouse Stock Ledger` l
-        LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
-        LEFT JOIN `tabHandling Unit`    hu ON hu.name = l.handling_unit
-        WHERE {' AND '.join(conds)}
-        GROUP BY l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no
-        HAVING SUM(l.quantity) > 0
-    """, tuple(params), as_dict=True) or []
+    # Get current stock using end_qty from the last entry for each item/location/handling_unit/batch/serial combination
+    # Also include items with zero stock if their last transaction is within stocktake_days_past_zero days
+    having_clause = "system_qty > 0"
+    if stocktake_days_past_zero > 0:
+        # Include zero stock items if last transaction is within the specified days
+        having_clause = f"system_qty > 0 OR (system_qty = 0 AND last_posting_date >= DATE_SUB(CURDATE(), INTERVAL {stocktake_days_past_zero} DAY))"
+    
+    aggregates = frappe.db.sql("""
+        SELECT DISTINCT
+               l1.item, 
+               l1.storage_location, 
+               l1.handling_unit, 
+               l1.batch_no, 
+               l1.serial_no,
+               (SELECT l2.end_qty 
+                FROM `tabWarehouse Stock Ledger` l2
+                LEFT JOIN `tabStorage Location` sl2 ON sl2.name = l2.storage_location
+                LEFT JOIN `tabHandling Unit` hu2 ON hu2.name = l2.handling_unit
+                WHERE l2.item = l1.item 
+                  AND l2.storage_location = l1.storage_location
+                  AND IFNULL(l2.handling_unit, '') = IFNULL(l1.handling_unit, '')
+                  AND IFNULL(l2.batch_no, '') = IFNULL(l1.batch_no, '')
+                  AND IFNULL(l2.serial_no, '') = IFNULL(l1.serial_no, '')
+                  AND COALESCE(hu2.company, sl2.company, l2.company) = COALESCE(hu1.company, sl1.company, l1.company)
+                  AND COALESCE(hu2.branch, sl2.branch, l2.branch) = COALESCE(hu1.branch, sl1.branch, l1.branch)
+                ORDER BY l2.posting_date DESC, l2.creation DESC
+                LIMIT 1) AS system_qty,
+               (SELECT l2.posting_date 
+                FROM `tabWarehouse Stock Ledger` l2
+                LEFT JOIN `tabStorage Location` sl2 ON sl2.name = l2.storage_location
+                LEFT JOIN `tabHandling Unit` hu2 ON hu2.name = l2.handling_unit
+                WHERE l2.item = l1.item 
+                  AND l2.storage_location = l1.storage_location
+                  AND IFNULL(l2.handling_unit, '') = IFNULL(l1.handling_unit, '')
+                  AND IFNULL(l2.batch_no, '') = IFNULL(l1.batch_no, '')
+                  AND IFNULL(l2.serial_no, '') = IFNULL(l1.serial_no, '')
+                  AND COALESCE(hu2.company, sl2.company, l2.company) = COALESCE(hu1.company, sl1.company, l1.company)
+                  AND COALESCE(hu2.branch, sl2.branch, l2.branch) = COALESCE(hu1.branch, sl1.branch, l1.branch)
+                ORDER BY l2.posting_date DESC, l2.creation DESC
+                LIMIT 1) AS last_posting_date
+        FROM `tabWarehouse Stock Ledger` l1
+        LEFT JOIN `tabStorage Location` sl1 ON sl1.name = l1.storage_location
+        LEFT JOIN `tabHandling Unit` hu1 ON hu1.name = l1.handling_unit
+        WHERE """ + ' AND '.join(conds) + """
+        HAVING """ + having_clause, tuple(params), as_dict=True) or []
 
     # zero-stock placeholders
     loc_params, loc_conds = [], []
@@ -1393,6 +1471,8 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     frappe.db.commit()
 
     msg_bits = [_("Created {0} count line(s).").format(created_rows)]
+    if created_rows == 0:
+        msg_bits.append(_("No stock found in ledger for items in Orders matching the job scope (Company: {0}, Branch: {1}).").format(company or "Any", branch or "Any"))
     if blind: msg_bits.append(_("Blind: system counts hidden"))
     if company: msg_bits.append(_("Company: {0}").format(company))
     if branch:  msg_bits.append(_("Branch: {0}").format(branch))
@@ -2431,73 +2511,16 @@ def _validate_ops_sequencing(job: Any, ops_rows: List[Any]) -> List[str]:
     return errs
 
 
+# Legacy compatibility function - redirects to the comprehensive billing implementation
 @frappe.whitelist()
-def periodic_billing_get_charges(customer: Optional[str] = None,
+def periodic_billing_get_charges_legacy(customer: Optional[str] = None,
                                  from_date: Optional[str] = None,
                                  to_date: Optional[str] = None,
                                  job: Optional[str] = None) -> Dict[str, Any]:
-    """Return charge lines for periodic billing.
-    This is a compatibility-safe implementation that avoids breaking the client:
-    - If your instance defines specific Doctypes for periodic billing, you can extend this to query them.
-    - For now, it collects billable lines from Warehouse Job Items within the date window, if fields exist.
-    Output shape: {"charges": [...], "filters": {...}, "meta": {...}}
-    """
-    out: Dict[str, Any] = {"charges": [], "filters": {"customer": customer, "from_date": from_date, "to_date": to_date, "job": job}, "meta": {}}
-    # Best-effort: attempt to pull billable lines from Warehouse Job Items / Warehouse Job
-    try:
-        # Build date filters if fields exist
-        conditions = []
-        params: List[Any] = []
-        # Join to Warehouse Job for customer/date if needed
-        join_sql = ""
-        sl_fields = _safe_meta_fieldnames("Warehouse Job Items")
-        job_fields = _safe_meta_fieldnames("Warehouse Job")
-        if "parent" in sl_fields and ("customer" in job_fields or "customer_name" in job_fields):
-            join_sql = " LEFT JOIN `tabWarehouse Job` wj ON wj.name = wji.parent "
-            if customer and "customer" in job_fields:
-                conditions.append("wj.customer = %s"); params.append(customer)
-            elif customer and "customer_name" in job_fields:
-                conditions.append("wj.customer_name = %s"); params.append(customer)
-        # Date fields
-        date_field = None
-        for cand in ["posting_date", "transaction_date", "date", "creation"]:
-            if cand in sl_fields:
-                date_field = cand
-                break
-        if date_field and from_date:
-            conditions.append(f"wji.{date_field} >= %s"); params.append(from_date)
-        if date_field and to_date:
-            conditions.append(f"wji.{date_field} <= %s"); params.append(to_date)
-        if job:
-            conditions.append("wji.parent = %s"); params.append(job)
-        where = f" WHERE {' AND '.join(conditions)} " if conditions else ""
-        # Billable flag / rate fields
-        billable_cond = ""
-        if "is_billable" in sl_fields:
-            billable_cond = " AND IFNULL(wji.is_billable,0)=1 "
-        # Select columns if exist
-        cols = ["wji.name as rowname", "wji.parent as job", "wji.item as item", "wji.uom as uom"]
-        if "qty" in sl_fields: cols.append("wji.qty as qty")
-        if "rate" in sl_fields: cols.append("wji.rate as rate")
-        if "amount" in sl_fields: cols.append("wji.amount as amount")
-        if "description" in sl_fields: cols.append("wji.description as description")
-        col_sql = ", ".join(cols)
-        sql = f"""
-            SELECT {col_sql}
-            FROM `tabWarehouse Job Items` wji
-            {join_sql}
-            {where}
-            {billable_cond}
-            ORDER BY wji.parent ASC, wji.name ASC
-        """
-        rows = frappe.db.sql(sql, tuple(params), as_dict=True) or []
-        out["charges"] = rows
-        out["meta"]["source"] = "Warehouse Job Items"
-        out["meta"]["count"] = len(rows)
-    except Exception as e:
-        # Return empty structure rather than raise, so the client can handle gracefully
-        out["meta"]["error"] = str(e)
-    return out
+    """Legacy compatibility function - use periodic_billing_get_charges instead."""
+    # This function is kept for backward compatibility but should not be used
+    # The main implementation is now in logistics.warehousing.billing.periodic_billing_get_charges
+    return {"charges": [], "filters": {"customer": customer, "from_date": from_date, "to_date": to_date, "job": job}, "meta": {"deprecated": True}}
 
 # =============================================================================
 # PERIODIC BILLING (charges + invoice)
@@ -2607,94 +2630,12 @@ def _pb__count_used_days(hu: str, date_from: str, date_to: str) -> int:
     return used
 
 
+# Redirect to comprehensive billing implementation
 @frappe.whitelist()
 def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1) -> Dict[str, Any]:
-    pb = frappe.get_doc("Periodic Billing", periodic_billing)
-    customer  = getattr(pb, "customer", None)
-    date_from = getattr(pb, "date_from", None)
-    date_to   = getattr(pb, "date_to", None)
-    if not (customer and date_from and date_to):
-        frappe.throw(_("Customer, Date From and Date To are required."))
-
-    charges_field = _pb__charges_fieldname()
-    if not charges_field:
-        return {"ok": False, "message": _("Periodic Billing has no child table for 'Periodic Billing Charges'. Add one."), "created": 0}
-
-    if int(clear_existing or 0):
-        pb.set(charges_field, [])
-
-    warnings: List[str] = []
-    created = 0
-    grand_total = 0.0
-
-    jobs = frappe.get_all(
-        "Warehouse Job",
-        filters={"docstatus": 1, "customer": customer, "job_open_date": ["between", [date_from, date_to]]},
-        fields=["name", "job_open_date"],
-        order_by="job_open_date asc, name asc",
-        ignore_permissions=True,
-    ) or []
-    if jobs:
-        job_names = [j["name"] for j in jobs]
-        placeholders = ", ".join(["%s"] * len(job_names))
-        rows = frappe.db.sql(
-            f"""SELECT c.parent AS warehouse_job, c.item_code, c.item_name, c.uom, c.quantity, c.rate, c.total, c.currency
-                FROM `tabWarehouse Job Charges` c
-                WHERE c.parent IN ({placeholders})
-                ORDER BY FIELD(c.parent, {placeholders})""",
-            tuple(job_names + job_names), as_dict=True,
-        ) or []
-        for r in rows:
-            qty   = flt(r.get("quantity") or 0.0)
-            rate  = flt(r.get("rate") or 0.0)
-            total = flt(r.get("total") or (qty * rate))
-            pb.append(charges_field, {
-                "item": r.get("item_code"),
-                "item_name": r.get("item_name"),
-                "uom": r.get("uom"),
-                "quantity": qty,
-                "rate": rate,
-                "total": total,
-                "currency": r.get("currency"),
-                "warehouse_job": r.get("warehouse_job"),
-            })
-            created += 1
-            grand_total += total
-
-    contract = _pb__find_customer_contract(customer)
-    sci = _pb__get_storage_contract_item(contract)
-    if not sci:
-        warnings.append(_("No Warehouse Contract storage pricing found for this customer; storage charges skipped."))
-    else:
-        storage_item = sci.get("item_code")
-        storage_rate = flt(sci.get("rate") or 0.0)
-        billing_time_unit = sci.get("billing_time_unit") or "Day"
-        currency     = sci.get("currency")
-        hu_list = _pb__distinct_hus_for_customer(customer, date_to)
-        for hu in hu_list:
-            days = _pb__count_used_days(hu, date_from, date_to)
-            if days <= 0:
-                continue
-            total = flt(days) * storage_rate
-            pb.append(charges_field, {
-                "item": storage_item,
-                "item_name": _("Storage Charge"),
-                "uom": billing_time_unit,
-                "quantity": days,
-                "rate": storage_rate,
-                "total": total,
-                "currency": currency,
-                "handling_unit": hu,
-            })
-            created += 1
-            grand_total += total
-
-    pb.save(ignore_permissions=True)
-    frappe.db.commit()
-    msg = _("Added {0} charge line(s). Total: {1}").format(int(created), flt(grand_total))
-    if warnings:
-        msg += " " + _("Notes") + ": " + " | ".join(warnings)
-    return {"ok": True, "message": msg, "created": int(created), "grand_total": flt(grand_total), "warnings": warnings}
+    """Redirect to the comprehensive billing implementation in billing.py"""
+    from logistics.warehousing.billing import periodic_billing_get_charges as billing_get_charges
+    return billing_get_charges(periodic_billing, clear_existing)
 
 
 @frappe.whitelist()
@@ -2891,96 +2832,7 @@ def _pb__count_used_days(hu: str, date_from: str, date_to: str) -> int:
     return used
 
 
-@frappe.whitelist()
-def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1) -> Dict[str, Any]:
-    pb = frappe.get_doc("Periodic Billing", periodic_billing)
-    customer  = getattr(pb, "customer", None)
-    date_from = getattr(pb, "date_from", None)
-    date_to   = getattr(pb, "date_to", None)
-    pb_company = getattr(pb, "company", None)
-    pb_branch  = getattr(pb, "branch", None)
-    if not (customer and date_from and date_to):
-        frappe.throw(_("Customer, Date From and Date To are required."))
-
-    charges_field = _pb__charges_fieldname()
-    if not charges_field:
-        return {"ok": False, "message": _("Periodic Billing has no child table for 'Periodic Billing Charges'. Add one."), "created": 0}
-
-    if int(clear_existing or 0):
-        pb.set(charges_field, [])
-
-    warnings: List[str] = []
-    created = 0
-    grand_total = 0.0
-
-    # Job-based charges
-    jf = _safe_meta_fieldnames("Warehouse Job")
-    job_filters = {"docstatus": 1, "customer": customer, "job_open_date": ["between", [date_from, date_to]]}
-    if "company" in jf and pb_company: job_filters["company"] = pb_company
-    if "branch"  in jf and pb_branch:  job_filters["branch"]  = pb_branch
-    jobs = frappe.get_all("Warehouse Job", filters=job_filters, fields=["name", "job_open_date"], order_by="job_open_date asc, name asc", ignore_permissions=True) or []
-    if jobs:
-        job_names = [j["name"] for j in jobs]
-        placeholders = ", ".join(["%s"] * len(job_names))
-        rows = frappe.db.sql(
-            f"""SELECT c.parent AS warehouse_job, c.item_code, c.item_name, c.uom, c.quantity, c.rate, c.total, c.currency
-                FROM `tabWarehouse Job Charges` c
-                WHERE c.parent IN ({placeholders})
-                ORDER BY FIELD(c.parent, {placeholders})""",
-            tuple(job_names + job_names), as_dict=True,
-        ) or []
-        for r in rows:
-            qty   = flt(r.get("quantity") or 0.0)
-            rate  = flt(r.get("rate") or 0.0)
-            total = flt(r.get("total") or (qty * rate))
-            pb.append(charges_field, {
-                "item": r.get("item_code"),
-                "item_name": r.get("item_name"),
-                "uom": r.get("uom"),
-                "quantity": qty,
-                "rate": rate,
-                "total": total,
-                "currency": r.get("currency"),
-                "warehouse_job": r.get("warehouse_job"),
-            })
-            created += 1
-            grand_total += total
-
-    # Storage charges via contract
-    contract = _pb__find_customer_contract(customer)
-    sci = _pb__get_storage_contract_item(contract)
-    if not sci:
-        warnings.append(_("No Warehouse Contract storage pricing found for this customer; storage charges skipped."))
-    else:
-        storage_item = sci.get("item_code")
-        storage_rate = flt(sci.get("rate") or 0.0)
-        billing_time_unit = sci.get("billing_time_unit") or "Day"
-        currency     = sci.get("currency")
-        hu_list = _pb__distinct_hus_for_customer(customer, date_to, pb_company, pb_branch)
-        for hu in hu_list:
-            days = _pb__count_used_days(hu, date_from, date_to)
-            if days <= 0:
-                continue
-            total = flt(days) * storage_rate
-            pb.append(charges_field, {
-                "item": storage_item,
-                "item_name": _("Storage Charge"),
-                "uom": billing_time_unit,
-                "quantity": days,
-                "rate": storage_rate,
-                "total": total,
-                "currency": currency,
-                "handling_unit": hu,
-            })
-            created += 1
-            grand_total += total
-
-    pb.save(ignore_permissions=True)
-    frappe.db.commit()
-    msg = _("Added {0} charge line(s). Total: {1}").format(int(created), flt(grand_total))
-    if warnings:
-        msg += " " + _("Notes") + ": " + " | ".join(warnings)
-    return {"ok": True, "message": msg, "created": int(created), "grand_total": flt(grand_total), "warnings": warnings}
+# This duplicate implementation has been removed - using billing.py version instead
 
 
 @frappe.whitelist()

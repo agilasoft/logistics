@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "item",
   "item_name",
   "uom",
@@ -29,6 +29,7 @@
   "length",
   "width",
   "height",
+  "dimension_uom",
   "column_break_drkz",
   "volume",
   "volume_uom",
@@ -213,13 +214,20 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-18 13:43:51.643897",
+ "modified": "2025-10-30 17:43:30.850968",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Transfer Order Item",

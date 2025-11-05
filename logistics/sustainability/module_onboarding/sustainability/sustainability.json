@@ -1,0 +1,38 @@
+{
+ "allow_roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "creation": "2025-10-30 11:20:00.000000",
+ "docstatus": 0,
+ "doctype": "Module Onboarding",
+ "documentation_url": "www.agilasoft.com",
+ "idx": 0,
+ "is_complete": 0,
+ "modified": "2025-10-30 11:20:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Sustainability",
+ "owner": "Administrator",
+ "steps": [
+  {
+   "step": "Sustainability Settings"
+  },
+  {
+   "step": "Emission Factors"
+  },
+  {
+   "step": "Sustainability Goals"
+  },
+  {
+   "step": "Sustainability Compliance"
+  },
+  {
+   "step": "Module Integration"
+  }
+ ],
+ "subtitle": "Centralized sustainability management and compliance tracking across all logistics modules",
+ "success_message": "Sustainability module is ready! You can now track carbon footprint, energy consumption, and compliance across all logistics operations.",
+ "title": "Let's Set Up the Sustainability Module!"
+}

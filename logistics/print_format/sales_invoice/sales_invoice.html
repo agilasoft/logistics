@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 8pt;
+            line-height: 1.2;
+            color: #000;
+            background: white;
+        }
+        
+        .invoice-container {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 5mm;
+            background: white;
+        }
+        
+        /* Header Section */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #000;
+            padding-bottom: 3mm;
+            margin-bottom: 3mm;
+        }
+        
+        .company-info {
+            flex: 1;
+        }
+        
+        .company-name {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-bottom: 1mm;
+        }
+        
+        .company-details {
+            font-size: 7pt;
+            line-height: 1.3;
+        }
+        
+        .invoice-title {
+            text-align: center;
+            font-size: 16pt;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        
+        .invoice-number-section {
+            text-align: right;
+            font-size: 8pt;
+        }
+        
+        .invoice-number {
+            font-size: 10pt;
+            font-weight: bold;
+        }
+        
+        /* Document Info Section */
+        .doc-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2mm;
+            margin-bottom: 3mm;
+            font-size: 7pt;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 1mm;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            min-width: 35mm;
+        }
+        
+        .info-value {
+            flex: 1;
+        }
+        
+        /* Party Information */
+        .party-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3mm;
+            margin-bottom: 3mm;
+        }
+        
+        .party-box {
+            border: 1px solid #000;
+            padding: 2mm;
+            font-size: 7pt;
+        }
+        
+        .party-title {
+            font-weight: bold;
+            border-bottom: 1px solid #000;
+            padding-bottom: 1mm;
+            margin-bottom: 1mm;
+        }
+        
+        .party-details {
+            line-height: 1.4;
+        }
+        
+        .tin-info {
+            margin-top: 1mm;
+            font-size: 6pt;
+        }
+        
+        /* Items Table */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 3mm;
+            font-size: 7pt;
+        }
+        
+        .items-table thead {
+            background-color: #f0f0f0;
+        }
+        
+        .items-table th {
+            border: 1px solid #000;
+            padding: 2mm;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        .items-table td {
+            border: 1px solid #000;
+            padding: 1.5mm;
+        }
+        
+        .items-table .text-right {
+            text-align: right;
+        }
+        
+        .items-table .text-center {
+            text-align: center;
+        }
+        
+        .col-item { width: 8%; }
+        .col-description { width: 35%; }
+        .col-qty { width: 8%; }
+        .col-uom { width: 8%; }
+        .col-rate { width: 12%; }
+        .col-amount { width: 12%; }
+        .col-tax { width: 8%; }
+        
+        /* Totals Section */
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 3mm;
+        }
+        
+        .totals-table {
+            width: 45%;
+            border-collapse: collapse;
+            font-size: 7pt;
+        }
+        
+        .totals-table td {
+            padding: 1mm 2mm;
+            border: 1px solid #000;
+        }
+        
+        .totals-table .label {
+            text-align: right;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        
+        .totals-table .value {
+            text-align: right;
+        }
+        
+        .totals-table .total-row {
+            font-weight: bold;
+            font-size: 9pt;
+            background-color: #e0e0e0;
+        }
+        
+        /* Tax Details */
+        .tax-details {
+            margin-top: 2mm;
+            font-size: 6pt;
+            border-top: 1px solid #000;
+            padding-top: 1mm;
+        }
+        
+        .tax-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5mm;
+        }
+        
+        /* Footer */
+        .footer {
+            margin-top: 5mm;
+            padding-top: 2mm;
+            border-top: 1px solid #000;
+            font-size: 6pt;
+        }
+        
+        .footer-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1mm;
+        }
+        
+        .signature-section {
+            margin-top: 5mm;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5mm;
+        }
+        
+        .signature-box {
+            text-align: center;
+            font-size: 7pt;
+        }
+        
+        .signature-line {
+            border-top: 1px solid #000;
+            margin-top: 15mm;
+            padding-top: 1mm;
+        }
+        
+        /* BIR Compliance Notes */
+        .bir-note {
+            font-size: 5pt;
+            text-align: center;
+            margin-top: 2mm;
+            font-style: italic;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .invoice-container {
+                padding: 3mm;
+            }
+            .page-break {
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="company-info">
+                <div class="company-name">{{ doc.company }}</div>
+                <div class="company-details">
+                    {% set company_doc = frappe.get_doc("Company", doc.company) %}
+                    {% if company_doc.address %}
+                        {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                        {{ company_address.address_line1 if company_address.address_line1 else '' }}<br>
+                        {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+                        {{ company_address.city if company_address.city else '' }}{% if company_address.state %}, {{ company_address.state }}{% endif %}<br>
+                    {% elif doc.company_address %}
+                        {{ doc.company_address }}<br>
+                    {% endif %}
+                    {% if company_doc.phone_no %}
+                        Tel: {{ company_doc.phone_no }}<br>
+                    {% endif %}
+                    {% if company_doc.email %}
+                        Email: {{ company_doc.email }}<br>
+                    {% endif %}
+                    {% if company_doc.tin %}
+                        TIN: {{ company_doc.tin }}{% if company_doc.branch_code %}-{{ company_doc.branch_code }}{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="invoice-number-section">
+                <div class="invoice-title">SALES INVOICE</div>
+                <div class="invoice-number">No. {{ doc.name }}</div>
+            </div>
+        </div>
+        
+        <!-- Document Info -->
+        <div class="doc-info">
+            <div>
+                <div class="info-row">
+                    <span class="info-label">Date:</span>
+                    <span class="info-value">
+                        {% if doc.posting_date %}
+                            {{ frappe.format_value(doc.posting_date, {'fieldtype': 'Date'}, doc) }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Due Date:</span>
+                    <span class="info-value">
+                        {% if doc.due_date %}
+                            {{ frappe.format_value(doc.due_date, {'fieldtype': 'Date'}, doc) }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Customer PO:</span>
+                    <span class="info-value">{{ doc.po_no if doc.po_no else 'N/A' }}</span>
+                </div>
+            </div>
+            <div>
+                <div class="info-row">
+                    <span class="info-label">Invoice Date:</span>
+                    <span class="info-value">
+                        {% if doc.posting_date %}
+                            {{ frappe.format_value(doc.posting_date, {'fieldtype': 'Date'}, doc) }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Terms:</span>
+                    <span class="info-value">{{ doc.payment_terms_template if doc.payment_terms_template else 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Reference:</span>
+                    <span class="info-value">{{ doc.name }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Party Information -->
+        <div class="party-section">
+            <div class="party-box">
+                <div class="party-title">Bill To:</div>
+                <div class="party-details">
+                    <strong>{{ doc.customer_name }}</strong><br>
+                    {% if doc.customer_address %}
+                        {{ doc.customer_address|replace('\n', '<br>')|safe }}<br>
+                    {% endif %}
+                    {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                    {% if customer_doc.tin %}
+                        <div class="tin-info">TIN: {{ customer_doc.tin }}{% if customer_doc.branch_code %}-{{ customer_doc.branch_code }}{% endif %}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="party-box">
+                <div class="party-title">Ship To:</div>
+                <div class="party-details">
+                    {% if doc.shipping_address_name %}
+                        {% set shipping_address = frappe.get_doc("Address", doc.shipping_address_name) %}
+                        <strong>{{ shipping_address.address_line1 if shipping_address else '' }}</strong><br>
+                        {% if shipping_address %}
+                            {{ shipping_address.address_line2 if shipping_address.address_line2 else '' }}<br>
+                            {{ shipping_address.city if shipping_address.city else '' }}, {{ shipping_address.state if shipping_address.state else '' }}<br>
+                            {{ shipping_address.pincode if shipping_address.pincode else '' }}
+                        {% endif %}
+                    {% else %}
+                        Same as Bill To
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th class="col-item">Item</th>
+                    <th class="col-description">Description</th>
+                    <th class="col-qty text-center">Qty</th>
+                    <th class="col-uom">UOM</th>
+                    <th class="col-rate text-right">Rate</th>
+                    <th class="col-amount text-right">Amount</th>
+                    <th class="col-tax text-center">Tax</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doc.items %}
+                <tr>
+                    <td>{{ item.item_code }}</td>
+                    <td>{{ item.item_name }}{% if item.description %}<br><small>{{ item.description }}</small>{% endif %}</td>
+                    <td class="text-center">{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
+                    <td>{{ item.uom }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.rate, precision=2, currency=doc.currency) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount, precision=2, currency=doc.currency) }}</td>
+                    <td class="text-center">
+                        {% if item.tax_rate %}
+                            {{ frappe.utils.fmt_money(item.tax_rate, precision=2) }}%
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Totals -->
+        <div class="totals-section">
+            <table class="totals-table">
+                <tr>
+                    <td class="label">Subtotal:</td>
+                    <td class="value">{{ frappe.utils.fmt_money(doc.net_total - doc.total_taxes_and_charges, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% if doc.total_taxes_and_charges %}
+                <tr>
+                    <td class="label">Taxes & Charges:</td>
+                    <td class="value">{{ frappe.utils.fmt_money(doc.total_taxes_and_charges, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% endif %}
+                {% if doc.discount_amount %}
+                <tr>
+                    <td class="label">Discount:</td>
+                    <td class="value">({{ frappe.utils.fmt_money(doc.discount_amount, precision=2, currency=doc.currency) }})</td>
+                </tr>
+                {% endif %}
+                <tr class="total-row">
+                    <td class="label">Total Amount:</td>
+                    <td class="value">{{ frappe.utils.fmt_money(doc.grand_total, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% if doc.currency != doc.company_currency %}
+                <tr>
+                    <td class="label">Exchange Rate:</td>
+                    <td class="value">{{ frappe.utils.fmt_money(doc.conversion_rate, precision=6) }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Total ({{ doc.company_currency }}):</td>
+                    <td class="value">{{ frappe.utils.fmt_money(doc.base_grand_total, precision=2) }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+        
+        <!-- Tax Details -->
+        {% if doc.taxes %}
+        <div class="tax-details">
+            <strong>Tax Breakdown:</strong><br>
+            {% for tax in doc.taxes %}
+                {% if tax.tax_amount %}
+                {{ tax.description }}: {{ frappe.utils.fmt_money(tax.tax_amount, precision=2, currency=doc.currency) }}<br>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Footer -->
+        <div class="footer">
+            {% if doc.terms %}
+            <div class="footer-row">
+                <strong>Terms & Conditions:</strong>
+            </div>
+            <div style="margin-bottom: 2mm; font-size: 6pt;">
+                {{ doc.terms }}
+            </div>
+            {% endif %}
+            
+            <div class="signature-section">
+                <div class="signature-box">
+                    <div class="signature-line">Prepared by</div>
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line">Received by</div>
+                </div>
+            </div>
+            
+            <div class="bir-note">
+                This document serves as an official receipt for accounting and tax purposes.
+                {% set company_doc = frappe.get_doc("Company", doc.company) %}
+                {% if company_doc.tin %}
+                    TIN: {{ company_doc.tin }}{% if company_doc.branch_code %}-{{ company_doc.branch_code }}{% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

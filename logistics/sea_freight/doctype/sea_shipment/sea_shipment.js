@@ -1,7 +1,7 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Sea Freight Job', {
+frappe.ui.form.on('Sea Shipment', {
     refresh: function(frm) {
         frm.add_custom_button(__('Create Sales Invoice'), function() {
             const d = new frappe.ui.Dialog({

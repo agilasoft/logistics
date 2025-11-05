@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "item",
   "item_name",
   "uom",
@@ -22,6 +22,8 @@
   "length",
   "width",
   "height",
+  "dimension_uom",
+  "column_break_pnda",
   "volume",
   "volume_uom",
   "weight",
@@ -166,14 +168,24 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pnda",
+   "fieldtype": "Column Break"
   }
  ],
- "client_script": "logistics.warehousing.doctype.vas_order_item.vas_order_item",
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-28 08:49:27.512499",
+ "modified": "2025-10-30 17:43:05.458218",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "VAS Order Item",

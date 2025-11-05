@@ -5,7 +5,7 @@
  "creation": "2025-10-12 16:24:16.334696",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
   "section_break_co9p",
   "amended_from",
   "naming_series",
@@ -18,7 +18,13 @@
   "profit_center",
   "cost_center",
   "column_break_zmfn",
-  "job_costing_number"
+  "job_costing_number",
+  "sustainability_tab",
+  "sustainability_section",
+  "estimated_energy_consumption",
+  "estimated_carbon_footprint",
+  "column_break_sustainability",
+  "sustainability_notes"
  ],
  "fields": [
   {
@@ -102,6 +108,37 @@
    "fieldtype": "Link",
    "label": "Job Costing Number",
    "options": "Job Costing Number"
+  },
+  {
+   "fieldname": "sustainability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "sustainability_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability Metrics"
+  },
+  {
+   "fieldname": "estimated_energy_consumption",
+   "fieldtype": "Float",
+   "label": "Estimated Energy Consumption (kWh)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Estimated Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sustainability_notes",
+   "fieldtype": "Text",
+   "label": "Sustainability Notes"
   }
  ],
  "grid_page_length": 50,

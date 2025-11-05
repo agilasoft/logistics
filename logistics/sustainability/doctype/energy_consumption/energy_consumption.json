@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "date",
+  "module",
+  "reference_doctype",
+  "reference_name",
+  "section_break_basic",
+  "branch",
+  "facility",
+  "company",
+  "section_break_energy",
+  "energy_type",
+  "consumption_value",
+  "unit_of_measure",
+  "cost_per_unit",
+  "total_cost",
+  "renewable_percentage",
+  "section_break_calculation",
+  "carbon_footprint",
+  "carbon_intensity",
+  "efficiency_metrics",
+  "section_break_additional",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "EC-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "module",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Module",
+   "options": "Transport\nWarehousing\nAir Freight\nSea Freight\nCustoms\nJob Management\nPricing Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "facility",
+   "fieldtype": "Data",
+   "label": "Facility"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_energy",
+   "fieldtype": "Section Break",
+   "label": "Energy Data"
+  },
+  {
+   "fieldname": "energy_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Energy Type",
+   "options": "Electricity\nNatural Gas\nDiesel\nPetrol\nSolar\nWind\nHydro\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consumption_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Consumption Value",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Select",
+   "label": "Unit of Measure",
+   "options": "kWh\nMWh\nGJ\nTherms\nLiters\nGallons\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_per_unit",
+   "fieldtype": "Currency",
+   "label": "Cost per Unit"
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "label": "Total Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "renewable_percentage",
+   "fieldtype": "Percent",
+   "label": "Renewable Energy %"
+  },
+  {
+   "fieldname": "section_break_calculation",
+   "fieldtype": "Section Break",
+   "label": "Calculated Values"
+  },
+  {
+   "fieldname": "carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "carbon_intensity",
+   "fieldtype": "Float",
+   "label": "Carbon Intensity (kg CO2e/unit)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "efficiency_metrics",
+   "fieldtype": "Table",
+   "label": "Efficiency Metrics",
+   "options": "Energy Efficiency Metrics"
+  },
+  {
+   "fieldname": "section_break_additional",
+   "fieldtype": "Section Break",
+   "label": "Additional Information"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Energy Consumption",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

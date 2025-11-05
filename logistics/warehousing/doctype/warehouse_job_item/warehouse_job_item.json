@@ -18,6 +18,16 @@
   "serial_no",
   "batch_no",
   "staging_area",
+  "dimensions_section",
+  "length",
+  "width",
+  "height",
+  "dimension_uom",
+  "column_break_ehlr",
+  "volume",
+  "volume_uom",
+  "weight",
+  "weight_uom",
   "posting_history_section",
   "pick_posted",
   "pick_posted_at",
@@ -26,15 +36,7 @@
   "staging_posted_at",
   "column_break_isuc",
   "putaway_posted",
-  "putaway_posted_at",
-  "dimensions_section",
-  "length",
-  "width",
-  "height",
-  "volume",
-  "volume_uom",
-  "weight",
-  "weight_uom"
+  "putaway_posted_at"
  ],
  "fields": [
   {
@@ -120,6 +122,7 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "posting_history_section",
    "fieldtype": "Section Break",
    "label": "Posting History"
@@ -178,29 +181,34 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "dimensions_section",
    "fieldtype": "Section Break",
    "label": "Dimensions & Weight"
   },
   {
+   "fetch_from": "item.length",
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
    "precision": "3"
   },
   {
+   "fetch_from": "item.width",
    "fieldname": "width",
    "fieldtype": "Float",
    "label": "Width",
    "precision": "3"
   },
   {
+   "fetch_from": "item.height",
    "fieldname": "height",
    "fieldtype": "Float",
    "label": "Height",
    "precision": "3"
   },
   {
+   "fetch_from": "item.volume",
    "fieldname": "volume",
    "fieldtype": "Float",
    "label": "Volume",
@@ -208,6 +216,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "item.weight",
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",
@@ -235,13 +244,24 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ehlr",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-18 17:39:22.571787",
+ "modified": "2025-10-30 17:43:50.311851",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Item",

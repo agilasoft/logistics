@@ -23,7 +23,7 @@ def get_warehouse_job_count_data(warehouse_job: str):
             "Warehouse Job Count",
             filters={"parent": warehouse_job, "parenttype": "Warehouse Job"},
             fields=["name", "location", "handling_unit", "item", 
-                   "system_count", "actual_quantity", "blind_count", "serial_no", "batch_no", "counted"]
+                   "system_count", "actual_quantity", "serial_no", "batch_no", "counted"]
         )
         
         # Group by location
@@ -74,7 +74,7 @@ def get_warehouse_job_count_data(warehouse_job: str):
                 "uom": uom,
                 "system_count": count.get("system_count", 0),
                 "actual_quantity": count.get("actual_quantity"),
-                "blind_count": count.get("blind_count", 0),
+                "blind_count": job.blind_count,
                 "serial_no": count.get("serial_no"),
                 "batch_no": count.get("batch_no"),
                 "counted": count.get("counted", 0)
@@ -100,9 +100,25 @@ def get_warehouse_job_count_data(warehouse_job: str):
 def save_count_data(warehouse_job: str, item_name: str, actual_count: float):
     """Save actual count for an item"""
     try:
-        # Update the count record
-        frappe.db.set_value("Warehouse Job Count", item_name, "actual_quantity", actual_count)
-        frappe.db.set_value("Warehouse Job Count", item_name, "counted", 1)
+        # Load the parent Warehouse Job document
+        job = frappe.get_doc("Warehouse Job", warehouse_job)
+        
+        # Find and update the count row
+        count_row = None
+        for count in job.counts:
+            if count.name == item_name:
+                count_row = count
+                break
+        
+        if not count_row:
+            return {"error": "Count row not found"}
+        
+        # Update the count row
+        count_row.actual_quantity = flt(actual_count) if actual_count is not None else None
+        count_row.counted = 1 if (actual_count is not None and flt(actual_count) != 0) else 0
+        
+        # Save the parent document to ensure changes are persisted
+        job.save(ignore_permissions=True)
         frappe.db.commit()
         
         return {"success": True, "message": "Count saved successfully"}
@@ -155,12 +171,26 @@ def get_count_summary(warehouse_job: str):
 def bulk_save_counts(warehouse_job: str, count_data: list):
     """Save multiple counts at once"""
     try:
-        for item in count_data:
-            frappe.db.set_value("Warehouse Job Count", item["name"], "actual_quantity", item["actual_count"])
+        # Load the parent Warehouse Job document
+        job = frappe.get_doc("Warehouse Job", warehouse_job)
         
+        # Create a lookup map of count row names
+        count_map = {count.name: count for count in job.counts}
+        
+        # Update all count rows
+        updated_count = 0
+        for item in count_data:
+            count_row = count_map.get(item["name"])
+            if count_row:
+                count_row.actual_quantity = flt(item["actual_count"]) if item.get("actual_count") is not None else None
+                count_row.counted = 1 if (item.get("actual_count") is not None and flt(item.get("actual_count")) != 0) else 0
+                updated_count += 1
+        
+        # Save the parent document to ensure changes are persisted
+        job.save(ignore_permissions=True)
         frappe.db.commit()
         
-        return {"success": True, "message": f"Saved {len(count_data)} counts successfully"}
+        return {"success": True, "message": f"Saved {updated_count} counts successfully"}
         
     except Exception as e:
         frappe.log_error(f"Error saving bulk counts: {str(e)}")
@@ -171,19 +201,22 @@ def bulk_save_counts(warehouse_job: str, count_data: list):
 def reset_count_data(warehouse_job: str, location: str = None):
     """Reset count data for a location or entire job"""
     try:
-        filters = {"parent": warehouse_job}
-        if location:
-            filters["location"] = location
-            
-        frappe.db.sql("""
-            UPDATE `tabWarehouse Job Count`
-            SET actual_quantity = NULL, counted = 0
-            WHERE parent = %s
-        """, (warehouse_job,))
+        # Load the parent Warehouse Job document
+        job = frappe.get_doc("Warehouse Job", warehouse_job)
         
+        # Reset count rows
+        reset_count = 0
+        for count in job.counts:
+            if location is None or count.location == location:
+                count.actual_quantity = None
+                count.counted = 0
+                reset_count += 1
+        
+        # Save the parent document to ensure changes are persisted
+        job.save(ignore_permissions=True)
         frappe.db.commit()
         
-        return {"success": True, "message": "Count data reset successfully"}
+        return {"success": True, "message": f"Reset {reset_count} count(s) successfully"}
         
     except Exception as e:
         frappe.log_error(f"Error resetting count data: {str(e)}")
@@ -194,9 +227,25 @@ def reset_count_data(warehouse_job: str, location: str = None):
 def reset_single_count(warehouse_job: str, item_name: str):
     """Reset count data for a single item"""
     try:
-        # Update the count record
-        frappe.db.set_value("Warehouse Job Count", item_name, "actual_quantity", None)
-        frappe.db.set_value("Warehouse Job Count", item_name, "counted", 0)
+        # Load the parent Warehouse Job document
+        job = frappe.get_doc("Warehouse Job", warehouse_job)
+        
+        # Find and reset the count row
+        count_row = None
+        for count in job.counts:
+            if count.name == item_name:
+                count_row = count
+                break
+        
+        if not count_row:
+            return {"error": "Count row not found"}
+        
+        # Reset the count row
+        count_row.actual_quantity = None
+        count_row.counted = 0
+        
+        # Save the parent document to ensure changes are persisted
+        job.save(ignore_permissions=True)
         frappe.db.commit()
         
         return {"success": True, "message": "Count reset successfully"}

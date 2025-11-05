@@ -160,7 +160,7 @@
    "link_fieldname": "contract"
   }
  ],
- "modified": "2025-10-24 18:41:03.193294",
+ "modified": "2025-10-30 14:47:32.790766",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",
@@ -168,6 +168,7 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,

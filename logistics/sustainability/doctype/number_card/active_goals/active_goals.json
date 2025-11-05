@@ -1,0 +1,108 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-30 11:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "number_card_name",
+  "label",
+  "function",
+  "aggregate_function",
+  "document_type",
+  "filters_json",
+  "function_args",
+  "show_percentage_stats",
+  "stats_time_interval",
+  "color"
+ ],
+ "fields": [
+  {
+   "fieldname": "number_card_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Number Card Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label",
+   "reqd": 1
+  },
+  {
+   "fieldname": "function",
+   "fieldtype": "Select",
+   "label": "Function",
+   "options": "Count\nSum\nAverage\nMin\nMax",
+   "reqd": 1
+  },
+  {
+   "fieldname": "aggregate_function",
+   "fieldtype": "Select",
+   "label": "Aggregate Function",
+   "options": "Count\nSum\nAverage\nMin\nMax"
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Link",
+   "label": "Document Type",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "filters_json",
+   "fieldtype": "Small Text",
+   "label": "Filters JSON"
+  },
+  {
+   "fieldname": "function_args",
+   "fieldtype": "Small Text",
+   "label": "Function Args"
+  },
+  {
+   "fieldname": "show_percentage_stats",
+   "fieldtype": "Check",
+   "label": "Show Percentage Stats"
+  },
+  {
+   "fieldname": "stats_time_interval",
+   "fieldtype": "Select",
+   "label": "Stats Time Interval",
+   "options": "Daily\nWeekly\nMonthly\nYearly"
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Select",
+   "label": "Color",
+   "options": "Blue\nCyan\nGray\nGreen\nLight Blue\nOrange\nPink\nPurple\nRed\nYellow"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-10-30 11:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Active Goals",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "label"
+}

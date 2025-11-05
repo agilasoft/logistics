@@ -1,0 +1,207 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "section_break_general",
+  "enable_sustainability_tracking",
+  "default_carbon_unit",
+  "default_energy_unit",
+  "default_waste_unit",
+  "section_break_calculation",
+  "carbon_calculation_method",
+  "energy_calculation_method",
+  "default_emission_factors",
+  "section_break_reporting",
+  "default_reporting_period",
+  "enable_automatic_calculations",
+  "enable_compliance_tracking",
+  "section_break_notifications",
+  "enable_expiry_notifications",
+  "expiry_notification_days",
+  "enable_audit_notifications",
+  "audit_notification_days",
+  "section_break_integration",
+  "enable_module_integration",
+  "integrated_modules",
+  "section_break_additional",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "section_break_general",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "fieldname": "enable_sustainability_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Sustainability Tracking",
+   "default": 1
+  },
+  {
+   "fieldname": "default_carbon_unit",
+   "fieldtype": "Select",
+   "label": "Default Carbon Unit",
+   "options": "kg CO2e\nt CO2e\nMt CO2e",
+   "default": "kg CO2e"
+  },
+  {
+   "fieldname": "default_energy_unit",
+   "fieldtype": "Select",
+   "label": "Default Energy Unit",
+   "options": "kWh\nMWh\nGJ\nTherms",
+   "default": "kWh"
+  },
+  {
+   "fieldname": "default_waste_unit",
+   "fieldtype": "Select",
+   "label": "Default Waste Unit",
+   "options": "kg\nt\nMt",
+   "default": "kg"
+  },
+  {
+   "fieldname": "section_break_calculation",
+   "fieldtype": "Section Break",
+   "label": "Calculation Settings"
+  },
+  {
+   "fieldname": "carbon_calculation_method",
+   "fieldtype": "Select",
+   "label": "Carbon Calculation Method",
+   "options": "Emission Factor\nActivity Data\nHybrid\nExternal Provider",
+   "default": "Emission Factor"
+  },
+  {
+   "fieldname": "energy_calculation_method",
+   "fieldtype": "Select",
+   "label": "Energy Calculation Method",
+   "options": "Direct Measurement\nEstimation\nHybrid",
+   "default": "Direct Measurement"
+  },
+  {
+   "fieldname": "default_emission_factors",
+   "fieldtype": "Table",
+   "label": "Default Emission Factors",
+   "options": "Default Emission Factors"
+  },
+  {
+   "fieldname": "section_break_reporting",
+   "fieldtype": "Section Break",
+   "label": "Reporting Settings"
+  },
+  {
+   "fieldname": "default_reporting_period",
+   "fieldtype": "Select",
+   "label": "Default Reporting Period",
+   "options": "Daily\nWeekly\nMonthly\nQuarterly\nYearly",
+   "default": "Monthly"
+  },
+  {
+   "fieldname": "enable_automatic_calculations",
+   "fieldtype": "Check",
+   "label": "Enable Automatic Calculations",
+   "default": 1
+  },
+  {
+   "fieldname": "enable_compliance_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Compliance Tracking",
+   "default": 1
+  },
+  {
+   "fieldname": "section_break_notifications",
+   "fieldtype": "Section Break",
+   "label": "Notification Settings"
+  },
+  {
+   "fieldname": "enable_expiry_notifications",
+   "fieldtype": "Check",
+   "label": "Enable Expiry Notifications",
+   "default": 1
+  },
+  {
+   "fieldname": "expiry_notification_days",
+   "fieldtype": "Int",
+   "label": "Expiry Notification Days",
+   "default": 30
+  },
+  {
+   "fieldname": "enable_audit_notifications",
+   "fieldtype": "Check",
+   "label": "Enable Audit Notifications",
+   "default": 1
+  },
+  {
+   "fieldname": "audit_notification_days",
+   "fieldtype": "Int",
+   "label": "Audit Notification Days",
+   "default": 30
+  },
+  {
+   "fieldname": "section_break_integration",
+   "fieldtype": "Section Break",
+   "label": "Module Integration"
+  },
+  {
+   "fieldname": "enable_module_integration",
+   "fieldtype": "Check",
+   "label": "Enable Module Integration",
+   "default": 1
+  },
+  {
+   "fieldname": "integrated_modules",
+   "fieldtype": "Table",
+   "label": "Integrated Modules",
+   "options": "Integrated Modules"
+  },
+  {
+   "fieldname": "section_break_additional",
+   "fieldtype": "Section Break",
+   "label": "Additional Settings"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Sustainability Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

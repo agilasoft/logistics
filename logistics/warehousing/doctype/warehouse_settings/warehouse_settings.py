@@ -52,6 +52,7 @@ def get_warehouse_settings(company=None):
         
         volume_uom = "m³"
         weight_uom = "kg"
+        dimension_uom = "cm"
         
         if settings.default_volume_uom:
             try:
@@ -67,9 +68,17 @@ def get_warehouse_settings(company=None):
             except:
                 weight_uom = "kg"
         
+        if settings.default_dimension_uom:
+            try:
+                dimension_uom_doc = frappe.get_doc("UOM", settings.default_dimension_uom)
+                dimension_uom = dimension_uom_doc.name
+            except:
+                dimension_uom = "cm"
+        
         return {
             "default_volume_uom": volume_uom,
             "default_weight_uom": weight_uom,
+            "default_dimension_uom": dimension_uom,
             "default_pallet_volume": getattr(settings, 'default_pallet_volume', 2.0),
             "default_pallet_weight": getattr(settings, 'default_pallet_weight', 1000.0),
             "default_box_volume": getattr(settings, 'default_box_volume', 0.1),
@@ -83,6 +92,7 @@ def get_warehouse_settings(company=None):
         return {
             "default_volume_uom": "m³",
             "default_weight_uom": "kg",
+            "default_dimension_uom": "cm",
             "default_pallet_volume": 2.0,
             "default_pallet_weight": 1000.0,
             "default_box_volume": 0.1,
@@ -101,7 +111,8 @@ def get_default_uoms():
     
     return {
         "volume_uom": settings.get('default_volume_uom', 'm³'),
-        "weight_uom": settings.get('default_weight_uom', 'kg')
+        "weight_uom": settings.get('default_weight_uom', 'kg'),
+        "dimension_uom": settings.get('default_dimension_uom', 'cm')
     }
 
 

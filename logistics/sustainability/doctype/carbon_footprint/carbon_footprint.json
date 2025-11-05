@@ -1,0 +1,199 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "date",
+  "module",
+  "reference_doctype",
+  "reference_name",
+  "section_break_basic",
+  "branch",
+  "facility",
+  "company",
+  "section_break_emissions",
+  "scope",
+  "total_emissions",
+  "emission_breakdown",
+  "section_break_calculation",
+  "calculation_method",
+  "emission_factors_used",
+  "verification_status",
+  "verified_by",
+  "verification_date",
+  "section_break_additional",
+  "notes",
+  "carbon_offset",
+  "net_emissions"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "CF-.YYYY.-.MM.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "module",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Module",
+   "options": "Transport\nWarehousing\nAir Freight\nSea Freight\nCustoms\nJob Management\nPricing Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "facility",
+   "fieldtype": "Data",
+   "label": "Facility"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_emissions",
+   "fieldtype": "Section Break",
+   "label": "Emissions Data"
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Scope",
+   "options": "Scope 1\nScope 2\nScope 3\nCombined",
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_emissions",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Emissions (kg CO2e)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "emission_breakdown",
+   "fieldtype": "Table",
+   "label": "Emission Breakdown",
+   "options": "Carbon Emission Breakdown"
+  },
+  {
+   "fieldname": "section_break_calculation",
+   "fieldtype": "Section Break",
+   "label": "Calculation Details"
+  },
+  {
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "label": "Calculation Method",
+   "options": "Emission Factor\nActivity Data\nHybrid\nExternal Provider"
+  },
+  {
+   "fieldname": "emission_factors_used",
+   "fieldtype": "Table",
+   "label": "Emission Factors Used",
+   "options": "Emission Factor Usage"
+  },
+  {
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "Verified\nPending Verification\nNot Verified\nFailed Verification"
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Link",
+   "label": "Verified By",
+   "options": "User"
+  },
+  {
+   "fieldname": "verification_date",
+   "fieldtype": "Date",
+   "label": "Verification Date"
+  },
+  {
+   "fieldname": "section_break_additional",
+   "fieldtype": "Section Break",
+   "label": "Additional Information"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "carbon_offset",
+   "fieldtype": "Float",
+   "label": "Carbon Offset (kg CO2e)"
+  },
+  {
+   "fieldname": "net_emissions",
+   "fieldtype": "Float",
+   "label": "Net Emissions (kg CO2e)",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Carbon Footprint",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

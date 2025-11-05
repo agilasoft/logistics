@@ -11,6 +11,7 @@
   "default_cost_center",
   "column_break_tsti",
   "planned_date_offset_days",
+  "stocktake_days_past_zero",
   "allocation_level_limit",
   "allow_emergency_fallback",
   "replenishment_policy",
@@ -18,14 +19,16 @@
   "default_facility",
   "billing_tab",
   "billing_section",
-  "enable_volume_billing",
-  "default_volume_uom",
-  "volume_calculation_precision",
-  "default_weight_uom",
   "column_break_2",
+  "enable_volume_billing",
   "capacity_tab",
   "capacity_section",
   "enable_capacity_management",
+  "default_volume_uom",
+  "volume_calculation_precision",
+  "default_weight_uom",
+  "default_dimension_uom",
+  "column_break_cwga",
   "default_volume_alert_threshold",
   "default_weight_alert_threshold",
   "default_utilization_alert_threshold",
@@ -58,6 +61,13 @@
    "fieldname": "planned_date_offset_days",
    "fieldtype": "Int",
    "label": "Planned Date Offset Days"
+  },
+  {
+   "default": "30",
+   "description": "Number of days to include zero-stock items in stocktake count sheet if their last transaction is within this period. Items with zero stock but recent transactions will be included for counting.",
+   "fieldname": "stocktake_days_past_zero",
+   "fieldtype": "Int",
+   "label": "Stocktake Days Past Zero"
   },
   {
    "fieldname": "allocation_level_limit",
@@ -256,10 +266,20 @@
    "fieldname": "allow_emergency_fallback",
    "fieldtype": "Check",
    "label": "Allow Emergency Fallback"
+  },
+  {
+   "fieldname": "default_dimension_uom",
+   "fieldtype": "Link",
+   "label": "Default Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_cwga",
+   "fieldtype": "Column Break"
   }
  ],
  "links": [],
- "modified": "2025-10-28 18:30:03.652223",
+ "modified": "2025-10-30 16:20:33.457976",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",
