@@ -89,6 +89,12 @@
   "notify_party",
   "column_break_mzhi",
   "notify_party_address",
+  "sustainability_tab",
+  "sustainability_section",
+  "estimated_carbon_footprint",
+  "estimated_fuel_consumption",
+  "column_break_sustainability",
+  "sustainability_notes",
   "connections_tab",
   "accounts_tab",
   "company",
@@ -488,6 +494,37 @@
    "fieldname": "notify_party_address",
    "fieldtype": "Small Text",
    "label": "Notify Party Address"
+  },
+  {
+   "fieldname": "sustainability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "sustainability_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability Metrics"
+  },
+  {
+   "fieldname": "estimated_carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Estimated Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_fuel_consumption",
+   "fieldtype": "Float",
+   "label": "Estimated Fuel Consumption (L)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sustainability_notes",
+   "fieldtype": "Text",
+   "label": "Sustainability Notes"
   },
   {
    "fieldname": "services_tab",

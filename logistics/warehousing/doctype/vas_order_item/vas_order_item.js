@@ -25,12 +25,13 @@ function update_uom_fields(frm) {
         args: {
             doctype: "Warehouse Settings",
             name: company,
-            fieldname: ["default_volume_uom", "default_weight_uom"]
+            fieldname: ["default_volume_uom", "default_weight_uom", "default_dimension_uom"]
         },
         callback: function(r) {
             if (r.message) {
                 const volume_uom = r.message.default_volume_uom;
                 const weight_uom = r.message.default_weight_uom;
+                const dimension_uom = r.message.default_dimension_uom;
                 
                 // Auto-populate volume UOM field
                 if (frm.fields_dict.volume_uom && volume_uom) {
@@ -40,6 +41,11 @@ function update_uom_fields(frm) {
                 // Auto-populate weight UOM field
                 if (frm.fields_dict.weight_uom && weight_uom) {
                     frm.set_value("weight_uom", weight_uom);
+                }
+                
+                // Auto-populate dimension UOM field
+                if (frm.fields_dict.dimension_uom && dimension_uom) {
+                    frm.set_value("dimension_uom", dimension_uom);
                 }
             }
         }

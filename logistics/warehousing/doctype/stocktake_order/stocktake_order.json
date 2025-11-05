@@ -20,6 +20,7 @@
   "due_date",
   "blind_count",
   "qa_required",
+  "stocktake_days_past_zero",
   "section_break_mzvs",
   "items",
   "charges_tab",
@@ -100,6 +101,13 @@
    "fieldname": "qa_required",
    "fieldtype": "Check",
    "label": "QA Required"
+  },
+  {
+   "default": "30",
+   "description": "Number of days to include zero-stock items in stocktake count sheet if their last transaction is within this period. Items with zero stock but recent transactions will be included for counting.",
+   "fieldname": "stocktake_days_past_zero",
+   "fieldtype": "Int",
+   "label": "Stocktake Days Past Zero"
   },
   {
    "fieldname": "notes_tab",

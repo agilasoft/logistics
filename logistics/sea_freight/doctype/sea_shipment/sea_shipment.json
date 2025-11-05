@@ -107,7 +107,13 @@
   "notes_tab",
   "external_notes",
   "column_break_kedv",
-  "internal_notes"
+  "internal_notes",
+  "sustainability_tab",
+  "sustainability_section",
+  "estimated_carbon_footprint",
+  "estimated_fuel_consumption",
+  "column_break_sustainability",
+  "sustainability_notes"
  ],
  "fields": [
   {
@@ -628,6 +634,37 @@
    "fieldname": "internal_notes",
    "fieldtype": "Text Editor",
    "label": "Internal Notes"
+  },
+  {
+   "fieldname": "sustainability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "sustainability_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability Metrics"
+  },
+  {
+   "fieldname": "estimated_carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Estimated Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_fuel_consumption",
+   "fieldtype": "Float",
+   "label": "Estimated Fuel Consumption (L)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sustainability_notes",
+   "fieldtype": "Text",
+   "label": "Sustainability Notes"
   }
  ],
  "grid_page_length": 50,
@@ -659,7 +696,7 @@
  "modified": "2025-10-14 10:31:30.736628",
  "modified_by": "Administrator",
  "module": "Sea Freight",
- "name": "Sea Freight Job",
+ "name": "Sea Shipment",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [

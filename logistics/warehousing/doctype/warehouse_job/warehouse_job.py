@@ -173,6 +173,9 @@ class WarehouseJob(Document):
         # Calculate totals before saving the job
         self.calculate_totals()
         
+        # Calculate sustainability metrics
+        self.calculate_sustainability_metrics()
+        
         # Auto-fill basic charge pricing from Warehouse Contract (rates only)
         try:
             if getattr(self, 'charges', None):
@@ -205,6 +208,66 @@ class WarehouseJob(Document):
         # Save the document to persist the job_costing_number field
         if self.job_costing_number:
             self.save(ignore_permissions=True)
+    
+    def after_submit(self):
+        """Record sustainability metrics after job submission"""
+        self.record_sustainability_metrics()
+    
+    def calculate_sustainability_metrics(self):
+        """Calculate sustainability metrics for this warehouse job"""
+        try:
+            # Calculate energy consumption from operations
+            total_energy_consumption = 0
+            if hasattr(self, 'operations') and self.operations:
+                for operation in self.operations:
+                    if hasattr(operation, 'energy_consumption') and operation.energy_consumption:
+                        total_energy_consumption += flt(operation.energy_consumption)
+            
+            # Store calculated metrics for display
+            self.total_energy_consumption = total_energy_consumption
+            
+            # Calculate estimated carbon footprint from energy consumption
+            if total_energy_consumption > 0:
+                carbon_footprint = self._calculate_carbon_footprint_from_energy(total_energy_consumption)
+                self.estimated_carbon_footprint = carbon_footprint
+            
+            # Calculate waste generation if available
+            total_waste = 0
+            if hasattr(self, 'waste_generated') and self.waste_generated:
+                total_waste = flt(self.waste_generated)
+            self.total_waste_generated = total_waste
+                
+        except Exception as e:
+            frappe.log_error(f"Error calculating sustainability metrics for Warehouse Job {self.name}: {e}", "Warehouse Job Sustainability Error")
+    
+    def record_sustainability_metrics(self):
+        """Record sustainability metrics in the centralized system"""
+        try:
+            from logistics.sustainability.utils.sustainability_integration import integrate_sustainability
+            
+            result = integrate_sustainability(
+                doctype=self.doctype,
+                docname=self.name,
+                module="Warehousing",
+                doc=self
+            )
+            
+            if result.get("status") == "success":
+                frappe.msgprint(_("Sustainability metrics recorded successfully"))
+            elif result.get("status") == "skipped":
+                # Don't show message if sustainability is not enabled
+                pass
+            else:
+                frappe.log_error(f"Sustainability recording failed: {result.get('message', 'Unknown error')}", "Warehouse Job Sustainability Error")
+                
+        except Exception as e:
+            frappe.log_error(f"Error recording sustainability metrics for Warehouse Job {self.name}: {e}", "Warehouse Job Sustainability Error")
+    
+    def _calculate_carbon_footprint_from_energy(self, energy_consumption: float) -> float:
+        """Calculate carbon footprint from energy consumption"""
+        # Default electricity emission factor (kg CO2e per kWh)
+        electricity_factor = 0.4
+        return electricity_factor * energy_consumption
 
     @frappe.whitelist()
     def get_warehouse_dashboard_html(self, job_name=None):

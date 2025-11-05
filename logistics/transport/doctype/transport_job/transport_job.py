@@ -6,10 +6,93 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from typing import Dict, Any, List, Optional
-from frappe.utils import nowdate
+from frappe.utils import nowdate, flt
 
 class TransportJob(Document):
-    pass
+    def before_save(self):
+        """Calculate sustainability metrics before saving"""
+        self.calculate_sustainability_metrics()
+    
+    def after_submit(self):
+        """Record sustainability metrics after job submission"""
+        self.record_sustainability_metrics()
+    
+    def calculate_sustainability_metrics(self):
+        """Calculate sustainability metrics for this transport job"""
+        try:
+            from logistics.sustainability.utils.sustainability_integration import integrate_sustainability
+            
+            # Calculate total distance from legs
+            total_distance = 0
+            if hasattr(self, 'legs') and self.legs:
+                for leg in self.legs:
+                    if hasattr(leg, 'distance') and leg.distance:
+                        total_distance += flt(leg.distance)
+            
+            # Store calculated metrics for display
+            self.total_distance = total_distance
+            
+            # Calculate estimated fuel consumption based on vehicle type and distance
+            if hasattr(self, 'vehicle_type') and self.vehicle_type and total_distance > 0:
+                fuel_consumption = self._calculate_fuel_consumption(self.vehicle_type, total_distance)
+                self.fuel_consumption = fuel_consumption
+                
+                # Calculate estimated carbon footprint
+                carbon_footprint = self._calculate_carbon_footprint(self.vehicle_type, fuel_consumption)
+                self.estimated_carbon_footprint = carbon_footprint
+                
+        except Exception as e:
+            frappe.log_error(f"Error calculating sustainability metrics for Transport Job {self.name}: {e}", "Transport Job Sustainability Error")
+    
+    def record_sustainability_metrics(self):
+        """Record sustainability metrics in the centralized system"""
+        try:
+            from logistics.sustainability.utils.sustainability_integration import integrate_sustainability
+            
+            result = integrate_sustainability(
+                doctype=self.doctype,
+                docname=self.name,
+                module="Transport",
+                doc=self
+            )
+            
+            if result.get("status") == "success":
+                frappe.msgprint(_("Sustainability metrics recorded successfully"))
+            elif result.get("status") == "skipped":
+                # Don't show message if sustainability is not enabled
+                pass
+            else:
+                frappe.log_error(f"Sustainability recording failed: {result.get('message', 'Unknown error')}", "Transport Job Sustainability Error")
+                
+        except Exception as e:
+            frappe.log_error(f"Error recording sustainability metrics for Transport Job {self.name}: {e}", "Transport Job Sustainability Error")
+    
+    def _calculate_fuel_consumption(self, vehicle_type: str, distance: float) -> float:
+        """Calculate estimated fuel consumption based on vehicle type and distance"""
+        # Fuel consumption rates (liters per 100 km) by vehicle type
+        fuel_rates = {
+            "Truck": 25.0,  # 25 L/100km
+            "Van": 12.0,    # 12 L/100km
+            "Car": 8.0,     # 8 L/100km
+            "Motorcycle": 4.0,  # 4 L/100km
+        }
+        
+        rate = fuel_rates.get(vehicle_type, 15.0)  # Default 15 L/100km
+        return (rate * distance) / 100.0
+    
+    def _calculate_carbon_footprint(self, vehicle_type: str, fuel_consumption: float) -> float:
+        """Calculate estimated carbon footprint based on fuel consumption"""
+        # Carbon emission factors (kg CO2e per liter) by fuel type
+        # Assuming diesel for trucks/vans, petrol for cars/motorcycles
+        carbon_factors = {
+            "Truck": 2.68,  # Diesel
+            "Van": 2.68,    # Diesel
+            "Car": 2.31,    # Petrol
+            "Motorcycle": 2.31,  # Petrol
+        }
+        
+        factor = carbon_factors.get(vehicle_type, 2.5)  # Default factor
+        return factor * fuel_consumption
 
 ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider these “active”
 

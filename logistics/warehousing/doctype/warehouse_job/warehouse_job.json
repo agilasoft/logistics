@@ -33,6 +33,7 @@
   "count_type",
   "blind_count",
   "qa_required",
+  "stocktake_days_past_zero",
   "section_break_jmth",
   "counts",
   "charges_tab",
@@ -57,6 +58,13 @@
   "recognition_date",
   "notes_tab",
   "notes",
+  "sustainability_tab",
+  "sustainability_section",
+  "total_energy_consumption",
+  "total_waste_generated",
+  "estimated_carbon_footprint",
+  "column_break_sustainability",
+  "sustainability_notes",
   "connections_tab"
  ],
  "fields": [
@@ -229,6 +237,13 @@
    "label": "QA Required"
   },
   {
+   "default": "30",
+   "description": "Number of days to include zero-stock items in stocktake count sheet if their last transaction is within this period. Items with zero stock but recent transactions will be included for counting.",
+   "fieldname": "stocktake_days_past_zero",
+   "fieldtype": "Int",
+   "label": "Stocktake Days Past Zero"
+  },
+  {
    "fieldname": "section_break_jmth",
    "fieldtype": "Section Break"
   },
@@ -289,7 +304,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "Total",
+   "default": "Per Unit",
    "fieldname": "volume_qty_type",
    "fieldtype": "Select",
    "label": "Volume Qty",
@@ -305,10 +320,41 @@
    "reqd": 1
   },
   {
-   "fieldname": "connections_tab",
+   "fieldname": "sustainability_tab",
    "fieldtype": "Tab Break",
-   "label": "Connections",
-   "show_dashboard": 1
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "sustainability_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability Metrics"
+  },
+  {
+   "fieldname": "total_energy_consumption",
+   "fieldtype": "Float",
+   "label": "Total Energy Consumption (kWh)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_waste_generated",
+   "fieldtype": "Float",
+   "label": "Total Waste Generated (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Estimated Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sustainability_notes",
+   "fieldtype": "Text",
+   "label": "Sustainability Notes"
   },
   {
    "fieldname": "operations",
@@ -329,12 +375,6 @@
    "fieldname": "warehouse_job_html",
    "fieldtype": "HTML",
    "label": "Dashboard Content"
-  },
-  {
-   "fieldname": "connections_tab",
-   "fieldtype": "Tab Break",
-   "label": "Connections",
-   "show_dashboard": 1
   },
   {
    "fieldname": "details_tab",
@@ -378,6 +418,12 @@
    "fieldname": "job_totals_tab",
    "fieldtype": "Tab Break",
    "label": "Job Totals"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "grid_page_length": 50,
@@ -391,7 +437,7 @@
    "table_fieldname": "charges"
   }
  ],
- "modified": "2025-10-16 08:21:40.541114",
+ "modified": "2025-10-30 16:01:53.488408",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job",
@@ -410,24 +456,6 @@
    "share": 1,
    "submit": 1,
    "write": 1
-  }
- ],
- "indexes": [
-  {
-   "index_name": "idx_customer_job_open_date",
-   "fields": ["customer", "job_open_date"]
-  },
-  {
-   "index_name": "idx_type_company",
-   "fields": ["type", "company"]
-  },
-  {
-   "index_name": "idx_company_branch",
-   "fields": ["company", "branch"]
-  },
-  {
-   "index_name": "idx_docstatus_job_open_date",
-   "fields": ["docstatus", "job_open_date"]
   }
  ],
  "row_format": "Dynamic",

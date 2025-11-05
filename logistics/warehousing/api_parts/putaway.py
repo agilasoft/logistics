@@ -774,6 +774,24 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             if "source_parent" in jf:
                 payload["source_parent"] = job.name
 
+            # Override with order-specific physical dimensions if available
+            if "length" in jf and rr.get("length"):
+                payload["length"] = flt(rr.get("length"))
+            if "width" in jf and rr.get("width"):
+                payload["width"] = flt(rr.get("width"))
+            if "height" in jf and rr.get("height"):
+                payload["height"] = flt(rr.get("height"))
+            if "volume" in jf and rr.get("volume"):
+                payload["volume"] = flt(rr.get("volume"))
+            if "weight" in jf and rr.get("weight"):
+                payload["weight"] = flt(rr.get("weight"))
+            if "volume_uom" in jf and rr.get("volume_uom"):
+                payload["volume_uom"] = rr.get("volume_uom")
+            if "weight_uom" in jf and rr.get("weight_uom"):
+                payload["weight_uom"] = rr.get("weight_uom")
+            if "dimension_uom" in jf and rr.get("dimension_uom"):
+                payload["dimension_uom"] = rr.get("dimension_uom")
+
             _assert_hu_in_job_scope(hu, company, branch, ctx=_("Handling Unit"))
             _assert_location_in_job_scope(dest, company, branch, ctx=_("Destination Location"))
 

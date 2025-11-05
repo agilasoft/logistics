@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "item",
   "item_name",
   "quantity",
@@ -17,6 +17,7 @@
   "serial_no",
   "batch_no",
   "batch_expiry",
+  "handling_unit_type",
   "handling_unit",
   "moves_section",
   "handling_unit_from",
@@ -28,6 +29,8 @@
   "length",
   "width",
   "height",
+  "dimension_uom",
+  "column_break_xcjq",
   "volume",
   "volume_uom",
   "weight",
@@ -104,7 +107,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Handling Unit",
-   "link_filters": "[[\"Handling Unit\",\"status\",\"=\",\"Available\"]]",
+   "link_filters": "[[\"Handling Unit\",\"status\",\"=\",\"Available\"],[\"Handling Unit\",\"type\",\"=\",\"eval:doc.handling_unit_type\"]]",
    "options": "Handling Unit"
   },
   {
@@ -154,24 +157,28 @@
    "label": "Dimensions & Weight"
   },
   {
+   "fetch_from": "item.length",
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
    "precision": "3"
   },
   {
+   "fetch_from": "item.width",
    "fieldname": "width",
    "fieldtype": "Float",
    "label": "Width",
    "precision": "3"
   },
   {
+   "fetch_from": "item.height",
    "fieldname": "height",
    "fieldtype": "Float",
    "label": "Height",
    "precision": "3"
   },
   {
+   "fetch_from": "item.volume",
    "fieldname": "volume",
    "fieldtype": "Float",
    "label": "Volume",
@@ -179,6 +186,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "item.weight",
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",
@@ -199,14 +207,30 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_xcjq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "handling_unit_type",
+   "fieldtype": "Link",
+   "label": "Handling Unit Type",
+   "options": "Handling Unit Type"
   }
  ],
- "client_script": "logistics.warehousing.doctype.warehouse_job_order_items.warehouse_job_order_items",
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-19 19:33:19.328082",
+ "modified": "2025-10-30 17:13:44.892976",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Order Items",

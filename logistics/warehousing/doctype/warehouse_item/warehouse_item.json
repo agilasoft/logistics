@@ -24,6 +24,8 @@
   "length",
   "width",
   "height",
+  "dimension_uom",
+  "column_break_hyfh",
   "volume",
   "volume_uom",
   "weight",
@@ -267,13 +269,24 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_hyfh",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-23 13:07:03.098309",
- "modified_by": "paulinemae.cabile@agilasoft.com",
+ "modified": "2025-10-30 17:35:28.911920",
+ "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Item",
  "naming_rule": "Expression",

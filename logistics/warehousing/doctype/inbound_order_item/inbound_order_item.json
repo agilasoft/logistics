@@ -26,6 +26,7 @@
   "length",
   "width",
   "height",
+  "dimension_uom",
   "column_break_drkz",
   "volume",
   "volume_uom",
@@ -218,6 +219,13 @@
    "read_only": 1
   },
   {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_drkz",
    "fieldtype": "Column Break"
   }
@@ -226,8 +234,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-25 13:52:44.721038",
- "modified_by": "johnalexander.castro@agilasoft.com",
+ "modified": "2025-10-30 17:42:33.142124",
+ "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order Item",
  "owner": "Administrator",

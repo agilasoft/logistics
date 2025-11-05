@@ -122,7 +122,7 @@ frappe.ui.form.on('Periodic Billing', {
             message: __('Failed to load contract setup summary: ') + (e.message || String(e))
           });
         }
-      }, __('Info'));
+      }, __('Action'));
     }
 
     // Create → Sales Invoice
@@ -150,6 +150,6 @@ frappe.ui.form.on('Periodic Billing', {
         frappe.msgprint(__('Failed to create Sales Invoice.'));
         // Optional: console.error(e);
       });
-    }, __('Create'));
+    }, __('Action'));
   },
 });

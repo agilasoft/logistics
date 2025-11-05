@@ -212,6 +212,11 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target.reference_order_type = "Stocktake Order"
         target.reference_order = src.name
 
+        # Copy stocktake-specific fields
+        if hasattr(src, "stocktake_days_past_zero") and getattr(src, "stocktake_days_past_zero", None) is not None:
+            if hasattr(target, "stocktake_days_past_zero"):
+                target.stocktake_days_past_zero = src.stocktake_days_past_zero
+
         # Helpful context (optional)
         blips = []
         if getattr(src, "type", None):

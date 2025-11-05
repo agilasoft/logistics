@@ -4,8 +4,90 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 
 class AirShipment(Document):
+	def before_save(self):
+		"""Calculate sustainability metrics before saving"""
+		self.calculate_sustainability_metrics()
+	
+	def after_submit(self):
+		"""Record sustainability metrics after shipment submission"""
+		self.record_sustainability_metrics()
+	
+	def calculate_sustainability_metrics(self):
+		"""Calculate sustainability metrics for this air shipment"""
+		try:
+			# Calculate carbon footprint based on weight and distance
+			if hasattr(self, 'weight') and hasattr(self, 'origin_port') and hasattr(self, 'destination_port'):
+				# Get distance between ports (simplified calculation)
+				distance = self._calculate_port_distance(self.origin_port, self.destination_port)
+				if distance and self.weight:
+					# Use air freight emission factor
+					emission_factor = 0.5  # kg CO2e per ton-km for air freight
+					carbon_footprint = (flt(self.weight) / 1000) * distance * emission_factor
+					self.estimated_carbon_footprint = carbon_footprint
+					
+					# Calculate fuel consumption estimate
+					fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.weight))
+					self.estimated_fuel_consumption = fuel_consumption
+				
+		except Exception as e:
+			frappe.log_error(f"Error calculating sustainability metrics for Air Shipment {self.name}: {e}", "Air Shipment Sustainability Error")
+	
+	def record_sustainability_metrics(self):
+		"""Record sustainability metrics in the centralized system"""
+		try:
+			from logistics.sustainability.utils.sustainability_integration import integrate_sustainability
+			
+			result = integrate_sustainability(
+				doctype=self.doctype,
+				docname=self.name,
+				module="Air Freight",
+				doc=self
+			)
+			
+			if result.get("status") == "success":
+				frappe.msgprint(_("Sustainability metrics recorded successfully"))
+			elif result.get("status") == "skipped":
+				# Don't show message if sustainability is not enabled
+				pass
+			else:
+				frappe.log_error(f"Sustainability recording failed: {result.get('message', 'Unknown error')}", "Air Shipment Sustainability Error")
+				
+		except Exception as e:
+			frappe.log_error(f"Error recording sustainability metrics for Air Shipment {self.name}: {e}", "Air Shipment Sustainability Error")
+	
+	def _calculate_port_distance(self, origin: str, destination: str) -> float:
+		"""Calculate distance between ports (simplified)"""
+		# This would typically use a geocoding service or database
+		# For now, return a default distance based on common air routes
+		route_distances = {
+			("LAX", "JFK"): 3944,  # Los Angeles to New York
+			("LHR", "JFK"): 3459,  # London to New York
+			("NRT", "LAX"): 5472,  # Tokyo to Los Angeles
+			("DXB", "LHR"): 3420,  # Dubai to London
+		}
+		
+		# Try to find exact match
+		key = (origin, destination)
+		if key in route_distances:
+			return route_distances[key]
+		
+		# Try reverse match
+		key = (destination, origin)
+		if key in route_distances:
+			return route_distances[key]
+		
+		# Default distance
+		return 2000.0  # Default 2000 km
+	
+	def _calculate_fuel_consumption(self, distance: float, weight: float) -> float:
+		"""Calculate estimated fuel consumption for air freight"""
+		# Air freight fuel consumption is typically 3-4 L per 100 km per ton
+		fuel_rate = 3.5  # L per 100 km per ton
+		return (fuel_rate * distance * (weight / 1000)) / 100.0
+
 	@frappe.whitelist()
 	def get_milestone_html(self):
 		"""Generate HTML for milestone visualization with map and cards"""

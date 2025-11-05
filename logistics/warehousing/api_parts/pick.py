@@ -72,6 +72,7 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
         created_rows, created_qty = _append_job_items(
             job=job, source_parent=job.name, source_child=row["name"],
             item=item, uom=row.get("uom"), allocations=allocations,
+            order_data=row,
         )
         total_created_rows += created_rows
         total_created_qty  += created_qty
@@ -185,6 +186,7 @@ def initiate_vas_pick(warehouse_job: str, clear_existing: int = 1):
             c_rows, c_qty = _append_job_items(
                 job=job, source_parent=job.name, source_child=f"{parent.get('name')}::{bom}",
                 item=c_item, uom=uom, allocations=allocs_neg,
+                order_data=parent,
             )
             created_rows += c_rows
             created_qty  += c_qty  # negative sum

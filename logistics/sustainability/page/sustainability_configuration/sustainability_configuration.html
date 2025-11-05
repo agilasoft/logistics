@@ -1,0 +1,119 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container">
+	<div class="row">
+		<div class="col-12">
+			<h1>{{ title }}</h1>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-md-6">
+			<div class="card">
+				<div class="card-header">
+					<h5>Module Integration Status</h5>
+				</div>
+				<div class="card-body">
+					{% for module in integrated_modules %}
+					<div class="d-flex justify-content-between align-items-center mb-2">
+						<span>{{ module.module_name }}</span>
+						<div>
+							{% if module.enable_tracking %}
+								<span class="badge badge-success">Enabled</span>
+							{% else %}
+								<span class="badge badge-secondary">Disabled</span>
+							{% endif %}
+						</div>
+					</div>
+					{% endfor %}
+				</div>
+			</div>
+		</div>
+		
+		<div class="col-md-6">
+			<div class="card">
+				<div class="card-header">
+					<h5>Compliance Status</h5>
+				</div>
+				<div class="card-body">
+					<div class="row">
+						<div class="col-6">
+							<small class="text-muted">Total Compliance</small>
+							<h4>{{ compliance_status.total_compliance }}</h4>
+						</div>
+						<div class="col-6">
+							<small class="text-muted">Certified</small>
+							<h4 class="text-success">{{ compliance_status.certified }}</h4>
+						</div>
+						<div class="col-6">
+							<small class="text-muted">Expired</small>
+							<h4 class="text-danger">{{ compliance_status.expired }}</h4>
+						</div>
+						<div class="col-6">
+							<small class="text-muted">Expiring Soon</small>
+							<h4 class="text-warning">{{ compliance_status.expiring_soon }}</h4>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<h5>Emission Factors Summary</h5>
+				</div>
+				<div class="card-body">
+					<div class="table-responsive">
+						<table class="table table-sm">
+							<thead>
+								<tr>
+									<th>Category</th>
+									<th>Module</th>
+									<th>Count</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for category, modules in emission_factors.items() %}
+									{% for module, count in modules.items() %}
+									<tr>
+										<td>{{ category }}</td>
+										<td>{{ module }}</td>
+										<td>{{ count }}</td>
+									</tr>
+									{% endfor %}
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div class="row mt-4">
+		<div class="col-12">
+			<button class="btn btn-primary" onclick="setupSustainability()">
+				Setup Sustainability Module
+			</button>
+		</div>
+	</div>
+</div>
+
+<script>
+function setupSustainability() {
+	frappe.call({
+		method: "logistics.sustainability.page.sustainability_configuration.sustainability_configuration.setup_sustainability",
+		callback: function(r) {
+			if (r.message.status === "success") {
+				frappe.msgprint("Sustainability module setup completed!");
+				location.reload();
+			}
+		}
+	});
+}
+</script>
+{% endblock %}

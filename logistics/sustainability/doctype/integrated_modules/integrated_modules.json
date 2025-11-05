@@ -1,0 +1,96 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:module_name",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "module_name",
+  "enable_tracking",
+  "enable_carbon_tracking",
+  "enable_energy_tracking",
+  "enable_waste_tracking",
+  "auto_calculate",
+  "calculation_frequency",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "module_name",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Module Name",
+   "options": "Transport\nWarehousing\nAir Freight\nSea Freight\nCustoms\nJob Management\nPricing Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "enable_tracking",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enable Tracking",
+   "default": 1
+  },
+  {
+   "fieldname": "enable_carbon_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Carbon Tracking",
+   "default": 1
+  },
+  {
+   "fieldname": "enable_energy_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Energy Tracking",
+   "default": 1
+  },
+  {
+   "fieldname": "enable_waste_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Waste Tracking",
+   "default": 1
+  },
+  {
+   "fieldname": "auto_calculate",
+   "fieldtype": "Check",
+   "label": "Auto Calculate",
+   "default": 1
+  },
+  {
+   "fieldname": "calculation_frequency",
+   "fieldtype": "Select",
+   "label": "Calculation Frequency",
+   "options": "Daily\nWeekly\nMonthly\nQuarterly",
+   "default": "Daily"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Integrated Modules",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
