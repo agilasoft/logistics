@@ -1,0 +1,81 @@
+<!--
+BIR CAS Footer Script - Simple & Reliable Version
+Copy and paste this script into Letter Head Footer field in ERPNext
+This version is optimized for ERPNext's Jinja2 template engine
+-->
+
+{% set bir_cas = None %}
+{% set bir_cas_list = frappe.get_all("BIR CAS Settings", filters={"company": doc.company}, limit=1) %}
+{% if bir_cas_list %}
+    {% set bir_cas = frappe.get_doc("BIR CAS Settings", bir_cas_list[0].name) %}
+{% else %}
+    {% try %}
+        {% set bir_cas = frappe.get_single("BIR CAS Settings") %}
+    {% except %}
+    {% endtry %}
+{% endif %}
+
+<div style="text-align: center; font-size: 8pt; margin-top: 10mm; padding-top: 5mm; border-top: 1px solid #ddd;">
+    {% if bir_cas %}
+        {% if bir_cas.company_name or doc.company %}
+            <strong>{{ bir_cas.company_name or doc.company }}</strong><br>
+        {% endif %}
+        
+        {% if bir_cas.business_address %}
+            {{ bir_cas.business_address }}<br>
+        {% endif %}
+        
+        {% if bir_cas.city or bir_cas.state %}
+            {{ bir_cas.city or '' }}{% if bir_cas.city and bir_cas.state %}, {% endif %}{{ bir_cas.state or '' }}{% if bir_cas.postal_code %} {{ bir_cas.postal_code }}{% endif %}<br>
+        {% endif %}
+        
+        <div style="font-size: 7pt; margin-top: 2mm; line-height: 1.6;">
+            {% if bir_cas.tin %}
+                TIN: {{ bir_cas.tin }}{% if bir_cas.branch_code %}-{{ bir_cas.branch_code }}{% endif %}<br>
+            {% elif frappe.db.get_value("Company", doc.company, "tin") %}
+                TIN: {{ frappe.db.get_value("Company", doc.company, "tin") }}{% if frappe.db.get_value("Company", doc.company, "branch_code") %}-{{ frappe.db.get_value("Company", doc.company, "branch_code") }}{% endif %}<br>
+            {% endif %}
+            
+            {% if bir_cas.cas_number %}CAS No.: {{ bir_cas.cas_number }}<br>{% endif %}
+            {% if bir_cas.accreditation_number %}Accreditation No.: {{ bir_cas.accreditation_number }}<br>{% endif %}
+            {% if bir_cas.accreditation_date %}Date Accredited: {{ frappe.utils.formatdate(bir_cas.accreditation_date, "MMM dd, yyyy") }}<br>{% endif %}
+            {% if bir_cas.contact_number %}Tel: {{ bir_cas.contact_number }}<br>{% endif %}
+            {% if bir_cas.email %}Email: {{ bir_cas.email }}<br>{% endif %}
+            {% if bir_cas.website %}Website: {{ bir_cas.website }}<br>{% endif %}
+            
+            {% if bir_cas.bir_authorized_representative %}
+                <div style="font-size: 7pt; margin-top: 1mm; font-style: italic;">
+                    Authorized Representative: {{ bir_cas.bir_authorized_representative }}
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        {% set company = frappe.get_doc("Company", doc.company) %}
+        {% if company.company_name or doc.company %}
+            <strong>{{ company.company_name or doc.company }}</strong><br>
+        {% endif %}
+        {% if company.address %}
+            {% set company_address = frappe.get_doc("Address", company.address) %}
+            {% if company_address.address_line1 %}{{ company_address.address_line1 }}<br>{% endif %}
+            {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+            {% if company_address.city or company_address.state %}
+                {{ company_address.city or '' }}{% if company_address.city and company_address.state %}, {% endif %}{{ company_address.state or '' }}{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}<br>
+            {% endif %}
+        {% endif %}
+        <div style="font-size: 7pt; margin-top: 2mm;">
+            {% if company.tin %}
+                TIN: {{ company.tin }}{% if company.branch_code %}-{{ company.branch_code }}{% endif %}<br>
+            {% endif %}
+            {% if company.phone_no %}Tel: {{ company.phone_no }}<br>{% endif %}
+            {% if company.email %}Email: {{ company.email }}<br>{% endif %}
+        </div>
+    {% endif %}
+    
+    {% if bir_cas and bir_cas.footer_note %}
+    <div style="font-size: 6pt; margin-top: 2mm; color: #666; font-style: italic;">
+        {{ bir_cas.footer_note }}
+    </div>
+    {% endif %}
+</div>
+
+

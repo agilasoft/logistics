@@ -1,0 +1,120 @@
+<!--
+BIR CAS Footer Script for ERPNext Letter Head
+This script fetches BIR CAS details from BIR CAS Settings doctype
+Copy and paste this entire content into the Letter Head Footer field in ERPNext
+-->
+
+{% set bir_cas_settings = None %}
+{% if frappe.db.exists("BIR CAS Settings", {"company": doc.company}) %}
+    {% set bir_cas_settings = frappe.get_doc("BIR CAS Settings", {"company": doc.company}) %}
+{% elif frappe.db.exists("BIR CAS Settings") %}
+    {# If BIR CAS Settings is a Single doctype, use get_single #}
+    {% try %}
+        {% set bir_cas_settings = frappe.get_single("BIR CAS Settings") %}
+    {% except %}
+        {# If not single, try to get first record or record matching company #}
+        {% set bir_cas_settings = frappe.get_all("BIR CAS Settings", filters={"company": doc.company}, limit=1) %}
+        {% if bir_cas_settings %}
+            {% set bir_cas_settings = frappe.get_doc("BIR CAS Settings", bir_cas_settings[0].name) %}
+        {% endif %}
+    {% endtry %}
+{% endif %}
+
+{% if bir_cas_settings %}
+<div style="text-align: center; font-size: 8pt; margin-top: 10mm; padding-top: 5mm; border-top: 1px solid #ddd;">
+    <div style="margin-bottom: 3mm;">
+        {% if bir_cas_settings.company_name %}
+            <strong>{{ bir_cas_settings.company_name }}</strong><br>
+        {% elif doc.company %}
+            <strong>{{ doc.company }}</strong><br>
+        {% endif %}
+        
+        {% if bir_cas_settings.business_address %}
+            {{ bir_cas_settings.business_address }}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.city or bir_cas_settings.state or bir_cas_settings.postal_code %}
+            {% if bir_cas_settings.city %}{{ bir_cas_settings.city }}{% endif %}{% if bir_cas_settings.state %}, {{ bir_cas_settings.state }}{% endif %}{% if bir_cas_settings.postal_code %} {{ bir_cas_settings.postal_code }}{% endif %}<br>
+        {% endif %}
+    </div>
+    
+    <div style="font-size: 7pt; line-height: 1.4;">
+        {% if bir_cas_settings.tin %}
+            TIN: {{ bir_cas_settings.tin }}{% if bir_cas_settings.branch_code %}-{{ bir_cas_settings.branch_code }}{% endif %}<br>
+        {% elif frappe.db.get_value("Company", doc.company, "tin") %}
+            TIN: {{ frappe.db.get_value("Company", doc.company, "tin") }}{% if frappe.db.get_value("Company", doc.company, "branch_code") %}-{{ frappe.db.get_value("Company", doc.company, "branch_code") }}{% endif %}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.cas_number %}
+            CAS No.: {{ bir_cas_settings.cas_number }}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.accreditation_number %}
+            Accreditation No.: {{ bir_cas_settings.accreditation_number }}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.accreditation_date %}
+            Date Accredited: {{ frappe.utils.formatdate(bir_cas_settings.accreditation_date, "MMM dd, yyyy") }}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.contact_number %}
+            Tel: {{ bir_cas_settings.contact_number }}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.email %}
+            Email: {{ bir_cas_settings.email }}<br>
+        {% endif %}
+        
+        {% if bir_cas_settings.website %}
+            Website: {{ bir_cas_settings.website }}<br>
+        {% endif %}
+    </div>
+    
+    {% if bir_cas_settings.bir_authorized_representative %}
+    <div style="font-size: 7pt; margin-top: 2mm; font-style: italic;">
+        Authorized Representative: {{ bir_cas_settings.bir_authorized_representative }}
+    </div>
+    {% endif %}
+    
+    {% if bir_cas_settings.footer_note %}
+    <div style="font-size: 6pt; margin-top: 2mm; color: #666;">
+        {{ bir_cas_settings.footer_note }}
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<!-- Fallback to Company details if BIR CAS Settings not found -->
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+<div style="text-align: center; font-size: 8pt; margin-top: 10mm; padding-top: 5mm; border-top: 1px solid #ddd;">
+    <div style="margin-bottom: 3mm;">
+        <strong>{{ company_doc.company_name or doc.company }}</strong><br>
+        {% if company_doc.address %}
+            {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+            {% if company_address.address_line1 %}{{ company_address.address_line1 }}<br>{% endif %}
+            {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+            {% if company_address.city or company_address.state %}
+                {{ company_address.city if company_address.city else '' }}{% if company_address.state %}, {{ company_address.state }}{% endif %}{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}<br>
+            {% endif %}
+        {% endif %}
+    </div>
+    
+    <div style="font-size: 7pt; line-height: 1.4;">
+        {% if company_doc.tin %}
+            TIN: {{ company_doc.tin }}{% if company_doc.branch_code %}-{{ company_doc.branch_code }}{% endif %}<br>
+        {% endif %}
+        
+        {% if company_doc.phone_no %}
+            Tel: {{ company_doc.phone_no }}<br>
+        {% endif %}
+        
+        {% if company_doc.email %}
+            Email: {{ company_doc.email }}<br>
+        {% endif %}
+        
+        {% if company_doc.website %}
+            Website: {{ company_doc.website }}<br>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
