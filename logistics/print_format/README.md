@@ -67,7 +67,7 @@ The print formats use Jinja2 templating. To customize:
 
 - Frappe Framework
 - ERPNext (for Sales Invoice and Purchase Invoice doctypes)
-- BIR custom fields (TIN, Branch Code) - should be set up via BIR 2307 setup
+- BIR custom fields (TIN, Branch Code) - should be set up via BIR CAS app
 
 ## File Structure
 
