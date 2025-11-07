@@ -195,23 +195,6 @@ doc_events = {
         # keep your existing validate hook(s) if any
         "before_submit": "logistics.warehousing.api.warehouse_job_before_submit",
     },
-    "Sales Invoice": {
-        "validate": [
-            "logistics.setup.bir_2307_hooks.validate_bir_2307_fields",
-            "logistics.setup.bir_2307_hooks.auto_populate_tin_fields",
-            "logistics.setup.bir_2307_hooks.auto_populate_atc_details"
-        ],
-    },
-    "Purchase Invoice": {
-        "validate": [
-            "logistics.setup.bir_2307_hooks.validate_bir_2307_fields",
-            "logistics.setup.bir_2307_hooks.auto_populate_tin_fields",
-            "logistics.setup.bir_2307_hooks.auto_populate_atc_details"
-        ],
-    },
-    "ATC Code": {
-        "validate": "logistics.setup.bir_2307_hooks.validate_atc_code",
-    },
     "Customer": {
         "after_save": "logistics.customer_hooks.add_portal_user_permissions",
         "on_update": "logistics.customer_hooks.remove_portal_user_permissions",
