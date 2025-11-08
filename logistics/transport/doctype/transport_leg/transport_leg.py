@@ -6,7 +6,10 @@ from frappe.model.document import Document
 
 class TransportLeg(Document):
     def validate(self):
-        """Update status based on start_date and end_date fields"""
+        """Validate Transport Leg data"""
+        self.validate_required_fields()
+        self.validate_time_windows()
+        self.validate_route_compatibility()
         self.update_status()
     
     def update_status(self):
@@ -34,8 +37,10 @@ class TransportLeg(Document):
         self.auto_fill_addresses()
     
     def after_save(self):
-        """Sync changes back to Run Sheet after Transport Leg is saved"""
+        """Sync changes back to Run Sheet and trigger auto-vehicle assignment after Transport Leg is saved"""
         self.sync_to_run_sheet()
+        self.update_transport_job_status()
+        self._trigger_auto_vehicle_assignment()
     
     def on_trash(self):
         """Remove this leg from Run Sheet when Transport Leg is deleted"""
@@ -185,6 +190,80 @@ class TransportLeg(Document):
             frappe.log_error(f"Error getting primary address for {facility_type} {facility_name}: {str(e)}")
         
         return None
+    
+    def validate_required_fields(self):
+        """Validate required fields are present"""
+        from frappe import _
+        
+        if not self.transport_job:
+            frappe.throw(_("Transport Job is required"))
+        if not self.vehicle_type:
+            frappe.throw(_("Vehicle Type is required"))
+        if not self.facility_from:
+            frappe.throw(_("Pick Facility is required"))
+        if not self.facility_to:
+            frappe.throw(_("Drop Facility is required"))
+    
+    def validate_time_windows(self):
+        """Validate time windows are logical"""
+        from frappe import _
+        from frappe.utils import get_datetime
+        
+        if self.pick_window_start and self.pick_window_end:
+            pick_start = get_datetime(self.pick_window_start)
+            pick_end = get_datetime(self.pick_window_end)
+            if pick_end <= pick_start:
+                frappe.throw(_("Pick Window End must be after Pick Window Start"))
+        
+        if self.drop_window_start and self.drop_window_end:
+            drop_start = get_datetime(self.drop_window_start)
+            drop_end = get_datetime(self.drop_window_end)
+            if drop_end <= drop_start:
+                frappe.throw(_("Drop Window End must be after Drop Window Start"))
+        
+        # Warn if drop window starts before pick window ends on the same date
+        if self.pick_window_end and self.drop_window_start:
+            pick_end = get_datetime(self.pick_window_end)
+            drop_start = get_datetime(self.drop_window_start)
+            if drop_start.date() == pick_end.date() and drop_start < pick_end:
+                frappe.msgprint(_("Warning: Drop Window Start is before Pick Window End on the same date. This may indicate a scheduling issue."), indicator="orange")
+    
+    def validate_route_compatibility(self):
+        """Validate route compatibility"""
+        from frappe import _
+        
+        if self.facility_from == self.facility_to:
+            frappe.throw(_("Pick Facility and Drop Facility cannot be the same"))
+        
+        # Warn if distance seems unreasonable (e.g., negative or extremely large)
+        if hasattr(self, "distance_km") and self.distance_km:
+            if self.distance_km < 0:
+                frappe.throw(_("Distance cannot be negative"))
+            if self.distance_km > 10000:  # 10,000 km seems like an upper bound for most transport
+                frappe.msgprint(_("Warning: Distance ({0} km) seems unusually large. Please verify the route.").format(self.distance_km), indicator="orange")
+    
+    def update_transport_job_status(self):
+        """Update the parent Transport Job status when this leg's status changes"""
+        if not self.transport_job:
+            return
+        
+        try:
+            job_doc = frappe.get_doc("Transport Job", self.transport_job)
+            job_doc.update_status()
+            job_doc.save(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(f"Error updating Transport Job status for leg {self.name}: {str(e)}", "Transport Leg Status Update Error")
+    
+    def _trigger_auto_vehicle_assignment(self):
+        """Trigger auto-vehicle assignment if enabled and leg doesn't have a run sheet"""
+        if self.run_sheet:
+            return
+        
+        try:
+            from logistics.transport.automation_helpers import auto_assign_vehicle_to_leg
+            auto_assign_vehicle_to_leg(self)
+        except Exception as e:
+            frappe.log_error(f"Error triggering auto-vehicle assignment for leg {self.name}: {str(e)}", "Auto Vehicle Assignment Error")
 
 
 @frappe.whitelist()

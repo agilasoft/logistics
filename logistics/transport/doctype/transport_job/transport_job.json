@@ -7,6 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "status",
+  "priority",
   "booking_date",
   "transport_template",
   "transport_job_type",
@@ -27,11 +29,19 @@
   "legs",
   "charges_tab",
   "charges",
+  "sla_tab",
+  "sla_section",
+  "sla_target_date",
+  "sla_status",
+  "column_break_sla",
+  "sla_notes",
   "notes_tab",
   "notes_section",
   "internal_notes",
   "column_break_16",
   "client_notes",
+  "communication_tab",
+  "customer_communication_log",
   "amended_from",
   "entity_tab",
   "company",
@@ -55,6 +65,23 @@
    "fieldtype": "Select",
    "label": "Naming Series",
    "options": "TRJ.#########"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nCancelled",
+   "reqd": 1
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh"
   },
   {
    "fieldname": "customer",
@@ -135,6 +162,16 @@
    "label": "Client Notes"
   },
   {
+   "fieldname": "communication_tab",
+   "fieldtype": "Tab Break",
+   "label": "Communication"
+  },
+  {
+   "fieldname": "customer_communication_log",
+   "fieldtype": "Text Editor",
+   "label": "Customer Communication Log"
+  },
+  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -161,6 +198,38 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Transport Job Charges"
+  },
+  {
+   "fieldname": "sla_tab",
+   "fieldtype": "Tab Break",
+   "label": "SLA"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sla_section",
+   "fieldtype": "Section Break",
+   "label": "Service Level Agreement"
+  },
+  {
+   "fieldname": "sla_target_date",
+   "fieldtype": "Datetime",
+   "label": "SLA Target Date"
+  },
+  {
+   "default": "Not Applicable",
+   "fieldname": "sla_status",
+   "fieldtype": "Select",
+   "label": "SLA Status",
+   "options": "On Track\nAt Risk\nBreached\nNot Applicable"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sla_notes",
+   "fieldtype": "Text",
+   "label": "SLA Notes"
   },
   {
    "fieldname": "section_break_jozr",
@@ -342,6 +411,27 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
+ "states": [
+  {
+   "color": "#ff9800",
+   "title": "Draft"
+  },
+  {
+   "color": "#2196f3",
+   "title": "Submitted"
+  },
+  {
+   "color": "#4caf50",
+   "title": "In Progress"
+  },
+  {
+   "color": "#8bc34a",
+   "title": "Completed"
+  },
+  {
+   "color": "#f44336",
+   "title": "Cancelled"
+  }
+ ],
  "track_changes": 1
 }

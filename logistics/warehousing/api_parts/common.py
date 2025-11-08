@@ -649,6 +649,7 @@ def _query_available_candidates(
         LEFT JOIN `tabWarehouse Batch`  b ON b.name = l.batch_no
         LEFT JOIN `tabWarehouse Serial` ws ON ws.name = l.serial_no
         WHERE l.item = %s
+          AND IFNULL(sl.staging_area, 0) = 0
           AND (%s IS NULL OR l.batch_no = %s)
           AND (%s IS NULL OR l.serial_no = %s)
           {scope_sql}

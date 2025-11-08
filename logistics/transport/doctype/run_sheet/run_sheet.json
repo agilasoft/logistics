@@ -27,7 +27,11 @@
   "driver_name",
   "transport_consolidation",
   "transport_leg_tab",
-  "legs"
+  "legs",
+  "column_break_completion",
+  "estimated_completion_time",
+  "actual_completion_time",
+  "route_optimization_score"
  ],
  "fields": [
   {
@@ -157,6 +161,27 @@
    "fieldtype": "Link",
    "label": "Transport Consolidation",
    "options": "Transport Consolidation"
+  },
+  {
+   "fieldname": "column_break_completion",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_completion_time",
+   "fieldtype": "Datetime",
+   "label": "Estimated Completion Time"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "actual_completion_time",
+   "fieldtype": "Datetime",
+   "label": "Actual Completion Time"
+  },
+  {
+   "fieldname": "route_optimization_score",
+   "fieldtype": "Float",
+   "label": "Route Optimization Score",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

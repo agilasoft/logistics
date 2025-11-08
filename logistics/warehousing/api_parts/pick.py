@@ -5,6 +5,91 @@ from .common import _get_job_scope, _fetch_job_order_items, _get_allocation_leve
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
+from typing import List, Dict, Any, Optional
+
+
+def _get_pick_policy(item: str, company: Optional[str] = None) -> str:
+    """Get pick policy description for an item.
+    
+    Args:
+        item: Item code
+        company: Optional company for company-level policy
+        
+    Returns:
+        Policy description string
+    """
+    try:
+        # Get item-level pick policy (picking_method)
+        item_policy = frappe.db.get_value("Warehouse Item", item, "picking_method")
+        if item_policy:
+            return f"Item-level: {item_policy}"
+        
+        # Get company-level pick policy if company is provided
+        if company:
+            company_policy = frappe.db.get_value("Company", company, "pick_policy")
+            if company_policy:
+                return f"Company-level: {company_policy}"
+        
+        # Default policy
+        return "Default: FIFO"
+    except Exception as e:
+        frappe.logger().warning(f"Error getting pick policy for item {item}: {str(e)}")
+        return "Default: FIFO"
+
+
+def _filter_candidates_by_hu_priority(
+    candidates: List[Dict[str, Any]],
+    order_row: Dict[str, Any],
+    company: Optional[str] = None,
+    branch: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Filter and prioritize candidates based on handling unit requirements from order.
+    
+    Priority hierarchy:
+    1. Specific handling unit from order (if specified)
+    2. Handling unit type from order (if specified)
+    3. Pick policy
+    
+    Args:
+        candidates: List of candidate dictionaries
+        order_row: Order row dictionary
+        company: Company filter
+        branch: Branch filter
+        
+    Returns:
+        Filtered and prioritized list of candidates
+    """
+    if not candidates:
+        return []
+    
+    order_handling_unit = order_row.get("handling_unit")
+    order_handling_unit_type = order_row.get("handling_unit_type")
+    
+    # Priority 1: Specific handling unit from order
+    if order_handling_unit:
+        hu_filtered = [c for c in candidates if c.get("handling_unit") == order_handling_unit]
+        if hu_filtered:
+            return hu_filtered
+    
+    # Priority 2: Handling unit type from order
+    if order_handling_unit_type:
+        # Get HU type for each candidate
+        type_filtered = []
+        for c in candidates:
+            hu_name = c.get("handling_unit")
+            if hu_name:
+                try:
+                    hu_type = frappe.db.get_value("Handling Unit", hu_name, "type")
+                    if hu_type == order_handling_unit_type:
+                        type_filtered.append(c)
+                except Exception:
+                    pass
+        
+        if type_filtered:
+            return type_filtered
+    
+    # Priority 3: Pick policy (already handled by _order_candidates)
+    return candidates
 
 @frappe.whitelist()
 def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
@@ -52,6 +137,9 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
 
         # Filter by allocation level (same path as staging up to configured level)
         candidates = _filter_locations_by_level(candidates, staging_area, level_limit_label)
+        
+        # Apply handling unit priority hierarchy
+        candidates = _filter_candidates_by_hu_priority(candidates, row, company, branch)
 
         if fixed_serial or fixed_batch:
             allocations = _greedy_allocate(candidates, req_qty, rules, force_exact=True)
