@@ -8,9 +8,12 @@ from datetime import datetime, timedelta
 class AirConsolidation(Document):
     def validate(self):
         """Validate Air Consolidation document"""
+        self.validate_dates()
         self.validate_consolidation_data()
         self.validate_route_consistency()
         self.validate_capacity_constraints()
+        self.validate_attached_jobs_compatibility()
+        self.validate_jobs_not_in_multiple_consolidations()
         self.calculate_consolidation_metrics()
         self.validate_dangerous_goods_compliance()
         self.validate_accounts()
@@ -43,10 +46,7 @@ class AirConsolidation(Document):
         if not self.consolidation_routes:
             frappe.throw(_("At least one route must be defined for the consolidation"))
         
-        # Validate dates
-        if self.departure_date and self.arrival_date:
-            if self.departure_date >= self.arrival_date:
-                frappe.throw(_("Departure date must be before arrival date"))
+        # Date validation is handled in validate_dates() method
     
     def validate_route_consistency(self):
         """Validate route consistency and connectivity"""
@@ -66,6 +66,92 @@ class AirConsolidation(Document):
             
             if route.cargo_capacity_volume and self.total_volume > route.cargo_capacity_volume:
                 frappe.throw(_("Route {0}: Total volume exceeds cargo capacity".format(route.route_sequence)))
+    
+    def validate_attached_jobs_compatibility(self):
+        """Validate that attached Air Shipments are compatible for consolidation"""
+        if not self.consolidation_packages:
+            return
+        
+        # Get all attached Air Shipments
+        attached_jobs = []
+        for package in self.consolidation_packages:
+            if package.air_freight_job:
+                attached_jobs.append(package.air_freight_job)
+        
+        if not attached_jobs:
+            return
+        
+        # Get job details
+        jobs_data = frappe.get_all(
+            "Air Shipment",
+            filters={"name": ["in", attached_jobs]},
+            fields=["name", "origin_port", "destination_port", "service_level", "contains_dangerous_goods", "direction"]
+        )
+        
+        if not jobs_data:
+            return
+        
+        # Check all jobs have same origin and destination airports
+        first_job = jobs_data[0]
+        for job in jobs_data[1:]:
+            if job.origin_port != first_job.origin_port:
+                frappe.throw(
+                    _("Air Shipment {0} has different origin port ({1}) than other shipments ({2}). All shipments in a consolidation must have the same origin and destination.").format(
+                        job.name, job.origin_port, first_job.origin_port
+                    ),
+                    title=_("Consolidation Compatibility Error")
+                )
+            
+            if job.destination_port != first_job.destination_port:
+                frappe.throw(
+                    _("Air Shipment {0} has different destination port ({1}) than other shipments ({2}). All shipments in a consolidation must have the same origin and destination.").format(
+                        job.name, job.destination_port, first_job.destination_port
+                    ),
+                    title=_("Consolidation Compatibility Error")
+                )
+            
+            # Check direction compatibility
+            if job.direction != first_job.direction:
+                frappe.throw(
+                    _("Air Shipment {0} has different direction ({1}) than other shipments ({2}). All shipments in a consolidation must have the same direction.").format(
+                        job.name, job.direction, first_job.direction
+                    ),
+                    title=_("Consolidation Compatibility Error")
+                )
+    
+    def validate_jobs_not_in_multiple_consolidations(self):
+        """Validate that Air Shipments are not already in another consolidation"""
+        if not self.consolidation_packages:
+            return
+        
+        # Get all attached Air Shipments
+        attached_jobs = []
+        for package in self.consolidation_packages:
+            if package.air_freight_job:
+                attached_jobs.append(package.air_freight_job)
+        
+        if not attached_jobs:
+            return
+        
+        # Check if any of these jobs are already in another consolidation
+        existing_consolidations = frappe.get_all(
+            "Air Consolidation Packages",
+            filters={
+                "air_freight_job": ["in", attached_jobs],
+                "parent": ["!=", self.name]
+            },
+            fields=["parent", "air_freight_job"],
+            group_by="air_freight_job"
+        )
+        
+        if existing_consolidations:
+            for consolidation in existing_consolidations:
+                frappe.throw(
+                    _("Air Shipment {0} is already included in consolidation {1}. A shipment can only be in one consolidation at a time.").format(
+                        consolidation.air_freight_job, consolidation.parent
+                    ),
+                    title=_("Consolidation Conflict Error")
+                )
     
     def calculate_consolidation_metrics(self):
         """Calculate consolidation metrics"""
@@ -537,31 +623,46 @@ class AirConsolidation(Document):
         
         return summary
     
+    def validate_dates(self):
+        """Validate date fields"""
+        # Validate departure date is before arrival date
+        if self.departure_date and self.arrival_date:
+            if self.departure_date >= self.arrival_date:
+                frappe.throw(_("Departure date must be before arrival date"), 
+                    title=_("Date Validation Error"))
+        
+        # Warn if consolidation date is in the future
+        if self.consolidation_date:
+            from frappe.utils import getdate, today
+            if getdate(self.consolidation_date) > today():
+                frappe.msgprint(_("Consolidation date is in the future. Please verify this is correct."), 
+                    indicator="orange", title=_("Date Warning"))
+    
     def validate_accounts(self):
         """Validate accounting fields"""
         if not self.company:
-            frappe.throw(_("Company is required"))
+            frappe.throw(_("Company is required"), title=_("Validation Error"))
         
         # Validate cost center belongs to company
         if self.cost_center:
-            cost_center_company = frappe.db.get_value("Cost Center", self.cost_center, "company")
+            cost_center_company = frappe.get_cached_value("Cost Center", self.cost_center, "company")
             if cost_center_company and cost_center_company != self.company:
                 frappe.throw(_("Cost Center {0} does not belong to Company {1}").format(
-                    self.cost_center, self.company))
+                    self.cost_center, self.company), title=_("Validation Error"))
         
         # Validate profit center belongs to company
         if self.profit_center:
-            profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
+            profit_center_company = frappe.get_cached_value("Profit Center", self.profit_center, "company")
             if profit_center_company and profit_center_company != self.company:
                 frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
-                    self.profit_center, self.company))
+                    self.profit_center, self.company), title=_("Validation Error"))
         
         # Validate branch belongs to company
         if self.branch:
-            branch_company = frappe.db.get_value("Branch", self.branch, "company")
+            branch_company = frappe.get_cached_value("Branch", self.branch, "company")
             if branch_company and branch_company != self.company:
                 frappe.throw(_("Branch {0} does not belong to Company {1}").format(
-                    self.branch, self.company))
+                    self.branch, self.company), title=_("Validation Error"))
     
     def create_job_costing_number_if_needed(self):
         """Create Job Costing Number when document is first saved"""

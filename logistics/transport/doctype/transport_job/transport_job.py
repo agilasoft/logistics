@@ -583,6 +583,12 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
         if item_code:
             item_payload["item_code"] = item_code
         
+        # Add accounting fields to Sales Invoice Item
+        if getattr(job, "cost_center", None):
+            item_payload["cost_center"] = job.cost_center
+        if getattr(job, "profit_center", None):
+            item_payload["profit_center"] = job.profit_center
+        
         si.append("items", item_payload)
     
     # Set missing values and insert

@@ -95,6 +95,103 @@
   "estimated_fuel_consumption",
   "column_break_sustainability",
   "sustainability_notes",
+  "uld_tab",
+  "uld_section",
+  "uld_type",
+  "uld_number",
+  "uld_capacity_kg",
+  "column_break_uld",
+  "uld_position",
+  "uld_tracking_status",
+  "customs_tab",
+  "customs_section",
+  "customs_declaration_number",
+  "customs_status",
+  "customs_broker",
+  "column_break_customs",
+  "duty_amount",
+  "tax_amount",
+  "customs_clearance_date",
+  "customs_notes",
+  "insurance_tab",
+  "insurance_section",
+  "insurance_provider",
+  "insurance_policy_number",
+  "insurance_value",
+  "column_break_insurance",
+  "insurance_claim_number",
+  "insurance_claim_status",
+  "insurance_claim_date",
+  "temperature_tab",
+  "temperature_section",
+  "requires_temperature_control",
+  "min_temperature",
+  "max_temperature",
+  "column_break_temperature",
+  "temperature_monitoring",
+  "cold_chain_compliance",
+  "temperature_log",
+  "documents_tab",
+  "documents_section",
+  "commercial_invoice_number",
+  "packing_list_number",
+  "certificate_of_origin",
+  "column_break_documents",
+  "export_license",
+  "import_permit",
+  "other_documents",
+  "pricing_tab",
+  "sales_quote",
+  "charges",
+  "iata_advanced_tab",
+  "casslink_section",
+  "cass_participant_code",
+  "cass_settlement_status",
+  "cass_settlement_date",
+  "column_break_cass",
+  "cass_billing_reference",
+  "cass_settlement_amount",
+  "tact_section",
+  "tact_rate_lookup",
+  "tact_rate_reference",
+  "tact_rate_amount",
+  "column_break_tact",
+  "tact_currency",
+  "tact_rate_validity",
+  "eawb_section",
+  "eawb_enabled",
+  "eawb_status",
+  "eawb_digital_signature",
+  "column_break_eawb",
+  "eawb_signed_date",
+  "eawb_signed_by",
+  "tracking_tab",
+  "tracking_section",
+  "tracking_provider",
+  "tracking_number",
+  "tracking_url",
+  "column_break_tracking",
+  "real_time_tracking_enabled",
+  "last_tracking_update",
+  "tracking_status",
+  "revenue_tab",
+  "revenue_section",
+  "revenue_recognition_date",
+  "revenue_recognition_method",
+  "revenue_amount",
+  "column_break_revenue",
+  "partial_revenue_enabled",
+  "recognized_revenue_amount",
+  "revenue_reversal_date",
+  "billing_tab",
+  "billing_section",
+  "auto_billing_enabled",
+  "billing_status",
+  "sales_invoice",
+  "column_break_billing",
+  "billing_date",
+  "billing_amount",
+  "billing_currency",
   "connections_tab",
   "accounts_tab",
   "company",
@@ -127,7 +224,8 @@
   {
    "fieldname": "booking_date",
    "fieldtype": "Date",
-   "label": "Booking Date"
+   "label": "Booking Date",
+   "reqd": 1
   },
   {
    "fieldname": "airline",
@@ -143,13 +241,15 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper"
+   "options": "Shipper",
+   "reqd": 1
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee"
+   "options": "Consignee",
+   "reqd": 1
   },
   {
    "fieldname": "house_type",
@@ -160,13 +260,15 @@
    "fieldname": "direction",
    "fieldtype": "Select",
    "label": "Direction",
-   "options": "Import\nExport\nDomestic"
+   "options": "Import\nExport\nDomestic",
+   "reqd": 1
   },
   {
    "fieldname": "local_customer",
    "fieldtype": "Link",
    "label": "Local Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "reqd": 1
   },
   {
    "fieldname": "freight_agent",
@@ -205,7 +307,8 @@
    "fieldtype": "Link",
    "label": "Origin Port",
    "options": "UNLOCO",
-   "description": "Origin port UNLOCO code"
+   "description": "Origin port UNLOCO code",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_oxhc",
@@ -216,7 +319,8 @@
    "fieldtype": "Link",
    "label": "Destination Port",
    "options": "UNLOCO",
-   "description": "Destination port UNLOCO code"
+   "description": "Destination port UNLOCO code",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_uvws",
@@ -527,6 +631,537 @@
    "label": "Sustainability Notes"
   },
   {
+   "fieldname": "uld_tab",
+   "fieldtype": "Tab Break",
+   "label": "ULD Management"
+  },
+  {
+   "fieldname": "uld_section",
+   "fieldtype": "Section Break",
+   "label": "Unit Load Device (ULD) Information"
+  },
+  {
+   "fieldname": "uld_type",
+   "fieldtype": "Link",
+   "label": "ULD Type",
+   "options": "Unit Load Device"
+  },
+  {
+   "fieldname": "uld_number",
+   "fieldtype": "Data",
+   "label": "ULD Number",
+   "description": "IATA ULD identification number"
+  },
+  {
+   "fieldname": "uld_capacity_kg",
+   "fieldtype": "Float",
+   "label": "ULD Capacity (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_uld",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "uld_position",
+   "fieldtype": "Data",
+   "label": "ULD Position",
+   "description": "Position of ULD on aircraft (e.g., A1, B2)"
+  },
+  {
+   "fieldname": "uld_tracking_status",
+   "fieldtype": "Select",
+   "label": "ULD Tracking Status",
+   "options": "\nNot Assigned\nAssigned\nLoaded\nIn Transit\nDelivered\nReturned"
+  },
+  {
+   "fieldname": "customs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Customs"
+  },
+  {
+   "fieldname": "customs_section",
+   "fieldtype": "Section Break",
+   "label": "Customs Information"
+  },
+  {
+   "fieldname": "customs_declaration_number",
+   "fieldtype": "Data",
+   "label": "Customs Declaration Number"
+  },
+  {
+   "fieldname": "customs_status",
+   "fieldtype": "Select",
+   "label": "Customs Status",
+   "options": "\nNot Submitted\nSubmitted\nUnder Review\nCleared\nHeld\nRejected"
+  },
+  {
+   "fieldname": "customs_broker",
+   "fieldtype": "Link",
+   "label": "Customs Broker",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "column_break_customs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "duty_amount",
+   "fieldtype": "Currency",
+   "label": "Duty Amount"
+  },
+  {
+   "fieldname": "tax_amount",
+   "fieldtype": "Currency",
+   "label": "Tax Amount"
+  },
+  {
+   "fieldname": "customs_clearance_date",
+   "fieldtype": "Date",
+   "label": "Customs Clearance Date"
+  },
+  {
+   "fieldname": "customs_notes",
+   "fieldtype": "Text",
+   "label": "Customs Notes"
+  },
+  {
+   "fieldname": "insurance_tab",
+   "fieldtype": "Tab Break",
+   "label": "Insurance"
+  },
+  {
+   "fieldname": "insurance_section",
+   "fieldtype": "Section Break",
+   "label": "Cargo Insurance Information"
+  },
+  {
+   "fieldname": "insurance_provider",
+   "fieldtype": "Link",
+   "label": "Insurance Provider",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "insurance_policy_number",
+   "fieldtype": "Data",
+   "label": "Insurance Policy Number"
+  },
+  {
+   "fieldname": "insurance_value",
+   "fieldtype": "Currency",
+   "label": "Insurance Value",
+   "description": "Insured value of the cargo"
+  },
+  {
+   "fieldname": "column_break_insurance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "insurance_claim_number",
+   "fieldtype": "Data",
+   "label": "Insurance Claim Number"
+  },
+  {
+   "fieldname": "insurance_claim_status",
+   "fieldtype": "Select",
+   "label": "Claim Status",
+   "options": "\nNo Claim\nClaim Filed\nUnder Review\nApproved\nRejected\nSettled"
+  },
+  {
+   "fieldname": "insurance_claim_date",
+   "fieldtype": "Date",
+   "label": "Claim Date"
+  },
+  {
+   "fieldname": "temperature_tab",
+   "fieldtype": "Tab Break",
+   "label": "Temperature Control"
+  },
+  {
+   "fieldname": "temperature_section",
+   "fieldtype": "Section Break",
+   "label": "Temperature Control Information"
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_temperature_control",
+   "fieldtype": "Check",
+   "label": "Requires Temperature Control"
+  },
+  {
+   "fieldname": "min_temperature",
+   "fieldtype": "Float",
+   "label": "Minimum Temperature (°C)",
+   "precision": "1",
+   "depends_on": "eval:doc.requires_temperature_control==1"
+  },
+  {
+   "fieldname": "max_temperature",
+   "fieldtype": "Float",
+   "label": "Maximum Temperature (°C)",
+   "precision": "1",
+   "depends_on": "eval:doc.requires_temperature_control==1"
+  },
+  {
+   "fieldname": "column_break_temperature",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "temperature_monitoring",
+   "fieldtype": "Check",
+   "label": "Temperature Monitoring Enabled",
+   "depends_on": "eval:doc.requires_temperature_control==1"
+  },
+  {
+   "default": "0",
+   "fieldname": "cold_chain_compliance",
+   "fieldtype": "Check",
+   "label": "Cold Chain Compliance Verified",
+   "depends_on": "eval:doc.requires_temperature_control==1"
+  },
+  {
+   "fieldname": "temperature_log",
+   "fieldtype": "Long Text",
+   "label": "Temperature Log",
+   "depends_on": "eval:doc.requires_temperature_control==1",
+   "description": "Record of temperature readings during transit"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Management"
+  },
+  {
+   "fieldname": "commercial_invoice_number",
+   "fieldtype": "Data",
+   "label": "Commercial Invoice Number"
+  },
+  {
+   "fieldname": "packing_list_number",
+   "fieldtype": "Data",
+   "label": "Packing List Number"
+  },
+  {
+   "fieldname": "certificate_of_origin",
+   "fieldtype": "Data",
+   "label": "Certificate of Origin"
+  },
+  {
+   "fieldname": "column_break_documents",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "export_license",
+   "fieldtype": "Data",
+   "label": "Export License"
+  },
+  {
+   "fieldname": "import_permit",
+   "fieldtype": "Data",
+   "label": "Import Permit"
+  },
+  {
+   "fieldname": "other_documents",
+   "fieldtype": "Long Text",
+   "label": "Other Documents",
+   "description": "List of other required documents (e.g., health certificates, phytosanitary certificates)"
+  },
+  {
+   "fieldname": "pricing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Pricing"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Air Shipment Charges"
+  },
+  {
+   "fieldname": "iata_advanced_tab",
+   "fieldtype": "Tab Break",
+   "label": "IATA Advanced"
+  },
+  {
+   "fieldname": "casslink_section",
+   "fieldtype": "Section Break",
+   "label": "CASSLink Integration",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "cass_participant_code",
+   "fieldtype": "Data",
+   "label": "CASS Participant Code",
+   "description": "IATA CASS participant code for billing and settlement"
+  },
+  {
+   "fieldname": "cass_settlement_status",
+   "fieldtype": "Select",
+   "label": "CASS Settlement Status",
+   "options": "\nPending\nSubmitted\nSettled\nDisputed\nRejected"
+  },
+  {
+   "fieldname": "cass_settlement_date",
+   "fieldtype": "Date",
+   "label": "CASS Settlement Date"
+  },
+  {
+   "fieldname": "column_break_cass",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cass_billing_reference",
+   "fieldtype": "Data",
+   "label": "CASS Billing Reference"
+  },
+  {
+   "fieldname": "cass_settlement_amount",
+   "fieldtype": "Currency",
+   "label": "CASS Settlement Amount"
+  },
+  {
+   "fieldname": "tact_section",
+   "fieldtype": "Section Break",
+   "label": "TACT Integration",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "tact_rate_lookup",
+   "fieldtype": "Check",
+   "default": "0",
+   "label": "Use TACT Rate Lookup"
+  },
+  {
+   "fieldname": "tact_rate_reference",
+   "fieldtype": "Data",
+   "label": "TACT Rate Reference",
+   "description": "Reference number from TACT rate lookup"
+  },
+  {
+   "fieldname": "tact_rate_amount",
+   "fieldtype": "Currency",
+   "label": "TACT Rate Amount"
+  },
+  {
+   "fieldname": "column_break_tact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tact_currency",
+   "fieldtype": "Link",
+   "label": "TACT Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "tact_rate_validity",
+   "fieldtype": "Date",
+   "label": "TACT Rate Validity Date"
+  },
+  {
+   "fieldname": "eawb_section",
+   "fieldtype": "Section Break",
+   "label": "e-AWB (Electronic Air Waybill)",
+   "collapsible": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "eawb_enabled",
+   "fieldtype": "Check",
+   "label": "e-AWB Enabled"
+  },
+  {
+   "fieldname": "eawb_status",
+   "fieldtype": "Select",
+   "label": "e-AWB Status",
+   "options": "\nNot Created\nCreated\nSigned\nSubmitted\nAccepted\nRejected",
+   "depends_on": "eval:doc.eawb_enabled==1"
+  },
+  {
+   "fieldname": "eawb_digital_signature",
+   "fieldtype": "Data",
+   "label": "Digital Signature",
+   "read_only": 1,
+   "depends_on": "eval:doc.eawb_enabled==1"
+  },
+  {
+   "fieldname": "column_break_eawb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eawb_signed_date",
+   "fieldtype": "Datetime",
+   "label": "e-AWB Signed Date",
+   "read_only": 1,
+   "depends_on": "eval:doc.eawb_enabled==1"
+  },
+  {
+   "fieldname": "eawb_signed_by",
+   "fieldtype": "Link",
+   "label": "Signed By",
+   "options": "User",
+   "read_only": 1,
+   "depends_on": "eval:doc.eawb_enabled==1"
+  },
+  {
+   "fieldname": "tracking_tab",
+   "fieldtype": "Tab Break",
+   "label": "Tracking"
+  },
+  {
+   "fieldname": "tracking_section",
+   "fieldtype": "Section Break",
+   "label": "Real-time Tracking"
+  },
+  {
+   "fieldname": "tracking_provider",
+   "fieldtype": "Select",
+   "label": "Tracking Provider",
+   "options": "\nIATA\nAirlines\nThird Party\nCustom"
+  },
+  {
+   "fieldname": "tracking_number",
+   "fieldtype": "Data",
+   "label": "Tracking Number"
+  },
+  {
+   "fieldname": "tracking_url",
+   "fieldtype": "Data",
+   "label": "Tracking URL",
+   "description": "URL for customer tracking portal"
+  },
+  {
+   "fieldname": "column_break_tracking",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "real_time_tracking_enabled",
+   "fieldtype": "Check",
+   "label": "Real-time Tracking Enabled"
+  },
+  {
+   "fieldname": "last_tracking_update",
+   "fieldtype": "Datetime",
+   "label": "Last Tracking Update",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tracking_status",
+   "fieldtype": "Select",
+   "label": "Tracking Status",
+   "options": "\nPending\nIn Transit\nDelivered\nException",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revenue_tab",
+   "fieldtype": "Tab Break",
+   "label": "Revenue"
+  },
+  {
+   "fieldname": "revenue_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue Recognition"
+  },
+  {
+   "fieldname": "revenue_recognition_date",
+   "fieldtype": "Date",
+   "label": "Revenue Recognition Date"
+  },
+  {
+   "fieldname": "revenue_recognition_method",
+   "fieldtype": "Select",
+   "label": "Recognition Method",
+   "options": "\nOn Delivery\nOn Departure\nOn Booking\nPercentage Complete\nMilestone Based"
+  },
+  {
+   "fieldname": "revenue_amount",
+   "fieldtype": "Currency",
+   "label": "Total Revenue Amount"
+  },
+  {
+   "fieldname": "column_break_revenue",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "partial_revenue_enabled",
+   "fieldtype": "Check",
+   "label": "Partial Revenue Recognition"
+  },
+  {
+   "fieldname": "recognized_revenue_amount",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revenue_reversal_date",
+   "fieldtype": "Date",
+   "label": "Revenue Reversal Date",
+   "description": "Date when revenue was reversed (if applicable)"
+  },
+  {
+   "fieldname": "billing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Billing"
+  },
+  {
+   "fieldname": "billing_section",
+   "fieldtype": "Section Break",
+   "label": "Billing Automation"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_billing_enabled",
+   "fieldtype": "Check",
+   "label": "Auto Billing Enabled"
+  },
+  {
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "label": "Billing Status",
+   "options": "\nNot Billed\nPending\nBilled\nPartially Billed\nOverdue\nCancelled"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "column_break_billing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "billing_date",
+   "fieldtype": "Date",
+   "label": "Billing Date"
+  },
+  {
+   "fieldname": "billing_amount",
+   "fieldtype": "Currency",
+   "label": "Billing Amount"
+  },
+  {
+   "fieldname": "billing_currency",
+   "fieldtype": "Link",
+   "label": "Billing Currency",
+   "options": "Currency"
+  },
+  {
    "fieldname": "services_tab",
    "fieldtype": "Tab Break",
    "label": "Services"
@@ -568,25 +1203,30 @@
    "fieldname": "branch",
    "fieldtype": "Link",
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "reqd": 1
   },
   {
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "reqd": 1
   },
   {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
-   "options": "Profit Center"
+   "options": "Profit Center",
+   "reqd": 1
   },
   {
    "fieldname": "job_costing_number",
    "fieldtype": "Link",
    "label": "Job Costing Number",
-   "options": "Job Costing Number"
+   "options": "Job Costing Number",
+   "description": "This will be used when posting financial transactions to this job."
   },
   {
    "fieldname": "packages",

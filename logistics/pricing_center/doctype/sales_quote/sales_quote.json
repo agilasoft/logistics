@@ -31,6 +31,7 @@
   "sea_load_type",
   "air_tab",
   "air_load_type",
+  "air_freight",
   "transport_tab",
   "transport_template",
   "load_type",
@@ -193,6 +194,12 @@
    "label": "Load Type",
    "link_filters": "[[\"Load Type\",\"air\",\"=\",1]]",
    "options": "Load Type"
+  },
+  {
+   "fieldname": "air_freight",
+   "fieldtype": "Table",
+   "label": "Air Freight",
+   "options": "Sales Quote Air Freight"
   },
   {
    "fieldname": "transport_tab",

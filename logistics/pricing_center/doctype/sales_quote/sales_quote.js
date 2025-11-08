@@ -234,6 +234,60 @@ function create_transport_order_from_sales_quote(frm) {
 	);
 }
 
+function create_air_shipment_from_sales_quote(frm) {
+	// Show confirmation dialog
+	frappe.confirm(
+		__("Are you sure you want to create an Air Shipment from this Sales Quote? You can create multiple shipments from the same Sales Quote."),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Creating Air Shipment..."));
+			
+			// Call the server method
+			frappe.call({
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_shipment_from_sales_quote",
+				args: {
+					sales_quote_name: frm.doc.name
+				},
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					
+					if (r.message && r.message.success) {
+						// Show success message
+						frappe.msgprint({
+							title: __("Air Shipment Created"),
+							message: __("Air Shipment {0} has been created successfully.", [r.message.air_shipment]),
+							indicator: "green"
+						});
+						
+						// Open the created Air Shipment
+						frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
+					} else if (r.message && r.message.message) {
+						// Show info message (e.g., Air Shipment already exists)
+						frappe.msgprint({
+							title: __("Information"),
+							message: r.message.message,
+							indicator: "blue"
+						});
+						
+						// Open existing Air Shipment if available
+						if (r.message.air_shipment) {
+							frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
+						}
+					}
+				},
+				error: function(r) {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to create Air Shipment. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+	);
+}
+
 function create_warehouse_contract_from_sales_quote(frm) {
 	// Show confirmation dialog
 	frappe.confirm(

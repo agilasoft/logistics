@@ -3,6 +3,26 @@
 
 frappe.ui.form.on("Air Shipment", {
 	refresh(frm) {
+		// Add button to load charges from Sales Quote
+		if (frm.doc.sales_quote && !frm.is_new()) {
+			frm.add_custom_button(__('Load Charges from Sales Quote'), function() {
+				load_charges_from_sales_quote(frm);
+			}, __('Pricing'));
+		}
+		
+		// Add button to recalculate all charges
+		if (frm.doc.charges && frm.doc.charges.length > 0 && !frm.is_new()) {
+			frm.add_custom_button(__('Recalculate All Charges'), function() {
+				recalculate_all_charges(frm);
+			}, __('Pricing'));
+		}
+		
+		// Add button to calculate total charges
+		if (frm.doc.charges && frm.doc.charges.length > 0 && !frm.is_new()) {
+			frm.add_custom_button(__('Calculate Total Charges'), function() {
+				calculate_total_charges(frm);
+			}, __('Pricing'));
+		}
 		console.log("Air Shipment form refreshed");
 		console.log("Origin Port:", frm.doc.origin_port);
 		console.log("Destination Port:", frm.doc.destination_port);
@@ -431,4 +451,206 @@ function refresh_milestone_view(frm) {
 			console.error("Error refreshing milestone view:", err);
 		});
 	}
+});
+
+// Function to load charges from Sales Quote
+function load_charges_from_sales_quote(frm) {
+	if (!frm.doc.sales_quote) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Quote is not set for this Air Shipment."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	frappe.confirm(
+		__("This will replace all existing charges with charges from Sales Quote. Do you want to continue?"),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Loading charges from Sales Quote..."));
+			
+			// Call the server method
+			frm.call({
+				method: "populate_charges_from_sales_quote",
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					
+					if (r.message && r.message.success) {
+						// Refresh the form to show new charges
+						frm.refresh_field("charges");
+						
+						frappe.msgprint({
+							title: __("Charges Loaded"),
+							message: __("Successfully loaded {0} charges from Sales Quote.", [r.message.charges_added]),
+							indicator: "green"
+						});
+					} else {
+						frappe.msgprint({
+							title: __("Error"),
+							message: r.message && r.message.message ? r.message.message : __("Failed to load charges from Sales Quote."),
+							indicator: "red"
+						});
+					}
+				},
+				error: function(r) {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to load charges from Sales Quote. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+	);
+}
+
+// Function to recalculate all charges
+function recalculate_all_charges(frm) {
+	if (!frm.doc.charges || frm.doc.charges.length === 0) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("No charges found to recalculate."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	// Show loading indicator
+	frm.dashboard.set_headline_alert(__("Recalculating charges..."));
+	
+	// Call the server method
+	frm.call({
+		method: "recalculate_all_charges",
+		callback: function(r) {
+			frm.dashboard.clear_headline();
+			
+			if (r.message && r.message.success) {
+				// Refresh the form to show updated charges
+				frm.refresh_field("charges");
+				
+				frappe.msgprint({
+					title: __("Charges Recalculated"),
+					message: __("Successfully recalculated {0} charges.", [r.message.charges_recalculated]),
+					indicator: "green"
+				});
+			} else {
+				frappe.msgprint({
+					title: __("Error"),
+					message: r.message && r.message.message ? r.message.message : __("Failed to recalculate charges."),
+					indicator: "red"
+				});
+			}
+		},
+		error: function(r) {
+			frm.dashboard.clear_headline();
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to recalculate charges. Please try again."),
+				indicator: "red"
+			});
+		}
+	});
+}
+
+// Function to calculate total charges
+function calculate_total_charges(frm) {
+	if (!frm.doc.charges || frm.doc.charges.length === 0) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("No charges found to calculate."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	// Call the server method
+	frm.call({
+		method: "calculate_total_charges",
+		callback: function(r) {
+			if (r.message) {
+				const total = r.message.total_charges || 0;
+				const currency = r.message.currency || "";
+				
+				frappe.msgprint({
+					title: __("Total Charges"),
+					message: __("Total Charges: {0} {1}", [currency, total.toFixed(2)]),
+					indicator: "blue"
+				});
+			}
+		},
+		error: function(r) {
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to calculate total charges. Please try again."),
+				indicator: "red"
+			});
+		}
+	});
+}
+
+// Calculate charge amount when rate or quantity changes
+frappe.ui.form.on("Air Shipment Charges", {
+	rate: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	quantity: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	charge_basis: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	discount_percentage: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	surcharge_amount: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	}
+});
+
+// Function to calculate charge amount
+function calculate_charge_amount(frm, cdt, cdn) {
+	let row = locals[cdt][cdn];
+	if (!row.rate || !row.charge_basis) {
+		return;
+	}
+	
+	let base_amount = 0;
+	const rate = parseFloat(row.rate) || 0;
+	const quantity = parseFloat(row.quantity) || 0;
+	
+	// Calculate base amount based on charge basis
+	if (row.charge_basis === "Per kg" || row.charge_basis === "Per m³" || row.charge_basis === "Per package") {
+		base_amount = rate * quantity;
+	} else if (row.charge_basis === "Per shipment" || row.charge_basis === "Fixed amount") {
+		base_amount = rate;
+	} else if (row.charge_basis === "Percentage") {
+		// For percentage, use chargeable weight from parent
+		const chargeable = parseFloat(frm.doc.chargeable) || parseFloat(frm.doc.weight) || 0;
+		base_amount = rate * (chargeable * 0.01);
+	}
+	
+	// Calculate discount
+	const discount_percentage = parseFloat(row.discount_percentage) || 0;
+	const discount_amount = base_amount * (discount_percentage / 100);
+	
+	// Calculate surcharge
+	const surcharge_amount = parseFloat(row.surcharge_amount) || 0;
+	
+	// Calculate tax (if applicable)
+	const tax_amount = parseFloat(row.tax_amount) || 0;
+	
+	// Calculate total
+	const total_amount = base_amount - discount_amount + surcharge_amount + tax_amount;
+	
+	// Update fields
+	frappe.model.set_value(cdt, cdn, {
+		base_amount: base_amount,
+		discount_amount: discount_amount,
+		total_amount: Math.max(0, total_amount)
+	});
+	
+	// Refresh the field
+	frm.refresh_field("charges");
 }

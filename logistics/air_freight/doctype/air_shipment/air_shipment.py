@@ -1132,6 +1132,20 @@ class AirShipment(Document):
 	
 	def validate(self):
 		"""Validate Air Shipment document"""
+		self.validate_dates()
+		self.validate_weight_volume()
+		self.validate_packages()
+		self.validate_awb()
+		self.validate_uld()
+		self.validate_customs()
+		self.validate_insurance()
+		self.validate_temperature()
+		self.validate_documents()
+		self.validate_casslink()
+		self.validate_tact()
+		self.validate_eawb()
+		self.validate_revenue()
+		self.validate_billing()
 		self.validate_dangerous_goods()
 		self.validate_dg_compliance()
 		# Update DG compliance status automatically
@@ -1589,31 +1603,840 @@ class AirShipment(Document):
 			"emergency_phone": dg_emergency_phone
 		}
 	
+	def validate_dates(self):
+		"""Validate date fields"""
+		# Validate ETD is before ETA
+		if self.etd and self.eta:
+			if self.etd >= self.eta:
+				frappe.throw(_("ETD (Estimated Time of Departure) must be before ETA (Estimated Time of Arrival)"), 
+					title=_("Date Validation Error"))
+		
+		# Warn if booking date is in the future
+		if self.booking_date:
+			from frappe.utils import getdate, today
+			if getdate(self.booking_date) > today():
+				frappe.msgprint(_("Booking date is in the future. Please verify this is correct."), 
+					indicator="orange", title=_("Date Warning"))
+	
+	def validate_weight_volume(self):
+		"""Validate weight and volume fields"""
+		# Validate weight is positive
+		if self.weight is not None and self.weight <= 0:
+			frappe.throw(_("Weight must be greater than zero"), title=_("Validation Error"))
+		
+		# Validate volume is positive
+		if self.volume is not None and self.volume <= 0:
+			frappe.throw(_("Volume must be greater than zero"), title=_("Validation Error"))
+		
+		# Calculate chargeable weight (IATA standard: volume weight = volume * 167)
+		if self.weight and self.volume:
+			volume_weight = flt(self.volume) * 167  # IATA standard volume weight factor
+			chargeable_weight = max(flt(self.weight), volume_weight)
+			
+			# Update chargeable weight if not set or different
+			if not self.chargeable or abs(flt(self.chargeable) - chargeable_weight) > 0.01:
+				self.chargeable = chargeable_weight
+		elif self.weight:
+			# If only weight is provided, use it as chargeable
+			if not self.chargeable:
+				self.chargeable = self.weight
+	
+	def validate_packages(self):
+		"""Validate package data"""
+		# Check if packages table exists and has entries
+		if hasattr(self, 'packages') and self.packages:
+			total_package_weight = sum(flt(p.weight or 0) for p in self.packages)
+			total_package_volume = sum(flt(p.volume or 0) for p in self.packages)
+			
+			# Warn if package weights don't match total weight (allow small tolerance)
+			if self.weight and abs(total_package_weight - flt(self.weight)) > 0.01:
+				frappe.msgprint(
+					_("Package weights ({0} kg) do not match total weight ({1} kg). Please verify.").format(
+						total_package_weight, self.weight
+					),
+					indicator="orange",
+					title=_("Weight Mismatch Warning")
+				)
+			
+			# Warn if package volumes don't match total volume (allow small tolerance)
+			if self.volume and abs(total_package_volume - flt(self.volume)) > 0.01:
+				frappe.msgprint(
+					_("Package volumes ({0} m³) do not match total volume ({1} m³). Please verify.").format(
+						total_package_volume, self.volume
+					),
+					indicator="orange",
+					title=_("Volume Mismatch Warning")
+				)
+			
+			# Validate each package has required fields
+			for idx, package in enumerate(self.packages, 1):
+				if not package.commodity and not package.description:
+					frappe.msgprint(
+						_("Package {0}: Commodity or description is recommended.").format(idx),
+						indicator="blue",
+						title=_("Package Information")
+					)
+	
+	def validate_awb(self):
+		"""Validate Air Waybill fields"""
+		import re
+		
+		# Validate Master AWB if set
+		if self.master_awb:
+			if not frappe.db.exists("Master Air Waybill", self.master_awb):
+				frappe.throw(
+					_("Master AWB {0} does not exist").format(self.master_awb),
+					title=_("Validation Error")
+				)
+			
+			# Check Master AWB status
+			mawb = frappe.get_doc("Master Air Waybill", self.master_awb)
+			if hasattr(mawb, 'flight_status'):
+				# Check if flight is cancelled
+				if mawb.flight_status == "Cancelled":
+					frappe.throw(
+						_("Master AWB {0} is associated with a cancelled flight. Please select a different Master AWB.").format(
+							self.master_awb
+						),
+						title=_("Validation Error")
+					)
+				
+				# Warn if flight is delayed
+				if mawb.flight_status == "Delayed":
+					frappe.msgprint(
+						_("Master AWB {0} is associated with a delayed flight.").format(self.master_awb),
+						indicator="orange",
+						title=_("Flight Status Warning")
+					)
+		
+		# Validate House AWB number format (IATA standard: 11 digits)
+		if self.house_awb_no:
+			# Remove hyphens and spaces for validation
+			awb_clean = self.house_awb_no.replace('-', '').replace(' ', '')
+			
+			# IATA standard: 11 digits
+			if not re.match(r'^\d{11}$', awb_clean):
+				frappe.throw(
+					_("House AWB number must be 11 digits (IATA format). Current format: {0}").format(
+						self.house_awb_no
+					),
+					title=_("AWB Format Error")
+				)
+	
+	def validate_uld(self):
+		"""Validate ULD (Unit Load Device) fields"""
+		if self.uld_type:
+			# Fetch ULD capacity if ULD type is set
+			if not self.uld_capacity_kg:
+				uld_capacity = frappe.get_cached_value("Unit Load Device", self.uld_type, "capacity_kg")
+				if uld_capacity:
+					self.uld_capacity_kg = uld_capacity
+			
+			# Validate weight doesn't exceed ULD capacity
+			if self.uld_capacity_kg and self.weight:
+				if flt(self.weight) > flt(self.uld_capacity_kg):
+					frappe.msgprint(
+						_("Cargo weight ({0} kg) exceeds ULD capacity ({1} kg). Please verify.").format(
+							self.weight, self.uld_capacity_kg
+						),
+						indicator="orange",
+						title=_("ULD Capacity Warning")
+					)
+	
+	def validate_customs(self):
+		"""Validate customs fields"""
+		# Validate customs status progression
+		if self.customs_status:
+			status_order = ["Not Submitted", "Submitted", "Under Review", "Cleared", "Held", "Rejected"]
+			current_index = status_order.index(self.customs_status) if self.customs_status in status_order else -1
+			
+			# If cleared, validate clearance date
+			if self.customs_status == "Cleared":
+				if not self.customs_clearance_date:
+					frappe.msgprint(
+						_("Customs clearance date should be set when status is 'Cleared'."),
+						indicator="blue",
+						title=_("Customs Information")
+					)
+		
+		# Validate duty and tax amounts are positive
+		if self.duty_amount and flt(self.duty_amount) < 0:
+			frappe.throw(_("Duty amount cannot be negative"), title=_("Validation Error"))
+		
+		if self.tax_amount and flt(self.tax_amount) < 0:
+			frappe.throw(_("Tax amount cannot be negative"), title=_("Validation Error"))
+	
+	def validate_insurance(self):
+		"""Validate insurance fields"""
+		# Validate insurance value is positive
+		if self.insurance_value and flt(self.insurance_value) <= 0:
+			frappe.throw(_("Insurance value must be greater than zero"), title=_("Validation Error"))
+		
+		# If claim is filed, validate claim number
+		if self.insurance_claim_status and self.insurance_claim_status != "No Claim":
+			if not self.insurance_claim_number:
+				frappe.msgprint(
+					_("Insurance claim number should be set when a claim is filed."),
+					indicator="blue",
+					title=_("Insurance Information")
+				)
+			
+			if not self.insurance_claim_date:
+				frappe.msgprint(
+					_("Insurance claim date should be set when a claim is filed."),
+					indicator="blue",
+					title=_("Insurance Information")
+				)
+	
+	def validate_temperature(self):
+		"""Validate temperature control fields"""
+		if self.requires_temperature_control:
+			# Validate temperature range
+			if self.min_temperature is None and self.max_temperature is None:
+				frappe.throw(
+					_("Temperature range (min/max) is required when temperature control is enabled."),
+					title=_("Validation Error")
+				)
+			
+			# Validate min temperature is less than max temperature
+			if self.min_temperature is not None and self.max_temperature is not None:
+				if flt(self.min_temperature) >= flt(self.max_temperature):
+					frappe.throw(
+						_("Minimum temperature must be less than maximum temperature."),
+						title=_("Validation Error")
+					)
+			
+			# Warn if temperature monitoring is not enabled
+			if not self.temperature_monitoring:
+				frappe.msgprint(
+					_("Temperature monitoring is recommended for temperature-controlled cargo."),
+					indicator="orange",
+					title=_("Temperature Control Warning")
+				)
+	
+	def validate_documents(self):
+		"""Validate document requirements based on direction"""
+		if not self.direction:
+			return
+		
+		# Export direction requires export license
+		if self.direction == "Export":
+			if not self.export_license:
+				frappe.msgprint(
+					_("Export license is typically required for export shipments."),
+					indicator="blue",
+					title=_("Document Information")
+				)
+		
+		# Import direction requires import permit
+		if self.direction == "Import":
+			if not self.import_permit:
+				frappe.msgprint(
+					_("Import permit is typically required for import shipments."),
+					indicator="blue",
+					title=_("Document Information")
+				)
+		
+		# Both directions typically require commercial invoice
+		if not self.commercial_invoice_number:
+			frappe.msgprint(
+				_("Commercial invoice is typically required for international shipments."),
+				indicator="blue",
+				title=_("Document Information")
+			)
+	
+	def validate_casslink(self):
+		"""Validate CASSLink integration fields"""
+		# If CASS settlement status is set, validate participant code
+		if self.cass_settlement_status and self.cass_settlement_status != "Pending":
+			if not self.cass_participant_code:
+				frappe.msgprint(
+					_("CASS participant code should be set when settlement status is not 'Pending'."),
+					indicator="blue",
+					title=_("CASSLink Information")
+				)
+			
+			# If settled, validate settlement date
+			if self.cass_settlement_status == "Settled":
+				if not self.cass_settlement_date:
+					frappe.msgprint(
+						_("CASS settlement date should be set when status is 'Settled'."),
+						indicator="blue",
+						title=_("CASSLink Information")
+					)
+		
+		# Validate settlement amount is positive
+		if self.cass_settlement_amount and flt(self.cass_settlement_amount) < 0:
+			frappe.throw(_("CASS settlement amount cannot be negative"), title=_("Validation Error"))
+	
+	def validate_tact(self):
+		"""Validate TACT integration fields"""
+		# If TACT rate lookup is enabled, validate rate reference
+		if self.tact_rate_lookup:
+			if not self.tact_rate_reference:
+				frappe.msgprint(
+					_("TACT rate reference should be set when TACT rate lookup is enabled."),
+					indicator="blue",
+					title=_("TACT Information")
+				)
+			
+			# Validate rate validity date
+			if self.tact_rate_validity:
+				from frappe.utils import getdate, today
+				if getdate(self.tact_rate_validity) < today():
+					frappe.msgprint(
+						_("TACT rate validity date is in the past. Rate may no longer be valid."),
+						indicator="orange",
+						title=_("TACT Rate Warning")
+					)
+		
+		# Validate TACT rate amount is positive
+		if self.tact_rate_amount and flt(self.tact_rate_amount) <= 0:
+			frappe.throw(_("TACT rate amount must be greater than zero"), title=_("Validation Error"))
+	
+	def validate_eawb(self):
+		"""Validate e-AWB fields"""
+		if self.eawb_enabled:
+			# If e-AWB is enabled, validate status progression
+			if self.eawb_status:
+				status_order = ["Not Created", "Created", "Signed", "Submitted", "Accepted", "Rejected"]
+				current_index = status_order.index(self.eawb_status) if self.eawb_status in status_order else -1
+				
+				# If signed, validate signature fields
+				if self.eawb_status in ["Signed", "Submitted", "Accepted"]:
+					if not self.eawb_digital_signature:
+						frappe.msgprint(
+							_("Digital signature should be set when e-AWB status is 'Signed' or later."),
+							indicator="blue",
+							title=_("e-AWB Information")
+						)
+					
+					if not self.eawb_signed_date:
+						frappe.msgprint(
+							_("e-AWB signed date should be set when e-AWB is signed."),
+							indicator="blue",
+							title=_("e-AWB Information")
+						)
+	
+	def validate_revenue(self):
+		"""Validate revenue recognition fields"""
+		# Validate revenue amount is positive
+		if self.revenue_amount and flt(self.revenue_amount) <= 0:
+			frappe.throw(_("Revenue amount must be greater than zero"), title=_("Validation Error"))
+		
+		# If partial revenue is enabled, validate recognized amount
+		if self.partial_revenue_enabled:
+			if self.revenue_amount and self.recognized_revenue_amount:
+				if flt(self.recognized_revenue_amount) > flt(self.revenue_amount):
+					frappe.throw(
+						_("Recognized revenue amount cannot exceed total revenue amount."),
+						title=_("Validation Error")
+					)
+		
+		# If revenue recognition date is set, validate it's not in the future
+		if self.revenue_recognition_date:
+			from frappe.utils import getdate, today
+			if getdate(self.revenue_recognition_date) > today():
+				frappe.msgprint(
+					_("Revenue recognition date is in the future. Please verify this is correct."),
+					indicator="orange",
+					title=_("Revenue Recognition Warning")
+				)
+	
+	def validate_billing(self):
+		"""Validate billing automation fields"""
+		# If auto billing is enabled, validate billing status
+		if self.auto_billing_enabled:
+			if not self.billing_status or self.billing_status == "Not Billed":
+				frappe.msgprint(
+					_("Billing status should be updated when auto billing is enabled."),
+					indicator="blue",
+					title=_("Billing Information")
+				)
+		
+		# If billed, validate sales invoice link
+		if self.billing_status in ["Billed", "Partially Billed"]:
+			if not self.sales_invoice:
+				frappe.msgprint(
+					_("Sales invoice should be linked when billing status is 'Billed' or 'Partially Billed'."),
+					indicator="blue",
+					title=_("Billing Information")
+				)
+			
+			if not self.billing_date:
+				frappe.msgprint(
+					_("Billing date should be set when billing status is 'Billed' or 'Partially Billed'."),
+					indicator="blue",
+					title=_("Billing Information")
+				)
+		
+		# Validate billing amount is positive
+		if self.billing_amount and flt(self.billing_amount) <= 0:
+			frappe.throw(_("Billing amount must be greater than zero"), title=_("Validation Error"))
+	
+	@frappe.whitelist()
+	def lookup_tact_rate(self):
+		"""Lookup TACT rate for this shipment"""
+		try:
+			# Get IATA Settings
+			iata_settings = frappe.get_single("IATA Settings")
+			
+			if not iata_settings.tact_subscription:
+				frappe.throw(_("TACT subscription is not enabled in IATA Settings"))
+			
+			if not iata_settings.tact_api_key:
+				frappe.throw(_("TACT API key is not configured in IATA Settings"))
+			
+			# Build rate lookup request
+			rate_params = {
+				"origin": self.origin_port,
+				"destination": self.destination_port,
+				"weight": self.weight,
+				"volume": self.volume,
+				"chargeable_weight": self.chargeable
+			}
+			
+			# Call TACT API (placeholder - actual implementation would call TACT API)
+			# This is a placeholder for the actual TACT API integration
+			frappe.msgprint(
+				_("TACT rate lookup functionality requires TACT API integration. Please configure TACT API endpoint."),
+				indicator="blue",
+				title=_("TACT Integration")
+			)
+			
+			return {
+				"status": "info",
+				"message": "TACT rate lookup requires API integration"
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"TACT rate lookup error: {str(e)}", "Air Shipment - TACT Rate Lookup")
+			frappe.throw(_("Error looking up TACT rate: {0}").format(str(e)))
+	
+	@frappe.whitelist()
+	def create_eawb(self):
+		"""Create e-AWB for this shipment"""
+		try:
+			if not self.eawb_enabled:
+				frappe.throw(_("e-AWB is not enabled for this shipment"))
+			
+			# Validate required fields for e-AWB
+			if not self.house_awb_no:
+				frappe.throw(_("House AWB number is required to create e-AWB"))
+			
+			if not self.shipper or not self.consignee:
+				frappe.throw(_("Shipper and Consignee are required to create e-AWB"))
+			
+			# Create e-AWB (placeholder - actual implementation would create e-AWB via IATA API)
+			self.eawb_status = "Created"
+			self.save()
+			
+			frappe.msgprint(_("e-AWB created successfully. Please sign and submit."), indicator="green")
+			
+			return {
+				"status": "success",
+				"message": "e-AWB created successfully",
+				"eawb_status": self.eawb_status
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"e-AWB creation error: {str(e)}", "Air Shipment - e-AWB Creation")
+			frappe.throw(_("Error creating e-AWB: {0}").format(str(e)))
+	
+	@frappe.whitelist()
+	def sign_eawb(self):
+		"""Sign e-AWB digitally"""
+		try:
+			if not self.eawb_enabled:
+				frappe.throw(_("e-AWB is not enabled for this shipment"))
+			
+			if self.eawb_status not in ["Created", "Not Created"]:
+				frappe.throw(_("e-AWB must be in 'Created' status to sign"))
+			
+			# Generate digital signature (placeholder - actual implementation would use digital signature service)
+			from frappe.utils import now_datetime
+			import hashlib
+			
+			# Create a simple hash-based signature (in production, use proper digital signature)
+			signature_data = f"{self.name}{self.house_awb_no}{now_datetime()}"
+			digital_signature = hashlib.sha256(signature_data.encode()).hexdigest()
+			
+			self.eawb_digital_signature = digital_signature
+			self.eawb_signed_date = now_datetime()
+			self.eawb_signed_by = frappe.session.user
+			self.eawb_status = "Signed"
+			self.save()
+			
+			frappe.msgprint(_("e-AWB signed successfully"), indicator="green")
+			
+			return {
+				"status": "success",
+				"message": "e-AWB signed successfully",
+				"eawb_status": self.eawb_status,
+				"signed_date": self.eawb_signed_date
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"e-AWB signing error: {str(e)}", "Air Shipment - e-AWB Signing")
+			frappe.throw(_("Error signing e-AWB: {0}").format(str(e)))
+	
+	@frappe.whitelist()
+	def update_tracking_status(self):
+		"""Update tracking status from tracking provider"""
+		try:
+			if not self.real_time_tracking_enabled:
+				frappe.throw(_("Real-time tracking is not enabled for this shipment"))
+			
+			if not self.tracking_provider or not self.tracking_number:
+				frappe.throw(_("Tracking provider and tracking number are required"))
+			
+			# Update tracking status (placeholder - actual implementation would call tracking API)
+			from frappe.utils import now_datetime
+			
+			# This is a placeholder for actual tracking API integration
+			frappe.msgprint(
+				_("Tracking status update requires tracking provider API integration."),
+				indicator="blue",
+				title=_("Tracking Integration")
+			)
+			
+			self.last_tracking_update = now_datetime()
+			self.save()
+			
+			return {
+				"status": "info",
+				"message": "Tracking update requires API integration",
+				"last_update": self.last_tracking_update
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"Tracking update error: {str(e)}", "Air Shipment - Tracking Update")
+			frappe.throw(_("Error updating tracking status: {0}").format(str(e)))
+	
+	@frappe.whitelist()
+	def recognize_revenue(self, recognition_date=None, method=None):
+		"""Recognize revenue for this shipment"""
+		try:
+			if not self.revenue_amount:
+				frappe.throw(_("Revenue amount is not set for this shipment"))
+			
+			from frappe.utils import getdate, today
+			
+			# Set recognition date
+			if recognition_date:
+				self.revenue_recognition_date = getdate(recognition_date)
+			elif not self.revenue_recognition_date:
+				self.revenue_recognition_date = today()
+			
+			# Set recognition method
+			if method:
+				self.revenue_recognition_method = method
+			elif not self.revenue_recognition_method:
+				# Default to "On Delivery" if not set
+				self.revenue_recognition_method = "On Delivery"
+			
+			# Calculate recognized amount based on method
+			if self.partial_revenue_enabled:
+				# For partial revenue, use recognized_revenue_amount if set
+				if not self.recognized_revenue_amount:
+					# Default to full amount if not specified
+					self.recognized_revenue_amount = self.revenue_amount
+			else:
+				# Full revenue recognition
+				self.recognized_revenue_amount = self.revenue_amount
+			
+			self.save()
+			
+			frappe.msgprint(
+				_("Revenue recognized: {0} on {1} using method: {2}").format(
+					self.recognized_revenue_amount,
+					self.revenue_recognition_date,
+					self.revenue_recognition_method
+				),
+				indicator="green"
+			)
+			
+			return {
+				"status": "success",
+				"message": "Revenue recognized successfully",
+				"recognized_amount": self.recognized_revenue_amount,
+				"recognition_date": self.revenue_recognition_date,
+				"method": self.revenue_recognition_method
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"Revenue recognition error: {str(e)}", "Air Shipment - Revenue Recognition")
+			frappe.throw(_("Error recognizing revenue: {0}").format(str(e)))
+	
+	@frappe.whitelist()
+	def create_sales_invoice(self):
+		"""Create Sales Invoice for this shipment"""
+		try:
+			if not self.auto_billing_enabled:
+				frappe.throw(_("Auto billing is not enabled for this shipment"))
+			
+			if not self.local_customer:
+				frappe.throw(_("Local customer is required to create Sales Invoice"))
+			
+			if not self.company:
+				frappe.throw(_("Company is required to create Sales Invoice"))
+			
+			# Check if invoice already exists
+			if self.sales_invoice:
+				frappe.throw(_("Sales Invoice {0} already exists for this shipment").format(self.sales_invoice))
+			
+			# Create Sales Invoice (placeholder - actual implementation would create proper invoice)
+			# This is a placeholder for the actual billing automation
+			frappe.msgprint(
+				_("Sales Invoice creation requires billing automation integration. Please configure billing automation."),
+				indicator="blue",
+				title=_("Billing Automation")
+			)
+			
+			return {
+				"status": "info",
+				"message": "Sales Invoice creation requires billing automation integration"
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"Sales Invoice creation error: {str(e)}", "Air Shipment - Sales Invoice Creation")
+			frappe.throw(_("Error creating Sales Invoice: {0}").format(str(e)))
+	
+	@frappe.whitelist()
+	def populate_charges_from_sales_quote(self):
+		"""Populate charges from Sales Quote Air Freight"""
+		if not self.sales_quote:
+			frappe.throw(_("Sales Quote is not set for this Air Shipment"))
+		
+		try:
+			# Verify that the sales_quote exists
+			if not frappe.db.exists("Sales Quote", self.sales_quote):
+				frappe.msgprint(
+					f"Sales Quote {self.sales_quote} does not exist",
+					title="Error",
+					indicator="red"
+				)
+				return
+			
+			# Clear existing charges
+			self.set("charges", [])
+			
+			# Get Sales Quote Air Freight records
+			sales_quote_air_freight_records = frappe.get_all(
+				"Sales Quote Air Freight",
+				filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+				fields=[
+					"item_code",
+					"item_name", 
+					"calculation_method",
+					"uom",
+					"currency",
+					"unit_rate",
+					"unit_type",
+					"minimum_quantity",
+					"minimum_charge",
+					"maximum_charge",
+					"base_amount",
+					"estimated_revenue"
+				],
+				order_by="idx"
+			)
+			
+			if not sales_quote_air_freight_records:
+				frappe.msgprint(
+					f"No Air Freight charges found in Sales Quote: {self.sales_quote}",
+					title="No Charges Found",
+					indicator="orange"
+				)
+				return
+			
+			# Map and populate charges
+			charges_added = 0
+			for sqaf_record in sales_quote_air_freight_records:
+				charge_row = self._map_sales_quote_air_freight_to_charge(sqaf_record)
+				if charge_row:
+					self.append("charges", charge_row)
+					charges_added += 1
+			
+			if charges_added > 0:
+				frappe.msgprint(
+					f"Successfully populated {charges_added} charges from Sales Quote",
+					title="Charges Updated",
+					indicator="green"
+				)
+			
+			return {
+				"success": True,
+				"message": f"Successfully populated {charges_added} charges",
+				"charges_added": charges_added
+			}
+			
+		except Exception as e:
+			frappe.log_error(
+				f"Error populating charges from Sales Quote: {str(e)}",
+				"Air Shipment - Populate Charges Error"
+			)
+			frappe.throw(_("Error populating charges: {0}").format(str(e)))
+	
+	def _map_sales_quote_air_freight_to_charge(self, sqaf_record):
+		"""Map sales_quote_air_freight record to air_shipment_charges format"""
+		try:
+			# Get the item details to fetch additional required fields
+			item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+			
+			# Get default currency from system settings
+			default_currency = frappe.get_system_settings("currency") or "USD"
+			
+			# Map unit_type to charge_basis
+			unit_type_to_charge_basis = {
+				"Weight": "Per kg",
+				"Volume": "Per m³",
+				"Package": "Per package",
+				"Piece": "Per package",
+				"Shipment": "Per shipment"
+			}
+			charge_basis = unit_type_to_charge_basis.get(sqaf_record.unit_type, "Fixed amount")
+			
+			# Get quantity based on charge basis
+			quantity = 0
+			if charge_basis == "Per kg":
+				quantity = flt(self.weight) or 0
+			elif charge_basis == "Per m³":
+				quantity = flt(self.volume) or 0
+			elif charge_basis == "Per package":
+				# Get package count from Air Shipment if available
+				if hasattr(self, 'packages') and self.packages:
+					quantity = len(self.packages)
+				else:
+					quantity = 1
+			elif charge_basis == "Per shipment":
+				quantity = 1
+			
+			# Determine charge_type and charge_category from item or use defaults
+			charge_type = "Other"
+			charge_category = "Other"
+			
+			# Try to get charge type from item custom fields or item name
+			if hasattr(item_doc, 'custom_charge_type'):
+				charge_type = item_doc.custom_charge_type or "Other"
+			if hasattr(item_doc, 'custom_charge_category'):
+				charge_category = item_doc.custom_charge_category or "Other"
+			
+			# Map the fields from sales_quote_air_freight to air_shipment_charges
+			charge_data = {
+				"item_code": sqaf_record.item_code,
+				"item_name": sqaf_record.item_name or item_doc.item_name,
+				"charge_type": charge_type,
+				"charge_category": charge_category,
+				"charge_basis": charge_basis,
+				"rate": sqaf_record.unit_rate or 0,
+				"currency": sqaf_record.currency or default_currency,
+				"quantity": quantity,
+				"unit_of_measure": sqaf_record.uom or (charge_basis.replace("Per ", "").replace("kg", "kg").replace("m³", "m³")),
+				"calculation_method": sqaf_record.calculation_method or "Manual",
+				"billing_status": "Pending"
+			}
+			
+			return charge_data
+			
+		except Exception as e:
+			frappe.log_error(
+				f"Error mapping sales quote air freight record: {str(e)}",
+				"Air Shipment - Charge Mapping Error"
+			)
+			return None
+	
+	@frappe.whitelist()
+	def calculate_total_charges(self):
+		"""Calculate total charges for this Air Shipment"""
+		total_charges = 0
+		
+		if hasattr(self, 'charges') and self.charges:
+			for charge in self.charges:
+				# Recalculate charge amount
+				charge.calculate_charge_amount()
+				total_charges += flt(charge.total_amount) or 0
+		
+		return {
+			"total_charges": total_charges,
+			"currency": self.get("charges")[0].currency if self.get("charges") else None
+		}
+	
+	@frappe.whitelist()
+	def recalculate_all_charges(self):
+		"""Recalculate all charges based on current Air Shipment data"""
+		if not hasattr(self, 'charges') or not self.charges:
+			return {
+				"success": False,
+				"message": "No charges found to recalculate"
+			}
+		
+		try:
+			charges_recalculated = 0
+			for charge in self.charges:
+				# Update quantity based on charge basis
+				if charge.charge_basis == "Per kg":
+					charge.quantity = flt(self.weight) or 0
+				elif charge.charge_basis == "Per m³":
+					charge.quantity = flt(self.volume) or 0
+				elif charge.charge_basis == "Per package":
+					if hasattr(self, 'packages') and self.packages:
+						charge.quantity = len(self.packages)
+					else:
+						charge.quantity = 1
+				elif charge.charge_basis == "Per shipment":
+					charge.quantity = 1
+				
+				# Recalculate charge amount
+				charge.calculate_charge_amount()
+				charges_recalculated += 1
+			
+			self.save()
+			
+			frappe.msgprint(
+				f"Successfully recalculated {charges_recalculated} charges",
+				title="Charges Recalculated",
+				indicator="green"
+			)
+			
+			return {
+				"success": True,
+				"message": f"Successfully recalculated {charges_recalculated} charges",
+				"charges_recalculated": charges_recalculated
+			}
+			
+		except Exception as e:
+			frappe.log_error(
+				f"Error recalculating charges: {str(e)}",
+				"Air Shipment - Recalculate Charges Error"
+			)
+			frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
+	
 	def validate_accounts(self):
 		"""Validate accounting fields"""
 		if not self.company:
-			frappe.throw(_("Company is required"))
+			frappe.throw(_("Company is required"), title=_("Validation Error"))
 		
 		# Validate cost center belongs to company
 		if self.cost_center:
-			cost_center_company = frappe.db.get_value("Cost Center", self.cost_center, "company")
+			cost_center_company = frappe.get_cached_value("Cost Center", self.cost_center, "company")
 			if cost_center_company and cost_center_company != self.company:
 				frappe.throw(_("Cost Center {0} does not belong to Company {1}").format(
-					self.cost_center, self.company))
+					self.cost_center, self.company), title=_("Validation Error"))
 		
 		# Validate profit center belongs to company
 		if self.profit_center:
-			profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
+			profit_center_company = frappe.get_cached_value("Profit Center", self.profit_center, "company")
 			if profit_center_company and profit_center_company != self.company:
 				frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
-					self.profit_center, self.company))
+					self.profit_center, self.company), title=_("Validation Error"))
 		
 		# Validate branch belongs to company
 		if self.branch:
-			branch_company = frappe.db.get_value("Branch", self.branch, "company")
+			branch_company = frappe.get_cached_value("Branch", self.branch, "company")
 			if branch_company and branch_company != self.company:
 				frappe.throw(_("Branch {0} does not belong to Company {1}").format(
-					self.branch, self.company))
+					self.branch, self.company), title=_("Validation Error"))
 	
 	def create_job_costing_number_if_needed(self):
 		"""Create Job Costing Number when document is first saved"""
