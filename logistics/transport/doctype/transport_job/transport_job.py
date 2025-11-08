@@ -503,6 +503,14 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     si.company = job.company
     si.posting_date = frappe.utils.today()
     
+    # Add accounting fields from Transport Job
+    if getattr(job, "branch", None):
+        si.branch = job.branch
+    if getattr(job, "cost_center", None):
+        si.cost_center = job.cost_center
+    if getattr(job, "profit_center", None):
+        si.profit_center = job.profit_center
+    
     # Add reference to Job Costing Number if it exists
     if getattr(job, "job_costing_number", None):
         si.job_costing_number = job.job_costing_number
@@ -543,6 +551,12 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             
             if item_code:
                 item_payload["item_code"] = item_code
+            
+            # Add accounting fields to Sales Invoice Item
+            if getattr(job, "cost_center", None):
+                item_payload["cost_center"] = job.cost_center
+            if getattr(job, "profit_center", None):
+                item_payload["profit_center"] = job.profit_center
             
             si.append("items", item_payload)
     else:
