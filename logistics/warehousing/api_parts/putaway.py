@@ -659,7 +659,7 @@ def _check_hu_contains_item(hu_name: str, item: str) -> bool:
             WHERE handling_unit = %s AND item = %s
         """, (hu_name, item), as_dict=True)
         
-        if result and result[0].get("total_qty", 0) > 0):
+        if result and result[0].get("total_qty", 0) > 0:
             return True
         return False
     except Exception as e:
@@ -1014,21 +1014,44 @@ def _allocate_hu_to_orders(
         # 3. Putaway policy
         
         # Filter and prioritize HUs based on order requirements
+        # Priority hierarchy: Filter to order requirements if specified, with fallback to all HUs
         available_hus = all_available_hus.copy()
+        fallback_occurred = False
+        fallback_message = None
         
-        if order_handling_unit_type:
+        # Check for specific handling unit in order (should be handled elsewhere, but check here too)
+        order_handling_unit = order_row.get("handling_unit")
+        
+        if order_handling_unit:
+            # Filter to the specified handling unit
+            specific_hu = [hu for hu in available_hus if hu.get("name") == order_handling_unit]
+            if specific_hu:
+                available_hus = _order_hus_by_putaway_policy(specific_hu, item, company)
+            else:
+                # Specific HU not found - fallback to all available HUs (putaway policy)
+                fallback_occurred = True
+                fallback_message = _("Order row {0}: Specified handling unit '{1}' not available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit)
+                warnings.append(fallback_message)
+                available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+        elif order_handling_unit_type:
             # Filter by HU type
             type_filtered = [hu for hu in available_hus if hu.get("type") == order_handling_unit_type]
             if type_filtered:
                 # Order by putaway policy
                 available_hus = _order_hus_by_putaway_policy(type_filtered, item, company)
             else:
-                # No HUs of specified type, use all available HUs
+                # No HUs of specified type - fallback to all available HUs (putaway policy)
+                fallback_occurred = True
+                fallback_message = _("Order row {0}: No handling units of type '{1}' available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit_type)
+                warnings.append(fallback_message)
                 available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
-                warnings.append(_("Order row {0}: No handling units of type '{1}' available. Using any available HU.").format(order_row.get("name", "?"), order_handling_unit_type))
         else:
             # No type specified, order by putaway policy
             available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+        
+        # Store fallback info in order_row for use in allocation notes
+        order_row["_fallback_occurred"] = fallback_occurred
+        order_row["_fallback_message"] = fallback_message
         
         # Get item capacity data
         item_data = capacity_manager._get_item_capacity_data(item)
@@ -1091,12 +1114,29 @@ def _allocate_hu_to_orders(
                     qty_to_allocate = round(qty_to_allocate, split_precision)
                     
                     if qty_to_allocate > 0:
-                        # Determine allocation method
+                        # Determine allocation method with more descriptive labels
+                        order_handling_unit = order_row.get("handling_unit")
                         order_handling_unit_type = order_row.get("handling_unit_type")
-                        if order_handling_unit_type:
-                            allocation_method = "type-limited"
+                        fallback_occurred = order_row.get("_fallback_occurred", False)
+                        fallback_message = order_row.get("_fallback_message")
+                        
+                        if order_handling_unit and hu["name"] == order_handling_unit:
+                            allocation_method = "Order (Specific Handling Unit)"
+                        elif order_handling_unit_type:
+                            # Check if this HU matches the type
+                            try:
+                                hu_type = frappe.db.get_value("Handling Unit", hu["name"], "type")
+                                if hu_type == order_handling_unit_type:
+                                    allocation_method = "Order (Handling Unit Type)"
+                                else:
+                                    policy = _get_putaway_policy(item, company)
+                                    allocation_method = f"Putaway Policy ({policy})"
+                            except Exception:
+                                policy = _get_putaway_policy(item, company)
+                                allocation_method = f"Putaway Policy ({policy})"
                         else:
-                            allocation_method = "auto-allocated"
+                            policy = _get_putaway_policy(item, company)
+                            allocation_method = f"Putaway Policy ({policy})"
                         
                         # Get putaway policy
                         policy = _get_putaway_policy(item, company)
@@ -1107,7 +1147,9 @@ def _allocate_hu_to_orders(
                             max_fitting_qty, remaining_qty, has_capacity_constraints,
                             hu_cap, per_unit_volume, per_unit_weight,
                             allocation_method=allocation_method,
-                            policy=policy
+                            policy=policy,
+                            fallback_occurred=fallback_occurred,
+                            fallback_message=fallback_message
                         )
                         
                         allocations.append((hu["name"], order_row, qty_to_allocate, allocation_note))
@@ -1153,7 +1195,9 @@ def _generate_hu_allocation_note(
     per_unit_volume: float,
     per_unit_weight: float,
     allocation_method: str = "auto-allocated",
-    policy: Optional[str] = None
+    policy: Optional[str] = None,
+    fallback_occurred: bool = False,
+    fallback_message: Optional[str] = None
 ) -> str:
     """Generate narrative log for handling unit allocation.
     
@@ -1176,7 +1220,29 @@ def _generate_hu_allocation_note(
     
     note_parts = []
     note_parts.append(f"Handling Unit Allocation: {hu_name}")
-    note_parts.append(f"  • Allocation Method: {allocation_method}")
+    note_parts.append(f"  • Handling Unit Source: {allocation_method}")
+    
+    # Indicate fallback if it occurred
+    if fallback_occurred and fallback_message:
+        note_parts.append(f"  • ⚠️ FALLBACK: {fallback_message}")
+    
+    # Add more details about the source
+    order_handling_unit = order_row.get("handling_unit")
+    order_handling_unit_type = order_row.get("handling_unit_type")
+    
+    if order_handling_unit and hu_name == order_handling_unit:
+        note_parts.append(f"    → Taken directly from order (specific handling unit specified)")
+    elif order_handling_unit_type:
+        try:
+            hu_type = frappe.db.get_value("Handling Unit", hu_name, "type")
+            if hu_type == order_handling_unit_type:
+                note_parts.append(f"    → Matches handling unit type requirement from order")
+            else:
+                note_parts.append(f"    → Selected by putaway policy (order specified type '{order_handling_unit_type}' but no matching HUs available)")
+        except Exception:
+            note_parts.append(f"    → Selected by putaway policy")
+    else:
+        note_parts.append(f"    → Selected by putaway policy (no handling unit requirements in order)")
     
     if policy:
         note_parts.append(f"  • Putaway Policy: {policy}")
@@ -1849,8 +1915,13 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             hu_note = rr.get("_hu_allocation_note", "")
             allocation_notes = []
             
-            if hu_note:
+            # If no HU note exists but HU is specified in order, create a note
+            if not hu_note and hu:
+                hu_note = f"Handling Unit Allocation: {hu}\n  • Handling Unit Source: Order (Specific Handling Unit)\n    → Taken directly from order (specific handling unit specified)"
                 allocation_notes.append(hu_note)
+            elif hu_note:
+                allocation_notes.append(hu_note)
+            
             if location_note:
                 allocation_notes.append(location_note)
             

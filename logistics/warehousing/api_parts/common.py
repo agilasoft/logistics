@@ -526,7 +526,7 @@ def _fetch_job_order_items(job_name: str) -> List[Dict[str, Any]]:
     return frappe.get_all(
         "Warehouse Job Order Items",
         filters={"parent": job_name, "parenttype": "Warehouse Job"},
-        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", 
+        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", "handling_unit_type",
                 "length", "width", "height", "volume", "weight", "volume_uom", "weight_uom", "dimension_uom"],
         order_by="idx asc",
         ignore_permissions=True,
