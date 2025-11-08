@@ -5,10 +5,28 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "general_settings_section",
+  "default_company",
+  "default_branch",
+  "default_cost_center",
+  "column_break_general",
+  "default_profit_center",
+  "default_currency",
+  "default_incoterm",
+  "default_service_level",
+  "location_settings_section",
   "default_origin_location",
   "default_destination_location",
-  "column_break_lopf",
+  "column_break_location",
+  "default_origin_port",
+  "default_destination_port",
+  "business_settings_section",
+  "default_shipping_line",
+  "default_freight_agent",
+  "column_break_business",
   "allow_creation_of_sales_order",
+  "auto_create_job_costing",
+  "enable_milestone_tracking",
   "penalty_settings_section",
   "default_free_time_days",
   "detention_rate_per_day",
@@ -18,9 +36,75 @@
   "enable_delay_alerts",
   "enable_penalty_alerts",
   "column_break_alert",
-  "alert_check_interval_hours"
+  "alert_check_interval_hours",
+  "calculation_settings_section",
+  "volume_to_weight_factor",
+  "chargeable_weight_calculation",
+  "column_break_calculation",
+  "default_charge_basis",
+  "integration_settings_section",
+  "enable_vessel_tracking",
+  "enable_customs_clearance_tracking",
+  "column_break_integration",
+  "enable_edi_integration"
  ],
  "fields": [
+  {
+   "fieldname": "general_settings_section",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "fieldname": "default_company",
+   "fieldtype": "Link",
+   "label": "Default Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "default_branch",
+   "fieldtype": "Link",
+   "label": "Default Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "default_cost_center",
+   "fieldtype": "Link",
+   "label": "Default Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_profit_center",
+   "fieldtype": "Link",
+   "label": "Default Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "default_currency",
+   "fieldtype": "Link",
+   "label": "Default Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "default_incoterm",
+   "fieldtype": "Select",
+   "label": "Default Incoterm",
+   "options": "EXW\nFCA\nCPT\nCIP\nDAP\nDPU\nDDP\nFAS\nFOB\nCFR\nCIF"
+  },
+  {
+   "fieldname": "default_service_level",
+   "fieldtype": "Select",
+   "label": "Default Service Level",
+   "options": "Standard\nExpress\nEconomy\nPremium"
+  },
+  {
+   "fieldname": "location_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Location Settings"
+  },
   {
    "fieldname": "default_origin_location",
    "fieldtype": "Link",
@@ -34,7 +118,42 @@
    "options": "Location"
   },
   {
-   "fieldname": "column_break_lopf",
+   "fieldname": "column_break_location",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_origin_port",
+   "fieldtype": "Link",
+   "label": "Default Origin Port",
+   "options": "UNLOCO",
+   "description": "Default origin port UNLOCO code"
+  },
+  {
+   "fieldname": "default_destination_port",
+   "fieldtype": "Link",
+   "label": "Default Destination Port",
+   "options": "UNLOCO",
+   "description": "Default destination port UNLOCO code"
+  },
+  {
+   "fieldname": "business_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Business Settings"
+  },
+  {
+   "fieldname": "default_shipping_line",
+   "fieldtype": "Link",
+   "label": "Default Shipping Line",
+   "options": "Shipping Line"
+  },
+  {
+   "fieldname": "default_freight_agent",
+   "fieldtype": "Link",
+   "label": "Default Freight Agent",
+   "options": "User"
+  },
+  {
+   "fieldname": "column_break_business",
    "fieldtype": "Column Break"
   },
   {
@@ -42,6 +161,18 @@
    "fieldname": "allow_creation_of_sales_order",
    "fieldtype": "Check",
    "label": "Allow Creation of Sales Order"
+  },
+  {
+   "default": "1",
+   "fieldname": "auto_create_job_costing",
+   "fieldtype": "Check",
+   "label": "Auto-create Job Costing Number"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_milestone_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Milestone Tracking"
   },
   {
    "fieldname": "penalty_settings_section",
@@ -94,6 +225,62 @@
    "fieldname": "alert_check_interval_hours",
    "fieldtype": "Int",
    "label": "Alert Check Interval (Hours)"
+  },
+  {
+   "fieldname": "calculation_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Calculation Settings"
+  },
+  {
+   "default": "1000",
+   "fieldname": "volume_to_weight_factor",
+   "fieldtype": "Float",
+   "label": "Volume to Weight Factor (kg/m³)",
+   "description": "Factor to convert volume (m³) to weight (kg) for chargeable weight calculation"
+  },
+  {
+   "fieldname": "chargeable_weight_calculation",
+   "fieldtype": "Select",
+   "label": "Chargeable Weight Calculation",
+   "options": "Actual Weight\nVolume Weight\nHigher of Both",
+   "default": "Higher of Both"
+  },
+  {
+   "fieldname": "column_break_calculation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_charge_basis",
+   "fieldtype": "Select",
+   "label": "Default Charge Basis",
+   "options": "Per kg\nPer m³\nPer package\nPer container\nPer shipment\nFixed amount"
+  },
+  {
+   "fieldname": "integration_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Integration Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_vessel_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Vessel Tracking"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_customs_clearance_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Customs Clearance Tracking"
+  },
+  {
+   "fieldname": "column_break_integration",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_edi_integration",
+   "fieldtype": "Check",
+   "label": "Enable EDI Integration"
   }
  ],
  "grid_page_length": 50,
