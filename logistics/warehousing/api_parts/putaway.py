@@ -674,6 +674,9 @@ def _order_hus_by_putaway_policy(
 ) -> List[Dict[str, Any]]:
     """Order handling units based on putaway policy.
     
+    If HUs have priority scores (_hu_priority), they are sorted by priority first,
+    then by putaway policy. This allows overflow allocation from lower priority HUs.
+    
     Args:
         hus: List of handling unit dictionaries
         item: Item code
@@ -691,32 +694,41 @@ def _order_hus_by_putaway_policy(
         if not policy:
             policy = "Nearest Empty"
         
-        # Order based on policy
-        if policy == "Consolidate Same Item":
-            # Prioritize HUs that already contain this item
-            ordered = []
-            for hu in hus:
-                if _check_hu_contains_item(hu["name"], item):
-                    ordered.insert(0, hu)  # Add to front
-                else:
-                    ordered.append(hu)  # Add to back
-            return ordered
-        elif policy == "Nearest Empty":
-            # Prioritize HUs with more available capacity
-            return sorted(hus, key=lambda x: (
-                x.get("available_volume", 0) + x.get("available_weight", 0)
-            ), reverse=True)
-        else:
-            # Default: sort by available capacity
-            return sorted(hus, key=lambda x: (
-                x.get("available_volume", 0) + x.get("available_weight", 0)
-            ), reverse=True)
+        # Check if HUs have priority scores
+        has_priority = any(hu.get("_hu_priority") is not None for hu in hus)
+        
+        # Define sorting key function
+        def sort_key(hu: Dict[str, Any]) -> tuple:
+            # First sort by priority (if available), then by putaway policy
+            priority = hu.get("_hu_priority", 999)
+            
+            # Get policy-based sort value
+            if policy == "Consolidate Same Item":
+                # Prioritize HUs that already contain this item
+                contains_item = _check_hu_contains_item(hu["name"], item)
+                policy_value = (0 if contains_item else 1)  # 0 = higher priority
+            else:
+                # For "Nearest Empty" and other policies, sort by available capacity (descending)
+                # Use negative value so higher capacity comes first
+                available_capacity = -(hu.get("available_volume", 0) + hu.get("available_weight", 0))
+                policy_value = available_capacity
+            
+            # Return tuple: (priority, policy_value)
+            # Lower priority number = higher priority
+            # Lower policy_value = higher priority (for Consolidate Same Item)
+            # For capacity-based policies, negative capacity means higher capacity = higher priority
+            return (priority, policy_value)
+        
+        # Sort by priority first, then by putaway policy
+        return sorted(hus, key=sort_key)
+        
     except Exception as e:
         frappe.logger().warning(f"Error ordering HUs by putaway policy: {str(e)}")
-        # Fallback: sort by available capacity
+        # Fallback: sort by priority (if available), then by available capacity
         return sorted(hus, key=lambda x: (
-            x.get("available_volume", 0) + x.get("available_weight", 0)
-        ), reverse=True)
+            x.get("_hu_priority", 999),
+            -(x.get("available_volume", 0) + x.get("available_weight", 0))
+        ))
 
 
 def _get_hu_current_locations(
@@ -1014,37 +1026,52 @@ def _allocate_hu_to_orders(
         # 3. Putaway policy
         
         # Filter and prioritize HUs based on order requirements
-        # Priority hierarchy: Filter to order requirements if specified, with fallback to all HUs
+        # Priority hierarchy: Filter to order requirements if specified, with fallback to all HUs for overflow
         available_hus = all_available_hus.copy()
         fallback_occurred = False
         fallback_message = None
+        
+        # Add priority scores to HUs to allow overflow allocation
+        for hu in available_hus:
+            hu["_hu_priority"] = 999  # Default low priority (for overflow allocation)
         
         # Check for specific handling unit in order (should be handled elsewhere, but check here too)
         order_handling_unit = order_row.get("handling_unit")
         
         if order_handling_unit:
-            # Filter to the specified handling unit
-            specific_hu = [hu for hu in available_hus if hu.get("name") == order_handling_unit]
-            if specific_hu:
-                available_hus = _order_hus_by_putaway_policy(specific_hu, item, company)
-            else:
+            # Priority 1: Specific handling unit from order
+            specific_hu_found = False
+            for hu in available_hus:
+                if hu.get("name") == order_handling_unit:
+                    hu["_hu_priority"] = 1
+                    specific_hu_found = True
+            
+            if not specific_hu_found:
                 # Specific HU not found - fallback to all available HUs (putaway policy)
                 fallback_occurred = True
                 fallback_message = _("Order row {0}: Specified handling unit '{1}' not available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit)
                 warnings.append(fallback_message)
-                available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+            
+            # Return all HUs with priority scores (priority 1 will be allocated first, then overflow from others)
+            # This allows overflow allocation from other handling units if needed
+            available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
         elif order_handling_unit_type:
-            # Filter by HU type
-            type_filtered = [hu for hu in available_hus if hu.get("type") == order_handling_unit_type]
-            if type_filtered:
-                # Order by putaway policy
-                available_hus = _order_hus_by_putaway_policy(type_filtered, item, company)
-            else:
+            # Priority 2: Handling unit type from order
+            type_filtered_found = False
+            for hu in available_hus:
+                if hu.get("type") == order_handling_unit_type:
+                    hu["_hu_priority"] = 2
+                    type_filtered_found = True
+            
+            if not type_filtered_found:
                 # No HUs of specified type - fallback to all available HUs (putaway policy)
                 fallback_occurred = True
                 fallback_message = _("Order row {0}: No handling units of type '{1}' available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit_type)
                 warnings.append(fallback_message)
-                available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+            
+            # Return all HUs with priority scores (priority 2 will be allocated first, then overflow from priority 999)
+            # This allows overflow allocation from other handling_unit_type if needed
+            available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
         else:
             # No type specified, order by putaway policy
             available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
@@ -1232,13 +1259,23 @@ def _generate_hu_allocation_note(
     
     if order_handling_unit and hu_name == order_handling_unit:
         note_parts.append(f"    → Taken directly from order (specific handling unit specified)")
+    elif order_handling_unit and hu_name != order_handling_unit:
+        # Overflow allocation from other handling unit
+        policy_desc = policy if policy else _get_putaway_policy(item, company)
+        policy_name = policy_desc.split(': ')[-1] if ':' in policy_desc else policy_desc
+        note_parts.append(f"    ⚠ Overflow: Allocated from other handling unit '{hu_name}' (order specified '{order_handling_unit}')")
+        note_parts.append(f"    Overflow Allocation Method: Using item putaway policy ({policy_name})")
     elif order_handling_unit_type:
         try:
             hu_type = frappe.db.get_value("Handling Unit", hu_name, "type")
             if hu_type == order_handling_unit_type:
                 note_parts.append(f"    → Matches handling unit type requirement from order")
             else:
-                note_parts.append(f"    → Selected by putaway policy (order specified type '{order_handling_unit_type}' but no matching HUs available)")
+                # Overflow allocation from other handling_unit_type
+                policy_desc = policy if policy else _get_putaway_policy(item, company)
+                policy_name = policy_desc.split(': ')[-1] if ':' in policy_desc else policy_desc
+                note_parts.append(f"    ⚠ Overflow: Allocated from other handling unit type '{hu_type}' (order specified '{order_handling_unit_type}')")
+                note_parts.append(f"    Overflow Allocation Method: Using item putaway policy ({policy_name})")
         except Exception:
             note_parts.append(f"    → Selected by putaway policy")
     else:
