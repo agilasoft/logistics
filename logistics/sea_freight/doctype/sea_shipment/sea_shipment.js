@@ -128,8 +128,8 @@ frappe.ui.form.on('Sea Shipment', {
                     if ($wrapper) {
                         $wrapper.html(r.message);
                     }
-                }
-            });
+    }
+});
         }
     },
     destination_port: function(frm) {
