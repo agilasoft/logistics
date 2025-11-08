@@ -2649,9 +2649,16 @@ def create_sales_invoice_from_periodic_billing(
         frappe.throw(_("periodic_billing is required"))
 
     pb = frappe.get_doc("Periodic Billing", periodic_billing)
+    pbf = _safe_meta_fieldnames("Periodic Billing")
     customer  = getattr(pb, "customer", None)
     date_from = getattr(pb, "date_from", None)
     date_to   = getattr(pb, "date_to", None)
+    pb_company = getattr(pb, "company", None) if "company" in pbf else None
+    pb_branch  = getattr(pb, "branch", None) if "branch" in pbf else None
+    profit_center = getattr(pb, "profit_center", None) if "profit_center" in pbf else None
+    pb_cost_center = getattr(pb, "cost_center", None) if "cost_center" in pbf else None
+    job_costing_number = getattr(pb, "job_costing_number", None) if "job_costing_number" in pbf else None
+    
     if not customer:
         frappe.throw(_("Customer is required on Periodic Billing."))
     if not (date_from and date_to):
@@ -2664,9 +2671,11 @@ def create_sales_invoice_from_periodic_billing(
     if not charges:
         frappe.throw(_("No rows found in Periodic Billing Charges."))
 
-    company = company or _get_default_company_safe()
+    company = company or pb_company or _get_default_company_safe()
     if not company:
         frappe.throw(_("Company is required (pass it in, or set a Default Company)."))
+    
+    cost_center = cost_center or pb_cost_center
 
     si = frappe.new_doc("Sales Invoice")
     si.customer = customer
@@ -2674,6 +2683,14 @@ def create_sales_invoice_from_periodic_billing(
     if posting_date: si.posting_date = posting_date
 
     sif = _safe_meta_fieldnames("Sales Invoice")
+    if pb_branch and "branch" in sif:
+        setattr(si, "branch", pb_branch)
+    if profit_center and "profit_center" in sif:
+        setattr(si, "profit_center", profit_center)
+    if cost_center and "cost_center" in sif:
+        setattr(si, "cost_center", cost_center)
+    if job_costing_number and "job_costing_number" in sif:
+        setattr(si, "job_costing_number", job_costing_number)
     if "periodic_billing" in sif:
         setattr(si, "periodic_billing", pb.name)
 
@@ -2711,6 +2728,10 @@ def create_sales_invoice_from_periodic_billing(
         if "uom" in sif_item_fields and uom: row_payload["uom"] = uom
         if "item_name" in sif_item_fields and item_name: row_payload["item_name"] = item_name
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
+        if pb_branch and "branch" in sif_item_fields: row_payload["branch"] = pb_branch
+        if profit_center and "profit_center" in sif_item_fields: row_payload["profit_center"] = profit_center
+        # Tag job_costing_number to storage charges (all items from periodic billing are storage charges)
+        if job_costing_number and "job_costing_number" in sif_item_fields: row_payload["job_costing_number"] = job_costing_number
         si.append("items", row_payload)
         created_rows += 1
 
