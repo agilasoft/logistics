@@ -158,12 +158,15 @@ after_install = "logistics.install.after_install.after_install"
 scheduler_events = {
 	"hourly": [
 		"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
-		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status"
+		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
+		"logistics.sea_freight.tasks.check_sea_shipment_delays",
+		"logistics.sea_freight.tasks.check_sea_shipment_penalties"
 	],
 	"daily": [
 		"logistics.air_freight.flight_schedules.tasks.sync_airport_master",
 		"logistics.air_freight.flight_schedules.tasks.sync_airline_master",
-		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules"
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules",
+		"logistics.sea_freight.tasks.check_impending_penalties"
 	],
 	"weekly": [
 		"logistics.air_freight.flight_schedules.tasks.sync_route_data",

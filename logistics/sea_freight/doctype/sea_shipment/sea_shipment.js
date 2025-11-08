@@ -3,6 +3,29 @@
 
 frappe.ui.form.on('Sea Shipment', {
     refresh: function(frm) {
+        // Load milestone HTML if milestone_html field exists
+        if (frm.fields_dict.milestone_html) {
+            if (!frm._milestone_html_called) {
+                frm._milestone_html_called = true;
+                frm.call('get_milestone_html').then(r => {
+                    if (r.message) {
+                        const html = r.message || '';
+                        const $wrapper = frm.get_field('milestone_html').$wrapper;
+                        if ($wrapper) {
+                            $wrapper.html(html);
+                        }
+                    }
+                }).catch(err => {
+                    console.error("Error calling get_milestone_html:", err);
+                });
+                
+                // Reset flag after 2 seconds
+                setTimeout(() => {
+                    frm._milestone_html_called = false;
+                }, 2000);
+            }
+        }
+        
         frm.add_custom_button(__('Create Sales Invoice'), function() {
             const d = new frappe.ui.Dialog({
                 title: 'Create Sales Invoice',
@@ -26,7 +49,7 @@ frappe.ui.form.on('Sea Shipment', {
                         fieldname: 'customer',
                         fieldtype: 'Link',
                         options: 'Customer',
-                        default: frm.doc.customer,
+                        default: frm.doc.local_customer,
                         reqd: 1
                     },
                     {
@@ -46,9 +69,9 @@ frappe.ui.form.on('Sea Shipment', {
                 primary_action_label: 'Create',
                 primary_action(values) {
                     frappe.call({
-                        method: 'logistics.sea_freight.doctype.sea_freight_job.sea_freight_job.create_sales_invoice',
+                        method: 'logistics.sea_freight.doctype.sea_shipment.sea_shipment.create_sales_invoice',
                         args: {
-                            booking_name: frm.doc.name,
+                            shipment_name: frm.doc.name,
                             posting_date: values.posting_date,
                             customer: values.customer,
                             tax_category: values.tax_category,
@@ -95,8 +118,50 @@ frappe.ui.form.on('Sea Shipment', {
     },
     direction: function(frm) {
         compute_chargeable(frm);
+    },
+    origin_port: function(frm) {
+        // Refresh milestone view when origin port changes
+        if (frm.fields_dict.milestone_html) {
+            frm.call('get_milestone_html').then(r => {
+                if (r.message) {
+                    const $wrapper = frm.get_field('milestone_html').$wrapper;
+                    if ($wrapper) {
+                        $wrapper.html(r.message);
+                    }
+                }
+            });
+        }
+    },
+    destination_port: function(frm) {
+        // Refresh milestone view when destination port changes
+        if (frm.fields_dict.milestone_html) {
+            frm.call('get_milestone_html').then(r => {
+                if (r.message) {
+                    const $wrapper = frm.get_field('milestone_html').$wrapper;
+                    if ($wrapper) {
+                        $wrapper.html(r.message);
+                    }
+                }
+            });
+        }
     }
 });
+
+// Function to refresh milestone view
+function refresh_milestone_view(frm) {
+    if (frm.fields_dict.milestone_html) {
+        frm.call('get_milestone_html').then(r => {
+            if (r.message) {
+                const $wrapper = frm.get_field('milestone_html').$wrapper;
+                if ($wrapper) {
+                    $wrapper.html(r.message);
+                }
+            }
+        }).catch(err => {
+            console.error("Error refreshing milestone view:", err);
+        });
+    }
+}
 
 function compute_chargeable(frm) {
     const weight = frm.doc.weight || 0;

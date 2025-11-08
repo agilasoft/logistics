@@ -8,7 +8,17 @@
   "default_origin_location",
   "default_destination_location",
   "column_break_lopf",
-  "allow_creation_of_sales_order"
+  "allow_creation_of_sales_order",
+  "penalty_settings_section",
+  "default_free_time_days",
+  "detention_rate_per_day",
+  "column_break_penalty",
+  "demurrage_rate_per_day",
+  "alert_settings_section",
+  "enable_delay_alerts",
+  "enable_penalty_alerts",
+  "column_break_alert",
+  "alert_check_interval_hours"
  ],
  "fields": [
   {
@@ -32,6 +42,58 @@
    "fieldname": "allow_creation_of_sales_order",
    "fieldtype": "Check",
    "label": "Allow Creation of Sales Order"
+  },
+  {
+   "fieldname": "penalty_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Penalty Settings"
+  },
+  {
+   "default": "7",
+   "fieldname": "default_free_time_days",
+   "fieldtype": "Float",
+   "label": "Default Free Time (Days)"
+  },
+  {
+   "fieldname": "detention_rate_per_day",
+   "fieldtype": "Currency",
+   "label": "Detention Rate per Day"
+  },
+  {
+   "fieldname": "column_break_penalty",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "demurrage_rate_per_day",
+   "fieldtype": "Currency",
+   "label": "Demurrage Rate per Day"
+  },
+  {
+   "fieldname": "alert_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Alert Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_delay_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Delay Alerts"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_penalty_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Penalty Alerts"
+  },
+  {
+   "fieldname": "column_break_alert",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_check_interval_hours",
+   "fieldtype": "Int",
+   "label": "Alert Check Interval (Hours)"
   }
  ],
  "grid_page_length": 50,

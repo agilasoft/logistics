@@ -1,0 +1,332 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:route_sequence",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "route_info_section",
+  "route_sequence",
+  "route_type",
+  "origin_port",
+  "destination_port",
+  "column_break_1",
+  "shipping_line",
+  "vessel_name",
+  "voyage_number",
+  "section_break_timing",
+  "etd",
+  "eta",
+  "transit_days",
+  "column_break_2",
+  "connection_days",
+  "section_break_capacity",
+  "container_capacity",
+  "cargo_capacity_kg",
+  "cargo_capacity_volume",
+  "column_break_3",
+  "utilization_percentage",
+  "available_capacity_kg",
+  "available_capacity_volume",
+  "section_break_costs",
+  "base_rate_per_kg",
+  "fuel_surcharge_rate",
+  "security_surcharge_rate",
+  "column_break_4",
+  "terminal_handling_charges",
+  "port_charges",
+  "total_cost_per_kg",
+  "section_break_restrictions",
+  "dangerous_goods_allowed",
+  "refrigerated_cargo_allowed",
+  "column_break_5",
+  "oversized_cargo_allowed",
+  "section_break_status",
+  "route_status",
+  "booking_status",
+  "column_break_6",
+  "confirmation_number",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "route_info_section",
+   "fieldtype": "Section Break",
+   "label": "Route Information"
+  },
+  {
+   "fieldname": "route_sequence",
+   "fieldtype": "Int",
+   "label": "Route Sequence",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "route_type",
+   "fieldtype": "Select",
+   "label": "Route Type",
+   "options": "Direct\nTransit\nMulti-Port\nCharter",
+   "reqd": 1
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "reqd": 1,
+   "description": "Origin port UNLOCO code"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "reqd": 1,
+   "description": "Destination port UNLOCO code"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line",
+   "reqd": 1
+  },
+  {
+   "fieldname": "vessel_name",
+   "fieldtype": "Data",
+   "label": "Vessel Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "voyage_number",
+   "fieldtype": "Data",
+   "label": "Voyage Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_timing",
+   "fieldtype": "Section Break",
+   "label": "Timing Information"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Datetime",
+   "label": "ETD",
+   "reqd": 1
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Datetime",
+   "label": "ETA",
+   "reqd": 1
+  },
+  {
+   "fieldname": "transit_days",
+   "fieldtype": "Float",
+   "label": "Transit Days",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "connection_days",
+   "fieldtype": "Float",
+   "label": "Connection Days",
+   "precision": "1"
+  },
+  {
+   "fieldname": "section_break_capacity",
+   "fieldtype": "Section Break",
+   "label": "Capacity Information"
+  },
+  {
+   "fieldname": "container_capacity",
+   "fieldtype": "Int",
+   "label": "Container Capacity"
+  },
+  {
+   "fieldname": "cargo_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Cargo Capacity (kg)",
+   "precision": "2"
+  },
+  {
+   "fieldname": "cargo_capacity_volume",
+   "fieldtype": "Float",
+   "label": "Cargo Capacity (m³)",
+   "precision": "3"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "utilization_percentage",
+   "fieldtype": "Percent",
+   "label": "Utilization %",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_capacity_kg",
+   "fieldtype": "Float",
+   "label": "Available Capacity (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_capacity_volume",
+   "fieldtype": "Float",
+   "label": "Available Capacity (m³)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_costs",
+   "fieldtype": "Section Break",
+   "label": "Cost Information"
+  },
+  {
+   "fieldname": "base_rate_per_kg",
+   "fieldtype": "Currency",
+   "label": "Base Rate per kg",
+   "precision": "2"
+  },
+  {
+   "fieldname": "fuel_surcharge_rate",
+   "fieldtype": "Currency",
+   "label": "Fuel Surcharge Rate",
+   "precision": "2"
+  },
+  {
+   "fieldname": "security_surcharge_rate",
+   "fieldtype": "Currency",
+   "label": "Security Surcharge Rate",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "terminal_handling_charges",
+   "fieldtype": "Currency",
+   "label": "Terminal Handling Charges",
+   "precision": "2"
+  },
+  {
+   "fieldname": "port_charges",
+   "fieldtype": "Currency",
+   "label": "Port Charges",
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_cost_per_kg",
+   "fieldtype": "Currency",
+   "label": "Total Cost per kg",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_restrictions",
+   "fieldtype": "Section Break",
+   "label": "Cargo Restrictions"
+  },
+  {
+   "fieldname": "dangerous_goods_allowed",
+   "fieldtype": "Check",
+   "label": "Dangerous Goods Allowed"
+  },
+  {
+   "fieldname": "refrigerated_cargo_allowed",
+   "fieldtype": "Check",
+   "label": "Refrigerated Cargo Allowed"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "oversized_cargo_allowed",
+   "fieldtype": "Check",
+   "label": "Oversized Cargo Allowed"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status Information"
+  },
+  {
+   "default": "Available",
+   "fieldname": "route_status",
+   "fieldtype": "Select",
+   "label": "Route Status",
+   "options": "Available\nBooked\nConfirmed\nCancelled\nCompleted"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "booking_status",
+   "fieldtype": "Select",
+   "label": "Booking Status",
+   "options": "Pending\nConfirmed\nCancelled\nCompleted"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "confirmation_number",
+   "fieldtype": "Data",
+   "label": "Confirmation Number"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Long Text",
+   "label": "Remarks"
+  }
+ ],
+ "has_web_view": 0,
+ "hide_heading": 1,
+ "hide_toolbar": 1,
+ "idx": 0,
+ "image_view": 1,
+ "in_create": 1,
+ "is_submittable": 0,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Consolidation Routes",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

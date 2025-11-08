@@ -54,7 +54,7 @@
 
 ### 6. Airports
 - **Label**: Airports
-- **Link To**: Location
+- **Link To**: UNLOCO
 - **Type**: DocType
 - **Color**: Grey
 - **Doc View**: List

@@ -300,7 +300,7 @@
    "color": "Grey",
    "doc_view": "List",
    "label": "Airports",
-   "link_to": "Location",
+   "link_to": "UNLOCO",
    "stats_filter": "[]",
    "type": "DocType"
   },
