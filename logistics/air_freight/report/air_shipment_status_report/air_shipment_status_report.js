@@ -18,12 +18,6 @@ frappe.query_reports["Air Shipment Status Report"] = {
 			"reqd": 1
 		},
 		{
-			"fieldname": "status",
-			"label": __("Status"),
-			"fieldtype": "Select",
-			"options": "\nDraft\nBooked\nIn Transit\nDelivered\nOn Hold\nCancelled"
-		},
-		{
 			"fieldname": "company",
 			"label": __("Company"),
 			"fieldtype": "Link",

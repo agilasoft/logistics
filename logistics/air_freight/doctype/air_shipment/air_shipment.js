@@ -451,7 +451,7 @@ function refresh_milestone_view(frm) {
 			console.error("Error refreshing milestone view:", err);
 		});
 	}
-});
+}
 
 // Function to load charges from Sales Quote
 function load_charges_from_sales_quote(frm) {

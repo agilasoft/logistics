@@ -118,7 +118,12 @@ def get_data(filters):
 		SELECT
 			aship.name as air_shipment,
 			aship.booking_date,
-			aship.status,
+			CASE 
+				WHEN aship.docstatus = 0 THEN 'Draft'
+				WHEN aship.docstatus = 1 THEN 'Submitted'
+				WHEN aship.docstatus = 2 THEN 'Cancelled'
+				ELSE 'Unknown'
+			END as status,
 			aship.local_customer,
 			aship.origin_port,
 			aship.destination_port,
@@ -149,9 +154,6 @@ def get_conditions(filters):
 	
 	if filters.get("to_date"):
 		conditions.append("aship.booking_date <= %(to_date)s")
-	
-	if filters.get("status"):
-		conditions.append("aship.status = %(status)s")
 	
 	if filters.get("company"):
 		conditions.append("aship.company = %(company)s")

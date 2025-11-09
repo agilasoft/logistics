@@ -1,10 +1,5 @@
 {
- "charts": [
-  {
-   "chart_name": "Profit and Loss",
-   "label": "Profit and Loss"
-  }
- ],
+ "charts": [],
  "content": "[{\"id\":\"weUdBF3DtZ\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Air Freight\",\"col\":12}},{\"id\":\"KmqO4ZDUte\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"id5PPDI1AU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access - Process Flow</b></span>\",\"col\":12}},{\"id\":\"3HiVrZLIPv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Shipment\",\"col\":3}},{\"id\":\"aDLLlm2IFm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Consolidation\",\"col\":3}},{\"id\":\"zzsLPl3JFG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Master Air Waybill\",\"col\":3}},{\"id\":\"cOpPisjZoB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"W7zKI4QDd2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Airlines\",\"col\":3}},{\"id\":\"zeZs1MccAG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Airports\",\"col\":3}},{\"id\":\"95JHp6T1ff\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"oJg34cjG-V\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Settings & Configuration</b></span>\",\"col\":12}},{\"id\":\"74ODRaeO5Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"IATA Settings\",\"col\":4}},{\"id\":\"85PEbf6P1Z\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Freight Rate\",\"col\":4}},{\"id\":\"96QFcg7Q2A\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"ULD Types\",\"col\":4}}]",
  "creation": "2025-05-22 17:01:00.044524",
  "custom_blocks": [],

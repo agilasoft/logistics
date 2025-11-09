@@ -2,7 +2,7 @@
  "action": "Create Entry",
  "action_label": "Create Sea Freight Booking",
  "creation": "2025-06-01 22:31:56.743709",
- "description": "# Create a Sea Freight Booking\nA Sea Freight Job is the main transaction that captures all details of a cargo shipment by sea.\n\nIn ERPNext, it includes information such as shipper, consignee, shipping line, ports, container details, schedule, charges, and documents like the Bill of Lading. It serves as the central record for tracking, billing, and managing the entire sea freight process.",
+ "description": "# Create a Sea Freight Booking\nA Sea Shipment is the main transaction that captures all details of a cargo shipment by sea.\n\nIn ERPNext, it includes information such as shipper, consignee, shipping line, ports, container details, schedule, charges, and documents like the Bill of Lading. It serves as the central record for tracking, billing, and managing the entire sea freight process.",
  "docstatus": 0,
  "doctype": "Onboarding Step",
  "idx": 0,
@@ -13,9 +13,9 @@
  "modified_by": "Administrator",
  "name": "Sea Freight Job",
  "owner": "Administrator",
- "reference_document": "Sea Freight Job",
+ "reference_document": "Sea Shipment",
  "show_form_tour": 0,
  "show_full_form": 0,
- "title": "Create Sea Freight Job",
+ "title": "Create Sea Shipment",
  "validate_action": 1
 }

@@ -195,13 +195,35 @@ def get_conditions(filters):
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 def get_chart_data(data):
-	# Performance metrics chart
+	if not data:
+		return None
+	
+	# Performance metrics chart - show key metrics
+	# Extract numeric values from metrics
+	metrics_to_chart = []
+	values_to_chart = []
+	
+	for row in data:
+		metric = row.get("metric", "")
+		value_str = str(row.get("value", "0")).replace(",", "").replace("%", "")
+		try:
+			# Try to extract numeric value
+			if "Total" in metric or "Revenue" in metric or "Penalties" in metric:
+				value = float(value_str)
+				metrics_to_chart.append(metric)
+				values_to_chart.append(value)
+		except:
+			pass
+	
+	if not metrics_to_chart:
+		return None
+	
 	chart = {
 		"data": {
-			"labels": [row.get("metric") for row in data],
+			"labels": metrics_to_chart[:5],  # Limit to 5 metrics
 			"datasets": [{
-				"name": "Performance Metrics",
-				"values": [1] * len(data)  # Placeholder values
+				"name": "Value",
+				"values": values_to_chart[:5]
 			}]
 		},
 		"type": "bar",
