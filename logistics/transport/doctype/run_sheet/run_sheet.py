@@ -2,7 +2,9 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 
 
 class RunSheet(Document):
@@ -11,7 +13,10 @@ class RunSheet(Document):
 		self.refresh_legs_from_transport_leg()
 	
 	def validate(self):
-		"""Ensure bidirectional sync between Run Sheet Leg and Transport Leg"""
+		"""Validate Run Sheet data and ensure bidirectional sync"""
+		self.validate_vehicle_availability()
+		self.validate_capacity()
+		self.validate_legs_compatibility()
 		self.sync_legs_to_transport_leg()
 	
 	def on_update(self):
@@ -130,6 +135,123 @@ class RunSheet(Document):
 					leg_doc.save(ignore_permissions=True)
 			except Exception as e:
 				frappe.log_error(f"Error clearing Transport Leg {leg_name} run_sheet assignment: {str(e)}")
+	
+	def validate_vehicle_availability(self):
+		"""Validate that the assigned vehicle is not already on another active Run Sheet"""
+		if not self.vehicle:
+			return
+		
+		if self.is_new():
+			# Check if vehicle is already on an active Run Sheet
+			existing_rs = frappe.db.exists("Run Sheet", {
+				"vehicle": self.vehicle,
+				"status": ["in", ["Draft", "Submitted", "In Progress"]],
+				"name": ["!=", self.name]
+			})
+			
+			if existing_rs:
+				frappe.throw(_("Vehicle {0} is already assigned to an active Run Sheet ({1})").format(
+					self.vehicle, existing_rs
+				))
+		else:
+			# For existing documents, check if vehicle changed
+			old_vehicle = frappe.db.get_value("Run Sheet", self.name, "vehicle")
+			if old_vehicle != self.vehicle:
+				# Check if new vehicle is available
+				existing_rs = frappe.db.exists("Run Sheet", {
+					"vehicle": self.vehicle,
+					"status": ["in", ["Draft", "Submitted", "In Progress"]],
+					"name": ["!=", self.name]
+				})
+				
+				if existing_rs:
+					frappe.throw(_("Vehicle {0} is already assigned to an active Run Sheet ({1})").format(
+						self.vehicle, existing_rs
+					))
+	
+	def validate_capacity(self):
+		"""Validate that the vehicle has sufficient capacity for all legs"""
+		if not self.vehicle or not self.legs:
+			return
+		
+		# Get vehicle capacity
+		vehicle_doc = frappe.get_doc("Transport Vehicle", self.vehicle)
+		vehicle_capacity_weight = flt(getattr(vehicle_doc, "max_weight_kg", 0))
+		vehicle_capacity_volume = flt(getattr(vehicle_doc, "max_volume_m3", 0))
+		vehicle_capacity_pallets = flt(getattr(vehicle_doc, "max_pallets", 0))
+		
+		# Calculate total requirements from legs
+		total_weight = 0
+		total_volume = 0
+		total_pallets = 0
+		
+		for row in self.legs:
+			if not row.transport_leg:
+				continue
+			
+			leg_doc = frappe.get_doc("Transport Leg", row.transport_leg)
+			total_weight += flt(getattr(leg_doc, "weight_kg", 0))
+			total_volume += flt(getattr(leg_doc, "volume_m3", 0))
+			total_pallets += flt(getattr(leg_doc, "pallets", 0))
+		
+		# Validate capacity
+		if vehicle_capacity_weight > 0 and total_weight > vehicle_capacity_weight:
+			frappe.throw(_("Total weight ({0} kg) exceeds vehicle capacity ({1} kg)").format(
+				total_weight, vehicle_capacity_weight
+			))
+		
+		if vehicle_capacity_volume > 0 and total_volume > vehicle_capacity_volume:
+			frappe.throw(_("Total volume ({0} m³) exceeds vehicle capacity ({1} m³)").format(
+				total_volume, vehicle_capacity_volume
+			))
+		
+		if vehicle_capacity_pallets > 0 and total_pallets > vehicle_capacity_pallets:
+			frappe.throw(_("Total pallets ({0}) exceeds vehicle capacity ({1})").format(
+				total_pallets, vehicle_capacity_pallets
+			))
+	
+	def validate_legs_compatibility(self):
+		"""Validate that all legs are compatible (same vehicle type, reasonable date range)"""
+		if not self.legs or len(self.legs) < 2:
+			return
+		
+		# Get vehicle types from all legs
+		vehicle_types = set()
+		leg_dates = []
+		
+		for row in self.legs:
+			if not row.transport_leg:
+				continue
+			
+			leg_doc = frappe.get_doc("Transport Leg", row.transport_leg)
+			if leg_doc.vehicle_type:
+				vehicle_types.add(leg_doc.vehicle_type)
+			
+			# Collect dates for range check
+			if hasattr(leg_doc, "pick_window_start") and leg_doc.pick_window_start:
+				from frappe.utils import getdate
+				leg_dates.append(getdate(leg_doc.pick_window_start))
+			if hasattr(leg_doc, "drop_window_end") and leg_doc.drop_window_end:
+				from frappe.utils import getdate
+				leg_dates.append(getdate(leg_doc.drop_window_end))
+		
+		# Warn if legs have different vehicle types
+		if len(vehicle_types) > 1:
+			frappe.msgprint(_("Warning: Legs have different vehicle types ({0}). This may cause issues.").format(
+				", ".join(vehicle_types)
+			), indicator="orange")
+		
+		# Warn if legs span more than 7 days
+		if leg_dates:
+			from frappe.utils import getdate
+			min_date = min(leg_dates)
+			max_date = max(leg_dates)
+			days_span = (max_date - min_date).days
+			
+			if days_span > 7:
+				frappe.msgprint(_("Warning: Legs span {0} days. This may indicate a scheduling issue.").format(
+					days_span
+				), indicator="orange")
 	
 	def clear_transport_leg_assignments(self):
 		"""Clear run_sheet field on all Transport Legs when Run Sheet is deleted

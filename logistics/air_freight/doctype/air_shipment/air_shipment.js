@@ -2,10 +2,42 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Air Shipment", {
+	onload(frm) {
+		// Apply settings defaults when creating new document
+		if (frm.is_new()) {
+			apply_settings_defaults(frm);
+		}
+	},
+	
 	refresh(frm) {
+		// Add button to load charges from Sales Quote
+		if (frm.doc.sales_quote && !frm.is_new()) {
+			frm.add_custom_button(__('Load Charges from Sales Quote'), function() {
+				load_charges_from_sales_quote(frm);
+			}, __('Pricing'));
+		}
+		
+		// Add button to recalculate all charges
+		if (frm.doc.charges && frm.doc.charges.length > 0 && !frm.is_new()) {
+			frm.add_custom_button(__('Recalculate All Charges'), function() {
+				recalculate_all_charges(frm);
+			}, __('Pricing'));
+		}
+		
+		// Add button to calculate total charges
+		if (frm.doc.charges && frm.doc.charges.length > 0 && !frm.is_new()) {
+			frm.add_custom_button(__('Calculate Total Charges'), function() {
+				calculate_total_charges(frm);
+			}, __('Pricing'));
+		}
 		console.log("Air Shipment form refreshed");
 		console.log("Origin Port:", frm.doc.origin_port);
 		console.log("Destination Port:", frm.doc.destination_port);
+		
+		// Apply settings defaults if document is new and not already applied
+		if (frm.is_new() && !frm.doc._settings_applied) {
+			apply_settings_defaults(frm);
+		}
 		
 		// Update DG compliance status on form load
 		if (frm.doc.contains_dangerous_goods) {
@@ -431,4 +463,301 @@ function refresh_milestone_view(frm) {
 			console.error("Error refreshing milestone view:", err);
 		});
 	}
+}
+
+// Function to load charges from Sales Quote
+function load_charges_from_sales_quote(frm) {
+	if (!frm.doc.sales_quote) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Quote is not set for this Air Shipment."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	frappe.confirm(
+		__("This will replace all existing charges with charges from Sales Quote. Do you want to continue?"),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Loading charges from Sales Quote..."));
+			
+			// Call the server method
+			frm.call({
+				method: "populate_charges_from_sales_quote",
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					
+					if (r.message && r.message.success) {
+						// Refresh the form to show new charges
+						frm.refresh_field("charges");
+						
+						frappe.msgprint({
+							title: __("Charges Loaded"),
+							message: __("Successfully loaded {0} charges from Sales Quote.", [r.message.charges_added]),
+							indicator: "green"
+						});
+					} else {
+						frappe.msgprint({
+							title: __("Error"),
+							message: r.message && r.message.message ? r.message.message : __("Failed to load charges from Sales Quote."),
+							indicator: "red"
+						});
+					}
+				},
+				error: function(r) {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to load charges from Sales Quote. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+	);
+}
+
+// Function to recalculate all charges
+function recalculate_all_charges(frm) {
+	if (!frm.doc.charges || frm.doc.charges.length === 0) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("No charges found to recalculate."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	// Show loading indicator
+	frm.dashboard.set_headline_alert(__("Recalculating charges..."));
+	
+	// Call the server method
+	frm.call({
+		method: "recalculate_all_charges",
+		callback: function(r) {
+			frm.dashboard.clear_headline();
+			
+			if (r.message && r.message.success) {
+				// Refresh the form to show updated charges
+				frm.refresh_field("charges");
+				
+				frappe.msgprint({
+					title: __("Charges Recalculated"),
+					message: __("Successfully recalculated {0} charges.", [r.message.charges_recalculated]),
+					indicator: "green"
+				});
+			} else {
+				frappe.msgprint({
+					title: __("Error"),
+					message: r.message && r.message.message ? r.message.message : __("Failed to recalculate charges."),
+					indicator: "red"
+				});
+			}
+		},
+		error: function(r) {
+			frm.dashboard.clear_headline();
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to recalculate charges. Please try again."),
+				indicator: "red"
+			});
+		}
+	});
+}
+
+// Function to calculate total charges
+function calculate_total_charges(frm) {
+	if (!frm.doc.charges || frm.doc.charges.length === 0) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("No charges found to calculate."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	// Call the server method
+	frm.call({
+		method: "calculate_total_charges",
+		callback: function(r) {
+			if (r.message) {
+				const total = r.message.total_charges || 0;
+				const currency = r.message.currency || "";
+				
+				frappe.msgprint({
+					title: __("Total Charges"),
+					message: __("Total Charges: {0} {1}", [currency, total.toFixed(2)]),
+					indicator: "blue"
+				});
+			}
+		},
+		error: function(r) {
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to calculate total charges. Please try again."),
+				indicator: "red"
+			});
+		}
+	});
+}
+
+// Calculate charge amount when rate or quantity changes
+frappe.ui.form.on("Air Shipment Charges", {
+	rate: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	quantity: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	charge_basis: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	discount_percentage: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	},
+	surcharge_amount: function(frm, cdt, cdn) {
+		calculate_charge_amount(frm, cdt, cdn);
+	}
+});
+
+// Function to calculate charge amount
+function calculate_charge_amount(frm, cdt, cdn) {
+	let row = locals[cdt][cdn];
+	if (!row.rate || !row.charge_basis) {
+		return;
+	}
+	
+	let base_amount = 0;
+	const rate = parseFloat(row.rate) || 0;
+	const quantity = parseFloat(row.quantity) || 0;
+	
+	// Calculate base amount based on charge basis
+	if (row.charge_basis === "Per kg" || row.charge_basis === "Per m³" || row.charge_basis === "Per package") {
+		base_amount = rate * quantity;
+	} else if (row.charge_basis === "Per shipment" || row.charge_basis === "Fixed amount") {
+		base_amount = rate;
+	} else if (row.charge_basis === "Percentage") {
+		// For percentage, use chargeable weight from parent
+		const chargeable = parseFloat(frm.doc.chargeable) || parseFloat(frm.doc.weight) || 0;
+		base_amount = rate * (chargeable * 0.01);
+	}
+	
+	// Calculate discount
+	const discount_percentage = parseFloat(row.discount_percentage) || 0;
+	const discount_amount = base_amount * (discount_percentage / 100);
+	
+	// Calculate surcharge
+	const surcharge_amount = parseFloat(row.surcharge_amount) || 0;
+	
+	// Calculate tax (if applicable)
+	const tax_amount = parseFloat(row.tax_amount) || 0;
+	
+	// Calculate total
+	const total_amount = base_amount - discount_amount + surcharge_amount + tax_amount;
+	
+	// Update fields
+	frappe.model.set_value(cdt, cdn, {
+		base_amount: base_amount,
+		discount_amount: discount_amount,
+		total_amount: Math.max(0, total_amount)
+	});
+	
+	// Refresh the field
+	frm.refresh_field("charges");
+}
+
+// Function to apply settings defaults
+function apply_settings_defaults(frm) {
+	if (frm.doc._settings_applied) {
+		return;
+	}
+	
+	// Get company
+	const company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	if (!company) {
+		return;
+	}
+	
+	// Get Air Freight Settings
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Air Freight Settings",
+			filters: {
+				company: company
+			},
+			limit_page_length: 1
+		},
+		callback: function(r) {
+			if (r.message && r.message.length > 0) {
+				// Get the first settings document
+				frappe.call({
+					method: "frappe.client.get",
+					args: {
+						doctype: "Air Freight Settings",
+						name: r.message[0].name
+					},
+					callback: function(r2) {
+						if (r2.message) {
+							const settings = r2.message;
+							
+							// Apply general settings
+							if (!frm.doc.branch && settings.default_branch) {
+								frm.set_value("branch", settings.default_branch);
+							}
+							if (!frm.doc.cost_center && settings.default_cost_center) {
+								frm.set_value("cost_center", settings.default_cost_center);
+							}
+							if (!frm.doc.profit_center && settings.default_profit_center) {
+								frm.set_value("profit_center", settings.default_profit_center);
+							}
+							if (!frm.doc.incoterm && settings.default_incoterm) {
+								frm.set_value("incoterm", settings.default_incoterm);
+							}
+							if (!frm.doc.service_level && settings.default_service_level) {
+								frm.set_value("service_level", settings.default_service_level);
+							}
+							
+							// Apply location settings
+							if (!frm.doc.origin_port && settings.default_origin_port) {
+								frm.set_value("origin_port", settings.default_origin_port);
+							}
+							if (!frm.doc.destination_port && settings.default_destination_port) {
+								frm.set_value("destination_port", settings.default_destination_port);
+							}
+							
+							// Apply business settings
+							if (!frm.doc.airline && settings.default_airline) {
+								frm.set_value("airline", settings.default_airline);
+							}
+							if (!frm.doc.freight_agent && settings.default_freight_agent) {
+								frm.set_value("freight_agent", settings.default_freight_agent);
+							}
+							if (!frm.doc.house_type && settings.default_house_type) {
+								frm.set_value("house_type", settings.default_house_type);
+							}
+							if (!frm.doc.direction && settings.default_direction) {
+								frm.set_value("direction", settings.default_direction);
+							}
+							if (!frm.doc.release_type && settings.default_release_type) {
+								frm.set_value("release_type", settings.default_release_type);
+							}
+							if (!frm.doc.entry_type && settings.default_entry_type) {
+								frm.set_value("entry_type", settings.default_entry_type);
+							}
+							
+							// Apply document settings
+							if (!frm.doc.uld_type && settings.default_uld_type) {
+								frm.set_value("uld_type", settings.default_uld_type);
+							}
+							
+							// Mark as applied
+							frm.set_value("_settings_applied", 1);
+						}
+					}
+				});
+			}
+		}
+	});
 }

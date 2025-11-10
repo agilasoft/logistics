@@ -115,6 +115,77 @@ class SalesQuote(Document):
 			frappe.throw(f"Error creating Transport Order: {str(e)}")
 
 	@frappe.whitelist()
+	def create_air_shipment_from_sales_quote(self):
+		"""
+		Create an Air Shipment from a Sales Quote when the quote is tagged as One-Off.
+		
+		Returns:
+			dict: Result with created Air Shipment name and status
+		"""
+		try:
+			# Check if the quote is tagged as One-Off
+			if not self.one_off:
+				frappe.throw(_("This Sales Quote is not tagged as One-Off. Only One-Off quotes can create Air Shipments."))
+			
+			# Check if Sales Quote has air freight details
+			if not self.air_freight:
+				frappe.throw(_("No Air Freight lines found in this Sales Quote."))
+			
+			# Allow creation of multiple Air Shipments from the same Sales Quote
+			# No duplicate prevention - users can create multiple shipments as needed
+			
+			# Create new Air Shipment
+			air_shipment = frappe.new_doc("Air Shipment")
+			
+			# Map basic fields from Sales Quote to Air Shipment
+			air_shipment.local_customer = self.customer
+			air_shipment.booking_date = today()
+			air_shipment.sales_quote = self.name
+			air_shipment.shipper = getattr(self, 'shipper', None)
+			air_shipment.consignee = getattr(self, 'consignee', None)
+			air_shipment.origin_port = getattr(self, 'location_from', None)
+			air_shipment.destination_port = getattr(self, 'location_to', None)
+			air_shipment.direction = getattr(self, 'direction', None)
+			air_shipment.weight = getattr(self, 'weight', None)
+			air_shipment.volume = getattr(self, 'volume', None)
+			air_shipment.chargeable = getattr(self, 'chargeable', None)
+			air_shipment.service_level = getattr(self, 'service_level', None)
+			air_shipment.incoterm = getattr(self, 'incoterm', None)
+			air_shipment.additional_terms = getattr(self, 'additional_terms', None)
+			air_shipment.company = self.company
+			air_shipment.branch = self.branch
+			air_shipment.cost_center = self.cost_center
+			air_shipment.profit_center = self.profit_center
+			
+			# Insert the Air Shipment
+			air_shipment.insert(ignore_permissions=True)
+			
+			# Populate charges from Sales Quote Air Freight
+			_populate_charges_from_sales_quote_air_freight(air_shipment, self)
+			
+			# Save the Air Shipment
+			air_shipment.save(ignore_permissions=True)
+			
+			# Prepare success message
+			success_msg = f"Air Shipment {air_shipment.name} created successfully from Sales Quote {self.name}"
+			
+			frappe.msgprint(
+				success_msg,
+				title="Air Shipment Created",
+				indicator="green"
+			)
+			
+			return {
+				"success": True,
+				"message": f"Air Shipment {air_shipment.name} created successfully.",
+				"air_shipment": air_shipment.name
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"Error creating Air Shipment: {str(e)}", "Sales Quote - Create Air Shipment")
+			frappe.throw(f"Error creating Air Shipment: {str(e)}")
+
+	@frappe.whitelist()
 	def create_warehouse_contract_from_sales_quote(self):
 		"""
 		Create a Warehouse Contract from a Sales Quote when the quote is submitted and has warehousing items.
@@ -186,6 +257,16 @@ def create_transport_order_from_sales_quote(sales_quote_name):
 
 
 @frappe.whitelist()
+def create_air_shipment_from_sales_quote(sales_quote_name):
+	"""
+	Standalone function to create Air Shipment from Sales Quote.
+	This function can be called from JavaScript.
+	"""
+	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	return sales_quote.create_air_shipment_from_sales_quote()
+
+
+@frappe.whitelist()
 def create_warehouse_contract_from_sales_quote(sales_quote_name):
 	"""
 	Standalone function to create Warehouse Contract from Sales Quote.
@@ -193,6 +274,146 @@ def create_warehouse_contract_from_sales_quote(sales_quote_name):
 	"""
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
 	return sales_quote.create_warehouse_contract_from_sales_quote()
+
+
+def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
+	"""
+	Populate charges in Air Shipment from Sales Quote Air Freight records.
+	
+	Args:
+		air_shipment: Air Shipment document
+		sales_quote: Sales Quote document
+	"""
+	try:
+		# Clear existing charges
+		air_shipment.set("charges", [])
+		
+		# Get Sales Quote Air Freight records
+		sales_quote_air_freight_records = frappe.get_all(
+			"Sales Quote Air Freight",
+			filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
+			fields=[
+				"item_code",
+				"item_name", 
+				"calculation_method",
+				"uom",
+				"currency",
+				"unit_rate",
+				"unit_type",
+				"minimum_quantity",
+				"minimum_charge",
+				"maximum_charge",
+				"base_amount",
+				"estimated_revenue"
+			],
+			order_by="idx"
+		)
+		
+		# Map and populate charges
+		charges_added = 0
+		for sqaf_record in sales_quote_air_freight_records:
+			charge_row = _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment)
+			if charge_row:
+				air_shipment.append("charges", charge_row)
+				charges_added += 1
+		
+		if charges_added > 0:
+			frappe.msgprint(
+				f"Successfully populated {charges_added} charges from Sales Quote",
+				title="Charges Updated",
+				indicator="green"
+			)
+		
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating charges from Sales Quote Air Freight: {str(e)}",
+			"Sales Quote Air Freight - Charges Population Error"
+		)
+		raise
+
+
+def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
+	"""
+	Map sales_quote_air_freight record to air_shipment_charges format.
+	
+	Args:
+		sqaf_record: Sales Quote Air Freight record
+		air_shipment: Air Shipment document
+		
+	Returns:
+		dict: Mapped charge data
+	"""
+	try:
+		# Get the item details to fetch additional required fields
+		item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+		
+		# Get default currency from system settings
+		default_currency = frappe.get_system_settings("currency") or "USD"
+		
+		# Map unit_type to charge_basis
+		unit_type_to_charge_basis = {
+			"Weight": "Per kg",
+			"Volume": "Per m³",
+			"Package": "Per package",
+			"Piece": "Per package",
+			"Shipment": "Per shipment"
+		}
+		charge_basis = unit_type_to_charge_basis.get(sqaf_record.unit_type, "Fixed amount")
+		
+		# Get quantity based on charge basis
+		quantity = 0
+		if charge_basis == "Per kg":
+			quantity = flt(air_shipment.weight) or 0
+		elif charge_basis == "Per m³":
+			quantity = flt(air_shipment.volume) or 0
+		elif charge_basis == "Per package":
+			# Get package count from Air Shipment if available
+			if hasattr(air_shipment, 'packages') and air_shipment.packages:
+				quantity = len(air_shipment.packages)
+			else:
+				quantity = 1
+		elif charge_basis == "Per shipment":
+			quantity = 1
+		
+		# Determine charge_type and charge_category from item or use defaults
+		charge_type = "Other"
+		charge_category = "Other"
+		
+		# Try to get charge type from item custom fields or item name
+		if hasattr(item_doc, 'custom_charge_type'):
+			charge_type = item_doc.custom_charge_type or "Other"
+		if hasattr(item_doc, 'custom_charge_category'):
+			charge_category = item_doc.custom_charge_category or "Other"
+		
+		# Map the fields from sales_quote_air_freight to air_shipment_charges
+		charge_data = {
+			"item_code": sqaf_record.item_code,
+			"item_name": sqaf_record.item_name or item_doc.item_name,
+			"charge_type": charge_type,
+			"charge_category": charge_category,
+			"charge_basis": charge_basis,
+			"rate": sqaf_record.unit_rate or 0,
+			"currency": sqaf_record.currency or default_currency,
+			"quantity": quantity,
+			"unit_of_measure": sqaf_record.uom or (charge_basis.replace("Per ", "").replace("kg", "kg").replace("m³", "m³")),
+			"calculation_method": sqaf_record.calculation_method or "Manual",
+			"billing_status": "Pending"
+		}
+		
+		# Add minimum/maximum charge if available
+		if sqaf_record.minimum_charge:
+			charge_data["minimum_charge"] = sqaf_record.minimum_charge
+		if sqaf_record.maximum_charge:
+			charge_data["maximum_charge"] = sqaf_record.maximum_charge
+		
+		return charge_data
+		
+	except Exception as e:
+		frappe.log_error(
+			f"Error mapping sales quote air freight record: {str(e)}",
+			"Sales Quote Air Freight Mapping Error"
+		)
+		return None
 
 
 def _populate_charges_from_sales_quote(transport_order, sales_quote):

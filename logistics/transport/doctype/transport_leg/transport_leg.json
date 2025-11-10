@@ -80,7 +80,12 @@
   "carbon_provider",
   "co2e_source",
   "co2e_last_computed",
-  "cargo_weight_kg"
+  "cargo_weight_kg",
+  "operations_tab",
+  "operations_section",
+  "delay_reasons",
+  "column_break_operations",
+  "exception_handling_notes"
  ],
  "fields": [
   {
@@ -516,6 +521,31 @@
    "fieldname": "tab_7_tab",
    "fieldtype": "Tab Break",
    "label": "Map"
+  },
+  {
+   "fieldname": "operations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operations"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "operations_section",
+   "fieldtype": "Section Break",
+   "label": "Operational Details"
+  },
+  {
+   "fieldname": "delay_reasons",
+   "fieldtype": "Small Text",
+   "label": "Delay Reasons"
+  },
+  {
+   "fieldname": "column_break_operations",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "exception_handling_notes",
+   "fieldtype": "Text Editor",
+   "label": "Exception Handling Notes"
   }
  ],
  "grid_page_length": 50,

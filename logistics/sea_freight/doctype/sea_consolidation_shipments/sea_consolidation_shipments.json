@@ -1,0 +1,337 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:sea_shipment",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "job_info_section",
+  "sea_shipment",
+  "job_status",
+  "booking_date",
+  "column_break_1",
+  "shipper",
+  "consignee",
+  "origin_port",
+  "destination_port",
+  "section_break_cargo",
+  "weight",
+  "weight_uom",
+  "volume",
+  "volume_uom",
+  "packs",
+  "column_break_2",
+  "value",
+  "currency",
+  "incoterm",
+  "section_break_containers",
+  "container_count",
+  "container_types",
+  "column_break_3",
+  "total_containers",
+  "section_break_dangerous_goods",
+  "contains_dangerous_goods",
+  "dg_compliance_status",
+  "column_break_4",
+  "dg_declaration_complete",
+  "section_break_consolidation",
+  "consolidation_status",
+  "position_in_consolidation",
+  "column_break_5",
+  "check_in_time",
+  "check_out_time",
+  "section_break_charges",
+  "base_charge",
+  "weight_charge",
+  "volume_charge",
+  "column_break_6",
+  "surcharges",
+  "total_charge",
+  "cost_allocation_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "job_info_section",
+   "fieldtype": "Section Break",
+   "label": "Job Information"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "job_status",
+   "fieldtype": "Data",
+   "label": "Job Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "booking_date",
+   "fieldtype": "Date",
+   "label": "Booking Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Data",
+   "label": "Shipper",
+   "read_only": 1
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Data",
+   "label": "Consignee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Data",
+   "label": "Origin Port",
+   "read_only": 1
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Data",
+   "label": "Destination Port",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_cargo",
+   "fieldtype": "Section Break",
+   "label": "Cargo Details"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume (m³)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "packs",
+   "fieldtype": "Int",
+   "label": "Packs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Currency",
+   "label": "Value",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Data",
+   "label": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Data",
+   "label": "Incoterm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_containers",
+   "fieldtype": "Section Break",
+   "label": "Container Information"
+  },
+  {
+   "fieldname": "container_count",
+   "fieldtype": "Int",
+   "label": "Container Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "container_types",
+   "fieldtype": "Data",
+   "label": "Container Types",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_containers",
+   "fieldtype": "Int",
+   "label": "Total Containers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_dangerous_goods",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Data",
+   "label": "DG Compliance Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_consolidation",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Status"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "consolidation_status",
+   "fieldtype": "Select",
+   "label": "Consolidation Status",
+   "options": "Pending\nAccepted\nIn Transit\nDelivered\nException"
+  },
+  {
+   "fieldname": "position_in_consolidation",
+   "fieldtype": "Int",
+   "label": "Position in Consolidation"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "check_in_time",
+   "fieldtype": "Datetime",
+   "label": "Check-in Time"
+  },
+  {
+   "fieldname": "check_out_time",
+   "fieldtype": "Datetime",
+   "label": "Check-out Time"
+  },
+  {
+   "fieldname": "section_break_charges",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "base_charge",
+   "fieldtype": "Currency",
+   "label": "Base Charge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "weight_charge",
+   "fieldtype": "Currency",
+   "label": "Weight Charge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "volume_charge",
+   "fieldtype": "Currency",
+   "label": "Volume Charge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "surcharges",
+   "fieldtype": "Currency",
+   "label": "Surcharges",
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_charge",
+   "fieldtype": "Currency",
+   "label": "Total Charge",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_allocation_percentage",
+   "fieldtype": "Percent",
+   "label": "Cost Allocation %",
+   "precision": "2",
+   "read_only": 1
+  }
+ ],
+ "has_web_view": 0,
+ "hide_heading": 1,
+ "hide_toolbar": 1,
+ "idx": 0,
+ "image_view": 1,
+ "in_create": 1,
+ "is_submittable": 0,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Consolidation Shipments",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

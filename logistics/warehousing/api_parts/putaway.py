@@ -429,37 +429,24 @@ def _select_dest_for_hu_with_capacity_validation(
             frappe.logger().info(f"Debug info - Total candidates before filtering: {len(candidates)}")
             return None
         
-        # Improved sorting algorithm that prioritizes consolidation bins
-        def enhanced_sort_key(candidate):
-            # Priority 1: Consolidation bins (locations with existing stock)
-            is_consolidation = candidate.get("current_quantity", 0) > 0
-            
-            # Priority 2: Capacity validation status
-            capacity_valid = candidate.get("capacity_valid", False)
-            
-            # Priority 3: Capacity utilization (lower is better)
-            utilization = candidate.get("capacity_utilization", {})
-            volume_util = utilization.get("volume", 0)
-            weight_util = utilization.get("weight", 0)
-            hu_util = utilization.get("handling_units", 0)
-            
-            # Priority 4: Storage type and bin priority
-            storage_type_rank = candidate.get("storage_type_rank", 999999)
-            bin_priority = candidate.get("bin_priority", 999999)
-            
-            # Return tuple for sorting: (consolidation_priority, capacity_valid, utilization, storage_priority)
-            return (
-                not is_consolidation,  # False (0) for consolidation bins, True (1) for empty bins
-                not capacity_valid,   # False (0) for valid capacity, True (1) for invalid
-                volume_util,          # Lower volume utilization is better
-                weight_util,          # Lower weight utilization is better
-                hu_util,              # Lower HU utilization is better
-                storage_type_rank,    # Lower storage type rank is better
-                bin_priority          # Lower bin priority is better
-            )
+        # Apply location priority hierarchy
+        # Get HU type if handling_unit is provided
+        handling_unit_type = None
+        if handling_unit:
+            try:
+                handling_unit_type = frappe.db.get_value("Handling Unit", handling_unit, "type")
+            except Exception:
+                pass
         
-        # Sort candidates using enhanced sorting
-        available_candidates.sort(key=enhanced_sort_key)
+        # Filter and prioritize locations based on 5-level hierarchy
+        available_candidates = _filter_locations_by_priority(
+            available_candidates,
+            handling_unit=handling_unit,
+            handling_unit_type=handling_unit_type,
+            item=item,
+            company=company,
+            branch=branch
+        )
         
         # Log selection decision for debugging
         selected_location = available_candidates[0]["location"]
@@ -625,6 +612,336 @@ def _find_available_handling_units(
     return available_hus
 
 
+def _get_putaway_policy(item: str, company: Optional[str] = None) -> str:
+    """Get putaway policy description for an item.
+    
+    Args:
+        item: Item code
+        company: Optional company for company-level policy
+        
+    Returns:
+        Policy description string
+    """
+    try:
+        # Get item-level putaway policy
+        item_policy = frappe.db.get_value("Warehouse Item", item, "putaway_policy")
+        if item_policy:
+            return f"Item-level: {item_policy}"
+        
+        # Get company-level putaway policy if company is provided
+        if company:
+            company_policy = frappe.db.get_value("Company", company, "putaway_policy")
+            if company_policy:
+                return f"Company-level: {company_policy}"
+        
+        # Default policy
+        return "Default: Nearest Empty"
+    except Exception as e:
+        frappe.logger().warning(f"Error getting putaway policy for item {item}: {str(e)}")
+        return "Default: Nearest Empty"
+
+
+def _check_hu_contains_item(hu_name: str, item: str) -> bool:
+    """Check if a handling unit already contains the specified item.
+    
+    Args:
+        hu_name: Handling unit name
+        item: Item code
+        
+    Returns:
+        True if HU contains the item, False otherwise
+    """
+    try:
+        # Check Warehouse Stock Ledger for this HU and item
+        result = frappe.db.sql("""
+            SELECT SUM(quantity) AS total_qty
+            FROM `tabWarehouse Stock Ledger`
+            WHERE handling_unit = %s AND item = %s
+        """, (hu_name, item), as_dict=True)
+        
+        if result and result[0].get("total_qty", 0) > 0:
+            return True
+        return False
+    except Exception as e:
+        frappe.logger().warning(f"Error checking if HU {hu_name} contains item {item}: {str(e)}")
+        return False
+
+
+def _order_hus_by_putaway_policy(
+    hus: List[Dict[str, Any]],
+    item: str,
+    company: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Order handling units based on putaway policy.
+    
+    If HUs have priority scores (_hu_priority), they are sorted by priority first,
+    then by putaway policy. This allows overflow allocation from lower priority HUs.
+    
+    Args:
+        hus: List of handling unit dictionaries
+        item: Item code
+        company: Optional company for policy lookup
+        
+    Returns:
+        Ordered list of handling units
+    """
+    try:
+        # Get putaway policy
+        policy = frappe.db.get_value("Warehouse Item", item, "putaway_policy")
+        if not policy and company:
+            policy = frappe.db.get_value("Company", company, "putaway_policy")
+        
+        if not policy:
+            policy = "Nearest Empty"
+        
+        # Check if HUs have priority scores
+        has_priority = any(hu.get("_hu_priority") is not None for hu in hus)
+        
+        # Define sorting key function
+        def sort_key(hu: Dict[str, Any]) -> tuple:
+            # First sort by priority (if available), then by putaway policy
+            priority = hu.get("_hu_priority", 999)
+            
+            # Get policy-based sort value
+            if policy == "Consolidate Same Item":
+                # Prioritize HUs that already contain this item
+                contains_item = _check_hu_contains_item(hu["name"], item)
+                policy_value = (0 if contains_item else 1)  # 0 = higher priority
+            else:
+                # For "Nearest Empty" and other policies, sort by available capacity (descending)
+                # Use negative value so higher capacity comes first
+                available_capacity = -(hu.get("available_volume", 0) + hu.get("available_weight", 0))
+                policy_value = available_capacity
+            
+            # Return tuple: (priority, policy_value)
+            # Lower priority number = higher priority
+            # Lower policy_value = higher priority (for Consolidate Same Item)
+            # For capacity-based policies, negative capacity means higher capacity = higher priority
+            return (priority, policy_value)
+        
+        # Sort by priority first, then by putaway policy
+        return sorted(hus, key=sort_key)
+        
+    except Exception as e:
+        frappe.logger().warning(f"Error ordering HUs by putaway policy: {str(e)}")
+        # Fallback: sort by priority (if available), then by available capacity
+        return sorted(hus, key=lambda x: (
+            x.get("_hu_priority", 999),
+            -(x.get("available_volume", 0) + x.get("available_weight", 0))
+        ))
+
+
+def _get_hu_current_locations(
+    handling_unit: Optional[str] = None,
+    handling_unit_type: Optional[str] = None,
+    company: Optional[str] = None,
+    branch: Optional[str] = None
+) -> List[str]:
+    """Find locations where a specific handling unit or handling unit type is currently located.
+    
+    Args:
+        handling_unit: Specific handling unit name
+        handling_unit_type: Handling unit type
+        company: Company filter
+        branch: Branch filter
+        
+    Returns:
+        List of location names
+    """
+    try:
+        conditions = []
+        params = []
+        
+        if handling_unit:
+            conditions.append("l.handling_unit = %s")
+            params.append(handling_unit)
+        elif handling_unit_type:
+            conditions.append("hu.type = %s")
+            params.append(handling_unit_type)
+        else:
+            return []
+        
+        # Add company/branch filters
+        if company:
+            conditions.append("COALESCE(hu.company, sl.company, l.company) = %s")
+            params.append(company)
+        if branch:
+            conditions.append("COALESCE(hu.branch, sl.branch, l.branch) = %s")
+            params.append(branch)
+        
+        where_clause = " AND " + " AND ".join(conditions) if conditions else ""
+        
+        sql = f"""
+            SELECT DISTINCT l.storage_location
+            FROM `tabWarehouse Stock Ledger` l
+            LEFT JOIN `tabHandling Unit` hu ON hu.name = l.handling_unit
+            LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
+            WHERE l.quantity > 0
+              AND l.storage_location IS NOT NULL
+              {where_clause}
+        """
+        
+        result = frappe.db.sql(sql, tuple(params), as_dict=True)
+        return [row["storage_location"] for row in result if row.get("storage_location")]
+    except Exception as e:
+        frappe.logger().warning(f"Error getting HU current locations: {str(e)}")
+        return []
+
+
+def _filter_locations_by_priority(
+    candidates: List[Dict[str, Any]],
+    handling_unit: Optional[str] = None,
+    handling_unit_type: Optional[str] = None,
+    item: Optional[str] = None,
+    company: Optional[str] = None,
+    branch: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Filter and prioritize locations based on a 5-level hierarchy:
+    1. Locations where the specific HU is located
+    2. Locations where the HU type is located
+    3. Specific location preference (if any)
+    4. Storage type preference
+    5. Putaway policy
+    
+    Args:
+        candidates: List of candidate location dictionaries
+        handling_unit: Specific handling unit name
+        handling_unit_type: Handling unit type
+        item: Item code for policy lookup
+        company: Company filter
+        branch: Branch filter
+        
+    Returns:
+        Filtered and prioritized list of locations
+    """
+    if not candidates:
+        return []
+    
+    # Get HU type if handling_unit is provided
+    if handling_unit and not handling_unit_type:
+        try:
+            handling_unit_type = frappe.db.get_value("Handling Unit", handling_unit, "type")
+        except Exception:
+            pass
+    
+    # Get locations where HU or HU type is located
+    hu_locations = _get_hu_current_locations(
+        handling_unit=handling_unit,
+        handling_unit_type=handling_unit_type,
+        company=company,
+        branch=branch
+    )
+    
+    # Categorize candidates by priority level
+    level_1 = []  # Specific HU location
+    level_2 = []  # HU type location
+    level_3 = []  # Other locations
+    level_4 = []  # Storage type preference
+    level_5 = []  # Putaway policy
+    
+    for candidate in candidates:
+        loc_name = candidate.get("location")
+        if not loc_name:
+            continue
+        
+        # Level 1: Specific HU location
+        if handling_unit and loc_name in hu_locations:
+            # Verify this location actually has this specific HU
+            try:
+                result = frappe.db.sql("""
+                    SELECT COUNT(*) AS cnt
+                    FROM `tabWarehouse Stock Ledger`
+                    WHERE storage_location = %s AND handling_unit = %s AND quantity > 0
+                """, (loc_name, handling_unit), as_dict=True)
+                if result and result[0].get("cnt", 0) > 0:
+                    level_1.append(candidate)
+                    continue
+            except Exception:
+                pass
+        
+        # Level 2: HU type location
+        if handling_unit_type and loc_name in hu_locations:
+            level_2.append(candidate)
+            continue
+        
+        # Level 3: Other locations (will be further prioritized by storage type and policy)
+        level_3.append(candidate)
+    
+    # Order level 3 by storage type preference and putaway policy
+    if item:
+        level_3 = _order_locations_by_putaway_policy(level_3, item, company)
+    
+    # Combine all levels in priority order
+    prioritized = level_1 + level_2 + level_3
+    
+    return prioritized
+
+
+def _order_locations_by_putaway_policy(
+    locations: List[Dict[str, Any]],
+    item: str,
+    company: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Order locations based on putaway policy (for putaway operations only).
+    
+    Args:
+        locations: List of location dictionaries
+        item: Item code
+        company: Optional company for policy lookup
+        
+    Returns:
+        Ordered list of locations
+    """
+    try:
+        # Get putaway policy
+        policy = frappe.db.get_value("Warehouse Item", item, "putaway_policy")
+        if not policy and company:
+            policy = frappe.db.get_value("Company", company, "putaway_policy")
+        
+        if not policy:
+            policy = "Nearest Empty"
+        
+        # Order based on putaway policy
+        if policy == "Consolidate Same Item":
+            # Prioritize locations with existing stock of same item
+            ordered = []
+            for loc in locations:
+                loc_name = loc.get("location")
+                if loc_name:
+                    try:
+                        result = frappe.db.sql("""
+                            SELECT SUM(quantity) AS total_qty
+                            FROM `tabWarehouse Stock Ledger`
+                            WHERE storage_location = %s AND item = %s AND quantity > 0
+                        """, (loc_name, item), as_dict=True)
+                        if result and result[0].get("total_qty", 0) > 0:
+                            ordered.insert(0, loc)  # Add to front
+                        else:
+                            ordered.append(loc)  # Add to back
+                    except Exception:
+                        ordered.append(loc)
+                else:
+                    ordered.append(loc)
+            return ordered
+        elif policy == "Nearest Empty":
+            # Prioritize locations with lower capacity utilization
+            return sorted(locations, key=lambda x: (
+                x.get("capacity_utilization", {}).get("volume", 100),
+                x.get("capacity_utilization", {}).get("weight", 100),
+                x.get("bin_priority", 999999)
+            ))
+        else:
+            # Default: sort by bin priority and capacity utilization
+            return sorted(locations, key=lambda x: (
+                x.get("capacity_utilization", {}).get("volume", 100),
+                x.get("bin_priority", 999999)
+            ))
+    except Exception as e:
+        frappe.logger().warning(f"Error ordering locations by putaway policy: {str(e)}")
+        # Fallback: sort by bin priority
+        return sorted(locations, key=lambda x: x.get("bin_priority", 999999))
+
+
 def _calculate_required_capacity_for_order(
     order_row: Dict[str, Any],
     capacity_manager: Any
@@ -672,19 +989,16 @@ def _allocate_hu_to_orders(
     # Get split quantity decimal precision from Warehouse Settings
     split_precision = _get_split_quantity_decimal_precision()
     
-    # Find available handling units
-    available_hus = _find_available_handling_units(company, branch, exclude_hus=used_hus)
+    # Find all available handling units once
+    all_available_hus = _find_available_handling_units(company, branch, exclude_hus=used_hus)
     
-    if not available_hus:
+    if not all_available_hus:
         warnings.append(_("No available handling units found for allocation. Orders without HU will be skipped."))
         return allocations, warnings
     
-    # Sort available HUs by available capacity (descending) to prioritize HUs with more space
-    available_hus.sort(key=lambda x: (x.get("available_volume", 0) + x.get("available_weight", 0)), reverse=True)
-    
     # Create a map to track HU capacity usage (for incremental updates during allocation)
     hu_capacity_map: Dict[str, Dict[str, float]] = {}
-    for hu in available_hus:
+    for hu in all_available_hus:
         hu_current_usage = capacity_manager._get_handling_unit_current_usage(hu["name"])
         hu_capacity_map[hu["name"]] = {
             "current_volume": hu_current_usage["volume"],
@@ -693,7 +1007,7 @@ def _allocate_hu_to_orders(
             "max_weight": flt(hu.get("max_weight", 0))
         }
     
-    # Process each order row
+    # Process each order row with priority hierarchy
     for order_row in orders_without_hu:
         item = order_row.get("item")
         if not item:
@@ -702,6 +1016,69 @@ def _allocate_hu_to_orders(
         required_qty = flt(order_row.get("quantity", 0))
         if required_qty <= 0:
             continue
+        
+        # Check for handling_unit_type in order row
+        order_handling_unit_type = order_row.get("handling_unit_type")
+        
+        # Priority hierarchy for HU allocation:
+        # 1. Specific HU from order (if specified and valid)
+        # 2. HU type from order (if specified)
+        # 3. Putaway policy
+        
+        # Filter and prioritize HUs based on order requirements
+        # Priority hierarchy: Filter to order requirements if specified, with fallback to all HUs for overflow
+        available_hus = all_available_hus.copy()
+        fallback_occurred = False
+        fallback_message = None
+        
+        # Add priority scores to HUs to allow overflow allocation
+        for hu in available_hus:
+            hu["_hu_priority"] = 999  # Default low priority (for overflow allocation)
+        
+        # Check for specific handling unit in order (should be handled elsewhere, but check here too)
+        order_handling_unit = order_row.get("handling_unit")
+        
+        if order_handling_unit:
+            # Priority 1: Specific handling unit from order
+            specific_hu_found = False
+            for hu in available_hus:
+                if hu.get("name") == order_handling_unit:
+                    hu["_hu_priority"] = 1
+                    specific_hu_found = True
+            
+            if not specific_hu_found:
+                # Specific HU not found - fallback to all available HUs (putaway policy)
+                fallback_occurred = True
+                fallback_message = _("Order row {0}: Specified handling unit '{1}' not available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit)
+                warnings.append(fallback_message)
+            
+            # Return all HUs with priority scores (priority 1 will be allocated first, then overflow from others)
+            # This allows overflow allocation from other handling units if needed
+            available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+        elif order_handling_unit_type:
+            # Priority 2: Handling unit type from order
+            type_filtered_found = False
+            for hu in available_hus:
+                if hu.get("type") == order_handling_unit_type:
+                    hu["_hu_priority"] = 2
+                    type_filtered_found = True
+            
+            if not type_filtered_found:
+                # No HUs of specified type - fallback to all available HUs (putaway policy)
+                fallback_occurred = True
+                fallback_message = _("Order row {0}: No handling units of type '{1}' available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit_type)
+                warnings.append(fallback_message)
+            
+            # Return all HUs with priority scores (priority 2 will be allocated first, then overflow from priority 999)
+            # This allows overflow allocation from other handling_unit_type if needed
+            available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+        else:
+            # No type specified, order by putaway policy
+            available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
+        
+        # Store fallback info in order_row for use in allocation notes
+        order_row["_fallback_occurred"] = fallback_occurred
+        order_row["_fallback_message"] = fallback_message
         
         # Get item capacity data
         item_data = capacity_manager._get_item_capacity_data(item)
@@ -764,11 +1141,42 @@ def _allocate_hu_to_orders(
                     qty_to_allocate = round(qty_to_allocate, split_precision)
                     
                     if qty_to_allocate > 0:
+                        # Determine allocation method with more descriptive labels
+                        order_handling_unit = order_row.get("handling_unit")
+                        order_handling_unit_type = order_row.get("handling_unit_type")
+                        fallback_occurred = order_row.get("_fallback_occurred", False)
+                        fallback_message = order_row.get("_fallback_message")
+                        
+                        if order_handling_unit and hu["name"] == order_handling_unit:
+                            allocation_method = "Order (Specific Handling Unit)"
+                        elif order_handling_unit_type:
+                            # Check if this HU matches the type
+                            try:
+                                hu_type = frappe.db.get_value("Handling Unit", hu["name"], "type")
+                                if hu_type == order_handling_unit_type:
+                                    allocation_method = "Order (Handling Unit Type)"
+                                else:
+                                    policy = _get_putaway_policy(item, company)
+                                    allocation_method = f"Putaway Policy ({policy})"
+                            except Exception:
+                                policy = _get_putaway_policy(item, company)
+                                allocation_method = f"Putaway Policy ({policy})"
+                        else:
+                            policy = _get_putaway_policy(item, company)
+                            allocation_method = f"Putaway Policy ({policy})"
+                        
+                        # Get putaway policy
+                        policy = _get_putaway_policy(item, company)
+                        
                         # Generate narrative log for HU allocation
                         allocation_note = _generate_hu_allocation_note(
                             order_row, hu["name"], qty_to_allocate, 
                             max_fitting_qty, remaining_qty, has_capacity_constraints,
-                            hu_cap, per_unit_volume, per_unit_weight
+                            hu_cap, per_unit_volume, per_unit_weight,
+                            allocation_method=allocation_method,
+                            policy=policy,
+                            fallback_occurred=fallback_occurred,
+                            fallback_message=fallback_message
                         )
                         
                         allocations.append((hu["name"], order_row, qty_to_allocate, allocation_note))
@@ -812,14 +1220,74 @@ def _generate_hu_allocation_note(
     has_capacity_constraints: bool,
     hu_capacity: Dict[str, float],
     per_unit_volume: float,
-    per_unit_weight: float
+    per_unit_weight: float,
+    allocation_method: str = "auto-allocated",
+    policy: Optional[str] = None,
+    fallback_occurred: bool = False,
+    fallback_message: Optional[str] = None
 ) -> str:
-    """Generate narrative log for handling unit allocation."""
+    """Generate narrative log for handling unit allocation.
+    
+    Args:
+        order_row: Order row dictionary
+        hu_name: Handling unit name
+        allocated_qty: Allocated quantity
+        max_fitting_qty: Maximum quantity that fits
+        remaining_qty: Remaining quantity
+        has_capacity_constraints: Whether capacity constraints apply
+        hu_capacity: HU capacity dictionary
+        per_unit_volume: Per unit volume
+        per_unit_weight: Per unit weight
+        allocation_method: How the HU was allocated ("defined in order", "type-limited", "auto-allocated")
+        policy: Putaway policy used
+    """
     item = order_row.get("item", "Unknown Item")
     original_qty = flt(order_row.get("quantity", 0))
+    company = order_row.get("company")
     
     note_parts = []
     note_parts.append(f"Handling Unit Allocation: {hu_name}")
+    note_parts.append(f"  • Handling Unit Source: {allocation_method}")
+    
+    # Indicate fallback if it occurred
+    if fallback_occurred and fallback_message:
+        note_parts.append(f"  • ⚠️ FALLBACK: {fallback_message}")
+    
+    # Add more details about the source
+    order_handling_unit = order_row.get("handling_unit")
+    order_handling_unit_type = order_row.get("handling_unit_type")
+    
+    if order_handling_unit and hu_name == order_handling_unit:
+        note_parts.append(f"    → Taken directly from order (specific handling unit specified)")
+    elif order_handling_unit and hu_name != order_handling_unit:
+        # Overflow allocation from other handling unit
+        policy_desc = policy if policy else _get_putaway_policy(item, company)
+        policy_name = policy_desc.split(': ')[-1] if ':' in policy_desc else policy_desc
+        note_parts.append(f"    ⚠ Overflow: Allocated from other handling unit '{hu_name}' (order specified '{order_handling_unit}')")
+        note_parts.append(f"    Overflow Allocation Method: Using item putaway policy ({policy_name})")
+    elif order_handling_unit_type:
+        try:
+            hu_type = frappe.db.get_value("Handling Unit", hu_name, "type")
+            if hu_type == order_handling_unit_type:
+                note_parts.append(f"    → Matches handling unit type requirement from order")
+            else:
+                # Overflow allocation from other handling_unit_type
+                policy_desc = policy if policy else _get_putaway_policy(item, company)
+                policy_name = policy_desc.split(': ')[-1] if ':' in policy_desc else policy_desc
+                note_parts.append(f"    ⚠ Overflow: Allocated from other handling unit type '{hu_type}' (order specified '{order_handling_unit_type}')")
+                note_parts.append(f"    Overflow Allocation Method: Using item putaway policy ({policy_name})")
+        except Exception:
+            note_parts.append(f"    → Selected by putaway policy")
+    else:
+        note_parts.append(f"    → Selected by putaway policy (no handling unit requirements in order)")
+    
+    if policy:
+        note_parts.append(f"  • Putaway Policy: {policy}")
+    else:
+        # Get policy if not provided
+        policy_desc = _get_putaway_policy(item, company)
+        note_parts.append(f"  • Putaway Policy: {policy_desc}")
+    
     note_parts.append(f"  • Original Order Quantity: {original_qty} units")
     note_parts.append(f"  • Allocated Quantity: {allocated_qty} units")
     
@@ -872,9 +1340,22 @@ def _generate_location_allocation_note(
     item: str,
     quantity: float,
     selection_method: str,
-    location_details: Optional[Dict[str, Any]] = None
+    location_details: Optional[Dict[str, Any]] = None,
+    allocation_policy: Optional[str] = None,
+    company: Optional[str] = None
 ) -> str:
-    """Generate narrative log for location allocation."""
+    """Generate narrative log for location allocation.
+    
+    Args:
+        hu: Handling unit name (optional)
+        location: Location name
+        item: Item code
+        quantity: Quantity
+        selection_method: How the location was selected
+        location_details: Additional location details
+        allocation_policy: Location allocation policy used
+        company: Company for policy lookup
+    """
     note_parts = []
     note_parts.append(f"Location Allocation: {location}")
     if hu:
@@ -884,6 +1365,33 @@ def _generate_location_allocation_note(
     note_parts.append(f"  • Item: {item}")
     note_parts.append(f"  • Quantity: {quantity} units")
     note_parts.append(f"  • Selection Method: {selection_method}")
+    
+    # Add allocation policy information
+    if allocation_policy:
+        note_parts.append(f"  • Allocation Policy: {allocation_policy}")
+    else:
+        # Get putaway policy if not provided
+        policy_desc = _get_putaway_policy(item, company)
+        note_parts.append(f"  • Putaway Policy: {policy_desc}")
+    
+    # Add location priority information
+    if hu:
+        # Check if location is where HU is currently located
+        hu_locations = _get_hu_current_locations(handling_unit=hu, company=company)
+        if location in hu_locations:
+            note_parts.append(f"  • Priority: Level 1 (Location where handling unit is currently located)")
+        else:
+            # Check if location is where HU type is located
+            try:
+                hu_type = frappe.db.get_value("Handling Unit", hu, "type")
+                if hu_type:
+                    hu_type_locations = _get_hu_current_locations(handling_unit_type=hu_type, company=company)
+                    if location in hu_type_locations:
+                        note_parts.append(f"  • Priority: Level 2 (Location where handling unit type is located)")
+                    else:
+                        note_parts.append(f"  • Priority: Level 3+ (Policy-based selection)")
+            except Exception:
+                note_parts.append(f"  • Priority: Level 3+ (Policy-based selection)")
     
     if location_details:
         if location_details.get("is_consolidation"):
@@ -934,13 +1442,42 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
     if staging_area:
         exclude.append(staging_area)
 
-    # Group by HU
+    # Group by HU and validate specified HUs
     by_hu: Dict[str, List[Dict[str, Any]]] = {}
     rows_without_hu: List[Dict[str, Any]] = []
     for r in orders:
         hu = (r.get("handling_unit") or "").strip()
         if hu:
-            by_hu.setdefault(hu, []).append(r)
+            # Validate specified handling unit
+            hu_valid = True
+            hu_validation_errors = []
+            
+            # Check if HU exists
+            if not frappe.db.exists("Handling Unit", hu):
+                hu_valid = False
+                hu_validation_errors.append(_("Handling unit {0} does not exist").format(hu))
+            else:
+                # Check HU status
+                hu_doc = frappe.get_doc("Handling Unit", hu)
+                if hasattr(hu_doc, "status") and hu_doc.status in ("Under Maintenance", "Inactive"):
+                    hu_valid = False
+                    hu_validation_errors.append(_("Handling unit {0} status is {1}").format(hu, hu_doc.status))
+                
+                # Check HU scope (company/branch)
+                if company and hasattr(hu_doc, "company") and hu_doc.company and hu_doc.company != company:
+                    hu_valid = False
+                    hu_validation_errors.append(_("Handling unit {0} belongs to company {1}, not {2}").format(hu, hu_doc.company, company))
+                if branch and hasattr(hu_doc, "branch") and hu_doc.branch and hu_doc.branch != branch:
+                    hu_valid = False
+                    hu_validation_errors.append(_("Handling unit {0} belongs to branch {1}, not {2}").format(hu, hu_doc.branch, branch))
+            
+            if hu_valid:
+                by_hu.setdefault(hu, []).append(r)
+            else:
+                # Invalid HU - treat as order without HU
+                warnings.append(_("Order row {0}: Invalid handling unit '{1}'. {2} Treating as order without HU.")
+                           .format(r.get("name", "?"), hu, " ".join(hu_validation_errors)))
+                rows_without_hu.append(r)
         else:
             rows_without_hu.append(r)
 
@@ -1129,7 +1666,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                         item=item,
                         quantity=qty,
                         selection_method=location_selection_method,
-                        location_details=location_selection_details
+                        location_details=location_selection_details,
+                        allocation_policy=None,
+                        company=company
                     )
                 else:
                     # No location found - add note explaining why
@@ -1413,8 +1952,13 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             hu_note = rr.get("_hu_allocation_note", "")
             allocation_notes = []
             
-            if hu_note:
+            # If no HU note exists but HU is specified in order, create a note
+            if not hu_note and hu:
+                hu_note = f"Handling Unit Allocation: {hu}\n  • Handling Unit Source: Order (Specific Handling Unit)\n    → Taken directly from order (specific handling unit specified)"
                 allocation_notes.append(hu_note)
+            elif hu_note:
+                allocation_notes.append(hu_note)
+            
             if location_note:
                 allocation_notes.append(location_note)
             

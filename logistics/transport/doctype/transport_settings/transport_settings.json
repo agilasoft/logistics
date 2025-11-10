@@ -7,6 +7,10 @@
  "field_order": [
   "forward_days_in_transport_plan",
   "backward_days_in_transport_plan",
+  "automation_tab",
+  "automation_section",
+  "enable_auto_billing",
+  "enable_auto_vehicle_assignment",
   "routing_tab",
   "routing_provider",
   "osrm_base_url",
@@ -45,6 +49,29 @@
    "fieldname": "backward_days_in_transport_plan",
    "fieldtype": "Int",
    "label": "Backward Days in Transport Plan"
+  },
+  {
+   "fieldname": "automation_tab",
+   "fieldtype": "Tab Break",
+   "label": "Automation"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "automation_section",
+   "fieldtype": "Section Break",
+   "label": "Workflow Automation"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_auto_billing",
+   "fieldtype": "Check",
+   "label": "Enable Auto Billing"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_auto_vehicle_assignment",
+   "fieldtype": "Check",
+   "label": "Enable Auto Vehicle Assignment"
   },
   {
    "default": "OSRM",

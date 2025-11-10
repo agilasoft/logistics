@@ -809,6 +809,8 @@ def action_create_transport_job(docname: str):
             "drop_address": getattr(doc, "drop_address", None),
             "company": getattr(doc, "company", None),
             "branch": getattr(doc, "branch", None),
+            "cost_center": getattr(doc, "cost_center", None),
+            "profit_center": getattr(doc, "profit_center", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):

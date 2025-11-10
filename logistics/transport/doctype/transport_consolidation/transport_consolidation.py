@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt
 
 
 class TransportConsolidation(Document):
@@ -11,21 +12,53 @@ class TransportConsolidation(Document):
 		"""Validate consolidation rules and calculate totals"""
 		self.validate_consolidation_rules()
 		self.calculate_totals()
+		self.validate_capacity_limits()
 		self.validate_accounts()
 	
 	def validate_consolidation_rules(self):
 		"""Validate that jobs can be consolidated based on load type rules"""
-		# Get load type from transport jobs
+		# Require at least one Transport Job
+		if not self.transport_jobs:
+			frappe.throw(_("At least one Transport Job is required"))
+		
+		# Get load type and company from transport jobs
 		load_types = set()
+		companies = set()
+		vehicle_types = set()
+		
 		for job in self.transport_jobs:
-			if job.transport_job:
-				job_doc = frappe.get_doc("Transport Job", job.transport_job)
-				if job_doc.load_type:
-					load_types.add(job_doc.load_type)
+			if not job.transport_job:
+				continue
+			
+			job_doc = frappe.get_doc("Transport Job", job.transport_job)
+			
+			# Ensure all linked Transport Jobs are submitted
+			if job_doc.docstatus != 1:
+				frappe.throw(_("Transport Job {0} must be submitted to be included in consolidation").format(
+					job_doc.name
+				))
+			
+			# Collect load types, companies, and vehicle types
+			if job_doc.load_type:
+				load_types.add(job_doc.load_type)
+			if job_doc.company:
+				companies.add(job_doc.company)
+			if job_doc.vehicle_type:
+				vehicle_types.add(job_doc.vehicle_type)
 		
 		# All jobs must have the same load type
 		if len(load_types) > 1:
 			frappe.throw(_("All transport jobs must have the same Load Type"))
+		
+		# All jobs must have the same company
+		if len(companies) > 1:
+			frappe.throw(_("All transport jobs must belong to the same Company"))
+		
+		# Warn if jobs have different vehicle types
+		if len(vehicle_types) > 1:
+			frappe.msgprint(_("Warning: Transport Jobs have different vehicle types ({0}). This may cause issues.").format(
+				", ".join(vehicle_types)
+			), indicator="orange")
 		
 		if load_types:
 			load_type = list(load_types)[0]
@@ -39,15 +72,34 @@ class TransportConsolidation(Document):
 			if load_type_doc.max_consolidation_jobs and len(self.transport_jobs) > load_type_doc.max_consolidation_jobs:
 				frappe.throw(_("Cannot consolidate more than {0} jobs for Load Type {1}").format(
 					load_type_doc.max_consolidation_jobs, load_type))
-			
-			# Check weight and volume limits
-			if load_type_doc.max_weight and self.total_weight > load_type_doc.max_weight:
-				frappe.throw(_("Total weight {0} kg exceeds maximum allowed weight {1} kg for Load Type {2}").format(
-					self.total_weight, load_type_doc.max_weight, load_type))
-			
-			if load_type_doc.max_volume and self.total_volume > load_type_doc.max_volume:
-				frappe.throw(_("Total volume {0} m³ exceeds maximum allowed volume {1} m³ for Load Type {2}").format(
-					self.total_volume, load_type_doc.max_volume, load_type))
+	
+	def validate_capacity_limits(self):
+		"""Validate total weight and volume against Load Type limits"""
+		if not self.transport_jobs:
+			return
+		
+		# Get load type from first job
+		load_type = None
+		for job in self.transport_jobs:
+			if job.transport_job:
+				job_doc = frappe.get_doc("Transport Job", job.transport_job)
+				if job_doc.load_type:
+					load_type = job_doc.load_type
+					break
+		
+		if not load_type:
+			return
+		
+		load_type_doc = frappe.get_doc("Load Type", load_type)
+		
+		# Check weight and volume limits after totals are calculated
+		if load_type_doc.max_weight and flt(self.total_weight) > flt(load_type_doc.max_weight):
+			frappe.throw(_("Total weight {0} kg exceeds maximum allowed weight {1} kg for Load Type {2}").format(
+				flt(self.total_weight), flt(load_type_doc.max_weight), load_type))
+		
+		if load_type_doc.max_volume and flt(self.total_volume) > flt(load_type_doc.max_volume):
+			frappe.throw(_("Total volume {0} m³ exceeds maximum allowed volume {1} m³ for Load Type {2}").format(
+				flt(self.total_volume), flt(load_type_doc.max_volume), load_type))
 	
 	def calculate_totals(self):
 		"""Calculate total weight and volume from transport jobs"""

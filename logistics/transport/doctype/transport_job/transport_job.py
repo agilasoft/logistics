@@ -9,12 +9,27 @@ from typing import Dict, Any, List, Optional
 from frappe.utils import nowdate, flt
 
 class TransportJob(Document):
+    def validate(self):
+        """Validate Transport Job data"""
+        self.validate_required_fields()
+        self.validate_legs()
+        self.validate_accounts()
+        self.validate_status_transition()
+    
     def before_save(self):
-        """Calculate sustainability metrics before saving"""
+        """Calculate sustainability metrics and create job costing number before saving"""
         self.calculate_sustainability_metrics()
+        self.create_job_costing_number_if_needed()
+        self.update_status()
+    
+    def after_insert(self):
+        """Create job costing number for new documents"""
+        self.create_job_costing_number_if_needed()
     
     def after_submit(self):
-        """Record sustainability metrics after job submission"""
+        """Record sustainability metrics and update status after job submission"""
+        if self.status == "Draft":
+            self.status = "Submitted"
         self.record_sustainability_metrics()
     
     def calculate_sustainability_metrics(self):
@@ -93,8 +108,155 @@ class TransportJob(Document):
         
         factor = carbon_factors.get(vehicle_type, 2.5)  # Default factor
         return factor * fuel_consumption
+    
+    def validate_required_fields(self):
+        """Validate required fields are present"""
+        if not self.customer:
+            frappe.throw(_("Customer is required"))
+        if not self.vehicle_type:
+            frappe.throw(_("Vehicle Type is required"))
+        if not self.company:
+            frappe.throw(_("Company is required"))
+    
+    def validate_legs(self):
+        """Validate that submitted jobs have at least one leg"""
+        if self.docstatus == 1:  # Submitted
+            legs_field = _get_job_legs_fieldname(self)
+            job_legs = self.get(legs_field) or []
+            if not job_legs:
+                frappe.throw(_("Submitted Transport Job must have at least one leg"))
+    
+    def validate_accounts(self):
+        """Validate that cost center, profit center, and branch belong to the company"""
+        if self.company:
+            if self.cost_center:
+                cost_center_company = frappe.db.get_value("Cost Center", self.cost_center, "company")
+                if cost_center_company != self.company:
+                    frappe.throw(_("Cost Center {0} does not belong to Company {1}").format(
+                        self.cost_center, self.company
+                    ))
+            if self.profit_center:
+                profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
+                if profit_center_company != self.company:
+                    frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
+                        self.profit_center, self.company
+                    ))
+            if self.branch:
+                branch_company = frappe.db.get_value("Branch", self.branch, "company")
+                if branch_company != self.company:
+                    frappe.throw(_("Branch {0} does not belong to Company {1}").format(
+                        self.branch, self.company
+                    ))
+    
+    def validate_status_transition(self):
+        """Validate status transitions are allowed"""
+        if self.is_new():
+            return
+        
+        old_status = frappe.db.get_value(self.doctype, self.name, "status")
+        new_status = self.status
+        
+        if old_status == new_status:
+            return
+        
+        # Define allowed transitions
+        allowed_transitions = {
+            "Draft": ["Submitted", "Cancelled"],
+            "Submitted": ["In Progress", "Cancelled"],
+            "In Progress": ["Completed", "Cancelled"],
+            "Completed": [],  # Cannot change from Completed
+            "Cancelled": []  # Cannot change from Cancelled
+        }
+        
+        if old_status and new_status not in allowed_transitions.get(old_status, []):
+            frappe.throw(_("Cannot change status from {0} to {1}").format(old_status, new_status))
+        
+        # Prevent cancellation if Sales Invoice exists
+        if new_status == "Cancelled" and self.sales_invoice:
+            frappe.throw(_("Cannot cancel Transport Job with Sales Invoice {0}").format(self.sales_invoice))
+    
+    def update_status(self):
+        """Update status based on job submission and leg statuses"""
+        if self.is_new():
+            if not self.status:
+                self.status = "Draft"
+            return
+        
+        # If submitted, check leg statuses to determine job status
+        if self.docstatus == 1:  # Submitted
+            legs_field = _get_job_legs_fieldname(self)
+            job_legs = self.get(legs_field) or []
+            
+            if not job_legs:
+                if self.status != "Submitted":
+                    self.status = "Submitted"
+                return
+            
+            # Get all leg statuses
+            leg_statuses = []
+            for leg_row in job_legs:
+                transport_leg_name = leg_row.get("transport_leg")
+                if transport_leg_name:
+                    leg_status = frappe.db.get_value("Transport Leg", transport_leg_name, "status")
+                    if leg_status:
+                        leg_statuses.append(leg_status)
+            
+            if not leg_statuses:
+                if self.status != "Submitted":
+                    self.status = "Submitted"
+                return
+            
+            # Determine job status based on leg statuses
+            if all(status == "Completed" for status in leg_statuses):
+                old_status = self.status
+                self.status = "Completed"
+                # Trigger auto-billing if status changed to Completed
+                if old_status != "Completed":
+                    self._trigger_auto_billing()
+            elif any(status in ["In Progress", "Dispatched"] for status in leg_statuses):
+                if self.status not in ["In Progress", "Completed"]:
+                    self.status = "In Progress"
+            elif all(status in ["Draft", "Pending"] for status in leg_statuses):
+                if self.status != "Submitted":
+                    self.status = "Submitted"
+    
+    def _trigger_auto_billing(self):
+        """Trigger auto-billing if enabled"""
+        try:
+            from logistics.transport.automation_helpers import auto_bill_transport_job
+            auto_bill_transport_job(self)
+        except Exception as e:
+            frappe.log_error(f"Error triggering auto-billing for Transport Job {self.name}: {str(e)}", "Auto Billing Error")
+    
+    def create_job_costing_number_if_needed(self):
+        """Create Job Costing Number if it doesn't exist"""
+        if self.job_costing_number:
+            return
+        
+        if not self.name:
+            # For new documents, this will be called in after_insert
+            return
+        
+        try:
+            # Check if Job Costing Number already exists for this job
+            existing_jcn = frappe.db.exists("Job Costing Number", {"job_no": self.name})
+            if existing_jcn:
+                self.job_costing_number = existing_jcn
+                return
+            
+            # Create new Job Costing Number
+            jcn = frappe.new_doc("Job Costing Number")
+            jcn.job_no = self.name
+            jcn.job_name = self.name
+            jcn.company = self.company
+            jcn.customer = self.customer
+            jcn.insert(ignore_permissions=True)
+            
+            self.job_costing_number = jcn.name
+        except Exception as e:
+            frappe.log_error(f"Error creating Job Costing Number for Transport Job {self.name}: {str(e)}", "Job Costing Number Creation Error")
 
-ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider these “active”
+ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider these "active"
 
 
 # --------------------------------------------------------------------
@@ -319,6 +481,7 @@ def _append_runsheet_legs_from_job(job: Document, rs: Document) -> int:
 def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     """
     Create a Sales Invoice from a Transport Job when all legs are completed.
+    Uses charges from Transport Job level.
     """
     if not job_name:
         frappe.throw(_("Transport Job name is required."))
@@ -327,37 +490,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     if job.docstatus != 1:
         frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
     
-    # Get all legs for this job
-    legs_field = _get_job_legs_fieldname(job)
-    job_legs = job.get(legs_field) or []
-    
-    if not job_legs:
-        frappe.throw(_("No legs found in this Transport Job."))
-    
-    # Check if all legs are completed
-    completed_legs = []
-    incomplete_legs = []
-    
-    for leg_row in job_legs:
-        transport_leg_name = leg_row.get("transport_leg")
-        if not transport_leg_name:
-            continue
-            
-        leg_doc = frappe.get_doc("Transport Leg", transport_leg_name)
-        if leg_doc.status == "Completed":
-            completed_legs.append(leg_doc)
-        else:
-            incomplete_legs.append(leg_doc)
-    
-    if incomplete_legs:
-        incomplete_names = [leg.name for leg in incomplete_legs]
-        frappe.throw(_("Cannot create Sales Invoice. The following legs are not completed: {0}").format(", ".join(incomplete_names)))
-    
-    if not completed_legs:
-        frappe.throw(_("No completed legs found to create Sales Invoice."))
+    # Validate all legs are completed
+    _validate_all_legs_completed(job)
     
     # Check if Sales Invoice already exists for this job
-    if job.sales_invoice:
+    if getattr(job, "sales_invoice", None):
         frappe.throw(_("Sales Invoice {0} already exists for this Transport Job.").format(job.sales_invoice))
     
     # Create Sales Invoice
@@ -366,74 +503,97 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     si.company = job.company
     si.posting_date = frappe.utils.today()
     
-    # Add reference in remarks since transport_job field doesn't exist
+    # Add accounting fields from Transport Job
+    if getattr(job, "branch", None):
+        si.branch = job.branch
+    if getattr(job, "cost_center", None):
+        si.cost_center = job.cost_center
+    if getattr(job, "profit_center", None):
+        si.profit_center = job.profit_center
+    
+    # Add reference to Job Costing Number if it exists
+    if getattr(job, "job_costing_number", None):
+        si.job_costing_number = job.job_costing_number
+    
+    # Add reference to Sales Quote if it exists
+    if hasattr(job, "sales_quote") and job.sales_quote:
+        si.quotation_no = job.sales_quote
+    
+    # Add reference in remarks
     base_remarks = si.remarks or ""
     note = _("Auto-created from Transport Job {0}").format(job.name)
     si.remarks = f"{base_remarks}\n{note}" if base_remarks else note
     
-    # Create items for each completed leg
+    # Use charges from Transport Job
+    charges = job.get("charges") or []
     si_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
-    for leg in completed_legs:
-        # Try to find a suitable item or create a service item
-        item_code = None
-        item_name = f"Transport from {leg.facility_from or 'Origin'} to {leg.facility_to or 'Destination'}"
+    
+    if charges:
+        # Create items from charges
+        for charge in charges:
+            item_code = getattr(charge, "item_code", None)
+            item_name = getattr(charge, "item_name", None) or getattr(charge, "charge_type", "Transport Service")
+            description = getattr(charge, "description", None) or item_name
+            qty = flt(getattr(charge, "quantity", 1))
+            rate = flt(getattr(charge, "rate", 0))
+            amount = flt(getattr(charge, "amount", 0))
+            
+            # Use amount if provided, otherwise calculate from rate * qty
+            if amount > 0:
+                rate = amount / qty if qty > 0 else amount
+            
+            item_payload = {
+                "item_name": item_name,
+                "description": description,
+                "qty": qty,
+                "rate": rate
+            }
+            
+            if item_code:
+                item_payload["item_code"] = item_code
+            
+            # Add accounting fields to Sales Invoice Item
+            if getattr(job, "cost_center", None):
+                item_payload["cost_center"] = job.cost_center
+            if getattr(job, "profit_center", None):
+                item_payload["profit_center"] = job.profit_center
+            
+            si.append("items", item_payload)
+    else:
+        # Fallback: Create a single item if no charges
+        item_name = f"Transport Job: {job.name}"
+        description = _("Transport services for {0}").format(job.name)
         
-        # Try to find existing transport service items
-        existing_items = frappe.get_all("Item", 
+        # Try to find a service item
+        service_items = frappe.get_all("Item", 
             filters={"item_group": "Services", "disabled": 0}, 
             fields=["name"], 
             limit=1
         )
         
-        if existing_items:
-            item_code = existing_items[0].name
-        else:
-            # Try to find any service item
-            service_items = frappe.get_all("Item", 
-                filters={"disabled": 0}, 
-                fields=["name"], 
-                limit=1
-            )
-            if service_items:
-                item_code = service_items[0].name
-            else:
-                # Use a generic approach - create item without item_code
-                item_code = None
-        
-        # Try to get rate from leg charges or use default
-        rate = 0.0
-        if hasattr(leg, 'rate') and leg.rate:
-            rate = leg.rate
-        elif hasattr(leg, 'amount') and leg.amount:
-            rate = leg.amount
+        item_code = service_items[0].name if service_items else None
         
         item_payload = {
             "item_name": item_name,
-            "description": f"Transport Leg: {leg.name}",
+            "description": description,
             "qty": 1,
-            "rate": rate
+            "rate": 0
         }
         
-        # Only add item_code if we found one
         if item_code:
             item_payload["item_code"] = item_code
         
-        # Add transport_leg field if it exists in Sales Invoice Item
-        if "transport_leg" in si_item_fields:
-            item_payload["transport_leg"] = leg.name
-        else:
-            # Add transport leg reference in description if field doesn't exist
-            item_payload["description"] = f"Transport Leg: {leg.name} - {item_payload.get('description', '')}"
+        # Add accounting fields to Sales Invoice Item
+        if getattr(job, "cost_center", None):
+            item_payload["cost_center"] = job.cost_center
+        if getattr(job, "profit_center", None):
+            item_payload["profit_center"] = job.profit_center
         
         si.append("items", item_payload)
     
     # Set missing values and insert
     si.set_missing_values()
     si.insert(ignore_permissions=True)
-    
-    # Update Transport Legs with Sales Invoice reference
-    for leg in completed_legs:
-        frappe.db.set_value("Transport Leg", leg.name, "sales_invoice", si.name, update_modified=False)
     
     # Update Transport Job with Sales Invoice reference
     frappe.db.set_value("Transport Job", job.name, "sales_invoice", si.name, update_modified=False)
@@ -442,5 +602,29 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
         "ok": True,
         "message": _("Sales Invoice {0} created successfully.").format(si.name),
         "sales_invoice": si.name,
-        "legs_updated": len(completed_legs)
+        "charges_used": len(charges)
     }
+
+
+def _validate_all_legs_completed(job: Document) -> None:
+    """Validate that all legs in the Transport Job are completed"""
+    legs_field = _get_job_legs_fieldname(job)
+    job_legs = job.get(legs_field) or []
+    
+    if not job_legs:
+        frappe.throw(_("No legs found in this Transport Job."))
+    
+    incomplete_legs = []
+    
+    for leg_row in job_legs:
+        transport_leg_name = leg_row.get("transport_leg")
+        if not transport_leg_name:
+            continue
+            
+        leg_doc = frappe.get_doc("Transport Leg", transport_leg_name)
+        if leg_doc.status != "Completed":
+            incomplete_legs.append(leg_doc)
+    
+    if incomplete_legs:
+        incomplete_names = [leg.name for leg in incomplete_legs]
+        frappe.throw(_("Cannot create Sales Invoice. The following legs are not completed: {0}").format(", ".join(incomplete_names)))

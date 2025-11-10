@@ -20,7 +20,11 @@
   "charges",
   "entity_tab",
   "company",
-  "branch"
+  "branch",
+  "column_break_dimensions",
+  "profit_center",
+  "cost_center",
+  "job_costing_number"
  ],
  "fields": [
   {
@@ -106,6 +110,29 @@
    "label": "Branch",
    "options": "Branch",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_dimensions",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number",
+   "read_only": 1
   },
   {
    "allow_on_submit": 1,

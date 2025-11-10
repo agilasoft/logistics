@@ -574,7 +574,7 @@ def _fetch_job_order_items(job_name: str) -> List[Dict[str, Any]]:
     return frappe.get_all(
         "Warehouse Job Order Items",
         filters={"parent": job_name, "parenttype": "Warehouse Job"},
-        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", 
+        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", "handling_unit_type",
                 "length", "width", "height", "volume", "weight", "volume_uom", "weight_uom", "dimension_uom"],
         order_by="idx asc",
         ignore_permissions=True,
@@ -674,7 +674,25 @@ def _query_available_candidates(
     hu_block  = "AND COALESCE(hu.status,'Available') NOT IN ('Under Maintenance','Inactive')" if ("status" in huf) else ""
 
     conds = []
-    params: List[Any] = [item, batch_no, batch_no, serial_no, serial_no]
+    # Parameters needed for the query:
+    # 1. latest subquery WHERE: item, batch_no, batch_no, serial_no, serial_no (5 params)
+    # 2. latest subquery join: item (1 param)
+    # 3. main join: item (1 param)
+    # 4. first_seen subquery: item, batch_no, batch_no, serial_no, serial_no (5 params)
+    # 5. main WHERE: item, batch_no, batch_no, serial_no, serial_no (5 params)
+    # Total: 17 params before company/branch
+    params: List[Any] = [
+        # latest subquery WHERE
+        item, batch_no, batch_no, serial_no, serial_no,
+        # latest subquery join
+        item,
+        # main join
+        item,
+        # first_seen subquery
+        item, batch_no, batch_no, serial_no, serial_no,
+        # main WHERE
+        item, batch_no, batch_no, serial_no, serial_no,
+    ]
 
     if company and (("company" in slf) or ("company" in huf) or ("company" in llf)):
         conds.append("COALESCE(hu.company, sl.company, l.company) = %s")
@@ -685,33 +703,91 @@ def _query_available_candidates(
 
     scope_sql = (" AND " + " AND ".join(conds)) if conds else ""
 
+    # Get the latest entry for each location/handling_unit/batch/serial combination
+    # Use end_qty from the latest entry as the current stock
     sql = f"""
         SELECT
             l.storage_location,
             l.handling_unit,
             l.batch_no,
             l.serial_no,
-            SUM(l.quantity) AS available_qty,
-            MIN(l.posting_date) AS first_seen,
-            MAX(l.posting_date) AS last_seen,
+            l.end_qty AS available_qty,
+            first_seen.first_seen,
+            l.posting_date AS last_seen,
             b.expiry_date AS expiry_date,
             COALESCE(ws.quality_grade, b.quality_grade) AS quality_grade,
             IFNULL(sl.bin_priority, 999999) AS bin_priority,
             IFNULL(st.picking_rank, 999999) AS storage_type_rank
         FROM `tabWarehouse Stock Ledger` l
+        INNER JOIN (
+            SELECT
+                l1.storage_location,
+                l1.handling_unit,
+                l1.batch_no,
+                l1.serial_no,
+                l1.end_qty,
+                l1.posting_date,
+                l1.creation,
+                l1.name
+            FROM `tabWarehouse Stock Ledger` l1
+            INNER JOIN (
+                SELECT
+                    storage_location,
+                    handling_unit,
+                    batch_no,
+                    serial_no,
+                    MAX(posting_date) AS max_date,
+                    MAX(creation) AS max_creation
+                FROM `tabWarehouse Stock Ledger`
+                WHERE item = %s
+                  AND (%s IS NULL OR batch_no = %s)
+                  AND (%s IS NULL OR serial_no = %s)
+                GROUP BY storage_location, handling_unit, batch_no, serial_no
+            ) max_dates ON l1.storage_location = max_dates.storage_location
+                AND IFNULL(l1.handling_unit, '') = IFNULL(max_dates.handling_unit, '')
+                AND IFNULL(l1.batch_no, '') = IFNULL(max_dates.batch_no, '')
+                AND IFNULL(l1.serial_no, '') = IFNULL(max_dates.serial_no, '')
+                AND l1.posting_date = max_dates.max_date
+                AND l1.creation = max_dates.max_creation
+                AND l1.item = %s
+        ) latest ON l.storage_location = latest.storage_location
+            AND IFNULL(l.handling_unit, '') = IFNULL(latest.handling_unit, '')
+            AND IFNULL(l.batch_no, '') = IFNULL(latest.batch_no, '')
+            AND IFNULL(l.serial_no, '') = IFNULL(latest.serial_no, '')
+            AND l.posting_date = latest.posting_date
+            AND l.creation = latest.creation
+            AND l.name = latest.name
+            AND l.item = %s
+        LEFT JOIN (
+            SELECT
+                storage_location,
+                handling_unit,
+                batch_no,
+                serial_no,
+                MIN(posting_date) AS first_seen
+            FROM `tabWarehouse Stock Ledger`
+            WHERE item = %s
+              AND (%s IS NULL OR batch_no = %s)
+              AND (%s IS NULL OR serial_no = %s)
+            GROUP BY storage_location, handling_unit, batch_no, serial_no
+        ) first_seen ON l.storage_location = first_seen.storage_location
+            AND IFNULL(l.handling_unit, '') = IFNULL(first_seen.handling_unit, '')
+            AND IFNULL(l.batch_no, '') = IFNULL(first_seen.batch_no, '')
+            AND IFNULL(l.serial_no, '') = IFNULL(first_seen.serial_no, '')
         LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
         LEFT JOIN `tabStorage Type`   st ON st.name = sl.storage_type
         LEFT JOIN `tabHandling Unit`  hu ON hu.name = l.handling_unit
         LEFT JOIN `tabWarehouse Batch`  b ON b.name = l.batch_no
         LEFT JOIN `tabWarehouse Serial` ws ON ws.name = l.serial_no
         WHERE l.item = %s
+          AND IFNULL(sl.staging_area, 0) = 0
           AND (%s IS NULL OR l.batch_no = %s)
           AND (%s IS NULL OR l.serial_no = %s)
+          AND l.end_qty > 0
           {scope_sql}
           {sl_status}
           {hu_block}
         GROUP BY l.storage_location, l.handling_unit, l.batch_no, l.serial_no
-        HAVING SUM(l.quantity) > 0
     """
     return frappe.db.sql(sql, tuple(params), as_dict=True) or []
 
@@ -1099,50 +1175,8 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 # =============================================================================
 # MOVE allocation from orders (scoped validations)
 # =============================================================================
-
-@frappe.whitelist()
-def allocate_move(warehouse_job: str, clear_existing: int = 1):
-    """Populate Items with paired move rows based on Orders; validates scope."""
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    if (job.type or "").strip() != "Move":
-        frappe.throw(_("Warehouse Job must be of type 'Move' to allocate moves from Orders."))
-
-    company, branch = _get_job_scope(job)
-    if int(clear_existing or 0):
-        job.set("items", [])
-
-    created_pairs = 0
-    skipped: List[str] = []
-
-    for r in (job.orders or []):
-        qty = abs(flt(getattr(r, "quantity", 0)))
-        from_loc = getattr(r, "storage_location_from", None)
-        to_loc   = getattr(r, "storage_location_to", None)
-        hu_from  = getattr(r, "handling_unit_from", None)
-        hu_to    = getattr(r, "handling_unit_to", None)
-
-        if not from_loc or not to_loc:
-            skipped.append(f"Row {getattr(r, 'idx', '?')}: missing From/To location"); continue
-        if qty <= 0:
-            skipped.append(f"Row {getattr(r, 'idx', '?')}: quantity must be > 0"); continue
-
-        _assert_location_in_job_scope(from_loc, company, branch, ctx=_("From Location"))
-        _assert_location_in_job_scope(to_loc, company, branch,   ctx=_("To Location"))
-        _assert_hu_in_job_scope(hu_from, company, branch, ctx=_("From HU"))
-        _assert_hu_in_job_scope(hu_to,   company, branch, ctx=_("To HU"))
-
-        common = {
-            "item": getattr(r, "item", None),
-            "serial_no": getattr(r, "serial_no", None) or None,
-            "batch_no": getattr(r, "batch_no", None) or None,
-        }
-        job.append("items", {**common, "location": from_loc, "handling_unit": hu_from or None, "quantity": -qty})
-        job.append("items", {**common, "location": to_loc,   "handling_unit": hu_to   or None, "quantity":  qty})
-        created_pairs += 1
-
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-    return {"message": _("Allocated {0} move pair(s).").format(created_pairs), "created_pairs": created_pairs, "skipped": skipped}
+# Note: allocate_move is imported from api_parts.transfer, but kept here for backward compatibility
+# The actual implementation is in api_parts/transfer.py
 
 
 # =============================================================================
@@ -2649,9 +2683,16 @@ def create_sales_invoice_from_periodic_billing(
         frappe.throw(_("periodic_billing is required"))
 
     pb = frappe.get_doc("Periodic Billing", periodic_billing)
+    pbf = _safe_meta_fieldnames("Periodic Billing")
     customer  = getattr(pb, "customer", None)
     date_from = getattr(pb, "date_from", None)
     date_to   = getattr(pb, "date_to", None)
+    pb_company = getattr(pb, "company", None) if "company" in pbf else None
+    pb_branch  = getattr(pb, "branch", None) if "branch" in pbf else None
+    profit_center = getattr(pb, "profit_center", None) if "profit_center" in pbf else None
+    pb_cost_center = getattr(pb, "cost_center", None) if "cost_center" in pbf else None
+    job_costing_number = getattr(pb, "job_costing_number", None) if "job_costing_number" in pbf else None
+    
     if not customer:
         frappe.throw(_("Customer is required on Periodic Billing."))
     if not (date_from and date_to):
@@ -2664,9 +2705,11 @@ def create_sales_invoice_from_periodic_billing(
     if not charges:
         frappe.throw(_("No rows found in Periodic Billing Charges."))
 
-    company = company or _get_default_company_safe()
+    company = company or pb_company or _get_default_company_safe()
     if not company:
         frappe.throw(_("Company is required (pass it in, or set a Default Company)."))
+    
+    cost_center = cost_center or pb_cost_center
 
     si = frappe.new_doc("Sales Invoice")
     si.customer = customer
@@ -2674,6 +2717,14 @@ def create_sales_invoice_from_periodic_billing(
     if posting_date: si.posting_date = posting_date
 
     sif = _safe_meta_fieldnames("Sales Invoice")
+    if pb_branch and "branch" in sif:
+        setattr(si, "branch", pb_branch)
+    if profit_center and "profit_center" in sif:
+        setattr(si, "profit_center", profit_center)
+    if cost_center and "cost_center" in sif:
+        setattr(si, "cost_center", cost_center)
+    if job_costing_number and "job_costing_number" in sif:
+        setattr(si, "job_costing_number", job_costing_number)
     if "periodic_billing" in sif:
         setattr(si, "periodic_billing", pb.name)
 
@@ -2711,6 +2762,10 @@ def create_sales_invoice_from_periodic_billing(
         if "uom" in sif_item_fields and uom: row_payload["uom"] = uom
         if "item_name" in sif_item_fields and item_name: row_payload["item_name"] = item_name
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
+        if pb_branch and "branch" in sif_item_fields: row_payload["branch"] = pb_branch
+        if profit_center and "profit_center" in sif_item_fields: row_payload["profit_center"] = profit_center
+        # Tag job_costing_number to storage charges (all items from periodic billing are storage charges)
+        if job_costing_number and "job_costing_number" in sif_item_fields: row_payload["job_costing_number"] = job_costing_number
         si.append("items", row_payload)
         created_rows += 1
 

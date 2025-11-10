@@ -13,6 +13,14 @@ class PeriodicBilling(Document):
 		self.validate_contract_setup()
 		self.validate_date_range()
 	
+	def after_insert(self):
+		"""Create Job Costing Number after document is inserted"""
+		self.create_job_costing_number_if_needed()
+		# Save the document to persist the job_costing_number field
+		if self.job_costing_number:
+			self.db_set("job_costing_number", self.job_costing_number, commit=False)
+			frappe.db.commit()
+	
 	def validate_contract_setup(self):
 		"""Validate that contract setup is properly configured."""
 		if self.warehouse_contract:
@@ -59,3 +67,31 @@ class PeriodicBilling(Document):
 	def get_contract_setup_summary_api(self):
 		"""Get contract setup summary for frontend."""
 		return self.get_contract_setup_summary()
+	
+	def create_job_costing_number_if_needed(self):
+		"""Create Job Costing Number when document is first saved"""
+		# Only create if job_costing_number is not set
+		if not self.job_costing_number:
+			# Check if this is the first save (no existing Job Costing Number)
+			existing_job_ref = frappe.db.get_value("Job Costing Number", {
+				"job_type": "Periodic Billing",
+				"job_no": self.name
+			})
+			
+			if not existing_job_ref:
+				# Create Job Costing Number
+				job_ref = frappe.new_doc("Job Costing Number")
+				job_ref.job_type = "Periodic Billing"
+				job_ref.job_no = self.name
+				job_ref.company = self.company
+				job_ref.branch = self.branch
+				job_ref.cost_center = self.cost_center
+				job_ref.profit_center = self.profit_center
+				# Use periodic billing's date_from as job_open_date
+				job_ref.job_open_date = self.date_from
+				job_ref.insert(ignore_permissions=True)
+				
+				# Set the job_costing_number field
+				self.job_costing_number = job_ref.name
+				
+				frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))

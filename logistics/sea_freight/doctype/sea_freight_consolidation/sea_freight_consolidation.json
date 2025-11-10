@@ -1,0 +1,429 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-27 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "consolidation_info_section",
+  "amended_from",
+  "naming_series",
+  "consolidation_date",
+  "consolidation_type",
+  "column_break_1",
+  "status",
+  "priority",
+  "consolidation_agent",
+  "section_break_route",
+  "origin_port",
+  "destination_port",
+  "etd",
+  "column_break_2",
+  "eta",
+  "shipping_line",
+  "vessel_name",
+  "voyage_number",
+  "section_break_cargo",
+  "total_containers",
+  "total_packages",
+  "total_weight",
+  "total_volume",
+  "column_break_3",
+  "chargeable_weight",
+  "consolidation_ratio",
+  "cost_per_kg",
+  "section_break_documents",
+  "master_bill",
+  "house_bill_prefix",
+  "column_break_4",
+  "customs_declaration",
+  "export_license",
+  "section_break_notes",
+  "consolidation_notes",
+  "special_instructions",
+  "column_break_5",
+  "quality_control_notes",
+  "handling_requirements",
+  "tab_containers",
+  "consolidation_containers",
+  "tab_packages",
+  "consolidation_packages",
+  "tab_routes",
+  "consolidation_routes",
+  "tab_charges",
+  "consolidation_charges",
+  "tab_attached_jobs",
+  "attached_sea_shipments",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "job_costing_number"
+ ],
+ "fields": [
+  {
+   "fieldname": "consolidation_info_section",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Information"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Sea Freight Consolidation",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Naming Series",
+   "options": "SC-{MM}-{YYYY}-{####}\nSC-{YYYY}-{####}\nSEA-CONS-{MM}-{YYYY}-{####}",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consolidation_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Consolidation Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consolidation_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Consolidation Type",
+   "options": "Direct Consolidation\nTransit Consolidation\nBreak-Bulk Consolidation\nMulti-Port Consolidation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nPlanning\nIn Progress\nReady for Departure\nIn Transit\nArrived\nDelivered\nCancelled",
+   "reqd": 1
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "fieldname": "consolidation_agent",
+   "fieldtype": "Link",
+   "label": "Consolidation Agent",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_break_route",
+   "fieldtype": "Section Break",
+   "label": "Route Information"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "reqd": 1,
+   "description": "Origin port UNLOCO code"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "reqd": 1,
+   "description": "Destination port UNLOCO code"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Datetime",
+   "label": "ETD (Estimated Time of Departure)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Datetime",
+   "label": "ETA (Estimated Time of Arrival)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line",
+   "reqd": 1
+  },
+  {
+   "fieldname": "vessel_name",
+   "fieldtype": "Data",
+   "label": "Vessel Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "voyage_number",
+   "fieldtype": "Data",
+   "label": "Voyage Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_cargo",
+   "fieldtype": "Section Break",
+   "label": "Cargo Summary"
+  },
+  {
+   "fieldname": "total_containers",
+   "fieldtype": "Int",
+   "label": "Total Containers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Int",
+   "label": "Total Packages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume (m³)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "consolidation_ratio",
+   "fieldtype": "Percent",
+   "label": "Consolidation Ratio",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_per_kg",
+   "fieldtype": "Currency",
+   "label": "Cost per kg",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_documents",
+   "fieldtype": "Section Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "master_bill",
+   "fieldtype": "Link",
+   "label": "Master Bill",
+   "options": "Master Bill"
+  },
+  {
+   "fieldname": "house_bill_prefix",
+   "fieldtype": "Data",
+   "label": "House Bill Prefix"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customs_declaration",
+   "fieldtype": "Data",
+   "label": "Customs Declaration"
+  },
+  {
+   "fieldname": "export_license",
+   "fieldtype": "Data",
+   "label": "Export License"
+  },
+  {
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes & Instructions"
+  },
+  {
+   "fieldname": "consolidation_notes",
+   "fieldtype": "Long Text",
+   "label": "Consolidation Notes"
+  },
+  {
+   "fieldname": "special_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Instructions"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quality_control_notes",
+   "fieldtype": "Long Text",
+   "label": "Quality Control Notes"
+  },
+  {
+   "fieldname": "handling_requirements",
+   "fieldtype": "Long Text",
+   "label": "Handling Requirements"
+  },
+  {
+   "fieldname": "tab_containers",
+   "fieldtype": "Tab Break",
+   "label": "Containers"
+  },
+  {
+   "fieldname": "consolidation_containers",
+   "fieldtype": "Table",
+   "label": "Consolidation Containers",
+   "options": "Sea Consolidation Containers"
+  },
+  {
+   "fieldname": "tab_packages",
+   "fieldtype": "Tab Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "consolidation_packages",
+   "fieldtype": "Table",
+   "label": "Consolidation Packages",
+   "options": "Sea Consolidation Packages"
+  },
+  {
+   "fieldname": "tab_routes",
+   "fieldtype": "Tab Break",
+   "label": "Routes"
+  },
+  {
+   "fieldname": "consolidation_routes",
+   "fieldtype": "Table",
+   "label": "Consolidation Routes",
+   "options": "Sea Consolidation Routes"
+  },
+  {
+   "fieldname": "tab_charges",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "consolidation_charges",
+   "fieldtype": "Table",
+   "label": "Consolidation Charges",
+   "options": "Sea Consolidation Charges"
+  },
+  {
+   "fieldname": "tab_attached_jobs",
+   "fieldtype": "Tab Break",
+   "label": "Shipments"
+  },
+  {
+   "fieldname": "attached_sea_shipments",
+   "fieldtype": "Table",
+   "options": "Sea Consolidation Shipments"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number",
+   "description": "This will be used when posting financial transactions to this job."
+  }
+ ],
+ "hide_toolbar": 1,
+ "in_create": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Freight Consolidation",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

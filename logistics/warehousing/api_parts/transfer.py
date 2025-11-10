@@ -1,5 +1,6 @@
 from __future__ import annotations
 from .common import *  # shared helpers
+from .common import _get_job_scope, _assert_location_in_job_scope, _assert_hu_in_job_scope, _safe_meta_fieldnames
 
 import frappe
 from frappe import _
@@ -21,16 +22,29 @@ def allocate_move(warehouse_job: str, clear_existing: int = 1):
 
     for r in (job.orders or []):
         qty = abs(flt(getattr(r, "quantity", 0)))
+        if qty <= 0:
+            skipped.append(f"Row {getattr(r, 'idx', '?')}: quantity must be > 0"); continue
+
         from_loc = getattr(r, "storage_location_from", None)
         to_loc   = getattr(r, "storage_location_to", None)
         hu_from  = getattr(r, "handling_unit_from", None)
         hu_to    = getattr(r, "handling_unit_to", None)
 
-        if not from_loc or not to_loc:
-            skipped.append(f"Row {getattr(r, 'idx', '?')}: missing From/To location"); continue
-        if qty <= 0:
-            skipped.append(f"Row {getattr(r, 'idx', '?')}: quantity must be > 0"); continue
+        # Check for missing required fields and add to skipped list
+        missing_fields = []
+        if not from_loc:
+            missing_fields.append("storage_location_from")
+        if not to_loc:
+            missing_fields.append("storage_location_to")
+        if not hu_from:
+            missing_fields.append("handling_unit_from")
+        if not hu_to:
+            missing_fields.append("handling_unit_to")
+        
+        if missing_fields:
+            skipped.append(f"Row {getattr(r, 'idx', '?')}: missing required fields: {', '.join(missing_fields)}"); continue
 
+        # Validate locations and handling units are in scope
         _assert_location_in_job_scope(from_loc, company, branch, ctx=_("From Location"))
         _assert_location_in_job_scope(to_loc, company, branch,   ctx=_("To Location"))
         _assert_hu_in_job_scope(hu_from, company, branch, ctx=_("From HU"))
@@ -67,5 +81,5 @@ def allocate_move(warehouse_job: str, clear_existing: int = 1):
 
     job.save(ignore_permissions=True)
     frappe.db.commit()
-    return {"message": _("Allocated {0} move pair(s).").format(created_pairs), "created_pairs": created_pairs, "skipped": skipped}
+    return {"ok": True, "message": _("Allocated {0} move pair(s).").format(created_pairs), "created_pairs": created_pairs, "skipped": skipped}
 

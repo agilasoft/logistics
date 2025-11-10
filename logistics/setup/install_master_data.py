@@ -26,6 +26,9 @@ def execute():
         # Install UNLOCO data
         install_unloco_data()
         
+        # Install Logistics Milestones
+        install_logistics_milestones()
+        
         frappe.db.commit()
         print("✅ Logistics master data installed successfully!")
         
@@ -1759,6 +1762,57 @@ def install_unloco_data():
             print(f"  ❌ Error creating UNLOCO {unloco['unlocode']}: {e}")
     
     print(f"🌍 UNLOCO locations: {created_count} created")
+
+
+def install_logistics_milestones():
+    """Install Logistics Milestone master data for Sea Freight"""
+    print("📊 Installing Logistics Milestone data...")
+    
+    # Sea Freight milestones based on shipping_status options
+    sea_freight_milestones = [
+        {"code": "SF-BOOK-REC", "description": "Booking Received", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-BOOK-CONF", "description": "Booking Confirmed", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-CARGO-NR", "description": "Cargo Not Ready", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-PICKUP-SCH", "description": "Pick-Up Scheduled", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-GATE-IN", "description": "Gate-In at Port / CY", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-CUST-EXP", "description": "Customs Clearance (Export)", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-LOADED", "description": "Loaded on Vessel", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-DEPARTED", "description": "Departed", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-IN-TRANSIT", "description": "In-Transit", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-ARRIVED", "description": "Arrived", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-DISCHARGED", "description": "Discharged from Vessel", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-CUST-IMP", "description": "Customs Clearance (Import)", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-AVAILABLE", "description": "Available for Pick-Up", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-OUT-DELIV", "description": "Out for Delivery", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-DELIVERED", "description": "Delivered", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-EMPTY-RET", "description": "Empty Container Returned", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-DELAYED", "description": "Delayed", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-CUST-HOLD", "description": "Customs Hold", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-DOC-ISSUE", "description": "Document Issue", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-DET-DEM", "description": "Detention / Demurrage Ongoing", "sea_freight": 1, "air_freight": 0, "transport": 0},
+        {"code": "SF-CLOSED", "description": "Closed", "sea_freight": 1, "air_freight": 0, "transport": 0},
+    ]
+    
+    created_count = 0
+    for milestone_data in sea_freight_milestones:
+        try:
+            if not frappe.db.exists("Logistics Milestone", milestone_data["code"]):
+                doc = frappe.new_doc("Logistics Milestone")
+                doc.update(milestone_data)
+                doc.insert()
+                created_count += 1
+                print(f"  ✅ Created Milestone: {milestone_data['code']} - {milestone_data['description']}")
+            else:
+                # Update existing milestone to ensure sea_freight flag is set
+                doc = frappe.get_doc("Logistics Milestone", milestone_data["code"])
+                if not doc.sea_freight:
+                    doc.sea_freight = 1
+                    doc.save()
+                    print(f"  ✓ Updated Milestone: {milestone_data['code']}")
+        except Exception as e:
+            print(f"  ❌ Error creating Milestone {milestone_data['code']}: {e}")
+    
+    print(f"📊 Logistics Milestones: {created_count} created/updated")
 
 
 if __name__ == "__main__":
