@@ -1,4 +1,11 @@
 frappe.ui.form.on('Air Consolidation', {
+    onload: function(frm) {
+        // Apply settings defaults when creating new document
+        if (frm.is_new()) {
+            apply_settings_defaults(frm);
+        }
+    },
+    
     refresh: function(frm) {
         // Add custom buttons
         add_consolidation_buttons(frm);
@@ -100,6 +107,67 @@ frappe.ui.form.on('Air Consolidation Shipments', {
         load_job_details(frm, cdt, cdn);
     }
 });
+
+// Function to apply settings defaults
+function apply_settings_defaults(frm) {
+	if (frm.doc._settings_applied) {
+		return;
+	}
+	
+	// Get company
+	const company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	if (!company) {
+		return;
+	}
+	
+	// Get Air Freight Settings
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Air Freight Settings",
+			filters: {
+				company: company
+			},
+			limit_page_length: 1
+		},
+		callback: function(r) {
+			if (r.message && r.message.length > 0) {
+				// Get the first settings document
+				frappe.call({
+					method: "frappe.client.get",
+					args: {
+						doctype: "Air Freight Settings",
+						name: r.message[0].name
+					},
+					callback: function(r2) {
+						if (r2.message) {
+							const settings = r2.message;
+				
+				// Apply general settings
+				if (!frm.doc.branch && settings.default_branch) {
+					frm.set_value("branch", settings.default_branch);
+				}
+				if (!frm.doc.cost_center && settings.default_cost_center) {
+					frm.set_value("cost_center", settings.default_cost_center);
+				}
+				if (!frm.doc.profit_center && settings.default_profit_center) {
+					frm.set_value("profit_center", settings.default_profit_center);
+				}
+				
+				// Apply consolidation settings
+				if (!frm.doc.consolidation_type && settings.default_consolidation_type) {
+					frm.set_value("consolidation_type", settings.default_consolidation_type);
+				}
+				
+				// Mark as applied
+				frm.set_value("_settings_applied", 1);
+					}
+				}
+			});
+		}
+	}
+	});
+}
 
 // Custom functions
 function add_consolidation_buttons(frm) {

@@ -2,6 +2,13 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Air Shipment", {
+	onload(frm) {
+		// Apply settings defaults when creating new document
+		if (frm.is_new()) {
+			apply_settings_defaults(frm);
+		}
+	},
+	
 	refresh(frm) {
 		// Add button to load charges from Sales Quote
 		if (frm.doc.sales_quote && !frm.is_new()) {
@@ -26,6 +33,11 @@ frappe.ui.form.on("Air Shipment", {
 		console.log("Air Shipment form refreshed");
 		console.log("Origin Port:", frm.doc.origin_port);
 		console.log("Destination Port:", frm.doc.destination_port);
+		
+		// Apply settings defaults if document is new and not already applied
+		if (frm.is_new() && !frm.doc._settings_applied) {
+			apply_settings_defaults(frm);
+		}
 		
 		// Update DG compliance status on form load
 		if (frm.doc.contains_dangerous_goods) {
@@ -653,4 +665,99 @@ function calculate_charge_amount(frm, cdt, cdn) {
 	
 	// Refresh the field
 	frm.refresh_field("charges");
+}
+
+// Function to apply settings defaults
+function apply_settings_defaults(frm) {
+	if (frm.doc._settings_applied) {
+		return;
+	}
+	
+	// Get company
+	const company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	if (!company) {
+		return;
+	}
+	
+	// Get Air Freight Settings
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Air Freight Settings",
+			filters: {
+				company: company
+			},
+			limit_page_length: 1
+		},
+		callback: function(r) {
+			if (r.message && r.message.length > 0) {
+				// Get the first settings document
+				frappe.call({
+					method: "frappe.client.get",
+					args: {
+						doctype: "Air Freight Settings",
+						name: r.message[0].name
+					},
+					callback: function(r2) {
+						if (r2.message) {
+							const settings = r2.message;
+							
+							// Apply general settings
+							if (!frm.doc.branch && settings.default_branch) {
+								frm.set_value("branch", settings.default_branch);
+							}
+							if (!frm.doc.cost_center && settings.default_cost_center) {
+								frm.set_value("cost_center", settings.default_cost_center);
+							}
+							if (!frm.doc.profit_center && settings.default_profit_center) {
+								frm.set_value("profit_center", settings.default_profit_center);
+							}
+							if (!frm.doc.incoterm && settings.default_incoterm) {
+								frm.set_value("incoterm", settings.default_incoterm);
+							}
+							if (!frm.doc.service_level && settings.default_service_level) {
+								frm.set_value("service_level", settings.default_service_level);
+							}
+							
+							// Apply location settings
+							if (!frm.doc.origin_port && settings.default_origin_port) {
+								frm.set_value("origin_port", settings.default_origin_port);
+							}
+							if (!frm.doc.destination_port && settings.default_destination_port) {
+								frm.set_value("destination_port", settings.default_destination_port);
+							}
+							
+							// Apply business settings
+							if (!frm.doc.airline && settings.default_airline) {
+								frm.set_value("airline", settings.default_airline);
+							}
+							if (!frm.doc.freight_agent && settings.default_freight_agent) {
+								frm.set_value("freight_agent", settings.default_freight_agent);
+							}
+							if (!frm.doc.house_type && settings.default_house_type) {
+								frm.set_value("house_type", settings.default_house_type);
+							}
+							if (!frm.doc.direction && settings.default_direction) {
+								frm.set_value("direction", settings.default_direction);
+							}
+							if (!frm.doc.release_type && settings.default_release_type) {
+								frm.set_value("release_type", settings.default_release_type);
+							}
+							if (!frm.doc.entry_type && settings.default_entry_type) {
+								frm.set_value("entry_type", settings.default_entry_type);
+							}
+							
+							// Apply document settings
+							if (!frm.doc.uld_type && settings.default_uld_type) {
+								frm.set_value("uld_type", settings.default_uld_type);
+							}
+							
+							// Mark as applied
+							frm.set_value("_settings_applied", 1);
+						}
+					}
+				});
+			}
+		}
+	});
 }

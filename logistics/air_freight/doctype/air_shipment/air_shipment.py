@@ -1159,15 +1159,34 @@ class AirShipment(Document):
 	
 	def before_save(self):
 		"""Called before document is saved"""
+		# Apply settings defaults if this is a new document
+		if self.is_new():
+			self.apply_settings_defaults()
+		
 		# Update DG compliance status before saving
 		self.update_dg_compliance_status()
 		# Job Costing Number will be created in after_insert method
 	
 	def after_insert(self):
 		"""Create Job Costing Number after document is inserted"""
-		self.create_job_costing_number_if_needed()
-		# Save the document to persist the job_costing_number field
-		if self.job_costing_number:
+		# Apply settings defaults if not already applied
+		if not hasattr(self, '_settings_applied'):
+			self.apply_settings_defaults()
+		
+		# Create job costing if enabled in settings
+		settings = self.get_air_freight_settings()
+		if settings and settings.auto_create_job_costing:
+			self.create_job_costing_number_if_needed()
+		
+		# Auto-generate AWB numbers if enabled in settings
+		if settings:
+			if settings.auto_generate_house_awb and not self.house_awb_no:
+				self.generate_house_awb_number()
+			if settings.auto_generate_master_awb and not self.master_awb:
+				self.generate_master_awb_reference()
+		
+		# Save the document to persist changes
+		if self.job_costing_number or self.house_awb_no or self.master_awb:
 			self.save(ignore_permissions=True)
 	
 	def validate_dangerous_goods(self):
@@ -1178,6 +1197,14 @@ class AirShipment(Document):
 		contains_dg = getattr(self, 'contains_dangerous_goods', False)
 		if not contains_dg:
 			return
+		
+		# Check settings for require DG declaration
+		settings = self.get_air_freight_settings()
+		if settings and settings.require_dg_declaration:
+			dg_declaration_complete = getattr(self, 'dg_declaration_complete', False)
+			if not dg_declaration_complete:
+				frappe.throw(_("Dangerous Goods Declaration is required for dangerous goods shipments as per company settings."), 
+					title=_("DG Declaration Required"))
 		
 		# Check if any packages contain dangerous goods
 		has_dg_packages = False
@@ -1628,10 +1655,25 @@ class AirShipment(Document):
 		if self.volume is not None and self.volume <= 0:
 			frappe.throw(_("Volume must be greater than zero"), title=_("Validation Error"))
 		
-		# Calculate chargeable weight (IATA standard: volume weight = volume * 167)
+		# Get settings for volume to weight factor
+		settings = self.get_air_freight_settings()
+		volume_to_weight_factor = 167  # Default IATA standard
+		chargeable_weight_calculation = "Higher of Both"  # Default
+		
+		if settings:
+			volume_to_weight_factor = settings.volume_to_weight_factor or 167
+			chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
+		
+		# Calculate chargeable weight based on settings
 		if self.weight and self.volume:
-			volume_weight = flt(self.volume) * 167  # IATA standard volume weight factor
-			chargeable_weight = max(flt(self.weight), volume_weight)
+			volume_weight = flt(self.volume) * volume_to_weight_factor
+			
+			if chargeable_weight_calculation == "Actual Weight":
+				chargeable_weight = flt(self.weight)
+			elif chargeable_weight_calculation == "Volume Weight":
+				chargeable_weight = volume_weight
+			else:  # Higher of Both (default)
+				chargeable_weight = max(flt(self.weight), volume_weight)
 			
 			# Update chargeable weight if not set or different
 			if not self.chargeable or abs(flt(self.chargeable) - chargeable_weight) > 0.01:
@@ -1819,31 +1861,50 @@ class AirShipment(Document):
 		if not self.direction:
 			return
 		
+		# Check settings for require customs declaration
+		settings = self.get_air_freight_settings()
+		require_customs = settings and settings.require_customs_declaration if settings else False
+		
 		# Export direction requires export license
 		if self.direction == "Export":
 			if not self.export_license:
-				frappe.msgprint(
-					_("Export license is typically required for export shipments."),
-					indicator="blue",
-					title=_("Document Information")
-				)
+				if require_customs:
+					frappe.throw(_("Export license is required for export shipments as per company settings."), 
+						title=_("Document Required"))
+				else:
+					frappe.msgprint(
+						_("Export license is typically required for export shipments."),
+						indicator="blue",
+						title=_("Document Information")
+					)
 		
 		# Import direction requires import permit
 		if self.direction == "Import":
 			if not self.import_permit:
-				frappe.msgprint(
-					_("Import permit is typically required for import shipments."),
-					indicator="blue",
-					title=_("Document Information")
-				)
+				if require_customs:
+					frappe.throw(_("Import permit is required for import shipments as per company settings."), 
+						title=_("Document Required"))
+				else:
+					frappe.msgprint(
+						_("Import permit is typically required for import shipments."),
+						indicator="blue",
+						title=_("Document Information")
+					)
 		
 		# Both directions typically require commercial invoice
 		if not self.commercial_invoice_number:
-			frappe.msgprint(
-				_("Commercial invoice is typically required for international shipments."),
-				indicator="blue",
-				title=_("Document Information")
-			)
+			if require_customs:
+				frappe.msgprint(
+					_("Commercial invoice is required for international shipments as per company settings."),
+					indicator="orange",
+					title=_("Document Required")
+				)
+			else:
+				frappe.msgprint(
+					_("Commercial invoice is typically required for international shipments."),
+					indicator="blue",
+					title=_("Document Information")
+				)
 	
 	def validate_casslink(self):
 		"""Validate CASSLink integration fields"""
@@ -2412,6 +2473,109 @@ class AirShipment(Document):
 			)
 			frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 	
+	def get_air_freight_settings(self):
+		"""Get Air Freight Settings for the company"""
+		if not self.company:
+			return None
+		
+		try:
+			from logistics.air_freight.doctype.air_freight_settings.air_freight_settings import AirFreightSettings
+			return AirFreightSettings.get_settings(self.company)
+		except Exception as e:
+			frappe.log_error(f"Error getting Air Freight Settings: {str(e)}", "Air Shipment - Get Settings")
+			return None
+	
+	def apply_settings_defaults(self):
+		"""Apply default values from Air Freight Settings"""
+		if hasattr(self, '_settings_applied'):
+			return
+		
+		settings = self.get_air_freight_settings()
+		if not settings:
+			return
+		
+		# Apply general settings
+		if not self.branch and settings.default_branch:
+			self.branch = settings.default_branch
+		if not self.cost_center and settings.default_cost_center:
+			self.cost_center = settings.default_cost_center
+		if not self.profit_center and settings.default_profit_center:
+			self.profit_center = settings.default_profit_center
+		if not self.incoterm and settings.default_incoterm:
+			self.incoterm = settings.default_incoterm
+		if not self.service_level and settings.default_service_level:
+			self.service_level = settings.default_service_level
+		
+		# Apply location settings
+		if not self.origin_port and settings.default_origin_port:
+			self.origin_port = settings.default_origin_port
+		if not self.destination_port and settings.default_destination_port:
+			self.destination_port = settings.default_destination_port
+		
+		# Apply business settings
+		if not self.airline and settings.default_airline:
+			self.airline = settings.default_airline
+		if not self.freight_agent and settings.default_freight_agent:
+			self.freight_agent = settings.default_freight_agent
+		if not self.house_type and settings.default_house_type:
+			self.house_type = settings.default_house_type
+		if not self.direction and settings.default_direction:
+			self.direction = settings.default_direction
+		if not self.release_type and settings.default_release_type:
+			self.release_type = settings.default_release_type
+		if not self.entry_type and settings.default_entry_type:
+			self.entry_type = settings.default_entry_type
+		
+		# Apply document settings
+		if not self.uld_type and settings.default_uld_type:
+			self.uld_type = settings.default_uld_type
+		
+		# Mark as applied
+		self._settings_applied = True
+	
+	@frappe.whitelist()
+	def generate_house_awb_number(self):
+		"""Generate House AWB number"""
+		import random
+		import string
+		
+		# Generate 11-digit AWB number (IATA standard)
+		# Format: 3-digit prefix + 8-digit number
+		prefix = "000"  # Default prefix, can be configured
+		number = ''.join([str(random.randint(0, 9)) for _ in range(8)])
+		awb_number = prefix + number
+		
+		self.house_awb_no = awb_number
+		return awb_number
+	
+	@frappe.whitelist()
+	def generate_master_awb_reference(self):
+		"""Generate Master AWB reference"""
+		# This would typically create or link to a Master Air Waybill
+		# For now, just generate a reference number
+		import random
+		import string
+		
+		reference = f"MAWB-{self.name}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}"
+		
+		# Try to create or find a Master Air Waybill
+		try:
+			# Check if Master Air Waybill doctype exists
+			if frappe.db.exists("DocType", "Master Air Waybill"):
+				# Create a new Master Air Waybill
+				mawb = frappe.new_doc("Master Air Waybill")
+				mawb.airline = self.airline
+				mawb.origin_airport = self.origin_port
+				mawb.destination_airport = self.destination_port
+				mawb.flight_date = self.etd
+				mawb.insert(ignore_permissions=True)
+				self.master_awb = mawb.name
+				return mawb.name
+		except Exception as e:
+			frappe.log_error(f"Error generating Master AWB: {str(e)}", "Air Shipment - Generate Master AWB")
+		
+		return reference
+	
 	def validate_accounts(self):
 		"""Validate accounting fields"""
 		if not self.company:
@@ -2440,6 +2604,11 @@ class AirShipment(Document):
 	
 	def create_job_costing_number_if_needed(self):
 		"""Create Job Costing Number when document is first saved"""
+		# Check settings for auto-create job costing
+		settings = self.get_air_freight_settings()
+		if settings and not settings.auto_create_job_costing:
+			return
+		
 		# Only create if job_costing_number is not set
 		if not self.job_costing_number:
 			# Check if this is the first save (no existing Job Costing Number)

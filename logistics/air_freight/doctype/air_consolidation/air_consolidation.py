@@ -20,6 +20,10 @@ class AirConsolidation(Document):
     
     def before_save(self):
         """Actions before saving the document"""
+        # Apply settings defaults if this is a new document
+        if self.is_new():
+            self.apply_settings_defaults()
+        
         self.update_consolidation_status()
         self.calculate_total_charges()
         self.optimize_consolidation_ratio()
@@ -27,8 +31,16 @@ class AirConsolidation(Document):
     
     def after_insert(self):
         """Create Job Costing Number after document is inserted"""
-        self.create_job_costing_number_if_needed()
-        # Save the document to persist the job_costing_number field
+        # Apply settings defaults if not already applied
+        if not hasattr(self, '_settings_applied'):
+            self.apply_settings_defaults()
+        
+        # Create job costing if enabled in settings
+        settings = self.get_air_freight_settings()
+        if settings and settings.auto_create_job_costing:
+            self.create_job_costing_number_if_needed()
+        
+        # Save the document to persist changes
         if self.job_costing_number:
             self.save(ignore_permissions=True)
     
@@ -161,9 +173,24 @@ class AirConsolidation(Document):
             self.total_weight = sum(package.package_weight for package in self.consolidation_packages)
             self.total_volume = sum(package.package_volume or 0 for package in self.consolidation_packages)
             
-            # Calculate chargeable weight (higher of actual weight or volume weight)
-            volume_weight = self.total_volume * 167  # Standard IATA volume weight factor
-            self.chargeable_weight = max(self.total_weight, volume_weight)
+            # Get settings for volume to weight factor
+            settings = self.get_air_freight_settings()
+            volume_to_weight_factor = 167  # Default IATA standard
+            chargeable_weight_calculation = "Higher of Both"  # Default
+            
+            if settings:
+                volume_to_weight_factor = settings.volume_to_weight_factor or 167
+                chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
+            
+            # Calculate chargeable weight based on settings
+            volume_weight = self.total_volume * volume_to_weight_factor
+            
+            if chargeable_weight_calculation == "Actual Weight":
+                self.chargeable_weight = self.total_weight
+            elif chargeable_weight_calculation == "Volume Weight":
+                self.chargeable_weight = volume_weight
+            else:  # Higher of Both (default)
+                self.chargeable_weight = max(self.total_weight, volume_weight)
             
             # Calculate consolidation ratio
             if self.total_weight > 0:
@@ -244,11 +271,15 @@ class AirConsolidation(Document):
     def optimize_consolidation_ratio(self):
         """Optimize consolidation ratio for better space utilization"""
         if self.total_weight > 0 and self.total_volume > 0:
+            # Get settings for volume to weight factor
+            settings = self.get_air_freight_settings()
+            standard_density = 167  # Default IATA standard
+            
+            if settings:
+                standard_density = settings.volume_to_weight_factor or 167
+            
             # Calculate density
             density = self.total_weight / self.total_volume
-            
-            # IATA standard density for air cargo
-            standard_density = 167  # kg/m³
             
             if density < standard_density:
                 # Low density cargo - volume weight applies
@@ -664,8 +695,49 @@ class AirConsolidation(Document):
                 frappe.throw(_("Branch {0} does not belong to Company {1}").format(
                     self.branch, self.company), title=_("Validation Error"))
     
+    def get_air_freight_settings(self):
+        """Get Air Freight Settings for the company"""
+        if not self.company:
+            return None
+        
+        try:
+            from logistics.air_freight.doctype.air_freight_settings.air_freight_settings import AirFreightSettings
+            return AirFreightSettings.get_settings(self.company)
+        except Exception as e:
+            frappe.log_error(f"Error getting Air Freight Settings: {str(e)}", "Air Consolidation - Get Settings")
+            return None
+    
+    def apply_settings_defaults(self):
+        """Apply default values from Air Freight Settings"""
+        if hasattr(self, '_settings_applied'):
+            return
+        
+        settings = self.get_air_freight_settings()
+        if not settings:
+            return
+        
+        # Apply general settings
+        if not self.branch and settings.default_branch:
+            self.branch = settings.default_branch
+        if not self.cost_center and settings.default_cost_center:
+            self.cost_center = settings.default_cost_center
+        if not self.profit_center and settings.default_profit_center:
+            self.profit_center = settings.default_profit_center
+        
+        # Apply consolidation settings
+        if not self.consolidation_type and settings.default_consolidation_type:
+            self.consolidation_type = settings.default_consolidation_type
+        
+        # Mark as applied
+        self._settings_applied = True
+    
     def create_job_costing_number_if_needed(self):
         """Create Job Costing Number when document is first saved"""
+        # Check settings for auto-create job costing
+        settings = self.get_air_freight_settings()
+        if settings and not settings.auto_create_job_costing:
+            return
+        
         # Only create if job_costing_number is not set
         if not self.job_costing_number:
             # Check if this is the first save (no existing Job Costing Number)
