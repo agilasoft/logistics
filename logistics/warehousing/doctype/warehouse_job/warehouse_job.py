@@ -3127,6 +3127,24 @@ def allocate_items(job_name: str) -> Dict[str, Any]:
             }
         
         if result and result.get("ok"):
+            # Handle Move allocation which returns created_pairs instead of created_rows
+            if job_type == "Move":
+                created_pairs = result.get("created_pairs", 0)
+                skipped = result.get("skipped", [])
+                if created_pairs == 0 and skipped:
+                    return {
+                        "success": False,
+                        "error": f"Allocation failed: No move pairs created. {len(skipped)} order(s) skipped. Reasons: {', '.join(skipped[:3])}",
+                        "warnings": skipped
+                    }
+                return {
+                    "success": True,
+                    "allocated_count": created_pairs * 2,  # Each pair creates 2 items (from and to)
+                    "allocated_qty": 0,  # Move doesn't track qty separately
+                    "message": result.get("message", f"Allocated {created_pairs} move pair(s)"),
+                    "warnings": skipped if skipped else [],
+                    "details": []
+                }
             return {
                 "success": True,
                 "allocated_count": result.get("created_rows", 0),
@@ -3138,8 +3156,8 @@ def allocate_items(job_name: str) -> Dict[str, Any]:
         else:
             return {
                 "success": False,
-                "error": result.get("error", "Allocation failed"),
-                "warnings": result.get("warnings", [])
+                "error": result.get("error", "Allocation failed") if result else "Allocation failed",
+                "warnings": result.get("warnings", []) if result else []
             }
         
     except Exception as e:
