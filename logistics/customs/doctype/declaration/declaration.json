@@ -4,11 +4,37 @@
  "autoname": "naming_series:",
  "creation": "2025-10-30 10:32:11.593633",
  "doctype": "DocType",
+ "editable_grid": 1,
  "engine": "InnoDB",
-  "field_order": [
-  "section_break_4bdx",
+ "field_order": [
+  "section_break_basic",
   "amended_from",
   "naming_series",
+  "customer",
+  "declaration_date",
+  "column_break_1",
+  "sales_quote",
+  "customs_authority",
+  "status",
+  "section_break_customs",
+  "commodity",
+  "hs_code",
+  "origin_country",
+  "destination_country",
+  "column_break_2",
+  "declaration_type",
+  "declaration_number",
+  "declaration_value",
+  "currency",
+  "charges_tab",
+  "charges",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "job_costing_number",
   "sustainability_tab",
   "sustainability_section",
   "estimated_paper_usage",
@@ -18,8 +44,9 @@
  ],
  "fields": [
   {
-   "fieldname": "section_break_4bdx",
-   "fieldtype": "Section Break"
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
   },
   {
    "fieldname": "amended_from",
@@ -36,6 +63,159 @@
    "fieldtype": "Select",
    "label": "Naming Series",
    "options": "CD.#########"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "declaration_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Declaration Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote"
+  },
+  {
+   "fieldname": "customs_authority",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customs Authority",
+   "options": "Customs Authority",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nSubmitted\nIn Progress\nApproved\nRejected\nCancelled",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_customs",
+   "fieldtype": "Section Break",
+   "label": "Customs Details"
+  },
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Link",
+   "label": "Commodity",
+   "options": "Commodity"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Data",
+   "label": "HS Code"
+  },
+  {
+   "fieldname": "origin_country",
+   "fieldtype": "Link",
+   "label": "Origin Country",
+   "options": "Country"
+  },
+  {
+   "fieldname": "destination_country",
+   "fieldtype": "Link",
+   "label": "Destination Country",
+   "options": "Country"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "declaration_type",
+   "fieldtype": "Select",
+   "label": "Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded"
+  },
+  {
+   "fieldname": "declaration_number",
+   "fieldtype": "Data",
+   "label": "Declaration Number"
+  },
+  {
+   "fieldname": "declaration_value",
+   "fieldtype": "Currency",
+   "label": "Declaration Value"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Declaration Charges"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "This will be used when posting financial transactions to this declaration.",
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "sustainability_tab",
@@ -72,7 +252,18 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  },
+  {
+   "group": "Accounts",
+   "link_doctype": "Job Costing Number",
+   "link_fieldname": "job_no"
+  }
+ ],
  "modified": "2025-10-30 10:32:45.322370",
  "modified_by": "Administrator",
  "module": "Customs",

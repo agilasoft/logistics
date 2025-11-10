@@ -39,6 +39,24 @@ frappe.ui.form.on("Sales Quote", {
 				}
 			});
 		}
+		
+		// Add custom button to create Declaration if quote is One-Off and submitted
+		if (frm.doc.one_off && frm.doc.customs && frm.doc.customs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
+			// Always show create button - allow multiple Declarations from same Sales Quote
+			frm.add_custom_button(__("Create Declaration"), function() {
+				create_declaration_from_sales_quote(frm);
+			}, __("Create"));
+			
+			// Also add a button to view existing Declarations if any exist
+			frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
+				if (r && r.name) {
+					frm.add_custom_button(__("View Declarations"), function() {
+						frappe.route_options = {"sales_quote": frm.doc.name};
+						frappe.set_route("List", "Declaration");
+					}, __("View"));
+				}
+			});
+		}
 	},
 	
 });
@@ -334,6 +352,60 @@ function create_warehouse_contract_from_sales_quote(frm) {
 					frappe.msgprint({
 						title: __("Error"),
 						message: __("Failed to create Warehouse Contract. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+	);
+}
+
+function create_declaration_from_sales_quote(frm) {
+	// Show confirmation dialog
+	frappe.confirm(
+		__("Are you sure you want to create a Declaration from this Sales Quote? You can create multiple declarations from the same Sales Quote."),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Creating Declaration..."));
+			
+			// Call the server method
+			frappe.call({
+				method: "logistics.customs.doctype.declaration.declaration.create_declaration_from_sales_quote",
+				args: {
+					sales_quote_name: frm.doc.name
+				},
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					
+					if (r.message && r.message.success) {
+						// Show success message
+						frappe.msgprint({
+							title: __("Declaration Created"),
+							message: __("Declaration {0} has been created successfully.", [r.message.declaration]),
+							indicator: "green"
+						});
+						
+						// Open the created Declaration
+						frappe.set_route("Form", "Declaration", r.message.declaration);
+					} else if (r.message && r.message.message) {
+						// Show info message (e.g., Declaration already exists)
+						frappe.msgprint({
+							title: __("Information"),
+							message: r.message.message,
+							indicator: "blue"
+						});
+						
+						// Open existing Declaration if available
+						if (r.message.declaration) {
+							frappe.set_route("Form", "Declaration", r.message.declaration);
+						}
+					}
+				},
+				error: function(r) {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to create Declaration. Please try again."),
 						indicator: "red"
 					});
 				}
