@@ -1,0 +1,188 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bill_number",
+  "bill_type",
+  "column_break_bill",
+  "shipper",
+  "consignee",
+  "notify_party",
+  "section_break_commodity",
+  "commodity_description",
+  "package_count",
+  "package_type",
+  "column_break_package",
+  "weight",
+  "weight_uom",
+  "volume",
+  "volume_uom",
+  "section_break_containers",
+  "container_numbers",
+  "seal_numbers",
+  "section_break_links",
+  "declaration",
+  "sea_shipment",
+  "column_break_links",
+  "air_shipment"
+ ],
+ "fields": [
+  {
+   "fieldname": "bill_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Bill Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bill_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Bill Type",
+   "options": "Bill of Lading\nAir Waybill\nHouse BL\nMaster BL",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_bill",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "notify_party",
+   "fieldtype": "Link",
+   "label": "Notify Party",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "section_break_commodity",
+   "fieldtype": "Section Break",
+   "label": "Commodity Information"
+  },
+  {
+   "fieldname": "commodity_description",
+   "fieldtype": "Text",
+   "label": "Commodity Description"
+  },
+  {
+   "fieldname": "package_count",
+   "fieldtype": "Int",
+   "label": "Package Count"
+  },
+  {
+   "fieldname": "package_type",
+   "fieldtype": "Data",
+   "label": "Package Type"
+  },
+  {
+   "fieldname": "column_break_package",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "section_break_containers",
+   "fieldtype": "Section Break",
+   "label": "Container Information"
+  },
+  {
+   "fieldname": "container_numbers",
+   "fieldtype": "Small Text",
+   "label": "Container Numbers",
+   "description": "Comma-separated list of container numbers"
+  },
+  {
+   "fieldname": "seal_numbers",
+   "fieldtype": "Small Text",
+   "label": "Seal Numbers",
+   "description": "Comma-separated list of seal numbers"
+  },
+  {
+   "fieldname": "section_break_links",
+   "fieldtype": "Section Break",
+   "label": "Related Documents"
+  },
+  {
+   "fieldname": "declaration",
+   "fieldtype": "Link",
+   "label": "Declaration",
+   "options": "Declaration"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment"
+  },
+  {
+   "fieldname": "column_break_links",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "CA eManifest Bill",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1
+}
+
