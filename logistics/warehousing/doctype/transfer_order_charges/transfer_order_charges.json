@@ -21,6 +21,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_transfer_charge\",\"=\",1]]",
    "options": "Item",
    "reqd": 1
   },
@@ -74,8 +75,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-13 10:48:29.800986",
- "modified_by": "Administrator",
+ "modified": "2025-11-11 14:33:35.714598",
+ "modified_by": "johnalexander.castro@agilasoft.com",
  "module": "Warehousing",
  "name": "Transfer Order Charges",
  "owner": "Administrator",

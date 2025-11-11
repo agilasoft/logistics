@@ -17,15 +17,65 @@
   "customs_authority",
   "status",
   "section_break_customs",
-  "commodity",
-  "hs_code",
-  "origin_country",
-  "destination_country",
   "column_break_2",
   "declaration_type",
   "declaration_number",
   "declaration_value",
   "currency",
+  "exchange_rate",
+  "section_break_parties",
+  "exporter_shipper",
+  "importer_consignee",
+  "column_break_parties",
+  "customs_broker",
+  "notify_party",
+  "commodities_tab",
+  "commodities",
+  "transport_tab",
+  "section_break_transport",
+  "transport_mode",
+  "port_of_loading",
+  "port_of_discharge",
+  "column_break_transport",
+  "vessel_flight_number",
+  "transport_document_number",
+  "transport_document_type",
+  "etd",
+  "eta",
+  "container_numbers",
+  "trade_tab",
+  "section_break_trade",
+  "incoterm",
+  "payment_terms",
+  "trade_agreement",
+  "column_break_trade",
+  "country_of_origin",
+  "country_of_destination",
+  "priority_level",
+  "section_break_processing",
+  "submission_date",
+  "submission_time",
+  "approval_date",
+  "column_break_processing",
+  "rejection_date",
+  "rejection_reason",
+  "processing_officer",
+  "expected_clearance_date",
+  "actual_clearance_date",
+  "section_break_financial",
+  "duty_amount",
+  "tax_amount",
+  "other_charges",
+  "column_break_financial",
+  "total_payable",
+  "payment_status",
+  "additional_info_tab",
+  "section_break_additional",
+  "marks_and_numbers",
+  "special_instructions",
+  "column_break_additional",
+  "internal_notes",
+  "external_reference",
   "charges_tab",
   "charges",
   "accounts_tab",
@@ -35,6 +85,15 @@
   "profit_center",
   "column_break_accounts",
   "job_costing_number",
+  "documents_tab",
+  "documents_section",
+  "documents",
+  "permits_tab",
+  "permits_section",
+  "permit_requirements",
+  "exemptions_tab",
+  "exemptions_section",
+  "exemptions",
   "sustainability_tab",
   "sustainability_section",
   "estimated_paper_usage",
@@ -113,29 +172,6 @@
    "label": "Customs Details"
   },
   {
-   "fieldname": "commodity",
-   "fieldtype": "Link",
-   "label": "Commodity",
-   "options": "Commodity"
-  },
-  {
-   "fieldname": "hs_code",
-   "fieldtype": "Data",
-   "label": "HS Code"
-  },
-  {
-   "fieldname": "origin_country",
-   "fieldtype": "Link",
-   "label": "Origin Country",
-   "options": "Country"
-  },
-  {
-   "fieldname": "destination_country",
-   "fieldtype": "Link",
-   "label": "Destination Country",
-   "options": "Country"
-  },
-  {
    "fieldname": "column_break_2",
    "fieldtype": "Column Break"
   },
@@ -153,13 +189,289 @@
   {
    "fieldname": "declaration_value",
    "fieldtype": "Currency",
-   "label": "Declaration Value"
+   "label": "Total Declaration Value",
+   "read_only": 1
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency"
+  },
+  {
+   "description": "Exchange rate if different from base currency",
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
+   "fieldname": "section_break_parties",
+   "fieldtype": "Section Break",
+   "label": "Parties Information"
+  },
+  {
+   "fieldname": "exporter_shipper",
+   "fieldtype": "Link",
+   "label": "Exporter/Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "importer_consignee",
+   "fieldtype": "Link",
+   "label": "Importer/Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "column_break_parties",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customs_broker",
+   "fieldtype": "Link",
+   "label": "Customs Broker/Agent",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "notify_party",
+   "fieldtype": "Link",
+   "label": "Notify Party",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "section_break_transport",
+   "fieldtype": "Section Break",
+   "label": "Transport Information"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Select",
+   "label": "Transport Mode",
+   "options": "Sea\nAir\nRoad\nRail\nCourier\nPost"
+  },
+  {
+   "fieldname": "port_of_loading",
+   "fieldtype": "Link",
+   "label": "Port of Loading/Entry",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "port_of_discharge",
+   "fieldtype": "Link",
+   "label": "Port of Discharge/Exit",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "column_break_transport",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vessel_flight_number",
+   "fieldtype": "Data",
+   "label": "Vessel/Flight/Vehicle Number"
+  },
+  {
+   "description": "Bill of Lading, Air Waybill, CMR, etc.",
+   "fieldname": "transport_document_number",
+   "fieldtype": "Data",
+   "label": "Transport Document Number"
+  },
+  {
+   "fieldname": "transport_document_type",
+   "fieldtype": "Select",
+   "label": "Transport Document Type",
+   "options": "Bill of Lading\nAir Waybill\nCMR\nRailway Bill\nCourier Receipt\nOther"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "label": "ETD (Expected Departure)"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "label": "ETA (Expected Arrival)"
+  },
+  {
+   "description": "Comma-separated list of container numbers",
+   "fieldname": "container_numbers",
+   "fieldtype": "Small Text",
+   "label": "Container Numbers"
+  },
+  {
+   "fieldname": "section_break_trade",
+   "fieldtype": "Section Break",
+   "label": "Trade Information"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Link",
+   "label": "Payment Terms",
+   "options": "Payment Terms Template"
+  },
+  {
+   "description": "e.g., FTA, GSP, etc.",
+   "fieldname": "trade_agreement",
+   "fieldtype": "Data",
+   "label": "Trade Agreement/Preference"
+  },
+  {
+   "fieldname": "column_break_trade",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "country_of_origin",
+   "fieldtype": "Link",
+   "label": "Country of Origin",
+   "options": "Country"
+  },
+  {
+   "fieldname": "country_of_destination",
+   "fieldtype": "Link",
+   "label": "Country of Destination",
+   "options": "Country"
+  },
+  {
+   "fieldname": "priority_level",
+   "fieldtype": "Select",
+   "label": "Priority Level",
+   "options": "Normal\nExpress\nUrgent"
+  },
+  {
+   "fieldname": "section_break_processing",
+   "fieldtype": "Section Break",
+   "label": "Processing Information"
+  },
+  {
+   "fieldname": "submission_date",
+   "fieldtype": "Date",
+   "label": "Submission Date"
+  },
+  {
+   "fieldname": "submission_time",
+   "fieldtype": "Time",
+   "label": "Submission Time"
+  },
+  {
+   "fieldname": "approval_date",
+   "fieldtype": "Date",
+   "label": "Approval Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_processing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rejection_date",
+   "fieldtype": "Date",
+   "label": "Rejection Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejection_reason",
+   "fieldtype": "Small Text",
+   "label": "Rejection Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "processing_officer",
+   "fieldtype": "Link",
+   "label": "Processing Officer",
+   "options": "User"
+  },
+  {
+   "fieldname": "expected_clearance_date",
+   "fieldtype": "Date",
+   "label": "Expected Clearance Date"
+  },
+  {
+   "fieldname": "actual_clearance_date",
+   "fieldtype": "Date",
+   "label": "Actual Clearance Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_financial",
+   "fieldtype": "Section Break",
+   "label": "Financial Information"
+  },
+  {
+   "fieldname": "duty_amount",
+   "fieldtype": "Currency",
+   "label": "Duty Amount"
+  },
+  {
+   "fieldname": "tax_amount",
+   "fieldtype": "Currency",
+   "label": "Tax Amount"
+  },
+  {
+   "fieldname": "other_charges",
+   "fieldtype": "Currency",
+   "label": "Other Charges"
+  },
+  {
+   "fieldname": "column_break_financial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_payable",
+   "fieldtype": "Currency",
+   "label": "Total Payable",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "Pending\nPartially Paid\nPaid\nOverdue"
+  },
+  {
+   "fieldname": "section_break_additional",
+   "fieldtype": "Section Break",
+   "label": "Additional Information"
+  },
+  {
+   "fieldname": "marks_and_numbers",
+   "fieldtype": "Long Text",
+   "label": "Marks and Numbers"
+  },
+  {
+   "fieldname": "special_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Instructions"
+  },
+  {
+   "fieldname": "column_break_additional",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "description": "Reference from external systems or customs authority",
+   "fieldname": "external_reference",
+   "fieldtype": "Data",
+   "label": "External Reference Number"
+  },
+  {
+   "fieldname": "commodities_tab",
+   "fieldtype": "Tab Break",
+   "label": "Commodities"
+  },
+  {
+   "fieldname": "commodities",
+   "fieldtype": "Table",
+   "label": "Commodities",
+   "options": "Declaration Commodity"
   },
   {
    "fieldname": "charges_tab",
@@ -218,6 +530,54 @@
    "options": "Job Costing Number"
   },
   {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Attachments"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Declaration Document"
+  },
+  {
+   "fieldname": "permits_tab",
+   "fieldtype": "Tab Break",
+   "label": "Permits"
+  },
+  {
+   "fieldname": "permits_section",
+   "fieldtype": "Section Break",
+   "label": "Permit Requirements"
+  },
+  {
+   "fieldname": "permit_requirements",
+   "fieldtype": "Table",
+   "label": "Permit Requirements",
+   "options": "Permit Requirement"
+  },
+  {
+   "fieldname": "exemptions_tab",
+   "fieldtype": "Tab Break",
+   "label": "Exemptions"
+  },
+  {
+   "fieldname": "exemptions_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration Exemptions"
+  },
+  {
+   "fieldname": "exemptions",
+   "fieldtype": "Table",
+   "label": "Exemptions",
+   "options": "Declaration Exemption"
+  },
+  {
    "fieldname": "sustainability_tab",
    "fieldtype": "Tab Break",
    "label": "Sustainability"
@@ -247,6 +607,21 @@
    "fieldname": "sustainability_notes",
    "fieldtype": "Text",
    "label": "Sustainability Notes"
+  },
+  {
+   "fieldname": "transport_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transport"
+  },
+  {
+   "fieldname": "trade_tab",
+   "fieldtype": "Tab Break",
+   "label": "Trade"
+  },
+  {
+   "fieldname": "additional_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "Additional Info"
   }
  ],
  "grid_page_length": 50,
@@ -264,10 +639,11 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2025-10-30 10:32:45.322370",
+ "modified": "2025-11-11 15:46:46.220437",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {

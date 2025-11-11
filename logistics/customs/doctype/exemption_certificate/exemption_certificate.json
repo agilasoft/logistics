@@ -1,0 +1,280 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:certificate_number",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_basic",
+  "certificate_number",
+  "exemption_type",
+  "status",
+  "column_break_basic",
+  "issue_date",
+  "valid_from",
+  "valid_to",
+  "section_break_parties",
+  "issued_to",
+  "issued_to_type",
+  "column_break_parties",
+  "issued_by",
+  "section_break_limits",
+  "exemption_value",
+  "exemption_quantity",
+  "column_break_limits",
+  "used_value",
+  "used_quantity",
+  "column_break_used",
+  "remaining_value",
+  "remaining_quantity",
+  "section_break_verification",
+  "verification_status",
+  "column_break_verification",
+  "verified_by",
+  "verification_date",
+  "declarations_tab",
+  "declarations",
+  "attachments_tab",
+  "attachments",
+  "notes_tab",
+  "notes",
+  "accounts_tab",
+  "company"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "certificate_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Certificate Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "exemption_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exemption Type",
+   "options": "Exemption Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nExpired\nRevoked\nSuspended",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "issue_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Issue Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid From"
+  },
+  {
+   "fieldname": "valid_to",
+   "fieldtype": "Date",
+   "label": "Valid To"
+  },
+  {
+   "fieldname": "section_break_parties",
+   "fieldtype": "Section Break",
+   "label": "Parties"
+  },
+  {
+   "fieldname": "issued_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Issued To",
+   "options": "issued_to_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "issued_to_type",
+   "fieldtype": "Select",
+   "label": "Issued To Type",
+   "options": "Customer\nSupplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_parties",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "label": "Issued By",
+   "options": "Customs Authority"
+  },
+  {
+   "fieldname": "section_break_limits",
+   "fieldtype": "Section Break",
+   "label": "Exemption Limits"
+  },
+  {
+   "fieldname": "exemption_value",
+   "fieldtype": "Currency",
+   "label": "Exemption Value"
+  },
+  {
+   "fieldname": "exemption_quantity",
+   "fieldtype": "Float",
+   "label": "Exemption Quantity"
+  },
+  {
+   "fieldname": "column_break_limits",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "used_value",
+   "fieldtype": "Currency",
+   "label": "Used Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "used_quantity",
+   "fieldtype": "Float",
+   "label": "Used Quantity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_used",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "remaining_value",
+   "fieldtype": "Currency",
+   "label": "Remaining Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remaining_quantity",
+   "fieldtype": "Float",
+   "label": "Remaining Quantity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_verification",
+   "fieldtype": "Section Break",
+   "label": "Verification"
+  },
+  {
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "Not Verified\nVerified\nRejected"
+  },
+  {
+   "fieldname": "column_break_verification",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.verification_status == 'Verified'",
+   "fieldname": "verified_by",
+   "fieldtype": "Link",
+   "label": "Verified By",
+   "options": "User"
+  },
+  {
+   "depends_on": "eval:doc.verification_status == 'Verified'",
+   "fieldname": "verification_date",
+   "fieldtype": "Date",
+   "label": "Verification Date"
+  },
+  {
+   "fieldname": "declarations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Related Declarations"
+  },
+  {
+   "fieldname": "declarations",
+   "fieldtype": "Table",
+   "label": "Declarations",
+   "options": "Exemption Certificate Declaration"
+  },
+  {
+   "fieldname": "attachments_tab",
+   "fieldtype": "Tab Break",
+   "label": "Attachments"
+  },
+  {
+   "fieldname": "attachments",
+   "fieldtype": "Table",
+   "label": "Attachments",
+   "options": "Exemption Certificate Attachment"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Exemption Certificate",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "role": "Customs User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

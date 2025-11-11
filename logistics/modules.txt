@@ -2,6 +2,7 @@ Logistics
 Transport
 Warehousing
 Customs
+Global Customs
 Sea Freight
 Air Freight
 Job Management

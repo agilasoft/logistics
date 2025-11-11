@@ -64,7 +64,7 @@ class GatePass(Document):
 						"description": job_item.description,
 						"qty": job_item.qty,
 						"uom": job_item.uom,
-						"warehouse": job_item.warehouse,
+						"branch": self.branch or job.branch,
 						"handling_unit": job_item.handling_unit
 					})
 	
@@ -164,7 +164,7 @@ def create_single_gate_pass(job, dock):
 			"description": item_details.get("description", ""),
 			"qty": item.quantity,
 			"uom": item_details.get("uom", ""),
-			"warehouse": "All Warehouses - ATID",  # Use default warehouse
+			"branch": job.branch,
 			"handling_unit": item.handling_unit
 		})
 	
@@ -239,7 +239,7 @@ def get_gate_pass_details(gate_pass):
 				"description": item.description,
 				"qty": item.qty,
 				"uom": item.uom,
-				"warehouse": item.warehouse,
+				"branch": item.branch or gp_doc.branch,
 				"handling_unit": item.handling_unit
 			})
 		

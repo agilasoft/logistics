@@ -8,3 +8,4 @@ class DeclarationCharges(Document):
 	pass
 
 
+

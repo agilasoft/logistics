@@ -1,0 +1,321 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_basic",
+  "naming_series",
+  "isf_number",
+  "global_manifest",
+  "ams",
+  "status",
+  "column_break_basic",
+  "company",
+  "estimated_arrival_date",
+  "section_break_isf10",
+  "isf_10_header",
+  "importer_of_record",
+  "consignee",
+  "buyer",
+  "seller",
+  "column_break_isf10_1",
+  "ship_to_party",
+  "manufacturer",
+  "country_of_origin",
+  "commodity_hs_code",
+  "section_break_isf10_2",
+  "container_stuffing_location",
+  "consolidator",
+  "section_break_isf2",
+  "isf_2_header",
+  "vessel_stow_plan",
+  "column_break_isf2",
+  "container_status_message",
+  "section_break_submission",
+  "submission_date",
+  "submission_time",
+  "column_break_submission",
+  "isf_transaction_number",
+  "acceptance_date",
+  "section_break_validation",
+  "validation_24_hour_rule",
+  "column_break_validation",
+  "validation_status",
+  "notes_tab",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "ISF-.YYYY.-"
+  },
+  {
+   "fieldname": "isf_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "ISF Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "global_manifest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Global Manifest",
+   "options": "Global Manifest"
+  },
+  {
+   "fieldname": "ams",
+   "fieldtype": "Link",
+   "label": "US AMS",
+   "options": "US AMS",
+   "description": "Related AMS filing"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nSubmitted\nAccepted\nRejected",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "estimated_arrival_date",
+   "fieldtype": "Date",
+   "label": "Estimated Arrival Date"
+  },
+  {
+   "fieldname": "section_break_isf10",
+   "fieldtype": "Section Break",
+   "label": "ISF-10 Data Elements"
+  },
+  {
+   "fieldname": "isf_10_header",
+   "fieldtype": "HTML",
+   "label": "ISF-10 Elements",
+   "options": "<p><strong>ISF-10 Data Elements (Required 24 hours before vessel departure):</strong></p><ol><li>Manufacturer (or supplier)</li><li>Seller</li><li>Buyer</li><li>Ship-to party</li><li>Container stuffing location</li><li>Consolidator</li><li>Importer of record number</li><li>Consignee number</li><li>Country of origin</li><li>Commodity HTSUS number</li></ol>"
+  },
+  {
+   "fieldname": "importer_of_record",
+   "fieldtype": "Link",
+   "label": "Importer of Record",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "buyer",
+   "fieldtype": "Link",
+   "label": "Buyer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "seller",
+   "fieldtype": "Link",
+   "label": "Seller",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_isf10_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ship_to_party",
+   "fieldtype": "Link",
+   "label": "Ship-to Party",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "manufacturer",
+   "fieldtype": "Link",
+   "label": "Manufacturer (or Supplier)",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "country_of_origin",
+   "fieldtype": "Link",
+   "label": "Country of Origin",
+   "options": "Country",
+   "reqd": 1
+  },
+  {
+   "fieldname": "commodity_hs_code",
+   "fieldtype": "Data",
+   "label": "Commodity HTSUS Number",
+   "description": "Harmonized Tariff Schedule of the United States",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_isf10_2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "container_stuffing_location",
+   "fieldtype": "Link",
+   "label": "Container Stuffing Location",
+   "options": "UNLOCO",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consolidator",
+   "fieldtype": "Link",
+   "label": "Consolidator",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "section_break_isf2",
+   "fieldtype": "Section Break",
+   "label": "ISF-2 Data Elements"
+  },
+  {
+   "fieldname": "isf_2_header",
+   "fieldtype": "HTML",
+   "label": "ISF-2 Elements",
+   "options": "<p><strong>ISF-2 Data Elements (Carrier responsibility):</strong></p><ol><li>Vessel stow plan</li><li>Container status message</li></ol>"
+  },
+  {
+   "fieldname": "vessel_stow_plan",
+   "fieldtype": "Data",
+   "label": "Vessel Stow Plan"
+  },
+  {
+   "fieldname": "column_break_isf2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "container_status_message",
+   "fieldtype": "Data",
+   "label": "Container Status Message"
+  },
+  {
+   "fieldname": "section_break_submission",
+   "fieldtype": "Section Break",
+   "label": "Submission Information"
+  },
+  {
+   "fieldname": "submission_date",
+   "fieldtype": "Date",
+   "label": "Submission Date"
+  },
+  {
+   "fieldname": "submission_time",
+   "fieldtype": "Time",
+   "label": "Submission Time"
+  },
+  {
+   "fieldname": "column_break_submission",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "isf_transaction_number",
+   "fieldtype": "Data",
+   "label": "ISF Transaction Number",
+   "description": "Transaction number from CBP response",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acceptance_date",
+   "fieldtype": "Date",
+   "label": "Acceptance Date"
+  },
+  {
+   "fieldname": "section_break_validation",
+   "fieldtype": "Section Break",
+   "label": "Validation"
+  },
+  {
+   "fieldname": "validation_24_hour_rule",
+   "fieldtype": "Data",
+   "label": "24-Hour Rule Validation",
+   "description": "Time remaining before vessel departure",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_validation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "validation_status",
+   "fieldtype": "Select",
+   "label": "Validation Status",
+   "options": "Valid\nWarning\nError",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "US ISF",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "submit": 1,
+   "role": "Customs User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

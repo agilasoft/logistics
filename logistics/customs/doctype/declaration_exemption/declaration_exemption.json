@@ -1,0 +1,132 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "exemption_type",
+  "exemption_certificate",
+  "exemption_basis",
+  "column_break_1",
+  "exemption_percentage",
+  "certificate_number",
+  "exempted_duty",
+  "column_break_2",
+  "exempted_tax",
+  "exempted_fee",
+  "total_exempted",
+  "verification_section",
+  "certificate_verified",
+  "column_break_verification",
+  "verification_date",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "exemption_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exemption Type",
+   "options": "Exemption Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "exemption_certificate",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exemption Certificate",
+   "options": "Exemption Certificate"
+  },
+  {
+   "fieldname": "exemption_basis",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Exemption Basis",
+   "options": "Trade Agreement\nCertificate\nCountry\nCommodity\nOther"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "exemption_percentage",
+   "fieldtype": "Percent",
+   "label": "Exemption Percentage"
+  },
+  {
+   "fieldname": "certificate_number",
+   "fieldtype": "Data",
+   "label": "Certificate Number"
+  },
+  {
+   "fieldname": "exempted_duty",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Exempted Duty"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "exempted_tax",
+   "fieldtype": "Currency",
+   "label": "Exempted Tax"
+  },
+  {
+   "fieldname": "exempted_fee",
+   "fieldtype": "Currency",
+   "label": "Exempted Fee"
+  },
+  {
+   "fieldname": "total_exempted",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Exempted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verification_section",
+   "fieldtype": "Section Break",
+   "label": "Verification"
+  },
+  {
+   "default": "0",
+   "fieldname": "certificate_verified",
+   "fieldtype": "Check",
+   "label": "Certificate Verified"
+  },
+  {
+   "fieldname": "column_break_verification",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.certificate_verified",
+   "fieldname": "verification_date",
+   "fieldtype": "Date",
+   "label": "Verification Date"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Declaration Exemption",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

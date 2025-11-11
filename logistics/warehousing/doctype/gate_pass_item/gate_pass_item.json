@@ -13,7 +13,7 @@
   "qty",
   "uom",
   "column_break_location",
-  "warehouse",
+  "branch",
   "handling_unit"
  ],
  "fields": [
@@ -64,11 +64,13 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "warehouse",
+   "fetch_from": "parent.branch",
+   "fieldname": "branch",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Warehouse",
-   "options": "Warehouse"
+   "label": "Branch",
+   "options": "Branch",
+   "read_only": 1
   },
   {
    "fieldname": "handling_unit",

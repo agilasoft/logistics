@@ -1,0 +1,481 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "general_settings_section",
+  "default_customs_authority",
+  "default_currency",
+  "column_break_general",
+  "default_cost_center",
+  "default_profit_center",
+  "default_branch",
+  "declaration_settings_section",
+  "default_declaration_type",
+  "auto_assign_declaration_number",
+  "require_hs_code",
+  "column_break_declaration",
+  "default_declaration_status",
+  "enable_declaration_amendments",
+  "max_amendment_count",
+  "workflow_settings_section",
+  "enable_approval_workflow",
+  "require_approval_for_submission",
+  "column_break_workflow",
+  "auto_submit_on_approval",
+  "enable_status_notifications",
+  "integration_settings_section",
+  "enable_customs_authority_api",
+  "api_endpoint_url",
+  "api_authentication_key",
+  "column_break_integration",
+  "enable_edi_integration",
+  "edi_provider",
+  "enable_government_portal",
+  "compliance_settings_section",
+  "enable_compliance_tracking",
+  "require_document_attachments",
+  "document_expiry_alert_days",
+  "column_break_compliance",
+  "enable_compliance_alerts",
+  "compliance_check_interval_hours",
+  "default_retention_period_days",
+  "calculation_settings_section",
+  "default_revenue_calculation_method",
+  "default_cost_calculation_method",
+  "column_break_calculation",
+  "enable_auto_calculation",
+  "round_off_precision",
+  "notification_settings_section",
+  "enable_email_notifications",
+  "notify_on_submission",
+  "notify_on_approval",
+  "column_break_notification",
+  "notify_on_rejection",
+  "notify_on_status_change",
+  "default_email_template",
+  "sustainability_settings_section",
+  "enable_sustainability_tracking",
+  "default_paper_usage_factor",
+  "column_break_sustainability",
+  "default_carbon_factor",
+  "additional_settings_tab",
+  "additional_settings_section",
+  "enable_bulk_operations",
+  "enable_advanced_analytics",
+  "column_break_additional",
+  "enable_mobile_access",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "general_settings_section",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "fieldname": "default_customs_authority",
+   "fieldtype": "Link",
+   "label": "Default Customs Authority",
+   "options": "Customs Authority"
+  },
+  {
+   "fieldname": "default_currency",
+   "fieldtype": "Link",
+   "label": "Default Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_cost_center",
+   "fieldtype": "Link",
+   "label": "Default Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "default_profit_center",
+   "fieldtype": "Link",
+   "label": "Default Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "default_branch",
+   "fieldtype": "Link",
+   "label": "Default Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "declaration_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration Settings"
+  },
+  {
+   "fieldname": "default_declaration_type",
+   "fieldtype": "Select",
+   "label": "Default Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_assign_declaration_number",
+   "fieldtype": "Check",
+   "label": "Auto Assign Declaration Number"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_hs_code",
+   "fieldtype": "Check",
+   "label": "Require HS Code"
+  },
+  {
+   "fieldname": "column_break_declaration",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "default_declaration_status",
+   "fieldtype": "Select",
+   "label": "Default Declaration Status",
+   "options": "Draft\nSubmitted\nIn Progress\nApproved\nRejected\nCancelled"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_declaration_amendments",
+   "fieldtype": "Check",
+   "label": "Enable Declaration Amendments"
+  },
+  {
+   "depends_on": "eval:doc.enable_declaration_amendments",
+   "fieldname": "max_amendment_count",
+   "fieldtype": "Int",
+   "label": "Maximum Amendment Count"
+  },
+  {
+   "fieldname": "workflow_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Workflow Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_approval_workflow",
+   "fieldtype": "Check",
+   "label": "Enable Approval Workflow"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_approval_workflow",
+   "fieldname": "require_approval_for_submission",
+   "fieldtype": "Check",
+   "label": "Require Approval for Submission"
+  },
+  {
+   "fieldname": "column_break_workflow",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_approval_workflow",
+   "fieldname": "auto_submit_on_approval",
+   "fieldtype": "Check",
+   "label": "Auto Submit on Approval"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_status_notifications",
+   "fieldtype": "Check",
+   "label": "Enable Status Notifications"
+  },
+  {
+   "fieldname": "integration_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Integration Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_customs_authority_api",
+   "fieldtype": "Check",
+   "label": "Enable Customs Authority API"
+  },
+  {
+   "depends_on": "eval:doc.enable_customs_authority_api",
+   "fieldname": "api_endpoint_url",
+   "fieldtype": "Data",
+   "label": "API Endpoint URL"
+  },
+  {
+   "depends_on": "eval:doc.enable_customs_authority_api",
+   "fieldname": "api_authentication_key",
+   "fieldtype": "Password",
+   "label": "API Authentication Key"
+  },
+  {
+   "fieldname": "column_break_integration",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_edi_integration",
+   "fieldtype": "Check",
+   "label": "Enable EDI Integration"
+  },
+  {
+   "depends_on": "eval:doc.enable_edi_integration",
+   "fieldname": "edi_provider",
+   "fieldtype": "Select",
+   "label": "EDI Provider",
+   "options": "Custom\nThird Party"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_government_portal",
+   "fieldtype": "Check",
+   "label": "Enable Government Portal Integration"
+  },
+  {
+   "fieldname": "compliance_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Compliance Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_compliance_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Compliance Tracking"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_compliance_tracking",
+   "fieldname": "require_document_attachments",
+   "fieldtype": "Check",
+   "label": "Require Document Attachments"
+  },
+  {
+   "depends_on": "eval:doc.enable_compliance_tracking",
+   "default": "30",
+   "fieldname": "document_expiry_alert_days",
+   "fieldtype": "Int",
+   "label": "Document Expiry Alert Days"
+  },
+  {
+   "fieldname": "column_break_compliance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_compliance_tracking",
+   "fieldname": "enable_compliance_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Compliance Alerts"
+  },
+  {
+   "depends_on": "eval:doc.enable_compliance_alerts",
+   "default": "24",
+   "fieldname": "compliance_check_interval_hours",
+   "fieldtype": "Int",
+   "label": "Compliance Check Interval (Hours)"
+  },
+  {
+   "default": "365",
+   "fieldname": "default_retention_period_days",
+   "fieldtype": "Int",
+   "label": "Default Retention Period (Days)"
+  },
+  {
+   "fieldname": "calculation_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Calculation Settings"
+  },
+  {
+   "default": "Per Unit",
+   "fieldname": "default_revenue_calculation_method",
+   "fieldtype": "Select",
+   "label": "Default Revenue Calculation Method",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+  },
+  {
+   "default": "Per Unit",
+   "fieldname": "default_cost_calculation_method",
+   "fieldtype": "Select",
+   "label": "Default Cost Calculation Method",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
+  },
+  {
+   "fieldname": "column_break_calculation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_auto_calculation",
+   "fieldtype": "Check",
+   "label": "Enable Auto Calculation"
+  },
+  {
+   "default": "2",
+   "fieldname": "round_off_precision",
+   "fieldtype": "Int",
+   "label": "Round Off Precision"
+  },
+  {
+   "fieldname": "notification_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Notification Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_email_notifications",
+   "fieldtype": "Check",
+   "label": "Enable Email Notifications"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_email_notifications",
+   "fieldname": "notify_on_submission",
+   "fieldtype": "Check",
+   "label": "Notify on Submission"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_email_notifications",
+   "fieldname": "notify_on_approval",
+   "fieldtype": "Check",
+   "label": "Notify on Approval"
+  },
+  {
+   "fieldname": "column_break_notification",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_email_notifications",
+   "fieldname": "notify_on_rejection",
+   "fieldtype": "Check",
+   "label": "Notify on Rejection"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_email_notifications",
+   "fieldname": "notify_on_status_change",
+   "fieldtype": "Check",
+   "label": "Notify on Status Change"
+  },
+  {
+   "depends_on": "eval:doc.enable_email_notifications",
+   "fieldname": "default_email_template",
+   "fieldtype": "Link",
+   "label": "Default Email Template",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "sustainability_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_sustainability_tracking",
+   "fieldtype": "Check",
+   "label": "Enable Sustainability Tracking"
+  },
+  {
+   "depends_on": "eval:doc.enable_sustainability_tracking",
+   "default": "5",
+   "fieldname": "default_paper_usage_factor",
+   "fieldtype": "Float",
+   "label": "Default Paper Usage Factor (pages)"
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.enable_sustainability_tracking",
+   "default": "0.1",
+   "fieldname": "default_carbon_factor",
+   "fieldtype": "Float",
+   "label": "Default Carbon Factor (kg CO2e)"
+  },
+  {
+   "fieldname": "additional_settings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Additional Settings"
+  },
+  {
+   "fieldname": "additional_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Additional Features"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_bulk_operations",
+   "fieldtype": "Check",
+   "label": "Enable Bulk Operations"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_advanced_analytics",
+   "fieldtype": "Check",
+   "label": "Enable Advanced Analytics"
+  },
+  {
+   "fieldname": "column_break_additional",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_mobile_access",
+   "fieldtype": "Check",
+   "label": "Enable Mobile Access"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Customs Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+
+

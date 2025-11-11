@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "permit_type",
+  "permit_application",
+  "status",
+  "column_break_1",
+  "is_required",
+  "is_obtained",
+  "required_date",
+  "column_break_2",
+  "obtained_date",
+  "expiry_date",
+  "permit_number",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "permit_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Permit Type",
+   "options": "Permit Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "permit_application",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Permit Application",
+   "options": "Permit Application"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Required\nApplied\nApproved\nExpired\nNot Required"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_required",
+   "fieldtype": "Check",
+   "label": "Is Required"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_obtained",
+   "fieldtype": "Check",
+   "label": "Is Obtained"
+  },
+  {
+   "fieldname": "required_date",
+   "fieldtype": "Date",
+   "label": "Required Date"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "obtained_date",
+   "fieldtype": "Date",
+   "label": "Obtained Date"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Expiry Date"
+  },
+  {
+   "fieldname": "permit_number",
+   "fieldtype": "Data",
+   "label": "Permit Number"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Permit Requirement",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

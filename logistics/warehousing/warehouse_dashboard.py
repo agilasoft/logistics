@@ -494,7 +494,7 @@ def get_gate_pass_details(gate_pass: str) -> Dict[str, Any]:
             "description": item.description,
             "qty": item.qty,
             "uom": item.uom,
-            "warehouse": item.warehouse,
+            "branch": item.branch or gp_doc.branch,
             "handling_unit": item.handling_unit
         })
     

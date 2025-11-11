@@ -1,0 +1,219 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:permit_code",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_info_section",
+  "permit_code",
+  "permit_name",
+  "column_break_basic",
+  "is_active",
+  "applicable_to",
+  "description_section",
+  "description",
+  "issuing_authority_section",
+  "issuing_authority",
+  "column_break_authority",
+  "processing_time_days",
+  "validity_period",
+  "renewal_section",
+  "renewal_required",
+  "column_break_renewal",
+  "renewal_period_days",
+  "requirements_section",
+  "is_mandatory",
+  "column_break_requirements",
+  "fee_structure",
+  "required_for_commodities_tab",
+  "required_for_commodities",
+  "required_for_countries_tab",
+  "required_for_countries",
+  "notes_tab",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_info_section",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "permit_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Permit Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "permit_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Permit Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "applicable_to",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Applicable To",
+   "options": "Import\nExport\nTransit\nAll",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description_section",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "issuing_authority_section",
+   "fieldtype": "Section Break",
+   "label": "Issuing Authority"
+  },
+  {
+   "fieldname": "issuing_authority",
+   "fieldtype": "Link",
+   "label": "Issuing Authority",
+   "options": "Customs Authority"
+  },
+  {
+   "fieldname": "column_break_authority",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "processing_time_days",
+   "fieldtype": "Int",
+   "label": "Processing Time (Days)"
+  },
+  {
+   "fieldname": "validity_period",
+   "fieldtype": "Int",
+   "label": "Validity Period (Days)"
+  },
+  {
+   "fieldname": "renewal_section",
+   "fieldtype": "Section Break",
+   "label": "Renewal Information"
+  },
+  {
+   "default": "0",
+   "fieldname": "renewal_required",
+   "fieldtype": "Check",
+   "label": "Renewal Required"
+  },
+  {
+   "fieldname": "column_break_renewal",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.renewal_required",
+   "fieldname": "renewal_period_days",
+   "fieldtype": "Int",
+   "label": "Renewal Period (Days)"
+  },
+  {
+   "fieldname": "requirements_section",
+   "fieldtype": "Section Break",
+   "label": "Requirements"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_mandatory",
+   "fieldtype": "Check",
+   "label": "Is Mandatory"
+  },
+  {
+   "fieldname": "column_break_requirements",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fee_structure",
+   "fieldtype": "Text Editor",
+   "label": "Fee Structure"
+  },
+  {
+   "fieldname": "required_for_commodities_tab",
+   "fieldtype": "Tab Break",
+   "label": "Required For Commodities"
+  },
+  {
+   "fieldname": "required_for_commodities",
+   "fieldtype": "Table",
+   "label": "Required For Commodities",
+   "options": "Permit Type Commodity"
+  },
+  {
+   "fieldname": "required_for_countries_tab",
+   "fieldtype": "Tab Break",
+   "label": "Required For Countries"
+  },
+  {
+   "fieldname": "required_for_countries",
+   "fieldtype": "Table",
+   "label": "Required For Countries",
+   "options": "Permit Type Country"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Permit Type",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "role": "Customs User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

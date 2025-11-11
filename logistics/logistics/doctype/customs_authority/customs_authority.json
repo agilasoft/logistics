@@ -5,19 +5,331 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "authority_information_section",
   "code",
-  "customs_authority_name"
+  "customs_authority_name",
+  "country",
+  "authority_type",
+  "column_break_info",
+  "is_active",
+  "timezone",
+  "contact_information_section",
+  "website",
+  "phone",
+  "email",
+  "column_break_contact",
+  "address_line_1",
+  "address_line_2",
+  "city",
+  "state",
+  "postal_code",
+  "processing_information_section",
+  "standard_processing_days",
+  "express_processing_days",
+  "operating_hours_start",
+  "column_break_processing",
+  "operating_hours_end",
+  "working_days",
+  "public_holidays",
+  "service_level_agreement_section",
+  "sla_standard_days",
+  "sla_express_days",
+  "sla_urgent_days",
+  "column_break_sla",
+  "enable_sla_tracking",
+  "sla_alert_threshold_percent",
+  "integration_section",
+  "has_api_integration",
+  "api_endpoint_url",
+  "api_authentication_method",
+  "column_break_integration",
+  "api_username",
+  "api_key",
+  "enable_edi",
+  "fee_structure_section",
+  "base_processing_fee",
+  "express_processing_fee",
+  "urgent_processing_fee",
+  "column_break_fees",
+  "currency",
+  "additional_notes_section",
+  "notes"
  ],
  "fields": [
   {
+   "fieldname": "authority_information_section",
+   "fieldtype": "Section Break",
+   "label": "Authority Information"
+  },
+  {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "in_list_view": 1,
+   "label": "Code",
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "customs_authority_name",
    "fieldtype": "Data",
-   "label": "Customs Authority Name"
+   "in_list_view": 1,
+   "label": "Customs Authority Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Country",
+   "options": "Country"
+  },
+  {
+   "fieldname": "authority_type",
+   "fieldtype": "Select",
+   "label": "Authority Type",
+   "options": "National\nRegional\nPort\nAirport\nBorder"
+  },
+  {
+   "fieldname": "column_break_info",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "timezone",
+   "fieldtype": "Data",
+   "label": "Timezone"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "contact_information_section",
+   "fieldtype": "Section Break",
+   "label": "Contact Information"
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Website"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "column_break_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "address_line_1",
+   "fieldtype": "Data",
+   "label": "Address Line 1"
+  },
+  {
+   "fieldname": "address_line_2",
+   "fieldtype": "Data",
+   "label": "Address Line 2"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "label": "State/Province"
+  },
+  {
+   "fieldname": "postal_code",
+   "fieldtype": "Data",
+   "label": "Postal Code"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "processing_information_section",
+   "fieldtype": "Section Break",
+   "label": "Processing Information"
+  },
+  {
+   "default": "5",
+   "fieldname": "standard_processing_days",
+   "fieldtype": "Int",
+   "label": "Standard Processing Days"
+  },
+  {
+   "default": "2",
+   "fieldname": "express_processing_days",
+   "fieldtype": "Int",
+   "label": "Express Processing Days"
+  },
+  {
+   "default": "09:00",
+   "fieldname": "operating_hours_start",
+   "fieldtype": "Time",
+   "label": "Operating Hours Start"
+  },
+  {
+   "fieldname": "column_break_processing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "17:00",
+   "fieldname": "operating_hours_end",
+   "fieldtype": "Time",
+   "label": "Operating Hours End"
+  },
+  {
+   "fieldname": "working_days",
+   "fieldtype": "Select",
+   "label": "Working Days",
+   "options": "Monday to Friday\nMonday to Saturday\nAll Week\nCustom"
+  },
+  {
+   "fieldname": "public_holidays",
+   "fieldtype": "Text",
+   "label": "Public Holidays (comma separated dates)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "service_level_agreement_section",
+   "fieldtype": "Section Break",
+   "label": "Service Level Agreement"
+  },
+  {
+   "default": "5",
+   "fieldname": "sla_standard_days",
+   "fieldtype": "Int",
+   "label": "SLA Standard (Days)"
+  },
+  {
+   "default": "2",
+   "fieldname": "sla_express_days",
+   "fieldtype": "Int",
+   "label": "SLA Express (Days)"
+  },
+  {
+   "default": "1",
+   "fieldname": "sla_urgent_days",
+   "fieldtype": "Int",
+   "label": "SLA Urgent (Days)"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_sla_tracking",
+   "fieldtype": "Check",
+   "label": "Enable SLA Tracking"
+  },
+  {
+   "depends_on": "eval:doc.enable_sla_tracking",
+   "default": "80",
+   "fieldname": "sla_alert_threshold_percent",
+   "fieldtype": "Percent",
+   "label": "SLA Alert Threshold (%)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "integration_section",
+   "fieldtype": "Section Break",
+   "label": "Integration"
+  },
+  {
+   "default": "0",
+   "fieldname": "has_api_integration",
+   "fieldtype": "Check",
+   "label": "Has API Integration"
+  },
+  {
+   "depends_on": "eval:doc.has_api_integration",
+   "fieldname": "api_endpoint_url",
+   "fieldtype": "Data",
+   "label": "API Endpoint URL"
+  },
+  {
+   "depends_on": "eval:doc.has_api_integration",
+   "fieldname": "api_authentication_method",
+   "fieldtype": "Select",
+   "label": "API Authentication Method",
+   "options": "API Key\nOAuth\nBasic Auth\nToken"
+  },
+  {
+   "fieldname": "column_break_integration",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.has_api_integration",
+   "fieldname": "api_username",
+   "fieldtype": "Data",
+   "label": "API Username"
+  },
+  {
+   "depends_on": "eval:doc.has_api_integration",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_edi",
+   "fieldtype": "Check",
+   "label": "Enable EDI"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "fee_structure_section",
+   "fieldtype": "Section Break",
+   "label": "Fee Structure"
+  },
+  {
+   "fieldname": "base_processing_fee",
+   "fieldtype": "Currency",
+   "label": "Base Processing Fee"
+  },
+  {
+   "fieldname": "express_processing_fee",
+   "fieldtype": "Currency",
+   "label": "Express Processing Fee"
+  },
+  {
+   "fieldname": "urgent_processing_fee",
+   "fieldtype": "Currency",
+   "label": "Urgent Processing Fee"
+  },
+  {
+   "fieldname": "column_break_fees",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "additional_notes_section",
+   "fieldtype": "Section Break",
+   "label": "Additional Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
   }
  ],
  "grid_page_length": 50,
