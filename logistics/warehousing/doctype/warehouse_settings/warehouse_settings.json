@@ -25,6 +25,7 @@
   "capacity_tab",
   "capacity_section",
   "enable_capacity_management",
+  "prevent_exceeding_capacity_limit",
   "default_volume_uom",
   "volume_calculation_precision",
   "default_weight_uom",
@@ -139,6 +140,13 @@
    "fieldname": "enable_capacity_management",
    "fieldtype": "Check",
    "label": "Enable Capacity Management"
+  },
+  {
+   "default": "0",
+   "description": "When checked, prevents processing of warehouse jobs (submit, post, etc.) when capacity limits are exceeded on handling units or locations.",
+   "fieldname": "prevent_exceeding_capacity_limit",
+   "fieldtype": "Check",
+   "label": "Prevent Exceeding Capacity Limit"
   },
   {
    "default": "80",

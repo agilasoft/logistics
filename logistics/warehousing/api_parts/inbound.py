@@ -131,6 +131,10 @@ def post_receiving(warehouse_job: str) -> Dict[str, Any]:
     if not staging_area:
         frappe.throw(_("Staging Area is required on the Warehouse Job."))
 
+    # Validate capacity limits before posting
+    from logistics.warehousing.api_parts.capacity_management import validate_warehouse_job_capacity
+    validate_warehouse_job_capacity(job)
+
     posting_dt = _posting_datetime(job)
     created = 0
     skipped: List[str] = []
