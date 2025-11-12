@@ -29,12 +29,12 @@ def execute():
 	for table_name in tables_to_fix:
 		try:
 			# Check if table exists using direct SQL (table_name includes "tab" prefix)
-			# TABLE_NAME is a string column, so use quotes for comparison
+			# Use backticks for table name comparison
 			table_check = frappe.db.sql(f"""
 				SELECT COUNT(*) as count
 				FROM information_schema.TABLES 
 				WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = '{table_name}'
+				AND TABLE_NAME = `{table_name}`
 			""", as_dict=True)
 			if table_check[0]['count'] == 0:
 				print(f"  ⚠ Skipping {table_name}: Table does not exist")
@@ -42,12 +42,12 @@ def execute():
 				continue
 			
 			# Check if parent column already exists
-			# TABLE_NAME is a string column, so use quotes for comparison
+			# Use backticks for table name comparison
 			columns = frappe.db.sql(f"""
 				SELECT COLUMN_NAME 
 				FROM information_schema.COLUMNS 
 				WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = '{table_name}'
+				AND TABLE_NAME = `{table_name}`
 				AND COLUMN_NAME IN ('parent', 'parentfield', 'parenttype')
 			""", as_dict=True)
 			
@@ -72,12 +72,12 @@ def execute():
 				alter_statements.append("ADD COLUMN `parenttype` VARCHAR(140) NULL DEFAULT NULL")
 			
 			# Check if parent index exists
-			# TABLE_NAME is a string column, so use quotes for comparison
+			# Use backticks for table name comparison
 			index_exists = frappe.db.sql(f"""
 				SELECT COUNT(*) as count
 				FROM information_schema.statistics 
 				WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = '{table_name}'
+				AND TABLE_NAME = `{table_name}`
 				AND INDEX_NAME = 'parent'
 			""", as_dict=True)
 			
