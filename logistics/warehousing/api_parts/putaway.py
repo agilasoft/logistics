@@ -2390,7 +2390,16 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
 
 @frappe.whitelist()
 def allocate_vas_putaway(warehouse_job: str):
-    """VAS → Convert Orders rows into Items rows (Putaway tasks) on the same job."""
+    """VAS → Convert Orders rows into Items rows (Putaway tasks) on the same job.
+    
+    Uses VAS BOM to determine which items to putaway:
+    - If reverse_bom = 0: Putaway the parent item (from order)
+    - If reverse_bom = 1: Putaway the BOM input items (components)
+    
+    Note: The main implementation with VAS BOM logic is in api.py.
+    This version delegates to _hu_anchored_putaway_from_orders for backward compatibility,
+    but api.py version should be used for VAS BOM support.
+    """
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     if (job.type or "").strip() != "VAS":
         frappe.throw(_("Initiate VAS Putaway can only run for Warehouse Job Type = VAS."))
@@ -2404,6 +2413,7 @@ def allocate_vas_putaway(warehouse_job: str):
     frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
     # Delegate to HU-anchored allocator (it already handles warnings)
+    # Note: For full VAS BOM support, use the version in api.py
     created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
 
     job.save(ignore_permissions=True)

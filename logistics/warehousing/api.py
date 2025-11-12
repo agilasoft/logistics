@@ -1312,12 +1312,19 @@ def initiate_vas_pick(warehouse_job: str, clear_existing: int = 1):
 
 @frappe.whitelist()
 def allocate_vas_putaway(warehouse_job: str):
-    """VAS → Convert Orders rows into Items rows (Putaway tasks) on the same job."""
+    """VAS → Convert Orders rows into Items rows (Putaway tasks) on the same job.
+    
+    Uses VAS BOM to determine which items to putaway:
+    - If reverse_bom = 0: Putaway the parent item (from order)
+    - If reverse_bom = 1: Putaway the BOM input items (components)
+    """
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     if (job.type or "").strip() != "VAS":
         frappe.throw(_("Initiate VAS Putaway can only run for Warehouse Job Type = VAS."))
     if int(job.docstatus or 0) != 0:
         frappe.throw(_("Initiate VAS Putaway must be run before submission."))
+    if (job.reference_order_type or "").strip() != "VAS Order" or not job.reference_order:
+        frappe.throw(_("This VAS job must reference a VAS Order."))
 
     # Clear existing items before allocation
     job.set("items", [])
@@ -1325,31 +1332,178 @@ def allocate_vas_putaway(warehouse_job: str):
     frappe.db.commit()
     frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
+    # Get VAS Order info for BOM lookup
+    vo = frappe.db.get_value("VAS Order", job.reference_order, ["customer", "type"], as_dict=True) or {}
+    customer = vo.get("customer")
+    vas_type = (vo.get("type") or "").strip()
+
+    # Get original orders
+    original_orders = _fetch_job_order_items(job.name)
+    if not original_orders:
+        return {
+            "ok": True,
+            "message": _("No order items found to allocate."),
+            "created_rows": 0,
+            "created_qty": 0,
+            "lines": [],
+            "warnings": []
+        }
+
     # Use the advanced version with better error handling and capacity validation
     # Inform user about the allocation process
     frappe.msgprint(f"Starting putaway allocation for job {job.name}")
     company, branch = _get_job_scope(job)
     frappe.msgprint(f"Job scope: Company={company or 'Any'}, Branch={branch or 'Any'}")
+
+    # Find VAS BOM for each order item and expand based on reverse_bom flag
+    def _find_vas_bom(parent_item: str) -> Optional[str]:
+        base = {"item": parent_item}
+        if vas_type: base["vas_order_type"] = vas_type
+        if customer:
+            r = frappe.get_all("Warehouse Item VAS BOM", filters={**base, "customer": customer},
+                               fields=["name"], limit=1, ignore_permissions=True)
+            if r: return r[0]["name"]
+        r = frappe.get_all("Warehouse Item VAS BOM", filters=base, fields=["name"], limit=1, ignore_permissions=True)
+        return r[0]["name"] if r else None
+
+    # Expand orders based on VAS BOM
+    expanded_orders: List[Dict[str, Any]] = []
+    skipped: List[str] = []
+    warnings: List[str] = []
+
+    for parent in original_orders:
+        p_item = parent.get("item")
+        p_qty = flt(parent.get("quantity") or 0)
+        if not p_item or p_qty <= 0:
+            skipped.append(_("Job Order Row {0}: missing item or non-positive quantity").format(parent.get("name")))
+            continue
+
+        bom = _find_vas_bom(p_item)
+        if not bom:
+            # No BOM found - use parent item as-is (fallback to original behavior)
+            expanded_orders.append(parent)
+            warnings.append(_("No VAS BOM found for {0} (type={1}, customer={2}). Using parent item directly.")
+                           .format(p_item, vas_type or "N/A", customer or "N/A"))
+            continue
+
+        # Get reverse_bom flag
+        reverse_bom = 0
+        try:
+            reverse_bom = int(frappe.db.get_value("Warehouse Item VAS BOM", bom, "reverse_bom") or 0)
+        except (ValueError, TypeError) as e:
+            frappe.logger().debug(f"Failed to get reverse_bom for VAS BOM {bom}: {str(e)}, using default 0")
+            reverse_bom = 0
+
+        if reverse_bom == 1:
+            # Reverse BOM: Putaway the BOM input items (components)
+            inputs = frappe.get_all(
+                "Customer VAS Item Input",
+                filters={"parent": bom, "parenttype": "Warehouse Item VAS BOM"},
+                fields=["name", "item", "quantity", "uom"],
+                order_by="idx asc", ignore_permissions=True,
+            )
+            if not inputs:
+                skipped.append(_("VAS BOM {0} has no inputs for reverse BOM putaway").format(bom))
+                continue
+
+            # Create expanded order rows for each BOM component
+            for comp in inputs:
+                c_item = comp.get("item")
+                per = flt(comp.get("quantity") or 0)
+                req = per * p_qty
+                if not c_item or req <= 0:
+                    skipped.append(_("BOM {0} component missing item/quantity (row {1})").format(bom, comp.get("name")))
+                    continue
+
+                # Create expanded order row based on parent but with BOM component details
+                expanded_row = parent.copy()
+                expanded_row["item"] = c_item
+                expanded_row["quantity"] = req
+                if comp.get("uom"):
+                    expanded_row["uom"] = comp.get("uom")
+                # Preserve source reference
+                expanded_row["_vas_bom"] = bom
+                expanded_row["_vas_parent_item"] = p_item
+                expanded_row["_vas_parent_qty"] = p_qty
+                expanded_orders.append(expanded_row)
+        else:
+            # Normal BOM: Putaway the parent item (from order)
+            expanded_orders.append(parent)
+
+    # Temporarily create expanded order items in database for allocation
+    # Store original order item names to restore later
+    original_order_names = [o.get("name") for o in original_orders if o.get("name")]
+    temp_order_names = []
     
-    # Get orders to show processing messages
-    orders = _fetch_job_order_items(job.name)
-    if orders:
-        # Group by HU to show processing messages
-        by_hu: Dict[str, List[Dict[str, Any]]] = {}
-        for r in orders:
-            hu = (r.get("handling_unit") or "").strip()
-            if hu:
-                by_hu.setdefault(hu, []).append(r)
+    try:
+        if expanded_orders:
+            # Delete original order items temporarily
+            if original_order_names:
+                frappe.db.delete("Warehouse Job Order Items", {"name": ["in", original_order_names]})
+                frappe.db.commit()
+            
+            # Create expanded order items
+            for exp_order in expanded_orders:
+                order_doc = frappe.get_doc({
+                    "doctype": "Warehouse Job Order Items",
+                    "parent": job.name,
+                    "parenttype": "Warehouse Job",
+                    "parentfield": "orders",
+                    "item": exp_order.get("item"),
+                    "quantity": exp_order.get("quantity"),
+                    "uom": exp_order.get("uom"),
+                    "handling_unit": exp_order.get("handling_unit"),
+                    "handling_unit_type": exp_order.get("handling_unit_type"),
+                    "serial_no": exp_order.get("serial_no"),
+                    "batch_no": exp_order.get("batch_no"),
+                })
+                order_doc.insert(ignore_permissions=True)
+                temp_order_names.append(order_doc.name)
+            
+            frappe.db.commit()
+            # Reload job to get new orders
+            job.reload()
         
-        # Show processing message for each HU
-        for hu, rows in by_hu.items():
-            frappe.msgprint(f"Processing handling unit {hu} with {len(rows)} items")
-    
-    # Delegate to advanced HU-anchored allocator (it has better error handling, capacity validation, and fallback strategies)
-    created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders_advanced(job)
+        # Delegate to advanced HU-anchored allocator with expanded orders
+        created_rows, created_qty, details, warnings_list = _hu_anchored_putaway_from_orders_advanced(job)
+        warnings.extend(warnings_list)
+        
+    finally:
+        # Restore original orders
+        if temp_order_names:
+            # Delete temporary expanded order items
+            frappe.db.delete("Warehouse Job Order Items", {"name": ["in", temp_order_names]})
+            frappe.db.commit()
+            
+            # Restore original order items
+            if original_order_names:
+                # Re-insert original orders
+                for orig_order in original_orders:
+                    order_doc = frappe.get_doc({
+                        "doctype": "Warehouse Job Order Items",
+                        "parent": job.name,
+                        "parenttype": "Warehouse Job",
+                        "parentfield": "orders",
+                        "item": orig_order.get("item"),
+                        "quantity": orig_order.get("quantity"),
+                        "uom": orig_order.get("uom"),
+                        "handling_unit": orig_order.get("handling_unit"),
+                        "handling_unit_type": orig_order.get("handling_unit_type"),
+                        "serial_no": orig_order.get("serial_no"),
+                        "batch_no": orig_order.get("batch_no"),
+                    })
+                    order_doc.insert(ignore_permissions=True)
+                frappe.db.commit()
+            
+            # Reload job
+            job.reload()
 
     job.save(ignore_permissions=True)
     frappe.db.commit()
+
+    # Add skipped items to warnings
+    if skipped:
+        warnings.extend(skipped)
 
     # Show final results with better messaging
     if warnings:
@@ -1367,7 +1521,7 @@ def allocate_vas_putaway(warehouse_job: str):
         "ok": True,
         "message": _("Prepared {0} putaway item row(s) totaling {1}.").format(int(created_rows), flt(created_qty)),
         "created_rows": created_rows, "created_qty": created_qty,
-        "lines": details, "warnings": warnings,
+        "lines": details, "warnings": warnings, "skipped": skipped,
     }
 
 
