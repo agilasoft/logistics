@@ -2,3 +2,4 @@ logistics.warehousing.patches.add_wsl_indexes
 logistics.transport.patches.add_telematics_indexes
 logistics.patches.v1_0_install_dimensions
 logistics.patches.v1_0_install_master_data
+logistics.patches.fix_item_deletion_parent_columns
