@@ -1,0 +1,202 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "general_settings_section",
+  "default_carrier",
+  "default_forwarder",
+  "column_break_general",
+  "enable_ca_emanifest",
+  "enable_us_ams",
+  "enable_us_isf",
+  "enable_jp_afr",
+  "ca_emanifest_section",
+  "cbsa_api_endpoint",
+  "cbsa_api_username",
+  "cbsa_api_password",
+  "column_break_ca",
+  "cbsa_carrier_code",
+  "us_ams_section",
+  "cbp_api_endpoint",
+  "cbp_api_username",
+  "cbp_api_password",
+  "column_break_us_ams",
+  "ams_filer_code",
+  "us_isf_section",
+  "isf_filer_code",
+  "jp_afr_section",
+  "japan_customs_api_endpoint",
+  "japan_customs_filer_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "general_settings_section",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "fieldname": "default_carrier",
+   "fieldtype": "Link",
+   "label": "Default Carrier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "default_forwarder",
+   "fieldtype": "Link",
+   "label": "Default Forwarder",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "enable_ca_emanifest",
+   "fieldtype": "Check",
+   "label": "Enable CA eManifest"
+  },
+  {
+   "fieldname": "enable_us_ams",
+   "fieldtype": "Check",
+   "label": "Enable US AMS"
+  },
+  {
+   "fieldname": "enable_us_isf",
+   "fieldtype": "Check",
+   "label": "Enable US ISF"
+  },
+  {
+   "fieldname": "enable_jp_afr",
+   "fieldtype": "Check",
+   "label": "Enable JP AFR"
+  },
+  {
+   "fieldname": "ca_emanifest_section",
+   "fieldtype": "Section Break",
+   "label": "Canada eManifest Settings",
+   "depends_on": "eval:doc.enable_ca_emanifest==1"
+  },
+  {
+   "fieldname": "cbsa_api_endpoint",
+   "fieldtype": "Data",
+   "label": "CBSA API Endpoint"
+  },
+  {
+   "fieldname": "cbsa_api_username",
+   "fieldtype": "Data",
+   "label": "CBSA API Username"
+  },
+  {
+   "fieldname": "cbsa_api_password",
+   "fieldtype": "Password",
+   "label": "CBSA API Password"
+  },
+  {
+   "fieldname": "column_break_ca",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cbsa_carrier_code",
+   "fieldtype": "Data",
+   "label": "CBSA Carrier Code"
+  },
+  {
+   "fieldname": "us_ams_section",
+   "fieldtype": "Section Break",
+   "label": "US AMS Settings",
+   "depends_on": "eval:doc.enable_us_ams==1"
+  },
+  {
+   "fieldname": "cbp_api_endpoint",
+   "fieldtype": "Data",
+   "label": "CBP API Endpoint"
+  },
+  {
+   "fieldname": "cbp_api_username",
+   "fieldtype": "Data",
+   "label": "CBP API Username"
+  },
+  {
+   "fieldname": "cbp_api_password",
+   "fieldtype": "Password",
+   "label": "CBP API Password"
+  },
+  {
+   "fieldname": "column_break_us_ams",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ams_filer_code",
+   "fieldtype": "Data",
+   "label": "AMS Filer Code"
+  },
+  {
+   "fieldname": "us_isf_section",
+   "fieldtype": "Section Break",
+   "label": "US ISF Settings",
+   "depends_on": "eval:doc.enable_us_isf==1"
+  },
+  {
+   "fieldname": "isf_filer_code",
+   "fieldtype": "Data",
+   "label": "ISF Filer Code"
+  },
+  {
+   "fieldname": "jp_afr_section",
+   "fieldtype": "Section Break",
+   "label": "Japan AFR Settings",
+   "depends_on": "eval:doc.enable_jp_afr==1"
+  },
+  {
+   "fieldname": "japan_customs_api_endpoint",
+   "fieldtype": "Data",
+   "label": "Japan Customs API Endpoint"
+  },
+  {
+   "fieldname": "japan_customs_filer_code",
+   "fieldtype": "Data",
+   "label": "Japan Customs Filer Code"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Manifest Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "singles": 1
+}
+

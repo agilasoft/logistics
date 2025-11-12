@@ -554,6 +554,183 @@ class CapacityManager:
             return {"error": str(e)}
 
 
+# Helper function to validate capacity limits for warehouse jobs
+def validate_warehouse_job_capacity(warehouse_job, company=None):
+    """
+    Validate capacity limits for all items in a warehouse job.
+    Throws an error if capacity limits are exceeded and the setting is enabled.
+    
+    Args:
+        warehouse_job: Warehouse Job document or name
+        company: Company name (optional, will be extracted from job if not provided)
+    
+    Raises:
+        frappe.ValidationError: If capacity limits are exceeded
+    """
+    try:
+        # Get warehouse job document
+        if isinstance(warehouse_job, str):
+            job = frappe.get_doc("Warehouse Job", warehouse_job)
+        else:
+            job = warehouse_job
+        
+        # Get company from job if not provided
+        if not company:
+            company = getattr(job, "company", None)
+        
+        if not company:
+            return  # No company, skip validation
+        
+        # Get warehouse settings
+        try:
+            settings = frappe.get_doc("Warehouse Settings", company)
+        except frappe.DoesNotExistError:
+            return  # No settings, skip validation
+        
+        # Check if the setting is enabled
+        if not getattr(settings, "prevent_exceeding_capacity_limit", False):
+            return  # Setting not enabled, skip validation
+        
+        # Check if capacity management is enabled
+        if not getattr(settings, "enable_capacity_management", False):
+            return  # Capacity management not enabled, skip validation
+        
+        # Initialize capacity manager
+        capacity_manager = CapacityManager()
+        
+        # Validate each item in the job
+        violations = []
+        
+        for item_row in (job.items or []):
+            location = getattr(item_row, "location", None)
+            to_location = getattr(item_row, "to_location", None)
+            item = getattr(item_row, "item", None)
+            quantity = flt(getattr(item_row, "quantity", 0))
+            handling_unit = getattr(item_row, "handling_unit", None)
+            batch_no = getattr(item_row, "batch_no", None)
+            serial_no = getattr(item_row, "serial_no", None)
+            
+            if not item or not quantity:
+                continue
+            
+            # Determine which location to validate based on job type
+            job_type = (getattr(job, "type", "") or "").strip()
+            
+            # For Putaway jobs, validate destination location (to_location or location)
+            # For Pick jobs, we're removing items, so no capacity validation needed
+            # For Move jobs, validate destination location (to_location for positive qty, location for negative qty)
+            # For Receiving/Inbound, validate staging area
+            # For Stocktake, validate location (if adding items)
+            # For Release, we're removing items, so no capacity validation needed
+            
+            target_location = None
+            if job_type == "Putaway":
+                # Validate destination location
+                target_location = to_location or location
+            elif job_type == "Move":
+                # Validate destination location (positive qty = destination, negative qty = source)
+                if quantity > 0:
+                    target_location = to_location or location
+                else:
+                    # Negative qty means we're removing from this location, skip validation
+                    continue
+            elif job_type in ("Receiving", "Inbound"):
+                # Validate staging area
+                target_location = location
+            elif job_type == "Stocktake":
+                # Validate location if adding items (positive qty)
+                if quantity > 0:
+                    target_location = location
+                else:
+                    # Negative qty means we're removing from this location, skip validation
+                    continue
+            else:
+                # For Pick, Release, and other outbound operations, skip validation
+                continue
+            
+            if not target_location:
+                continue
+            
+            # Validate location capacity
+            try:
+                validation_result = capacity_manager.validate_storage_capacity(
+                    location=target_location,
+                    item=item,
+                    quantity=abs(quantity),
+                    handling_unit=handling_unit,
+                    batch_no=batch_no,
+                    serial_no=serial_no
+                )
+                
+                if not validation_result.get("valid", True):
+                    violations_info = validation_result.get("validation_results", {}).get("violations", [])
+                    if violations_info:
+                        violations.append({
+                            "row": getattr(item_row, "idx", "?"),
+                            "item": item,
+                            "location": target_location,
+                            "handling_unit": handling_unit,
+                            "violations": violations_info
+                        })
+                
+                # Also validate handling unit capacity if specified
+                if handling_unit:
+                    hu_validation = capacity_manager._validate_handling_unit_capacity(
+                        handling_unit=handling_unit,
+                        item_data=capacity_manager._get_item_capacity_data(item),
+                        quantity=abs(quantity)
+                    )
+                    
+                    if not hu_validation.get("valid", True):
+                        hu_violations = hu_validation.get("violations", [])
+                        if hu_violations:
+                            violations.append({
+                                "row": getattr(item_row, "idx", "?"),
+                                "item": item,
+                                "location": target_location,
+                                "handling_unit": handling_unit,
+                                "violations": hu_violations
+                            })
+                            
+            except CapacityValidationError as e:
+                violations.append({
+                    "row": getattr(item_row, "idx", "?"),
+                    "item": item,
+                    "location": target_location,
+                    "handling_unit": handling_unit,
+                    "violations": [str(e)]
+                })
+            except Exception as e:
+                frappe.log_error(f"Error validating capacity for row {getattr(item_row, 'idx', '?')}: {str(e)}")
+                # Continue with other items even if one fails
+        
+        # If there are violations, throw an error
+        if violations:
+            error_messages = []
+            for violation in violations:
+                row_msg = _("Row #{0}: Item {1}").format(violation["row"], violation["item"])
+                if violation.get("location"):
+                    row_msg += _(" at Location {0}").format(violation["location"])
+                if violation.get("handling_unit"):
+                    row_msg += _(" in Handling Unit {0}").format(violation["handling_unit"])
+                row_msg += ":\n"
+                for v in violation["violations"]:
+                    row_msg += f"  - {v}\n"
+                error_messages.append(row_msg)
+            
+            frappe.throw(
+                _("Capacity limits exceeded. Cannot process warehouse job:\n\n{0}").format(
+                    "\n".join(error_messages)
+                ),
+                title=_("Capacity Limit Exceeded")
+            )
+    
+    except Exception as e:
+        frappe.log_error(f"Error in validate_warehouse_job_capacity: {str(e)}")
+        # Don't block processing if validation itself fails
+        pass
+
+
 # API Functions for external use
 @frappe.whitelist()
 def validate_storage_capacity(

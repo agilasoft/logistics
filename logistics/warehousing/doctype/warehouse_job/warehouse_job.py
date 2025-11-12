@@ -2616,6 +2616,10 @@ class WarehouseJob(Document):
                 frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
 
     def on_submit(self):
+        # Validate capacity limits before submitting
+        from logistics.warehousing.api_parts.capacity_management import validate_warehouse_job_capacity
+        validate_warehouse_job_capacity(self)
+        
         job_type = (getattr(self, "type", "") or "").strip()
 
         if not getattr(self, "items", None):

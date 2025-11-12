@@ -1,0 +1,250 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_basic",
+  "naming_series",
+  "manifest_number",
+  "global_manifest",
+  "submission_type",
+  "status",
+  "column_break_basic",
+  "carrier_code",
+  "cbsa_office_code",
+  "port_of_entry",
+  "section_break_conveyance",
+  "conveyance_reference_number",
+  "conveyance_type",
+  "conveyance_name",
+  "voyage_number",
+  "column_break_conveyance",
+  "eta",
+  "company",
+  "section_break_submission",
+  "submission_date",
+  "submission_time",
+  "column_break_submission",
+  "cbsa_transaction_number",
+  "acceptance_date",
+  "section_break_status",
+  "rejection_reason",
+  "bills_tab",
+  "bills",
+  "notes_tab",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "CA-EMF-.YYYY.-"
+  },
+  {
+   "fieldname": "manifest_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Manifest Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "global_manifest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Global Manifest",
+   "options": "Global Manifest"
+  },
+  {
+   "fieldname": "submission_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Submission Type",
+   "options": "Original\nAmendment\nCancellation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nSubmitted\nAccepted\nRejected\nAmended",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "carrier_code",
+   "fieldtype": "Data",
+   "label": "CBSA Carrier Code",
+   "description": "CBSA carrier code assigned by Canada Border Services Agency"
+  },
+  {
+   "fieldname": "cbsa_office_code",
+   "fieldtype": "Data",
+   "label": "CBSA Office Code",
+   "description": "CBSA office code for processing"
+  },
+  {
+   "fieldname": "port_of_entry",
+   "fieldtype": "Link",
+   "label": "Port of Entry",
+   "options": "UNLOCO",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_conveyance",
+   "fieldtype": "Section Break",
+   "label": "Conveyance Information"
+  },
+  {
+   "fieldname": "conveyance_reference_number",
+   "fieldtype": "Data",
+   "label": "Conveyance Reference Number (CRN)",
+   "description": "Unique reference number for the conveyance"
+  },
+  {
+   "fieldname": "conveyance_type",
+   "fieldtype": "Select",
+   "label": "Conveyance Type",
+   "options": "Vessel\nAircraft\nRail\nTruck",
+   "reqd": 1
+  },
+  {
+   "fieldname": "conveyance_name",
+   "fieldtype": "Data",
+   "label": "Conveyance Name",
+   "description": "Name of vessel, aircraft, train, or truck"
+  },
+  {
+   "fieldname": "voyage_number",
+   "fieldtype": "Data",
+   "label": "Voyage Number"
+  },
+  {
+   "fieldname": "column_break_conveyance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "label": "Estimated Time of Arrival (ETA)"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_submission",
+   "fieldtype": "Section Break",
+   "label": "Submission Information"
+  },
+  {
+   "fieldname": "submission_date",
+   "fieldtype": "Date",
+   "label": "Submission Date"
+  },
+  {
+   "fieldname": "submission_time",
+   "fieldtype": "Time",
+   "label": "Submission Time"
+  },
+  {
+   "fieldname": "column_break_submission",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cbsa_transaction_number",
+   "fieldtype": "Data",
+   "label": "CBSA Transaction Number",
+   "description": "Transaction number from CBSA response",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acceptance_date",
+   "fieldtype": "Date",
+   "label": "Acceptance Date"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status Information"
+  },
+  {
+   "fieldname": "rejection_reason",
+   "fieldtype": "Text",
+   "label": "Rejection Reason",
+   "description": "Reason for rejection from CBSA"
+  },
+  {
+   "fieldname": "bills_tab",
+   "fieldtype": "Tab Break",
+   "label": "Bills"
+  },
+  {
+   "fieldname": "bills",
+   "fieldtype": "Table",
+   "label": "eManifest Bills",
+   "options": "CA eManifest Bill"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "CA eManifest Forwarder",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "submit": 1,
+   "role": "Customs User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

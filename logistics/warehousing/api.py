@@ -39,7 +39,7 @@ from frappe.utils import flt, now_datetime, get_datetime, getdate
 
 # Import functions from api_parts modules
 from .api_parts.common import _select_dest_for_hu, _filter_locations_by_level, _get_allocation_level_limit, _get_allow_emergency_fallback, _fetch_job_order_items, _hu_consolidation_violations, _get_job_scope, _safe_meta_fieldnames, _get_item_storage_type_prefs, _get_replenish_policy_flags, _sl_fields, _match_upto_limit, _ensure_batch, _get_item_uom, _find_child_table_field, _wjo_fields, _ops_time_fields, get_warehouse_job_overview
-from .api_parts.putaway import _putaway_candidate_locations, allocate_putaway, post_putaway, allocate_vas_putaway
+from .api_parts.putaway import _putaway_candidate_locations, allocate_putaway, post_putaway, allocate_vas_putaway as allocate_vas_putaway_from_putaway, _hu_anchored_putaway_from_orders as _hu_anchored_putaway_from_orders_advanced
 from .api_parts.pick import allocate_pick, post_pick, initiate_vas_pick
 from .api_parts.ops import populate_job_operations, create_sales_invoice_from_job, update_job_operations_times
 from .api_parts.transfer import allocate_move
@@ -1319,11 +1319,49 @@ def allocate_vas_putaway(warehouse_job: str):
     if int(job.docstatus or 0) != 0:
         frappe.throw(_("Initiate VAS Putaway must be run before submission."))
 
-    # Delegate to HU-anchored allocator (it already handles warnings)
-    created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
+    # Clear existing items before allocation
+    job.set("items", [])
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+    frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
+
+    # Use the advanced version with better error handling and capacity validation
+    # Inform user about the allocation process
+    frappe.msgprint(f"Starting putaway allocation for job {job.name}")
+    company, branch = _get_job_scope(job)
+    frappe.msgprint(f"Job scope: Company={company or 'Any'}, Branch={branch or 'Any'}")
+    
+    # Get orders to show processing messages
+    orders = _fetch_job_order_items(job.name)
+    if orders:
+        # Group by HU to show processing messages
+        by_hu: Dict[str, List[Dict[str, Any]]] = {}
+        for r in orders:
+            hu = (r.get("handling_unit") or "").strip()
+            if hu:
+                by_hu.setdefault(hu, []).append(r)
+        
+        # Show processing message for each HU
+        for hu, rows in by_hu.items():
+            frappe.msgprint(f"Processing handling unit {hu} with {len(rows)} items")
+    
+    # Delegate to advanced HU-anchored allocator (it has better error handling, capacity validation, and fallback strategies)
+    created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders_advanced(job)
 
     job.save(ignore_permissions=True)
     frappe.db.commit()
+
+    # Show final results with better messaging
+    if warnings:
+        failed_hus = [w for w in warnings if "HU" in w and ("no destination" in w.lower() or "no storage location" in w.lower())]
+        frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")
+        if failed_hus:
+            frappe.msgprint(f"⚠️ {len(failed_hus)} handling units failed allocation")
+            # Show detailed warnings for failed HUs
+            for warning in failed_hus[:5]:  # Show first 5 warnings
+                frappe.msgprint(f"  • {warning}", indicator="orange")
+    else:
+        frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")
 
     return {
         "ok": True,

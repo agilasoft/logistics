@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Customs\"}}]",
+ "content": "[{\"id\":\"V7mVnGcUvD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"r5ls3QYtex\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"3qsC2I3W0H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"2tDCwDpjF1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Permit Application\",\"col\":3}},{\"id\":\"u3zXE-nmub\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Exemption Certificate\",\"col\":3}},{\"id\":\"1I3Fy0fjfj\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"X7yGOv6S8N\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"GxN38APLJD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"8V7FWXDdkd\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Files\",\"col\":4}}]",
  "creation": "2025-05-22 14:58:21.255920",
  "custom_blocks": [],
  "docstatus": 0,
@@ -12,8 +12,213 @@
  "indicator_color": "",
  "is_hidden": 0,
  "label": "Customs",
- "links": [],
- "modified": "2025-10-31 16:15:14.045203",
+  "links": [
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "US Filings",
+    "link_count": 3,
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Card Break"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "US AMS",
+    "link_count": 0,
+    "link_to": "US AMS",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "US AMS Bill",
+    "link_count": 0,
+    "link_to": "US AMS Bill",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "US ISF",
+    "link_count": 0,
+    "link_to": "US ISF",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Canada Filings",
+    "link_count": 1,
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Card Break"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "CA eManifest Forwarder",
+    "link_count": 0,
+    "link_to": "CA eManifest Forwarder",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Japan Filings",
+    "link_count": 2,
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Card Break"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "JP AFR",
+    "link_count": 0,
+    "link_to": "JP AFR",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "JP AFR Bill",
+    "link_count": 0,
+    "link_to": "JP AFR Bill",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Master Files",
+    "link_count": 5,
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Card Break"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Commodity",
+    "link_count": 0,
+    "link_to": "Commodity",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Customs Authority",
+    "link_count": 0,
+    "link_to": "Customs Authority",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Permit Type",
+    "link_count": 0,
+    "link_to": "Permit Type",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Exemption Certificate",
+    "link_count": 0,
+    "link_to": "Exemption Certificate",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Settings",
+    "link_count": 2,
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Card Break"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Customs Settings",
+    "link_count": 0,
+    "link_to": "Customs Settings",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 0,
+    "label": "Manifest Settings",
+    "link_count": 0,
+    "link_to": "Manifest Settings",
+    "link_type": "DocType",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 1,
+    "label": "Reports",
+    "link_count": 3,
+    "link_type": "Report",
+    "onboard": 0,
+    "type": "Card Break"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 1,
+    "label": "Manifest Status Report",
+    "link_count": 0,
+    "link_to": "Manifest Status Report",
+    "link_type": "Report",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 1,
+    "label": "Filing Compliance Report",
+    "link_count": 0,
+    "link_to": "Filing Compliance Report",
+    "link_type": "Report",
+    "onboard": 0,
+    "type": "Link"
+   },
+   {
+    "hidden": 0,
+    "is_query_report": 1,
+    "label": "Global Customs Dashboard",
+    "link_count": 0,
+    "link_to": "Global Customs Dashboard",
+    "link_type": "Report",
+    "onboard": 0,
+    "type": "Link"
+   }
+  ],
+ "modified": "2025-11-11 17:47:22.217649",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Customs",
@@ -24,6 +229,55 @@
  "quick_lists": [],
  "roles": [],
  "sequence_id": 8.0,
- "shortcuts": [],
+  "shortcuts": [
+   {
+    "color": "Blue",
+    "doc_view": "List",
+    "label": "Global Manifest",
+    "link_to": "Global Manifest",
+    "stats_filter": "[]",
+    "type": "DocType"
+   },
+   {
+    "color": "Red",
+    "doc_view": "List",
+    "label": "US AMS",
+    "link_to": "US AMS",
+    "stats_filter": "[]",
+    "type": "DocType"
+   },
+   {
+    "color": "Green",
+    "doc_view": "List",
+    "label": "CA eManifest Forwarder",
+    "link_to": "CA eManifest Forwarder",
+    "stats_filter": "[]",
+    "type": "DocType"
+   },
+   {
+    "color": "Orange",
+    "doc_view": "List",
+    "label": "JP AFR",
+    "link_to": "JP AFR",
+    "stats_filter": "[]",
+    "type": "DocType"
+   },
+   {
+    "color": "Grey",
+    "doc_view": "List",
+    "label": "Declaration",
+    "link_to": "Declaration",
+    "stats_filter": "[]",
+    "type": "DocType"
+   },
+   {
+    "color": "Grey",
+    "doc_view": "List",
+    "label": "Permit Application",
+    "link_to": "Permit Application",
+    "stats_filter": "[]",
+    "type": "DocType"
+   }
+  ],
  "title": "Customs"
 }

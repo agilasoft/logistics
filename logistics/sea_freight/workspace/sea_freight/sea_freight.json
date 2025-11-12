@@ -1,0 +1,281 @@
+{
+ "charts": [
+  {
+   "chart_name": "Sea Freight Job Heatmap",
+   "label": "Sea Freight Jobs"
+  },
+  {
+   "chart_name": "Profit and Loss",
+   "label": "Profit and Loss"
+  }
+ ],
+ "content": "[{\"id\":\"A8uPaIIBW0\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Sea Freight\",\"col\":12}},{\"id\":\"Jkz3sYYo1I\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Sea Freight Jobs\",\"col\":12}},{\"id\":\"a4of72DHt8\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Jobs\",\"col\":4}},{\"id\":\"FFMQShlXcP\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Unbilled Jobs\",\"col\":4}},{\"id\":\"ulU8cJ8ohF\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"On Hold Jobs\",\"col\":4}},{\"id\":\"kJbEC7VixN\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FvdZiDiccY\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"sRjDM_OMBz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Freight Job\",\"col\":3}},{\"id\":\"-YKlUB1ZeA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Charge Items\",\"col\":3}},{\"id\":\"odfQe0CQhg\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Ports\",\"col\":3}},{\"id\":\"2bZEMDjAMY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Freight Routing\",\"col\":3}},{\"id\":\"4B8JnNNLXz\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Profit and Loss\",\"col\":12}},{\"id\":\"LHHPMA_rm_\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"g-MslxRXkU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Masters</b></span>\",\"col\":12}},{\"id\":\"GYa5CDBkfG\",\"type\":\"card\",\"data\":{\"card_name\":\"Shipping Parties\",\"col\":4}},{\"id\":\"o4h6D5XFhD\",\"type\":\"card\",\"data\":{\"card_name\":\"Partners\",\"col\":4}},{\"id\":\"SHTMRRwN3E\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"_SrDDtJ1gT\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "creation": "2025-05-22 17:00:22.124219",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "month-view",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Sea Freight",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Incoterms",
+   "link_count": 0,
+   "link_to": "Incoterm",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Types",
+   "link_count": 0,
+   "link_to": "Container Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Services",
+   "link_count": 0,
+   "link_to": "Other Service",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Partners",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Freight Agents",
+   "link_count": 0,
+   "link_to": "Freight Agent",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipping Lines",
+   "link_count": 0,
+   "link_to": "Shipping Line",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Terminal Operators",
+   "link_count": 0,
+   "link_to": "Cargo Terminal Operator",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "CFS",
+   "link_count": 0,
+   "link_to": "Container Freight Station",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipping Parties",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shippers",
+   "link_count": 0,
+   "link_to": "Shipper",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consignees",
+   "link_count": 0,
+   "link_to": "Consignee",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Address",
+   "link_count": 0,
+   "link_to": "Address",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contact",
+   "link_count": 0,
+   "link_to": "Contact",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 0,
+   "link_to": "Sea Freight Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Invoice Type",
+   "link_count": 0,
+   "link_to": "Invoice Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Release Type",
+   "link_count": 0,
+   "link_to": "Release Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tax Category",
+   "link_count": 0,
+   "link_to": "Tax Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exporter Category",
+   "link_count": 0,
+   "link_to": "Exporter Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-11-11 12:12:17.419677",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Freight",
+ "number_cards": [
+  {
+   "label": "Open Jobs",
+   "number_card_name": "Active Customers"
+  },
+  {
+   "label": "Unbilled Jobs",
+   "number_card_name": "New Assets (This Year)"
+  },
+  {
+   "label": "On Hold Jobs",
+   "number_card_name": "Active Suppliers"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 3.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Charge Items",
+   "link_to": "Item",
+   "stats_filter": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1,false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sea Ports",
+   "link_to": "Location",
+   "stats_filter": "[[\"Location\",\"custom_has_seaport\",\"=\",1,false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sea Freight Job",
+   "link_to": "Sea Shipment",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Freight Routing",
+   "link_to": "Freight Routing",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Sea Freight"
+}

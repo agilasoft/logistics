@@ -1,0 +1,228 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:exemption_code",
+ "creation": "2025-01-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_info_section",
+  "exemption_code",
+  "exemption_name",
+  "column_break_basic",
+  "is_active",
+  "exemption_category",
+  "applicable_to",
+  "description_section",
+  "description",
+  "eligibility_section",
+  "basis",
+  "column_break_eligibility",
+  "eligibility_criteria",
+  "limits_section",
+  "exemption_percentage",
+  "maximum_value",
+  "column_break_limits",
+  "maximum_quantity",
+  "validity_section",
+  "valid_from",
+  "valid_to",
+  "certificate_section",
+  "requires_certificate",
+  "column_break_certificate",
+  "certificate_type",
+  "issuing_authority",
+  "notes_tab",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_info_section",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "fieldname": "exemption_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Exemption Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "exemption_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Exemption Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "exemption_category",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Exemption Category",
+   "options": "Duty\nTax\nFee\nDocument\nInspection\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "applicable_to",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Applicable To",
+   "options": "Import\nExport\nTransit\nAll",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description_section",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "eligibility_section",
+   "fieldtype": "Section Break",
+   "label": "Eligibility"
+  },
+  {
+   "fieldname": "basis",
+   "fieldtype": "Select",
+   "label": "Basis",
+   "options": "Trade Agreement\nCountry\nCommodity\nValue\nQuantity\nOther"
+  },
+  {
+   "fieldname": "column_break_eligibility",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eligibility_criteria",
+   "fieldtype": "Text Editor",
+   "label": "Eligibility Criteria"
+  },
+  {
+   "fieldname": "limits_section",
+   "fieldtype": "Section Break",
+   "label": "Exemption Limits"
+  },
+  {
+   "fieldname": "exemption_percentage",
+   "fieldtype": "Percent",
+   "label": "Exemption Percentage"
+  },
+  {
+   "fieldname": "maximum_value",
+   "fieldtype": "Currency",
+   "label": "Maximum Value"
+  },
+  {
+   "fieldname": "column_break_limits",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "maximum_quantity",
+   "fieldtype": "Float",
+   "label": "Maximum Quantity"
+  },
+  {
+   "fieldname": "validity_section",
+   "fieldtype": "Section Break",
+   "label": "Validity"
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid From"
+  },
+  {
+   "fieldname": "valid_to",
+   "fieldtype": "Date",
+   "label": "Valid To"
+  },
+  {
+   "fieldname": "certificate_section",
+   "fieldtype": "Section Break",
+   "label": "Certificate Requirements"
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_certificate",
+   "fieldtype": "Check",
+   "label": "Requires Certificate"
+  },
+  {
+   "fieldname": "column_break_certificate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.requires_certificate",
+   "fieldname": "certificate_type",
+   "fieldtype": "Link",
+   "label": "Certificate Type",
+   "options": "Document Type"
+  },
+  {
+   "depends_on": "eval:doc.requires_certificate",
+   "fieldname": "issuing_authority",
+   "fieldtype": "Link",
+   "label": "Issuing Authority",
+   "options": "Customs Authority"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Exemption Type",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "role": "Customs User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

@@ -4,18 +4,147 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import today, getdate
+from frappe.utils import today, getdate, flt
 from typing import Dict, Any, Optional
 
 
 class Declaration(Document):
 	def before_save(self):
-		"""Calculate sustainability metrics before saving"""
+		"""Calculate values and metrics before saving"""
+		self.calculate_total_payable()
+		self.calculate_declaration_value()
+		self.calculate_exemptions()
 		self.calculate_sustainability_metrics()
+		self.update_processing_dates()
+	
+	def on_update(self):
+		"""Handle status changes"""
+		self.handle_status_changes()
+	
+	def before_submit(self):
+		"""Validate before submission"""
+		self.validate_permits()
 	
 	def after_submit(self):
 		"""Record sustainability metrics after declaration submission"""
 		self.record_sustainability_metrics()
+	
+	def calculate_total_payable(self):
+		"""Calculate total payable from duty, tax, and other charges (after exemptions)"""
+		duty = flt(self.duty_amount or 0)
+		tax = flt(self.tax_amount or 0)
+		other = flt(self.other_charges or 0)
+		
+		# Subtract exemptions if any
+		total_exempted = self.get_total_exempted_amount()
+		
+		self.total_payable = (duty + tax + other) - total_exempted
+		
+		# Ensure total payable is not negative
+		if self.total_payable < 0:
+			self.total_payable = 0
+	
+	def calculate_exemptions(self):
+		"""Calculate exemption amounts for each exemption in the declaration"""
+		if not self.exemptions:
+			return
+		
+		for exemption in self.exemptions:
+			exemption_type = None
+			
+			# Get exemption type details
+			if exemption.exemption_type:
+				try:
+					exemption_type = frappe.get_doc("Exemption Type", exemption.exemption_type)
+				except frappe.DoesNotExistError:
+					continue
+			
+			# Calculate exempted amounts based on exemption type
+			if exemption_type:
+				exemption_percentage = flt(exemption.exemption_percentage or exemption_type.exemption_percentage or 0)
+				
+				# Calculate exempted duty
+				if self.duty_amount:
+					exempted_duty = (flt(self.duty_amount) * exemption_percentage) / 100
+					# Apply maximum value limit if set
+					if exemption_type.maximum_value and exempted_duty > exemption_type.maximum_value:
+						exempted_duty = exemption_type.maximum_value
+					exemption.exempted_duty = exempted_duty
+				
+				# Calculate exempted tax
+				if self.tax_amount:
+					exempted_tax = (flt(self.tax_amount) * exemption_percentage) / 100
+					# Apply maximum value limit if set
+					if exemption_type.maximum_value and exempted_tax > exemption_type.maximum_value:
+						exempted_tax = exemption_type.maximum_value
+					exemption.exempted_tax = exempted_tax
+				
+				# Calculate exempted fees
+				if self.other_charges:
+					exempted_fee = (flt(self.other_charges) * exemption_percentage) / 100
+					# Apply maximum value limit if set
+					if exemption_type.maximum_value and exempted_fee > exemption_type.maximum_value:
+						exempted_fee = exemption_type.maximum_value
+					exemption.exempted_fee = exempted_fee
+			
+			# Calculate total exempted
+			exemption.total_exempted = (
+				flt(exemption.exempted_duty or 0) +
+				flt(exemption.exempted_tax or 0) +
+				flt(exemption.exempted_fee or 0)
+			)
+	
+	def get_total_exempted_amount(self) -> float:
+		"""Get total exempted amount from all exemptions"""
+		total = 0.0
+		if self.exemptions:
+			for exemption in self.exemptions:
+				total += flt(exemption.total_exempted or 0)
+		return total
+	
+	def validate_permits(self):
+		"""Validate that all required permits are obtained before submission"""
+		if not self.permit_requirements:
+			return
+		
+		missing_permits = []
+		for permit_req in self.permit_requirements:
+			if permit_req.is_required and not permit_req.is_obtained:
+				permit_type_name = permit_req.permit_type or "Unknown"
+				missing_permits.append(permit_type_name)
+		
+		if missing_permits:
+			frappe.throw(
+				_("The following required permits are not yet obtained: {0}").format(", ".join(missing_permits)),
+				title=_("Missing Permits")
+			)
+	
+	def calculate_declaration_value(self):
+		"""Calculate total declaration value from commodities"""
+		total_value = 0
+		if self.commodities:
+			for commodity in self.commodities:
+				value = flt(commodity.total_value or 0)
+				total_value += value
+		self.declaration_value = total_value
+	
+	def update_processing_dates(self):
+		"""Update processing dates based on status"""
+		from frappe.utils import now, nowdate, get_datetime
+		
+		if self.status == "Submitted" and not self.submission_date:
+			self.submission_date = nowdate()
+			if not self.submission_time:
+				self.submission_time = get_datetime(now()).strftime("%H:%M:%S")
+		elif self.status == "Approved" and not self.approval_date:
+			self.approval_date = nowdate()
+		elif self.status == "Rejected" and not self.rejection_date:
+			self.rejection_date = nowdate()
+	
+	def handle_status_changes(self):
+		"""Handle status change logic"""
+		# This can be expanded for workflow automation
+		pass
 	
 	def calculate_sustainability_metrics(self):
 		"""Calculate sustainability metrics for this declaration"""

@@ -2424,6 +2424,10 @@ def post_putaway(warehouse_job: str) -> Dict[str, Any]:
     if not staging_area:
         frappe.throw(_("Staging Area is required on the Warehouse Job."))
 
+    # Validate capacity limits before posting
+    from logistics.warehousing.api_parts.capacity_management import validate_warehouse_job_capacity
+    validate_warehouse_job_capacity(job)
+
     posting_dt = _posting_datetime(job)
     jf = _safe_meta_fieldnames("Warehouse Job Item")
 
