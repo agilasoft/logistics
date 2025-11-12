@@ -76,13 +76,6 @@
    "options": "Storage Location Configurator"
   },
   {
-   "fieldname": "aisle",
-   "fieldtype": "Link",
-   "label": "Aisle",
-   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Aisle\"]]",
-   "options": "Storage Location Configurator"
-  },
-  {
    "fieldname": "bay",
    "fieldtype": "Link",
    "label": "Bay",
@@ -321,20 +314,6 @@
    "read_only": 1
   },
   {
-   "fetch_from": "zone.code",
-   "fieldname": "zone_code",
-   "fieldtype": "Data",
-   "label": "Zone Code",
-   "read_only": 1
-  },
-  {
-   "fetch_from": "aisle.code",
-   "fieldname": "aisle_code",
-   "fieldtype": "Data",
-   "label": "Aisle Code",
-   "read_only": 1
-  },
-  {
    "fetch_from": "bay.code",
    "fieldname": "bay_code",
    "fieldtype": "Data",
@@ -347,12 +326,33 @@
    "fieldtype": "Data",
    "label": "Level Code",
    "read_only": 1
+  },
+  {
+   "fetch_from": "zone.code",
+   "fieldname": "zone_code",
+   "fieldtype": "Data",
+   "label": "Zone Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "aisle",
+   "fieldtype": "Link",
+   "label": "Aisle",
+   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Aisle\"]]",
+   "options": "Storage Location Configurator"
+  },
+  {
+   "fetch_from": "aisle.code",
+   "fieldname": "aisle_code",
+   "fieldtype": "Data",
+   "label": "Aisle Code",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-12 11:22:58.171113",
+ "modified": "2025-11-12 11:43:08.154092",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Storage Location",
