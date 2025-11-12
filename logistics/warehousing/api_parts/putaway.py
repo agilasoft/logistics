@@ -1964,13 +1964,59 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             
             combined_allocation_note = "\n\n".join(allocation_notes) if allocation_notes else ""
             
+            # Check for VAS action (Pick or Putaway) and signed quantity for VAS jobs
+            vas_action = None
+            signed_qty = None
+            if hasattr(rr, "vas_action"):
+                vas_action = getattr(rr, "vas_action", None)
+            elif isinstance(rr, dict) and "vas_action" in rr:
+                vas_action = rr.get("vas_action")
+            else:
+                # Try to get from job's action map using order item name as key
+                if hasattr(job, '_vas_action_map') and isinstance(job._vas_action_map, dict):
+                    order_item_name = rr.get("name")  # Use order item name as key
+                    if order_item_name:
+                        vas_action = job._vas_action_map.get(order_item_name)
+                        if hasattr(job, '_vas_quantity_map') and isinstance(job._vas_quantity_map, dict):
+                            signed_qty = job._vas_quantity_map.get(order_item_name)
+                        if vas_action:
+                            frappe.logger().info(f"Found vas_action '{vas_action}' and signed_qty {signed_qty} for order item {order_item_name}")
+                        else:
+                            frappe.logger().debug(f"vas_action not found for order item {order_item_name}. Available keys: {list(job._vas_action_map.keys())[:3]}")
+                    else:
+                        frappe.logger().warning(f"Order row has no 'name' field: {list(rr.keys())[:5]}")
+                else:
+                    # Not a VAS job or no action map
+                    pass
+            
+            # Use signed quantity if available, otherwise use positive qty
+            item_quantity = signed_qty if signed_qty is not None else qty
+            
             payload = {
                 "item": item,
-                "quantity": qty,
+                "quantity": item_quantity,  # Can be negative for pick items
                 "serial_no": rr.get("serial_no") or None,
                 "batch_no": rr.get("batch_no") or None,
                 "handling_unit": hu,
             }
+            
+            # Set VAS action field if available
+            if vas_action:
+                if "vas_action" in jf:
+                    payload["vas_action"] = vas_action
+                    frappe.logger().info(f"Set vas_action='{vas_action}' and quantity={item_quantity} for item {item}")
+                else:
+                    # Field might not be in meta cache, but try to set it anyway
+                    payload["vas_action"] = vas_action
+                    frappe.logger().warning(f"vas_action field not found in meta, but attempting to set it anyway. Fieldnames in meta: {sorted(jf)[:10]}...")
+            
+            # Add note for VAS items
+            if vas_action:
+                vas_note = f"VAS {vas_action} Item (from BOM)\n  • Parent Item: {rr.get('_vas_parent_item', item)}\n  • Action: {vas_action}\n  • Quantity: {item_quantity} ({'negative' if item_quantity < 0 else 'positive'})"
+                if combined_allocation_note:
+                    combined_allocation_note = vas_note + "\n\n" + combined_allocation_note
+                else:
+                    combined_allocation_note = vas_note
             if dest_loc_field:
                 payload[dest_loc_field] = dest
             if "uom" in jf and rr.get("uom"):
@@ -2007,7 +2053,7 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
             job.append("items", payload)
             created_rows += 1
-            created_qty  += qty
+            created_qty  += item_quantity  # Can be negative for pick items
 
             details.append({"order_row": rr.get("name"), "item": item, "qty": qty, "dest_location": dest, "dest_handling_unit": hu})
 
@@ -2390,41 +2436,14 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
 
 @frappe.whitelist()
 def allocate_vas_putaway(warehouse_job: str):
-    """VAS → Convert Orders rows into Items rows (Putaway tasks) on the same job.
+    """Legacy function name for backward compatibility.
     
-    Uses VAS BOM to determine which items to putaway:
-    - If reverse_bom = 0: Putaway the parent item (from order)
-    - If reverse_bom = 1: Putaway the BOM input items (components)
-    
-    Note: The main implementation with VAS BOM logic is in api.py.
-    This version delegates to _hu_anchored_putaway_from_orders for backward compatibility,
-    but api.py version should be used for VAS BOM support.
+    This function delegates to allocate_vas in vas.py.
+    The new function combines pick and putaway allocation for VAS jobs.
     """
-    job = frappe.get_doc("Warehouse Job", warehouse_job)
-    if (job.type or "").strip() != "VAS":
-        frappe.throw(_("Initiate VAS Putaway can only run for Warehouse Job Type = VAS."))
-    if int(job.docstatus or 0) != 0:
-        frappe.throw(_("Initiate VAS Putaway must be run before submission."))
-
-    # Clear existing items before allocation
-    job.set("items", [])
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-    frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
-
-    # Delegate to HU-anchored allocator (it already handles warnings)
-    # Note: For full VAS BOM support, use the version in api.py
-    created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
-
-    job.save(ignore_permissions=True)
-    frappe.db.commit()
-
-    return {
-        "ok": True,
-        "message": _("Prepared {0} putaway item row(s) totaling {1}.").format(int(created_rows), flt(created_qty)),
-        "created_rows": created_rows, "created_qty": created_qty,
-        "lines": details, "warnings": warnings,
-    }
+    # Import here to avoid circular dependency
+    from .vas import allocate_vas
+    return allocate_vas(warehouse_job)
 
 @frappe.whitelist()
 def post_putaway(warehouse_job: str) -> Dict[str, Any]:
