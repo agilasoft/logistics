@@ -2,7 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:{site}/{building}/{zone}/{aisle}/{bay}/{level}/{location_code}",
+ "autoname": "format:{site_code}/{building_code}/{zone_code}/{aisle_code}/{bay_code}/{level_code}/{location_code}",
  "creation": "2025-08-18 13:15:25.722151",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -14,6 +14,13 @@
   "bay",
   "level",
   "location_code",
+  "column_break_mquf",
+  "site_code",
+  "building_code",
+  "zone_code",
+  "aisle_code",
+  "bay_code",
+  "level_code",
   "configuration_tab",
   "column_break_fgum",
   "allow_mix_batches",
@@ -294,13 +301,59 @@
    "fieldname": "utilization_alert_threshold",
    "fieldtype": "Percent",
    "label": "Utilization Alert Threshold"
+  },
+  {
+   "fieldname": "column_break_mquf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "site.code",
+   "fieldname": "site_code",
+   "fieldtype": "Data",
+   "label": "Site Code",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "building.code",
+   "fieldname": "building_code",
+   "fieldtype": "Data",
+   "label": "Building Code",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "zone.code",
+   "fieldname": "zone_code",
+   "fieldtype": "Data",
+   "label": "Zone Code",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "aisle.code",
+   "fieldname": "aisle_code",
+   "fieldtype": "Data",
+   "label": "Aisle Code",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "bay.code",
+   "fieldname": "bay_code",
+   "fieldtype": "Data",
+   "label": "Bay Code",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "level.code",
+   "fieldname": "level_code",
+   "fieldtype": "Data",
+   "label": "Level Code",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-22 15:15:39.114522",
- "modified_by": "paulinemae.cabile@agilasoft.com",
+ "modified": "2025-11-12 11:22:58.171113",
+ "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Storage Location",
  "naming_rule": "Expression",
@@ -318,28 +371,6 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
-  }
- ],
- "indexes": [
-  {
-   "index_name": "idx_status_company",
-   "fields": ["status", "company"]
-  },
-  {
-   "index_name": "idx_site_building_zone",
-   "fields": ["site", "building", "zone"]
-  },
-  {
-   "index_name": "idx_company_branch",
-   "fields": ["company", "branch"]
-  },
-  {
-   "index_name": "idx_storage_type_status",
-   "fields": ["storage_type", "status"]
-  },
-  {
-   "index_name": "idx_aisle_bay_level",
-   "fields": ["aisle", "bay", "level"]
   }
  ],
  "row_format": "Dynamic",
