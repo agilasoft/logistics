@@ -244,6 +244,27 @@ frappe.ui.form.on('Warehouse Job', {
             }, __('Post'));
         }
         
+        // Add Post VAS Pick button for VAS jobs (only when submitted)
+        if (frm.doc.type === 'VAS' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post VAS Pick'), function() {
+                post_vas_pick(frm);
+            }, __('Post'));
+        }
+        
+        // Add Post VAS button for VAS jobs (only when submitted)
+        if (frm.doc.type === 'VAS' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post VAS'), function() {
+                post_vas(frm);
+            }, __('Post'));
+        }
+        
+        // Add Post VAS Putaway button for VAS jobs (only when submitted)
+        if (frm.doc.type === 'VAS' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post VAS Putaway'), function() {
+                post_vas_putaway(frm);
+            }, __('Post'));
+        }
+        
         // Add Fetch Count Sheet button for Stocktake jobs
         if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
             frm.add_custom_button(__('Fetch Count Sheet'), function() {
@@ -860,6 +881,129 @@ function post_pick(frm) {
                         frappe.msgprint({
                             title: __('❌ Post Pick Error'),
                             message: r.message.error || __('Failed to post pick.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post VAS Pick function
+function post_vas_pick(frm) {
+    frappe.confirm(
+        __('This will post VAS pick transactions for items with VAS Action = Pick. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api_parts.vas.post_vas_pick',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('✅ Post VAS Pick'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📦</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ VAS Pick Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'VAS pick transactions posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('❌ Post VAS Pick Error'),
+                            message: r.message.error || __('Failed to post VAS pick.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post VAS function (VAS operation itself)
+function post_vas(frm) {
+    frappe.confirm(
+        __('This will post VAS operation (negative for BOM items, positive for parent items). Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api_parts.vas.post_vas',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('✅ Post VAS'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📦</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ VAS Operation Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'VAS operation posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('❌ Post VAS Error'),
+                            message: r.message.error || __('Failed to post VAS operation.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Post VAS Putaway function
+function post_vas_putaway(frm) {
+    frappe.confirm(
+        __('This will post VAS putaway transactions for items with VAS Action = Putaway. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api_parts.vas.post_vas_putaway',
+                args: {
+                    warehouse_job: frm.doc.name
+                },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('✅ Post VAS Putaway'),
+                            message: `
+                                <div style="padding: 15px; font-size: 14px;">
+                                    <div style="text-align: center; margin-bottom: 15px;">
+                                        <span style="font-size: 48px;">📦</span>
+                                    </div>
+                                    <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                        <strong>✅ VAS Putaway Posted!</strong>
+                                    </p>
+                                    <p style="text-align: center; margin-bottom: 15px;">${r.message.message || 'VAS putaway transactions posted successfully.'}</p>
+                                </div>
+                            `,
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('❌ Post VAS Putaway Error'),
+                            message: r.message.error || __('Failed to post VAS putaway.'),
                             indicator: 'red'
                         });
                     }
