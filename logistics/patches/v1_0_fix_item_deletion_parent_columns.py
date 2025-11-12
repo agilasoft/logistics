@@ -28,8 +28,14 @@ def execute():
 	
 	for table_name in tables_to_fix:
 		try:
-			# Check if table exists
-			if not frappe.db.table_exists(table_name):
+			# Check if table exists using direct SQL (table_name includes "tab" prefix)
+			table_check = frappe.db.sql("""
+				SELECT COUNT(*) as count
+				FROM information_schema.TABLES 
+				WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = %s
+			""", (table_name,), as_dict=True)
+			if table_check[0]['count'] == 0:
 				print(f"  ⚠ Skipping {table_name}: Table does not exist")
 				skipped_count += 1
 				continue
