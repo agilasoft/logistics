@@ -3,13 +3,9 @@
   {
    "chart_name": "Sea Freight Job Heatmap",
    "label": "Sea Freight Jobs"
-  },
-  {
-   "chart_name": "Profit and Loss",
-   "label": "Profit and Loss"
   }
  ],
- "content": "[{\"id\":\"A8uPaIIBW0\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Sea Freight\",\"col\":12}},{\"id\":\"Jkz3sYYo1I\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Sea Freight Jobs\",\"col\":12}},{\"id\":\"a4of72DHt8\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Jobs\",\"col\":4}},{\"id\":\"FFMQShlXcP\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Unbilled Jobs\",\"col\":4}},{\"id\":\"ulU8cJ8ohF\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"On Hold Jobs\",\"col\":4}},{\"id\":\"kJbEC7VixN\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FvdZiDiccY\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"sRjDM_OMBz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Freight Job\",\"col\":3}},{\"id\":\"-YKlUB1ZeA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Charge Items\",\"col\":3}},{\"id\":\"odfQe0CQhg\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Ports\",\"col\":3}},{\"id\":\"2bZEMDjAMY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Freight Routing\",\"col\":3}},{\"id\":\"4B8JnNNLXz\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Profit and Loss\",\"col\":12}},{\"id\":\"LHHPMA_rm_\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"g-MslxRXkU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Masters</b></span>\",\"col\":12}},{\"id\":\"GYa5CDBkfG\",\"type\":\"card\",\"data\":{\"card_name\":\"Shipping Parties\",\"col\":4}},{\"id\":\"o4h6D5XFhD\",\"type\":\"card\",\"data\":{\"card_name\":\"Partners\",\"col\":4}},{\"id\":\"SHTMRRwN3E\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"_SrDDtJ1gT\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "content": "[{\"id\":\"A8uPaIIBW0\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Sea Freight\",\"col\":12}},{\"id\":\"Jkz3sYYo1I\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Sea Freight Jobs\",\"col\":12}},{\"id\":\"a4of72DHt8\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Jobs\",\"col\":4}},{\"id\":\"FFMQShlXcP\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Unbilled Jobs\",\"col\":4}},{\"id\":\"ulU8cJ8ohF\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"On Hold Jobs\",\"col\":4}},{\"id\":\"kJbEC7VixN\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FvdZiDiccY\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"sRjDM_OMBz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Freight Job\",\"col\":3}},{\"id\":\"-YKlUB1ZeA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Charge Items\",\"col\":3}},{\"id\":\"odfQe0CQhg\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Ports\",\"col\":3}},{\"id\":\"2bZEMDjAMY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Freight Routing\",\"col\":3}},{\"id\":\"LHHPMA_rm_\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"g-MslxRXkU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Masters</b></span>\",\"col\":12}},{\"id\":\"GYa5CDBkfG\",\"type\":\"card\",\"data\":{\"card_name\":\"Shipping Parties\",\"col\":4}},{\"id\":\"o4h6D5XFhD\",\"type\":\"card\",\"data\":{\"card_name\":\"Partners\",\"col\":4}},{\"id\":\"SHTMRRwN3E\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"_SrDDtJ1gT\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
  "creation": "2025-05-22 17:00:22.124219",
  "custom_blocks": [],
  "docstatus": 0,
@@ -219,7 +215,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-11-11 12:12:17.419677",
+ "modified": "2025-11-12 17:33:06.095831",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight",
