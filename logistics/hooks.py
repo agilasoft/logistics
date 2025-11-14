@@ -121,7 +121,7 @@ website_route_rules = [
 
 # before_install = "logistics.install.before_install"
 after_install = "logistics.install.after_install.after_install"
-after_migrate = "logistics.patches.v1_1_fix_item_deletion_parent_columns.execute"
+# after_migrate = "logistics.patches.v1_1_fix_item_deletion_parent_columns.execute"
 
 # Desk Notifications
 # ------------------
