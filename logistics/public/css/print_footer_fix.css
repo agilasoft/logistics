@@ -1,0 +1,180 @@
+/* 
+ * Global Print Format Footer Fix
+ * Prevents footer overflow in PDF views
+ * Applies to all Frappe print formats by default
+ */
+
+/* Fix ALL footer containers - comprehensive selectors */
+.print-format .footer,
+.print-format footer,
+.letterhead-footer,
+[class*="footer"],
+[class*="Footer"],
+[id*="footer"],
+[id*="Footer"],
+.bir-footer,
+.footer-row,
+.footer-banner,
+.waybill-footer,
+.print-footer {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+/* Fix footer rows with flexbox - all variations */
+.print-format .footer-row,
+.print-format [class*="footer-row"],
+.print-format [class*="Footer-row"],
+.print-format [class*="footer-Row"],
+.footer-row,
+[class*="footer-row"],
+[class*="Footer-row"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+}
+
+/* Fix flex children in footer rows - all variations */
+.print-format .footer-row > *,
+.print-format [class*="footer-row"] > *,
+.print-format [class*="Footer-row"] > *,
+.footer-row > *,
+[class*="footer-row"] > *,
+[class*="Footer-row"] > * {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+}
+
+/* Fix footer banners - all variations */
+.print-format .footer-banner,
+.print-format [class*="footer-banner"],
+.print-format [class*="Footer-banner"],
+.footer-banner,
+[class*="footer-banner"],
+[class*="Footer-banner"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+/* Fix signature sections in footers */
+.print-format .signature-section,
+.print-format [class*="signature-section"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.print-format .signature-box,
+.print-format [class*="signature-box"] {
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    box-sizing: border-box !important;
+}
+
+/* Fix any terms/notes in footer - all variations */
+.print-format .bir-note,
+.print-format [class*="note"],
+.print-format [class*="Note"],
+.bir-note,
+[class*="note"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    overflow-x: hidden !important;
+}
+
+/* Fix ALL child elements inside any footer */
+.print-format [class*="footer"] > *,
+.print-format [class*="Footer"] > *,
+.print-format [id*="footer"] > *,
+[class*="footer"] > *,
+[class*="Footer"] > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
+    box-sizing: border-box !important;
+}
+
+/* Ensure print format container respects width */
+.print-format {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+/* PDF specific fixes - wkhtmltopdf compatible - applies to ALL footers */
+@media print {
+    /* Catch ALL footer variations in PDF */
+    .footer,
+    footer,
+    [class*="footer"],
+    [class*="Footer"],
+    [id*="footer"],
+    [id*="Footer"],
+    .bir-footer,
+    .footer-row,
+    .footer-banner,
+    .waybill-footer,
+    .print-footer,
+    .letterhead-footer {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Fix ALL child elements inside any footer in PDF */
+    [class*="footer"] > *,
+    [class*="Footer"] > *,
+    [id*="footer"] > *,
+    [id*="Footer"] > *,
+    .bir-footer > *,
+    .footer-row > *,
+    .footer-banner > *,
+    .waybill-footer > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Ensure print format container doesn't overflow */
+    .print-format {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* Fix body and html to prevent overflow */
+    body,
+    html {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    /* Fix any table or div containers that might cause overflow */
+    .print-format table,
+    .print-format div {
+        max-width: 100% !important;
+    }
+}
+
