@@ -8,6 +8,7 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
+  "warehouse_contract_address",
   "default_cost_center",
   "column_break_tsti",
   "planned_date_offset_days",
@@ -290,10 +291,17 @@
    "fieldname": "split_quantity_decimal_precision",
    "fieldtype": "Int",
    "label": "Split Quantity Decimal Precision"
+  },
+  {
+   "fieldname": "warehouse_contract_address",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract Address",
+   "link_filters": "[[\"Address\",\"link_doctype\",\"=\",\"Company\"],[\"Address\",\"link_name\",\"=\",\"eval:doc.company\"]]",
+   "options": "Address"
   }
  ],
  "links": [],
- "modified": "2025-11-05 20:18:39.104611",
+ "modified": "2025-11-14 01:39:02.701773",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Settings",

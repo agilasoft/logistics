@@ -18,7 +18,7 @@ app_license = "AGPL-3.0-or-later"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/logistics/css/logistics.css"
+app_include_css = "/assets/logistics/css/print_footer_fix.css"
 # app_include_js = "/assets/logistics/js/logistics.js"
 
 # include js, css files in header of web template
