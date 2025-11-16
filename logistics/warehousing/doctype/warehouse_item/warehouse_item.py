@@ -10,6 +10,7 @@ from frappe.utils import flt
 class WarehouseItem(Document):
 	def validate(self):
 		self.validate_volume_calculation()
+		self.validate_tracking_exclusivity()
 	
 	def validate_volume_calculation(self):
 		"""Validate that volume matches calculated volume from dimensions"""
@@ -28,3 +29,11 @@ class WarehouseItem(Document):
 			elif not self.volume:
 				# Auto-calculate volume if not provided
 				self.volume = calculated_volume
+	
+	def validate_tracking_exclusivity(self):
+		"""Validate that batch tracking and serial tracking cannot both be enabled"""
+		if self.batch_tracking and self.serial_tracking:
+			frappe.throw(
+				_("Batch Tracking and Serial Tracking cannot both be enabled. Please enable only one tracking method."),
+				title=_("Invalid Tracking Configuration")
+			)

@@ -16,6 +16,12 @@ frappe.ui.form.on('Warehouse Item', {
     },
     weight: function(frm) {
         validate_weight(frm);
+    },
+    batch_tracking: function(frm) {
+        validate_tracking_exclusivity(frm, 'batch_tracking', 'serial_tracking');
+    },
+    serial_tracking: function(frm) {
+        validate_tracking_exclusivity(frm, 'serial_tracking', 'batch_tracking');
     }
 });
 
@@ -97,4 +103,33 @@ function validate_weight(frm) {
         frappe.msgprint(__("Warning: Weight seems unusually high. Please verify the value."));
     }
     
+}
+
+function validate_tracking_exclusivity(frm, current_field, other_field) {
+    if (!frm || !frm.doc) {
+        return;
+    }
+    
+    // Get values directly from the document
+    const current_value = frm.doc[current_field];
+    const other_value = frm.doc[other_field];
+    
+    // Check if current field is checked (true, 1, or any truthy value)
+    // and other field is also checked
+    const current_checked = current_value == 1 || current_value === true || current_value == '1';
+    const other_checked = other_value == 1 || other_value === true || other_value == '1';
+    
+    if (current_checked && other_checked) {
+        const current_label = current_field === 'batch_tracking' ? 'Batch Tracking' : 'Serial Tracking';
+        const other_label = other_field === 'batch_tracking' ? 'Batch Tracking' : 'Serial Tracking';
+        
+        // Show message
+        frappe.show_alert({
+            message: __("{0} and {1} cannot both be enabled. {2} has been unchecked.", [current_label, other_label, other_label]),
+            indicator: 'orange'
+        }, 5);
+        
+        // Uncheck the other field
+        frm.set_value(other_field, 0);
+    }
 }

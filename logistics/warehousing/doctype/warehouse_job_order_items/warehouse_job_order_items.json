@@ -182,8 +182,7 @@
    "fieldname": "volume",
    "fieldtype": "Float",
    "label": "Volume",
-   "precision": "3",
-   "read_only": 1
+   "precision": "3"
   },
   {
    "fetch_from": "item.weight",

@@ -353,6 +353,15 @@ def calculate_job_weight_quantity(job_doc) -> float:
 def calculate_job_container_quantity(job_doc) -> float:
     """Calculate containers for job billing."""
     try:
+        # Check if total_teu is available on the job
+        if hasattr(job_doc, 'total_teu'):
+            total_teu = getattr(job_doc, 'total_teu', 0)
+        else:
+            total_teu = job_doc.get('total_teu', 0) if isinstance(job_doc, dict) else 0
+        
+        if total_teu and total_teu > 0:
+            return flt(total_teu)
+        
         # Count distinct containers or use job items count
         containers = set()
         for item in job_doc.items or []:

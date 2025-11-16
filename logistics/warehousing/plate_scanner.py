@@ -106,6 +106,7 @@ def search_warehouse_job_docks(plate_number):
     """Search plate number in Warehouse Job Dock entries"""
     try:
         # Query warehouse jobs with docks containing the plate number
+        # Normalize database plate_no (remove spaces, uppercase) for comparison
         query = """
             SELECT DISTINCT
                 wj.name as warehouse_job,
@@ -122,7 +123,7 @@ def search_warehouse_job_docks(plate_number):
                 wj.notes
             FROM `tabWarehouse Job` wj
             INNER JOIN `tabWarehouse Job Dock` wjd ON wj.name = wjd.parent
-            WHERE wjd.plate_no = %s
+            WHERE REPLACE(UPPER(COALESCE(wjd.plate_no, '')), ' ', '') = %s
             AND wj.docstatus < 2
             ORDER BY wj.creation DESC
         """
@@ -158,6 +159,7 @@ def search_warehouse_job_docks(plate_number):
 def search_inbound_order_docks(plate_number):
     """Search plate number in Inbound Order Dock entries"""
     try:
+        # Normalize database plate_no (remove spaces, uppercase) for comparison
         query = """
             SELECT DISTINCT
                 io.name as inbound_order,
@@ -173,7 +175,7 @@ def search_inbound_order_docks(plate_number):
                 io.notes
             FROM `tabInbound Order` io
             INNER JOIN `tabInbound Order Dock` iod ON io.name = iod.parent
-            WHERE iod.plate_no = %s
+            WHERE REPLACE(UPPER(COALESCE(iod.plate_no, '')), ' ', '') = %s
             AND io.docstatus < 2
             ORDER BY io.creation DESC
         """
@@ -208,6 +210,7 @@ def search_inbound_order_docks(plate_number):
 def search_release_order_docks(plate_number):
     """Search plate number in Release Order Dock entries"""
     try:
+        # Normalize database plate_no (remove spaces, uppercase) for comparison
         query = """
             SELECT DISTINCT
                 ro.name as release_order,
@@ -223,7 +226,7 @@ def search_release_order_docks(plate_number):
                 ro.notes
             FROM `tabRelease Order` ro
             INNER JOIN `tabRelease Order Dock` rod ON ro.name = rod.parent
-            WHERE rod.plate_no = %s
+            WHERE REPLACE(UPPER(COALESCE(rod.plate_no, '')), ' ', '') = %s
             AND ro.docstatus < 2
             ORDER BY ro.creation DESC
         """
@@ -258,6 +261,7 @@ def search_release_order_docks(plate_number):
 def search_transport_jobs(plate_number):
     """Search plate number in Transport Job entries (using container_no field)"""
     try:
+        # Normalize database container_no (remove spaces, uppercase) for comparison
         query = """
             SELECT DISTINCT
                 tj.name as transport_job,
@@ -271,7 +275,7 @@ def search_transport_jobs(plate_number):
                 tj.refrigeration,
                 tj.notes
             FROM `tabTransport Job` tj
-            WHERE tj.container_no = %s
+            WHERE REPLACE(UPPER(COALESCE(tj.container_no, '')), ' ', '') = %s
             AND tj.docstatus < 2
             ORDER BY tj.creation DESC
         """

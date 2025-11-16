@@ -23,6 +23,7 @@
   "billing_section",
   "column_break_2",
   "enable_volume_billing",
+  "vas_total_sum_type",
   "capacity_tab",
   "capacity_section",
   "enable_capacity_management",
@@ -108,6 +109,14 @@
    "fieldname": "enable_volume_billing",
    "fieldtype": "Check",
    "label": "Enable Volume Billing"
+  },
+  {
+   "default": "Both",
+   "description": "For VAS jobs, defines which items to include in total volume, weight, and handling units calculations. 'Both' sums all items (default behavior), 'Pick' only sums items with VAS Action = Pick, 'Putaway' only sums items with VAS Action = Putaway.",
+   "fieldname": "vas_total_sum_type",
+   "fieldtype": "Select",
+   "label": "VAS Total Sum Type",
+   "options": "Both\nPick\nPutaway"
   },
   {
    "fieldname": "default_volume_uom",

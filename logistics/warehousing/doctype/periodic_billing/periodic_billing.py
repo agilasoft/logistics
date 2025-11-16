@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import getdate
+from frappe.utils import getdate, flt
 
 
 class PeriodicBilling(Document):
@@ -12,6 +12,27 @@ class PeriodicBilling(Document):
 		"""Validate periodic billing document."""
 		self.validate_contract_setup()
 		self.validate_date_range()
+	
+	def before_submit(self):
+		"""Validate before submitting periodic billing document."""
+		self.validate_total_amount()
+	
+	def validate_total_amount(self):
+		"""Validate that no charge items have zero amount."""
+		if not self.charges:
+			frappe.throw(_("Cannot submit Periodic Billing with no charges. Please add charges first."))
+		
+		# Check each charge item for zero amount
+		zero_amount_items = []
+		for idx, charge in enumerate(self.charges, start=1):
+			charge_total = flt(charge.get("total", 0) or 0)
+			if charge_total == 0:
+				item_name = charge.get("item_name") or charge.get("item") or _("Item {0}").format(idx)
+				zero_amount_items.append(item_name)
+		
+		if zero_amount_items:
+			items_list = ", ".join(zero_amount_items)
+			frappe.throw(_("Cannot submit Periodic Billing with zero amount items: {0}. Please ensure all charge items have a non-zero amount.").format(items_list))
 	
 	def after_insert(self):
 		"""Create Job Costing Number after document is inserted"""

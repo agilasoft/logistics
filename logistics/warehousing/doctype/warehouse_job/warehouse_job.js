@@ -442,12 +442,50 @@ function calculate_job_totals(frm) {
         return;
     }
     
+    // For VAS jobs, get the setting from Warehouse Settings
+    if (frm.doc.type === 'VAS' && frm.doc.company) {
+        frappe.call({
+            method: 'frappe.client.get',
+            args: {
+                doctype: 'Warehouse Settings',
+                name: frm.doc.company
+            },
+            callback: function(r) {
+                if (r.message) {
+                    const vas_sum_type = r.message.vas_total_sum_type || 'Both';
+                    _calculate_totals_with_filter(frm, vas_sum_type);
+                } else {
+                    _calculate_totals_with_filter(frm, 'Both');
+                }
+            },
+            error: function() {
+                // If error, default to 'Both' (sum all items)
+                _calculate_totals_with_filter(frm, 'Both');
+            }
+        });
+    } else {
+        // For non-VAS jobs, calculate normally
+        _calculate_totals_with_filter(frm, null);
+    }
+}
+
+function _calculate_totals_with_filter(frm, vas_sum_type) {
     let total_volume = 0;
     let total_weight = 0;
     let total_handling_units = 0;
     let unique_handling_units = new Set();
     
     frm.doc.items.forEach(function(item) {
+        // For VAS jobs, filter items based on vas_total_sum_type setting
+        if (vas_sum_type && vas_sum_type !== 'Both') {
+            const item_vas_action = item.vas_action;
+            if (vas_sum_type === 'Pick' && item_vas_action !== 'Pick') {
+                return; // Skip this item
+            } else if (vas_sum_type === 'Putaway' && item_vas_action !== 'Putaway') {
+                return; // Skip this item
+            }
+        }
+        
         // Calculate volume if dimensions are available
         let item_volume = 0;
         if (item.length && item.width && item.height) {
