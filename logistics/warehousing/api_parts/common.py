@@ -1142,6 +1142,10 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
 def warehouse_job_before_submit(doc, method=None):
     """Hook: called on before_submit of Warehouse Job."""
     _validate_job_completeness(doc, on_submit=True)
+    
+    # Validate capacity limits before submitting (prevents submission if exceeded)
+    from logistics.warehousing.api_parts.capacity_management import validate_warehouse_job_capacity
+    validate_warehouse_job_capacity(doc)
 
 @frappe.whitelist()
 def create_sales_invoice_from_periodic_billing(

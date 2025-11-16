@@ -332,8 +332,6 @@ class WarehouseJob(Document):
                 "warehouse_map": {},
                 "gate_passes": []
             }
-    def _render_dashboard_html(self, data, company, branch):
-        """Render complete dashboard HTML with data"""
     def _get_handling_units_data(self, company, branch):
         """Get handling units data from job allocations (items)"""
         try:
@@ -533,8 +531,55 @@ class WarehouseJob(Document):
                 'weight_utilization': 0
             }
     
+    def _get_storage_location_capacity(self, location_name):
+        """Get storage location capacity limits"""
+        try:
+            # Get storage location document
+            location_doc = frappe.get_doc("Storage Location", location_name)
+            
+            # Get warehouse settings for defaults
+            from logistics.warehousing.doctype.warehouse_settings.warehouse_settings import get_warehouse_settings
+            company = getattr(location_doc, 'company', None) or frappe.defaults.get_user_default("Company")
+            warehouse_settings = get_warehouse_settings(company)
+            
+            # Get capacity from storage location
+            capacity_info = {
+                'max_volume': flt(getattr(location_doc, 'max_volume', 0) or 0),
+                'max_weight': flt(getattr(location_doc, 'max_weight', 0) or 0),
+                'max_hu_slot': flt(getattr(location_doc, 'max_hu_slot', 0) or 0),
+                'current_volume': flt(getattr(location_doc, 'current_volume', 0) or 0),
+                'current_weight': flt(getattr(location_doc, 'current_weight', 0) or 0),
+                'volume_utilization': 0,
+                'weight_utilization': 0,
+                'volume_uom': warehouse_settings.get('default_volume_uom', 'm³'),
+                'weight_uom': warehouse_settings.get('default_weight_uom', 'kg')
+            }
+            
+            # Calculate current utilization
+            if capacity_info['max_volume'] > 0:
+                capacity_info['volume_utilization'] = (capacity_info['current_volume'] / capacity_info['max_volume']) * 100
+            
+            if capacity_info['max_weight'] > 0:
+                capacity_info['weight_utilization'] = (capacity_info['current_weight'] / capacity_info['max_weight']) * 100
+            
+            return capacity_info
+            
+        except Exception as e:
+            frappe.logger().error(f"Error getting storage location capacity for {location_name}: {e}")
+            return {
+                'max_volume': 0,
+                'max_weight': 0,
+                'max_hu_slot': 0,
+                'current_volume': 0,
+                'current_weight': 0,
+                'volume_utilization': 0,
+                'weight_utilization': 0,
+                'volume_uom': 'm³',
+                'weight_uom': 'kg'
+            }
+    
     def _render_capacity_info(self, hu):
-        """Render capacity information and warnings"""
+        """Render handling unit capacity information and warnings"""
         capacity_info = hu.get('capacity_info', {})
         total_volume = hu.get('total_volume', 0)
         total_weight = hu.get('total_weight', 0)
@@ -558,8 +603,8 @@ class WarehouseJob(Document):
         company = hu.get('company') or frappe.defaults.get_user_default("Company")
         warehouse_settings = get_warehouse_settings(company)
         
-        warning_threshold = warehouse_settings['capacity_warning_threshold']
-        critical_threshold = warehouse_settings['capacity_critical_threshold']
+        warning_threshold = warehouse_settings.get('capacity_warning_threshold', 80)
+        critical_threshold = warehouse_settings.get('capacity_critical_threshold', 95)
         
         # Determine warning level
         volume_warning = volume_util > critical_threshold
@@ -573,7 +618,7 @@ class WarehouseJob(Document):
         capacity_html = f"""
             <div style="margin: 8px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid {warning_color};">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <strong style="font-size: 11px; color: #495057;">Capacity Planning</strong>
+                    <strong style="font-size: 11px; color: #495057;">Handling Unit Capacity</strong>
                     <span style="background: {warning_color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px; font-weight: 600;">{warning_text}</span>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 10px;">
@@ -612,23 +657,193 @@ class WarehouseJob(Document):
         capacity_html += "</div>"
         return capacity_html
     
+    def _render_storage_location_capacity_info(self, location):
+        """Render storage location capacity information and warnings"""
+        capacity_info = location.get('capacity_info', {})
+        total_volume = location.get('total_volume', 0)
+        total_weight = location.get('total_weight', 0)
+        volume_exceeded = location.get('volume_exceeded', False)
+        weight_exceeded = location.get('weight_exceeded', False)
+        
+        # Get current usage from location + new items
+        current_volume = capacity_info.get('current_volume', 0)
+        current_weight = capacity_info.get('current_weight', 0)
+        projected_volume = current_volume + total_volume
+        projected_weight = current_weight + total_weight
+        
+        max_volume = capacity_info.get('max_volume', 0)
+        max_weight = capacity_info.get('max_weight', 0)
+        volume_uom = capacity_info.get('volume_uom', 'm³')
+        weight_uom = capacity_info.get('weight_uom', 'kg')
+        
+        if max_volume == 0 and max_weight == 0:
+            return ""  # No capacity limits defined
+        
+        # Calculate utilization percentages (projected)
+        volume_util = (projected_volume / max_volume * 100) if max_volume > 0 else 0
+        weight_util = (projected_weight / max_weight * 100) if max_weight > 0 else 0
+        
+        # Get warehouse settings for thresholds
+        from logistics.warehousing.doctype.warehouse_settings.warehouse_settings import get_warehouse_settings
+        company = location.get('company') or frappe.defaults.get_user_default("Company")
+        warehouse_settings = get_warehouse_settings(company)
+        
+        warning_threshold = warehouse_settings.get('capacity_warning_threshold', 80)
+        critical_threshold = warehouse_settings.get('capacity_critical_threshold', 95)
+        
+        # Determine warning level
+        volume_warning = volume_util > critical_threshold
+        weight_warning = weight_util > critical_threshold
+        volume_caution = volume_util > warning_threshold
+        weight_caution = weight_util > warning_threshold
+        
+        warning_color = "#dc3545" if (volume_warning or weight_warning) else "#ffc107" if (volume_caution or weight_caution) else "#28a745"
+        warning_text = "EXCEEDED" if (volume_warning or weight_warning) else "WARNING" if (volume_caution or weight_caution) else "OK"
+        
+        capacity_html = f"""
+            <div style="margin: 8px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid {warning_color};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <strong style="font-size: 11px; color: #495057;">Storage Location Capacity</strong>
+                    <span style="background: {warning_color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px; font-weight: 600;">{warning_text}</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 10px;">
+                    <div>
+                        <strong>Volume:</strong> {projected_volume:.2f} / {max_volume:.2f} {volume_uom} ({volume_util:.1f}%)
+                        <div style="font-size: 9px; color: #6c757d; margin-top: 2px;">
+                            Current: {current_volume:.2f} + New: {total_volume:.2f}
+                        </div>
+                        <div style="background: #e9ecef; height: 4px; border-radius: 2px; margin-top: 2px;">
+                            <div style="background: {'#dc3545' if volume_warning else '#ffc107' if volume_caution else '#28a745'}; height: 100%; width: {min(volume_util, 100):.1f}%; border-radius: 2px;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <strong>Weight:</strong> {projected_weight:.2f} / {max_weight:.2f} {weight_uom} ({weight_util:.1f}%)
+                        <div style="font-size: 9px; color: #6c757d; margin-top: 2px;">
+                            Current: {current_weight:.2f} + New: {total_weight:.2f}
+                        </div>
+                        <div style="background: #e9ecef; height: 4px; border-radius: 2px; margin-top: 2px;">
+                            <div style="background: {'#dc3545' if weight_warning else '#ffc107' if weight_caution else '#28a745'}; height: 100%; width: {min(weight_util, 100):.1f}%; border-radius: 2px;"></div>
+                        </div>
+                    </div>
+                </div>
+        """
+        
+        if volume_warning or weight_warning:
+            capacity_html += f"""
+                <div style="margin-top: 6px; padding: 4px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 3px; font-size: 9px; color: #721c24;">
+                    <i class="fa fa-exclamation-triangle"></i> <strong>Capacity Exceeded!</strong> 
+                    {'Volume limit exceeded!' if volume_warning else ''} 
+                    {'Weight limit exceeded!' if weight_warning else ''}
+                </div>
+            """
+        elif volume_caution or weight_caution:
+            capacity_html += f"""
+                <div style="margin-top: 6px; padding: 4px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 3px; font-size: 9px; color: #856404;">
+                    <i class="fa fa-exclamation-circle"></i> <strong>Approaching Capacity</strong> 
+                    {'Volume > 80%' if volume_caution else ''} 
+                    {'Weight > 80%' if weight_caution else ''}
+                </div>
+            """
+        
+        capacity_html += "</div>"
+        return capacity_html
+    
     def _get_storage_locations_data(self, company, branch):
-        """Get storage locations data"""
+        """Get storage locations data with capacity information"""
         try:
             # Get storage locations from job items
             if not hasattr(self, 'items') or not self.items:
                 return []
             
-            locations = []
+            # Group items by location and calculate totals
+            location_items = {}
             for item in self.items:
                 location = getattr(item, 'location', None)
-                if location:
-                    locations.append({
-                        "name": location,
-                        "status": "Available",
-                        "company": company,
-                        "branch": branch
+                to_location = getattr(item, 'to_location', None)
+                
+                # Determine target location based on job type
+                job_type = (getattr(self, 'type', '') or '').strip()
+                target_location = None
+                
+                if job_type == "Putaway":
+                    target_location = to_location or location
+                elif job_type == "Move":
+                    target_location = to_location or location
+                elif job_type in ("Receiving", "Inbound", "Stocktake"):
+                    target_location = location
+                else:
+                    target_location = location
+                
+                if target_location:
+                    if target_location not in location_items:
+                        location_items[target_location] = []
+                    
+                    # Get item details
+                    item_volume = flt(item.volume or 0)
+                    item_weight = flt(item.weight or 0)
+                    item_length = flt(item.length or 0)
+                    item_width = flt(item.width or 0)
+                    item_height = flt(item.height or 0)
+                    item_qty = flt(item.quantity or 0)
+                    
+                    # Calculate volume from dimensions if not provided
+                    if item_volume == 0 and item_length > 0 and item_width > 0 and item_height > 0:
+                        item_volume = item_length * item_width * item_height
+                    
+                    # Calculate volume based on volume_qty_type setting
+                    if getattr(self, 'volume_qty_type', 'Total') == 'Total':
+                        # Volume is total for the entire quantity, not per unit
+                        calculated_volume = item_volume
+                    else:
+                        # Volume is per unit, so multiply by quantity
+                        calculated_volume = item_volume * item_qty
+                    
+                    # Calculate weight based on weight_qty_type setting
+                    if getattr(self, 'weight_qty_type', 'Per Unit') == 'Per Unit':
+                        # Weight is per unit, so multiply by quantity
+                        calculated_weight = item_weight * item_qty
+                    else:
+                        # Weight is total for the entire quantity, not per unit
+                        calculated_weight = item_weight
+                    
+                    location_items[target_location].append({
+                        "item": item.item,
+                        "qty": item_qty,
+                        "volume": calculated_volume,
+                        "weight": calculated_weight,
+                        "handling_unit": getattr(item, 'handling_unit', None)
                     })
+            
+            # Build location records with capacity info
+            locations = []
+            for loc_name, items in location_items.items():
+                # Calculate totals for this location
+                total_qty = sum(flt(item["qty"]) for item in items)
+                total_volume = sum(flt(item["volume"]) for item in items)
+                total_weight = sum(flt(item["weight"]) for item in items)
+                
+                # Get storage location capacity limits
+                capacity_info = self._get_storage_location_capacity(loc_name)
+                
+                # Check if totals exceed capacity
+                volume_exceeded = total_volume > capacity_info.get('max_volume', 0) if capacity_info.get('max_volume', 0) > 0 else False
+                weight_exceeded = total_weight > capacity_info.get('max_weight', 0) if capacity_info.get('max_weight', 0) > 0 else False
+                capacity_warning = volume_exceeded or weight_exceeded
+                
+                locations.append({
+                    "name": loc_name,
+                    "status": "Available",
+                    "company": company,
+                    "branch": branch,
+                    "items": items,
+                    "total_qty": total_qty,
+                    "total_volume": total_volume,
+                    "total_weight": total_weight,
+                    "capacity_info": capacity_info,
+                    "volume_exceeded": volume_exceeded,
+                    "weight_exceeded": weight_exceeded,
+                    "capacity_warning": capacity_warning
+                })
             
             return locations
             
@@ -694,6 +909,9 @@ class WarehouseJob(Document):
         
         # Render handling units HTML
         handling_units_html = self._render_handling_units(handling_units)
+        
+        # Render storage locations HTML
+        storage_locations_html = self._render_storage_locations(storage_locations)
         
         return f"""
         <!DOCTYPE html>
@@ -963,6 +1181,9 @@ class WarehouseJob(Document):
         
         # Render handling units HTML
         handling_units_html = self._render_handling_units(handling_units)
+        
+        # Render storage locations HTML
+        storage_locations_html = self._render_storage_locations(storage_locations)
         
         return f"""
         <!DOCTYPE html>
@@ -1768,7 +1989,18 @@ class WarehouseJob(Document):
             </div>
 
                 <div class="right-panel">
-                    {handling_units_html}
+                    <div class="section" style="margin-bottom: 20px;">
+                        <h3>Handling Units</h3>
+                        <div class="handling-units-grid">
+                            {handling_units_html}
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h3>Storage Locations</h3>
+                        <div class="handling-units-grid">
+                            {storage_locations_html}
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -1786,6 +2018,21 @@ class WarehouseJob(Document):
                     // Restore original text with cube icon
                     const originalText = link.getAttribute('data-original-text') || 'items';
                     link.innerHTML = '<i class="fa fa-cube"></i> ' + originalText;
+                }}
+            }};
+            
+            window.toggleLocItems = function(locId) {{
+                const itemsDiv = document.getElementById(locId + '-items');
+                const link = event.target;
+                
+                if (itemsDiv.style.display === 'none') {{
+                    itemsDiv.style.display = 'block';
+                    link.innerHTML = '<i class="fa fa-chevron-up"></i> Hide Items';
+                }} else {{
+                    itemsDiv.style.display = 'none';
+                    // Restore original text with map marker icon
+                    const originalText = link.getAttribute('data-original-text') || 'items';
+                    link.innerHTML = '<i class="fa fa-map-marker"></i> ' + originalText;
                 }}
             }};
             
@@ -2185,6 +2432,80 @@ class WarehouseJob(Document):
         
         return "".join(html_parts)
     
+    def _render_storage_locations(self, storage_locations):
+        """Render storage locations HTML with capacity information"""
+        if not storage_locations:
+            return f"""
+                <div style="padding: 24px; text-align: center; color: #64748b; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+                    <h3 style="color: #16a34a; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">No Storage Locations</h3>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.5;">No storage locations are assigned to items in this job.</p>
+                </div>
+            """
+        
+        html_parts = []
+        for i, loc in enumerate(storage_locations):
+            status_class = (loc.get("status") or "").lower().replace(" ", "-")
+            status_display = loc.get("status", "N/A")
+            
+            # Get location details
+            try:
+                location_doc = frappe.get_doc("Storage Location", loc.get("name"))
+                location_code = getattr(location_doc, 'location_code', '') or loc.get("name")
+                site = getattr(location_doc, 'site', '') or 'N/A'
+                building = getattr(location_doc, 'building', '') or 'N/A'
+                zone = getattr(location_doc, 'zone', '') or 'N/A'
+            except:
+                location_code = loc.get("name")
+                site = 'N/A'
+                building = 'N/A'
+                zone = 'N/A'
+            
+            # Items HTML
+            items_list = ""
+            if loc.get("items") and len(loc.get("items", [])) > 0:
+                for item in loc.get("items", []):
+                    items_list += f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee;">
+                            <div style="font-weight: 500; font-size: 11px;">
+                                {item.get('item', 'N/A')}
+                            </div>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <div style="background: #667eea; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('qty', 0)}</div>
+                                <div style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('volume', 0):.2f} {loc.get('capacity_info', {}).get('volume_uom', 'm³')}</div>
+                                <div style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('weight', 0):.2f} {loc.get('capacity_info', {}).get('weight_uom', 'kg')}</div>
+                            </div>
+                        </div>
+                    """
+            
+            html_parts.append(f"""
+                <div class="handling-unit-card {status_class}" style="border-left-color: #10b981;">
+                    <div class="hu-card-header">
+                        <h5>{location_code}</h5>
+                        <span class="status-badge {status_class}">{status_display}</span>
+                    </div>
+                    <div class="hu-details">
+                        <strong>Site:</strong> {site} | 
+                        <strong>Building:</strong> {building} | 
+                        <strong>Zone:</strong> {zone} | 
+                        <strong>Items:</strong> {len(loc.get('items', []))} | 
+                        <strong>Total Qty:</strong> {loc.get('total_qty', 0)} | 
+                        <strong>Total Vol:</strong> {loc.get('total_volume', 0):.2f} {loc.get('capacity_info', {}).get('volume_uom', 'm³')} | 
+                        <strong>Total Wt:</strong> {loc.get('total_weight', 0):.2f} {loc.get('capacity_info', {}).get('weight_uom', 'kg')}
+                    </div>
+                    {self._render_storage_location_capacity_info(loc)}
+                    <div style="margin-top: 12px; text-align: center;">
+                        <a href="#" onclick="toggleLocItems('loc-{i}'); return false;" data-original-text="{len(loc.get('items', []))} items" style="color: #10b981; text-decoration: none; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa fa-map-marker"></i> {len(loc.get('items', []))} items
+                        </a>
+                    </div>
+                    <div id="loc-{i}-items" style="display: none; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 11px;">
+                        {items_list}
+                    </div>
+                </div>
+            """)
+        
+        return "".join(html_parts)
+    
     def _render_operations(self):
         """Render operations list with start/end actions and dates"""
         try:
@@ -2548,11 +2869,31 @@ class WarehouseJob(Document):
             self.total_handling_units = 0
             return
         
+        # For VAS jobs, get the setting from Warehouse Settings to determine which items to sum
+        vas_sum_type = None
+        if getattr(self, 'type', '').strip() == 'VAS':
+            try:
+                company = getattr(self, 'company', None)
+                if company:
+                    warehouse_settings = frappe.get_doc("Warehouse Settings", company)
+                    vas_sum_type = getattr(warehouse_settings, 'vas_total_sum_type', 'Both')
+            except (frappe.DoesNotExistError, AttributeError):
+                # If Warehouse Settings not found, default to 'Both' (sum all items)
+                vas_sum_type = 'Both'
+        
         total_volume = 0
         total_weight = 0
         unique_handling_units = set()
         
         for item in self.items:
+            # For VAS jobs, filter items based on vas_total_sum_type setting
+            if vas_sum_type and vas_sum_type != 'Both':
+                item_vas_action = getattr(item, 'vas_action', None)
+                if vas_sum_type == 'Pick' and item_vas_action != 'Pick':
+                    continue
+                elif vas_sum_type == 'Putaway' and item_vas_action != 'Putaway':
+                    continue
+            
             # Calculate volume if dimensions are available
             if item.length and item.width and item.height:
                 item_volume = flt(item.length) * flt(item.width) * flt(item.height)
@@ -2616,9 +2957,8 @@ class WarehouseJob(Document):
                 frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
 
     def on_submit(self):
-        # Validate capacity limits before submitting
-        from logistics.warehousing.api_parts.capacity_management import validate_warehouse_job_capacity
-        validate_warehouse_job_capacity(self)
+        # Note: Capacity validation is now done in before_submit hook to prevent submission
+        # This ensures the job cannot be submitted if capacity limits are exceeded
         
         job_type = (getattr(self, "type", "") or "").strip()
 
@@ -3340,9 +3680,28 @@ def _calculate_job_quantities(job) -> Dict[str, float]:
     if not job.items:
         return quantities
     
+    # For VAS jobs, get the setting from Warehouse Settings to determine which items to sum
+    vas_sum_type = None
+    if getattr(job, 'type', '').strip() == 'VAS':
+        try:
+            company = getattr(job, 'company', None)
+            if company:
+                warehouse_settings = frappe.get_doc("Warehouse Settings", company)
+                vas_sum_type = getattr(warehouse_settings, 'vas_total_sum_type', 'Both')
+        except (frappe.DoesNotExistError, AttributeError):
+            # If Warehouse Settings not found, default to 'Both' (sum all items)
+            vas_sum_type = 'Both'
+    
     unique_handling_units = set()
     
     for item in job.items:
+        # For VAS jobs, filter items based on vas_total_sum_type setting
+        if vas_sum_type and vas_sum_type != 'Both':
+            item_vas_action = getattr(item, 'vas_action', None)
+            if vas_sum_type == 'Pick' and item_vas_action != 'Pick':
+                continue
+            elif vas_sum_type == 'Putaway' and item_vas_action != 'Putaway':
+                continue
         qty = flt(item.quantity or 0)
         
         # Item Unit: sum of all item quantities
@@ -3642,6 +4001,11 @@ def _calculate_per_container_quantity_for_job(charge, job) -> float:
         container_qty = getattr(charge, 'container_quantity', 0)
         if container_qty > 0:
             return flt(container_qty)
+        
+        # Check if total_teu is available on the job
+        total_teu = getattr(job, 'total_teu', 0)
+        if total_teu and total_teu > 0:
+            return flt(total_teu)
         
         # Calculate from job items
         containers = set()
@@ -3968,6 +4332,12 @@ def _calculate_per_piece_quantity_for_job_contract(job) -> float:
 def _calculate_per_container_quantity_for_job_contract(job) -> float:
     """Calculate container quantity for job billing from contract."""
     try:
+        # Check if total_teu is available on the job
+        total_teu = getattr(job, 'total_teu', 0)
+        if total_teu and total_teu > 0:
+            return flt(total_teu)
+        
+        # Calculate from job items
         containers = set()
         for item in getattr(job, 'items', []) or []:
             container = getattr(item, 'container', None)

@@ -2041,7 +2041,23 @@ def warehouse_job_before_submit(doc, method=None):
     # Skip validation during allocation process
     if hasattr(doc, '_skip_validation') and doc._skip_validation:
         return
+    
     _validate_job_completeness(doc, on_submit=True)
+    
+    # Validate capacity limits before submitting (prevents submission if exceeded)
+    try:
+        from logistics.warehousing.api_parts.capacity_management import validate_warehouse_job_capacity
+        validate_warehouse_job_capacity(doc)
+    except frappe.ValidationError:
+        # Re-raise validation errors to block submission
+        raise
+    except Exception as e:
+        # Log unexpected errors but still block submission
+        frappe.log_error(f"Unexpected error in warehouse_job_before_submit capacity validation: {str(e)}")
+        frappe.throw(
+            _("Error validating capacity limits. Please check the error log for details. Submission blocked for safety."),
+            title=_("Capacity Validation Error")
+        )
 
 
 

@@ -621,6 +621,7 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
             # For Move jobs, validate destination location (to_location for positive qty, location for negative qty)
             # For Receiving/Inbound, validate staging area
             # For Stocktake, validate location (if adding items)
+            # For VAS jobs, validate destination location for putaway operations
             # For Release, we're removing items, so no capacity validation needed
             
             target_location = None
@@ -644,6 +645,15 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                 else:
                     # Negative qty means we're removing from this location, skip validation
                     continue
+            elif job_type == "VAS":
+                # For VAS jobs, validate destination location for putaway operations
+                # Check if this is a putaway operation (vas_action = Putaway or positive qty)
+                vas_action = getattr(item_row, "vas_action", None)
+                if vas_action == "Putaway" or (not vas_action and quantity > 0):
+                    target_location = to_location or location
+                else:
+                    # Pick operation, skip validation
+                    continue
             else:
                 # For Pick, Release, and other outbound operations, skip validation
                 continue
@@ -662,8 +672,12 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                     serial_no=serial_no
                 )
                 
-                if not validation_result.get("valid", True):
-                    violations_info = validation_result.get("validation_results", {}).get("violations", [])
+                # Check if validation failed
+                is_valid = validation_result.get("valid", True)
+                violations_info = validation_result.get("validation_results", {}).get("violations", [])
+                
+                if not is_valid:
+                    # If valid is False, there should be violations, but handle edge cases
                     if violations_info:
                         violations.append({
                             "row": getattr(item_row, "idx", "?"),
@@ -671,6 +685,15 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                             "location": target_location,
                             "handling_unit": handling_unit,
                             "violations": violations_info
+                        })
+                    else:
+                        # Edge case: valid is False but no violations listed - add a generic violation
+                        violations.append({
+                            "row": getattr(item_row, "idx", "?"),
+                            "item": item,
+                            "location": target_location,
+                            "handling_unit": handling_unit,
+                            "violations": ["Capacity limit exceeded (validation failed but no specific violation details)"]
                         })
                 
                 # Also validate handling unit capacity if specified
@@ -681,8 +704,11 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                         quantity=abs(quantity)
                     )
                     
-                    if not hu_validation.get("valid", True):
-                        hu_violations = hu_validation.get("violations", [])
+                    hu_is_valid = hu_validation.get("valid", True)
+                    hu_violations = hu_validation.get("violations", [])
+                    
+                    if not hu_is_valid:
+                        # If valid is False, there should be violations, but handle edge cases
                         if hu_violations:
                             violations.append({
                                 "row": getattr(item_row, "idx", "?"),
@@ -690,6 +716,15 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                                 "location": target_location,
                                 "handling_unit": handling_unit,
                                 "violations": hu_violations
+                            })
+                        else:
+                            # Edge case: valid is False but no violations listed
+                            violations.append({
+                                "row": getattr(item_row, "idx", "?"),
+                                "item": item,
+                                "location": target_location,
+                                "handling_unit": handling_unit,
+                                "violations": ["Handling unit capacity limit exceeded (validation failed but no specific violation details)"]
                             })
                             
             except CapacityValidationError as e:
@@ -718,17 +753,24 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                     row_msg += f"  - {v}\n"
                 error_messages.append(row_msg)
             
+            error_msg = _("Capacity limits exceeded. Cannot process warehouse job:\n\n{0}").format(
+                "\n".join(error_messages)
+            )
             frappe.throw(
-                _("Capacity limits exceeded. Cannot process warehouse job:\n\n{0}").format(
-                    "\n".join(error_messages)
-                ),
+                error_msg,
                 title=_("Capacity Limit Exceeded")
             )
     
+    except frappe.ValidationError:
+        # Re-raise validation errors (these should block submission)
+        raise
     except Exception as e:
+        # Log other errors but still block submission to be safe
         frappe.log_error(f"Error in validate_warehouse_job_capacity: {str(e)}")
-        # Don't block processing if validation itself fails
-        pass
+        frappe.throw(
+            _("Error validating capacity limits. Please check the error log for details. Submission blocked for safety."),
+            title=_("Capacity Validation Error")
+        )
 
 
 # API Functions for external use

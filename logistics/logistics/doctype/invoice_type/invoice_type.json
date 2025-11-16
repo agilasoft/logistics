@@ -8,7 +8,8 @@
  "field_order": [
   "code",
   "description",
-  "naming_series"
+  "column_break_nrlr",
+  "invoice_document_name"
  ],
  "fields": [
   {
@@ -25,17 +26,19 @@
    "label": "Description"
   },
   {
-   "fieldname": "naming_series",
+   "fieldname": "column_break_nrlr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "invoice_document_name",
    "fieldtype": "Data",
-   "label": "Naming Series",
-   "link_filters": "[[\"Document Naming Settings\",\"document_type\",\"=\",\"Sales Invoice\"]]",
-   "options": "Document Naming Settings"
+   "label": "Invoice Document Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-30 14:35:52.348968",
+ "modified": "2025-11-16 13:11:36.758025",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Invoice Type",

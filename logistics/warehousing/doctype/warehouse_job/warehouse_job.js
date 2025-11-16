@@ -363,6 +363,53 @@ frappe.ui.form.on('Warehouse Job Item', {
     }
 });
 
+frappe.ui.form.on('Warehouse Job Charges', {
+    quantity: function(frm, cdt, cdn) {
+        // Recalculate total_standard_cost when quantity changes
+        recalculate_total_standard_cost(frm, cdt, cdn);
+    },
+    item_code: function(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+        if (row.item_code) {
+            // Recalculate total_standard_cost after item_code changes (standard_unit_cost will be fetched)
+            // Wait for standard_unit_cost to be fetched, with retries
+            let attempts = 0;
+            let maxAttempts = 10;
+            let checkInterval = setInterval(function() {
+                attempts++;
+                let currentRow = locals[cdt][cdn];
+                if (currentRow && (currentRow.standard_unit_cost !== undefined || attempts >= maxAttempts)) {
+                    clearInterval(checkInterval);
+                    recalculate_total_standard_cost(frm, cdt, cdn);
+                }
+            }, 50);
+        } else {
+            // Clear total_standard_cost if item_code is cleared
+            frappe.model.set_value(cdt, cdn, 'total_standard_cost', 0);
+        }
+    },
+    standard_unit_cost: function(frm, cdt, cdn) {
+        // Recalculate total_standard_cost when standard_unit_cost changes
+        recalculate_total_standard_cost(frm, cdt, cdn);
+    }
+});
+
+function recalculate_total_standard_cost(frm, cdt, cdn) {
+    // Recalculate total_standard_cost = quantity × standard_unit_cost
+    try {
+        let row = locals[cdt][cdn];
+        if (!row) return;
+        
+        let quantity = flt(row.quantity || 0);
+        let standard_unit_cost = flt(row.standard_unit_cost || 0);
+        let total_standard_cost = quantity * standard_unit_cost;
+        
+        frappe.model.set_value(cdt, cdn, 'total_standard_cost', total_standard_cost);
+    } catch (e) {
+        console.error('Error recalculating total_standard_cost:', e);
+    }
+}
+
 frappe.ui.form.on('Warehouse Job Order Items', {
     length: function(frm, cdt, cdn) {
         calculate_item_volume(frm, cdt, cdn);
@@ -395,12 +442,50 @@ function calculate_job_totals(frm) {
         return;
     }
     
+    // For VAS jobs, get the setting from Warehouse Settings
+    if (frm.doc.type === 'VAS' && frm.doc.company) {
+        frappe.call({
+            method: 'frappe.client.get',
+            args: {
+                doctype: 'Warehouse Settings',
+                name: frm.doc.company
+            },
+            callback: function(r) {
+                if (r.message) {
+                    const vas_sum_type = r.message.vas_total_sum_type || 'Both';
+                    _calculate_totals_with_filter(frm, vas_sum_type);
+                } else {
+                    _calculate_totals_with_filter(frm, 'Both');
+                }
+            },
+            error: function() {
+                // If error, default to 'Both' (sum all items)
+                _calculate_totals_with_filter(frm, 'Both');
+            }
+        });
+    } else {
+        // For non-VAS jobs, calculate normally
+        _calculate_totals_with_filter(frm, null);
+    }
+}
+
+function _calculate_totals_with_filter(frm, vas_sum_type) {
     let total_volume = 0;
     let total_weight = 0;
     let total_handling_units = 0;
     let unique_handling_units = new Set();
     
     frm.doc.items.forEach(function(item) {
+        // For VAS jobs, filter items based on vas_total_sum_type setting
+        if (vas_sum_type && vas_sum_type !== 'Both') {
+            const item_vas_action = item.vas_action;
+            if (vas_sum_type === 'Pick' && item_vas_action !== 'Pick') {
+                return; // Skip this item
+            } else if (vas_sum_type === 'Putaway' && item_vas_action !== 'Putaway') {
+                return; // Skip this item
+            }
+        }
+        
         // Calculate volume if dimensions are available
         let item_volume = 0;
         if (item.length && item.width && item.height) {

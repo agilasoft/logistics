@@ -2406,6 +2406,27 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
                     columns.append("allocation_notes")
                     values.append(getattr(item, 'allocation_notes', None))
                 
+                # Add volume and weight fields if they exist (preserve user revisions)
+                if "volume" in item_fields:
+                    columns.append("volume")
+                    values.append(flt(getattr(item, 'volume', None) or 0))
+                
+                if "weight" in item_fields:
+                    columns.append("weight")
+                    values.append(flt(getattr(item, 'weight', None) or 0))
+                
+                if "length" in item_fields:
+                    columns.append("length")
+                    values.append(flt(getattr(item, 'length', None) or 0))
+                
+                if "width" in item_fields:
+                    columns.append("width")
+                    values.append(flt(getattr(item, 'width', None) or 0))
+                
+                if "height" in item_fields:
+                    columns.append("height")
+                    values.append(flt(getattr(item, 'height', None) or 0))
+                
                 # Build and execute SQL
                 columns_str = ", ".join(columns)
                 placeholders = ", ".join(["%s"] * len(values))

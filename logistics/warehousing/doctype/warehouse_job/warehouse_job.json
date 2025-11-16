@@ -45,6 +45,7 @@
   "total_volume",
   "total_weight",
   "total_handling_units",
+  "total_teu",
   "column_break_volume_weight",
   "volume_qty_type",
   "weight_qty_type",
@@ -424,6 +425,11 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "total_teu",
+   "fieldtype": "Float",
+   "label": "Total TEU"
   }
  ],
  "grid_page_length": 50,
@@ -437,7 +443,7 @@
    "table_fieldname": "charges"
   }
  ],
- "modified": "2025-10-30 16:01:53.488408",
+ "modified": "2025-11-16 20:56:10.828276",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job",

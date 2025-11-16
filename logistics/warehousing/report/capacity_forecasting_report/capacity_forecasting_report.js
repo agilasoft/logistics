@@ -102,8 +102,8 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 			"fieldname": "alert_threshold",
 			"label": __("Alert Threshold %"),
 			"fieldtype": "Float",
-			"default": 85,
-			"description": __("Alert when forecasted utilization exceeds this percentage")
+			"default": 0,
+			"description": __("Show only locations with forecasted utilization >= this percentage (0 = show all)")
 		},
 		{
 			"fieldname": "group_by",
