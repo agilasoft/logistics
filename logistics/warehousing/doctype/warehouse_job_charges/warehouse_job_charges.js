@@ -6,7 +6,32 @@ frappe.ui.form.on('Warehouse Job Charges', {
 		let row = locals[cdt][cdn];
 		if (row.item_code) {
 			validate_charge_against_contract(frm, row);
+			// Recalculate total_standard_cost after item_code changes (standard_unit_cost will be fetched)
+			// Wait for standard_unit_cost to be fetched, with retries
+			let attempts = 0;
+			let maxAttempts = 10;
+			let checkInterval = setInterval(function() {
+				attempts++;
+				let currentRow = locals[cdt][cdn];
+				if (currentRow && (currentRow.standard_unit_cost !== undefined || attempts >= maxAttempts)) {
+					clearInterval(checkInterval);
+					recalculate_total_standard_cost(frm, cdt, cdn);
+				}
+			}, 50);
+		} else {
+			// Clear total_standard_cost if item_code is cleared
+			frappe.model.set_value(cdt, cdn, 'total_standard_cost', 0);
 		}
+	},
+	
+	quantity: function(frm, cdt, cdn) {
+		// Recalculate total_standard_cost when quantity changes
+		recalculate_total_standard_cost(frm, cdt, cdn);
+	},
+	
+	standard_unit_cost: function(frm, cdt, cdn) {
+		// Recalculate total_standard_cost when standard_unit_cost changes
+		recalculate_total_standard_cost(frm, cdt, cdn);
 	},
 	
 	refresh: function(frm) {
@@ -18,6 +43,22 @@ frappe.ui.form.on('Warehouse Job Charges', {
 		}
 	}
 });
+
+function recalculate_total_standard_cost(frm, cdt, cdn) {
+	// Recalculate total_standard_cost = quantity × standard_unit_cost
+	try {
+		let row = locals[cdt][cdn];
+		if (!row) return;
+		
+		let quantity = flt(row.quantity || 0);
+		let standard_unit_cost = flt(row.standard_unit_cost || 0);
+		let total_standard_cost = quantity * standard_unit_cost;
+		
+		frappe.model.set_value(cdt, cdn, 'total_standard_cost', total_standard_cost);
+	} catch (e) {
+		console.error('Error recalculating total_standard_cost:', e);
+	}
+}
 
 function validate_charge_against_contract(frm, row) {
 	if (!row.item_code || !frm.doc.warehouse_contract) {

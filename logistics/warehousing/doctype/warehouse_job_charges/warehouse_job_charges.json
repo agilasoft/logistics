@@ -80,6 +80,7 @@
   },
   {
    "description": "Standard unit cost from item master",
+   "fetch_from": "item_code.custom_standard_unit_cost",
    "fieldname": "standard_unit_cost",
    "fieldtype": "Currency",
    "label": "Standard Unit Cost",
@@ -129,7 +130,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-24 22:57:12.092016",
+ "modified": "2025-11-15 16:02:08.813400",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Job Charges",

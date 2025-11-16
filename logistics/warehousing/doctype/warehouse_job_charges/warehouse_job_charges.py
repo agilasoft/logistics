@@ -12,7 +12,8 @@ class WarehouseJobCharges(Document):
 	def before_save(self):
 		"""Automatically compute billing quantities based on billing method"""
 		self._compute_billing_quantities()
-		# Standard cost calculation is now handled by Calculate Charges workflow
+		# Recalculate total_standard_cost when quantity or standard_unit_cost changes
+		self._recalculate_total_standard_cost()
 	
 	def _compute_billing_quantities(self):
 		"""Compute billing quantities based on the billing method"""
@@ -65,6 +66,13 @@ class WarehouseJobCharges(Document):
 				
 		except Exception as e:
 			frappe.log_error(f"Error computing billing quantities for {self.name}: {str(e)}")
+	
+	def _recalculate_total_standard_cost(self):
+		"""Recalculate total_standard_cost = quantity × standard_unit_cost"""
+		quantity = flt(getattr(self, 'quantity', 0) or 0)
+		standard_unit_cost = flt(getattr(self, 'standard_unit_cost', 0) or 0)
+		total_standard_cost = quantity * standard_unit_cost
+		self.total_standard_cost = total_standard_cost
 	
 	def _get_charge_context(self, parent_doc):
 		"""Determine the charge context from parent document"""
