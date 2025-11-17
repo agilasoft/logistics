@@ -259,19 +259,22 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "branch",
    "fieldtype": "Link",
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "reqd": 1
   },
   {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
-   "options": "Profit Center"
+   "options": "Profit Center",
+   "reqd": 1
   },
   {
    "fieldname": "connections_tab",
@@ -336,7 +339,8 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "reqd": 1
   },
   {
    "fieldname": "location_type",
@@ -367,8 +371,8 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2025-10-23 15:34:17.375045",
- "modified_by": "johnalexander.castro@agilasoft.com",
+ "modified": "2025-11-17 15:17:45.217967",
+ "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",
  "naming_rule": "By \"Naming Series\" field",
