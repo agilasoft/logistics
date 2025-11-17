@@ -3232,12 +3232,25 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 
                 # Update charge with contract values
                 rate = flt(contract_item.get("rate", 0))
-                charge.rate = rate
+                calculation_method = contract_item.get("calculation_method", "Per Unit")
+                
+                # Apply calculation method to get total
+                total = _apply_calculation_method(billing_qty, rate, contract_item)
+                
+                # For Base Plus Additional and First Plus Additional, simplify display:
+                # Qty = 1, Rate = Total, Total = Total
+                if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
+                    charge.quantity = 1.0
+                    charge.rate = total
+                    charge.total = total
+                else:
+                    # For other methods, show actual quantity and rate
+                    charge.rate = rate
+                    charge.quantity = billing_qty
+                    charge.total = total
+                
                 charge.currency = contract_item.get("currency", _get_default_currency(job.company))
                 charge.uom = contract_item.get("uom", "Day")
-                charge.quantity = billing_qty
-                # Apply calculation method to get total
-                charge.total = _apply_calculation_method(billing_qty, rate, contract_item)
                 
                 # Update calculation notes
                 charge.calculation_notes = _generate_comprehensive_calculation_notes_for_contract_charge(
@@ -4316,15 +4329,26 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
             return None
         
         rate = flt(contract_item.get("rate", 0))
+        calculation_method = contract_item.get("calculation_method", "Per Unit")
         total = _apply_calculation_method(billing_qty, rate, contract_item)
+        
+        # For Base Plus Additional and First Plus Additional, simplify display:
+        # Qty = 1, Rate = Total, Total = Total
+        if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
+            display_qty = 1.0
+            display_rate = total
+        else:
+            # For other methods, show actual quantity and rate
+            display_qty = billing_qty
+            display_rate = rate
         
         # Create charge
         charge = {
             "item_code": contract_item.get("item_code"),
             "item_name": f"Job Charge ({job.get('job_type', 'Generic')})",
             "uom": contract_item.get("uom", "Day"),
-            "quantity": billing_qty,
-            "rate": rate,
+            "quantity": display_qty,
+            "rate": display_rate,
             "total": total,
             "currency": contract_item.get("currency", _get_default_currency(job.company)),
             "calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(
@@ -4578,21 +4602,27 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
             base = flt(contract_item.get("base_amount", 0))
             additional = rate * max(0, billing_qty - 1)
             notes += f"""
+  • Actual Billing Quantity: {billing_qty}
   • Base Amount: {base}
-  • Additional ({max(0, billing_qty - 1)} units): {additional}
-  • Total: {total}"""
+  • Additional ({max(0, billing_qty - 1)} units @ {rate}): {additional}
+  • Total: {total}
+  • Display: Qty = 1, Rate = {total}, Total = {total}"""
         elif calculation_method == "First Plus Additional":
             min_qty = flt(contract_item.get("minimum_quantity", 1))
             if billing_qty <= min_qty:
                 notes += f"""
+  • Actual Billing Quantity: {billing_qty}
   • First {min_qty} units: {rate}
-  • Total: {total}"""
+  • Total: {total}
+  • Display: Qty = 1, Rate = {total}, Total = {total}"""
             else:
                 additional = rate * (billing_qty - min_qty)
                 notes += f"""
+  • Actual Billing Quantity: {billing_qty}
   • First {min_qty} units: {rate}
-  • Additional ({billing_qty - min_qty} units): {additional}
-  • Total: {total}"""
+  • Additional ({billing_qty - min_qty} units @ {rate}): {additional}
+  • Total: {total}
+  • Display: Qty = 1, Rate = {total}, Total = {total}"""
         elif calculation_method == "Percentage":
             notes += f"""
   • Percentage Calculation: ({rate}% × {billing_qty})
