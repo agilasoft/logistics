@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2025-01-27 10:00:00.000000",
+ "creation": "2025-01-27 10:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -15,6 +15,7 @@
   "job_type",
   "reference_order_type",
   "reference_order",
+  "customer",
   "docking_tab",
   "dock_door",
   "eta",
@@ -255,11 +256,19 @@
    "label": "Branch",
    "options": "Branch",
    "reqd": 1
+  },
+  {
+   "fetch_from": "warehouse_job.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-27 10:00:00.000000",
+ "modified": "2025-11-17 10:11:12.999316",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Gate Pass",
@@ -301,6 +310,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
