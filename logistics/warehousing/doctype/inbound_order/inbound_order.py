@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 
@@ -13,6 +14,14 @@ class InboundOrder(Document):
 @frappe.whitelist()
 def make_warehouse_job(source_name, target_doc=None):
     try:
+        # Validate that contract is not cancelled before proceeding
+        if source_name:
+            source_doc = frappe.get_doc("Inbound Order", source_name)
+            if source_doc.contract:
+                contract_status = frappe.db.get_value("Warehouse Contract", source_doc.contract, "docstatus")
+                if contract_status == 2:  # Cancelled
+                    frappe.throw(_("Cannot create Warehouse Job from Inbound Order with cancelled contract: {0}").format(source_doc.contract))
+        
         def set_missing_values(source, target):
             target.type = "Putaway"
             target.reference_order_type = "Inbound Order"
@@ -20,7 +29,13 @@ def make_warehouse_job(source_name, target_doc=None):
             target.company = source.company
             target.branch = source.branch
             target.customer = source.customer
-            target.warehouse_contract = source.contract
+            # Only set warehouse_contract if contract exists and is not cancelled
+            if source.contract:
+                contract_status = frappe.db.get_value("Warehouse Contract", source.contract, "docstatus")
+                if contract_status != 2:  # Not cancelled
+                    target.warehouse_contract = source.contract
+                else:
+                    frappe.throw(_("Cannot link cancelled contract: {0}").format(source.contract))
         
         def update_item(source_doc, target_doc, source_parent):
             target_doc.item = source_doc.item
@@ -83,5 +98,9 @@ def make_warehouse_job(source_name, target_doc=None):
         return doc
         
     except Exception as e:
-        frappe.log_error(f"Error converting Inbound Order {source_name} to Warehouse Job: {str(e)}")
-        frappe.throw(f"Failed to convert order to warehouse job: {str(e)}")
+        # Truncate error message to avoid CharacterLengthExceededError (max 140 chars)
+        error_msg = str(e)
+        if len(error_msg) > 120:  # Leave some room for prefix
+            error_msg = error_msg[:120] + "..."
+        frappe.log_error(f"Error converting Inbound Order {source_name} to Warehouse Job: {error_msg}")
+        frappe.throw(_("Failed to convert order to warehouse job: {0}").format(str(e)))
