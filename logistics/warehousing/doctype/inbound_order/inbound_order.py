@@ -98,9 +98,10 @@ def make_warehouse_job(source_name, target_doc=None):
         return doc
         
     except Exception as e:
-        # Truncate error message to avoid CharacterLengthExceededError (max 140 chars)
-        error_msg = str(e)
-        if len(error_msg) > 120:  # Leave some room for prefix
-            error_msg = error_msg[:120] + "..."
-        frappe.log_error(f"Error converting Inbound Order {source_name} to Warehouse Job: {error_msg}")
+        # Log error with a short title to avoid CharacterLengthExceededError (max 140 chars for title)
+        error_msg = f"Error converting Inbound Order {source_name} to Warehouse Job: {str(e)}"
+        # Truncate error message if too long (keep full details in error log body)
+        if len(error_msg) > 500:
+            error_msg = error_msg[:500] + "..."
+        frappe.log_error(error_msg, "Inbound Order to Warehouse Job Error")
         frappe.throw(_("Failed to convert order to warehouse job: {0}").format(str(e)))
