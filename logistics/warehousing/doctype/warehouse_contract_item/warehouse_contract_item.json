@@ -26,6 +26,10 @@
   "storage_uom",
   "currency",
   "rate",
+  "minimum_quantity",
+  "minimum_charge",
+  "maximum_charge",
+  "base_amount",
   "billing_time_section",
   "billing_time_unit",
   "column_break_nrhl",
@@ -57,6 +61,30 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Rate"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == 'First Plus Additional'",
+   "fieldname": "minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == 'Per Unit'",
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == 'Per Unit'",
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == 'Base Plus Additional'",
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
   },
   {
    "default": "0",
@@ -201,7 +229,7 @@
   },
   {
    "default": "Volume",
-   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
+   "depends_on": "eval:(doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge) && doc.calculation_method == 'Per Unit'",
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
