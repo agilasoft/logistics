@@ -215,6 +215,7 @@ def calculate_single_job_charge(job: Dict, job_doc, contract_item: Dict, date_fr
         # Get billing method from contract
         unit_type = contract_item.get("unit_type", "Day")
         rate = flt(contract_item.get("rate", 0))
+        calculation_method = contract_item.get("calculation_method", "Per Unit")
         
         if rate <= 0:
             return None
@@ -225,15 +226,27 @@ def calculate_single_job_charge(job: Dict, job_doc, contract_item: Dict, date_fr
         if billing_quantity <= 0:
             return None
         
-        total = billing_quantity * rate
+        # Apply calculation method to get total
+        from logistics.warehousing.doctype.warehouse_job.warehouse_job import _apply_calculation_method
+        total = _apply_calculation_method(billing_quantity, rate, contract_item)
+        
+        # For Base Plus Additional and First Plus Additional, simplify display:
+        # Qty = 1, Rate = Total, Total = Total
+        if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
+            display_qty = 1.0
+            display_rate = total
+        else:
+            # For other methods, show actual quantity and rate
+            display_qty = billing_quantity
+            display_rate = rate
         
         # Create charge
         charge = {
             "item": contract_item.get("item_code"),
             "item_name": f"Job Charge ({job.get('type', 'Generic')})",
             "uom": contract_item.get("uom", "Day"),
-            "quantity": billing_quantity,
-            "rate": rate,
+            "quantity": display_qty,
+            "rate": display_rate,
             "total": total,
             "currency": contract_item.get("currency", _get_default_currency(company)),
             "warehouse_job": job.get("name"),

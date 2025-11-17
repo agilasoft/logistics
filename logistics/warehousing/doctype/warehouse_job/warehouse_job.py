@@ -3187,6 +3187,11 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 handling_unit_type, 
                 storage_type, 
                 unit_type,
+                calculation_method,
+                minimum_quantity,
+                minimum_charge,
+                maximum_charge,
+                base_amount,
                 inbound_charge,
                 outbound_charge,
                 transfer_charge,
@@ -3226,11 +3231,26 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
                 billing_qty, billing_method = _calculate_contract_based_quantity_for_job(job, contract_item)
                 
                 # Update charge with contract values
-                charge.rate = flt(contract_item.get("rate", 0))
+                rate = flt(contract_item.get("rate", 0))
+                calculation_method = contract_item.get("calculation_method", "Per Unit")
+                
+                # Apply calculation method to get total
+                total = _apply_calculation_method(billing_qty, rate, contract_item)
+                
+                # For Base Plus Additional and First Plus Additional, simplify display:
+                # Qty = 1, Rate = Total, Total = Total
+                if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
+                    charge.quantity = 1.0
+                    charge.rate = total
+                    charge.total = total
+                else:
+                    # For other methods, show actual quantity and rate
+                    charge.rate = rate
+                    charge.quantity = billing_qty
+                    charge.total = total
+                
                 charge.currency = contract_item.get("currency", _get_default_currency(job.company))
                 charge.uom = contract_item.get("uom", "Day")
-                charge.quantity = billing_qty
-                charge.total = billing_qty * flt(contract_item.get("rate", 0))
                 
                 # Update calculation notes
                 charge.calculation_notes = _generate_comprehensive_calculation_notes_for_contract_charge(
@@ -3882,7 +3902,7 @@ def _get_contract_item_details(contract: str | None, item_code: str | None) -> d
         row = frappe.get_all(
             "Warehouse Contract Item",
             filters={"parent": contract, "parenttype": "Warehouse Contract", "item_charge": item_code},
-            fields=["unit_type", "uom", "rate", "currency", "billing_time_unit", "billing_time_multiplier", "minimum_billing_time"],
+            fields=["unit_type", "uom", "rate", "currency", "calculation_method", "minimum_quantity", "minimum_charge", "maximum_charge", "base_amount", "billing_time_unit", "billing_time_multiplier", "minimum_billing_time"],
             limit=1,
             ignore_permissions=True,
         )
@@ -4253,6 +4273,52 @@ def _contract_item_applies_to_job_type(contract_item: dict, job_type: str) -> bo
     return bool(contract_item.get(charge_type, 0))
 
 
+def _apply_calculation_method(billing_qty: float, rate: float, contract_item: dict) -> float:
+    """Apply calculation method to calculate total charge amount."""
+    try:
+        calculation_method = contract_item.get("calculation_method", "Per Unit")
+        
+        if calculation_method == "Per Unit":
+            base_amount = rate * billing_qty
+            # Apply minimum/maximum charge
+            minimum_charge = flt(contract_item.get("minimum_charge", 0))
+            maximum_charge = flt(contract_item.get("maximum_charge", 0))
+            if minimum_charge > 0 and base_amount < minimum_charge:
+                base_amount = minimum_charge
+            if maximum_charge > 0 and base_amount > maximum_charge:
+                base_amount = maximum_charge
+            return base_amount
+            
+        elif calculation_method == "Fixed Amount":
+            return rate
+            
+        elif calculation_method == "Base Plus Additional":
+            base = flt(contract_item.get("base_amount", 0))
+            additional = rate * max(0, billing_qty - 1)
+            return base + additional
+            
+        elif calculation_method == "First Plus Additional":
+            min_qty = flt(contract_item.get("minimum_quantity", 1))
+            if billing_qty <= min_qty:
+                return rate
+            else:
+                additional = rate * (billing_qty - min_qty)
+                return rate + additional
+                
+        elif calculation_method == "Percentage":
+            # Percentage calculation - rate is the percentage, billing_qty is the base value
+            # For warehouse jobs, we'll use billing_qty as the base value
+            return (rate / 100) * billing_qty
+        else:
+            # Default to Per Unit if method not recognized
+            return rate * billing_qty
+            
+    except Exception as e:
+        frappe.logger().warning(f"Error applying calculation method: {e}")
+        # Fallback to simple calculation
+        return rate * billing_qty
+
+
 def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
     """Create a charge from a contract item."""
     try:
@@ -4263,15 +4329,26 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
             return None
         
         rate = flt(contract_item.get("rate", 0))
-        total = billing_qty * rate
+        calculation_method = contract_item.get("calculation_method", "Per Unit")
+        total = _apply_calculation_method(billing_qty, rate, contract_item)
+        
+        # For Base Plus Additional and First Plus Additional, simplify display:
+        # Qty = 1, Rate = Total, Total = Total
+        if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
+            display_qty = 1.0
+            display_rate = total
+        else:
+            # For other methods, show actual quantity and rate
+            display_qty = billing_qty
+            display_rate = rate
         
         # Create charge
         charge = {
             "item_code": contract_item.get("item_code"),
             "item_name": f"Job Charge ({job.get('job_type', 'Generic')})",
             "uom": contract_item.get("uom", "Day"),
-            "quantity": billing_qty,
-            "rate": rate,
+            "quantity": display_qty,
+            "rate": display_rate,
             "total": total,
             "currency": contract_item.get("currency", _get_default_currency(job.company)),
             "calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(
@@ -4481,7 +4558,9 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
     """Generate comprehensive calculation notes for contract-generated charges."""
     try:
         rate = flt(contract_item.get("rate", 0))
-        total = billing_qty * rate
+        calculation_method = contract_item.get("calculation_method", "Per Unit")
+        # Calculate total using calculation method
+        total = _apply_calculation_method(billing_qty, rate, contract_item)
         uom = contract_item.get("uom", "N/A")
         currency = contract_item.get("currency", _get_default_currency(job.company))
         
@@ -4494,11 +4573,65 @@ def _generate_comprehensive_calculation_notes_for_contract_charge(job, contract_
   • Warehouse Job: {job_name}
   • Job Type: {job_type}
   • Period: {job_open_date} to {job_close_date}
+  • Calculation Method: {calculation_method}
   • Billing Method: {billing_method}
   • UOM: {uom}
   • Rate per {uom}: {rate}
-  • Billing Quantity: {billing_qty}
-  • Calculation: {billing_qty} × {rate} = {total}
+  • Billing Quantity: {billing_qty}"""
+        
+        # Add calculation method specific details
+        if calculation_method == "Per Unit":
+            base_calc = billing_qty * rate
+            min_charge = flt(contract_item.get("minimum_charge", 0))
+            max_charge = flt(contract_item.get("maximum_charge", 0))
+            notes += f"""
+  • Calculation: {billing_qty} × {rate} = {base_calc}"""
+            if min_charge > 0:
+                notes += f"""
+  • Minimum Charge Applied: {min_charge}"""
+            if max_charge > 0:
+                notes += f"""
+  • Maximum Charge Applied: {max_charge}"""
+            notes += f"""
+  • Total: {total}"""
+        elif calculation_method == "Fixed Amount":
+            notes += f"""
+  • Fixed Amount: {rate}
+  • Total: {total}"""
+        elif calculation_method == "Base Plus Additional":
+            base = flt(contract_item.get("base_amount", 0))
+            additional = rate * max(0, billing_qty - 1)
+            notes += f"""
+  • Actual Billing Quantity: {billing_qty}
+  • Base Amount: {base}
+  • Additional ({max(0, billing_qty - 1)} units @ {rate}): {additional}
+  • Total: {total}
+  • Display: Qty = 1, Rate = {total}, Total = {total}"""
+        elif calculation_method == "First Plus Additional":
+            min_qty = flt(contract_item.get("minimum_quantity", 1))
+            if billing_qty <= min_qty:
+                notes += f"""
+  • Actual Billing Quantity: {billing_qty}
+  • First {min_qty} units: {rate}
+  • Total: {total}
+  • Display: Qty = 1, Rate = {total}, Total = {total}"""
+            else:
+                additional = rate * (billing_qty - min_qty)
+                notes += f"""
+  • Actual Billing Quantity: {billing_qty}
+  • First {min_qty} units: {rate}
+  • Additional ({billing_qty - min_qty} units @ {rate}): {additional}
+  • Total: {total}
+  • Display: Qty = 1, Rate = {total}, Total = {total}"""
+        elif calculation_method == "Percentage":
+            notes += f"""
+  • Percentage Calculation: ({rate}% × {billing_qty})
+  • Total: {total}"""
+        else:
+            notes += f"""
+  • Calculation: {billing_qty} × {rate} = {total}"""
+        
+        notes += f"""
   • Currency: {currency}"""
         
         # Add method-specific calculation details

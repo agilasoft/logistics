@@ -561,15 +561,29 @@ def create_charge_line(
     
     rate = flt(contract_item.get("rate", 0))
     currency = contract_item.get("currency", "USD")
-    total = billing_quantity * rate
+    calculation_method = contract_item.get("calculation_method", "Per Unit")
+    
+    # Apply calculation method to get total
+    from logistics.warehousing.doctype.warehouse_job.warehouse_job import _apply_calculation_method
+    total = _apply_calculation_method(billing_quantity, rate, contract_item)
+    
+    # For Base Plus Additional and First Plus Additional, simplify display:
+    # Qty = 1, Rate = Total, Total = Total
+    if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
+        display_qty = 1.0
+        display_rate = total
+    else:
+        # For other methods, show actual quantity and rate
+        display_qty = billing_quantity
+        display_rate = rate
     
     charge_line = {
         "item_code": contract_item.get("item_charge"),
         "item_name": contract_item.get("description", ""),
         "uom": _get_billing_uom(contract_item, context),
-        "quantity": billing_quantity,
+        "quantity": display_qty,
         "currency": currency,
-        "rate": rate,
+        "rate": display_rate,
         "total": total,
         "billing_method": _get_billing_method_from_contract(contract_item, context),
     }

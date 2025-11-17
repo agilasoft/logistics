@@ -50,6 +50,11 @@ def get_rates_from_sales_quote(warehouse_contract, sales_quote):
 		contract_item.minimum_billing_time = warehouse_item.minimum_billing_time
 		contract_item.currency = warehouse_item.selling_currency
 		contract_item.rate = warehouse_item.unit_rate
+		# Copy calculation method fields
+		contract_item.minimum_quantity = warehouse_item.minimum_quantity
+		contract_item.minimum_charge = warehouse_item.minimum_charge
+		contract_item.maximum_charge = warehouse_item.maximum_charge
+		contract_item.base_amount = warehouse_item.base_amount
 	
 	# Save the document
 	warehouse_contract_doc.save()
