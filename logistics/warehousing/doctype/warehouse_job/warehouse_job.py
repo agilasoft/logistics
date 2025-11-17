@@ -2931,57 +2931,74 @@ class WarehouseJob(Document):
         """Create Job Costing Number when document is first saved"""
         # Only create if job_costing_number is not set
         if not self.job_costing_number:
-            # Check if this is the first save (no existing Job Costing Number)
             # Since autoname is format:{job_no}, the name will be the same as job_no
-            # Check both by name and by job_type/job_no to handle all cases
-            existing_job_ref = None
-            
-            # First check if a Job Costing Number with this name already exists
-            if self.name and frappe.db.exists("Job Costing Number", self.name):
-                existing_job_ref = self.name
-            else:
-                # Check by job_type and job_no
+            # Check if a Job Costing Number with this name already exists
+            if self.name:
+                # First check by name (most reliable since autoname uses job_no)
+                existing_job_ref = frappe.db.exists("Job Costing Number", self.name)
+                if existing_job_ref:
+                    self.job_costing_number = existing_job_ref
+                    return
+                
+                # Also check by job_type and job_no as fallback
                 existing_job_ref = frappe.db.get_value("Job Costing Number", {
                     "job_type": "Warehouse Job",
                     "job_no": self.name
                 })
+                if existing_job_ref:
+                    self.job_costing_number = existing_job_ref
+                    return
             
-            if existing_job_ref:
-                # Use the existing Job Costing Number
-                self.job_costing_number = existing_job_ref
-            else:
-                # Create Job Costing Number
-                try:
-                    job_ref = frappe.new_doc("Job Costing Number")
-                    job_ref.job_type = "Warehouse Job"
-                    job_ref.job_no = self.name
-                    job_ref.company = self.company
-                    job_ref.branch = self.branch
-                    job_ref.cost_center = self.cost_center
-                    job_ref.profit_center = self.profit_center
-                    # Leave recognition_date blank - will be filled in separate function
-                    # Use warehouse job's job_open_date instead
-                    job_ref.job_open_date = self.job_open_date
-                    job_ref.insert(ignore_permissions=True)
+            # Create Job Costing Number if it doesn't exist
+            try:
+                job_ref = frappe.new_doc("Job Costing Number")
+                job_ref.job_type = "Warehouse Job"
+                job_ref.job_no = self.name
+                job_ref.company = self.company
+                job_ref.branch = self.branch
+                job_ref.cost_center = self.cost_center
+                job_ref.profit_center = self.profit_center
+                # Leave recognition_date blank - will be filled in separate function
+                # Use warehouse job's job_open_date instead
+                job_ref.job_open_date = self.job_open_date
+                job_ref.insert(ignore_permissions=True)
+                
+                # Set the job_costing_number field
+                self.job_costing_number = job_ref.name
+                
+                frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+            except frappe.DuplicateEntryError as e:
+                # If duplicate entry error occurs, the record was created (possibly by another process or race condition)
+                # Try to get the existing one - use fresh query to find it
+                if self.name:
+                    # Force a fresh query by using sql directly to bypass any caching
+                    existing = frappe.db.sql("""
+                        SELECT name FROM `tabJob Costing Number` 
+                        WHERE name = %s 
+                        LIMIT 1
+                    """, (self.name,), as_dict=True)
                     
-                    # Set the job_costing_number field
-                    self.job_costing_number = job_ref.name
+                    if existing:
+                        self.job_costing_number = existing[0].name
+                        return
                     
-                    frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
-                except frappe.DuplicateEntryError:
-                    # If duplicate entry error occurs, try to get the existing one
-                    if self.name and frappe.db.exists("Job Costing Number", self.name):
-                        self.job_costing_number = self.name
-                    else:
-                        # Try to find by job_type and job_no
-                        existing = frappe.db.get_value("Job Costing Number", {
-                            "job_type": "Warehouse Job",
-                            "job_no": self.name
-                        })
-                        if existing:
-                            self.job_costing_number = existing
-                        else:
-                            raise
+                    # Try by job_type and job_no as fallback
+                    existing = frappe.db.sql("""
+                        SELECT name FROM `tabJob Costing Number` 
+                        WHERE job_type = 'Warehouse Job' AND job_no = %s 
+                        LIMIT 1
+                    """, (self.name,), as_dict=True)
+                    
+                    if existing:
+                        self.job_costing_number = existing[0].name
+                        return
+                
+                # If we still can't find it, log and re-raise
+                frappe.log_error(
+                    f"Duplicate Job Costing Number error for Warehouse Job {self.name}, but could not find existing record: {str(e)}",
+                    "Job Costing Number Duplicate Error"
+                )
+                raise
 
     def on_submit(self):
         # Note: Capacity validation is now done in before_submit hook to prevent submission
