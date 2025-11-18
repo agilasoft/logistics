@@ -461,14 +461,35 @@ def allocate_vas(warehouse_job: str):
                         allocations = _greedy_allocate(ordered, req_qty, rules, force_exact=False)
                     
                     if not allocations:
+                        # Build detailed reason for why no locations were found
+                        reasons = []
                         scope_note = []
+                        
                         if company: scope_note.append(_("Company = {0}").format(company))
-                        if branch: scope_note.append(_("Branch = {0}").format(branch))
+                        if branch:  scope_note.append(_("Branch = {0}").format(branch))
                         if level_limit_label and staging_area:
                             scope_note.append(_("Within {0} of staging {1}").format(level_limit_label, staging_area))
+                        
+                        # Check if candidates were found before filtering
+                        if not candidates:
+                            reasons.append(_("No stock available for item '{0}'").format(item))
+                            if fixed_serial:
+                                reasons.append(_("with serial number '{0}'").format(fixed_serial))
+                            if fixed_batch:
+                                reasons.append(_("with batch '{0}'").format(fixed_batch))
+                            if company or branch:
+                                reasons.append(_("in scope: {0}").format(", ".join(scope_note)))
+                        else:
+                            # Candidates were found but filtered out
+                            reasons.append(_("Stock found but filtered out by allocation level limit"))
+                            if level_limit_label and staging_area:
+                                reasons.append(_("Requires locations within {0} of staging area '{1}'").format(level_limit_label, staging_area))
+                            reasons.append(_("Found {0} candidate location(s) but none within level limit").format(len(candidates)))
+                        
+                        reason_text = ". ".join(reasons) if reasons else _("No allocatable stock found")
                         scope_text = f" [{', '.join(scope_note)}]" if scope_note else ""
-                        warnings.append(_("No allocatable stock for Pick Item {0} (Row {1}) within scope{2}.")
-                                        .format(item, row.get("idx"), scope_text))
+                        warnings.append(_("No allocatable stock for Pick Item {0} (Row {1}){2}. Reason: {3}")
+                                        .format(item, row.get("idx"), scope_text, reason_text))
                     
                     # Convert allocations to use signed quantity (negative for pick)
                     signed_allocations = []

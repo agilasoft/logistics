@@ -593,12 +593,20 @@ function allocate_items(frm) {
     frappe.confirm(
         confirm_message,
         function() {
+            // Show progress dialog
+            let progress_dialog = frappe.show_progress(__('Allocating Items'), 0, 100, __('Starting allocation...'));
+            
             frappe.call({
                 method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.allocate_items',
                 args: {
                     job_name: frm.doc.name
                 },
                 callback: function(r) {
+                    // Close progress dialog
+                    if (progress_dialog) {
+                        progress_dialog.hide();
+                    }
+                    
                     if (r.message && r.message.success) {
                         let message = r.message.message || __('Items allocated successfully.');
                         let allocated_count = r.message.allocated_count || 0;
