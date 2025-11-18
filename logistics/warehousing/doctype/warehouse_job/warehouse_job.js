@@ -600,19 +600,54 @@ function allocate_items(frm) {
                 },
                 callback: function(r) {
                     if (r.message && r.message.success) {
-                        let html_message = `<p>${__('Please check Allocation Notes on the allocated items.')}</p>`;
-                        
-                        // Show warnings if any
-                        if (r.message.warnings && r.message.warnings.length > 0) {
-                            html_message += `<p style="color: #856404;"><strong>Warnings:</strong> ${r.message.warnings.join('; ')}</p>`;
-                        }
-                        
-                        frappe.msgprint({
-                            title: __('Allocation Complete'),
-                            message: html_message,
-                            indicator: 'green'
+                        // Reload document first to get the allocated items
+                        frm.reload_doc().then(function() {
+                            // Calculate statistics from loaded items
+                            let items = frm.doc.items || [];
+                            let allocated_count = r.message.allocated_count || items.length;
+                            let allocated_qty = r.message.allocated_qty;
+                            
+                            // Count unique locations and handling units
+                            let locations = new Set();
+                            let handling_units = new Set();
+                            
+                            // If qty not provided in response, calculate from items
+                            if (allocated_qty === undefined || allocated_qty === null || allocated_qty === 0) {
+                                allocated_qty = 0;
+                                items.forEach(function(item) {
+                                    if (item.quantity) {
+                                        allocated_qty += Math.abs(parseFloat(item.quantity) || 0);
+                                    }
+                                });
+                            }
+                            
+                            items.forEach(function(item) {
+                                if (item.location) {
+                                    locations.add(item.location);
+                                }
+                                if (item.handling_unit) {
+                                    handling_units.add(item.handling_unit);
+                                }
+                            });
+                            
+                            let html_message = `
+                                <div style="padding: 10px; font-size: 14px;">
+                                    <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                                        <p style="margin: 5px 0;"><strong>Items Allocated:</strong> ${allocated_count}</p>
+                                        <p style="margin: 5px 0;"><strong>Quantity:</strong> ${allocated_qty.toFixed(2)}</p>
+                                        <p style="margin: 5px 0;"><strong>Locations:</strong> ${locations.size}</p>
+                                        <p style="margin: 5px 0;"><strong>Handling Units:</strong> ${handling_units.size}</p>
+                                    </div>
+                                    <p style="margin-top: 10px;">${__('Please check Allocation Notes on the allocated items for details.')}</p>
+                                </div>
+                            `;
+                            
+                            frappe.msgprint({
+                                title: __('Allocation Complete'),
+                                message: html_message,
+                                indicator: 'green'
+                            });
                         });
-                        frm.reload_doc();
                     } else {
                         let error_message = r.message.error || __('Failed to allocate items.');
                         
