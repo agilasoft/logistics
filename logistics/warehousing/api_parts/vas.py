@@ -193,10 +193,7 @@ def allocate_vas(warehouse_job: str):
             "warnings": []
         }
 
-    # Inform user about the allocation process
-    frappe.msgprint(f"Starting VAS allocation for job {job.name}")
     company, branch = _get_job_scope(job)
-    frappe.msgprint(f"Job scope: Company={company or 'Any'}, Branch={branch or 'Any'}")
 
     # Find VAS BOM for each order item and expand based on reverse_bom flag
     def _find_vas_bom(parent_item: str) -> Optional[str]:

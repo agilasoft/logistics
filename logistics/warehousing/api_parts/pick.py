@@ -254,7 +254,6 @@ def allocate_pick(warehouse_job: str) -> Dict[str, Any]:
     job.set("items", [])
     job.save(ignore_permissions=True)
     frappe.db.commit()
-    print(f"Cleared existing items from job {warehouse_job}")
     frappe.logger().info(f"Cleared existing items from job {warehouse_job}")
 
     company, branch = _get_job_scope(job)

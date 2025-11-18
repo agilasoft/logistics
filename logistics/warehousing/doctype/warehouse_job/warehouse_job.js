@@ -593,51 +593,19 @@ function allocate_items(frm) {
     frappe.confirm(
         confirm_message,
         function() {
-            // Show progress dialog
-            let progress_dialog = frappe.show_progress(__('Allocating Items'), 0, 100, __('Starting allocation...'));
-            
             frappe.call({
                 method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.allocate_items',
                 args: {
                     job_name: frm.doc.name
                 },
                 callback: function(r) {
-                    // Close progress dialog
-                    if (progress_dialog) {
-                        progress_dialog.hide();
-                    }
-                    
                     if (r.message && r.message.success) {
-                        let message = r.message.message || __('Items allocated successfully.');
-                        let allocated_count = r.message.allocated_count || 0;
-                        let allocated_qty = r.message.allocated_qty || 0;
-                        
-                        let html_message = `
-                            <div style="padding: 15px; font-size: 14px;">
-                                <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
-                                    <strong>Allocation Completed</strong>
-                                </p>
-                                <p style="text-align: center; margin-bottom: 15px;">${message}</p>
-                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                                    <p style="margin: 5px 0;"><strong>Results:</strong></p>
-                                    <p style="margin: 5px 0;">• Items Allocated: <strong>${allocated_count}</strong></p>
-                                    <p style="margin: 5px 0;">• Quantity: <strong>${allocated_qty}</strong></p>
-                                </div>
-                        `;
+                        let html_message = `<p>${__('Please check Allocation Notes on the allocated items.')}</p>`;
                         
                         // Show warnings if any
                         if (r.message.warnings && r.message.warnings.length > 0) {
-                            html_message += `
-                                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                                    <p style="margin: 5px 0; color: #856404;"><strong>Warnings:</strong></p>
-                                    <ul style="margin: 5px 0; color: #856404;">
-                                        ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
-                                    </ul>
-                                </div>
-                            `;
+                            html_message += `<p style="color: #856404;"><strong>Warnings:</strong> ${r.message.warnings.join('; ')}</p>`;
                         }
-                        
-                        html_message += `</div>`;
                         
                         frappe.msgprint({
                             title: __('Allocation Complete'),
