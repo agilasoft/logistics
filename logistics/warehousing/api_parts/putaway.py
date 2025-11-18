@@ -1469,33 +1469,51 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         exclude.append(staging_area)
 
     # Group by HU and validate specified HUs
+    # OPTIMIZATION: Batch fetch all HUs upfront instead of individual queries
     by_hu: Dict[str, List[Dict[str, Any]]] = {}
     rows_without_hu: List[Dict[str, Any]] = []
+    
+    # Collect all unique HUs from orders
+    unique_hus = list(set((r.get("handling_unit") or "").strip() for r in orders if r.get("handling_unit")))
+    
+    # Batch fetch all HU data in one query
+    hu_dict: Dict[str, Dict[str, Any]] = {}
+    if unique_hus:
+        hus_data = frappe.get_all(
+            "Handling Unit",
+            filters={"name": ["in", unique_hus]},
+            fields=["name", "status", "company", "branch"],
+            as_dict=True
+        )
+        hu_dict = {hu["name"]: hu for hu in hus_data}
+        frappe.logger().info(f"Batch fetched {len(hu_dict)} handling units out of {len(unique_hus)} requested")
+    
+    # Validate and group orders by HU
     for r in orders:
         hu = (r.get("handling_unit") or "").strip()
         if hu:
-            # Validate specified handling unit
+            # Validate specified handling unit using batch-fetched data
             hu_valid = True
             hu_validation_errors = []
             
-            # Check if HU exists
-            if not frappe.db.exists("Handling Unit", hu):
+            # Check if HU exists (using batch data)
+            if hu not in hu_dict:
                 hu_valid = False
                 hu_validation_errors.append(_("Handling unit {0} does not exist").format(hu))
             else:
+                hu_data = hu_dict[hu]
                 # Check HU status
-                hu_doc = frappe.get_doc("Handling Unit", hu)
-                if hasattr(hu_doc, "status") and hu_doc.status in ("Under Maintenance", "Inactive"):
+                if hu_data.get("status") in ("Under Maintenance", "Inactive"):
                     hu_valid = False
-                    hu_validation_errors.append(_("Handling unit {0} status is {1}").format(hu, hu_doc.status))
+                    hu_validation_errors.append(_("Handling unit {0} status is {1}").format(hu, hu_data.get("status")))
                 
                 # Check HU scope (company/branch)
-                if company and hasattr(hu_doc, "company") and hu_doc.company and hu_doc.company != company:
+                if company and hu_data.get("company") and hu_data.get("company") != company:
                     hu_valid = False
-                    hu_validation_errors.append(_("Handling unit {0} belongs to company {1}, not {2}").format(hu, hu_doc.company, company))
-                if branch and hasattr(hu_doc, "branch") and hu_doc.branch and hu_doc.branch != branch:
+                    hu_validation_errors.append(_("Handling unit {0} belongs to company {1}, not {2}").format(hu, hu_data.get("company"), company))
+                if branch and hu_data.get("branch") and hu_data.get("branch") != branch:
                     hu_valid = False
-                    hu_validation_errors.append(_("Handling unit {0} belongs to branch {1}, not {2}").format(hu, hu_doc.branch, branch))
+                    hu_validation_errors.append(_("Handling unit {0} belongs to branch {1}, not {2}").format(hu, hu_data.get("branch"), branch))
             
             if hu_valid:
                 by_hu.setdefault(hu, []).append(r)
@@ -1628,6 +1646,24 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
     used_locations: Set[str] = set()  # ensure different HUs don't share the same destination
 
+    # OPTIMIZATION: Cache location candidates per item to avoid redundant queries
+    # The same item may be processed multiple times with different HUs
+    location_candidates_cache: Dict[Tuple[str, Optional[str], Optional[str], Optional[str]], List[Dict[str, Any]]] = {}
+    
+    def get_cached_candidates(item: str, company: Optional[str], branch: Optional[str], 
+                              exclude_locs: Optional[List[str]], quantity: float, 
+                              handling_unit: Optional[str]) -> List[Dict[str, Any]]:
+        """Get location candidates with caching. Cache key excludes quantity and handling_unit 
+        as they don't affect the base candidate list, only filtering."""
+        cache_key = (item, company, branch, tuple(sorted(exclude_locs or [])))
+        if cache_key not in location_candidates_cache:
+            location_candidates_cache[cache_key] = _putaway_candidate_locations(
+                item=item, company=company, branch=branch,
+                exclude_locations=exclude_locs, quantity=quantity, handling_unit=handling_unit
+            )
+            frappe.logger().debug(f"Cached location candidates for item {item}, company {company}, branch {branch}")
+        return location_candidates_cache[cache_key]
+
     for hu, rows in by_hu.items():
         # Handle rows without HU (unallocated quantities)
         if not hu or hu == "":
@@ -1667,9 +1703,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 location_selection_details = None
                 if dest:
                     try:
-                        candidates = _putaway_candidate_locations(
+                        candidates = get_cached_candidates(
                             item=item, company=company, branch=branch,
-                            exclude_locations=exclude, quantity=qty, handling_unit=None
+                            exclude_locs=exclude, quantity=qty, handling_unit=None
                         )
                         for candidate in candidates:
                             if candidate.get("location") == dest:
@@ -1825,9 +1861,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             location_selection_method = "Capacity-validated selection"
             # Get location details for narrative after selection
             try:
-                candidates = _putaway_candidate_locations(
+                candidates = get_cached_candidates(
                     item=rep_item, company=company, branch=branch,
-                    exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
+                    exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
                 )
                 for candidate in candidates:
                     if candidate.get("location") == dest:
@@ -1856,9 +1892,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                                 .format(hu, dest))
                 # Try to get location details for narrative
                 try:
-                    candidates = _putaway_candidate_locations(
+                    candidates = get_cached_candidates(
                         item=rep_item, company=company, branch=branch,
-                        exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
+                        exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
                     )
                     for candidate in candidates:
                         if candidate.get("location") == dest:
@@ -1885,9 +1921,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 dest = fallback
                 # Try to get location details for narrative
                 try:
-                    candidates = _putaway_candidate_locations(
+                    candidates = get_cached_candidates(
                         item=rep_item, company=company, branch=branch,
-                        exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
+                        exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
                     )
                     for candidate in candidates:
                         if candidate.get("location") == dest:
@@ -1915,9 +1951,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                     dest = emergency_dest
                     # Try to get location details for narrative
                     try:
-                        candidates = _putaway_candidate_locations(
+                        candidates = get_cached_candidates(
                             item=rep_item, company=company, branch=branch,
-                            exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
+                            exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
                         )
                         for candidate in candidates:
                             if candidate.get("location") == dest:
@@ -1953,9 +1989,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             else:
                 # Storage type validation passed but still no destination found
                 # This could be due to capacity constraints or other factors
-                debug_candidates = _putaway_candidate_locations(
+                debug_candidates = get_cached_candidates(
                     item=rep_item, company=company, branch=branch,
-                    exclude_locations=exclude, quantity=total_quantity, handling_unit=hu
+                    exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
                 )
                 frappe.logger().error(f"Failed to find destination for HU {hu} with item {rep_item}")
                 frappe.logger().error(f"Debug: Found {len(debug_candidates)} total candidates")
@@ -2428,16 +2464,47 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
 
     # Save items directly to database without triggering hooks
     # This bypasses all validation hooks that might interfere
+    # OPTIMIZATION: Use bulk INSERT instead of individual INSERT statements
     try:
         # Get available fields in Warehouse Job Item
         from .common import _safe_meta_fieldnames
         item_fields = _safe_meta_fieldnames("Warehouse Job Item")
         
-        # Save the job items directly to the database
-        for item in job.items:
-            if item.get("__islocal") or not item.get("name"):
-                # Build dynamic SQL based on available fields
-                columns = ["name", "parent", "parentfield", "parenttype", "idx", "item", "quantity", "location", "handling_unit", "uom", "serial_no", "batch_no", "creation", "modified", "modified_by", "owner", "docstatus"]
+        # Collect all items that need to be inserted
+        items_to_insert = [item for item in job.items if item.get("__islocal") or not item.get("name")]
+        
+        if items_to_insert:
+            # Build column list once (same for all items)
+            columns = ["name", "parent", "parentfield", "parenttype", "idx", "item", "quantity", "location", "handling_unit", "uom", "serial_no", "batch_no", "creation", "modified", "modified_by", "owner", "docstatus"]
+            
+            # Add optional fields if they exist
+            optional_fields = []
+            if "source_row" in item_fields:
+                optional_fields.append("source_row")
+            if "source_parent" in item_fields:
+                optional_fields.append("source_parent")
+            if "allocation_notes" in item_fields:
+                optional_fields.append("allocation_notes")
+            if "volume" in item_fields:
+                optional_fields.append("volume")
+            if "weight" in item_fields:
+                optional_fields.append("weight")
+            if "length" in item_fields:
+                optional_fields.append("length")
+            if "width" in item_fields:
+                optional_fields.append("width")
+            if "height" in item_fields:
+                optional_fields.append("height")
+            
+            columns.extend(optional_fields)
+            columns_str = ", ".join(columns)
+            
+            # Prepare all values for bulk insert
+            all_values = []
+            now = frappe.utils.now()
+            user = frappe.session.user
+            
+            for item in items_to_insert:
                 values = [
                     item.name or frappe.generate_hash(length=10),
                     job.name,
@@ -2451,56 +2518,38 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
                     item.uom,
                     item.serial_no,
                     item.batch_no,
-                    frappe.utils.now(),
-                    frappe.utils.now(),
-                    frappe.session.user,
-                    frappe.session.user,
+                    now,
+                    now,
+                    user,
+                    user,
                     0
                 ]
                 
-                # Add optional fields if they exist
-                if "source_row" in item_fields:
-                    columns.append("source_row")
-                    values.append(getattr(item, 'source_row', None))
+                # Add optional field values
+                for field in optional_fields:
+                    if field in ["volume", "weight", "length", "width", "height"]:
+                        values.append(flt(getattr(item, field, None) or 0))
+                    else:
+                        values.append(getattr(item, field, None))
                 
-                if "source_parent" in item_fields:
-                    columns.append("source_parent")
-                    values.append(getattr(item, 'source_parent', None))
+                all_values.append(tuple(values))
+            
+            # Execute bulk INSERT
+            if all_values:
+                placeholders = ", ".join(["%s"] * len(columns))
+                # Create VALUES clause with multiple rows: (?,?,?), (?,?,?), ...
+                values_placeholder = ", ".join([f"({placeholders})"] * len(all_values))
                 
-                if "allocation_notes" in item_fields:
-                    columns.append("allocation_notes")
-                    values.append(getattr(item, 'allocation_notes', None))
-                
-                # Add volume and weight fields if they exist (preserve user revisions)
-                if "volume" in item_fields:
-                    columns.append("volume")
-                    values.append(flt(getattr(item, 'volume', None) or 0))
-                
-                if "weight" in item_fields:
-                    columns.append("weight")
-                    values.append(flt(getattr(item, 'weight', None) or 0))
-                
-                if "length" in item_fields:
-                    columns.append("length")
-                    values.append(flt(getattr(item, 'length', None) or 0))
-                
-                if "width" in item_fields:
-                    columns.append("width")
-                    values.append(flt(getattr(item, 'width', None) or 0))
-                
-                if "height" in item_fields:
-                    columns.append("height")
-                    values.append(flt(getattr(item, 'height', None) or 0))
-                
-                # Build and execute SQL
-                columns_str = ", ".join(columns)
-                placeholders = ", ".join(["%s"] * len(values))
+                # Flatten all values into a single list
+                flat_values = [val for row in all_values for val in row]
                 
                 frappe.db.sql(f"""
                     INSERT INTO `tabWarehouse Job Item` 
                     ({columns_str})
-                    VALUES ({placeholders})
-                """, tuple(values))
+                    VALUES {values_placeholder}
+                """, tuple(flat_values))
+                
+                frappe.logger().info(f"Bulk inserted {len(all_values)} job items in a single query")
         
         # Update the job's modified timestamp
         frappe.db.set_value("Warehouse Job", job.name, "modified", frappe.utils.now())
