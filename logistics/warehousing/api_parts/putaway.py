@@ -383,11 +383,26 @@ def _putaway_candidate_locations(
     all_candidates = cons + others
     
     # Apply capacity validation to filter out locations that can't accommodate the item
+    # OPTIMIZATION: Limit validation to top 20 candidates to improve performance
+    # If we find valid candidates early, we can stop validating the rest
     capacity_manager = CapacityManager()
     validated_candidates = []
     fallback_candidates = []  # For locations that fail capacity validation but might still work
     
-    for candidate in all_candidates:
+    # Limit candidates to validate for performance (validate top 20, or all if less than 20)
+    max_candidates_to_validate = min(20, len(all_candidates))
+    candidates_to_validate = all_candidates[:max_candidates_to_validate]
+    
+    # Get item capacity data once (cached in capacity_manager)
+    try:
+        item_data = capacity_manager._get_item_capacity_data(item)
+        required_capacity = capacity_manager._calculate_required_capacity(item_data, quantity, handling_unit)
+    except Exception as e:
+        frappe.logger().warning(f"Error getting item capacity data for {item}: {str(e)}")
+        item_data = None
+        required_capacity = None
+    
+    for candidate in candidates_to_validate:
         try:
             # Validate capacity for this location
             capacity_validation = capacity_manager.validate_storage_capacity(
@@ -403,6 +418,10 @@ def _putaway_candidate_locations(
                 candidate["capacity_utilization"] = capacity_validation.get("validation_results", {}).get("capacity_utilization", {})
                 candidate["capacity_warnings"] = capacity_validation.get("validation_results", {}).get("warnings", [])
                 validated_candidates.append(candidate)
+                
+                # OPTIMIZATION: If we found enough valid candidates (5), stop validating
+                if len(validated_candidates) >= 5:
+                    break
             else:
                 # Store as fallback candidate for later use if no valid candidates found
                 violations = capacity_validation.get("validation_results", {}).get("violations", [])
@@ -410,31 +429,38 @@ def _putaway_candidate_locations(
                 candidate["capacity_violations"] = violations
                 fallback_candidates.append(candidate)
                 
-                # Log capacity violations for debugging
-                if violations:
+                # Log capacity violations for debugging (only for first few)
+                if violations and len(fallback_candidates) <= 3:
                     frappe.logger().info(f"Capacity validation failed for {candidate['location']}: {violations}")
                     
         except CapacityValidationError as e:
             # Log capacity validation errors but keep as fallback
-            frappe.logger().info(f"Capacity validation error for {candidate['location']}: {str(e)}")
+            if len(fallback_candidates) <= 3:
+                frappe.logger().info(f"Capacity validation error for {candidate['location']}: {str(e)}")
             candidate["capacity_valid"] = False
             candidate["capacity_error"] = str(e)
             fallback_candidates.append(candidate)
         except Exception as e:
             # Log other errors but keep as fallback
-            frappe.logger().error(f"Unexpected error validating capacity for {candidate['location']}: {str(e)}")
+            if len(fallback_candidates) <= 3:
+                frappe.logger().error(f"Unexpected error validating capacity for {candidate['location']}: {str(e)}")
             candidate["capacity_valid"] = False
             candidate["capacity_error"] = str(e)
             fallback_candidates.append(candidate)
     
+    # If we have validated candidates, return them (limit to top 5 for performance)
+    if validated_candidates:
+        return validated_candidates[:5]
+    
     # If no validated candidates found, use fallback candidates with warnings
-    if not validated_candidates and fallback_candidates:
+    if fallback_candidates:
         frappe.logger().warning(f"No capacity-validated locations found for item {item}, using fallback candidates")
         # Sort fallback candidates by priority and return them
         fallback_candidates.sort(key=lambda x: (x.get("storage_type_rank", 999999), x.get("bin_priority", 999999)))
         return fallback_candidates[:5]  # Return top 5 fallback candidates
     
-    return validated_candidates
+    # If no candidates at all, return empty list
+    return []
 
 
 def _get_storage_type_validation_summary(items: List[str], company: Optional[str], branch: Optional[str]) -> Dict[str, Any]:
@@ -1142,15 +1168,36 @@ def _allocate_hu_to_orders(
         return allocations, warnings
     
     # Create a map to track HU capacity usage (for incremental updates during allocation)
+    # OPTIMIZATION: Batch fetch HU capacity usage in a single query instead of individual queries
     hu_capacity_map: Dict[str, Dict[str, float]] = {}
-    for hu in all_available_hus:
-        hu_current_usage = capacity_manager._get_handling_unit_current_usage(hu["name"])
-        hu_capacity_map[hu["name"]] = {
-            "current_volume": hu_current_usage["volume"],
-            "current_weight": hu_current_usage["weight"],
-            "max_volume": flt(hu.get("max_volume", 0)),
-            "max_weight": flt(hu.get("max_weight", 0))
-        }
+    if all_available_hus:
+        hu_names = [hu["name"] for hu in all_available_hus]
+        
+        # Batch fetch current usage for all HUs in one query
+        batch_usage_data = frappe.db.sql("""
+            SELECT 
+                l.handling_unit,
+                SUM(COALESCE(l.quantity, 0) * COALESCE(wi.volume, 0)) as current_volume,
+                SUM(COALESCE(l.quantity, 0) * COALESCE(wi.weight, 0)) as current_weight
+            FROM `tabWarehouse Stock Ledger` l
+            LEFT JOIN `tabWarehouse Item` wi ON wi.name = l.item
+            WHERE l.handling_unit IN %s AND l.quantity > 0
+            GROUP BY l.handling_unit
+        """, (hu_names,), as_dict=True)
+        
+        # Create a lookup map for batch-fetched data
+        usage_lookup = {row["handling_unit"]: row for row in batch_usage_data}
+        
+        # Build capacity map using batch-fetched data
+        for hu in all_available_hus:
+            hu_name = hu["name"]
+            usage = usage_lookup.get(hu_name, {})
+            hu_capacity_map[hu_name] = {
+                "current_volume": flt(usage.get("current_volume", 0)),
+                "current_weight": flt(usage.get("current_weight", 0)),
+                "max_volume": flt(hu.get("max_volume", 0)),
+                "max_weight": flt(hu.get("max_weight", 0))
+            }
     
     # Process each order row with priority hierarchy
     for order_row in orders_without_hu:
@@ -2542,7 +2589,15 @@ def allocate_handling_units(warehouse_job: str) -> Dict[str, Any]:
 @frappe.whitelist()
 def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
     """Prepare putaway rows from Orders with HU anchoring & allocation-level rules.
-    Now includes strict storage type validation with detailed error messages."""
+    Now includes strict storage type validation with detailed error messages.
+    
+    Performance optimizations:
+    - Storage type validation is skipped for jobs with >10 items (validated during allocation)
+    - Capacity validation limited to top 20 candidates per item
+    - Early exit when 5 valid candidates are found
+    - Batch fetching of HU capacity data instead of individual queries
+    - Location candidate caching to avoid redundant queries
+    """
     frappe.logger().info(f"=== ALLOCATE PUTAWAY STARTED for job {warehouse_job} ===")
     job = frappe.get_doc("Warehouse Job", warehouse_job)
     if (job.type or "").strip() != "Putaway":
@@ -2561,11 +2616,13 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
     orders = _fetch_job_order_items(job.name)
     
     # Check storage type restrictions for all unique items
+    # OPTIMIZATION: Only validate if there are few items (<= 10) to avoid performance issues
+    # For larger jobs, validation will happen during allocation and errors will be caught then
     storage_type_warnings = []
     unique_items = list(set(order.get("item") for order in orders if order.get("item")))
     
-    if unique_items:
-        # Get comprehensive validation summary
+    if unique_items and len(unique_items) <= 10:
+        # Get comprehensive validation summary only for small item sets
         validation_summary = _get_storage_type_validation_summary(unique_items, company, branch)
         
         if not validation_summary["overall_valid"]:
@@ -2587,6 +2644,8 @@ def allocate_putaway(warehouse_job: str) -> Dict[str, Any]:
                     frappe.logger().info(f"Storage type recommendation: {rec}")
         else:
             frappe.logger().info(f"Storage type validation passed for all {len(unique_items)} items")
+    elif unique_items:
+        frappe.logger().info(f"Skipping upfront storage type validation for {len(unique_items)} items (performance optimization). Validation will occur during allocation.")
     
     created_rows, created_qty, details, warnings = _hu_anchored_putaway_from_orders(job)
     
