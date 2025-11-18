@@ -22,9 +22,34 @@ def _validate_storage_type_restrictions(item: str, company: Optional[str], branc
         # Get item's storage type preferences
         preferred_storage_type, allowed_storage_types = _get_item_storage_type_prefs(item)
         
-        # Get all available storage locations (without storage type filtering first)
+        # Build storage type filter for SQL query to avoid querying all locations
+        storage_type_filter = ""
+        storage_type_params = []
+        if allowed_storage_types:
+            # Only query locations with allowed storage types
+            placeholders = ", ".join(["%s"] * len(allowed_storage_types))
+            storage_type_filter = f"AND sl.storage_type IN ({placeholders})"
+            storage_type_params = allowed_storage_types
+        elif preferred_storage_type:
+            # Only query locations with preferred storage type
+            storage_type_filter = "AND sl.storage_type = %s"
+            storage_type_params = [preferred_storage_type]
+        
+        # Get available storage locations with storage type filtering in SQL
         slf = _sl_fields()
         status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
+        
+        # Build parameters list
+        query_params = []
+        if company:
+            query_params.append(company)
+        if branch:
+            query_params.append(branch)
+        query_params.extend(storage_type_params)
+        
+        # Build WHERE clause for company/branch
+        company_filter = "AND sl.company = %s" if company else ""
+        branch_filter = "AND sl.branch = %s" if branch else ""
         
         all_locations = frappe.db.sql(
             f"""
@@ -37,11 +62,12 @@ def _validate_storage_type_restrictions(item: str, company: Optional[str], branc
             LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
             WHERE IFNULL(sl.staging_area, 0) = 0
               {status_filter}
-              AND (%s IS NULL OR sl.company = %s)
-              AND (%s IS NULL OR sl.branch = %s)
+              {company_filter}
+              {branch_filter}
+              {storage_type_filter}
             ORDER BY sl.name ASC
             """,
-            (company, company, branch, branch),
+            tuple(query_params),
             as_dict=True,
         ) or []
         
@@ -1671,11 +1697,29 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                         company=company
                     )
                 else:
-                    # No location found - add note explaining why
+                    # No location found - add note explaining why with detailed reasons
                     location_note = "Location Allocation: NOT ALLOCATED\n"
                     location_note += "  • Reason: No suitable storage location found within scope\n"
-                    location_note += "  • Possible causes: No locations available, capacity constraints, or level limit restrictions\n"
-                    location_note += "  • Action Required: Review location availability or adjust allocation level limits"
+                    
+                    # Add scope information
+                    scope_info = []
+                    if company:
+                        scope_info.append(f"Company = {company}")
+                    if branch:
+                        scope_info.append(f"Branch = {branch}")
+                    if staging_area and level_limit_label:
+                        scope_info.append(f"Within {level_limit_label} of staging {staging_area}")
+                    
+                    if scope_info:
+                        location_note += f"  • Scope: {', '.join(scope_info)}\n"
+                    
+                    location_note += "  • Possible causes:\n"
+                    location_note += "    - No storage locations available matching item storage type requirements\n"
+                    location_note += "    - All locations exceed capacity constraints\n"
+                    if staging_area and level_limit_label:
+                        location_note += f"    - All locations outside allocation level limit ({level_limit_label})\n"
+                    location_note += "    - All locations already assigned to other handling units\n"
+                    location_note += "  • Action Required: Review location availability, storage type configuration, or adjust allocation level limits"
                 
                 # Combine notes
                 allocation_notes = []
@@ -1918,7 +1962,28 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 if debug_candidates:
                     frappe.logger().error(f"Debug: Available locations: {[c['location'] for c in debug_candidates[:5]]}")
                 
-                warnings.append(_("HU {0}: no destination location available in scope (capacity or other constraints).").format(hu))
+                # Build detailed reason message
+                reason_parts = []
+                reason_parts.append(_("HU {0}: no destination location available").format(hu))
+                
+                if not debug_candidates:
+                    reason_parts.append(_("Reason: No candidate locations found"))
+                    if company or branch:
+                        scope_info = []
+                        if company:
+                            scope_info.append(_("Company = {0}").format(company))
+                        if branch:
+                            scope_info.append(_("Branch = {0}").format(branch))
+                        reason_parts.append(_("Scope: {0}").format(", ".join(scope_info)))
+                else:
+                    reason_parts.append(_("Reason: {0} candidate location(s) found but filtered out").format(len(debug_candidates)))
+                    if staging_area and level_limit_label:
+                        reason_parts.append(_("by allocation level limit (within {0} of staging {1})").format(level_limit_label, staging_area))
+                    if used_locations:
+                        reason_parts.append(_("or already assigned to other handling units"))
+                    reason_parts.append(_("Possible causes: capacity constraints, level limit restrictions, or location conflicts"))
+                
+                warnings.append(". ".join(reason_parts) + ".")
             continue
 
         # mark used to avoid assigning the same location to a different HU
