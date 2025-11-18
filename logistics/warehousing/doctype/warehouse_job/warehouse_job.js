@@ -593,6 +593,7 @@ function allocate_items(frm) {
     frappe.confirm(
         confirm_message,
         function() {
+            // No progress dialog - allocation runs silently
             frappe.call({
                 method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.allocate_items',
                 args: {

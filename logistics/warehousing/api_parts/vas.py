@@ -193,6 +193,7 @@ def allocate_vas(warehouse_job: str):
             "warnings": []
         }
 
+    # Get job scope (no progress messages during allocation)
     company, branch = _get_job_scope(job)
 
     # Find VAS BOM for each order item and expand based on reverse_bom flag
