@@ -28,6 +28,7 @@
   "capacity_section",
   "enable_capacity_management",
   "prevent_exceeding_capacity_limit",
+  "capacity_tolerance_percentage",
   "enable_location_overflow",
   "default_volume_uom",
   "volume_calculation_precision",
@@ -158,6 +159,13 @@
    "fieldname": "prevent_exceeding_capacity_limit",
    "fieldtype": "Check",
    "label": "Prevent Exceeding Capacity Limit"
+  },
+  {
+   "default": "0",
+   "description": "Allowable percentage by which capacity can be exceeded before blocking submission. For example, 5% allows jobs to be submitted if capacity is exceeded by up to 5% (e.g., 1.05 > 1.00 for a 5% tolerance). Set to 0 for strict enforcement (only allows exact capacity).",
+   "fieldname": "capacity_tolerance_percentage",
+   "fieldtype": "Percent",
+   "label": "Capacity Tolerance Percentage"
   },
   {
    "default": "0",

@@ -593,58 +593,61 @@ function allocate_items(frm) {
     frappe.confirm(
         confirm_message,
         function() {
-            // Show progress dialog
-            let progress_dialog = frappe.show_progress(__('Allocating Items'), 0, 100, __('Starting allocation...'));
-            
             frappe.call({
                 method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.allocate_items',
                 args: {
                     job_name: frm.doc.name
                 },
                 callback: function(r) {
-                    // Close progress dialog
-                    if (progress_dialog) {
-                        progress_dialog.hide();
-                    }
-                    
                     if (r.message && r.message.success) {
-                        let message = r.message.message || __('Items allocated successfully.');
-                        let allocated_count = r.message.allocated_count || 0;
-                        let allocated_qty = r.message.allocated_qty || 0;
-                        
-                        let html_message = `
-                            <div style="padding: 15px; font-size: 14px;">
-                                <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
-                                    <strong>Allocation Completed</strong>
-                                </p>
-                                <p style="text-align: center; margin-bottom: 15px;">${message}</p>
-                                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                                    <p style="margin: 5px 0;"><strong>Results:</strong></p>
-                                    <p style="margin: 5px 0;">• Items Allocated: <strong>${allocated_count}</strong></p>
-                                    <p style="margin: 5px 0;">• Quantity: <strong>${allocated_qty}</strong></p>
-                                </div>
-                        `;
-                        
-                        // Show warnings if any
-                        if (r.message.warnings && r.message.warnings.length > 0) {
-                            html_message += `
-                                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                                    <p style="margin: 5px 0; color: #856404;"><strong>Warnings:</strong></p>
-                                    <ul style="margin: 5px 0; color: #856404;">
-                                        ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
-                                    </ul>
+                        // Reload document first to get the allocated items
+                        frm.reload_doc().then(function() {
+                            // Calculate statistics from loaded items
+                            let items = frm.doc.items || [];
+                            let allocated_count = r.message.allocated_count || items.length;
+                            let allocated_qty = r.message.allocated_qty;
+                            
+                            // Count unique locations and handling units
+                            let locations = new Set();
+                            let handling_units = new Set();
+                            
+                            // If qty not provided in response, calculate from items
+                            if (allocated_qty === undefined || allocated_qty === null || allocated_qty === 0) {
+                                allocated_qty = 0;
+                                items.forEach(function(item) {
+                                    if (item.quantity) {
+                                        allocated_qty += Math.abs(parseFloat(item.quantity) || 0);
+                                    }
+                                });
+                            }
+                            
+                            items.forEach(function(item) {
+                                if (item.location) {
+                                    locations.add(item.location);
+                                }
+                                if (item.handling_unit) {
+                                    handling_units.add(item.handling_unit);
+                                }
+                            });
+                            
+                            let html_message = `
+                                <div style="padding: 10px; font-size: 14px;">
+                                    <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                                        <p style="margin: 5px 0;"><strong>Items Allocated:</strong> ${allocated_count}</p>
+                                        <p style="margin: 5px 0;"><strong>Quantity:</strong> ${allocated_qty.toFixed(2)}</p>
+                                        <p style="margin: 5px 0;"><strong>Locations:</strong> ${locations.size}</p>
+                                        <p style="margin: 5px 0;"><strong>Handling Units:</strong> ${handling_units.size}</p>
+                                    </div>
+                                    <p style="margin-top: 10px;">${__('Please check Allocation Notes on the allocated items for details.')}</p>
                                 </div>
                             `;
-                        }
-                        
-                        html_message += `</div>`;
-                        
-                        frappe.msgprint({
-                            title: __('Allocation Complete'),
-                            message: html_message,
-                            indicator: 'green'
+                            
+                            frappe.msgprint({
+                                title: __('Allocation Complete'),
+                                message: html_message,
+                                indicator: 'green'
+                            });
                         });
-                        frm.reload_doc();
                     } else {
                         let error_message = r.message.error || __('Failed to allocate items.');
                         
