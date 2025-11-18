@@ -25,6 +25,7 @@
   "max_volume_cbm",
   "capacity_basis",
   "default_qty_capacity",
+  "storage_location_size",
   "column_break_wywy",
   "stackable",
   "nestable",
@@ -97,6 +98,13 @@
    "fieldname": "default_qty_capacity",
    "fieldtype": "Float",
    "label": "Default Qty Capacity"
+  },
+  {
+   "default": "1",
+   "description": "Number of storage locations this handling unit type will occupy. When location overflow is enabled, this value will be fetched into handling units of this type.",
+   "fieldname": "storage_location_size",
+   "fieldtype": "Int",
+   "label": "Storage Location Size"
   },
   {
    "default": "0",

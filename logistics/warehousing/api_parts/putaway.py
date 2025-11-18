@@ -6,6 +6,125 @@ from .capacity_management import CapacityManager, CapacityValidationError
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
+from typing import List, Dict, Any, Optional, Tuple, Set
+
+def _get_location_overflow_enabled(company: Optional[str]) -> bool:
+    """Check if location overflow is enabled in warehouse settings"""
+    if not company:
+        return False
+    try:
+        settings = frappe.get_doc("Warehouse Settings", company)
+        return getattr(settings, "enable_location_overflow", False)
+    except (frappe.DoesNotExistError, AttributeError):
+        return False
+
+
+def _get_hu_storage_location_size(handling_unit: str) -> int:
+    """Get the storage location size for a handling unit (number of locations it occupies)"""
+    if not handling_unit:
+        return 1
+    try:
+        size = frappe.db.get_value("Handling Unit", handling_unit, "storage_location_size")
+        return int(size) if size and size > 0 else 1
+    except (frappe.DoesNotExistError, (ValueError, TypeError)):
+        return 1
+
+
+def _select_multiple_destinations_for_hu(
+    item: str,
+    quantity: float,
+    company: Optional[str],
+    branch: Optional[str],
+    staging_area: Optional[str],
+    level_limit_label: Optional[str],
+    used_locations: Set[str],
+    exclude_locations: Optional[List[str]],
+    handling_unit: Optional[str],
+    num_locations: int
+) -> List[str]:
+    """Select multiple destination locations for a handling unit when location overflow is enabled.
+    
+    Args:
+        item: Item code
+        quantity: Total quantity to allocate
+        company: Company filter
+        branch: Branch filter
+        staging_area: Staging area
+        level_limit_label: Allocation level limit
+        used_locations: Set of already used locations
+        exclude_locations: Locations to exclude
+        handling_unit: Handling unit name
+        num_locations: Number of locations needed
+        
+    Returns:
+        List of location names (may be fewer than num_locations if not enough available)
+    """
+    if num_locations <= 1:
+        # Fall back to single location selection
+        dest = _select_dest_for_hu_with_capacity_validation(
+            item=item,
+            quantity=quantity,
+            company=company,
+            branch=branch,
+            staging_area=staging_area,
+            level_limit_label=level_limit_label,
+            used_locations=used_locations,
+            exclude_locations=exclude_locations,
+            handling_unit=handling_unit
+        )
+        return [dest] if dest else []
+    
+    selected_locations = []
+    remaining_locations_needed = num_locations
+    
+    # Calculate quantity per location
+    quantity_per_location = quantity / num_locations
+    
+    # Get candidate locations (use direct call since this function may be called before cache is set up)
+    candidates = _putaway_candidate_locations(
+        item=item, company=company, branch=branch,
+        exclude_locations=exclude_locations, quantity=quantity_per_location, handling_unit=handling_unit
+    )
+    
+    # Filter by level limit if applicable
+    if staging_area and level_limit_label:
+        candidates = _filter_locations_by_level(candidates, staging_area, level_limit_label)
+    
+    # Filter out used locations
+    available_candidates = [c for c in candidates if c["location"] not in used_locations]
+    
+    # Get HU type for priority filtering
+    handling_unit_type = None
+    if handling_unit:
+        try:
+            handling_unit_type = frappe.db.get_value("Handling Unit", handling_unit, "type")
+        except Exception:
+            pass
+    
+    # Apply priority filtering
+    available_candidates = _filter_locations_by_priority(
+        available_candidates,
+        handling_unit=handling_unit,
+        handling_unit_type=handling_unit_type,
+        item=item,
+        company=company,
+        branch=branch
+    )
+    
+    # Select locations up to num_locations
+    for candidate in available_candidates:
+        if remaining_locations_needed <= 0:
+            break
+        
+        location = candidate.get("location")
+        if location and location not in selected_locations:
+            selected_locations.append(location)
+            used_locations.add(location)
+            remaining_locations_needed -= 1
+    
+    frappe.logger().info(f"Selected {len(selected_locations)} locations for HU {handling_unit} (requested: {num_locations})")
+    return selected_locations
+
 
 def _validate_storage_type_restrictions(item: str, company: Optional[str], branch: Optional[str]) -> Dict[str, Any]:
     """Validate storage type restrictions for an item and return detailed information about available locations.
@@ -1833,112 +1952,91 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         # First get all items in this HU to calculate total capacity requirements
         total_quantity = sum(flt(rr.get("quantity", 0)) for rr in rows)
         
+        # Check if location overflow is enabled and get HU storage location size
+        location_overflow_enabled = _get_location_overflow_enabled(company)
+        storage_location_size = _get_hu_storage_location_size(hu) if location_overflow_enabled else 1
+        
         # Log detailed information for debugging
         frappe.logger().info(f"Processing HU {hu} with item {rep_item}, quantity {total_quantity}")
         frappe.logger().info(f"HU {hu} - Company: {company}, Branch: {branch}")
         frappe.logger().info(f"HU {hu} - Staging: {staging_area}, Level limit: {level_limit_label}")
         frappe.logger().info(f"HU {hu} - Used locations: {list(used_locations)}")
         frappe.logger().info(f"HU {hu} - Exclude locations: {exclude}")
+        if location_overflow_enabled:
+            frappe.logger().info(f"HU {hu} - Location overflow enabled, storage_location_size: {storage_location_size}")
         
         # Track location selection details for narrative logging
         location_selection_method = ""
         location_selection_details: Optional[Dict[str, Any]] = None
         
-        # Try capacity-validated selection first
-        dest = _select_dest_for_hu_with_capacity_validation(
-            item=rep_item, 
-            quantity=total_quantity,
-            company=company, 
-            branch=branch,
-            staging_area=staging_area, 
-            level_limit_label=level_limit_label,
-            used_locations=used_locations, 
-            exclude_locations=exclude,
-            handling_unit=hu
-        )
-        
-        if dest:
-            location_selection_method = "Capacity-validated selection"
-            # Get location details for narrative after selection
-            try:
-                candidates = get_cached_candidates(
-                    item=rep_item, company=company, branch=branch,
-                    exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
-                )
-                for candidate in candidates:
-                    if candidate.get("location") == dest:
-                        location_selection_details = {
-                            "is_consolidation": candidate.get("current_quantity", 0) > 0,
-                            "capacity_utilization": candidate.get("capacity_utilization", {}),
-                            "bin_priority": candidate.get("bin_priority", 999999)
-                        }
-                        break
-            except Exception as e:
-                frappe.logger().warning(f"Error getting location details for narrative: {str(e)}")
-                location_selection_details = None
-        
-        if not dest:
-            # Try fallback selection without capacity validation
-            frappe.logger().info(f"No capacity-validated location found for HU {hu}, trying fallback selection")
-            dest = _select_dest_for_hu_fallback(
-                item=rep_item, company=company, branch=branch,
-                staging_area=staging_area, level_limit_label=level_limit_label,
-                used_locations=used_locations, exclude_locations=exclude
+        # Select destinations (single or multiple based on location overflow)
+        dest_locations: List[str] = []
+        if location_overflow_enabled and storage_location_size > 1:
+            # Use multiple location selection
+            dest_locations = _select_multiple_destinations_for_hu(
+                item=rep_item,
+                quantity=total_quantity,
+                company=company,
+                branch=branch,
+                staging_area=staging_area,
+                level_limit_label=level_limit_label,
+                used_locations=used_locations,
+                exclude_locations=exclude,
+                handling_unit=hu,
+                num_locations=storage_location_size
             )
-            
+            if dest_locations:
+                location_selection_method = f"Location overflow allocation ({len(dest_locations)} locations)"
+                dest = dest_locations[0]  # Keep dest for backward compatibility in notes
+            else:
+                dest = None
+        else:
+            # Use single location selection (original behavior)
+            dest = _select_dest_for_hu_with_capacity_validation(
+                item=rep_item, 
+                quantity=total_quantity,
+                company=company, 
+                branch=branch,
+                staging_area=staging_area, 
+                level_limit_label=level_limit_label,
+                used_locations=used_locations, 
+                exclude_locations=exclude,
+                handling_unit=hu
+            )
             if dest:
-                location_selection_method = "Fallback selection (capacity validation bypassed)"
-                warnings.append(_("HU {0}: using fallback location {1} (capacity validation bypassed).")
-                                .format(hu, dest))
-                # Try to get location details for narrative
-                try:
-                    candidates = get_cached_candidates(
-                        item=rep_item, company=company, branch=branch,
-                        exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
-                    )
-                    for candidate in candidates:
-                        if candidate.get("location") == dest:
-                            location_selection_details = {
-                                "is_consolidation": candidate.get("current_quantity", 0) > 0,
-                                "capacity_utilization": candidate.get("capacity_utilization", {}),
-                                "bin_priority": candidate.get("bin_priority", 999999)
-                            }
-                            break
-                except Exception as e:
-                    frappe.logger().warning(f"Error getting location details for narrative: {str(e)}")
+                dest_locations = [dest]
         
-        if not dest:
+        if not dest_locations:
+            # Try fallback selection without capacity validation (only for single location mode)
+            if not (location_overflow_enabled and storage_location_size > 1):
+                frappe.logger().info(f"No capacity-validated location found for HU {hu}, trying fallback selection")
+                dest = _select_dest_for_hu_fallback(
+                    item=rep_item, company=company, branch=branch,
+                    staging_area=staging_area, level_limit_label=level_limit_label,
+                    used_locations=used_locations, exclude_locations=exclude
+                )
+                
+                if dest:
+                    location_selection_method = "Fallback selection (capacity validation bypassed)"
+                    warnings.append(_("HU {0}: using fallback location {1} (capacity validation bypassed).")
+                                    .format(hu, dest))
+                    dest_locations = [dest]
+            
             # Last resort: try again allowing reuse (but still honoring level limit)
-            fallback = _select_dest_for_hu(
-                item=rep_item, company=company, branch=branch,
-                staging_area=staging_area, level_limit_label=level_limit_label,
-                used_locations=set(), exclude_locations=exclude
-            )
-            if fallback:
-                location_selection_method = "Location reuse (already assigned to another HU)"
-                warnings.append(_("HU {0}: no free destination matching rules; reusing {1} already assigned to another HU.")
-                                .format(hu, fallback))
-                dest = fallback
-                # Try to get location details for narrative
-                try:
-                    candidates = get_cached_candidates(
-                        item=rep_item, company=company, branch=branch,
-                        exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
-                    )
-                    for candidate in candidates:
-                        if candidate.get("location") == dest:
-                            location_selection_details = {
-                                "is_consolidation": candidate.get("current_quantity", 0) > 0,
-                                "capacity_utilization": candidate.get("capacity_utilization", {}),
-                                "bin_priority": candidate.get("bin_priority", 999999)
-                            }
-                            break
-                except Exception as e:
-                    frappe.logger().warning(f"Error getting location details for narrative: {str(e)}")
-        
-        if not dest:
+            if not dest_locations:
+                fallback = _select_dest_for_hu(
+                    item=rep_item, company=company, branch=branch,
+                    staging_area=staging_area, level_limit_label=level_limit_label,
+                    used_locations=set(), exclude_locations=exclude
+                )
+                if fallback:
+                    location_selection_method = "Location reuse (already assigned to another HU)"
+                    warnings.append(_("HU {0}: no free destination matching rules; reusing {1} already assigned to another HU.")
+                                    .format(hu, fallback))
+                    dest_locations = [fallback]
+            
             # Emergency bypass: try without level filtering (only if allowed)
-            if _get_allow_emergency_fallback():
+            if not dest_locations and _get_allow_emergency_fallback():
                 frappe.logger().warning(f"Emergency bypass: trying without level filtering for HU {hu}")
                 emergency_dest = _select_dest_for_hu_emergency(
                     item=rep_item, company=company, branch=branch,
@@ -1948,27 +2046,11 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                     location_selection_method = "Emergency selection (level filtering bypassed)"
                     warnings.append(_("HU {0}: using emergency location {1} (level filtering bypassed).")
                                     .format(hu, emergency_dest))
-                    dest = emergency_dest
-                    # Try to get location details for narrative
-                    try:
-                        candidates = get_cached_candidates(
-                            item=rep_item, company=company, branch=branch,
-                            exclude_locs=exclude, quantity=total_quantity, handling_unit=hu
-                        )
-                        for candidate in candidates:
-                            if candidate.get("location") == dest:
-                                location_selection_details = {
-                                    "is_consolidation": candidate.get("current_quantity", 0) > 0,
-                                    "capacity_utilization": candidate.get("capacity_utilization", {}),
-                                    "bin_priority": candidate.get("bin_priority", 999999)
-                                }
-                                break
-                    except Exception as e:
-                        frappe.logger().warning(f"Error getting location details for narrative: {str(e)}")
-            else:
+                    dest_locations = [emergency_dest]
+            elif not dest_locations:
                 frappe.logger().warning(f"Emergency fallback disabled - no destination found for HU {hu} within level limit")
 
-        if not dest:
+        if not dest_locations:
             # Perform detailed storage type validation to provide specific error messages
             validation_result = _validate_storage_type_restrictions(rep_item, company, branch)
             
@@ -2022,141 +2104,192 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 warnings.append(". ".join(reason_parts) + ".")
             continue
 
-        # mark used to avoid assigning the same location to a different HU
-        used_locations.add(dest)
+        # Mark all used locations to avoid assigning to a different HU
+        for loc in dest_locations:
+            used_locations.add(loc)
 
         # consolidation warnings for this HU
         items_in_hu = { (rr.get("item") or "").strip() for rr in rows if (rr.get("item") or "").strip() }
         for msg in _hu_consolidation_violations(hu, items_in_hu):
             warnings.append(msg)
 
-        # Generate location allocation note
-        location_note = ""
-        if dest:
-            location_note = _generate_location_allocation_note(
-                hu=hu,
-                location=dest,
-                item=rep_item,
-                quantity=total_quantity,
-                selection_method=location_selection_method or "Standard selection",
-                location_details=location_selection_details
-            )
+        # Calculate split values for multiple locations
+        num_locations = len(dest_locations) if dest_locations else 1
+        split_precision = _get_split_quantity_decimal_precision()
         
-        # append putaway rows for each original order line, but pin the HU and destination
+        # append putaway rows for each original order line, split across locations if needed
         for rr in rows:
             qty = flt(rr.get("quantity") or 0)
             if qty <= 0:
                 continue
             item = rr.get("item")
             
-            # Combine HU allocation note (if available) with location allocation note
-            hu_note = rr.get("_hu_allocation_note", "")
-            allocation_notes = []
+            # Calculate split values per location
+            qty_per_location = round(qty / num_locations, split_precision) if num_locations > 0 else qty
+            volume_per_location = None
+            weight_per_location = None
+            length_per_location = None
+            width_per_location = None
+            height_per_location = None
             
-            # If no HU note exists but HU is specified in order, create a note
-            if not hu_note and hu:
-                hu_note = f"Handling Unit Allocation: {hu}\n  • Handling Unit Source: Order (Specific Handling Unit)\n    → Taken directly from order (specific handling unit specified)"
-                allocation_notes.append(hu_note)
-            elif hu_note:
-                allocation_notes.append(hu_note)
+            if num_locations > 1:
+                # Split volume, weight, and dimensions across locations
+                if "volume" in jf and rr.get("volume"):
+                    volume_per_location = round(flt(rr.get("volume")) / num_locations, 3)
+                if "weight" in jf and rr.get("weight"):
+                    weight_per_location = round(flt(rr.get("weight")) / num_locations, 2)
+                if "length" in jf and rr.get("length"):
+                    length_per_location = round(flt(rr.get("length")) / num_locations, 2)
+                if "width" in jf and rr.get("width"):
+                    width_per_location = round(flt(rr.get("width")) / num_locations, 2)
+                if "height" in jf and rr.get("height"):
+                    height_per_location = round(flt(rr.get("height")) / num_locations, 2)
             
-            if location_note:
-                allocation_notes.append(location_note)
-            
-            combined_allocation_note = "\n\n".join(allocation_notes) if allocation_notes else ""
-            
-            # Check for VAS action (Pick or Putaway) and signed quantity for VAS jobs
-            vas_action = None
-            signed_qty = None
-            if hasattr(rr, "vas_action"):
-                vas_action = getattr(rr, "vas_action", None)
-            elif isinstance(rr, dict) and "vas_action" in rr:
-                vas_action = rr.get("vas_action")
-            else:
-                # Try to get from job's action map using order item name as key
-                if hasattr(job, '_vas_action_map') and isinstance(job._vas_action_map, dict):
-                    order_item_name = rr.get("name")  # Use order item name as key
-                    if order_item_name:
-                        vas_action = job._vas_action_map.get(order_item_name)
-                        if hasattr(job, '_vas_quantity_map') and isinstance(job._vas_quantity_map, dict):
-                            signed_qty = job._vas_quantity_map.get(order_item_name)
-                        if vas_action:
-                            frappe.logger().info(f"Found vas_action '{vas_action}' and signed_qty {signed_qty} for order item {order_item_name}")
+            # Create items for each location
+            remaining_qty = qty
+            for loc_idx, dest_loc in enumerate(dest_locations):
+                # Calculate quantity for this location (last location gets remainder to avoid rounding issues)
+                if loc_idx == len(dest_locations) - 1:
+                    loc_qty = remaining_qty
+                else:
+                    loc_qty = qty_per_location
+                    remaining_qty -= loc_qty
+                
+                if loc_qty <= 0:
+                    continue
+                
+                # Combine HU allocation note (if available) with location allocation note
+                hu_note = rr.get("_hu_allocation_note", "")
+                allocation_notes = []
+                
+                # If no HU note exists but HU is specified in order, create a note
+                if not hu_note and hu:
+                    hu_note = f"Handling Unit Allocation: {hu}\n  • Handling Unit Source: Order (Specific Handling Unit)\n    → Taken directly from order (specific handling unit specified)"
+                    allocation_notes.append(hu_note)
+                elif hu_note:
+                    allocation_notes.append(hu_note)
+                
+                # Add location overflow note if multiple locations
+                if num_locations > 1:
+                    location_overflow_note = f"Location Allocation: {dest_loc}\n  • Location Overflow: Split across {num_locations} locations\n  • Location {loc_idx + 1} of {num_locations}\n  • Quantity: {loc_qty} of {qty} total"
+                    allocation_notes.append(location_overflow_note)
+                else:
+                    # Single location - use standard location note
+                    location_note = _generate_location_allocation_note(
+                        hu=hu,
+                        location=dest_loc,
+                        item=rep_item,
+                        quantity=loc_qty,
+                        selection_method=location_selection_method or "Standard selection",
+                        location_details=location_selection_details
+                    )
+                    if location_note:
+                        allocation_notes.append(location_note)
+                
+                combined_allocation_note = "\n\n".join(allocation_notes) if allocation_notes else ""
+                
+                # Check for VAS action (Pick or Putaway) and signed quantity for VAS jobs
+                vas_action = None
+                signed_qty = None
+                if hasattr(rr, "vas_action"):
+                    vas_action = getattr(rr, "vas_action", None)
+                elif isinstance(rr, dict) and "vas_action" in rr:
+                    vas_action = rr.get("vas_action")
+                else:
+                    # Try to get from job's action map using order item name as key
+                    if hasattr(job, '_vas_action_map') and isinstance(job._vas_action_map, dict):
+                        order_item_name = rr.get("name")  # Use order item name as key
+                        if order_item_name:
+                            vas_action = job._vas_action_map.get(order_item_name)
+                            if hasattr(job, '_vas_quantity_map') and isinstance(job._vas_quantity_map, dict):
+                                signed_qty = job._vas_quantity_map.get(order_item_name)
+                            if vas_action:
+                                frappe.logger().info(f"Found vas_action '{vas_action}' and signed_qty {signed_qty} for order item {order_item_name}")
+                            else:
+                                frappe.logger().debug(f"vas_action not found for order item {order_item_name}. Available keys: {list(job._vas_action_map.keys())[:3]}")
                         else:
-                            frappe.logger().debug(f"vas_action not found for order item {order_item_name}. Available keys: {list(job._vas_action_map.keys())[:3]}")
+                            frappe.logger().warning(f"Order row has no 'name' field: {list(rr.keys())[:5]}")
                     else:
-                        frappe.logger().warning(f"Order row has no 'name' field: {list(rr.keys())[:5]}")
-                else:
-                    # Not a VAS job or no action map
-                    pass
-            
-            # Use signed quantity if available, otherwise use positive qty
-            item_quantity = signed_qty if signed_qty is not None else qty
-            
-            payload = {
-                "item": item,
-                "quantity": item_quantity,  # Can be negative for pick items
-                "serial_no": rr.get("serial_no") or None,
-                "batch_no": rr.get("batch_no") or None,
-                "handling_unit": hu,
-            }
-            
-            # Set VAS action field if available
-            if vas_action:
-                if "vas_action" in jf:
-                    payload["vas_action"] = vas_action
-                    frappe.logger().info(f"Set vas_action='{vas_action}' and quantity={item_quantity} for item {item}")
-                else:
-                    # Field might not be in meta cache, but try to set it anyway
-                    payload["vas_action"] = vas_action
-                    frappe.logger().warning(f"vas_action field not found in meta, but attempting to set it anyway. Fieldnames in meta: {sorted(jf)[:10]}...")
-            
-            # Add note for VAS items
-            if vas_action:
-                vas_note = f"VAS {vas_action} Item (from BOM)\n  • Parent Item: {rr.get('_vas_parent_item', item)}\n  • Action: {vas_action}\n  • Quantity: {item_quantity} ({'negative' if item_quantity < 0 else 'positive'})"
-                if combined_allocation_note:
-                    combined_allocation_note = vas_note + "\n\n" + combined_allocation_note
-                else:
-                    combined_allocation_note = vas_note
-            if dest_loc_field:
-                payload[dest_loc_field] = dest
-            if "uom" in jf and rr.get("uom"):
-                payload["uom"] = rr.get("uom")
-            if "source_row" in jf:
-                payload["source_row"] = rr.get("name")
-            if "source_parent" in jf:
-                payload["source_parent"] = job.name
-            
-            # Add allocation notes if field exists
-            if "allocation_notes" in jf and combined_allocation_note:
-                payload["allocation_notes"] = combined_allocation_note
+                        # Not a VAS job or no action map
+                        pass
+                
+                # Use signed quantity if available, otherwise use positive qty
+                item_quantity = signed_qty if signed_qty is not None else loc_qty
+                if signed_qty is not None and num_locations > 1:
+                    # Split signed quantity proportionally
+                    item_quantity = round(signed_qty * (loc_qty / qty), split_precision) if qty > 0 else signed_qty / num_locations
+                
+                payload = {
+                    "item": item,
+                    "quantity": item_quantity,  # Can be negative for pick items
+                    "serial_no": rr.get("serial_no") or None,
+                    "batch_no": rr.get("batch_no") or None,
+                    "handling_unit": hu,
+                }
+                
+                # Set VAS action field if available
+                if vas_action:
+                    if "vas_action" in jf:
+                        payload["vas_action"] = vas_action
+                        frappe.logger().info(f"Set vas_action='{vas_action}' and quantity={item_quantity} for item {item}")
+                    else:
+                        # Field might not be in meta cache, but try to set it anyway
+                        payload["vas_action"] = vas_action
+                        frappe.logger().warning(f"vas_action field not found in meta, but attempting to set it anyway. Fieldnames in meta: {sorted(jf)[:10]}...")
+                
+                # Add note for VAS items
+                if vas_action:
+                    vas_note = f"VAS {vas_action} Item (from BOM)\n  • Parent Item: {rr.get('_vas_parent_item', item)}\n  • Action: {vas_action}\n  • Quantity: {item_quantity} ({'negative' if item_quantity < 0 else 'positive'})"
+                    if combined_allocation_note:
+                        combined_allocation_note = vas_note + "\n\n" + combined_allocation_note
+                    else:
+                        combined_allocation_note = vas_note
+                
+                if dest_loc_field:
+                    payload[dest_loc_field] = dest_loc
+                if "uom" in jf and rr.get("uom"):
+                    payload["uom"] = rr.get("uom")
+                if "source_row" in jf:
+                    payload["source_row"] = rr.get("name")
+                if "source_parent" in jf:
+                    payload["source_parent"] = job.name
+                
+                # Add allocation notes if field exists
+                if "allocation_notes" in jf and combined_allocation_note:
+                    payload["allocation_notes"] = combined_allocation_note
 
-            # Override with order-specific physical dimensions if available
-            if "length" in jf and rr.get("length"):
-                payload["length"] = flt(rr.get("length"))
-            if "width" in jf and rr.get("width"):
-                payload["width"] = flt(rr.get("width"))
-            if "height" in jf and rr.get("height"):
-                payload["height"] = flt(rr.get("height"))
-            if "volume" in jf and rr.get("volume"):
-                payload["volume"] = flt(rr.get("volume"))
-            if "weight" in jf and rr.get("weight"):
-                payload["weight"] = flt(rr.get("weight"))
-            if "volume_uom" in jf and rr.get("volume_uom"):
-                payload["volume_uom"] = rr.get("volume_uom")
-            if "weight_uom" in jf and rr.get("weight_uom"):
-                payload["weight_uom"] = rr.get("weight_uom")
-            if "dimension_uom" in jf and rr.get("dimension_uom"):
-                payload["dimension_uom"] = rr.get("dimension_uom")
+                # Override with order-specific physical dimensions if available (split if multiple locations)
+                if "length" in jf:
+                    payload["length"] = length_per_location if length_per_location is not None else flt(rr.get("length"))
+                if "width" in jf:
+                    payload["width"] = width_per_location if width_per_location is not None else flt(rr.get("width"))
+                if "height" in jf:
+                    payload["height"] = height_per_location if height_per_location is not None else flt(rr.get("height"))
+                if "volume" in jf:
+                    payload["volume"] = volume_per_location if volume_per_location is not None else flt(rr.get("volume"))
+                if "weight" in jf:
+                    payload["weight"] = weight_per_location if weight_per_location is not None else flt(rr.get("weight"))
+                if "volume_uom" in jf and rr.get("volume_uom"):
+                    payload["volume_uom"] = rr.get("volume_uom")
+                if "weight_uom" in jf and rr.get("weight_uom"):
+                    payload["weight_uom"] = rr.get("weight_uom")
+                if "dimension_uom" in jf and rr.get("dimension_uom"):
+                    payload["dimension_uom"] = rr.get("dimension_uom")
 
-            _assert_hu_in_job_scope(hu, company, branch, ctx=_("Handling Unit"))
-            _assert_location_in_job_scope(dest, company, branch, ctx=_("Destination Location"))
+                _assert_hu_in_job_scope(hu, company, branch, ctx=_("Handling Unit"))
+                _assert_location_in_job_scope(dest_loc, company, branch, ctx=_("Destination Location"))
 
-            job.append("items", payload)
-            created_rows += 1
-            created_qty  += item_quantity  # Can be negative for pick items
+                job.append("items", payload)
+                created_rows += 1
+                created_qty += item_quantity  # Can be negative for pick items
 
-            details.append({"order_row": rr.get("name"), "item": item, "qty": qty, "dest_location": dest, "dest_handling_unit": hu})
+                details.append({
+                    "order_row": rr.get("name"), 
+                    "item": item, 
+                    "qty": loc_qty, 
+                    "dest_location": dest_loc, 
+                    "dest_handling_unit": hu
+                })
 
     return created_rows, created_qty, details, warnings
 

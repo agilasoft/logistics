@@ -22,6 +22,7 @@
   "max_height",
   "max_width",
   "max_length",
+  "storage_location_size",
   "capacity_uom",
   "weight_uom",
   "current_volume",
@@ -151,6 +152,14 @@
    "fieldtype": "Float",
    "label": "Max Length",
    "precision": "2"
+  },
+  {
+   "default": "1",
+   "description": "Number of storage locations this handling unit will occupy. When location overflow is enabled, the system will split the handling unit's quantity, volume, and dimensions across this many locations.",
+   "fetch_from": "type.storage_location_size",
+   "fieldname": "storage_location_size",
+   "fieldtype": "Int",
+   "label": "Storage Location Size"
   },
   {
    "fieldname": "capacity_uom",
