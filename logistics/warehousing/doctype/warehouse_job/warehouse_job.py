@@ -427,9 +427,24 @@ class WarehouseJob(Document):
                 # Get handling unit capacity limits
                 capacity_info = self._get_handling_unit_capacity(hu_name)
                 
-                # Check if totals exceed capacity
-                volume_exceeded = total_volume > capacity_info.get('max_volume', 0) if capacity_info.get('max_volume', 0) > 0 else False
-                weight_exceeded = total_weight > capacity_info.get('max_weight', 0) if capacity_info.get('max_weight', 0) > 0 else False
+                # Get capacity tolerance percentage from warehouse settings
+                try:
+                    settings = frappe.get_doc("Warehouse Settings", company)
+                    tolerance_percentage = flt(getattr(settings, "capacity_tolerance_percentage", 0.0))
+                except:
+                    tolerance_percentage = 0.0
+                
+                # Calculate allowed capacity with tolerance (e.g., 5% tolerance: max * 1.05)
+                tolerance_multiplier = 1.0 + (tolerance_percentage / 100.0)
+                epsilon = 1e-5  # Small epsilon for floating point precision
+                
+                max_volume = capacity_info.get('max_volume', 0)
+                max_weight = capacity_info.get('max_weight', 0)
+                allowed_volume = max_volume * tolerance_multiplier if max_volume > 0 else 0
+                allowed_weight = max_weight * tolerance_multiplier if max_weight > 0 else 0
+                
+                volume_exceeded = (total_volume > allowed_volume + epsilon) if max_volume > 0 else False
+                weight_exceeded = (total_weight > allowed_weight + epsilon) if max_weight > 0 else False
                 capacity_warning = volume_exceeded or weight_exceeded
                 
                 handling_units.append({
@@ -825,9 +840,24 @@ class WarehouseJob(Document):
                 # Get storage location capacity limits
                 capacity_info = self._get_storage_location_capacity(loc_name)
                 
-                # Check if totals exceed capacity
-                volume_exceeded = total_volume > capacity_info.get('max_volume', 0) if capacity_info.get('max_volume', 0) > 0 else False
-                weight_exceeded = total_weight > capacity_info.get('max_weight', 0) if capacity_info.get('max_weight', 0) > 0 else False
+                # Get capacity tolerance percentage from warehouse settings
+                try:
+                    settings = frappe.get_doc("Warehouse Settings", company)
+                    tolerance_percentage = flt(getattr(settings, "capacity_tolerance_percentage", 0.0))
+                except:
+                    tolerance_percentage = 0.0
+                
+                # Calculate allowed capacity with tolerance (e.g., 5% tolerance: max * 1.05)
+                tolerance_multiplier = 1.0 + (tolerance_percentage / 100.0)
+                epsilon = 1e-5  # Small epsilon for floating point precision
+                
+                max_volume = capacity_info.get('max_volume', 0)
+                max_weight = capacity_info.get('max_weight', 0)
+                allowed_volume = max_volume * tolerance_multiplier if max_volume > 0 else 0
+                allowed_weight = max_weight * tolerance_multiplier if max_weight > 0 else 0
+                
+                volume_exceeded = (total_volume > allowed_volume + epsilon) if max_volume > 0 else False
+                weight_exceeded = (total_weight > allowed_weight + epsilon) if max_weight > 0 else False
                 capacity_warning = volume_exceeded or weight_exceeded
                 
                 locations.append({

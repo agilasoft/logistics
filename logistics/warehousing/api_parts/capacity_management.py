@@ -37,7 +37,8 @@ class CapacityManager:
         quantity: float,
         handling_unit: Optional[str] = None,
         batch_no: Optional[str] = None,
-        serial_no: Optional[str] = None
+        serial_no: Optional[str] = None,
+        tolerance_percentage: float = 0.0
     ) -> Dict[str, Any]:
         """
         Comprehensive capacity validation for storage locations
@@ -49,6 +50,7 @@ class CapacityManager:
             handling_unit: Handling unit (optional)
             batch_no: Batch number (optional)
             serial_no: Serial number (optional)
+            tolerance_percentage: Allowable percentage by which capacity can be exceeded (default: 0.0)
             
         Returns:
             Dict with validation results and capacity information
@@ -75,13 +77,13 @@ class CapacityManager:
             
             # Validate capacity constraints
             validation_results = self._validate_capacity_constraints(
-                location_data, required_capacity, current_usage
+                location_data, required_capacity, current_usage, tolerance_percentage
             )
             
             # Check handling unit capacity if specified
             if handling_unit:
                 hu_validation = self._validate_handling_unit_capacity(
-                    handling_unit, item_data, quantity
+                    handling_unit, item_data, quantity, tolerance_percentage
                 )
                 validation_results.update(hu_validation)
             
@@ -265,9 +267,17 @@ class CapacityManager:
         self, 
         location_data: Dict[str, Any], 
         required_capacity: Dict[str, Any],
-        current_usage: Dict[str, Any]
+        current_usage: Dict[str, Any],
+        tolerance_percentage: float = 0.0
     ) -> Dict[str, Any]:
-        """Validate capacity constraints against location limits"""
+        """Validate capacity constraints against location limits
+        
+        Args:
+            location_data: Location capacity data
+            required_capacity: Required capacity for the operation
+            current_usage: Current capacity usage
+            tolerance_percentage: Allowable percentage by which capacity can be exceeded (default: 0.0)
+        """
         validation_results = {
             "valid": True,
             "violations": [],
@@ -280,12 +290,19 @@ class CapacityManager:
         projected_weight = current_usage["weight"] + required_capacity["weight"]
         projected_hu_count = current_usage["hu_count"] + (1 if required_capacity.get("handling_unit_capacity") else 0)
         
+        # Calculate allowed capacity with tolerance (e.g., 5% tolerance: max * 1.05)
+        tolerance_multiplier = 1.0 + (flt(tolerance_percentage) / 100.0)
+        
         # Validate volume capacity
         if location_data["max_volume"] > 0:
-            if projected_volume > location_data["max_volume"]:
+            allowed_volume = location_data["max_volume"] * tolerance_multiplier
+            # Also use small epsilon for floating point precision
+            epsilon = 1e-5
+            if projected_volume > allowed_volume + epsilon:
                 validation_results["valid"] = False
+                tolerance_msg = f" (tolerance: {tolerance_percentage:.1f}%)" if tolerance_percentage > 0 else ""
                 validation_results["violations"].append(
-                    f"Volume capacity exceeded: {projected_volume:.3f} > {location_data['max_volume']:.3f}"
+                    f"Volume capacity exceeded: {projected_volume:.3f} > {location_data['max_volume']:.3f}{tolerance_msg}"
                 )
             else:
                 utilization = (projected_volume / location_data["max_volume"]) * 100
@@ -297,10 +314,14 @@ class CapacityManager:
         
         # Validate weight capacity
         if location_data["max_weight"] > 0:
-            if projected_weight > location_data["max_weight"]:
+            allowed_weight = location_data["max_weight"] * tolerance_multiplier
+            # Also use small epsilon for floating point precision
+            epsilon = 1e-5
+            if projected_weight > allowed_weight + epsilon:
                 validation_results["valid"] = False
+                tolerance_msg = f" (tolerance: {tolerance_percentage:.1f}%)" if tolerance_percentage > 0 else ""
                 validation_results["violations"].append(
-                    f"Weight capacity exceeded: {projected_weight:.2f} > {location_data['max_weight']:.2f}"
+                    f"Weight capacity exceeded: {projected_weight:.2f} > {location_data['max_weight']:.2f}{tolerance_msg}"
                 )
             else:
                 utilization = (projected_weight / location_data["max_weight"]) * 100
@@ -331,9 +352,17 @@ class CapacityManager:
         self, 
         handling_unit: str, 
         item_data: Dict[str, Any], 
-        quantity: float
+        quantity: float,
+        tolerance_percentage: float = 0.0
     ) -> Dict[str, Any]:
-        """Validate handling unit capacity constraints"""
+        """Validate handling unit capacity constraints
+        
+        Args:
+            handling_unit: Handling unit name
+            item_data: Item capacity data
+            quantity: Quantity to validate
+            tolerance_percentage: Allowable percentage by which capacity can be exceeded (default: 0.0)
+        """
         try:
             hu_data = self._get_handling_unit_capacity_data(handling_unit)
             if not hu_data:
@@ -353,22 +382,33 @@ class CapacityManager:
                 "warnings": []
             }
             
+            # Calculate allowed capacity with tolerance (e.g., 5% tolerance: max * 1.05)
+            tolerance_multiplier = 1.0 + (flt(tolerance_percentage) / 100.0)
+            
             # Check volume capacity
             if hu_data.get("max_volume", 0) > 0:
                 projected_volume = current_usage["volume"] + required_volume
-                if projected_volume > hu_data["max_volume"]:
+                allowed_volume = hu_data["max_volume"] * tolerance_multiplier
+                # Also use small epsilon for floating point precision
+                epsilon = 1e-5
+                if projected_volume > allowed_volume + epsilon:
                     hu_validation["valid"] = False
+                    tolerance_msg = f" (tolerance: {tolerance_percentage:.1f}%)" if tolerance_percentage > 0 else ""
                     hu_validation["violations"].append(
-                        f"Handling unit volume capacity exceeded: {projected_volume:.3f} > {hu_data['max_volume']:.3f}"
+                        f"Handling unit volume capacity exceeded: {projected_volume:.3f} > {hu_data['max_volume']:.3f}{tolerance_msg}"
                     )
             
             # Check weight capacity
             if hu_data.get("max_weight", 0) > 0:
                 projected_weight = current_usage["weight"] + required_weight
-                if projected_weight > hu_data["max_weight"]:
+                allowed_weight = hu_data["max_weight"] * tolerance_multiplier
+                # Also use small epsilon for floating point precision
+                epsilon = 1e-5
+                if projected_weight > allowed_weight + epsilon:
                     hu_validation["valid"] = False
+                    tolerance_msg = f" (tolerance: {tolerance_percentage:.1f}%)" if tolerance_percentage > 0 else ""
                     hu_validation["violations"].append(
-                        f"Handling unit weight capacity exceeded: {projected_weight:.2f} > {hu_data['max_weight']:.2f}"
+                        f"Handling unit weight capacity exceeded: {projected_weight:.2f} > {hu_data['max_weight']:.2f}{tolerance_msg}"
                     )
             
             return hu_validation
@@ -595,6 +635,9 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
         if not getattr(settings, "enable_capacity_management", False):
             return  # Capacity management not enabled, skip validation
         
+        # Get capacity tolerance percentage from settings (default: 0.0 for strict enforcement)
+        tolerance_percentage = flt(getattr(settings, "capacity_tolerance_percentage", 0.0))
+        
         # Initialize capacity manager
         capacity_manager = CapacityManager()
         
@@ -669,7 +712,8 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                     quantity=abs(quantity),
                     handling_unit=handling_unit,
                     batch_no=batch_no,
-                    serial_no=serial_no
+                    serial_no=serial_no,
+                    tolerance_percentage=tolerance_percentage
                 )
                 
                 # Check if validation failed
@@ -701,7 +745,8 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                     hu_validation = capacity_manager._validate_handling_unit_capacity(
                         handling_unit=handling_unit,
                         item_data=capacity_manager._get_item_capacity_data(item),
-                        quantity=abs(quantity)
+                        quantity=abs(quantity),
+                        tolerance_percentage=tolerance_percentage
                     )
                     
                     hu_is_valid = hu_validation.get("valid", True)
