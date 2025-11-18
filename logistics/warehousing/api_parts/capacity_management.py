@@ -657,45 +657,77 @@ def validate_warehouse_job_capacity(warehouse_job, company=None):
                 continue
             
             # Determine which location to validate based on job type
+            # IMPORTANT: Only check capacity for positive quantities (putaway items) that add items to locations
+            # Negative quantities (pick items) remove items, so no capacity validation needed
+            # NOTE: VAS Action (Pick/Putaway) only applies to VAS job types, not Move or other job types
             job_type = (getattr(job, "type", "") or "").strip()
             
             # For Putaway jobs, validate destination location (to_location or location)
             # For Pick jobs, we're removing items, so no capacity validation needed
-            # For Move jobs, validate destination location (to_location for positive qty, location for negative qty)
+            # For Move jobs, only validate destination location for positive qty (putaway items)
+            #   - Move jobs do NOT use VAS Action field
             # For Receiving/Inbound, validate staging area
-            # For Stocktake, validate location (if adding items)
-            # For VAS jobs, validate destination location for putaway operations
+            # For Stocktake, validate location only if adding items (positive qty)
+            # For VAS jobs, validate quantity sign matches vas_action, then validate capacity when vas_action = Putaway
+            #   - VAS Action field only applies to VAS job types
             # For Release, we're removing items, so no capacity validation needed
             
             target_location = None
             if job_type == "Putaway":
-                # Validate destination location
+                # Validate destination location (always adding items)
                 target_location = to_location or location
             elif job_type == "Move":
-                # Validate destination location (positive qty = destination, negative qty = source)
+                # Only validate capacity for positive quantities (putaway items going to destination)
+                # Negative quantities remove items from source, so skip capacity validation
                 if quantity > 0:
                     target_location = to_location or location
                 else:
                     # Negative qty means we're removing from this location, skip validation
                     continue
             elif job_type in ("Receiving", "Inbound"):
-                # Validate staging area
+                # Validate staging area (always adding items)
                 target_location = location
             elif job_type == "Stocktake":
-                # Validate location if adding items (positive qty)
+                # Only validate capacity if adding items (positive qty)
                 if quantity > 0:
                     target_location = location
                 else:
                     # Negative qty means we're removing from this location, skip validation
                     continue
             elif job_type == "VAS":
-                # For VAS jobs, validate destination location for putaway operations
-                # Check if this is a putaway operation (vas_action = Putaway or positive qty)
+                # VAS Action validation: Only applies to VAS job types
+                # For VAS jobs, validate that quantity sign matches vas_action
+                # Negative quantities should have vas_action = Pick
+                # Positive quantities should have vas_action = Putaway
                 vas_action = getattr(item_row, "vas_action", None)
-                if vas_action == "Putaway" or (not vas_action and quantity > 0):
+                
+                # Validate quantity sign matches vas_action
+                if quantity < 0:
+                    if vas_action != "Pick":
+                        violations.append({
+                            "row": getattr(item_row, "idx", "?"),
+                            "item": item,
+                            "location": location,
+                            "handling_unit": handling_unit,
+                            "violations": [f"Negative quantity requires vas_action = 'Pick', but found '{vas_action or '(empty)'}'"]
+                        })
+                        continue
+                    # Negative qty with Pick action - skip capacity validation (removing items)
+                    continue
+                elif quantity > 0:
+                    if vas_action != "Putaway":
+                        violations.append({
+                            "row": getattr(item_row, "idx", "?"),
+                            "item": item,
+                            "location": location,
+                            "handling_unit": handling_unit,
+                            "violations": [f"Positive quantity requires vas_action = 'Putaway', but found '{vas_action or '(empty)'}'"]
+                        })
+                        continue
+                    # Positive qty with Putaway action - validate capacity
                     target_location = to_location or location
                 else:
-                    # Pick operation, skip validation
+                    # Zero quantity, skip validation
                     continue
             else:
                 # For Pick, Release, and other outbound operations, skip validation

@@ -2235,30 +2235,34 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 
                 combined_allocation_note = "\n\n".join(allocation_notes) if allocation_notes else ""
                 
-                # Check for VAS action (Pick or Putaway) and signed quantity for VAS jobs
+                # Check for VAS action (Pick or Putaway) and signed quantity for VAS jobs only
                 vas_action = None
                 signed_qty = None
-                if hasattr(rr, "vas_action"):
-                    vas_action = getattr(rr, "vas_action", None)
-                elif isinstance(rr, dict) and "vas_action" in rr:
-                    vas_action = rr.get("vas_action")
-                else:
-                    # Try to get from job's action map using order item name as key
-                    if hasattr(job, '_vas_action_map') and isinstance(job._vas_action_map, dict):
-                        order_item_name = rr.get("name")  # Use order item name as key
-                        if order_item_name:
-                            vas_action = job._vas_action_map.get(order_item_name)
-                            if hasattr(job, '_vas_quantity_map') and isinstance(job._vas_quantity_map, dict):
-                                signed_qty = job._vas_quantity_map.get(order_item_name)
-                            if vas_action:
-                                frappe.logger().info(f"Found vas_action '{vas_action}' and signed_qty {signed_qty} for order item {order_item_name}")
-                            else:
-                                frappe.logger().debug(f"vas_action not found for order item {order_item_name}. Available keys: {list(job._vas_action_map.keys())[:3]}")
-                        else:
-                            frappe.logger().warning(f"Order row has no 'name' field: {list(rr.keys())[:5]}")
+                job_type = (getattr(job, 'type', '') or '').strip()
+                is_vas_job = job_type == "VAS"
+                
+                if is_vas_job:
+                    if hasattr(rr, "vas_action"):
+                        vas_action = getattr(rr, "vas_action", None)
+                    elif isinstance(rr, dict) and "vas_action" in rr:
+                        vas_action = rr.get("vas_action")
                     else:
-                        # Not a VAS job or no action map
-                        pass
+                        # Try to get from job's action map using order item name as key
+                        if hasattr(job, '_vas_action_map') and isinstance(job._vas_action_map, dict):
+                            order_item_name = rr.get("name")  # Use order item name as key
+                            if order_item_name:
+                                vas_action = job._vas_action_map.get(order_item_name)
+                                if hasattr(job, '_vas_quantity_map') and isinstance(job._vas_quantity_map, dict):
+                                    signed_qty = job._vas_quantity_map.get(order_item_name)
+                                if vas_action:
+                                    frappe.logger().info(f"Found vas_action '{vas_action}' and signed_qty {signed_qty} for order item {order_item_name}")
+                                else:
+                                    frappe.logger().debug(f"vas_action not found for order item {order_item_name}. Available keys: {list(job._vas_action_map.keys())[:3]}")
+                            else:
+                                frappe.logger().warning(f"Order row has no 'name' field: {list(rr.keys())[:5]}")
+                        else:
+                            # Not a VAS job or no action map
+                            pass
                 
                 # Use signed quantity if available, otherwise use positive qty
                 item_quantity = signed_qty if signed_qty is not None else loc_qty
@@ -2274,8 +2278,8 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                     "handling_unit": hu,
                 }
                 
-                # Set VAS action field if available
-                if vas_action:
+                # Set VAS action field only for VAS jobs
+                if vas_action and is_vas_job:
                     if "vas_action" in jf:
                         payload["vas_action"] = vas_action
                         frappe.logger().info(f"Set vas_action='{vas_action}' and quantity={item_quantity} for item {item}")
@@ -2284,8 +2288,8 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                         payload["vas_action"] = vas_action
                         frappe.logger().warning(f"vas_action field not found in meta, but attempting to set it anyway. Fieldnames in meta: {sorted(jf)[:10]}...")
                 
-                # Add note for VAS items
-                if vas_action:
+                # Add note for VAS items (only for VAS jobs)
+                if vas_action and is_vas_job:
                     vas_note = f"VAS {vas_action} Item (from BOM)\n  • Parent Item: {rr.get('_vas_parent_item', item)}\n  • Action: {vas_action}\n  • Quantity: {item_quantity} ({'negative' if item_quantity < 0 else 'positive'})"
                     if combined_allocation_note:
                         combined_allocation_note = vas_note + "\n\n" + combined_allocation_note
