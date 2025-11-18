@@ -28,6 +28,7 @@
   "capacity_section",
   "enable_capacity_management",
   "prevent_exceeding_capacity_limit",
+  "enable_location_overflow",
   "default_volume_uom",
   "volume_calculation_precision",
   "default_weight_uom",
@@ -157,6 +158,13 @@
    "fieldname": "prevent_exceeding_capacity_limit",
    "fieldtype": "Check",
    "label": "Prevent Exceeding Capacity Limit"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, allows handling units to be split across multiple storage locations based on the 'Storage Location Size' field in the Handling Unit. This enables overflow allocation when a handling unit exceeds a single location's capacity.",
+   "fieldname": "enable_location_overflow",
+   "fieldtype": "Check",
+   "label": "Enable Location Overflow"
   },
   {
    "default": "80",
