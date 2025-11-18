@@ -373,6 +373,20 @@
    "write": 1
   }
  ],
+ "indexes": [
+  {
+   "index_name": "idx_company_branch_staging_storage",
+   "fields": ["company", "branch", "staging_area", "storage_type"]
+  },
+  {
+   "index_name": "idx_company_branch_status",
+   "fields": ["company", "branch", "status"]
+  },
+  {
+   "index_name": "idx_storage_type_staging_status",
+   "fields": ["storage_type", "staging_area", "status"]
+  }
+ ],
  "row_format": "Dynamic",
  "search_fields": "location_code,storage_type",
  "sort_field": "modified",

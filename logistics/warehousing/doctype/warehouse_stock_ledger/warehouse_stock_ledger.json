@@ -168,6 +168,18 @@
   {
    "index_name": "idx_item_posting_date",
    "fields": ["item", "posting_date"]
+  },
+  {
+   "index_name": "idx_item_storage_location",
+   "fields": ["item", "storage_location"]
+  },
+  {
+   "index_name": "idx_handling_unit_storage_location",
+   "fields": ["handling_unit", "storage_location"]
+  },
+  {
+   "index_name": "idx_handling_unit_item",
+   "fields": ["handling_unit", "item"]
   }
  ],
  "row_format": "Dynamic",
