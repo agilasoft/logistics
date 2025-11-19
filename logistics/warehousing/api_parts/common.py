@@ -523,13 +523,18 @@ def _get_item_uom(item: Optional[str]) -> Optional[str]:
 
 def _fetch_job_order_items(job_name: str) -> List[Dict[str, Any]]:
     """Only request fields that are standard across scenarios."""
-    return frappe.get_all(
-        "Warehouse Job Order Items",
-        filters={"parent": job_name, "parenttype": "Warehouse Job"},
-        fields=["name", "parent", "item", "quantity", "uom", "serial_no", "batch_no", "handling_unit", "handling_unit_type",
-                "length", "width", "height", "volume", "weight", "volume_uom", "weight_uom", "dimension_uom"],
-        order_by="idx asc",
-        ignore_permissions=True,
+    # Use frappe.db.sql() instead of frappe.get_all() to avoid DatabaseQuery.execute(as_dict=True) error
+    # in newer Frappe versions
+    return frappe.db.sql(
+        """
+        SELECT name, parent, item, quantity, uom, serial_no, batch_no, handling_unit, handling_unit_type,
+               length, width, height, volume, weight, volume_uom, weight_uom, dimension_uom
+        FROM `tabWarehouse Job Order Items`
+        WHERE parent = %s AND parenttype = 'Warehouse Job'
+        ORDER BY idx ASC
+        """,
+        (job_name,),
+        as_dict=True
     ) or []
 
 def _get_item_rules(item: str) -> Dict[str, Any]:

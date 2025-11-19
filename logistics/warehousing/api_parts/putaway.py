@@ -753,34 +753,43 @@ def _find_available_handling_units(
     """Find available handling units within company/branch scope."""
     exclude_hus = exclude_hus or set()
     
-    # Build filters
-    filters = {"status": ["in", ["Available", "In Use"]]}
-    if company:
-        filters["company"] = company
-    if branch:
-        filters["branch"] = branch
+    # Build WHERE clause and parameters
+    where_clauses = ["status IN ('Available', 'In Use')"]
+    params = []
     
-    # Get handling units with capacity data
-    hus = frappe.get_all(
-        "Handling Unit",
-        filters=filters,
-        fields=[
-            "name", "type", "status", "company", "branch",
-            "max_volume", "max_weight", "current_volume", "current_weight",
-            "capacity_uom", "weight_uom"
-        ],
-        order_by="name asc"
+    if company:
+        where_clauses.append("company = %s")
+        params.append(company)
+    if branch:
+        where_clauses.append("branch = %s")
+        params.append(branch)
+    if exclude_hus:
+        placeholders = ", ".join(["%s"] * len(exclude_hus))
+        where_clauses.append(f"name NOT IN ({placeholders})")
+        params.extend(exclude_hus)
+    
+    # Use frappe.db.sql() instead of frappe.get_all() to avoid DatabaseQuery.execute(as_dict=True) error
+    # in newer Frappe versions
+    where_sql = " AND ".join(where_clauses)
+    hus = frappe.db.sql(
+        f"""
+        SELECT name, type, status, company, branch,
+               max_volume, max_weight, current_volume, current_weight,
+               capacity_uom, weight_uom
+        FROM `tabHandling Unit`
+        WHERE {where_sql}
+        ORDER BY name ASC
+        """,
+        tuple(params),
+        as_dict=True
     ) or []
     
-    # Filter out excluded HUs
-    available_hus = [hu for hu in hus if hu["name"] not in exclude_hus]
-    
     # Calculate available capacity for each HU
-    for hu in available_hus:
+    for hu in hus:
         hu["available_volume"] = max(0, flt(hu.get("max_volume", 0)) - flt(hu.get("current_volume", 0)))
         hu["available_weight"] = max(0, flt(hu.get("max_weight", 0)) - flt(hu.get("current_weight", 0)))
     
-    return available_hus
+    return hus
 
 
 def _get_putaway_policy(item: str, company: Optional[str] = None) -> str:
@@ -1643,12 +1652,19 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
     unique_hus = list(set((r.get("handling_unit") or "").strip() for r in orders if r.get("handling_unit")))
     
     # Batch fetch all HU data in one query
+    # Use frappe.db.sql() instead of frappe.get_all() to avoid DatabaseQuery.execute(as_dict=True) error
+    # in newer Frappe versions
     hu_dict: Dict[str, Dict[str, Any]] = {}
     if unique_hus:
-        hus_data = frappe.get_all(
-            "Handling Unit",
-            filters={"name": ["in", unique_hus]},
-            fields=["name", "status", "company", "branch"]
+        placeholders = ", ".join(["%s"] * len(unique_hus))
+        hus_data = frappe.db.sql(
+            f"""
+            SELECT name, status, company, branch
+            FROM `tabHandling Unit`
+            WHERE name IN ({placeholders})
+            """,
+            tuple(unique_hus),
+            as_dict=True
         )
         hu_dict = {hu["name"]: hu for hu in hus_data}
         frappe.logger().info(f"Batch fetched {len(hu_dict)} handling units out of {len(unique_hus)} requested")
