@@ -15,10 +15,23 @@ def execute(filters=None):
 	"""Execute the Capacity Forecasting Report"""
 	filters = frappe._dict(filters or {})
 	columns = get_columns()
+	
+	# Validate required filters
+	if not filters.get("company"):
+		# Try to get default company
+		default_company = frappe.defaults.get_user_default("Company")
+		if not default_company:
+			frappe.msgprint(_("Please select a Company filter to view the report."), alert=True)
+			return columns, [], None, None, None
+	
 	data = get_data(filters)
 	
-	chart = make_chart(data)
-	summary = make_summary(data)
+	# Ensure data is a list (handle None/empty cases)
+	if not data:
+		data = []
+	
+	chart = make_chart(data) if data else None
+	summary = make_summary(data) if data else []
 	
 	return columns, data, None, chart, summary
 
@@ -165,15 +178,17 @@ def get_data(filters):
 		
 		# Company filter (required)
 		company = filters.get("company")
+		if not company:
+			# If no company, try to get default
+			company = frappe.defaults.get_user_default("Company")
+		
 		if company:
 			where_clauses.append("sl.company = %(company)s")
 			params["company"] = company
 		else:
-			# If no company, try to get default
-			default_company = frappe.defaults.get_user_default("Company")
-			if default_company:
-				where_clauses.append("sl.company = %(company)s")
-				params["company"] = default_company
+			# If still no company, return empty data with a message
+			frappe.msgprint(_("Please select a Company filter to view the report."), alert=True)
+			return []
 		
 		# Branch filter
 		if filters.get("branch"):
