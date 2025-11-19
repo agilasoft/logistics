@@ -12,18 +12,33 @@ import json
 def execute(filters=None):
 	"""Execute the Handling Unit Capacity report"""
 	filters = frappe._dict(filters or {})
+	
+	# Validate required filters
+	if not filters.get("company"):
+		# Try to get default company
+		default_company = frappe.defaults.get_user_default("Company")
+		if not default_company:
+			frappe.msgprint(_("Please select a Company filter to view the report."), alert=True)
+			columns = get_columns()
+			return columns, [], None, None, []
+	
 	columns = get_columns()
 	data = get_data(filters)
 	
-	chart = make_chart(data)
-	summary = make_summary(data)
+	# Ensure data is a list (handle None/empty cases)
+	if not data:
+		data = []
+	
+	chart = make_chart(data) if data else None
+	summary = make_summary(data) if data else []
 	
 	return columns, data, None, chart, summary
 
 
 def get_columns():
-	"""Define report columns"""
+	"""Define report columns - organized logically for better readability"""
 	return [
+		# Handling Unit Identifiers Section
 		{
 			"label": _("Handling Unit"),
 			"fieldname": "name",
@@ -36,114 +51,12 @@ def get_columns():
 			"fieldname": "type",
 			"fieldtype": "Link",
 			"options": "Handling Unit Type",
-			"width": 120,
+			"width": 130,
 		},
 		{
 			"label": _("Status"),
 			"fieldname": "status",
 			"fieldtype": "Data",
-			"width": 100,
-		},
-		{
-			"label": _("Brand"),
-			"fieldname": "brand",
-			"fieldtype": "Link",
-			"options": "Brand",
-			"width": 100,
-		},
-		{
-			"label": _("Supplier"),
-			"fieldname": "supplier",
-			"fieldtype": "Link",
-			"options": "Supplier",
-			"width": 120,
-		},
-		{
-			"label": _("Max Volume"),
-			"fieldname": "max_volume",
-			"fieldtype": "Float",
-			"precision": 3,
-			"width": 100,
-		},
-		{
-			"label": _("Current Volume"),
-			"fieldname": "current_volume",
-			"fieldtype": "Float",
-			"precision": 3,
-			"width": 120,
-		},
-		{
-			"label": _("Volume UOM"),
-			"fieldname": "capacity_uom",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 80,
-		},
-		{
-			"label": _("Max Weight"),
-			"fieldname": "max_weight",
-			"fieldtype": "Float",
-			"precision": 2,
-			"width": 100,
-		},
-		{
-			"label": _("Current Weight"),
-			"fieldname": "current_weight",
-			"fieldtype": "Float",
-			"precision": 2,
-			"width": 120,
-		},
-		{
-			"label": _("Weight UOM"),
-			"fieldname": "weight_uom",
-			"fieldtype": "Link",
-			"options": "UOM",
-			"width": 80,
-		},
-		{
-			"label": _("Utilization %"),
-			"fieldname": "utilization_percentage",
-			"fieldtype": "Percent",
-			"precision": 1,
-			"width": 100,
-		},
-		{
-			"label": _("Capacity Status"),
-			"fieldname": "capacity_status",
-			"fieldtype": "Data",
-			"width": 120,
-		},
-		{
-			"label": _("Alerts Enabled"),
-			"fieldname": "enable_capacity_alerts",
-			"fieldtype": "Check",
-			"width": 100,
-		},
-		{
-			"label": _("Volume Alert %"),
-			"fieldname": "volume_alert_threshold",
-			"fieldtype": "Percent",
-			"precision": 1,
-			"width": 100,
-		},
-		{
-			"label": _("Weight Alert %"),
-			"fieldname": "weight_alert_threshold",
-			"fieldtype": "Percent",
-			"precision": 1,
-			"width": 100,
-		},
-		{
-			"label": _("Last Updated"),
-			"fieldname": "modified",
-			"fieldtype": "Datetime",
-			"width": 150,
-		},
-		{
-			"label": _("Branch"),
-			"fieldname": "branch",
-			"fieldtype": "Link",
-			"options": "Branch",
 			"width": 120,
 		},
 		{
@@ -151,7 +64,142 @@ def get_columns():
 			"fieldname": "company",
 			"fieldtype": "Link",
 			"options": "Company",
+			"width": 150,
+		},
+		{
+			"label": _("Branch"),
+			"fieldname": "branch",
+			"fieldtype": "Link",
+			"options": "Branch",
+			"width": 130,
+		},
+		{
+			"label": _("Brand"),
+			"fieldname": "brand",
+			"fieldtype": "Link",
+			"options": "Brand",
 			"width": 120,
+		},
+		{
+			"label": _("Supplier"),
+			"fieldname": "supplier",
+			"fieldtype": "Link",
+			"options": "Supplier",
+			"width": 130,
+		},
+		# Volume Capacity Section
+		{
+			"label": _("Max Volume"),
+			"fieldname": "max_volume",
+			"fieldtype": "Float",
+			"precision": 3,
+			"width": 120,
+		},
+		{
+			"label": _("Current Volume"),
+			"fieldname": "current_volume",
+			"fieldtype": "Float",
+			"precision": 3,
+			"width": 130,
+		},
+		{
+			"label": _("Available Volume"),
+			"fieldname": "available_volume",
+			"fieldtype": "Float",
+			"precision": 3,
+			"width": 130,
+		},
+		{
+			"label": _("Volume UOM"),
+			"fieldname": "capacity_uom",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 100,
+		},
+		# Weight Capacity Section
+		{
+			"label": _("Max Weight"),
+			"fieldname": "max_weight",
+			"fieldtype": "Float",
+			"precision": 2,
+			"width": 120,
+		},
+		{
+			"label": _("Current Weight"),
+			"fieldname": "current_weight",
+			"fieldtype": "Float",
+			"precision": 2,
+			"width": 130,
+		},
+		{
+			"label": _("Available Weight"),
+			"fieldname": "available_weight",
+			"fieldtype": "Float",
+			"precision": 2,
+			"width": 130,
+		},
+		{
+			"label": _("Weight UOM"),
+			"fieldname": "weight_uom",
+			"fieldtype": "Link",
+			"options": "UOM",
+			"width": 100,
+		},
+		# Utilization & Status Section
+		{
+			"label": _("Utilization %"),
+			"fieldname": "utilization_percentage",
+			"fieldtype": "Percent",
+			"precision": 1,
+			"width": 120,
+		},
+		{
+			"label": _("Capacity Status"),
+			"fieldname": "capacity_status",
+			"fieldtype": "Data",
+			"width": 130,
+		},
+		{
+			"label": _("Efficiency Score"),
+			"fieldname": "efficiency_score",
+			"fieldtype": "Percent",
+			"precision": 1,
+			"width": 130,
+		},
+		# Alert Configuration Section
+		{
+			"label": _("Alerts Enabled"),
+			"fieldname": "enable_capacity_alerts",
+			"fieldtype": "Check",
+			"width": 120,
+		},
+		{
+			"label": _("Volume Alert %"),
+			"fieldname": "volume_alert_threshold",
+			"fieldtype": "Percent",
+			"precision": 1,
+			"width": 120,
+		},
+		{
+			"label": _("Weight Alert %"),
+			"fieldname": "weight_alert_threshold",
+			"fieldtype": "Percent",
+			"precision": 1,
+			"width": 120,
+		},
+		{
+			"label": _("Utilization Alert %"),
+			"fieldname": "utilization_alert_threshold",
+			"fieldtype": "Percent",
+			"precision": 1,
+			"width": 140,
+		},
+		# Metadata Section
+		{
+			"label": _("Last Updated"),
+			"fieldname": "modified",
+			"fieldtype": "Datetime",
+			"width": 150,
 		}
 	]
 
@@ -163,9 +211,18 @@ def get_data(filters):
 	params = {}
 	
 	# Company filter (required)
-	if filters.get("company"):
+	company = filters.get("company")
+	if not company:
+		# Try to get default company
+		company = frappe.defaults.get_user_default("Company")
+	
+	if company:
 		where_clauses.append("hu.company = %(company)s")
-		params["company"] = filters.get("company")
+		params["company"] = company
+	else:
+		# If still no company, return empty data
+		frappe.msgprint(_("Please select a Company filter to view the report."), alert=True)
+		return []
 	
 	# Branch filter
 	if filters.get("branch"):
@@ -243,14 +300,30 @@ def get_data(filters):
 		threshold = flt(filters.get("utilization_threshold"))
 		data = [row for row in data if flt(row.get("utilization_percentage", 0)) >= threshold]
 	
-	# Calculate additional metrics
+	# Calculate additional metrics and ensure proper formatting
 	for row in data:
+		# Calculate available capacity
 		row["available_volume"] = flt(row.get("max_volume", 0)) - flt(row.get("current_volume", 0))
 		row["available_weight"] = flt(row.get("max_weight", 0)) - flt(row.get("current_weight", 0))
 		
 		# Calculate efficiency score
 		efficiency_score = calculate_efficiency_score(row)
-		row["efficiency_score"] = efficiency_score
+		row["efficiency_score"] = flt(efficiency_score, 1)
+		
+		# Ensure all numeric fields are properly formatted
+		row["max_volume"] = flt(row.get("max_volume", 0), 3)
+		row["current_volume"] = flt(row.get("current_volume", 0), 3)
+		row["max_weight"] = flt(row.get("max_weight", 0), 2)
+		row["current_weight"] = flt(row.get("current_weight", 0), 2)
+		row["utilization_percentage"] = flt(row.get("utilization_percentage", 0), 1)
+		
+		# Ensure string fields are properly formatted
+		row["status"] = str(row.get("status") or "")
+		row["capacity_status"] = str(row.get("capacity_status") or "Good")
+		row["name"] = str(row.get("name") or "")
+		row["type"] = str(row.get("type") or "")
+		row["company"] = str(row.get("company") or "")
+		row["branch"] = str(row.get("branch") or "")
 	
 	return data
 
