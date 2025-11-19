@@ -300,8 +300,8 @@ def allocate_vas(warehouse_job: str):
                 expanded_row["handling_unit_type"] = comp.get("handling_unit_type")
                 # Clear parent's specific handling_unit if component has handling_unit_type requirement
                 # This ensures allocation follows BOM component's handling_unit_type, not parent's handling_unit
-                if expanded_row.get("handling_unit"):
-                    expanded_row["handling_unit"] = None
+                expanded_row["handling_unit"] = None  # Always clear for components with handling_unit_type
+                frappe.logger().info(f"  -> Component {c_item}: Set handling_unit_type={comp.get('handling_unit_type')}, cleared handling_unit")
             # Preserve source reference
             expanded_row["_vas_bom"] = bom
             expanded_row["_vas_parent_item"] = p_item
@@ -342,6 +342,15 @@ def allocate_vas(warehouse_job: str):
                 signed_qty = exp_order.get("_vas_quantity", flt(exp_order.get("quantity") or 0))
                 base_qty = abs(signed_qty)
                 
+                # Get handling_unit and handling_unit_type, ensuring None is properly handled
+                exp_hu = exp_order.get("handling_unit")
+                exp_hu_type = exp_order.get("handling_unit_type")
+                
+                # For components with handling_unit_type from BOM, ensure handling_unit is None
+                if exp_hu_type and exp_order.get("_vas_is_component"):
+                    exp_hu = None  # Force None for BOM components with handling_unit_type
+                    frappe.logger().info(f"Creating order item for component {exp_order.get('item')}: handling_unit_type={exp_hu_type}, handling_unit=None (cleared for BOM component)")
+                
                 order_doc = frappe.get_doc({
                     "doctype": "Warehouse Job Order Items",
                     "parent": job.name,
@@ -350,8 +359,8 @@ def allocate_vas(warehouse_job: str):
                     "item": exp_order.get("item"),
                     "quantity": base_qty,  # Store absolute quantity in order
                     "uom": exp_order.get("uom"),
-                    "handling_unit": exp_order.get("handling_unit"),
-                    "handling_unit_type": exp_order.get("handling_unit_type"),
+                    "handling_unit": exp_hu,  # Use explicitly cleared value
+                    "handling_unit_type": exp_hu_type,
                     "serial_no": exp_order.get("serial_no"),
                     "batch_no": exp_order.get("batch_no"),
                 })
@@ -414,6 +423,11 @@ def allocate_vas(warehouse_job: str):
                     req_qty = flt(row.get("quantity") or 0)
                     if not item or req_qty <= 0:
                         continue
+                    
+                    # Log order row handling unit info for debugging
+                    row_hu = row.get("handling_unit")
+                    row_hu_type = row.get("handling_unit_type")
+                    frappe.logger().info(f"Pick allocation for item {item}: handling_unit={row_hu}, handling_unit_type={row_hu_type}")
                     
                     # Get signed quantity from map
                     signed_qty = vas_quantity_map.get(row.get("name"), -req_qty)  # Default to negative for pick
