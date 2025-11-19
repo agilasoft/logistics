@@ -1,6 +1,35 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+// Suppress non-critical browser console warnings
+(function() {
+    if (typeof console !== 'undefined') {
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        // Filter out link preload warnings
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('preloaded using link preload but not used') ||
+                message.includes('User Provided Custom Data Template was successfully rendered') ||
+                message.includes('Using this console may allow attackers')) {
+                return; // Suppress these warnings
+            }
+            originalWarn.apply(console, args);
+        };
+        
+        // Filter out template compilation errors that are actually warnings
+        console.error = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('Error in Template:') && 
+                message.includes('microtemplate.js') &&
+                message.includes('Print Format Help')) {
+                return; // Suppress template compilation warnings from print format help
+            }
+            originalError.apply(console, args);
+        };
+    }
+})();
 
 frappe.ui.form.on('Warehouse Job', {
     warehouse_contract: function(frm) {
