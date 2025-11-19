@@ -1648,8 +1648,7 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         hus_data = frappe.get_all(
             "Handling Unit",
             filters={"name": ["in", unique_hus]},
-            fields=["name", "status", "company", "branch"],
-            as_dict=True
+            fields=["name", "status", "company", "branch"]
         )
         hu_dict = {hu["name"]: hu for hu in hus_data}
         frappe.logger().info(f"Batch fetched {len(hu_dict)} handling units out of {len(unique_hus)} requested")
