@@ -24,8 +24,9 @@ def execute(filters=None):
 
 
 def get_columns():
-	"""Define report columns"""
+	"""Define report columns - organized logically for better readability"""
 	return [
+		# Location Identifiers Section
 		{
 			"label": _("Location"),
 			"fieldname": "location_name",
@@ -38,114 +39,119 @@ def get_columns():
 			"fieldname": "site",
 			"fieldtype": "Link",
 			"options": "Storage Location Configurator",
-			"width": 120,
+			"width": 130,
 		},
 		{
 			"label": _("Building"),
 			"fieldname": "building",
 			"fieldtype": "Link",
 			"options": "Storage Location Configurator",
-			"width": 120,
+			"width": 130,
 		},
 		{
 			"label": _("Zone"),
 			"fieldname": "zone",
 			"fieldtype": "Link",
 			"options": "Storage Location Configurator",
-			"width": 100,
+			"width": 110,
 		},
 		{
 			"label": _("Storage Type"),
 			"fieldname": "storage_type",
 			"fieldtype": "Link",
 			"options": "Storage Type",
-			"width": 120,
+			"width": 130,
 		},
+		# Key Metrics Section
 		{
 			"label": _("Current Utilization %"),
 			"fieldname": "current_utilization",
 			"fieldtype": "Percent",
 			"precision": 1,
-			"width": 120,
+			"width": 140,
 		},
 		{
 			"label": _("Forecasted Utilization %"),
 			"fieldname": "forecasted_utilization",
 			"fieldtype": "Percent",
 			"precision": 1,
-			"width": 140,
+			"width": 160,
 		},
 		{
 			"label": _("Trend"),
 			"fieldname": "trend",
 			"fieldtype": "Data",
-			"width": 100,
+			"width": 110,
 		},
+		# Supporting Metrics Section
 		{
 			"label": _("Growth Rate %"),
 			"fieldname": "growth_rate",
 			"fieldtype": "Float",
 			"precision": 2,
-			"width": 100,
+			"width": 120,
 		},
 		{
 			"label": _("Confidence Score"),
 			"fieldname": "confidence_score",
 			"fieldtype": "Percent",
 			"precision": 1,
-			"width": 120,
+			"width": 130,
 		},
 		{
 			"label": _("Alert Status"),
 			"fieldname": "alert_status",
 			"fieldtype": "Data",
-			"width": 100,
+			"width": 120,
 		},
+		# Date Section
 		{
 			"label": _("Forecast Date"),
 			"fieldname": "forecast_date",
 			"fieldtype": "Date",
 			"width": 120,
 		},
+		# Capacity Details Section
 		{
 			"label": _("Max Capacity"),
 			"fieldname": "max_capacity",
 			"fieldtype": "Float",
 			"precision": 2,
-			"width": 100,
+			"width": 120,
 		},
 		{
 			"label": _("Current Usage"),
 			"fieldname": "current_usage",
 			"fieldtype": "Float",
 			"precision": 2,
-			"width": 100,
+			"width": 120,
 		},
 		{
 			"label": _("Forecasted Usage"),
 			"fieldname": "forecasted_usage",
 			"fieldtype": "Float",
 			"precision": 2,
-			"width": 120,
+			"width": 140,
 		},
 		{
 			"label": _("Available Capacity"),
 			"fieldname": "available_capacity",
 			"fieldtype": "Float",
 			"precision": 2,
-			"width": 120,
+			"width": 140,
 		},
+		# Analysis Section
 		{
 			"label": _("Days to Full"),
 			"fieldname": "days_to_full",
 			"fieldtype": "Int",
-			"width": 100,
+			"width": 110,
 		},
 		{
 			"label": _("Recommendation"),
 			"fieldname": "recommendation",
 			"fieldtype": "Data",
-			"width": 200,
+			"width": 250,
 		}
 	]
 
@@ -398,25 +404,26 @@ def generate_capacity_forecast(location, forecast_period, method, include_season
 		# Calculate available capacity
 		available_capacity = max_capacity - current_usage if max_capacity > 0 else 0
 		
+		# Ensure all numeric values are properly formatted
 		return {
-			"location_name": location["location_name"],
-			"site": location["site"],
-			"building": location["building"],
-			"zone": location["zone"],
-			"storage_type": location["storage_type"],
-			"current_utilization": current_utilization,
-			"forecasted_utilization": forecasted_utilization,
-			"trend": trend,
-			"growth_rate": growth_rate,
-			"confidence_score": confidence_score,
-			"alert_status": alert_status,
+			"location_name": location.get("location_name") or "",
+			"site": location.get("site") or "",
+			"building": location.get("building") or "",
+			"zone": location.get("zone") or "",
+			"storage_type": location.get("storage_type") or "",
+			"current_utilization": flt(current_utilization, 1),
+			"forecasted_utilization": flt(forecasted_utilization, 1),
+			"trend": str(trend) if trend else "Stable",
+			"growth_rate": flt(growth_rate, 2),
+			"confidence_score": flt(confidence_score, 1),
+			"alert_status": str(alert_status) if alert_status else "Good",
 			"forecast_date": add_days(today(), forecast_period),
-			"max_capacity": max_capacity,
-			"current_usage": current_usage,
-			"forecasted_usage": forecasted_usage,
-			"available_capacity": available_capacity,
-			"days_to_full": days_to_full,
-			"recommendation": recommendation
+			"max_capacity": flt(max_capacity, 2),
+			"current_usage": flt(current_usage, 2),
+			"forecasted_usage": flt(forecasted_usage, 2),
+			"available_capacity": flt(available_capacity, 2),
+			"days_to_full": int(days_to_full) if days_to_full != 999 else 999,
+			"recommendation": str(recommendation) if recommendation else ""
 		}
 		
 	except Exception as e:
