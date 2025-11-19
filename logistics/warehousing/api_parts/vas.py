@@ -334,6 +334,7 @@ def allocate_vas(warehouse_job: str):
             # Store VAS action and quantity mapping for order items (by item+quantity+hu to identify unique rows)
             vas_action_map = {}
             vas_quantity_map = {}  # Store signed quantities
+            order_name_to_parent_info = {}  # Map order name to parent info for component orders
             
             # Create expanded order items
             for exp_order in expanded_orders:
@@ -371,6 +372,27 @@ def allocate_vas(warehouse_job: str):
                 # This is more reliable than item+quantity+hu since the name is unique and stable
                 vas_action_map[order_doc.name] = vas_action
                 vas_quantity_map[order_doc.name] = signed_qty  # Store signed quantity
+                
+                # Store parent info for component orders (for tracking picked quantities)
+                if exp_order.get("_vas_is_component"):
+                    parent_item = exp_order.get("_vas_parent_item")
+                    parent_qty = exp_order.get("_vas_parent_qty", 0)
+                    component_qty = exp_order.get("quantity", 0)
+                    component_per = component_qty / parent_qty if parent_qty > 0 else 1.0
+                    order_name_to_parent_info[order_doc.name] = {
+                        "parent_item": parent_item,
+                        "parent_qty": parent_qty,
+                        "component_per": component_per,
+                        "bom": exp_order.get("_vas_bom")
+                    }
+                elif exp_order.get("_vas_is_parent"):
+                    # Store parent order name for lookup
+                    order_name_to_parent_info[order_doc.name] = {
+                        "is_parent": True,
+                        "item": exp_order.get("item"),
+                        "bom": exp_order.get("_vas_bom")
+                    }
+                
                 frappe.logger().info(f"Stored VAS action '{vas_action}' and signed qty {signed_qty} for order item {order_doc.name}")
             
             # Store the action and quantity maps in job object for later use
@@ -409,6 +431,13 @@ def allocate_vas(warehouse_job: str):
         total_created_qty = 0.0
         all_details = []
         
+        # Track picked quantities by parent item to adjust putaway quantities
+        # Key: (parent_item, parent_order_name, component_item) -> picked_parent_qty
+        # We track by component to handle multiple components per parent correctly
+        picked_qty_by_component: Dict[Tuple[str, str, str], float] = {}
+        # Map component order names to their parent info
+        component_to_parent: Dict[str, Dict[str, Any]] = {}
+        
         try:
             # Allocate pick items using pick logic (find in current storage locations)
             if pick_order_names:
@@ -423,6 +452,11 @@ def allocate_vas(warehouse_job: str):
                     req_qty = flt(row.get("quantity") or 0)
                     if not item or req_qty <= 0:
                         continue
+                    
+                    # Get component-to-parent mapping (stored when creating order items)
+                    order_name = row.get("name")
+                    if order_name in order_name_to_parent_info:
+                        component_to_parent[order_name] = order_name_to_parent_info[order_name]
                     
                     # Log order row handling unit info for debugging
                     row_hu = row.get("handling_unit")
@@ -519,6 +553,38 @@ def allocate_vas(warehouse_job: str):
                     
                     # Generate allocation notes
                     allocated_qty = sum(abs(flt(a.get("qty", 0))) for a in allocations)
+                    
+                    # Track picked quantity for parent item adjustment
+                    if order_name and order_name in component_to_parent:
+                        parent_info = component_to_parent[order_name]
+                        parent_item = parent_info.get("parent_item")
+                        component_per = parent_info.get("component_per", 1.0)
+                        
+                        # Calculate how many parent items can be produced from picked components
+                        # If BOM is 1:1, then 6.01 components picked = 6.01 parents
+                        # If BOM is 2:1, then 6.01 components picked = 3.005 parents
+                        if component_per > 0:
+                            parent_qty_from_picked = allocated_qty / component_per
+                        else:
+                            parent_qty_from_picked = allocated_qty
+                        
+                        # Find the parent order name by looking up parent orders
+                        parent_order_name = None
+                        for o_name, o_info in order_name_to_parent_info.items():
+                            if (o_info.get("is_parent") and 
+                                o_info.get("item") == parent_item and
+                                o_info.get("bom") == parent_info.get("bom") and
+                                vas_action_map.get(o_name) == "Putaway"):
+                                parent_order_name = o_name
+                                break
+                        
+                        if parent_order_name:
+                            # Track by component to handle multiple components per parent
+                            key = (parent_item, parent_order_name, item)
+                            picked_qty_by_component[key] = parent_qty_from_picked
+                            frappe.logger().info(f"Tracked picked quantity: {allocated_qty} components ({item}) for parent {parent_item}, "
+                                                f"component_per={component_per}, parent_qty={parent_qty_from_picked}")
+                    
                     allocation_note = _generate_pick_allocation_note(
                         order_row=row,
                         allocations=allocations,
@@ -561,6 +627,35 @@ def allocate_vas(warehouse_job: str):
             # Allocate putaway items using putaway logic (find in staging)
             if putaway_order_names:
                 frappe.logger().info(f"Allocating {len(putaway_order_names)} putaway items using putaway allocation logic")
+                
+                # Adjust putaway order quantities based on actual picked quantities
+                if picked_qty_by_component:
+                    frappe.logger().info(f"Adjusting putaway quantities based on picked quantities: {picked_qty_by_component}")
+                    # Group by parent_order_name and take minimum (bottleneck - all components must be available)
+                    # If parent requires Component A AND Component B, we can only produce min(Component A qty, Component B qty)
+                    parent_qty_map: Dict[str, float] = {}
+                    for (parent_item, parent_order_name, component_item), picked_parent_qty in picked_qty_by_component.items():
+                        if parent_order_name in putaway_order_names:
+                            # If multiple components for same parent, take minimum (bottleneck principle)
+                            if parent_order_name not in parent_qty_map:
+                                parent_qty_map[parent_order_name] = picked_parent_qty
+                            else:
+                                parent_qty_map[parent_order_name] = min(parent_qty_map[parent_order_name], picked_parent_qty)
+                    
+                    # Update order quantities
+                    for parent_order_name, picked_parent_qty in parent_qty_map.items():
+                        order_doc = frappe.get_doc("Warehouse Job Order Items", parent_order_name)
+                        original_qty = flt(order_doc.quantity or 0)
+                        order_doc.quantity = picked_parent_qty
+                        order_doc.save(ignore_permissions=True)
+                        parent_item = order_doc.item
+                        frappe.logger().info(f"Updated putaway order {parent_order_name} for item {parent_item}: "
+                                            f"original_qty={original_qty} -> adjusted_qty={picked_parent_qty} "
+                                            f"(based on minimum picked component quantity - bottleneck)")
+                    frappe.db.commit()
+                    # Reload job to get updated order quantities
+                    job.reload()
+                
                 # Temporarily delete pick items from database so putaway allocator only processes putaway items
                 # The putaway allocator fetches from database, so we need to filter there
                 pick_order_names_to_hide = [name for name in vas_action_map.keys() if name not in putaway_order_names]

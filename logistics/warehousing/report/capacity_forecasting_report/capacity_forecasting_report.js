@@ -114,59 +114,91 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 		}
 	],
 	"formatter": function(value, row, column, data, default_formatter) {
-		value = default_formatter(value, row, column, data);
+		// Get default formatted value first
+		let formatted_value = default_formatter(value, row, column, data);
+		
+		// Skip formatting if value is empty/null
+		if (!value && value !== 0) {
+			return formatted_value;
+		}
 		
 		// Color code forecasted utilization
 		if (column.fieldname === "forecasted_utilization") {
 			const util = parseFloat(data.forecasted_utilization) || 0;
+			let color = "green";
 			if (util >= 95) {
-				value = `<span style="color: red; font-weight: bold;">${value}</span>`;
+				color = "red";
 			} else if (util >= 85) {
-				value = `<span style="color: orange; font-weight: bold;">${value}</span>`;
+				color = "orange";
 			} else if (util >= 70) {
-				value = `<span style="color: yellow; font-weight: bold;">${value}</span>`;
-			} else {
-				value = `<span style="color: green;">${value}</span>`;
+				color = "#FFA500"; // Darker orange/yellow
 			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${formatted_value}</span>`;
 		}
 		
-		// Color code trend indicators
-		if (column.fieldname === "trend") {
-			const trend = data.trend;
-			if (trend === "Increasing") {
-				value = `<span style="color: red; font-weight: bold;">↗ ${value}</span>`;
-			} else if (trend === "Decreasing") {
-				value = `<span style="color: green; font-weight: bold;">↘ ${value}</span>`;
-			} else if (trend === "Stable") {
-				value = `<span style="color: blue; font-weight: bold;">→ ${value}</span>`;
+		// Color code current utilization
+		if (column.fieldname === "current_utilization") {
+			const util = parseFloat(data.current_utilization) || 0;
+			let color = "green";
+			if (util >= 95) {
+				color = "red";
+			} else if (util >= 85) {
+				color = "orange";
+			} else if (util >= 70) {
+				color = "#FFA500";
 			}
+			formatted_value = `<span style="color: ${color};">${formatted_value}</span>`;
+		}
+		
+		// Color code trend indicators - use simple text to avoid breaking table layout
+		if (column.fieldname === "trend") {
+			const trend = String(data.trend || "").toLowerCase();
+			let color = "blue";
+			let icon = "→";
+			if (trend.includes("increas")) {
+				color = "red";
+				icon = "↗";
+			} else if (trend.includes("decreas")) {
+				color = "green";
+				icon = "↘";
+			} else if (trend.includes("stable") || trend.includes("good")) {
+				color = "blue";
+				icon = "→";
+			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${icon} ${formatted_value}</span>`;
 		}
 		
 		// Color code confidence levels
 		if (column.fieldname === "confidence_score") {
 			const confidence = parseFloat(data.confidence_score) || 0;
+			let color = "red";
 			if (confidence >= 90) {
-				value = `<span style="color: green; font-weight: bold;">${value}</span>`;
+				color = "green";
 			} else if (confidence >= 75) {
-				value = `<span style="color: orange; font-weight: bold;">${value}</span>`;
-			} else {
-				value = `<span style="color: red; font-weight: bold;">${value}</span>`;
+				color = "orange";
 			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${formatted_value}</span>`;
 		}
 		
-		// Color code alerts
+		// Color code alerts - use simple text
 		if (column.fieldname === "alert_status") {
-			const status = data.alert_status;
-			if (status === "Critical") {
-				value = `<span style="color: red; font-weight: bold;">🔴 ${value}</span>`;
-			} else if (status === "Warning") {
-				value = `<span style="color: orange; font-weight: bold;">🟡 ${value}</span>`;
-			} else if (status === "Good") {
-				value = `<span style="color: green; font-weight: bold;">🟢 ${value}</span>`;
+			const status = String(data.alert_status || "").toLowerCase();
+			let color = "green";
+			let icon = "●";
+			if (status.includes("critical")) {
+				color = "red";
+				icon = "●";
+			} else if (status.includes("warn")) {
+				color = "orange";
+				icon = "●";
+			} else if (status.includes("good")) {
+				color = "green";
+				icon = "●";
 			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${icon} ${formatted_value}</span>`;
 		}
 		
-		return value;
+		return formatted_value;
 	},
 	"onload": function(report) {
 		// Add Actions dropdown menu

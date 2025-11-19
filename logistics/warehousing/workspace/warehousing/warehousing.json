@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"SL7dS_-_Xs\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Reports\",\"col\":4}},{\"id\":\"K6xE4Umub3\",\"type\":\"card\",\"data\":{\"card_name\":\"Capacity Management\",\"col\":4}},{\"id\":\"oNb734hTDW\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity\",\"col\":4}}]",
+ "content": "[{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"SL7dS_-_Xs\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Reports\",\"col\":4}},{\"id\":\"K6xE4Umub3\",\"type\":\"card\",\"data\":{\"card_name\":\"Capacity Management\",\"col\":4}},{\"id\":\"oNb734hTDW\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity\",\"col\":4}}]",
  "creation": "2025-08-18 19:01:13.708217",
  "custom_blocks": [],
  "docstatus": 0,
@@ -59,45 +59,6 @@
    "link_count": 0,
    "link_to": "Storage Location",
    "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customer Reports",
-   "link_count": 3,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Customer Stock Balance",
-   "link_count": 0,
-   "link_to": "Warehouse Stock Balance",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Warehouse Stock Ledger",
-   "link_count": 0,
-   "link_to": "Warehouse Stock Ledger",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Batch Expiry Risk",
-   "link_count": 0,
-   "link_to": "Batch Expiry Risk",
-   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   },
@@ -240,6 +201,45 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Stock Reports",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Balance",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Ledger",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Batch Expiry Risk",
+   "link_count": 0,
+   "link_to": "Batch Expiry Risk",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Capacity Management",
    "link_count": 4,
    "link_type": "DocType",
@@ -249,7 +249,7 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "Warehouse Utilization",
+   "label": "Storage Location Usage",
    "link_count": 0,
    "link_to": "Storage Location Usage",
    "link_type": "Report",
@@ -288,7 +288,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-11-04 20:43:20.875108",
+ "modified": "2025-11-20 01:31:51.719424",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",

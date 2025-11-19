@@ -8,13 +8,35 @@ def execute(filters=None):
     if not f.get("from_date") or not f.get("to_date"):
         frappe.throw("From Date and To Date are required.")
 
+    # Determine grouping mode
+    group_by_location_hu = f.get("group_by") == "Storage Location and Handling Unit"
+    
+    # Build columns based on grouping mode
     columns = [
-        {"label": "Item",       "fieldname": "item",       "fieldtype": "Data", "width": 500},
+        {"label": "Item",       "fieldname": "item",       "fieldtype": "Data", "width": 300},
+    ]
+    
+    if group_by_location_hu:
+        columns.extend([
+            {"label": "Storage Location", "fieldname": "storage_location", "fieldtype": "Link", "options": "Storage Location", "width": 200},
+            {"label": "Handling Unit",    "fieldname": "handling_unit",    "fieldtype": "Link", "options": "Handling Unit", "width": 200},
+        ])
+    
+    # Post-process data to handle NULL values for display
+    def format_null_values(row):
+        if group_by_location_hu:
+            if not row.get("storage_location"):
+                row["storage_location"] = ""
+            if not row.get("handling_unit"):
+                row["handling_unit"] = ""
+        return row
+    
+    columns.extend([
         {"label": "Beginning",  "fieldname": "beg_qty",    "fieldtype": "Float","width": 120},
         {"label": "In",         "fieldname": "in_qty",     "fieldtype": "Float","width": 110},
         {"label": "Out",        "fieldname": "out_qty",    "fieldtype": "Float","width": 110},
         {"label": "Ending",     "fieldname": "ending_qty", "fieldtype": "Float","width": 120},
-    ]
+    ])
 
     # Proper datetime handling: from_date at 00:00:00, to_date at end of day
     params = {
@@ -39,11 +61,30 @@ def execute(filters=None):
 
     where_sql = " AND ".join(where_bits)
 
+    # Build SELECT and GROUP BY based on grouping mode
+    if group_by_location_hu:
+        select_fields = """
+            b.item,
+            IFNULL(b.storage_location, '') AS storage_location,
+            IFNULL(b.handling_unit, '') AS handling_unit,
+        """
+        # Use IFNULL in GROUP BY to handle NULL values consistently
+        group_by_fields = "b.item, IFNULL(b.storage_location, ''), IFNULL(b.handling_unit, '')"
+        order_by_fields = "b.item, IFNULL(b.storage_location, ''), IFNULL(b.handling_unit, '')"
+    else:
+        select_fields = """
+            b.item,
+        """
+        group_by_fields = "b.item"
+        order_by_fields = "b.item"
+    
     data = frappe.db.sql(
         """
         WITH base AS (
             SELECT
                 wsl.item,
+                wsl.storage_location,
+                wsl.handling_unit,
                 wsl.posting_date,
                 -- Use same quantity logic as Warehouse Stock Ledger: prefer quantity, fallback to delta
                 COALESCE(wsl.quantity, wsl.end_qty - wsl.beg_quantity, 0) AS quantity,
@@ -57,8 +98,7 @@ def execute(filters=None):
             WHERE {where_sql}
         )
         SELECT
-            b.item,
-
+            {select_fields}
             -- Beginning: sum all quantities before from_date
             COALESCE(SUM(CASE WHEN b.posting_date < %(from_date)s THEN b.quantity ELSE 0 END), 0) AS beg_qty,
 
@@ -79,13 +119,21 @@ def execute(filters=None):
                 WHEN b.posting_date < DATE_ADD(%(to_date)s, INTERVAL 1 DAY) THEN b.quantity ELSE 0 END), 0) AS ending_qty
 
         FROM base b
-        GROUP BY b.item
-        ORDER BY b.item
-        """.format(where_sql=where_sql),
+        GROUP BY {group_by_fields}
+        ORDER BY {order_by_fields}
+        """.format(
+            where_sql=where_sql,
+            select_fields=select_fields,
+            group_by_fields=group_by_fields,
+            order_by_fields=order_by_fields
+        ),
         params,
         as_dict=True,
     )
 
+    # Format NULL values for display
+    data = [format_null_values(r) for r in data]
+    
     if frappe.utils.cint(f.get("hide_zero") or 0):
         data = [r for r in data if abs(r.get("ending_qty") or 0) > 0.0000001]
 
