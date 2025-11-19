@@ -72,47 +72,80 @@ frappe.query_reports["Handling Unit Capacity"] = {
 		}
 	],
 	"formatter": function(value, row, column, data, default_formatter) {
-		value = default_formatter(value, row, column, data);
+		// Get default formatted value first
+		let formatted_value = default_formatter(value, row, column, data);
+		
+		// Safety check: if data is undefined/null (e.g., footer row), return default formatted value
+		if (!data || typeof data !== "object") {
+			return formatted_value;
+		}
+		
+		// Skip formatting if value is empty/null (but allow 0)
+		if (value === null || value === undefined || value === "") {
+			return formatted_value;
+		}
 		
 		// Color code utilization percentage
 		if (column.fieldname === "utilization_percentage") {
 			const util = parseFloat(data.utilization_percentage) || 0;
+			let color = "green";
 			if (util >= 90) {
-				value = `<span style="color: red; font-weight: bold;">${value}</span>`;
+				color = "red";
 			} else if (util >= 75) {
-				value = `<span style="color: orange; font-weight: bold;">${value}</span>`;
+				color = "orange";
 			} else if (util >= 50) {
-				value = `<span style="color: green;">${value}</span>`;
+				color = "green";
+			} else {
+				color = "#888"; // Gray for low utilization
 			}
+			formatted_value = `<span style="color: ${color}; font-weight: ${util >= 75 ? 'bold' : 'normal'};">${formatted_value}</span>`;
 		}
 		
 		// Color code status
 		if (column.fieldname === "status") {
-			const status = data.status;
-			if (status === "In Use") {
-				value = `<span style="color: blue; font-weight: bold;">${value}</span>`;
-			} else if (status === "Under Maintenance") {
-				value = `<span style="color: orange; font-weight: bold;">${value}</span>`;
-			} else if (status === "Inactive") {
-				value = `<span style="color: red; font-weight: bold;">${value}</span>`;
-			} else if (status === "Available") {
-				value = `<span style="color: green; font-weight: bold;">${value}</span>`;
+			const status = String(data.status || "").toLowerCase();
+			let color = "gray";
+			if (status === "in use") {
+				color = "blue";
+			} else if (status === "under maintenance") {
+				color = "orange";
+			} else if (status === "inactive") {
+				color = "red";
+			} else if (status === "available") {
+				color = "green";
 			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${formatted_value}</span>`;
 		}
 		
-		// Color code capacity alerts
+		// Color code capacity status
 		if (column.fieldname === "capacity_status") {
-			const status = data.capacity_status;
-			if (status === "Critical") {
-				value = `<span style="color: red; font-weight: bold;">${value}</span>`;
-			} else if (status === "Warning") {
-				value = `<span style="color: orange; font-weight: bold;">${value}</span>`;
-			} else if (status === "Good") {
-				value = `<span style="color: green; font-weight: bold;">${value}</span>`;
+			const status = String(data.capacity_status || "").toLowerCase();
+			let color = "green";
+			if (status.includes("critical")) {
+				color = "red";
+			} else if (status.includes("warn")) {
+				color = "orange";
+			} else if (status.includes("good")) {
+				color = "green";
 			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${formatted_value}</span>`;
 		}
 		
-		return value;
+		// Color code efficiency score
+		if (column.fieldname === "efficiency_score") {
+			const score = parseFloat(data.efficiency_score) || 0;
+			let color = "red";
+			if (score >= 90) {
+				color = "green";
+			} else if (score >= 75) {
+				color = "orange";
+			} else if (score >= 50) {
+				color = "#FFA500";
+			}
+			formatted_value = `<span style="color: ${color}; font-weight: bold;">${formatted_value}</span>`;
+		}
+		
+		return formatted_value;
 	},
 	"onload": function(report) {
 		// Add Actions dropdown menu
