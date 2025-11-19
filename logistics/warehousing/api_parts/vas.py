@@ -84,7 +84,7 @@ def initiate_vas_pick(warehouse_job: str, clear_existing: int = 1):
         inputs = frappe.get_all(
             "Customer VAS Item Input",
             filters={"parent": bom, "parenttype": "Warehouse Item VAS BOM"},
-            fields=["name", "item", "quantity", "uom"],
+            fields=["name", "item", "quantity", "uom", "handling_unit_type"],
             order_by="idx asc", ignore_permissions=True,
         )
         if not inputs:
@@ -250,7 +250,7 @@ def allocate_vas(warehouse_job: str):
         inputs = frappe.get_all(
             "Customer VAS Item Input",
             filters={"parent": bom, "parenttype": "Warehouse Item VAS BOM"},
-            fields=["name", "item", "quantity", "uom"],
+            fields=["name", "item", "quantity", "uom", "handling_unit_type"],
             order_by="idx asc", ignore_permissions=True,
         )
         
@@ -295,6 +295,13 @@ def allocate_vas(warehouse_job: str):
             expanded_row["quantity"] = req
             if comp.get("uom"):
                 expanded_row["uom"] = comp.get("uom")
+            # Set handling_unit_type from BOM component (overrides parent's handling unit requirement)
+            if comp.get("handling_unit_type"):
+                expanded_row["handling_unit_type"] = comp.get("handling_unit_type")
+                # Clear parent's specific handling_unit if component has handling_unit_type requirement
+                # This ensures allocation follows BOM component's handling_unit_type, not parent's handling_unit
+                if expanded_row.get("handling_unit"):
+                    expanded_row["handling_unit"] = None
             # Preserve source reference
             expanded_row["_vas_bom"] = bom
             expanded_row["_vas_parent_item"] = p_item
