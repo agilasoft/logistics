@@ -45,6 +45,13 @@ frappe.query_reports["Warehouse Stock Balance"] = {
 
     { fieldname: "storage_location", label: "Storage Location", fieldtype: "Link", options: "Storage Location" },
     { fieldname: "handling_unit",    label: "Handling Unit",    fieldtype: "Link", options: "Handling Unit" },
+    {
+      fieldname: "group_by",
+      label: "Group By",
+      fieldtype: "Select",
+      options: "\nItem Only\nStorage Location and Handling Unit",
+      default: "Item Only",
+    },
   ],
 
   // Make Item cell clickable → open Warehouse Stock Ledger with same dates + item (+customer if any)
