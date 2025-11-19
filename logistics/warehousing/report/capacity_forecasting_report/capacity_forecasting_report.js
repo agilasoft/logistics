@@ -117,8 +117,13 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 		// Get default formatted value first
 		let formatted_value = default_formatter(value, row, column, data);
 		
-		// Skip formatting if value is empty/null
-		if (!value && value !== 0) {
+		// Safety check: if data is undefined/null (e.g., footer row), return default formatted value
+		if (!data || typeof data !== "object") {
+			return formatted_value;
+		}
+		
+		// Skip formatting if value is empty/null (but allow 0)
+		if (value === null || value === undefined || value === "") {
 			return formatted_value;
 		}
 		
