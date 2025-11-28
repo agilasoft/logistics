@@ -26,7 +26,6 @@ function _toggle_storage_location_size(frm) {
 		// If no company is set, disable the field
 		if (frm.fields_dict.storage_location_size) {
 			frm.set_df_property("storage_location_size", "read_only", 1);
-			console.log("Handling Unit: storage_location_size disabled - no company");
 		}
 		return;
 	}
@@ -39,22 +38,42 @@ function _toggle_storage_location_size(frm) {
 		},
 		callback: function(r) {
 			if (frm.fields_dict.storage_location_size) {
-				if (r && r.message) {
-					frm.set_df_property("storage_location_size", "read_only", 0);
-					console.log("Handling Unit: storage_location_size enabled - location overflow is ON for company", frm.doc.company);
+				if (r && r.message === true) {
+					// Enable the field - remove fetch_from behavior and make it editable
+					setTimeout(function() {
+						let field = frm.fields_dict.storage_location_size;
+						
+						// Remove fetch_from to allow manual editing
+						frm.set_df_property("storage_location_size", "fetch_from", "");
+						
+						// Set read_only to false
+						frm.set_df_property("storage_location_size", "read_only", 0);
+						
+						// Also try to enable the input directly
+						if (field) {
+							if (field.$input) {
+								field.$input.prop("readonly", false);
+								field.$input.prop("disabled", false);
+								field.$input.removeClass("read-only");
+								field.$input.removeAttr("readonly");
+							}
+							// Remove any read-only classes from the wrapper
+							if (field.$wrapper) {
+								field.$wrapper.find("input").prop("readonly", false).prop("disabled", false).removeAttr("readonly");
+							}
+						}
+					}, 100);
 				} else {
+					// Restore fetch_from when location overflow is disabled
+					frm.set_df_property("storage_location_size", "fetch_from", "type.storage_location_size");
 					frm.set_df_property("storage_location_size", "read_only", 1);
-					console.log("Handling Unit: storage_location_size disabled - location overflow is OFF for company", frm.doc.company);
 				}
-			} else {
-				console.log("Handling Unit: storage_location_size field not found in form");
 			}
 		},
 		error: function(r) {
 			// On error, disable the field to be safe
 			if (frm.fields_dict.storage_location_size) {
 				frm.set_df_property("storage_location_size", "read_only", 1);
-				console.log("Handling Unit: storage_location_size disabled - error checking warehouse settings", r);
 			}
 		}
 	});

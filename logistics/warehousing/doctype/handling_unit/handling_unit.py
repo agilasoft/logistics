@@ -15,7 +15,18 @@ def is_location_overflow_enabled(company):
 	if not company:
 		return False
 	try:
-		settings = frappe.get_doc("Warehouse Settings", company)
-		return bool(getattr(settings, "enable_location_overflow", False))
-	except (frappe.DoesNotExistError, AttributeError):
+		# Try getting the value directly from the database first
+		value = frappe.db.get_value("Warehouse Settings", company, "enable_location_overflow")
+		if value is None:
+			# If not found in DB, try getting the doc
+			settings = frappe.get_doc("Warehouse Settings", company)
+			value = getattr(settings, "enable_location_overflow", False)
+		
+		# Handle both integer (0/1) and boolean values
+		# Check fields in Frappe are stored as 0/1 in database
+		return bool(value) if value is not None else False
+	except frappe.DoesNotExistError:
+		return False
+	except Exception as e:
+		frappe.logger().error(f"Error checking location overflow for company {company}: {str(e)}")
 		return False
