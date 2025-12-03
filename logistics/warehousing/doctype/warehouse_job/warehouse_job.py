@@ -803,7 +803,32 @@ class WarehouseJob(Document):
                     
                     # Calculate volume from dimensions if not provided
                     if item_volume == 0 and item_length > 0 and item_width > 0 and item_height > 0:
-                        item_volume = item_length * item_width * item_height
+                        # Use volume conversion utility to handle UOM conversion
+                        from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
+                        
+                        # Get UOMs from item or warehouse settings
+                        dimension_uom = getattr(item, 'dimension_uom', None)
+                        volume_uom = getattr(item, 'volume_uom', None)
+                        
+                        # Get defaults from warehouse settings if not in item
+                        if not dimension_uom or not volume_uom:
+                            try:
+                                warehouse_settings = frappe.get_cached_doc("Warehouse Settings", self.company)
+                                if not dimension_uom:
+                                    dimension_uom = warehouse_settings.default_dimension_uom
+                                if not volume_uom:
+                                    volume_uom = warehouse_settings.default_volume_uom
+                            except:
+                                pass
+                        
+                        item_volume = calculate_volume_from_dimensions(
+                            length=item_length,
+                            width=item_width,
+                            height=item_height,
+                            dimension_uom=dimension_uom,
+                            volume_uom=volume_uom,
+                            company=self.company
+                        )
                     
                     # Calculate volume based on volume_qty_type setting
                     if getattr(self, 'volume_qty_type', 'Total') == 'Total':
@@ -3808,7 +3833,33 @@ def _calculate_job_quantities(job) -> Dict[str, float]:
             item_volume = flt(item.volume)
         elif item.length and item.width and item.height:
             # Calculate volume from dimensions if volume not provided
-            item_volume = flt(item.length) * flt(item.width) * flt(item.height)
+            from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
+            
+            # Get UOMs from item or warehouse settings
+            dimension_uom = getattr(item, 'dimension_uom', None)
+            volume_uom = getattr(item, 'volume_uom', None)
+            
+            # Get defaults from warehouse settings if not in item
+            if not dimension_uom or not volume_uom:
+                try:
+                    company = getattr(job, 'company', None)
+                    if company:
+                        warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
+                        if not dimension_uom:
+                            dimension_uom = warehouse_settings.default_dimension_uom
+                        if not volume_uom:
+                            volume_uom = warehouse_settings.default_volume_uom
+                except:
+                    pass
+            
+            item_volume = calculate_volume_from_dimensions(
+                length=item.length,
+                width=item.width,
+                height=item.height,
+                dimension_uom=dimension_uom,
+                volume_uom=volume_uom,
+                company=getattr(job, 'company', None)
+            )
         else:
             # Try to get volume from Warehouse Item if available
             try:
@@ -3817,7 +3868,33 @@ def _calculate_job_quantities(job) -> Dict[str, float]:
                     if warehouse_item.volume and warehouse_item.volume > 0:
                         item_volume = flt(warehouse_item.volume)
                     elif warehouse_item.length and warehouse_item.width and warehouse_item.height:
-                        item_volume = flt(warehouse_item.length) * flt(warehouse_item.width) * flt(warehouse_item.height)
+                        from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
+                        
+                        # Get UOMs from warehouse item or warehouse settings
+                        dimension_uom = getattr(warehouse_item, 'dimension_uom', None)
+                        volume_uom = getattr(warehouse_item, 'volume_uom', None)
+                        
+                        # Get defaults from warehouse settings if not in warehouse item
+                        if not dimension_uom or not volume_uom:
+                            try:
+                                company = getattr(job, 'company', None)
+                                if company:
+                                    warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
+                                    if not dimension_uom:
+                                        dimension_uom = warehouse_settings.default_dimension_uom
+                                    if not volume_uom:
+                                        volume_uom = warehouse_settings.default_volume_uom
+                            except:
+                                pass
+                        
+                        item_volume = calculate_volume_from_dimensions(
+                            length=warehouse_item.length,
+                            width=warehouse_item.width,
+                            height=warehouse_item.height,
+                            dimension_uom=dimension_uom,
+                            volume_uom=volume_uom,
+                            company=getattr(job, 'company', None)
+                        )
             except:
                 pass  # If Warehouse Item not found or no volume data, use 0
         

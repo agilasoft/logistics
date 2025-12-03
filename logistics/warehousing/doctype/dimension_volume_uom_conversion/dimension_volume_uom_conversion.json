@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "format:{dimension_uom}-{volume_uom}",
+ "creation": "2025-01-27 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "dimension_uom",
+  "volume_uom",
+  "conversion_factor",
+  "column_break_description",
+  "description",
+  "is_standard",
+  "enabled"
+ ],
+ "fields": [
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Dimension UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Volume UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "conversion_factor",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Conversion Factor",
+   "precision": "9",
+   "reqd": 1,
+   "description": "Factor to multiply cubic dimension UOM to get volume UOM. Example: CM to CBM = 0.000001 (1 cm³ = 0.000001 m³)"
+  },
+  {
+   "fieldname": "column_break_description",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_standard",
+   "fieldtype": "Check",
+   "label": "Is Standard",
+   "description": "Indicates if this is a standard system conversion"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00",
+ "modified_by": "Administrator",
+ "module": "Warehousing",
+ "name": "Dimension Volume UOM Conversion",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "unique_indexes": [
+  {
+   "fields": [
+    "dimension_uom",
+    "volume_uom"
+   ],
+   "name": "dimension_volume_uom_unique"
+  }
+ ]
+}
+

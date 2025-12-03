@@ -54,19 +54,39 @@ function update_uom_fields(frm) {
 
 // Calculate volume from dimensions
 function calculate_volume(frm) {
-    console.log('calculate_volume called');
     const length = parseFloat(frm.doc.length) || 0;
     const width = parseFloat(frm.doc.width) || 0;
     const height = parseFloat(frm.doc.height) || 0;
     
-    console.log('Dimensions:', {length, width, height});
-    
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        console.log('Calculated volume:', volume);
-        frm.set_value("volume", volume);
-        console.log('Volume set to:', frm.doc.volume);
+        // Get UOMs from form or warehouse settings
+        const dimension_uom = frm.get_value('dimension_uom');
+        const volume_uom = frm.get_value('volume_uom');
+        const company = frappe.defaults.get_user_default("Company");
+        
+        // Call server-side method to calculate volume with UOM conversion
+        frappe.call({
+            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    frm.set_value("volume", r.message.volume);
+                }
+            },
+            error: function(r) {
+                // Fallback to raw calculation on error
+                const volume = length * width * height;
+                frm.set_value("volume", volume);
+            }
+        });
     } else {
-        console.log('Not all dimensions provided');
+        frm.set_value("volume", 0);
     }
 }
