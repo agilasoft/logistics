@@ -30,6 +30,7 @@
   "prevent_exceeding_capacity_limit",
   "capacity_tolerance_percentage",
   "enable_location_overflow",
+  "round_down_allocation_qty",
   "default_volume_uom",
   "volume_calculation_precision",
   "default_weight_uom",
@@ -173,6 +174,13 @@
    "fieldname": "enable_location_overflow",
    "fieldtype": "Check",
    "label": "Enable Location Overflow"
+  },
+  {
+   "default": "0",
+   "description": "When checked, rounds down allocation quantity in putaway to whole numbers that do not exceed capacity. This ensures allocated quantities are whole numbers and never exceed the available capacity.",
+   "fieldname": "round_down_allocation_qty",
+   "fieldtype": "Check",
+   "label": "Round Down Allocation Qty in Putaway"
   },
   {
    "default": "80",
