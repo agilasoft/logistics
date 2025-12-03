@@ -1,12 +1,13 @@
 from __future__ import annotations
 from .common import *  # shared helpers
-from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _get_allow_emergency_fallback, _get_split_quantity_decimal_precision, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs  # explicit imports
+from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _get_allow_emergency_fallback, _get_split_quantity_decimal_precision, _get_round_down_allocation_qty, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs  # explicit imports
 from .capacity_management import CapacityManager, CapacityValidationError
 
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 from typing import List, Dict, Any, Optional, Tuple, Set
+import math
 
 def _get_location_overflow_enabled(company: Optional[str]) -> bool:
     """Check if location overflow is enabled in warehouse settings"""
@@ -1169,6 +1170,9 @@ def _allocate_hu_to_orders(
     # Get split quantity decimal precision from Warehouse Settings
     split_precision = _get_split_quantity_decimal_precision()
     
+    # Get round down allocation setting from Warehouse Settings
+    round_down_qty = _get_round_down_allocation_qty(company)
+    
     # Find all available handling units once
     all_available_hus = _find_available_handling_units(company, branch, exclude_hus=used_hus)
     
@@ -1325,8 +1329,13 @@ def _allocate_hu_to_orders(
                     # Take the minimum (most restrictive constraint)
                     max_fitting_qty = min(max_qty_by_volume, max_qty_by_weight)
                     
-                    # Round max_fitting_qty using split quantity decimal precision
-                    max_fitting_qty = round(max_fitting_qty, split_precision)
+                    # Round or floor max_fitting_qty based on setting
+                    if round_down_qty:
+                        # Round down to whole number that doesn't exceed capacity
+                        max_fitting_qty = math.floor(max_fitting_qty)
+                    else:
+                        # Round using split quantity decimal precision
+                        max_fitting_qty = round(max_fitting_qty, split_precision)
                     
                     if max_fitting_qty <= 0:
                         continue  # Skip this HU, it's full
@@ -1338,8 +1347,13 @@ def _allocate_hu_to_orders(
                     # Allocate as much as possible (up to remaining quantity)
                     qty_to_allocate = min(remaining_qty, max_fitting_qty)
                     
-                    # Round qty_to_allocate using split quantity decimal precision
-                    qty_to_allocate = round(qty_to_allocate, split_precision)
+                    # Round or floor qty_to_allocate based on setting
+                    if round_down_qty:
+                        # Round down to whole number that doesn't exceed capacity
+                        qty_to_allocate = math.floor(qty_to_allocate)
+                    else:
+                        # Round using split quantity decimal precision
+                        qty_to_allocate = round(qty_to_allocate, split_precision)
                     
                     if qty_to_allocate > 0:
                         # Determine allocation method with more descriptive labels
@@ -2178,6 +2192,7 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
         # Calculate split values for multiple locations
         num_locations = len(dest_locations) if dest_locations else 1
         split_precision = _get_split_quantity_decimal_precision()
+        round_down_qty = _get_round_down_allocation_qty(company)
         
         # append putaway rows for each original order line, split across locations if needed
         for rr in rows:
@@ -2187,7 +2202,14 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             item = rr.get("item")
             
             # Calculate split values per location
-            qty_per_location = round(qty / num_locations, split_precision) if num_locations > 0 else qty
+            if num_locations > 0:
+                if round_down_qty:
+                    # Round down to whole number per location
+                    qty_per_location = math.floor(qty / num_locations)
+                else:
+                    qty_per_location = round(qty / num_locations, split_precision)
+            else:
+                qty_per_location = qty
             volume_per_location = None
             weight_per_location = None
             length_per_location = None
@@ -2213,6 +2235,9 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 # Calculate quantity for this location (last location gets remainder to avoid rounding issues)
                 if loc_idx == len(dest_locations) - 1:
                     loc_qty = remaining_qty
+                    # Round down to whole number if setting is enabled
+                    if round_down_qty:
+                        loc_qty = math.floor(loc_qty)
                 else:
                     loc_qty = qty_per_location
                     remaining_qty -= loc_qty

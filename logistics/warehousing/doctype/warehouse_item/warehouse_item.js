@@ -4,15 +4,26 @@
 frappe.ui.form.on('Warehouse Item', {
     refresh: function(frm) {
         update_uom_fields(frm);
+        // Bind change events directly to input fields for more reliable triggering
+        _setup_dimension_listeners(frm);
     },
     length: function(frm) {
-        calculate_volume(frm);
+        // Use setTimeout to ensure value is committed to doc
+        setTimeout(function() {
+            calculate_volume(frm);
+        }, 100);
     },
     width: function(frm) {
-        calculate_volume(frm);
+        // Use setTimeout to ensure value is committed to doc
+        setTimeout(function() {
+            calculate_volume(frm);
+        }, 100);
     },
     height: function(frm) {
-        calculate_volume(frm);
+        // Use setTimeout to ensure value is committed to doc
+        setTimeout(function() {
+            calculate_volume(frm);
+        }, 100);
     },
     weight: function(frm) {
         validate_weight(frm);
@@ -24,6 +35,19 @@ frappe.ui.form.on('Warehouse Item', {
         validate_tracking_exclusivity(frm, 'serial_tracking', 'batch_tracking');
     }
 });
+
+function _setup_dimension_listeners(frm) {
+    // Setup direct event listeners on dimension fields for more reliable triggering
+    ['length', 'width', 'height'].forEach(function(fieldname) {
+        if (frm.fields_dict[fieldname] && frm.fields_dict[fieldname].$input) {
+            frm.fields_dict[fieldname].$input.off('change.volume_calc').on('change.volume_calc', function() {
+                setTimeout(function() {
+                    calculate_volume(frm);
+                }, 100);
+            });
+        }
+    });
+}
 
 function update_uom_fields(frm) {
     // Get UOM values from Warehouse Settings
@@ -62,10 +86,14 @@ function update_uom_fields(frm) {
 }
 
 function calculate_volume(frm) {
-    // Get dimension values
-    const length = flt(frm.get_value('length') || 0);
-    const width = flt(frm.get_value('width') || 0);
-    const height = flt(frm.get_value('height') || 0);
+    if (!frm || !frm.doc) {
+        return;
+    }
+    
+    // Get dimension values - use doc directly for more reliable access in event handlers
+    const length = flt(frm.doc.length || 0);
+    const width = flt(frm.doc.width || 0);
+    const height = flt(frm.doc.height || 0);
     
     // Validate dimensions
     if (length < 0 || width < 0 || height < 0) {
@@ -75,13 +103,39 @@ function calculate_volume(frm) {
     
     // Calculate volume if all dimensions are provided
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        frm.set_value('volume', volume);
+        // Get UOMs from form or warehouse settings - use doc directly
+        const dimension_uom = frm.doc.dimension_uom;
+        const volume_uom = frm.doc.volume_uom;
+        const company = frappe.defaults.get_user_default("Company");
         
-        // Validate reasonable volume (prevent unrealistic values)
-        if (volume > 1000000) { // 1 million cubic units
-            frappe.msgprint(__("Warning: Calculated volume seems unusually large. Please verify dimensions."));
-        }
+        // Call server-side method to calculate volume with UOM conversion
+        frappe.call({
+            method: "logistics.warehousing.utils.volume_conversion.calculate_volume_from_dimensions_api",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    const volume = r.message.volume;
+                    frm.set_value('volume', volume);
+                    
+                    // Validate reasonable volume (prevent unrealistic values)
+                    if (volume > 1000000) { // 1 million cubic units
+                        frappe.msgprint(__("Warning: Calculated volume seems unusually large. Please verify dimensions."));
+                    }
+                }
+            },
+            error: function(r) {
+                // Fallback to raw calculation on error
+                const volume = length * width * height;
+                frm.set_value('volume', volume);
+            }
+        });
     } else {
         // Clear volume if dimensions are incomplete
         frm.set_value('volume', 0);

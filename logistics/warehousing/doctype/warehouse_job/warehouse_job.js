@@ -568,8 +568,33 @@ function calculate_item_volume(frm, cdt, cdn) {
     
     // Calculate volume if all dimensions are provided
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        frappe.model.set_value(cdt, cdn, "volume", volume);
+        // Get UOMs from item or warehouse settings
+        const dimension_uom = item.dimension_uom;
+        const volume_uom = item.volume_uom;
+        const company = frm.doc.company;
+        
+        // Call server-side method to calculate volume with UOM conversion
+        frappe.call({
+            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    frappe.model.set_value(cdt, cdn, "volume", r.message.volume);
+                }
+            },
+            error: function(r) {
+                // Fallback to raw calculation on error
+                const volume = length * width * height;
+                frappe.model.set_value(cdt, cdn, "volume", volume);
+            }
+        });
     } else {
         // Clear volume if dimensions are incomplete
         frappe.model.set_value(cdt, cdn, "volume", 0);
