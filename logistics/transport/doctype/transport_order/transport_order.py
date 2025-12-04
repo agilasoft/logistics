@@ -7,10 +7,44 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_days, cint, getdate
+from pymysql.err import ProgrammingError
 
 # keep these exactly as requested
 ORDER_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
+
+# Fields we want to copy over from Sales Quote Transport rows into Transport Order Charges
+SALES_QUOTE_CHARGE_FIELDS = [
+    "item_code",
+    "item_name",
+    "calculation_method",
+    "quantity",
+    "uom",
+    "currency",
+    "unit_rate",
+    "unit_type",
+    "minimum_quantity",
+    "minimum_charge",
+    "maximum_charge",
+    "base_amount",
+    "estimated_revenue",
+    "use_tariff_in_revenue",
+    "use_tariff_in_cost",
+    "tariff",
+    "cost_calculation_method",
+    "cost_quantity",
+    "cost_uom",
+    "cost_currency",
+    "unit_cost",
+    "cost_unit_type",
+    "cost_minimum_quantity",
+    "cost_minimum_charge",
+    "cost_maximum_charge",
+    "cost_base_amount",
+    "estimated_cost",
+    "revenue_calc_notes",
+    "cost_calc_notes",
+]
 
 
 class TransportOrder(Document):
@@ -438,22 +472,11 @@ class TransportOrder(Document):
             self.set("charges", [])
 
             # Fetch sales_quote_transport records from the selected sales_quote
+            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
             sales_quote_transport_records = frappe.get_all(
                 "Sales Quote Transport",
                 filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-                fields=[
-                    "item_code",
-                    "item_name", 
-                    "calculation_method",
-                    "uom",
-                    "currency",
-                    "unit_rate",
-                    "unit_type",
-                    "minimum_quantity",
-                    "minimum_charge",
-                    "maximum_charge",
-                    "base_amount"
-                ],
+                fields=fields_to_fetch,
                 order_by="idx"
             )
 
@@ -500,40 +523,26 @@ class TransportOrder(Document):
     def _map_sales_quote_transport_to_charge(self, sqt_record):
         """Map sales_quote_transport record to transport_order_charges format."""
         try:
-            # Get the item details to fetch additional required fields
-            item_doc = frappe.get_doc("Item", sqt_record.item_code)
-            
-            # Get default currency from system settings
-            default_currency = frappe.get_system_settings("currency") or "USD"
-            
-            # Get default vehicle type if not set in transport order
-            default_vehicle_type = self.vehicle_type
-            if not default_vehicle_type:
-                # Try to get a default vehicle type from the system
-                vehicle_types = frappe.get_all("Vehicle Type", limit=1)
-                default_vehicle_type = vehicle_types[0].name if vehicle_types else ""
-            
-            # Map the fields from sales_quote_transport to transport_order_charges
-            charge_data = {
-                "item_code": sqt_record.item_code,
-                "item_name": sqt_record.item_name or item_doc.item_name,
-                "calculation_method": sqt_record.calculation_method or "Per Unit",
-                "uom": sqt_record.uom or item_doc.stock_uom,
-                "currency": sqt_record.currency or default_currency,
-                "rate": sqt_record.unit_rate or 0,
-                "unit_type": sqt_record.unit_type,
-                "minimum_quantity": sqt_record.minimum_quantity,
-                "minimum_charge": sqt_record.minimum_charge,
-                "maximum_charge": sqt_record.maximum_charge,
-                "base_amount": sqt_record.base_amount,
-                # Set default values for required fields in transport_order_charges
-                "load_type": self.load_type or "FTL",  # Use from transport order or default
-                "vehicle_type": default_vehicle_type,  # Required field
-                "location_type": "Location",  # Default to Location
-                "location_from": "",  # Will need to be set manually or from transport order
-                "location_to": "",  # Will need to be set manually or from transport order
-                "quantity": 1  # Default quantity
-            }
+            # Map overlapping fields directly
+            charge_data = {}
+            for field in SALES_QUOTE_CHARGE_FIELDS:
+                if field in sqt_record:
+                    charge_data[field] = sqt_record.get(field)
+
+            # Fallbacks for essential fields
+            if not charge_data.get("item_name") and sqt_record.get("item_code"):
+                item_doc = frappe.get_doc("Item", sqt_record.item_code)
+                charge_data["item_name"] = item_doc.item_name
+
+            if not charge_data.get("uom") and sqt_record.get("item_code"):
+                item_doc = item_doc if "item_doc" in locals() else frappe.get_doc("Item", sqt_record.item_code)
+                charge_data["uom"] = item_doc.stock_uom
+
+            if charge_data.get("unit_rate") is None:
+                charge_data["unit_rate"] = 0
+
+            if not charge_data.get("quantity"):
+                charge_data["quantity"] = 1
 
             return charge_data
 
@@ -1013,24 +1022,35 @@ def get_consolidation_opportunities(transport_order_name: str) -> Dict[str, Any]
     """Get consolidation opportunities for a transport order."""
     try:
         doc = frappe.get_doc("Transport Order", transport_order_name)
-        
+
         if not doc.get_consolidation_eligibility():
             return {"eligible": False, "reason": "Transport order not eligible for consolidation"}
-        
+
+        order_meta = frappe.get_meta("Transport Order")
+        filters = {
+            "transport_job_type": doc.transport_job_type,
+            "load_type": doc.load_type,
+            "docstatus": 1,
+            "name": ["!=", doc.name],
+        }
+
+        if order_meta.has_field("company") and getattr(doc, "company", None):
+            filters["company"] = doc.company
+
+        if order_meta.has_field("branch") and getattr(doc, "branch", None):
+            filters["branch"] = doc.branch
+
         # Find other eligible transport orders
-        eligible_orders = frappe.get_all(
-            "Transport Order",
-            filters={
-                "transport_job_type": doc.transport_job_type,
-                "load_type": doc.load_type,
-                "company": doc.company,
-                "branch": doc.branch,
-                "docstatus": 1,
-                "name": ["!=", doc.name]
-            },
-            fields=["name", "customer", "booking_date", "scheduled_date"],
-            limit=10
-        )
+        try:
+            eligible_orders = frappe.get_all(
+                "Transport Order",
+                filters=filters,
+                fields=["name", "customer", "booking_date", "scheduled_date"],
+                limit=10,
+            )
+        except ProgrammingError as err:
+            frappe.log_error(f"Error fetching consolidation opportunities: {err}", "Transport Order Consolidation")
+            return {"eligible": False, "error": str(err)}
         
         return {
             "eligible": True,
