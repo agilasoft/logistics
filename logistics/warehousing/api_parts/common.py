@@ -139,6 +139,18 @@ def _get_split_quantity_decimal_precision() -> int:
     except Exception:
         return 2  # Default precision
 
+def _get_round_down_allocation_qty(company: Optional[str] = None) -> bool:
+    """Return whether to round down allocation quantity in putaway from Warehouse Settings, default to False."""
+    try:
+        if not company:
+            company = frappe.defaults.get_user_default("Company")
+        if not company:
+            return False
+        val = frappe.db.get_value("Warehouse Settings", company, "round_down_allocation_qty")
+        return bool(val) if val is not None else False
+    except Exception:
+        return False
+
 def _level_path_for_location(location: Optional[str]) -> Dict[str, Optional[str]]:
     """Return {field: value} for hierarchical level fields that exist."""
     out: Dict[str, Optional[str]] = {}
