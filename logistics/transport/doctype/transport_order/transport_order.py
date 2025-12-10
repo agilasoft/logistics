@@ -531,7 +531,7 @@ class TransportOrder(Document):
 
             # Fallbacks for essential fields
             if not charge_data.get("item_name") and sqt_record.get("item_code"):
-                item_doc = frappe.get_doc("Item", sqt_record.item_code)
+            item_doc = frappe.get_doc("Item", sqt_record.item_code)
                 charge_data["item_name"] = item_doc.item_name
 
             if not charge_data.get("uom") and sqt_record.get("item_code"):
@@ -1022,15 +1022,15 @@ def get_consolidation_opportunities(transport_order_name: str) -> Dict[str, Any]
     """Get consolidation opportunities for a transport order."""
     try:
         doc = frappe.get_doc("Transport Order", transport_order_name)
-
+        
         if not doc.get_consolidation_eligibility():
             return {"eligible": False, "reason": "Transport order not eligible for consolidation"}
-
+        
         order_meta = frappe.get_meta("Transport Order")
         filters = {
-            "transport_job_type": doc.transport_job_type,
-            "load_type": doc.load_type,
-            "docstatus": 1,
+                "transport_job_type": doc.transport_job_type,
+                "load_type": doc.load_type,
+                "docstatus": 1,
             "name": ["!=", doc.name],
         }
 
@@ -1045,9 +1045,9 @@ def get_consolidation_opportunities(transport_order_name: str) -> Dict[str, Any]
             eligible_orders = frappe.get_all(
                 "Transport Order",
                 filters=filters,
-                fields=["name", "customer", "booking_date", "scheduled_date"],
+            fields=["name", "customer", "booking_date", "scheduled_date"],
                 limit=10,
-            )
+        )
         except ProgrammingError as err:
             frappe.log_error(f"Error fetching consolidation opportunities: {err}", "Transport Order Consolidation")
             return {"eligible": False, "error": str(err)}
