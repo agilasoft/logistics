@@ -29,20 +29,6 @@
   "legs",
   "charges_tab",
   "charges",
-  "sla_tab",
-  "sla_section",
-  "sla_target_date",
-  "sla_status",
-  "column_break_sla",
-  "sla_notes",
-  "notes_tab",
-  "notes_section",
-  "internal_notes",
-  "column_break_16",
-  "client_notes",
-  "communication_tab",
-  "customer_communication_log",
-  "amended_from",
   "entity_tab",
   "company",
   "branch",
@@ -57,6 +43,17 @@
   "estimated_carbon_footprint",
   "column_break_sustainability",
   "sustainability_notes",
+  "sla_tab",
+  "sla_section",
+  "sla_target_date",
+  "sla_status",
+  "column_break_sla",
+  "sla_notes",
+  "notes_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_16",
+  "client_notes",
   "connections_tab"
  ],
  "fields": [
@@ -162,25 +159,6 @@
    "label": "Client Notes"
   },
   {
-   "fieldname": "communication_tab",
-   "fieldtype": "Tab Break",
-   "label": "Communication"
-  },
-  {
-   "fieldname": "customer_communication_log",
-   "fieldtype": "Text Editor",
-   "label": "Customer Communication Log"
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Transport Job",
-   "print_hide": 1,
-   "read_only": 1
-  },
-  {
    "fieldname": "column_break_tjia",
    "fieldtype": "Column Break"
   },
@@ -202,7 +180,7 @@
   {
    "fieldname": "sla_tab",
    "fieldtype": "Tab Break",
-   "label": "SLA"
+   "label": "Service Level"
   },
   {
    "collapsible": 1,
@@ -386,7 +364,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2025-10-25 09:45:34.609167",
+ "modified": "2025-12-05 09:06:21.690169",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
@@ -413,23 +391,23 @@
  "sort_order": "DESC",
  "states": [
   {
-   "color": "#ff9800",
+   "color": "Gray",
    "title": "Draft"
   },
   {
-   "color": "#2196f3",
+   "color": "Blue",
    "title": "Submitted"
   },
   {
-   "color": "#4caf50",
+   "color": "Orange",
    "title": "In Progress"
   },
   {
-   "color": "#8bc34a",
+   "color": "Green",
    "title": "Completed"
   },
   {
-   "color": "#f44336",
+   "color": "Red",
    "title": "Cancelled"
   }
  ],

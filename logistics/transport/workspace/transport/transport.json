@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"haJQzFEZjs\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Land Transport\",\"col\":12}},{\"id\":\"1iWx1fqP9z\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"q7EPLC6fZU\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Order\",\"col\":3}},{\"id\":\"3TS59zETtC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Job\",\"col\":3}},{\"id\":\"rclzmlt4yl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Leg\",\"col\":3}},{\"id\":\"k22grjw_p0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Consolidation\",\"col\":3}},{\"id\":\"zDgXjVUoWb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Plan\",\"col\":3}},{\"id\":\"_xR2UkxGAY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Run Sheet\",\"col\":3}},{\"id\":\"ZZFs6tsHRI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Scan Run Sheet\",\"col\":3}},{\"id\":\"N1HgqeWP45\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"yNM9LyJ0bU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Reports</b></span>\",\"col\":12}},{\"id\":\"ICBiUn21qr\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport Job\",\"col\":4}},{\"id\":\"HKK035MI_V\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"T4NHfMqzxe\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport Facilities\",\"col\":4}},{\"id\":\"4lt_4qQ2s5\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}},{\"id\":\"QJ1S3qS7W3\",\"type\":\"card\",\"data\":{\"card_name\":\"Vehicles and Setup\",\"col\":4}},{\"id\":\"nGrk4a4DrA\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"08bXwl3tja\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"OkhL-e8qrD\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Monitoring\",\"col\":4}},{\"id\":\"kmomkKlBXP\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Analysis Reports\",\"col\":4}},{\"id\":\"hBjxfJtj3D\",\"type\":\"card\",\"data\":{\"card_name\":\"Strategic Planning\",\"col\":4}},{\"id\":\"mmdpGwehl7\",\"type\":\"card\",\"data\":{\"card_name\":\"Risk Management Reports\",\"col\":4}},{\"id\":\"XgaCzTZ6h7\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Service Reports\",\"col\":4}},{\"id\":\"PuYYedukU4\",\"type\":\"card\",\"data\":{\"card_name\":\" Environmental & Sustainability\",\"col\":4}}]",
+ "content": "[{\"id\":\"haJQzFEZjs\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Land Transport\",\"col\":12}},{\"id\":\"1iWx1fqP9z\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"ysB7WiPWwM\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"q7EPLC6fZU\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Order\",\"col\":3}},{\"id\":\"3TS59zETtC\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Job\",\"col\":3}},{\"id\":\"rclzmlt4yl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Leg\",\"col\":3}},{\"id\":\"k22grjw_p0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Consolidation\",\"col\":3}},{\"id\":\"zDgXjVUoWb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Plan\",\"col\":3}},{\"id\":\"_xR2UkxGAY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Run Sheet\",\"col\":3}},{\"id\":\"ZZFs6tsHRI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Scan Run Sheet\",\"col\":3}},{\"id\":\"N1HgqeWP45\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"yNM9LyJ0bU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Reports</b></span>\",\"col\":12}},{\"id\":\"ICBiUn21qr\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport Job\",\"col\":4}},{\"id\":\"HKK035MI_V\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"T4NHfMqzxe\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport Facilities\",\"col\":4}},{\"id\":\"4lt_4qQ2s5\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}},{\"id\":\"QJ1S3qS7W3\",\"type\":\"card\",\"data\":{\"card_name\":\"Vehicles and Setup\",\"col\":4}},{\"id\":\"nGrk4a4DrA\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"08bXwl3tja\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"OkhL-e8qrD\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Monitoring\",\"col\":4}},{\"id\":\"kmomkKlBXP\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Analysis Reports\",\"col\":4}},{\"id\":\"hBjxfJtj3D\",\"type\":\"card\",\"data\":{\"card_name\":\"Strategic Planning\",\"col\":4}},{\"id\":\"mmdpGwehl7\",\"type\":\"card\",\"data\":{\"card_name\":\"Risk Management Reports\",\"col\":4}},{\"id\":\"XgaCzTZ6h7\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Service Reports\",\"col\":4}},{\"id\":\"PuYYedukU4\",\"type\":\"card\",\"data\":{\"card_name\":\" Environmental & Sustainability\",\"col\":4}}]",
  "creation": "2025-05-22 17:01:42.084612",
  "custom_blocks": [],
  "docstatus": 0,
@@ -404,8 +404,8 @@
    "type": "Link"
   }
  ],
- "modified": "2025-10-31 16:15:13.791857",
- "modified_by": "Administrator",
+ "modified": "2025-12-04 13:43:03.933167",
+ "modified_by": "paulinemae.cabile@agilasoft.com",
  "module": "Transport",
  "name": "Transport",
  "number_cards": [],
@@ -416,6 +416,14 @@
  "roles": [],
  "sequence_id": 5.0,
  "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Quote",
+   "link_to": "Sales Quote",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
   {
    "color": "Grey",
    "doc_view": "List",

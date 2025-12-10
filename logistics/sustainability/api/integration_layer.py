@@ -473,3 +473,108 @@ def integrate_sea_shipment(sea_shipment_name):
 	"""Integrate sustainability tracking with sea shipment"""
 	integration = SustainabilityIntegrationLayer()
 	return integration.integrate_with_sea_freight(sea_shipment_name)
+
+
+# ----------------------------------------------------------------------
+# Convenience helpers used by other modules
+# ----------------------------------------------------------------------
+def _get_sustainability_settings(company: Optional[str] = None):
+	try:
+		return frappe.get_doc("Sustainability Settings", company or frappe.defaults.get_user_default("Company"))
+	except frappe.DoesNotExistError:
+		return None
+
+
+def is_sustainability_enabled_for_module(module: str, company: Optional[str] = None) -> bool:
+	"""Return True if sustainability tracking is enabled for the given module."""
+	settings = _get_sustainability_settings(company)
+	if not settings:
+		return False
+	try:
+		return settings.is_module_integrated(module)
+	except Exception:
+		return False
+
+
+def trigger_carbon_calculation(
+	module: str,
+	activity_type: str,
+	activity_data: Any,
+	activity_unit: str,
+	company: Optional[str] = None,
+	reference_doctype: Optional[str] = None,
+	reference_docname: Optional[str] = None,
+	description: Optional[str] = None,
+	site: Optional[str] = None,
+	facility: Optional[str] = None,
+) -> Dict[str, Any]:
+	"""Calculate and record a carbon footprint entry."""
+	api = SustainabilityAPI(company)
+
+	if isinstance(activity_data, dict):
+		payload = activity_data
+	else:
+		payload = {"activity_value": flt(activity_data) if activity_data is not None else 0}
+
+	try:
+		calculation = api.calculate_carbon_footprint(payload, activity_type, module)
+		total_emissions = calculation.get("total_emissions", 0)
+	except Exception as exc:
+		frappe.log_error(f"Carbon calculation failed for {module}: {exc}", "Sustainability Integration")
+		total_emissions = flt(payload.get("activity_value", 0))
+		calculation = {"total_emissions": total_emissions, "emission_breakdown": []}
+
+	record = api.create_carbon_footprint(
+		module=module,
+		reference_doctype=reference_doctype,
+		reference_name=reference_docname,
+		site=site,
+		facility=facility,
+		total_emissions=total_emissions,
+		calculation_method=f"Automated ({activity_type})",
+		notes=description or f"{activity_type} activity recorded in {activity_unit}",
+	)
+
+	return {
+		"status": "success",
+		"record": record,
+		"total_emissions": total_emissions,
+		"breakdown": calculation.get("emission_breakdown", []),
+	}
+
+
+def trigger_energy_consumption_recording(
+	module: str,
+	energy_type: str,
+	consumption_value: float,
+	unit_of_measure: str,
+	company: Optional[str] = None,
+	reference_doctype: Optional[str] = None,
+	reference_docname: Optional[str] = None,
+	description: Optional[str] = None,
+	site: Optional[str] = None,
+	facility: Optional[str] = None,
+	renewable_percentage: Optional[float] = None,
+) -> Dict[str, Any]:
+	"""Record an energy consumption entry."""
+	api = SustainabilityAPI(company)
+	record = api.create_energy_consumption(
+		module=module,
+		reference_doctype=reference_doctype,
+		reference_name=reference_docname,
+		site=site,
+		facility=facility,
+		energy_type=energy_type,
+		consumption_value=flt(consumption_value),
+		unit_of_measure=unit_of_measure,
+		renewable_percentage=flt(renewable_percentage) if renewable_percentage is not None else 0,
+		notes=description,
+	)
+
+	return {
+		"status": "success",
+		"record": record,
+		"consumption_value": flt(consumption_value),
+		"energy_type": energy_type,
+		"unit_of_measure": unit_of_measure,
+	}

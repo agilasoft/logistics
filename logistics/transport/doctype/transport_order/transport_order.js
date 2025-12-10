@@ -1,6 +1,12 @@
 // logistics/transport/doctype/transport_order/transport_order.js
 frappe.ui.form.on('Transport Order', {
+  setup(frm) {
+    bind_leg_address_queries(frm);
+  },
+  
   refresh(frm) {
+    bind_leg_address_queries(frm);
+    
     // Show the action only when NOT submitted
     if (frm.doc.docstatus !== 1) {
       frm.add_custom_button(__('Get Leg Plan'), async () => {
@@ -84,33 +90,7 @@ frappe.ui.form.on('Transport Order', {
         }
       }, __('Actions'));
     }
-  },
-  
-  // Auto-fill transport_job_type to all existing legs when parent changes
-  transport_job_type(frm) {
-    if (frm.doc.transport_job_type && frm.doc.legs) {
-      frm.doc.legs.forEach((leg, index) => {
-        if (!leg.transport_job_type) {
-          frappe.model.set_value("Transport Order Legs", leg.name, "transport_job_type", frm.doc.transport_job_type);
-        }
-      });
-    }
-  },
-  
-  // Auto-fill vehicle_type to all existing legs when parent changes
-  vehicle_type(frm) {
-    if (frm.doc.vehicle_type && frm.doc.legs) {
-      frm.doc.legs.forEach((leg, index) => {
-        if (!leg.vehicle_type) {
-          frappe.model.set_value("Transport Order Legs", leg.name, "vehicle_type", frm.doc.vehicle_type);
-        }
-      });
-    }
-  }
-});
-
-frappe.ui.form.on('Transport Order', {
-  refresh(frm) {
+    
     // Only when submitted
     if (frm.doc.docstatus === 1) {
       frm.add_custom_button(__('Transport Job'), () => {
@@ -138,6 +118,28 @@ frappe.ui.form.on('Transport Order', {
         });
       }, __('Create'));
     }
+  },
+  
+  // Auto-fill transport_job_type to all existing legs when parent changes
+  transport_job_type(frm) {
+    if (frm.doc.transport_job_type && frm.doc.legs) {
+      frm.doc.legs.forEach((leg, index) => {
+        if (!leg.transport_job_type) {
+          frappe.model.set_value("Transport Order Legs", leg.name, "transport_job_type", frm.doc.transport_job_type);
+        }
+      });
+    }
+  },
+  
+  // Auto-fill vehicle_type to all existing legs when parent changes
+  vehicle_type(frm) {
+    if (frm.doc.vehicle_type && frm.doc.legs) {
+      frm.doc.legs.forEach((leg, index) => {
+        if (!leg.vehicle_type) {
+          frappe.model.set_value("Transport Order Legs", leg.name, "vehicle_type", frm.doc.vehicle_type);
+        }
+      });
+    }
   }
 });
 
@@ -145,15 +147,6 @@ frappe.ui.form.on('Transport Order', {
 // --- Transport Order: child (Transport Order Legs) address filters ---
 
 const TO_LEGS_FIELD = "legs"; // change to "legs" if that's your fieldname
-
-frappe.ui.form.on("Transport Order", {
-  setup(frm) {
-    bind_leg_address_queries(frm);
-  },
-  refresh(frm) {
-    bind_leg_address_queries(frm);
-  },
-});
 
 function bind_leg_address_queries(frm) {
   // Pick Address: filter by (facility_type_from, facility_from)
