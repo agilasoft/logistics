@@ -70,6 +70,7 @@
    "fieldname": "base_location_type",
    "fieldtype": "Link",
    "label": "Base Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"=\",\"UNLOCO\"],[\"DocType\",\"name\",\"=\",\"Address\"],[\"DocType\",\"name\",\"=\",\"Transport Zone\"]]",
    "options": "DocType"
   },
   {
@@ -188,8 +189,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-11-13 16:55:19.382882",
- "modified_by": "Administrator",
+ "modified": "2025-12-04 17:15:58.348745",
+ "modified_by": "paulinemae.cabile@agilasoft.com",
  "module": "Transport",
  "name": "Run Sheet",
  "naming_rule": "By \"Naming Series\" field",

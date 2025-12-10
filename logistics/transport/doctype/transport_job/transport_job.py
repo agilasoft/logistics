@@ -127,25 +127,26 @@ class TransportJob(Document):
                 frappe.throw(_("Submitted Transport Job must have at least one leg"))
     
     def validate_accounts(self):
-        """Validate that cost center, profit center, and branch belong to the company"""
-        if self.company:
+        """Validate that cost center and profit center belong to the company (when applicable)."""
+        if not self.company:
+            return
+
             if self.cost_center:
+            cost_center_meta = frappe.get_meta("Cost Center")
+            if cost_center_meta.has_field("company"):
                 cost_center_company = frappe.db.get_value("Cost Center", self.cost_center, "company")
-                if cost_center_company != self.company:
+                if cost_center_company and cost_center_company != self.company:
                     frappe.throw(_("Cost Center {0} does not belong to Company {1}").format(
                         self.cost_center, self.company
                     ))
+
             if self.profit_center:
+            profit_center_meta = frappe.get_meta("Profit Center")
+            if profit_center_meta.has_field("company"):
                 profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
-                if profit_center_company != self.company:
+                if profit_center_company and profit_center_company != self.company:
                     frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
                         self.profit_center, self.company
-                    ))
-            if self.branch:
-                branch_company = frappe.db.get_value("Branch", self.branch, "company")
-                if branch_company != self.company:
-                    frappe.throw(_("Branch {0} does not belong to Company {1}").format(
-                        self.branch, self.company
                     ))
     
     def validate_status_transition(self):

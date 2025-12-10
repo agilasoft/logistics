@@ -148,13 +148,19 @@ function create_counting_interface(page) {
 				transform: translateY(-1px);
 			}
 			
+			.input-group {
+				display: flex;
+				width: 100%;
+			}
+			
 			.count-sheet-input {
 				border: 1px solid #e1e5e9;
-				border-radius: 8px;
+				border-radius: 8px 0 0 8px;
 				padding: 12px 16px;
 				font-size: 14px;
 				transition: all 0.2s ease;
 				background: #fafbfc;
+				flex: 1;
 			}
 			
 			.count-sheet-input:focus {
@@ -501,18 +507,114 @@ function create_counting_interface(page) {
 			}
 			
 			@media (max-width: 768px) {
+				.count-sheet-header {
+					padding: 12px 16px;
+				}
+				
+				.count-sheet-scan-controls {
+					flex-direction: column;
+					gap: 12px;
+					margin-bottom: 12px;
+				}
+				
+				.count-sheet-scan-group {
+					max-width: 100%;
+					width: 100%;
+				}
+				
+				.count-sheet-scan-group .input-group {
+					width: 100%;
+					display: flex;
+				}
+				
+				.count-sheet-scan-group .count-sheet-input {
+					flex: 1;
+					border-radius: 8px 0 0 8px;
+				}
+				
+				.count-sheet-scan-group .count-sheet-btn-scan {
+					flex-shrink: 0;
+				}
+				
+				.count-sheet-filter-controls {
+					flex-direction: column;
+					gap: 12px;
+					align-items: stretch;
+					padding: 12px 0;
+				}
+				
+				.count-sheet-filter-group {
+					width: 100%;
+					flex-direction: column;
+					align-items: flex-start;
+					gap: 6px;
+				}
+				
+				.count-sheet-filter-group label {
+					width: 100%;
+					margin-bottom: 4px;
+				}
+				
+				.count-sheet-select {
+					width: 100%;
+					min-width: 100%;
+				}
+				
+				.count-sheet-filter-group .input-group {
+					width: 100%;
+					display: flex;
+				}
+				
+				.count-sheet-filter-group .count-sheet-input {
+					flex: 1;
+					border-radius: 8px 0 0 8px;
+				}
+				
+				.count-sheet-filter-group .count-sheet-btn-scan {
+					flex-shrink: 0;
+				}
+				
+				.count-sheet-btn-clear {
+					width: 100%;
+					padding: 10px 16px;
+				}
+				
 				.content-grid {
 					grid-template-columns: 1fr;
 					padding: 16px;
+					gap: 16px;
 				}
 				
-				.scan-controls {
-					flex-direction: column;
+				.items-container, .counted-container {
+					max-height: 60vh;
+				}
+			}
+			
+			@media (max-width: 480px) {
+				.count-sheet-header {
+					padding: 10px 12px;
+				}
+				
+				.count-sheet-scan-controls,
+				.count-sheet-filter-controls {
+					gap: 10px;
+				}
+				
+				.count-sheet-input {
+					font-size: 16px; /* Prevents zoom on iOS */
+				}
+				
+				.content-grid {
+					padding: 12px;
 					gap: 12px;
 				}
 				
-				.scan-group {
-					max-width: 100%;
+				.panel-header {
+					padding: 16px;
+				}
+				
+				.panel-header h3 {
+					font-size: 16px;
 				}
 			}
 		`)
@@ -551,12 +653,21 @@ function create_counting_interface(page) {
 	});
 
 	// Scan button event handlers
-	$('#scan_warehouse_job').on('click', function() {
-		start_barcode_scanner('warehouse_job_scan');
+	$('#scan_warehouse_job').on('click', async function() {
+		const code = await scan_barcode();
+		if (code) {
+			$('#warehouse_job_scan').val(code);
+			load_warehouse_job(code);
+		}
 	});
 
-	$('#scan_filter').on('click', function() {
-		start_barcode_scanner('item_filter');
+	$('#scan_filter').on('click', async function() {
+		const code = await scan_barcode();
+		if (code) {
+			$('#item_filter').val(code);
+			let filter_type = $('#filter_type').val();
+			filter_items(code, filter_type);
+		}
 	});
 
 	// Global variables
@@ -850,159 +961,46 @@ function create_counting_interface(page) {
 		});
 	}
 
-	// Barcode scanning function
-	function start_barcode_scanner(target_input_id) {
-		// Check if browser supports camera access
-		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-			frappe.show_alert({
-				message: 'Camera not supported on this device',
-				indicator: 'red'
-			});
-			return;
-		}
-
-		// Create camera modal
-		let camera_modal = $(`
-			<div class="modal fade" id="barcode_scanner_modal" tabindex="-1" role="dialog">
-				<div class="modal-dialog modal-lg" role="document">
-					<div class="modal-content">
-						<div class="modal-header">
-							<h4 class="modal-title">
-								<i class="fa fa-camera"></i> Barcode Scanner
-							</h4>
-							<button type="button" class="close" data-dismiss="modal">
-								<span>&times;</span>
-							</button>
-						</div>
-						<div class="modal-body text-center">
-							<div id="camera_container" style="position: relative; display: inline-block;">
-								<video id="barcode_video" width="640" height="480" autoplay style="border: 1px solid #ddd; border-radius: 4px;"></video>
-								<canvas id="barcode_canvas" width="640" height="480" style="display: none;"></canvas>
-								<div id="scanner_overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-									width: 200px; height: 100px; border: 2px solid #007bff; border-radius: 8px; 
-									background: rgba(0, 123, 255, 0.1); pointer-events: none;">
-									<div style="position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; 
-										border: 2px dashed #007bff; border-radius: 8px;"></div>
-								</div>
-							</div>
-							<div class="mt-3">
-								<p class="text-muted">Position the barcode within the scanning area</p>
-								<div id="scanner_status" class="alert alert-info">Initializing camera...</div>
-							</div>
-						</div>
-						<div class="modal-footer">
-							<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-							<button type="button" class="btn btn-primary" id="manual_input_btn">Manual Input</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		`);
-
-		// Remove existing modal if any
-		$('#barcode_scanner_modal').remove();
-		$('body').append(camera_modal);
-		$('#barcode_scanner_modal').modal('show');
-
-		let video = document.getElementById('barcode_video');
-		let canvas = document.getElementById('barcode_canvas');
-		let context = canvas.getContext('2d');
-		let scanning = false;
-
-		// Start camera
-		navigator.mediaDevices.getUserMedia({ 
-			video: { 
-				facingMode: 'environment', // Use back camera on mobile
-				width: { ideal: 640 },
-				height: { ideal: 480 }
-			} 
-		})
-		.then(function(stream) {
-			video.srcObject = stream;
-			$('#scanner_status').removeClass('alert-info').addClass('alert-success').text('Camera ready - Position barcode in view');
-			
-			// Start scanning after a short delay
-			setTimeout(function() {
-				start_scanning();
-			}, 1000);
-		})
-		.catch(function(err) {
-			console.error('Camera error:', err);
-			$('#scanner_status').removeClass('alert-info').addClass('alert-danger').text('Camera access denied or not available');
+	// Barcode scanning function (using same approach as warehouse_job_card)
+	async function scan_barcode() {
+		try {
+			if (window.erpnext?.utils?.scan_barcode) {
+				const v = await erpnext.utils.scan_barcode();
+				if (v) return String(v).trim();
+			}
+		} catch {}
+		try {
+			if (frappe.ui && typeof frappe.ui.Scanner === "function") {
+				return await new Promise((resolve, reject) => {
+					const s = new frappe.ui.Scanner({
+						dialog: true, multiple: false,
+						on_scan: (d) => resolve(String((d?.decodedText || d?.code || d?.content || d || "")).trim()),
+						on_error: reject,
+					});
+					s.make?.(); s.open?.();
+				});
+			}
+		} catch {}
+		try {
+			if (frappe.ui && typeof frappe.ui.BarcodeScanner === "function") {
+				return await new Promise((resolve, reject) => {
+					const bs = new frappe.ui.BarcodeScanner({
+						dialog: true,
+						scan_action: (val) => resolve(String(val || "").trim()),
+						on_error: reject,
+					});
+					bs.scan?.();
+				});
+			}
+		} catch {}
+		const v = await new Promise((resolve) => {
+			frappe.prompt(
+				[{ fieldname: "code", fieldtype: "Data", label: __("Barcode"), reqd: 1 }],
+				(vals) => resolve(String(vals.code || "").trim()),
+				__("Enter / Paste Barcode"),
+				__("OK")
+			);
 		});
-
-		// Start barcode scanning
-		function start_scanning() {
-			scanning = true;
-			scan_barcode();
-		}
-
-		// Scan for barcodes
-		function scan_barcode() {
-			if (!scanning) return;
-
-			// Draw current frame to canvas
-			context.drawImage(video, 0, 0, canvas.width, canvas.height);
-			
-			// Get image data
-			let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-			
-			// Simple barcode detection (this is a basic implementation)
-			// In a real application, you would use a proper barcode scanning library like QuaggaJS or ZXing
-			try {
-				// For demo purposes, we'll simulate barcode detection
-				// In production, integrate with a proper barcode scanning library
-				detect_barcode_simple(imageData);
-			} catch (e) {
-				console.log('Scanning...');
-			}
-
-			// Continue scanning
-			if (scanning) {
-				requestAnimationFrame(scan_barcode);
-			}
-		}
-
-		// Simple barcode detection (placeholder - integrate with real barcode library)
-		function detect_barcode_simple(imageData) {
-			// This is a placeholder - in production, use QuaggaJS or similar
-			// For now, we'll just show a message that manual input is needed
-			$('#scanner_status').html('Barcode scanning active - Use manual input for now');
-		}
-
-		// Manual input button
-		$('#manual_input_btn').on('click', function() {
-			let manual_value = prompt('Enter barcode manually:');
-			if (manual_value) {
-				$('#' + target_input_id).val(manual_value);
-				if (target_input_id === 'warehouse_job_scan') {
-					load_warehouse_job(manual_value);
-				} else if (target_input_id === 'item_filter') {
-					let filter_type = $('#filter_type').val();
-					filter_items(manual_value, filter_type);
-				}
-				$('#barcode_scanner_modal').modal('hide');
-			}
-		});
-
-		// Clean up when modal is closed
-		$('#barcode_scanner_modal').on('hidden.bs.modal', function() {
-			scanning = false;
-			if (video.srcObject) {
-				video.srcObject.getTracks().forEach(track => track.stop());
-			}
-		});
-
-		// Handle successful barcode detection (placeholder)
-		function on_barcode_detected(barcode_data) {
-			$('#' + target_input_id).val(barcode_data);
-			if (target_input_id === 'warehouse_job_scan') {
-				load_warehouse_job(barcode_data);
-			} else if (target_input_id === 'item_filter') {
-				let filter_type = $('#filter_type').val();
-				filter_items(barcode_data, filter_type);
-			}
-			$('#barcode_scanner_modal').modal('hide');
-		}
+		return v;
 	}
 }
