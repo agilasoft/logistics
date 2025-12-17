@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-22 10:34:19.845671",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -11,6 +12,7 @@
   "column_break_vzlp",
   "universal_commodity_code",
   "iata_commodity_code",
+  "default_hs_code",
   "applicable_to_section",
   "forwarding",
   "shipping",
@@ -32,11 +34,13 @@
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "description",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Description"
   },
   {
@@ -52,11 +56,13 @@
   {
    "fieldname": "universal_commodity_code",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Universal Commodity Code"
   },
   {
    "fieldname": "iata_commodity_code",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "IATA Commodity Code"
   },
   {
@@ -144,15 +150,22 @@
    "fieldname": "notes_tab",
    "fieldtype": "Tab Break",
    "label": "Notes"
+  },
+  {
+   "fieldname": "default_hs_code",
+   "fieldtype": "Link",
+   "label": "Default HS Code",
+   "options": "Customs Tariff Number"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-24 13:51:55.018594",
+ "modified": "2025-12-11 18:00:42.305138",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Commodity",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -169,6 +182,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "description,universal_commodity_code,iata_commodity_code",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

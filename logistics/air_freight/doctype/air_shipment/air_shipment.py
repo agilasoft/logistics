@@ -1632,16 +1632,17 @@ class AirShipment(Document):
 	
 	def validate_dates(self):
 		"""Validate date fields"""
+		from frappe.utils import getdate, today
+		
 		# Validate ETD is before ETA
 		if self.etd and self.eta:
-			if self.etd >= self.eta:
+			if getdate(self.etd) >= getdate(self.eta):
 				frappe.throw(_("ETD (Estimated Time of Departure) must be before ETA (Estimated Time of Arrival)"), 
 					title=_("Date Validation Error"))
 		
 		# Warn if booking date is in the future
 		if self.booking_date:
-			from frappe.utils import getdate, today
-			if getdate(self.booking_date) > today():
+			if getdate(self.booking_date) > getdate(today()):
 				frappe.msgprint(_("Booking date is in the future. Please verify this is correct."), 
 					indicator="orange", title=_("Date Warning"))
 	

@@ -978,7 +978,7 @@ function create_counting_interface(page) {
 						on_error: reject,
 					});
 					s.make?.(); s.open?.();
-				});
+		});
 			}
 		} catch {}
 		try {

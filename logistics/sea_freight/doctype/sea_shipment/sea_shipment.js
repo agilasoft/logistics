@@ -33,6 +33,13 @@ frappe.ui.form.on('Sea Shipment', {
             }
         }
         
+        // Add button to load charges from Sales Quote
+        if (frm.doc.sales_quote && !frm.is_new()) {
+            frm.add_custom_button(__('Load Charges from Sales Quote'), function() {
+                load_charges_from_sales_quote(frm);
+            }, __('Actions'));
+        }
+        
         frm.add_custom_button(__('Create Sales Invoice'), function() {
             const d = new frappe.ui.Dialog({
                 title: 'Create Sales Invoice',
@@ -279,4 +286,53 @@ function compute_chargeable(frm) {
             }
         }
     });
+}
+
+// Function to load charges from Sales Quote
+function load_charges_from_sales_quote(frm) {
+	if (!frm.doc.sales_quote) {
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Quote is not set for this Sea Shipment."),
+			indicator: "red"
+		});
+		return;
+	}
+	
+	frappe.confirm(
+		__("This will replace all existing charges with charges from Sales Quote. Do you want to continue?"),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Loading charges from Sales Quote..."));
+			
+			frm.call({
+				method: "populate_charges_from_sales_quote",
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					
+					if (r.message && r.message.success) {
+						frappe.show_alert({
+							message: __("Successfully loaded {0} charges from Sales Quote.", [r.message.charges_added]),
+							indicator: "green"
+						});
+						frm.reload_doc();
+					} else {
+						frappe.msgprint({
+							title: __("Error"),
+							message: r.message && r.message.message ? r.message.message : __("Failed to load charges from Sales Quote."),
+							indicator: "red"
+						});
+					}
+				},
+				error: function(r) {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to load charges from Sales Quote. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+	);
 }

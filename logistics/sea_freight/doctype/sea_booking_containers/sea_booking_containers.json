@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "container_no",
+  "seal_no",
+  "type",
+  "mode",
+  "column_break_lqnf",
+  "delivery_modes",
+  "sealed_by",
+  "other_references"
+ ],
+ "fields": [
+  {
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Container No"
+  },
+  {
+   "fieldname": "seal_no",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Seal No"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Container Type"
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mode",
+   "options": "Freight Mode"
+  },
+  {
+   "fieldname": "column_break_lqnf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "delivery_modes",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Delivery Modes",
+   "options": "CY/CY\nDoor/CY\nCY/Door\nDoor/Door\nCFS/CFS"
+  },
+  {
+   "fieldname": "sealed_by",
+   "fieldtype": "Data",
+   "label": "Sealed by"
+  },
+  {
+   "fieldname": "other_references",
+   "fieldtype": "Data",
+   "label": "Other References"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Booking Containers",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

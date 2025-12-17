@@ -109,7 +109,7 @@ class TransportRateCalculationEngine:
                 'calculation_method': calculation_method,
                 'rate_data': rate_data,
                 'calculation_details': self._get_calculation_details(
-                    calculation_method, rate_data, final_amount
+                    calculation_method, rate_data, final_amount, actual_quantity=actual_quantity
                 ),
                 'currency': rate_data.get('currency', 'USD'),
                 'item_code': rate_data.get('item_code'),
@@ -141,8 +141,10 @@ class TransportRateCalculationEngine:
         return rate * quantity
     
     def _calculate_fixed_amount(self, rate_data: Dict, **kwargs) -> float:
-        """Calculate rate using Fixed Amount method"""
-        return flt(rate_data.get('fixed_amount', 0))
+        """Calculate rate using Fixed Amount method - Quantity * Unit Rate"""
+        rate = flt(rate_data.get('rate', 0))
+        quantity = flt(kwargs.get('actual_quantity', 0))
+        return rate * quantity
     
     def _calculate_flat_rate(self, rate_data: Dict, **kwargs) -> float:
         """Calculate rate using Flat Rate method"""
@@ -191,7 +193,7 @@ class TransportRateCalculationEngine:
             return rate
         else:
             additional_quantity = actual_quantity - minimum_quantity
-            return rate + (rate * 0.5 * additional_quantity)  # 50% of rate for additional
+            return rate + (rate * additional_quantity)  # Full rate for each additional unit
     
     def _calculate_percentage(self, rate_data: Dict, **kwargs) -> float:
         """Calculate rate using Percentage method"""
@@ -218,7 +220,7 @@ class TransportRateCalculationEngine:
         
         return amount
     
-    def _get_calculation_details(self, method: str, rate_data: Dict, amount: float) -> str:
+    def _get_calculation_details(self, method: str, rate_data: Dict, amount: float, actual_quantity: float = 0) -> str:
         """Get human-readable calculation details"""
         rate = flt(rate_data.get('rate', 0))
         unit_type = rate_data.get('unit_type', 'Weight')
@@ -226,16 +228,24 @@ class TransportRateCalculationEngine:
         if method == 'Per Unit':
             return f"Rate: {rate} × {unit_type} = {amount}"
         elif method == 'Fixed Amount':
-            return f"Fixed Amount: {amount}"
+            quantity = flt(actual_quantity or 0)
+            return f"Fixed Amount: {quantity} × {rate} = {amount}"
         elif method == 'Flat Rate':
             return f"Flat Rate: {amount}"
         elif method == 'Base Plus Additional':
             base_amount = flt(rate_data.get('base_amount', 0))
             return f"Base: {base_amount} + Additional: {amount - base_amount} = {amount}"
         elif method == 'First Plus Additional':
-            return f"First: {rate} + Additional charges = {amount}"
+            minimum_quantity = flt(rate_data.get('minimum_quantity', 0))
+            quantity = flt(actual_quantity or 0)
+            if quantity <= minimum_quantity:
+                return f"First Plus Additional: {rate} (quantity ≤ {minimum_quantity}) = {amount}"
+            else:
+                additional_qty = quantity - minimum_quantity
+                return f"First Plus Additional: {rate} + ({rate} × {additional_qty}) = {amount}"
         elif method == 'Percentage':
-            return f"Base: {flt(rate_data.get('base_amount', 0))} × {rate}% = {amount}"
+            base_amount = flt(rate_data.get('base_amount', 0))
+            return f"Percentage: {base_amount} × {rate}% = {amount}"
         else:
             return f"Calculated: {amount}"
     
@@ -528,7 +538,7 @@ def validate_rate_data(rate_data: Dict) -> Dict:
     if not rate_data.get('calculation_method'):
         errors.append("Calculation method is required")
     
-    if not rate_data.get('rate') and rate_data.get('calculation_method') != 'Fixed Amount':
+    if not rate_data.get('rate'):
         errors.append("Rate is required")
     
     if not rate_data.get('currency'):

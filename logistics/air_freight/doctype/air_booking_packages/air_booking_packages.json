@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "commodity",
+  "hs_code",
+  "reference_no",
+  "column_break_pjoj",
+  "goods_description",
+  "column_break_dbep",
+  "no_of_packs",
+  "uom",
+  "weight",
+  "volume"
+ ],
+ "fields": [
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Commodity",
+   "options": "Commodity"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "HS Code",
+   "options": "Customs Tariff Number"
+  },
+  {
+   "fieldname": "column_break_pjoj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "goods_description",
+   "fieldtype": "Long Text",
+   "label": "Goods Description"
+  },
+  {
+   "fieldname": "column_break_dbep",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "no_of_packs",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "No of Packs"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Volume"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Booking Packages",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

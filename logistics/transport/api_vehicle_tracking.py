@@ -3,6 +3,7 @@
 
 import frappe
 from frappe import _
+from frappe.utils.password import get_decrypted_password
 
 
 @frappe.whitelist()
@@ -340,4 +341,297 @@ def get_all_vehicles_with_status():
 			"success": False,
 			"error": str(e),
 			"vehicles": []
+		}
+
+
+@frappe.whitelist()
+def get_google_maps_api_key():
+	"""
+	Get the Google Maps API key for client-side use.
+	This properly decrypts the Password field.
+	
+	Returns:
+		dict: {
+			"api_key": str or None,
+			"has_key": bool
+		}
+	"""
+	try:
+		# Get the API key using get_decrypted_password for Password fields
+		# For Single doctypes, both doctype and name are the same
+		api_key = get_decrypted_password(
+			"Transport Settings",
+			"Transport Settings",
+			"routing_google_api_key",
+			raise_exception=False
+		)
+		
+		# Also try alternative field names (for compatibility)
+		if not api_key:
+			for field_name in ["google_api_key", "google_maps_api_key", "maps_api_key"]:
+				api_key = get_decrypted_password(
+					"Transport Settings",
+					"Transport Settings",
+					field_name,
+					raise_exception=False
+				)
+				if api_key:
+					break
+		
+		if api_key and len(api_key) > 10:
+			return {
+				"api_key": api_key,
+				"has_key": True
+			}
+		else:
+			return {
+				"api_key": None,
+				"has_key": False
+			}
+	except Exception as e:
+		frappe.log_error(f"Error getting Google Maps API key: {str(e)}", "Vehicle Tracking")
+		return {
+			"api_key": None,
+			"has_key": False,
+			"error": str(e)
+		}
+
+
+@frappe.whitelist()
+def save_selected_route(run_sheet_name=None, transport_leg_name=None, route_index=None, polyline=None, distance_km=None, duration_min=None, route_type="run_sheet"):
+	"""
+	Save the selected route polyline, distance, and duration to Run Sheet or Transport Leg document.
+	
+	Args:
+		run_sheet_name: Name of the Run Sheet document (for combined route)
+		transport_leg_name: Name of the Transport Leg document (for individual leg route)
+		route_index: Index of the selected route (0-based)
+		polyline: Encoded polyline string of the selected route
+		distance_km: Distance in kilometers for the selected route
+		duration_min: Duration in minutes for the selected route
+		route_type: "run_sheet" or "transport_leg" - indicates which document to save to
+	
+	Returns:
+		dict: {"success": bool}
+	"""
+	try:
+		if route_type == "run_sheet" and run_sheet_name:
+			run_sheet = frappe.get_doc("Run Sheet", run_sheet_name)
+			
+			# Store route in Run Sheet fields
+			if hasattr(run_sheet, "selected_route_polyline"):
+				run_sheet.selected_route_polyline = polyline
+			if hasattr(run_sheet, "selected_route_index"):
+				run_sheet.selected_route_index = route_index
+			
+			# Update total distance and duration for the entire run sheet route
+			# Calculate total from all legs if distance/duration provided
+			if distance_km is not None and duration_min is not None:
+				# For Run Sheet, we could store total route distance/duration
+				# But typically Run Sheet doesn't have these fields - they're per leg
+				# So we'll update the estimated completion time if that field exists
+				if hasattr(run_sheet, "estimated_completion_time") and run_sheet.run_date:
+					try:
+						from frappe.utils import add_to_date, get_datetime
+						start_time = get_datetime(run_sheet.run_date)
+						estimated_end = add_to_date(start_time, minutes=int(duration_min))
+						run_sheet.estimated_completion_time = estimated_end
+					except Exception:
+						pass
+			
+			run_sheet.save(ignore_permissions=True)
+			
+			# Sync: Clear individual leg routes when Run Sheet route changes
+			# This ensures leg routes can be recalculated if needed
+			for leg_row in run_sheet.legs:
+				if leg_row.transport_leg:
+					try:
+						leg_doc = frappe.get_doc("Transport Leg", leg_row.transport_leg)
+						# Clear leg route so it can be recalculated
+						if hasattr(leg_doc, "selected_route_polyline"):
+							leg_doc.selected_route_polyline = None
+						if hasattr(leg_doc, "selected_route_index"):
+							leg_doc.selected_route_index = None
+						leg_doc.save(ignore_permissions=True)
+					except Exception as e:
+						frappe.log_error(f"Error clearing leg route {leg_row.transport_leg}: {str(e)}")
+			
+			return {"success": True}
+		
+		elif route_type == "transport_leg" and transport_leg_name:
+			transport_leg = frappe.get_doc("Transport Leg", transport_leg_name)
+			
+			# Store route in Transport Leg fields
+			if hasattr(transport_leg, "selected_route_polyline"):
+				transport_leg.selected_route_polyline = polyline
+			if hasattr(transport_leg, "selected_route_index"):
+				transport_leg.selected_route_index = route_index
+			
+			# Update distance and duration from the selected route
+			if distance_km is not None:
+				# Try route_distance_km first, then distance_km
+				if hasattr(transport_leg, "route_distance_km"):
+					transport_leg.route_distance_km = round(float(distance_km), 3)
+				elif hasattr(transport_leg, "distance_km"):
+					transport_leg.distance_km = round(float(distance_km), 3)
+			
+			if duration_min is not None:
+				# Try route_duration_min first, then duration_min
+				if hasattr(transport_leg, "route_duration_min"):
+					transport_leg.route_duration_min = round(float(duration_min), 1)
+				elif hasattr(transport_leg, "duration_min"):
+					transport_leg.duration_min = round(float(duration_min), 1)
+			
+			transport_leg.save(ignore_permissions=True)
+			
+			# Sync: Clear Run Sheet route when leg route changes
+			# This ensures Run Sheet route gets recalculated with updated leg routes
+			if transport_leg.run_sheet:
+				try:
+					run_sheet = frappe.get_doc("Run Sheet", transport_leg.run_sheet)
+					if hasattr(run_sheet, "selected_route_polyline"):
+						run_sheet.selected_route_polyline = None
+					if hasattr(run_sheet, "selected_route_index"):
+						run_sheet.selected_route_index = None
+					run_sheet.save(ignore_permissions=True)
+				except Exception as e:
+					frappe.log_error(f"Error clearing Run Sheet route {transport_leg.run_sheet}: {str(e)}")
+			
+			return {"success": True}
+		else:
+			return {
+				"success": False,
+				"error": "Invalid parameters: provide either run_sheet_name or transport_leg_name"
+			}
+	except Exception as e:
+		frappe.log_error(f"Error saving selected route: {str(e)}", "Vehicle Tracking")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+
+@frappe.whitelist()
+def get_google_route_polyline(waypoints):
+	"""
+	Get Google Directions API route polyline for waypoints.
+	This returns an encoded polyline that can be used in Static Maps API.
+	
+	Args:
+		waypoints: List of [lat, lon] coordinates or string of "lat,lon|lat,lon|..."
+	
+	Returns:
+		dict: {
+			"polyline": str (encoded polyline),
+			"success": bool
+		}
+	"""
+	try:
+		import requests
+		
+		# Get API key
+		api_key = get_decrypted_password(
+			"Transport Settings",
+			"Transport Settings",
+			"routing_google_api_key",
+			raise_exception=False
+		)
+		
+		if not api_key or len(api_key) < 10:
+			return {
+				"success": False,
+				"error": "Google Maps API key not configured"
+			}
+		
+		# Parse waypoints
+		if isinstance(waypoints, str):
+			# Format: "lat,lon|lat,lon|..."
+			points = waypoints.split('|')
+		elif isinstance(waypoints, list):
+			# Format: [["lat", "lon"], ...] or [{"lat": x, "lon": y}, ...]
+			if len(waypoints) == 0:
+				return {"success": False, "error": "No waypoints provided"}
+			
+			# Convert to string format
+			points = []
+			for wp in waypoints:
+				if isinstance(wp, dict):
+					points.append(f"{wp.get('lat')},{wp.get('lon')}")
+				elif isinstance(wp, list):
+					points.append(f"{wp[0]},{wp[1]}")
+				else:
+					points.append(str(wp))
+		else:
+			return {"success": False, "error": "Invalid waypoints format"}
+		
+		if len(points) < 2:
+			return {"success": False, "error": "Need at least 2 waypoints"}
+		
+		# Build Directions API URL
+		origin = points[0]
+		destination = points[-1]
+		waypoint_str = '|'.join(points[1:-1]) if len(points) > 2 else ''
+		
+		url = "https://maps.googleapis.com/maps/api/directions/json"
+		params = {
+			"origin": origin,
+			"destination": destination,
+			"mode": "driving",
+			"units": "metric",
+			"alternatives": "true",  # Request alternate routes
+			"key": api_key
+		}
+		
+		if waypoint_str:
+			params["waypoints"] = waypoint_str
+		
+		# Call Directions API
+		response = requests.get(url, params=params, timeout=10)
+		data = response.json()
+		
+		if data.get("status") != "OK":
+			error_msg = data.get("error_message", data.get("status", "Unknown error"))
+			return {
+				"success": False,
+				"error": f"Google Directions API error: {error_msg}"
+			}
+		
+		routes = data.get("routes", [])
+		if not routes:
+			return {"success": False, "error": "No routes returned"}
+		
+		# Extract all routes with their details
+		route_options = []
+		for idx, route in enumerate(routes):
+			overview_polyline = route.get("overview_polyline", {})
+			encoded_polyline = overview_polyline.get("points", "")
+			
+			if encoded_polyline:
+				# Get route summary (distance and duration)
+				legs = route.get("legs", [])
+				total_distance = sum(leg.get("distance", {}).get("value", 0) for leg in legs) / 1000.0  # Convert to km
+				total_duration = sum(leg.get("duration", {}).get("value", 0) for leg in legs) / 60.0  # Convert to minutes
+				
+				route_options.append({
+					"index": idx,
+					"polyline": encoded_polyline,
+					"distance_km": round(total_distance, 2),
+					"duration_min": round(total_duration, 1),
+					"summary": route.get("summary", f"Route {idx + 1}")
+				})
+		
+		if not route_options:
+			return {"success": False, "error": "No valid polylines in routes"}
+		
+		return {
+			"success": True,
+			"routes": route_options,
+			"polyline": route_options[0]["polyline"]  # Default to first route for backward compatibility
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting Google route polyline: {str(e)}", "Vehicle Tracking")
+		return {
+			"success": False,
+			"error": str(e)
 		}

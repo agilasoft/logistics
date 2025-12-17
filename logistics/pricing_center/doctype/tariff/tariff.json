@@ -11,6 +11,9 @@
   "tariff_name",
   "tariff_type",
   "customer",
+  "customer_group",
+  "territory",
+  "customers",
   "agent",
   "description",
   "is_active",
@@ -47,7 +50,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Tariff Type",
-   "options": "Customer\nAgent",
+   "options": "All Customers\nCustomer Group\nTerritory\nSpecific Customers\nCustomer\nAgent",
    "reqd": 1
   },
   {
@@ -55,7 +58,31 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer",
-   "depends_on": "tariff_type",
+   "depends_on": "eval:doc.tariff_type == 'Customer'",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer_group",
+   "fieldtype": "Link",
+   "label": "Customer Group",
+   "options": "Customer Group",
+   "depends_on": "eval:doc.tariff_type == 'Customer Group'",
+   "reqd": 1
+  },
+  {
+   "fieldname": "territory",
+   "fieldtype": "Link",
+   "label": "Territory",
+   "options": "Territory",
+   "depends_on": "eval:doc.tariff_type == 'Territory'",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customers",
+   "fieldtype": "Table",
+   "label": "Customers",
+   "options": "Tariff Customer",
+   "depends_on": "eval:doc.tariff_type == 'Specific Customers'",
    "reqd": 1
   },
   {
@@ -63,7 +90,7 @@
    "fieldtype": "Link",
    "label": "Freight Agent",
    "options": "Freight Agent",
-   "depends_on": "tariff_type",
+   "depends_on": "eval:doc.tariff_type == 'Agent'",
    "reqd": 1
   },
   {

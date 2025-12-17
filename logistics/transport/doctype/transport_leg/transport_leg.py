@@ -39,6 +39,7 @@ class TransportLeg(Document):
     def after_save(self):
         """Sync changes back to Run Sheet and trigger auto-vehicle assignment after Transport Leg is saved"""
         self.sync_to_run_sheet()
+        self.sync_route_to_run_sheet()
         self.update_transport_job_status()
         self._trigger_auto_vehicle_assignment()
     
@@ -145,6 +146,26 @@ class TransportLeg(Document):
             if primary_address:
                 self.drop_address = primary_address
     
+    def sync_route_to_run_sheet(self):
+        """Sync route changes from Transport Leg to Run Sheet - recalculate combined route"""
+        if not self.run_sheet:
+            return
+        
+        try:
+            # When a leg's route changes, we need to recalculate the Run Sheet's combined route
+            # This will be done by clearing the Run Sheet route so it gets recalculated on next load
+            run_sheet = frappe.get_doc("Run Sheet", self.run_sheet)
+            
+            # Clear the saved route so it gets recalculated with updated leg routes
+            if hasattr(run_sheet, "selected_route_polyline"):
+                run_sheet.selected_route_polyline = None
+            if hasattr(run_sheet, "selected_route_index"):
+                run_sheet.selected_route_index = None
+            
+            run_sheet.save(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(f"Error syncing route from Transport Leg {self.name} to Run Sheet: {str(e)}")
+    
     def _get_primary_address(self, facility_type, facility_name):
         """Get the primary address for a facility"""
         try:
@@ -207,26 +228,46 @@ class TransportLeg(Document):
     def validate_time_windows(self):
         """Validate time windows are logical"""
         from frappe import _
-        from frappe.utils import get_datetime
+        from frappe.utils import get_time, getdate
+        from datetime import datetime, date, time
+        
+        # Get the date to combine with time values
+        leg_date = self.date or self.run_date or frappe.utils.today()
+        if isinstance(leg_date, str):
+            leg_date = getdate(leg_date)
+        elif not isinstance(leg_date, date):
+            leg_date = getdate(leg_date)
         
         if self.pick_window_start and self.pick_window_end:
-            pick_start = get_datetime(self.pick_window_start)
-            pick_end = get_datetime(self.pick_window_end)
-            if pick_end <= pick_start:
-                frappe.throw(_("Pick Window End must be after Pick Window Start"))
+            pick_start_time = get_time(self.pick_window_start)
+            pick_end_time = get_time(self.pick_window_end)
+            # Ensure we have time objects, not timedelta
+            if isinstance(pick_start_time, time) and isinstance(pick_end_time, time):
+                pick_start = datetime.combine(leg_date, pick_start_time)
+                pick_end = datetime.combine(leg_date, pick_end_time)
+                if pick_end <= pick_start:
+                    frappe.throw(_("Pick Window End must be after Pick Window Start"))
         
         if self.drop_window_start and self.drop_window_end:
-            drop_start = get_datetime(self.drop_window_start)
-            drop_end = get_datetime(self.drop_window_end)
-            if drop_end <= drop_start:
-                frappe.throw(_("Drop Window End must be after Drop Window Start"))
+            drop_start_time = get_time(self.drop_window_start)
+            drop_end_time = get_time(self.drop_window_end)
+            # Ensure we have time objects, not timedelta
+            if isinstance(drop_start_time, time) and isinstance(drop_end_time, time):
+                drop_start = datetime.combine(leg_date, drop_start_time)
+                drop_end = datetime.combine(leg_date, drop_end_time)
+                if drop_end <= drop_start:
+                    frappe.throw(_("Drop Window End must be after Drop Window Start"))
         
         # Warn if drop window starts before pick window ends on the same date
         if self.pick_window_end and self.drop_window_start:
-            pick_end = get_datetime(self.pick_window_end)
-            drop_start = get_datetime(self.drop_window_start)
-            if drop_start.date() == pick_end.date() and drop_start < pick_end:
-                frappe.msgprint(_("Warning: Drop Window Start is before Pick Window End on the same date. This may indicate a scheduling issue."), indicator="orange")
+            pick_end_time = get_time(self.pick_window_end)
+            drop_start_time = get_time(self.drop_window_start)
+            # Ensure we have time objects, not timedelta
+            if isinstance(pick_end_time, time) and isinstance(drop_start_time, time):
+                pick_end = datetime.combine(leg_date, pick_end_time)
+                drop_start = datetime.combine(leg_date, drop_start_time)
+                if drop_start.date() == pick_end.date() and drop_start < pick_end:
+                    frappe.msgprint(_("Warning: Drop Window Start is before Pick Window End on the same date. This may indicate a scheduling issue."), indicator="orange")
     
     def validate_route_compatibility(self):
         """Validate route compatibility"""

@@ -140,6 +140,29 @@ frappe.ui.form.on('Transport Order', {
         }
       });
     }
+  },
+  
+  // Validate pick_mode and drop_mode before submission
+  before_submit(frm) {
+    if (!frm.doc.legs || frm.doc.legs.length === 0) {
+      frappe.throw(__('Transport Order must have at least one leg. Please add transport legs before submitting.'));
+    }
+    
+    let missing_fields = [];
+    frm.doc.legs.forEach((leg, index) => {
+      const row_num = index + 1;
+      if (!leg.pick_mode) {
+        missing_fields.push(__('Row {0}: Pick Mode is required', [row_num]));
+      }
+      if (!leg.drop_mode) {
+        missing_fields.push(__('Row {0}: Drop Mode is required', [row_num]));
+      }
+    });
+    
+    if (missing_fields.length > 0) {
+      frappe.throw(__('Please fill in the following required fields before submitting:<br><br>') + 
+                   missing_fields.join('<br>'));
+    }
   }
 });
 

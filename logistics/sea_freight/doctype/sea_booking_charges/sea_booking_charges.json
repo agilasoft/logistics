@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "charge_item",
+  "charge_name",
+  "charge_type",
+  "item_tax_template",
+  "invoice_type",
+  "column_break_ncht",
+  "charge_description",
+  "section_break_wicx",
+  "column_break_ruye",
+  "bill_to",
+  "selling_currency",
+  "selling_amount",
+  "column_break_lday",
+  "pay_to",
+  "buying_currency",
+  "buying_amount",
+  "section_break_dakd",
+  "revenue_calculator_column",
+  "revenue_calc_type",
+  "base_amount",
+  "per_unit_rate",
+  "unit",
+  "minimum",
+  "cost_calculator_column",
+  "cost_calc_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "charge_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Charge Item",
+   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1]]",
+   "options": "Item"
+  },
+  {
+   "fieldname": "bill_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Bill To",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "charge_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Margin\nDisbursement\nRevenue\nCost"
+  },
+  {
+   "fieldname": "column_break_ruye",
+   "fieldtype": "Column Break",
+   "label": "Revenue"
+  },
+  {
+   "fieldname": "selling_currency",
+   "fieldtype": "Link",
+   "label": "Selling Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "selling_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Selling Amount"
+  },
+  {
+   "fieldname": "column_break_lday",
+   "fieldtype": "Column Break",
+   "label": "Cost"
+  },
+  {
+   "fieldname": "pay_to",
+   "fieldtype": "Link",
+   "label": "Pay To",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "buying_currency",
+   "fieldtype": "Link",
+   "label": "Buying Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "buying_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Buying Amount"
+  },
+  {
+   "fetch_from": "charge_item.description",
+   "fieldname": "charge_description",
+   "fieldtype": "Long Text",
+   "label": "Charge Description"
+  },
+  {
+   "fieldname": "section_break_wicx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "charge_item.item_name",
+   "fieldname": "charge_name",
+   "fieldtype": "Data",
+   "label": "Charge Name"
+  },
+  {
+   "fieldname": "column_break_ncht",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_tax_template",
+   "fieldtype": "Link",
+   "label": "Item Tax Template",
+   "options": "Item Tax Template"
+  },
+  {
+   "fieldname": "section_break_dakd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "revenue_calculator_column",
+   "fieldtype": "Column Break",
+   "label": "Revenue Calculator"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  },
+  {
+   "fieldname": "per_unit_rate",
+   "fieldtype": "Currency",
+   "label": "per Unit Rate"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Select",
+   "label": "Unit",
+   "options": "House Bill\nMaster Bill\nTEU Count\nContainer Count\nWeight\nVolume\nChargeable Weight"
+  },
+  {
+   "fieldname": "cost_calculator_column",
+   "fieldtype": "Column Break",
+   "label": "Cost Calculator"
+  },
+  {
+   "fieldname": "minimum",
+   "fieldtype": "Currency",
+   "label": "Minimum"
+  },
+  {
+   "fieldname": "invoice_type",
+   "fieldtype": "Link",
+   "label": "Invoice Type",
+   "options": "Invoice Type"
+  },
+  {
+   "fieldname": "revenue_calc_type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "Fixed\nBase plus per Unit"
+  },
+  {
+   "fieldname": "cost_calc_type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "Fixed\nBase plus per Unit"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Booking Charges",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

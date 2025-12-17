@@ -1533,8 +1533,7 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm) {
 
 // Initialize Google Maps for multi-leg route
 function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
-  // For Google Maps, we'll use a static map with waypoints
-  // This is more reliable than trying to load the full Google Maps API
+  // Use interactive Google Maps JavaScript API instead of static maps
   const waypoints = [];
   legCoords.forEach(legData => {
     waypoints.push(`${legData.pick.lat},${legData.pick.lon}`);
@@ -1551,43 +1550,359 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
   
   // Get API key from settings
   frappe.call({
-    method: 'frappe.client.get_value',
-    args: {
-      doctype: 'Transport Settings',
-      fieldname: 'routing_google_api_key'
-    }
-  }).then(settings => {
-    const apiKey = settings.message?.routing_google_api_key;
+    method: 'logistics.transport.api_vehicle_tracking.get_google_maps_api_key'
+  }).then(response => {
+    const apiKey = response.message?.api_key;
     
     if (apiKey && apiKey.length > 10) {
-      // Use Google Static Maps API with waypoints
-      const waypointStr = waypoints.slice(1, -1).join('|');
-      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?key=${apiKey}&size=600x400&maptype=roadmap&markers=color:red|label:A|${firstPick.lat},${firstPick.lon}&markers=color:green|label:B|${lastDrop.lat},${lastDrop.lon}&path=color:0x0000ff|weight:5|${waypoints.join('|')}`;
+      // First, get the actual route polyline from Google Directions API
+      const waypointStr = waypoints.join('|');
       
-      const mapElement = document.getElementById(mapId);
-      if (mapElement) {
-        const testImg = new Image();
-        testImg.onload = function() {
-          hideMapFallback(mapId);
-          mapElement.innerHTML = `
-            <img 
-              src="${staticMapUrl}" 
-              alt="Multi-leg Route Map" 
-              style="width: 100%; height: 100%; object-fit: cover;"
-            />
-          `;
-        };
-        testImg.onerror = function() {
-          console.warn('Google Maps Static API failed, showing fallback');
-        };
-        testImg.src = staticMapUrl;
-      }
+      frappe.call({
+        method: 'logistics.transport.api_vehicle_tracking.get_google_route_polyline',
+        args: {
+          waypoints: waypointStr
+        }
+      }).then(polylineResponse => {
+        const mapElement = document.getElementById(mapId);
+        if (!mapElement) return;
+        
+        if (polylineResponse.message && polylineResponse.message.success) {
+          const routes = polylineResponse.message.routes || [];
+          const savedRouteIndex = frm && frm.doc && frm.doc.selected_route_index !== undefined ? frm.doc.selected_route_index : null;
+          
+          // Determine which route to show (saved route or first route)
+          let selectedRouteIndex = 0;
+          if (savedRouteIndex !== null && savedRouteIndex >= 0 && savedRouteIndex < routes.length) {
+            const savedRoute = routes.find(r => r.index === savedRouteIndex);
+            if (savedRoute) {
+              selectedRouteIndex = routes.indexOf(savedRoute);
+            }
+          }
+          
+          const selectedRoute = routes[selectedRouteIndex];
+          
+          if (selectedRoute) {
+            const routeIndex = selectedRoute.index;
+            
+            // Store routes globally for selection
+            if (!window.runSheetRoutes) window.runSheetRoutes = {};
+            window.runSheetRoutes[mapId] = routes;
+            
+            // Load Google Maps JavaScript API if not already loaded
+            if (window.google && window.google.maps) {
+              initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey);
+            } else {
+              // Load Google Maps JavaScript API
+              const script = document.createElement('script');
+              script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+              script.async = true;
+              script.defer = true;
+              script.onload = () => {
+                initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey);
+              };
+              script.onerror = () => {
+                console.warn('Failed to load Google Maps JavaScript API, showing fallback');
+                showMapFallback(mapId);
+              };
+              document.head.appendChild(script);
+            }
+          } else {
+            console.warn('No routes available');
+            showMapFallback(mapId);
+          }
+        } else {
+          console.warn('Google Directions API failed:', polylineResponse.message?.error);
+          showMapFallback(mapId);
+        }
+      }).catch(() => {
+        console.warn('Error getting route polyline');
+        showMapFallback(mapId);
+      });
     } else {
       console.warn('Google Maps API key not configured, showing fallback');
       showMapFallback(mapId);
     }
   }).catch(() => {
     showMapFallback(mapId);
+  });
+}
+
+// Initialize interactive Google Maps with routes
+function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey) {
+  const mapElement = document.getElementById(mapId);
+  if (!mapElement) return;
+  
+  // Clear any existing content
+  mapElement.innerHTML = '';
+  
+  // Create route selector UI - always show if multiple routes
+  let routeSelectorHtml = '';
+  console.log(`Initializing map with ${routes.length} routes, selected index: ${selectedRouteIndex}`);
+  if (routes.length > 1) {
+    const routeIndex = routes[selectedRouteIndex].index;
+    routeSelectorHtml = `
+      <div style="position: absolute; top: 10px; left: 10px; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 1000; max-width: 300px;">
+        <div style="font-weight: bold; margin-bottom: 8px; font-size: 12px;">Select Route (${routes.length} options):</div>
+        ${routes.map((route, idx) => {
+          const isSelected = route.index === routeIndex;
+          return `
+          <div 
+            class="route-option" 
+            data-route-index="${route.index}"
+            style="padding: 8px; margin: 4px 0; border: 2px solid ${isSelected ? '#007bff' : '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isSelected ? '#e7f3ff' : '#fff'}; font-size: 11px; transition: all 0.2s;"
+            onmouseover="this.style.background='#f0f0f0'"
+            onmouseout="this.style.background='${isSelected ? '#e7f3ff' : '#fff'}'"
+            onclick="window.selectRouteByIndex('${mapId}', ${route.index}, '${(frm && frm.doc && frm.doc.name) ? frm.doc.name : ''}')"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong>Route ${route.index + 1}</strong>
+                ${isSelected ? '<span style="color: #007bff; margin-left: 5px;">✓ Selected</span>' : ''}
+              </div>
+            </div>
+            <div style="margin-top: 4px; color: #666;">
+              ${route.distance_km} km • ${route.duration_min} min
+            </div>
+          </div>
+        `;
+        }).join('')}
+      </div>
+    `;
+  }
+  
+  mapElement.innerHTML = routeSelectorHtml;
+  
+  // Initialize the map
+  const bounds = new google.maps.LatLngBounds();
+  const map = new google.maps.Map(mapElement, {
+    zoom: 10,
+    center: { lat: (firstPick.lat + lastDrop.lat) / 2, lng: (firstPick.lon + lastDrop.lon) / 2 },
+    mapTypeControl: true,
+    streetViewControl: true,
+    fullscreenControl: true,
+    zoomControl: true,
+    scaleControl: true,
+    rotateControl: true
+  });
+  
+  // Store map instance globally for route updates
+  if (!window.runSheetMaps) window.runSheetMaps = {};
+  window.runSheetMaps[mapId] = map;
+  
+  // Store polylines for route updates
+  if (!window.runSheetPolylines) window.runSheetPolylines = {};
+  window.runSheetPolylines[mapId] = [];
+  
+  // Add markers and routes
+  const selectedRoute = routes[selectedRouteIndex];
+  const routeIndex = selectedRoute.index;
+  
+  // Add start marker
+  const startMarker = new google.maps.Marker({
+    position: { lat: firstPick.lat, lng: firstPick.lon },
+    map: map,
+    label: 'A',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      fillColor: '#ff0000',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2
+    },
+    title: 'Start Location'
+  });
+  bounds.extend({ lat: firstPick.lat, lng: firstPick.lon });
+  
+  // Add end marker
+  const endMarker = new google.maps.Marker({
+    position: { lat: lastDrop.lat, lng: lastDrop.lon },
+    map: map,
+    label: 'B',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      fillColor: '#00ff00',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2
+    },
+    title: 'End Location'
+  });
+  bounds.extend({ lat: lastDrop.lat, lng: lastDrop.lon });
+  
+  // Add vehicle position marker if available
+  if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+    const vehicleMarker = new google.maps.Marker({
+      position: { lat: vehiclePosition.latitude, lng: vehiclePosition.longitude },
+      map: map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#0000ff',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      },
+      title: 'Vehicle Position'
+    });
+    bounds.extend({ lat: vehiclePosition.latitude, lng: vehiclePosition.longitude });
+  }
+  
+  // Add all route polylines
+  console.log(`Adding ${routes.length} routes to map`);
+  routes.forEach((route) => {
+    const isSelected = route.index === routeIndex;
+    try {
+      const path = google.maps.geometry.encoding.decodePath(route.polyline);
+      
+      if (!path || path.length === 0) {
+        console.warn(`Route ${route.index} has invalid polyline`);
+        return;
+      }
+      
+      // Extend bounds with route path
+      path.forEach(point => bounds.extend(point));
+      
+      const polyline = new google.maps.Polyline({
+        path: path,
+        geodesic: true,
+        strokeColor: isSelected ? '#007bff' : '#dc3545',  // Red for alternate routes to make them more visible
+        strokeOpacity: isSelected ? 1.0 : 0.8,  // High opacity for better visibility
+        strokeWeight: isSelected ? 6 : 4,  // Thicker lines for better visibility
+        map: map,
+        zIndex: isSelected ? 2 : 1,
+        clickable: true  // Make routes clickable
+      });
+      
+      // Add click handler to select route when clicking on polyline
+      if (!isSelected) {
+        polyline.addListener('click', () => {
+          const frm = cur_frm;
+          if (frm && frm.doc && frm.doc.name) {
+            window.selectRouteByIndex(mapId, route.index, frm.doc.name);
+          }
+        });
+      }
+      
+      window.runSheetPolylines[mapId].push({
+        polyline: polyline,
+        routeIndex: route.index
+      });
+      
+      console.log(`Added route ${route.index} (selected: ${isSelected})`);
+    } catch (error) {
+      console.error(`Error adding route ${route.index}:`, error);
+    }
+  });
+  
+  // Fit map to show all routes
+  map.fitBounds(bounds);
+  
+  // Hide fallback
+  hideMapFallback(mapId);
+}
+
+// Select a route by index and save it (global function for onclick handler)
+window.selectRouteByIndex = function(mapId, routeIndex, runSheetName) {
+  if (!runSheetName) {
+    frappe.show_alert({
+      message: __('Please save the Run Sheet first before selecting a route'),
+      indicator: 'orange'
+    });
+    return;
+  }
+  
+  // Get the route from stored routes
+  const routes = window.runSheetRoutes && window.runSheetRoutes[mapId];
+  if (!routes) {
+    frappe.show_alert({
+      message: __('Route data not available. Please refresh the map.'),
+      indicator: 'orange'
+    });
+    return;
+  }
+  
+  const selectedRoute = routes.find(r => r.index === routeIndex);
+  if (!selectedRoute) {
+    frappe.show_alert({
+      message: __('Route not found'),
+      indicator: 'red'
+    });
+    return;
+  }
+  
+  // Update UI
+  const mapElement = document.getElementById(mapId);
+  if (mapElement) {
+    const routeOptions = mapElement.querySelectorAll('.route-option');
+    routeOptions.forEach(option => {
+      const currentIdx = parseInt(option.dataset.routeIndex);
+      if (currentIdx === routeIndex) {
+        option.style.borderColor = '#007bff';
+        option.style.backgroundColor = '#e7f3ff';
+        const checkmark = option.querySelector('span');
+        if (checkmark) checkmark.innerHTML = '✓ Selected';
+      } else {
+        option.style.borderColor = '#ddd';
+        option.style.backgroundColor = '#fff';
+        const checkmark = option.querySelector('span');
+        if (checkmark && checkmark.textContent.includes('Selected')) {
+          checkmark.innerHTML = '';
+        }
+      }
+    });
+  }
+  
+  // Update interactive map polylines if available
+  const map = window.runSheetMaps && window.runSheetMaps[mapId];
+  const polylines = window.runSheetPolylines && window.runSheetPolylines[mapId];
+  if (map && polylines && window.google && window.google.maps) {
+    polylines.forEach(polylineData => {
+      const isSelected = polylineData.routeIndex === routeIndex;
+      polylineData.polyline.setOptions({
+        strokeColor: isSelected ? '#007bff' : '#dc3545',
+        strokeOpacity: isSelected ? 1.0 : 0.8,
+        strokeWeight: isSelected ? 6 : 4,
+        zIndex: isSelected ? 2 : 1
+      });
+    });
+  }
+  
+  // Save the selected route to Run Sheet (will sync to legs automatically)
+  frappe.call({
+    method: 'logistics.transport.api_vehicle_tracking.save_selected_route',
+    args: {
+      run_sheet_name: runSheetName,
+      route_index: routeIndex,
+      polyline: selectedRoute.polyline,
+      distance_km: selectedRoute.distance_km,
+      duration_min: selectedRoute.duration_min,
+      route_type: 'run_sheet'
+    }
+  }).then(response => {
+    if (response.message && response.message.success) {
+      frappe.show_alert({
+        message: __('Route ${0} selected and saved. Individual leg routes cleared for recalculation.', [routeIndex + 1]),
+        indicator: 'green'
+      });
+      
+      // Reload the form to refresh the map with saved route
+      if (cur_frm && cur_frm.doc.name === runSheetName) {
+        cur_frm.reload_doc();
+      }
+    } else {
+      frappe.show_alert({
+        message: __('Failed to save route: ${0}', [response.message?.error || 'Unknown error']),
+        indicator: 'red'
+      });
+    }
+  }).catch(error => {
+    frappe.show_alert({
+      message: __('Error saving route: ${0}', [error.message || 'Unknown error']),
+      indicator: 'red'
+    });
   });
 }
 

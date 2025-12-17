@@ -181,6 +181,18 @@
    "read_only": 1
   },
   {
+   "fieldname": "selected_route_polyline",
+   "fieldtype": "Long Text",
+   "label": "Selected Route Polyline",
+   "hidden": 1
+  },
+  {
+   "fieldname": "selected_route_index",
+   "fieldtype": "Int",
+   "label": "Selected Route Index",
+   "hidden": 1
+  },
+  {
    "fieldname": "section_break_pkdh",
    "fieldtype": "Section Break"
   }

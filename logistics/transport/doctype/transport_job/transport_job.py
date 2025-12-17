@@ -11,13 +11,43 @@ from frappe.utils import nowdate, flt
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
+        # DEBUG: Log all validation calls
+        try:
+            frappe.log_error(
+                f"Transport Job {self.name} validate() called - transport_job_type: {repr(self.get('transport_job_type'))}, "
+                f"container_type: {repr(self.get('container_type'))}, container_no: {repr(self.get('container_no'))}",
+                "Transport Job Validate Debug"
+            )
+        except:
+            pass
+        
         self.validate_required_fields()
+        # Validate transport job type - only when it IS set (like Transport Order does)
+        # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
+        self._validate_transport_job_type()
         self.validate_legs()
         self.validate_accounts()
         self.validate_status_transition()
+        
+        # DEBUG: Log after validation
+        try:
+            frappe.log_error(
+                f"Transport Job {self.name} validate() completed successfully",
+                "Transport Job Validate Debug"
+            )
+        except:
+            pass
     
     def before_save(self):
         """Calculate sustainability metrics and create job costing number before saving"""
+        # Clear container fields if transport_job_type is not 'Container'
+        transport_job_type = self.get('transport_job_type')
+        if not transport_job_type or transport_job_type != 'Container':
+            if self.get('container_type'):
+                self.set('container_type', None)
+            if self.get('container_no'):
+                self.set('container_no', None)
+        
         self.calculate_sustainability_metrics()
         self.create_job_costing_number_if_needed()
         self.update_status()
@@ -117,6 +147,23 @@ class TransportJob(Document):
             frappe.throw(_("Vehicle Type is required"))
         if not self.company:
             frappe.throw(_("Company is required"))
+        if not self.transport_job_type:
+            frappe.throw(_("Transport Job Type is required"))
+    
+    def _validate_transport_job_type(self):
+        """Validate transport job type specific business rules - only when transport_job_type IS set."""
+        # IMPORTANT: Only validate when transport_job_type IS set (like Transport Order does)
+        # This prevents "Job Type must be set first" errors by not requiring it to be set
+        transport_job_type = self.get('transport_job_type')
+        if not transport_job_type:
+            return  # Early return - no validation if transport_job_type is not set
+        
+        # Container type validations - only when transport_job_type is 'Container'
+        if transport_job_type == "Container":
+            if not self.container_type:
+                frappe.throw(_("Container Type is required for Container transport jobs."))
+            if not self.container_no:
+                frappe.throw(_("Container Number is required for Container transport jobs."))
     
     def validate_legs(self):
         """Validate that submitted jobs have at least one leg"""
@@ -131,7 +178,7 @@ class TransportJob(Document):
         if not self.company:
             return
 
-            if self.cost_center:
+        if self.cost_center:
             cost_center_meta = frappe.get_meta("Cost Center")
             if cost_center_meta.has_field("company"):
                 cost_center_company = frappe.db.get_value("Cost Center", self.cost_center, "company")
@@ -140,7 +187,7 @@ class TransportJob(Document):
                         self.cost_center, self.company
                     ))
 
-            if self.profit_center:
+        if self.profit_center:
             profit_center_meta = frappe.get_meta("Profit Center")
             if profit_center_meta.has_field("company"):
                 profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
@@ -247,6 +294,7 @@ class TransportJob(Document):
             
             # Create new Job Costing Number
             jcn = frappe.new_doc("Job Costing Number")
+            jcn.job_type = "Transport Job"  # Must be set before job_no (Dynamic Link)
             jcn.job_no = self.name
             jcn.job_name = self.name
             jcn.company = self.company

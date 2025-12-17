@@ -6,6 +6,18 @@ frappe.ui.form.on('Tariff', {
         // Custom buttons removed as requested
     },
     
+    tariff_type: function(frm) {
+        // Clear all customer-related fields when tariff type changes
+        frm.set_value('customer', '');
+        frm.set_value('customer_group', '');
+        frm.set_value('territory', '');
+        if (frm.doc.customers) {
+            frm.clear_table('customers');
+            frm.refresh_field('customers');
+        }
+        frm.set_value('agent', '');
+    },
+    
     valid_from: function(frm) {
         if (frm.doc.valid_from && frm.doc.valid_to && frm.doc.valid_from > frm.doc.valid_to) {
             frappe.msgprint(__('Valid From date cannot be later than Valid To date'));
