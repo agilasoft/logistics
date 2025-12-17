@@ -15,14 +15,7 @@ frappe.query_reports["Handling Unit Capacity"] = {
 			"fieldname": "branch",
 			"label": __("Branch"),
 			"fieldtype": "Link",
-			"options": "Branch",
-			"get_query": function() {
-				return {
-					"filters": {
-						"company": frappe.query_report.get_filter_value("company")
-					}
-				};
-			}
+			"options": "Branch"
 		},
 		{
 			"fieldname": "type",

@@ -1342,3 +1342,82 @@ def compute_chargeable(self):
         volume_weight = volume * 1000  # International standard
 
     self.chargeable = max(weight, volume_weight)
+
+@frappe.whitelist()
+def populate_charges_from_sales_quote(self):
+	"""Populate charges from Sales Quote Sea Freight"""
+	if not self.sales_quote:
+		frappe.throw(_("Sales Quote is not set for this Sea Shipment"))
+	
+	try:
+		# Verify that the sales_quote exists
+		if not frappe.db.exists("Sales Quote", self.sales_quote):
+			frappe.msgprint(
+				f"Sales Quote {self.sales_quote} does not exist",
+				title="Error",
+				indicator="red"
+			)
+			return
+		
+		# Clear existing charges
+		self.set("charges", [])
+		
+		# Get Sales Quote Sea Freight records
+		sales_quote_sea_freight_records = frappe.get_all(
+			"Sales Quote Sea Freight",
+			filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+			fields=[
+				"item_code",
+				"item_name", 
+				"calculation_method",
+				"uom",
+				"currency",
+				"unit_rate",
+				"unit_type",
+				"minimum_quantity",
+				"minimum_charge",
+				"maximum_charge",
+				"base_amount",
+				"estimated_revenue"
+			],
+			order_by="idx"
+		)
+		
+		if not sales_quote_sea_freight_records:
+			frappe.msgprint(
+				f"No Sea Freight charges found in Sales Quote: {self.sales_quote}",
+				title="No Charges Found",
+				indicator="orange"
+			)
+			return
+		
+		# Import the mapping function from Sales Quote
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import _map_sales_quote_sea_freight_to_charge
+		
+		# Map and populate charges
+		charges_added = 0
+		for sqsf_record in sales_quote_sea_freight_records:
+			charge_row = _map_sales_quote_sea_freight_to_charge(sqsf_record, self)
+			if charge_row:
+				self.append("charges", charge_row)
+				charges_added += 1
+		
+		if charges_added > 0:
+			frappe.msgprint(
+				f"Successfully populated {charges_added} charges from Sales Quote",
+				title="Charges Updated",
+				indicator="green"
+			)
+		
+		return {
+			"success": True,
+			"message": f"Successfully populated {charges_added} charges",
+			"charges_added": charges_added
+		}
+		
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating charges from Sales Quote: {str(e)}",
+			"Sea Shipment - Populate Charges Error"
+		)
+		frappe.throw(_("Error populating charges: {0}").format(str(e)))

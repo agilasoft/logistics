@@ -54,7 +54,8 @@
   "internal_notes",
   "column_break_16",
   "client_notes",
-  "connections_tab"
+  "connections_tab",
+  "amended_from"
  ],
  "fields": [
   {
@@ -237,25 +238,17 @@
    "options": "Transport Job Legs"
   },
   {
-   "fieldname": "transport_job_type",
-   "fieldtype": "Select",
-   "label": "Transport Job Type",
-   "options": "Container\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul"
-  },
-  {
-   "depends_on": "eval:doc.transport_job_type=='Container'",
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
-   "mandatory_depends_on": "eval:doc.transport_job_type=='Container'",
-   "options": "Container Type"
+   "options": "Container Type",
+   "hidden": 1
   },
   {
-   "depends_on": "eval:doc.transport_job_type=='Container'",
    "fieldname": "container_no",
    "fieldtype": "Data",
    "label": "Container No.",
-   "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
+   "hidden": 1
   },
   {
    "fieldname": "entity_tab",
@@ -344,6 +337,24 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Transport Job",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "default": "Non-Container",
+   "fieldname": "transport_job_type",
+   "fieldtype": "Select",
+   "label": "Transport Job Type",
+   "options": "Container\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul",
+   "reqd": 1
   }
  ],
  "is_submittable": 1,
@@ -364,7 +375,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2025-12-05 09:06:21.690169",
+ "modified": "2025-12-13 11:14:22.742227",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

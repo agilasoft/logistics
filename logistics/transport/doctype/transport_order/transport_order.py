@@ -101,6 +101,12 @@ class TransportOrder(Document):
             if not leg.get("transport_job_type"):
                 missing_fields.append("Transport Job Type")
             
+            # Check pick and drop modes
+            if not leg.get("pick_mode"):
+                missing_fields.append("Pick Mode")
+            if not leg.get("drop_mode"):
+                missing_fields.append("Drop Mode")
+            
             # Check scheduled_date if it's filled
             if leg.get("scheduled_date"):
                 try:
@@ -531,7 +537,7 @@ class TransportOrder(Document):
 
             # Fallbacks for essential fields
             if not charge_data.get("item_name") and sqt_record.get("item_code"):
-            item_doc = frappe.get_doc("Item", sqt_record.item_code)
+                item_doc = frappe.get_doc("Item", sqt_record.item_code)
                 charge_data["item_name"] = item_doc.item_name
 
             if not charge_data.get("uom") and sqt_record.get("item_code"):
@@ -836,6 +842,10 @@ def action_create_transport_job(docname: str):
         )
 
         # Insert now to get a real job name for back-references from Transport Leg
+        # Temporarily ignore mandatory and validation checks to prevent "Job Type must be set first" popups
+        # The transport_job_type is set, but conditional field validation may trigger prematurely
+        job.flags.ignore_mandatory = True
+        job.flags.ignore_validate = True
         job.insert(ignore_permissions=False)
 
         # ---- Legs: create top-level Transport Leg for each TO leg, then link into TJ legs

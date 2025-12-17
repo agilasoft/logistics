@@ -346,7 +346,7 @@
    "fieldname": "service_level",
    "fieldtype": "Link",
    "label": "Service Level",
-   "options": "Logistics Service Level"
+   "options": "Service Level Agreement"
   },
   {
    "fieldname": "services_tab",

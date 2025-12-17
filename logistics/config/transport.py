@@ -5,6 +5,17 @@ def get_data():
 
         return [
             {
+                "label": _("Create"),
+                "icon": "icon-plus",
+                "items": [
+                    {
+                        "type": "action",
+                        "action": "logistics.transport.create_transport_order_from_sales_quote()",
+                        "label": _("Transport Order from Sales Quote"),
+                    },
+                ]
+            },
+            {
                     "label": _("Bookings"),
                     "icon": "icon-file",
                     "items": [

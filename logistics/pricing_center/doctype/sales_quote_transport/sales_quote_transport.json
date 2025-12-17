@@ -151,7 +151,7 @@
    "label": "Maximum Charge"
   },
   {
-   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\"",
+   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"Percentage\"",
    "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "base_amount",
    "fieldtype": "Currency",
@@ -229,7 +229,7 @@
    "label": "Maximum Charge"
   },
   {
-   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\"",
+   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
    "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_base_amount",
    "fieldtype": "Currency",

@@ -29,9 +29,37 @@
   "chargeable_uom",
   "sea_tab",
   "sea_load_type",
+  "sea_freight",
   "air_tab",
   "air_load_type",
   "air_freight",
+  "air_section_break_details",
+  "air_direction",
+  "airline",
+  "freight_agent",
+  "column_break_air_basic",
+  "air_house_type",
+  "air_release_type",
+  "air_entry_type",
+  "air_section_break_routing",
+  "origin_port",
+  "column_break_air_routing",
+  "destination_port",
+  "column_break_air_dates",
+  "air_etd",
+  "column_break_air_dates2",
+  "air_eta",
+  "air_section_break_house",
+  "air_house_bl",
+  "air_packs",
+  "air_inner",
+  "column_break_air_house",
+  "air_gooda_value",
+  "air_insurance",
+  "air_section_break_description",
+  "air_description",
+  "column_break_air_marks",
+  "air_marks_and_nos",
   "transport_tab",
   "transport_template",
   "load_type",
@@ -184,6 +212,12 @@
    "options": "Load Type"
   },
   {
+   "fieldname": "sea_freight",
+   "fieldtype": "Table",
+   "label": "Sea Freight",
+   "options": "Sales Quote Sea Freight"
+  },
+  {
    "fieldname": "air_tab",
    "fieldtype": "Tab Break",
    "label": "Air"
@@ -200,6 +234,145 @@
    "fieldtype": "Table",
    "label": "Air Freight",
    "options": "Sales Quote Air Freight"
+  },
+  {
+   "fieldname": "air_section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Air Booking Details"
+  },
+  {
+   "fieldname": "air_direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport"
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_air_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "House Type",
+   "options": "Direct\nConsolidation\nBreak Bulk"
+  },
+  {
+   "fieldname": "air_release_type",
+   "fieldtype": "Select",
+   "label": "Release Type",
+   "options": "Prepaid\nCollect"
+  },
+  {
+   "fieldname": "air_entry_type",
+   "fieldtype": "Select",
+   "label": "Entry Type",
+   "options": "Direct\nTransit\nTransshipment"
+  },
+  {
+   "fieldname": "air_section_break_routing",
+   "fieldtype": "Section Break",
+   "label": "Routing & Dates"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "Location",
+   "description": "Origin port for air freight"
+  },
+  {
+   "fieldname": "column_break_air_routing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "Location",
+   "description": "Destination port for air freight"
+  },
+  {
+   "fieldname": "column_break_air_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "air_etd",
+   "fieldtype": "Date",
+   "label": "ETD"
+  },
+  {
+   "fieldname": "column_break_air_dates2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "air_eta",
+   "fieldtype": "Date",
+   "label": "ETA"
+  },
+  {
+   "fieldname": "air_section_break_house",
+   "fieldtype": "Section Break",
+   "label": "House Details"
+  },
+  {
+   "fieldname": "air_house_bl",
+   "fieldtype": "Data",
+   "label": "House BL"
+  },
+  {
+   "fieldname": "air_packs",
+   "fieldtype": "Int",
+   "label": "Packs"
+  },
+  {
+   "fieldname": "air_inner",
+   "fieldtype": "Int",
+   "label": "Inner"
+  },
+  {
+   "fieldname": "column_break_air_house",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "air_gooda_value",
+   "fieldtype": "Currency",
+   "label": "Goods Value"
+  },
+  {
+   "fieldname": "air_insurance",
+   "fieldtype": "Currency",
+   "label": "Insurance"
+  },
+  {
+   "fieldname": "air_section_break_description",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "air_description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_air_marks",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "air_marks_and_nos",
+   "fieldtype": "Small Text",
+   "label": "Marks and Nos"
   },
   {
    "fieldname": "transport_tab",

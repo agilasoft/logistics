@@ -49,10 +49,12 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_land_transport_charge\",\"=\",1]]",
    "options": "Item",
    "reqd": 1
   },
   {
+   "fetch_from": "item_code.item_name",
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name"
@@ -126,7 +128,7 @@
    "label": "Maximum Charge"
   },
   {
-   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\"",
+   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"Percentage\"",
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount"
@@ -197,7 +199,7 @@
    "label": "Maximum Charge"
   },
   {
-   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\"",
+   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
    "fieldname": "cost_base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount"
@@ -254,7 +256,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-25 10:19:18.499790",
+ "modified": "2025-12-12 11:35:11.221192",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Transport Order Charges",

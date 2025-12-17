@@ -212,7 +212,9 @@ class SalesQuoteTransport(Document):
         if self.calculation_method == "Per Unit":
             self.quantity = self._calculate_per_unit_quantity(parent_doc)
         elif self.calculation_method == "Fixed Amount":
-            self.quantity = 1  # Fixed amount doesn't depend on quantity
+            # For Fixed Amount, preserve user-entered quantity or default to 1
+            if not self.quantity or self.quantity == 0:
+                self.quantity = 1
         elif self.calculation_method == "Base Plus Additional":
             self.quantity = self._calculate_base_plus_additional_quantity(parent_doc)
         elif self.calculation_method == "First Plus Additional":
@@ -233,6 +235,13 @@ class SalesQuoteTransport(Document):
             self.estimated_revenue = 0
             self.revenue_calc_notes = "No unit rate specified"
             return
+        
+        # Check for Percentage method - base_amount is required
+        if self.calculation_method == "Percentage":
+            if not self.base_amount or self.base_amount == 0:
+                self.estimated_revenue = 0
+                self.revenue_calc_notes = "Base Amount is required and must be greater than 0 for Percentage calculation"
+                return
         
         try:
             # Prepare rate data for calculation
@@ -270,6 +279,13 @@ class SalesQuoteTransport(Document):
             self.estimated_cost = 0
             self.cost_calc_notes = "No unit cost specified"
             return
+        
+        # Check for Percentage method - cost_base_amount is required
+        if self.cost_calculation_method == "Percentage":
+            if not self.cost_base_amount or self.cost_base_amount == 0:
+                self.estimated_cost = 0
+                self.cost_calc_notes = "Cost Base Amount is required and must be greater than 0 for Percentage calculation"
+                return
         
         try:
             # Prepare cost rate data for calculation

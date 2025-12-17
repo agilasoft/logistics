@@ -19,6 +19,16 @@ class Tariff(Document):
         if self.tariff_type == "Customer" and not self.customer:
             frappe.throw(_("Customer is required for Customer tariff"))
         
+        if self.tariff_type == "Customer Group" and not self.customer_group:
+            frappe.throw(_("Customer Group is required for Customer Group tariff"))
+        
+        if self.tariff_type == "Territory" and not self.territory:
+            frappe.throw(_("Territory is required for Territory tariff"))
+        
+        if self.tariff_type == "Specific Customers":
+            if not self.customers or len(self.customers) == 0:
+                frappe.throw(_("At least one customer is required for Specific Customers tariff"))
+        
         if self.tariff_type == "Agent" and not self.agent:
             frappe.throw(_("Freight Agent is required for Agent tariff"))
     
@@ -163,6 +173,9 @@ def get_tariff_summary(tariff_name):
             "tariff_name": tariff.tariff_name,
             "tariff_type": tariff.tariff_type,
             "customer": tariff.customer if tariff.tariff_type == "Customer" else None,
+            "customer_group": tariff.customer_group if tariff.tariff_type == "Customer Group" else None,
+            "territory": tariff.territory if tariff.tariff_type == "Territory" else None,
+            "customers": [c.customer for c in tariff.customers] if tariff.tariff_type == "Specific Customers" and tariff.customers else None,
             "agent": tariff.agent if tariff.tariff_type == "Agent" else None,
             "currency": tariff.currency,
             "valid_from": tariff.valid_from,
