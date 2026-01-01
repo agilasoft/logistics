@@ -127,7 +127,10 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
         else:
             warnings.append(_("No warehouse contract specified. Only job charges will be processed."))
         
-        # Step 3: Save and return results
+        # Step 3: Populate Storage Details from warehouse/inventory data (daily snapshot)
+        populate_storage_details_from_inventory(pb, customer, date_from, date_to, company, branch)
+        
+        # Step 4: Save and return results
         if created > 0:
             pb.save(ignore_permissions=True)
             frappe.db.commit()
@@ -311,6 +314,9 @@ def get_storage_charges_from_contract(customer: str, date_from: str, date_to: st
             warnings.append(_("No storage charge items found in contract."))
             return charges, total, warnings
         
+        # Track which HUs have charges
+        hus_with_charges = set()
+        
         # Process each handling unit
         for hu in hu_list:
             hu_details = get_handling_unit_billing_details(hu, date_from, date_to)
@@ -319,13 +325,20 @@ def get_storage_charges_from_contract(customer: str, date_from: str, date_to: st
                 
             # Find matching contract item
             contract_item = find_matching_contract_item(contract_items, hu_details)
-            if not contract_item:
-                continue
-                
-            # Calculate charges
-            hu_charges = calculate_handling_unit_storage_charges(hu, hu_details, contract_item, date_from, date_to)
-            charges.extend(hu_charges)
-            total += sum(flt(charge.get("total", 0)) for charge in hu_charges)
+            if contract_item:
+                # Calculate charges for HUs with matching contract items
+                hu_charges = calculate_handling_unit_storage_charges(hu, hu_details, contract_item, date_from, date_to)
+                charges.extend(hu_charges)
+                total += sum(flt(charge.get("total", 0)) for charge in hu_charges)
+                hus_with_charges.add(hu)
+            else:
+                # Check if this HU has outstanding stock but no matching contract item
+                if has_handling_unit_outstanding_stock(hu, date_from, date_to):
+                    # Create charge with zero rate and remark about missing rates
+                    missing_rate_charge = create_missing_rate_charge(hu, hu_details, date_from, date_to, company)
+                    if missing_rate_charge:
+                        charges.append(missing_rate_charge)
+                        hus_with_charges.add(hu)
         
     except Exception as e:
         warnings.append(f"Error getting storage charges from contract: {str(e)}")
@@ -413,6 +426,93 @@ def get_handling_unit_billing_details(hu: str, date_from: str, date_to: str) -> 
         
     except Exception as e:
         frappe.log_error(f"Error getting handling unit details for {hu}: {str(e)}")
+        return None
+
+
+def has_handling_unit_outstanding_stock(hu: str, date_from: str, date_to: str) -> bool:
+    """Check if a handling unit has outstanding stock during the billing period."""
+    try:
+        # Check if there's any stock balance during the period
+        # Look for any day where end_qty > 0
+        stock_check = frappe.db.sql("""
+            SELECT COUNT(*) as days_with_stock
+            FROM `tabWarehouse Stock Ledger` l
+            WHERE l.handling_unit = %s
+              AND DATE(l.posting_date) BETWEEN %s AND %s
+              AND COALESCE(l.end_qty, 0) > 0
+            LIMIT 1
+        """, (hu, date_from, date_to), as_dict=True)
+        
+        if stock_check and stock_check[0]["days_with_stock"] > 0:
+            return True
+        
+        # Also check if there's stock at the end date
+        end_stock = frappe.db.sql("""
+            SELECT SUM(COALESCE(l.end_qty, 0)) as end_balance
+            FROM `tabWarehouse Stock Ledger` l
+            WHERE l.handling_unit = %s
+              AND DATE(l.posting_date) <= %s
+            HAVING end_balance > 0
+        """, (hu, date_to), as_dict=True)
+        
+        return bool(end_stock and end_stock[0]["end_balance"] > 0)
+        
+    except Exception as e:
+        frappe.log_error(f"Error checking outstanding stock for {hu}: {str(e)}")
+        return False
+
+
+def create_missing_rate_charge(hu: str, hu_details: Dict, date_from: str, date_to: str, company: Optional[str] = None) -> Optional[Dict]:
+    """Create a charge entry for handling unit with stock but no matching contract rate."""
+    try:
+        # Calculate billing quantity (days in period)
+        start_date = datetime.strptime(str(date_from), "%Y-%m-%d")
+        end_date = datetime.strptime(str(date_to), "%Y-%m-%d")
+        days = (end_date - start_date).days + 1
+        
+        # Get volume and weight for the handling unit
+        volume_weight = frappe.db.sql("""
+            SELECT 
+                SUM(COALESCE(wi.volume, 0) * COALESCE(l.end_qty, 0)) as total_volume,
+                SUM(COALESCE(wi.weight, 0) * COALESCE(l.end_qty, 0)) as total_weight
+            FROM `tabWarehouse Stock Ledger` l
+            LEFT JOIN `tabWarehouse Item` wi ON wi.name = l.item
+            WHERE l.handling_unit = %s
+              AND DATE(l.posting_date) BETWEEN %s AND %s
+              AND COALESCE(l.end_qty, 0) > 0
+            GROUP BY l.handling_unit
+        """, (hu, date_from, date_to), as_dict=True)
+        
+        total_volume = flt(volume_weight[0]["total_volume"]) if volume_weight else 0.0
+        total_weight = flt(volume_weight[0]["total_weight"]) if volume_weight else 0.0
+        
+        # Create charge with zero rate
+        charge = {
+            "item": None,  # No item since no rate
+            "item_name": _("Storage Charge - Rate Missing ({0})").format(hu_details.get("handling_unit_type") or "Generic"),
+            "uom": "Day",
+            "quantity": float(days),
+            "rate": 0.0,
+            "total": 0.0,
+            "currency": _get_default_currency(company),
+            "handling_unit": hu,
+            "storage_location": hu_details.get("storage_location"),
+            "handling_unit_type": hu_details.get("handling_unit_type"),
+            "storage_type": hu_details.get("storage_type"),
+            "calculation_notes": f"""Storage Charge - Missing Rate:
+  • Handling Unit: {hu}
+  • Period: {date_from} to {date_to}
+  • Days: {days}
+  • Volume: {total_volume:.2f} CBM
+  • Weight: {total_weight:.2f} Kg
+  • Status: OUTSTANDING STOCK - NO RATE FOUND
+  • Action Required: Please add contract rate for this handling unit type ({hu_details.get('handling_unit_type') or 'N/A'}) and storage type ({hu_details.get('storage_type') or 'N/A'})"""
+        }
+        
+        return charge
+        
+    except Exception as e:
+        frappe.log_error(f"Error creating missing rate charge for {hu}: {str(e)}")
         return None
 
 
@@ -633,6 +733,134 @@ def get_contract_setup_summary(warehouse_contract: str) -> Dict[str, Any]:
     except Exception as e:
         frappe.log_error(f"Error getting contract setup summary: {str(e)}")
         return {"error": str(e)}
+
+
+def populate_storage_details_from_inventory(pb, customer: str, date_from: str, date_to: str, company: Optional[str] = None, branch: Optional[str] = None) -> None:
+    """
+    Populate Storage Details table to show breakdown of how storage charges are computed.
+    
+    This function:
+    - Gets handling units from storage charges that were created (not all inventory)
+    - Creates a daily snapshot for each day in the date range
+    - Uses physical stock (end_qty) from Warehouse Stock Ledger to calculate volume and weight
+    - Shows the breakdown of volume/weight data used for storage charge computation
+    
+    The Storage Details table provides a breakdown showing how storage charges are computed.
+    Only includes handling units that actually have storage charges.
+    """
+    try:
+        # Clear existing storage details
+        pb.set("storage_details", [])
+        
+        if not customer or not date_from or not date_to:
+            return
+        
+        # Get handling units from storage charges that were created
+        # Only include HUs that have storage charges (not job charges)
+        handling_units = set()
+        for charge in pb.charges:
+            # Only include charges that have handling_unit (storage charges)
+            # Exclude charges that have warehouse_job (job charges)
+            if charge.get("handling_unit") and not charge.get("warehouse_job"):
+                handling_units.add(charge.get("handling_unit"))
+        
+        handling_units = list(handling_units)
+        
+        if not handling_units:
+            return
+        
+        # Generate date range for daily snapshots
+        start_date = datetime.strptime(str(date_from), "%Y-%m-%d")
+        end_date = datetime.strptime(str(date_to), "%Y-%m-%d")
+        date_list = []
+        current_date = start_date
+        while current_date <= end_date:
+            date_list.append(current_date.strftime("%Y-%m-%d"))
+            current_date += timedelta(days=1)
+        
+        # Get daily snapshots of physical stock for each handling unit
+        hu_list = list(handling_units)
+        placeholders = ", ".join(["%s"] * len(hu_list))
+        
+        # For each day, get the physical stock snapshot (end_qty) for each handling unit
+        # This represents the actual physical inventory on that date
+        for date_str in date_list:
+            # Get aggregated physical stock snapshot for each handling unit on this date
+            # Use end_qty which represents the physical stock balance at end of day
+            # Aggregate all items in each handling unit to get total volume and weight
+            daily_snapshot = frappe.db.sql(f"""
+                SELECT 
+                    l.handling_unit,
+                    SUM(COALESCE(l.end_qty, 0)) as total_physical_qty,
+                    SUM(COALESCE(wi.volume, 0) * COALESCE(l.end_qty, 0)) as total_volume,
+                    SUM(COALESCE(wi.weight, 0) * COALESCE(l.end_qty, 0)) as total_weight
+                FROM `tabWarehouse Stock Ledger` l
+                LEFT JOIN `tabWarehouse Item` wi ON wi.name = l.item
+                WHERE l.handling_unit IN ({placeholders})
+                  AND DATE(l.posting_date) = %s
+                  AND l.handling_unit IS NOT NULL
+                  AND wi.customer = %s
+                  AND COALESCE(l.end_qty, 0) > 0
+                GROUP BY l.handling_unit
+            """, tuple(hu_list) + (date_str, customer), as_dict=True)
+            
+            # Create snapshot entries for this date
+            hu_snapshot = {}
+            for entry in daily_snapshot:
+                hu = entry.get("handling_unit")
+                if not hu:
+                    continue
+                
+                total_volume = flt(entry.get("total_volume", 0))
+                total_weight = flt(entry.get("total_weight", 0))
+                total_qty = flt(entry.get("total_physical_qty", 0))
+                
+                # Only add if there's actual physical stock
+                if total_qty > 0:
+                    hu_snapshot[hu] = {
+                        "date": date_str,
+                        "handling_unit": hu,
+                        "volume": total_volume,
+                        "weight": total_weight,
+                        "hu_count": 1.0
+                    }
+            
+            # If no ledger entries for this date, check if handling unit exists
+            # and use current values from Handling Unit master
+            for hu in handling_units:
+                if hu not in hu_snapshot:
+                    try:
+                        # Get current volume/weight from Handling Unit
+                        hu_doc = frappe.get_doc("Handling Unit", hu)
+                        hu_volume = flt(hu_doc.get("current_volume") or 0.0)
+                        hu_weight = flt(hu_doc.get("current_weight") or 0.0)
+                        
+                        # Only add if there's actual volume/weight data
+                        if hu_volume > 0 or hu_weight > 0:
+                            hu_snapshot[hu] = {
+                                "date": date_str,
+                                "handling_unit": hu,
+                                "volume": hu_volume,
+                                "weight": hu_weight,
+                                "hu_count": 1.0
+                            }
+                    except:
+                        continue
+            
+            # Add entries for this date (sorted by handling_unit)
+            for hu in sorted(hu_snapshot.keys()):
+                snapshot = hu_snapshot[hu]
+                pb.append("storage_details", {
+                    "date": snapshot["date"],
+                    "handling_unit": snapshot["handling_unit"],
+                    "volume": snapshot["volume"],
+                    "weight": snapshot["weight"],
+                    "hu_count": snapshot["hu_count"]
+                })
+        
+    except Exception as e:
+        frappe.log_error(f"Error populating storage details from inventory: {str(e)}")
+        # Don't throw - allow charges to be saved even if storage details fail
 
 
 @frappe.whitelist()

@@ -834,6 +834,99 @@ async function render_run_sheet_route_map(frm) {
   }
 }
 
+// Group leg coordinates for consolidation visualization
+function groupLegCoordsForConsolidation(legCoords, isPickConsolidated, isDropConsolidated) {
+  if (!isPickConsolidated && !isDropConsolidated) {
+    return legCoords;
+  }
+  
+  // For pick consolidated: group by pick address (should be same), show one pick with multiple drops
+  if (isPickConsolidated) {
+    // Find the common pick address
+    const pickCoordsMap = new Map();
+    legCoords.forEach(lc => {
+      const key = `${lc.pick.lat},${lc.pick.lon}`;
+      if (!pickCoordsMap.has(key)) {
+        pickCoordsMap.set(key, {
+          pick: lc.pick,
+          drops: []
+        });
+      }
+      pickCoordsMap.get(key).drops.push({
+        leg: lc.leg,
+        drop: lc.drop,
+        order: lc.order
+      });
+    });
+    
+    // Convert to grouped format: one pick with multiple drops
+    const grouped = [];
+    pickCoordsMap.forEach((group, pickKey) => {
+      // Sort drops by order
+      group.drops.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Create one entry per drop, all sharing the same pick
+      group.drops.forEach((dropData, index) => {
+        grouped.push({
+          leg: dropData.leg,
+          pick: group.pick,
+          drop: dropData.drop,
+          order: dropData.order,
+          isConsolidated: true,
+          consolidationType: 'pick',
+          dropIndex: index
+        });
+      });
+    });
+    
+    return grouped.sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+  
+  // For drop consolidated: group by drop address (should be same), show multiple picks with one drop
+  if (isDropConsolidated) {
+    // Find the common drop address
+    const dropCoordsMap = new Map();
+    legCoords.forEach(lc => {
+      const key = `${lc.drop.lat},${lc.drop.lon}`;
+      if (!dropCoordsMap.has(key)) {
+        dropCoordsMap.set(key, {
+          drop: lc.drop,
+          picks: []
+        });
+      }
+      dropCoordsMap.get(key).picks.push({
+        leg: lc.leg,
+        pick: lc.pick,
+        order: lc.order
+      });
+    });
+    
+    // Convert to grouped format: multiple picks with one drop
+    const grouped = [];
+    dropCoordsMap.forEach((group, dropKey) => {
+      // Sort picks by order
+      group.picks.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Create one entry per pick, all sharing the same drop
+      group.picks.forEach((pickData, index) => {
+        grouped.push({
+          leg: pickData.leg,
+          pick: pickData.pick,
+          drop: group.drop,
+          order: pickData.order,
+          isConsolidated: true,
+          consolidationType: 'drop',
+          pickIndex: index
+        });
+      });
+    });
+    
+    return grouped.sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+  
+  return legCoords;
+}
+
 // Initialize multi-leg route map
 async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
   try {
@@ -883,7 +976,7 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
       console.log('No vehicle assigned to this run sheet');
     }
     
-    // Fetch Transport Leg details for status badges
+    // Fetch Transport Leg details for status badges and consolidation info
     const transportLegDetails = {};
     for (const leg of legs) {
       if (leg.transport_leg) {
@@ -892,7 +985,11 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
           transportLegDetails[leg.name] = {
             status: legDoc.status,
             start_date: legDoc.start_date,
-            end_date: legDoc.end_date
+            end_date: legDoc.end_date,
+            pick_consolidated: legDoc.pick_consolidated || 0,
+            drop_consolidated: legDoc.drop_consolidated || 0,
+            pick_address: legDoc.pick_address,
+            drop_address: legDoc.drop_address
           };
         } catch(e) {
           console.warn('Could not fetch leg details:', e);
@@ -978,18 +1075,83 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
     // Sort legs by order
     legCoords.sort((a, b) => (a.order || 0) - (b.order || 0));
     
+    // Check for consolidation type from Transport Legs
+    let isPickConsolidated = false;
+    let isDropConsolidated = false;
+    
+    if (frm && frm.doc && frm.doc.transport_consolidation) {
+      // Check consolidation flags from Transport Legs using already fetched data
+      const pickConsolidatedCount = legCoords.filter(lc => {
+        if (lc.leg && transportLegDetails[lc.leg.name]) {
+          return transportLegDetails[lc.leg.name].pick_consolidated === 1;
+        }
+        return false;
+      }).length;
+      
+      const dropConsolidatedCount = legCoords.filter(lc => {
+        if (lc.leg && transportLegDetails[lc.leg.name]) {
+          return transportLegDetails[lc.leg.name].drop_consolidated === 1;
+        }
+        return false;
+      }).length;
+      
+      // If majority of legs have pick_consolidated, it's pick consolidated
+      if (pickConsolidatedCount > 0 && pickConsolidatedCount >= legCoords.length / 2) {
+        isPickConsolidated = true;
+      }
+      
+      // If majority of legs have drop_consolidated, it's drop consolidated
+      if (dropConsolidatedCount > 0 && dropConsolidatedCount >= legCoords.length / 2) {
+        isDropConsolidated = true;
+      }
+      
+      // Also check by address grouping as fallback
+      if (!isPickConsolidated && !isDropConsolidated) {
+        const pickAddresses = new Set();
+        const dropAddresses = new Set();
+        
+        legCoords.forEach(lc => {
+          if (lc.leg && transportLegDetails[lc.leg.name]) {
+            const details = transportLegDetails[lc.leg.name];
+            if (details.pick_address) pickAddresses.add(details.pick_address);
+            if (details.drop_address) dropAddresses.add(details.drop_address);
+          }
+        });
+        
+        // Pick consolidated: one pick address, multiple drop addresses
+        if (pickAddresses.size === 1 && dropAddresses.size > 1) {
+          isPickConsolidated = true;
+        }
+        // Drop consolidated: multiple pick addresses, one drop address
+        else if (pickAddresses.size > 1 && dropAddresses.size === 1) {
+          isDropConsolidated = true;
+        }
+      }
+    }
+    
+    // Group legCoords for consolidation visualization
+    let groupedLegCoords = legCoords;
+    if (isPickConsolidated || isDropConsolidated) {
+      groupedLegCoords = groupLegCoordsForConsolidation(legCoords, isPickConsolidated, isDropConsolidated);
+    }
+    
     // Update external links with first and last coordinates
     updateExternalLinks(mapId, legCoords);
     
-    // Initialize map based on renderer (pass vehicle position for tracking)
+    // Initialize map based on renderer (pass vehicle position for tracking and consolidation info)
+    const consolidationInfo = {
+      isPickConsolidated: isPickConsolidated,
+      isDropConsolidated: isDropConsolidated
+    };
+    
     if (mapRenderer && mapRenderer.toLowerCase() === 'google maps') {
-      initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm);
+      initializeGoogleRouteMap(mapId, groupedLegCoords, vehiclePosition, frm, consolidationInfo);
     } else if (mapRenderer && mapRenderer.toLowerCase() === 'mapbox') {
-      initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm);
+      initializeMapboxRouteMap(mapId, groupedLegCoords, vehiclePosition, frm, consolidationInfo);
     } else if (mapRenderer && mapRenderer.toLowerCase() === 'maplibre') {
-      initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm);
+      initializeMapLibreRouteMap(mapId, groupedLegCoords, vehiclePosition, frm, consolidationInfo);
     } else {
-      initializeOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm);
+      initializeOpenStreetRouteMap(mapId, groupedLegCoords, vehiclePosition, frm, consolidationInfo);
     }
     
   } catch (error) {
@@ -1182,7 +1344,7 @@ function initializeOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm) {
   }
 }
 
-function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm) {
+function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
   console.log('createOpenStreetRouteMap called with:');
   console.log('  mapId:', mapId);
   console.log('  legCoords:', legCoords);
@@ -1227,46 +1389,83 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm) {
         // Add markers and routes for each leg
         const allMarkers = [];
         const allWaypoints = [];
+        const pickMarkersMap = new Map(); // Track pick markers for consolidation
+        const dropMarkersMap = new Map(); // Track drop markers for consolidation
+        
+        const isPickConsolidated = consolidationInfo && consolidationInfo.isPickConsolidated;
+        const isDropConsolidated = consolidationInfo && consolidationInfo.isDropConsolidated;
         
         legCoords.forEach((legData, index) => {
           const { leg, pick, drop } = legData;
+          const pickKey = `${pick.lat.toFixed(6)},${pick.lon.toFixed(6)}`;
+          const dropKey = `${drop.lat.toFixed(6)},${drop.lon.toFixed(6)}`;
           
-          // Pick marker (red)
-          const pickMarker = L.marker([pick.lat, pick.lon], {
-            icon: L.divIcon({
-              className: 'custom-div-icon',
-              html: `<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;">P${index + 1}</div>`,
-              iconSize: [20, 20],
-              iconAnchor: [10, 10]
-            })
-          }).addTo(map);
+          // For pick consolidated: only create one pick marker if it's the same location
+          let pickMarker = null;
+          if (isPickConsolidated && pickMarkersMap.has(pickKey)) {
+            pickMarker = pickMarkersMap.get(pickKey);
+            // Update popup to include this leg
+            const existingPopup = pickMarker.getPopup();
+            const existingContent = existingPopup ? existingPopup.getContent() : '';
+            pickMarker.setPopupContent(
+              existingContent + `<br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}`
+            );
+          } else {
+            // Create new pick marker
+            const markerLabel = isPickConsolidated ? 'P' : `P${index + 1}`;
+            pickMarker = L.marker([pick.lat, pick.lon], {
+              icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: red; width: ${isPickConsolidated ? '24' : '20'}px; height: ${isPickConsolidated ? '24' : '20'}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: ${isPickConsolidated ? '12' : '10'}px;">${markerLabel}</div>`,
+                iconSize: [isPickConsolidated ? 24 : 20, isPickConsolidated ? 24 : 20],
+                iconAnchor: [isPickConsolidated ? 12 : 10, isPickConsolidated ? 12 : 10]
+              })
+            }).addTo(map);
+            
+            pickMarker.bindPopup(`<strong>${isPickConsolidated ? 'Consolidated Pickup' : `Stop ${index + 1} - Pickup`}</strong><br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>Coordinates: ${pick.lat.toFixed(4)}, ${pick.lon.toFixed(4)}`);
+            pickMarkersMap.set(pickKey, pickMarker);
+          }
           
-          // Drop marker (green)
-          const dropMarker = L.marker([drop.lat, drop.lon], {
-            icon: L.divIcon({
-              className: 'custom-div-icon',
-              html: `<div style="background-color: green; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;">D${index + 1}</div>`,
-              iconSize: [20, 20],
-              iconAnchor: [10, 10]
-            })
-          }).addTo(map);
-          
-          // Add popups
-          pickMarker.bindPopup(`<strong>Stop ${index + 1} - Pickup</strong><br>Leg: ${leg.transport_leg || 'N/A'}<br>Coordinates: ${pick.lat.toFixed(4)}, ${pick.lon.toFixed(4)}`);
-          dropMarker.bindPopup(`<strong>Stop ${index + 1} - Drop</strong><br>Leg: ${leg.transport_leg || 'N/A'}<br>Coordinates: ${drop.lat.toFixed(4)}, ${drop.lon.toFixed(4)}`);
+          // For drop consolidated: only create one drop marker if it's the same location
+          let dropMarker = null;
+          if (isDropConsolidated && dropMarkersMap.has(dropKey)) {
+            dropMarker = dropMarkersMap.get(dropKey);
+            // Update popup to include this leg
+            const existingPopup = dropMarker.getPopup();
+            const existingContent = existingPopup ? existingPopup.getContent() : '';
+            dropMarker.setPopupContent(
+              existingContent + `<br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}`
+            );
+          } else {
+            // Create new drop marker
+            const markerLabel = isDropConsolidated ? 'D' : `D${index + 1}`;
+            dropMarker = L.marker([drop.lat, drop.lon], {
+              icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: green; width: ${isDropConsolidated ? '24' : '20'}px; height: ${isDropConsolidated ? '24' : '20'}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: ${isDropConsolidated ? '12' : '10'}px;">${markerLabel}</div>`,
+                iconSize: [isDropConsolidated ? 24 : 20, isDropConsolidated ? 24 : 20],
+                iconAnchor: [isDropConsolidated ? 12 : 10, isDropConsolidated ? 12 : 10]
+              })
+            }).addTo(map);
+            
+            dropMarker.bindPopup(`<strong>${isDropConsolidated ? 'Consolidated Drop' : `Stop ${index + 1} - Drop`}</strong><br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>Coordinates: ${drop.lat.toFixed(4)}, ${drop.lon.toFixed(4)}`);
+            dropMarkersMap.set(dropKey, dropMarker);
+          }
           
           // Add individual leg route line
+          const routeColor = isPickConsolidated ? '#007bff' : (isDropConsolidated ? '#28a745' : (index === 0 ? 'blue' : 'orange'));
           const routeLine = L.polyline([
             [pick.lat, pick.lon],
             [drop.lat, drop.lon]
           ], {
-            color: index === 0 ? 'blue' : 'orange',
-            weight: 3,
-            opacity: 0.6,
-            dashArray: index === 0 ? '5, 5' : '10, 10'
+            color: routeColor,
+            weight: isPickConsolidated || isDropConsolidated ? 4 : 3,
+            opacity: isPickConsolidated || isDropConsolidated ? 0.7 : 0.6,
+            dashArray: isPickConsolidated || isDropConsolidated ? '0' : (index === 0 ? '5, 5' : '10, 10')
           }).addTo(map);
           
-          allMarkers.push(pickMarker, dropMarker);
+          if (!allMarkers.includes(pickMarker)) allMarkers.push(pickMarker);
+          if (!allMarkers.includes(dropMarker)) allMarkers.push(dropMarker);
           allWaypoints.push([pick.lat, pick.lon], [drop.lat, drop.lon]);
         });
         
@@ -2672,6 +2871,9 @@ frappe.ui.form.on('Run Sheet', {
     if (frm.doc.name) {
       render_run_sheet_route_map(frm);
       
+      // Fetch and update missing data from Transport Leg
+      update_legs_missing_data_rs(frm);
+      
       // Add Refresh Legs button
       if (!frm.is_new()) {
         frm.add_custom_button(__('Refresh Legs'), function() {
@@ -2681,8 +2883,20 @@ frappe.ui.form.on('Run Sheet', {
         frm.add_custom_button(__('Sync to Transport Legs'), function() {
           sync_legs_to_transport_leg(frm);
         }, __('Actions'));
+        
+        // Add button to manually fetch missing leg data (works for submitted docs too)
+        if (frm.doc.legs && frm.doc.legs.length > 0) {
+          frm.add_custom_button(__('Fetch Missing Leg Data'), function() {
+            fetch_missing_leg_data_rs(frm);
+          }, __('Actions'));
+        }
       }
     }
+  },
+  
+  validate(frm) {
+    // Fetch and update missing data from Transport Leg before save
+    update_legs_missing_data_rs(frm);
   },
   
   legs(frm) {
@@ -2749,6 +2963,109 @@ async function sync_legs_to_transport_leg(frm) {
       indicator: 'red'
     });
   }
+}
+
+// Update missing leg data from Transport Leg
+function update_legs_missing_data_rs(frm) {
+  // Fetch and update missing data from Transport Leg for all legs
+  // Only works for draft documents (docstatus = 0)
+  if (frm.doc.docstatus !== 0) {
+    return;
+  }
+  
+  const legs = frm.doc.legs || [];
+  
+  legs.forEach((leg, idx) => {
+    if (!leg.transport_leg) {
+      // Skip if transport_leg is not set
+      return;
+    }
+    
+    // Check if any required fields are missing
+    const required_fields = [
+      'transport_job', 'facility_type_from', 'facility_from', 'pick_mode', 'address_from',
+      'facility_type_to', 'facility_to', 'drop_mode', 'address_to'
+    ];
+    
+    const has_missing = required_fields.some(field => !leg[field]);
+    
+    if (has_missing) {
+      // Fetch data from Transport Leg and update missing fields
+      frappe.model.get_value('Transport Leg', leg.transport_leg, 
+        ['transport_job', 'facility_type_from', 'facility_from', 'facility_type_to', 'facility_to',
+         'pick_mode', 'drop_mode', 'pick_address', 'drop_address'],
+        (r) => {
+          if (r) {
+            // Update only missing fields
+            if (!leg.transport_job && r.transport_job) {
+              frappe.model.set_value(leg.doctype, leg.name, 'transport_job', r.transport_job);
+            }
+            if (!leg.facility_type_from && r.facility_type_from) {
+              frappe.model.set_value(leg.doctype, leg.name, 'facility_type_from', r.facility_type_from);
+            }
+            if (!leg.facility_from && r.facility_from) {
+              frappe.model.set_value(leg.doctype, leg.name, 'facility_from', r.facility_from);
+            }
+            if (!leg.facility_type_to && r.facility_type_to) {
+              frappe.model.set_value(leg.doctype, leg.name, 'facility_type_to', r.facility_type_to);
+            }
+            if (!leg.facility_to && r.facility_to) {
+              frappe.model.set_value(leg.doctype, leg.name, 'facility_to', r.facility_to);
+            }
+            if (!leg.pick_mode && r.pick_mode) {
+              frappe.model.set_value(leg.doctype, leg.name, 'pick_mode', r.pick_mode);
+            }
+            if (!leg.drop_mode && r.drop_mode) {
+              frappe.model.set_value(leg.doctype, leg.name, 'drop_mode', r.drop_mode);
+            }
+            if (!leg.address_from && r.pick_address) {
+              frappe.model.set_value(leg.doctype, leg.name, 'address_from', r.pick_address);
+            }
+            if (!leg.address_to && r.drop_address) {
+              frappe.model.set_value(leg.doctype, leg.name, 'address_to', r.drop_address);
+            }
+            
+            // Fetch customer from transport_job if missing
+            if (!leg.customer && r.transport_job) {
+              frappe.model.get_value('Transport Job', r.transport_job, 'customer', (r2) => {
+                if (r2 && r2.customer) {
+                  frappe.model.set_value(leg.doctype, leg.name, 'customer', r2.customer);
+                }
+              });
+            }
+          }
+        }
+      );
+    }
+  });
+}
+
+// Fetch missing leg data via server (works for submitted documents too)
+function fetch_missing_leg_data_rs(frm) {
+  frappe.call({
+    method: 'logistics.transport.doctype.run_sheet.run_sheet.fetch_missing_leg_data',
+    args: {
+      run_sheet_name: frm.doc.name
+    },
+    freeze: true,
+    freeze_message: __('Fetching missing leg data...'),
+    callback: function(r) {
+      if (r.message) {
+        if (r.message.updated_count > 0) {
+          frappe.show_alert({
+            message: __('Updated {0} leg(s) with missing data', [r.message.updated_count]),
+            indicator: 'green'
+          });
+          frm.reload_doc();
+        } else {
+          frappe.show_alert({
+            message: __('No missing data found in legs'),
+            indicator: 'blue'
+          });
+        }
+      }
+    }
+  });
 }
 
 // Initialize drag-and-drop sorting for leg cards

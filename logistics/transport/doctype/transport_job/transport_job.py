@@ -143,8 +143,9 @@ class TransportJob(Document):
         """Validate required fields are present"""
         if not self.customer:
             frappe.throw(_("Customer is required"))
-        if not self.vehicle_type:
-            frappe.throw(_("Vehicle Type is required"))
+        # Vehicle Type is mandatory only if Consolidate checkbox is not checked
+        if not self.vehicle_type and not self.consolidate:
+            frappe.throw(_("Vehicle Type is required when Consolidate is not checked"))
         if not self.company:
             frappe.throw(_("Company is required"))
         if not self.transport_job_type:
@@ -166,12 +167,92 @@ class TransportJob(Document):
                 frappe.throw(_("Container Number is required for Container transport jobs."))
     
     def validate_legs(self):
-        """Validate that submitted jobs have at least one leg"""
+        """Validate that submitted jobs have at least one leg and update missing data"""
+        legs_field = _get_job_legs_fieldname(self)
+        job_legs = self.get(legs_field) or []
+        
+        # Check that submitted jobs have at least one leg
         if self.docstatus == 1:  # Submitted
-            legs_field = _get_job_legs_fieldname(self)
-            job_legs = self.get(legs_field) or []
             if not job_legs:
                 frappe.throw(_("Submitted Transport Job must have at least one leg"))
+        
+        # Update missing data from Transport Leg
+        self._update_legs_missing_data(job_legs)
+    
+    def _update_legs_missing_data(self, job_legs):
+        """Update missing data in legs by fetching from Transport Leg
+        
+        Args:
+            job_legs: List of leg rows from the Transport Job
+        """
+        if not job_legs:
+            return
+        
+        # Fields to fetch from Transport Leg
+        fields_to_fetch = [
+            "facility_type_from",
+            "facility_from",
+            "facility_type_to",
+            "facility_to",
+            "pick_mode",
+            "drop_mode",
+            "pick_address",
+            "drop_address",
+            "run_sheet",
+            "date"
+        ]
+        
+        for leg in job_legs:
+            transport_leg_name = leg.get("transport_leg")
+            if not transport_leg_name:
+                # If transport_leg is not set, skip this row
+                continue
+            
+            # Check if any required fields are missing
+            has_missing = any(not leg.get(field) for field in fields_to_fetch[:-1])  # Exclude 'date' from required check (it's at the end)
+            
+            if has_missing:
+                try:
+                    # Fetch data from Transport Leg
+                    transport_leg = frappe.get_doc("Transport Leg", transport_leg_name)
+                    
+                    # Update only missing fields
+                    if not leg.get("facility_type_from") and transport_leg.get("facility_type_from"):
+                        leg.facility_type_from = transport_leg.facility_type_from
+                    
+                    if not leg.get("facility_from") and transport_leg.get("facility_from"):
+                        leg.facility_from = transport_leg.facility_from
+                    
+                    if not leg.get("facility_type_to") and transport_leg.get("facility_type_to"):
+                        leg.facility_type_to = transport_leg.facility_type_to
+                    
+                    if not leg.get("facility_to") and transport_leg.get("facility_to"):
+                        leg.facility_to = transport_leg.facility_to
+                    
+                    if not leg.get("pick_mode") and transport_leg.get("pick_mode"):
+                        leg.pick_mode = transport_leg.pick_mode
+                    
+                    if not leg.get("drop_mode") and transport_leg.get("drop_mode"):
+                        leg.drop_mode = transport_leg.drop_mode
+                    
+                    if not leg.get("pick_address") and transport_leg.get("pick_address"):
+                        leg.pick_address = transport_leg.pick_address
+                    
+                    if not leg.get("drop_address") and transport_leg.get("drop_address"):
+                        leg.drop_address = transport_leg.drop_address
+                    
+                    if not leg.get("run_sheet") and transport_leg.get("run_sheet"):
+                        leg.run_sheet = transport_leg.run_sheet
+                    
+                    # Also update scheduled_date if missing
+                    if not leg.get("scheduled_date") and transport_leg.get("date"):
+                        leg.scheduled_date = transport_leg.date
+                    
+                except Exception as e:
+                    frappe.log_error(
+                        f"Error fetching data from Transport Leg {transport_leg_name}: {str(e)}",
+                        "Transport Job Leg Data Fetch Error"
+                    )
     
     def validate_accounts(self):
         """Validate that cost center and profit center belong to the company (when applicable)."""
@@ -677,3 +758,127 @@ def _validate_all_legs_completed(job: Document) -> None:
     if incomplete_legs:
         incomplete_names = [leg.name for leg in incomplete_legs]
         frappe.throw(_("Cannot create Sales Invoice. The following legs are not completed: {0}").format(", ".join(incomplete_names)))
+
+
+@frappe.whitelist()
+def fetch_missing_leg_data(job_name: str) -> Dict[str, Any]:
+    """
+    Fetch and update missing data from Transport Leg for all legs in a Transport Job.
+    This method works even for submitted documents by using db_set.
+    
+    Args:
+        job_name: Name of the Transport Job
+        
+    Returns:
+        Dict with status and count of updated legs
+    """
+    if not job_name:
+        frappe.throw(_("Transport Job name is required"))
+    
+    job = frappe.get_doc("Transport Job", job_name)
+    legs_field = _get_job_legs_fieldname(job)
+    job_legs = job.get(legs_field) or []
+    
+    if not job_legs:
+        return {"ok": True, "updated_count": 0, "message": _("No legs found in this Transport Job")}
+    
+    # Fields to fetch from Transport Leg
+    fields_to_fetch = [
+        "facility_type_from",
+        "facility_from",
+        "facility_type_to",
+        "facility_to",
+        "pick_mode",
+        "drop_mode",
+        "pick_address",
+        "drop_address",
+        "run_sheet",
+        "date"
+    ]
+    
+    updated_count = 0
+    
+    for leg in job_legs:
+        transport_leg_name = leg.get("transport_leg")
+        if not transport_leg_name:
+            continue
+        
+        # Check if any required fields are missing (excluding 'date' which is last)
+        has_missing = any(not leg.get(field) for field in fields_to_fetch[:-1])
+        
+        if has_missing:
+            try:
+                # Fetch data from Transport Leg
+                transport_leg = frappe.get_doc("Transport Leg", transport_leg_name)
+                
+                # Track if we updated anything
+                updated_this_leg = False
+                
+                # Update missing fields using db_set to work with submitted documents
+                if not leg.get("facility_type_from") and transport_leg.get("facility_type_from"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "facility_type_from", 
+                                       transport_leg.facility_type_from, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("facility_from") and transport_leg.get("facility_from"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "facility_from", 
+                                       transport_leg.facility_from, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("facility_type_to") and transport_leg.get("facility_type_to"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "facility_type_to", 
+                                       transport_leg.facility_type_to, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("facility_to") and transport_leg.get("facility_to"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "facility_to", 
+                                       transport_leg.facility_to, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("pick_mode") and transport_leg.get("pick_mode"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "pick_mode", 
+                                       transport_leg.pick_mode, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("drop_mode") and transport_leg.get("drop_mode"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "drop_mode", 
+                                       transport_leg.drop_mode, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("pick_address") and transport_leg.get("pick_address"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "pick_address", 
+                                       transport_leg.pick_address, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("drop_address") and transport_leg.get("drop_address"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "drop_address", 
+                                       transport_leg.drop_address, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("run_sheet") and transport_leg.get("run_sheet"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "run_sheet", 
+                                       transport_leg.run_sheet, update_modified=False)
+                    updated_this_leg = True
+                
+                if not leg.get("scheduled_date") and transport_leg.get("date"):
+                    frappe.db.set_value("Transport Job Legs", leg.name, "scheduled_date", 
+                                       transport_leg.date, update_modified=False)
+                    updated_this_leg = True
+                
+                if updated_this_leg:
+                    updated_count += 1
+                    
+            except Exception as e:
+                frappe.log_error(
+                    f"Error fetching data from Transport Leg {transport_leg_name}: {str(e)}",
+                    "Fetch Missing Leg Data Error"
+                )
+    
+    # Commit the changes
+    frappe.db.commit()
+    
+    return {
+        "ok": True,
+        "updated_count": updated_count,
+        "message": _("Updated {0} leg(s) with missing data").format(updated_count)
+    }

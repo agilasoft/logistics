@@ -331,6 +331,37 @@ class AirShipment(Document):
 			origin_port = self.origin_port or 'Not specified'
 			dest_port = self.destination_port or 'Not specified'
 			
+			# Get map renderer and API keys from Logistics Settings
+			map_renderer = 'OpenStreetMap'  # Default
+			google_api_key = ''
+			mapbox_api_key = ''
+			try:
+				logistics_settings = frappe.get_single('Logistics Settings')
+				if logistics_settings:
+					if hasattr(logistics_settings, 'map_renderer') and logistics_settings.map_renderer:
+						map_renderer = logistics_settings.map_renderer
+					
+					# Decrypt password fields using get_decrypted_password
+					from frappe.utils.password import get_decrypted_password
+					
+					# Get Google API key (Password field needs decryption)
+					google_api_key = get_decrypted_password(
+						"Logistics Settings",
+						"Logistics Settings",
+						"routing_google_api_key",
+						raise_exception=False
+					) or ''
+					
+					# Get Mapbox API key (Password field needs decryption)
+					mapbox_api_key = get_decrypted_password(
+						"Logistics Settings",
+						"Logistics Settings",
+						"routing_mapbox_api_key",
+						raise_exception=False
+					) or ''
+			except Exception as e:
+				frappe.log_error(f"Error getting map settings from Logistics Settings: {str(e)}", "Air Shipment - Get Map Settings")
+			
 			html += f"""
 				</div>
 			</div>
@@ -693,8 +724,10 @@ class AirShipment(Document):
 			console.log('Initializing Air Freight Map...');
 			const originPort = '{self.origin_port or ""}';
 			const destPort = '{self.destination_port or ""}';
+			const mapRenderer = '{map_renderer}'; // From Logistics Settings
 			console.log('Origin Port:', originPort);
 			console.log('Destination Port:', destPort);
+			console.log('Map Renderer from Logistics Settings:', mapRenderer);
 			
 			if (!originPort && !destPort) {{
 				console.log('No ports specified, showing fallback');
@@ -703,19 +736,6 @@ class AirShipment(Document):
 			}}
 			
 			try {{
-				// Get map renderer from Logistics Settings
-				let mapRenderer = 'MapLibre'; // Default
-				try {{
-					if (typeof frappe !== 'undefined' && frappe.get_single) {{
-						const settings = frappe.get_single('Logistics Settings');
-						mapRenderer = settings.map_renderer || 'MapLibre';
-						console.log('Map renderer from settings:', mapRenderer);
-					}} else {{
-						console.log('Frappe not available, using default MapLibre');
-					}}
-				}} catch (e) {{
-					console.log('Could not get map renderer from settings, using default:', e);
-				}}
 				
 				// Get coordinates for ports
 				const originCoords = await getPortCoordinates(originPort);
@@ -729,15 +749,19 @@ class AirShipment(Document):
 				
 				console.log('Coordinates found:', {{ origin: originCoords, destination: destCoords }});
 				
-				// Initialize map based on renderer
-				if (mapRenderer.toLowerCase() === 'google maps') {{
+				// Initialize map based on renderer (case-insensitive comparison)
+				const rendererLower = (mapRenderer || '').toLowerCase();
+				console.log('Initializing map with renderer:', rendererLower);
+				
+				if (rendererLower === 'google maps') {{
 					initializeGoogleMap('route-map', originCoords, destCoords, originPort, destPort);
-				}} else if (mapRenderer.toLowerCase() === 'mapbox') {{
+				}} else if (rendererLower === 'mapbox') {{
 					initializeMapboxMap('route-map', originCoords, destCoords, originPort, destPort);
-				}} else if (mapRenderer.toLowerCase() === 'maplibre') {{
+				}} else if (rendererLower === 'maplibre') {{
 					initializeMapLibreMap('route-map', originCoords, destCoords, originPort, destPort);
 				}} else {{
-					// Default to OpenStreetMap
+					// Default to OpenStreetMap (including when renderer is 'openstreetmap' or empty)
+					console.log('Using OpenStreetMap as default or selected renderer');
 					initializeOpenStreetMap('route-map', originCoords, destCoords, originPort, destPort);
 				}}
 				
@@ -754,17 +778,17 @@ class AirShipment(Document):
 			if (!portName) return null;
 			
 			try {{
-				// Check if location exists in database
+				// Check if UNLOCO exists in database
 				if (typeof frappe !== 'undefined' && frappe.db && frappe.db.get_doc) {{
-					const location = await frappe.db.get_doc('Location', portName);
-					if (location && location.latitude && location.longitude) {{
-						return [parseFloat(location.longitude), parseFloat(location.latitude)];
+					const unloco = await frappe.db.get_doc('UNLOCO', portName);
+					if (unloco && unloco.latitude && unloco.longitude) {{
+						return [parseFloat(unloco.longitude), parseFloat(unloco.latitude)];
 					}}
 				}} else {{
 					console.log('Frappe DB not available, using default coordinates');
 				}}
 			}} catch (e) {{
-				console.log('Location not found in database:', portName);
+				console.log('UNLOCO not found in database:', portName);
 			}}
 			
 			// Fallback to default coordinates
@@ -977,10 +1001,224 @@ class AirShipment(Document):
 			}}
 		}}
 		
-		// Google Maps initialization (placeholder)
-		function initializeGoogleMap(mapId, originCoords, destCoords, originPort, destPort) {{
-			console.log('Google Maps not implemented yet');
-			showMapFallback(mapId, originPort, destPort);
+		// Google Maps initialization using Interactive Google Maps JavaScript API (same as run sheet)
+		async function initializeGoogleMap(mapId, originCoords, destCoords, originPort, destPort) {{
+			console.log('Initializing Google Maps (Interactive)...');
+			
+			// Note: originCoords and destCoords are [longitude, latitude] format
+			// Google Maps expects [latitude, longitude] format
+			const originLat = originCoords[1];
+			const originLon = originCoords[0];
+			const destLat = destCoords[1];
+			const destLon = destCoords[0];
+			
+			// Build waypoints string for Directions API (same format as run sheet)
+			const waypoints = `${{originLat}},${{originLon}}|${{destLat}},${{destLon}}`;
+			
+			// Get API key from server (same method as run sheet)
+			try {{
+				const apiKeyResponse = await frappe.call({{
+					method: 'logistics.air_freight.doctype.air_shipment.air_shipment.get_google_maps_api_key',
+					args: {{}}
+				}});
+				
+				const apiKey = apiKeyResponse.message?.api_key;
+				
+				if (!apiKey || apiKey.length < 10) {{
+					console.warn('Google Maps API key not configured, showing fallback');
+					showMapFallback(mapId, originPort, destPort);
+					return;
+				}}
+				
+				// Get route polyline from Google Directions API (same as run sheet)
+				const polylineResponse = await frappe.call({{
+					method: 'logistics.air_freight.doctype.air_shipment.air_shipment.get_google_route_polyline',
+					args: {{
+						waypoints: waypoints
+					}}
+				}});
+				
+				if (!polylineResponse.message || !polylineResponse.message.success) {{
+					console.warn('Google Directions API failed:', polylineResponse.message?.error);
+					showMapFallback(mapId, originPort, destPort);
+					return;
+				}}
+				
+				const routes = polylineResponse.message.routes || [];
+				if (routes.length === 0) {{
+					console.warn('No routes available');
+					showMapFallback(mapId, originPort, destPort);
+					return;
+				}}
+				
+				// Use first route (same as run sheet)
+				const selectedRoute = routes[0];
+				const routeIndex = selectedRoute.index;
+				
+				// Store routes globally for potential route selection (same as run sheet)
+				if (!window.airShipmentRoutes) window.airShipmentRoutes = {{}};
+				window.airShipmentRoutes[mapId] = routes;
+				
+				// Load Google Maps JavaScript API if not already loaded (same as run sheet)
+				if (window.google && window.google.maps) {{
+					createInteractiveGoogleMap(mapId, routes, routeIndex, originLat, originLon, destLat, destLon, originPort, destPort);
+				}} else {{
+					// Load Google Maps JavaScript API
+					const script = document.createElement('script');
+					script.src = `https://maps.googleapis.com/maps/api/js?key=${{apiKey}}&libraries=geometry`;
+					script.async = true;
+					script.defer = true;
+					script.onload = () => {{
+						createInteractiveGoogleMap(mapId, routes, routeIndex, originLat, originLon, destLat, destLon, originPort, destPort);
+					}};
+					script.onerror = () => {{
+						console.warn('Failed to load Google Maps JavaScript API, showing fallback');
+						showMapFallback(mapId, originPort, destPort);
+					}};
+					document.head.appendChild(script);
+				}}
+				
+			}} catch (error) {{
+				console.error('Error initializing Google Maps:', error);
+				showMapFallback(mapId, originPort, destPort);
+			}}
+		}}
+		
+		// Create interactive Google Maps with route (same as run sheet)
+		function createInteractiveGoogleMap(mapId, routes, selectedRouteIndex, originLat, originLon, destLat, destLon, originPort, destPort) {{
+			const mapElement = document.getElementById(mapId);
+			if (!mapElement) {{
+				console.error('Map element not found:', mapId);
+				return;
+			}}
+			
+			// Clear any existing content
+			mapElement.innerHTML = '';
+			
+			// Calculate center point
+			const centerLat = (originLat + destLat) / 2;
+			const centerLon = (originLon + destLon) / 2;
+			
+			// Initialize the map (same as run sheet)
+			const bounds = new google.maps.LatLngBounds();
+			const map = new google.maps.Map(mapElement, {{
+				zoom: 10,
+				center: {{ lat: centerLat, lng: centerLon }},
+				mapTypeControl: true,
+				streetViewControl: true,
+				fullscreenControl: true,
+				zoomControl: true,
+				scaleControl: true,
+				rotateControl: true
+			}});
+			
+			// Store map instance globally (same as run sheet)
+			if (!window.airShipmentMaps) window.airShipmentMaps = {{}};
+			window.airShipmentMaps[mapId] = map;
+			
+			// Store polylines for route updates (same as run sheet)
+			if (!window.airShipmentPolylines) window.airShipmentPolylines = {{}};
+			window.airShipmentPolylines[mapId] = [];
+			
+			// Add origin marker (green, labeled 'O')
+			const originMarker = new google.maps.Marker({{
+				position: {{ lat: originLat, lng: originLon }},
+				map: map,
+				label: 'O',
+				icon: {{
+					path: google.maps.SymbolPath.CIRCLE,
+					scale: 8,
+					fillColor: '#28a745',
+					fillOpacity: 1,
+					strokeColor: '#ffffff',
+					strokeWeight: 2
+				}},
+				title: `Origin: ${{originPort}}`
+			}});
+			bounds.extend({{ lat: originLat, lng: originLon }});
+			
+			// Add destination marker (red, labeled 'D')
+			const destMarker = new google.maps.Marker({{
+				position: {{ lat: destLat, lng: destLon }},
+				map: map,
+				label: 'D',
+				icon: {{
+					path: google.maps.SymbolPath.CIRCLE,
+					scale: 8,
+					fillColor: '#dc3545',
+					fillOpacity: 1,
+					strokeColor: '#ffffff',
+					strokeWeight: 2
+				}},
+				title: `Destination: ${{destPort}}`
+			}});
+			bounds.extend({{ lat: destLat, lng: destLon }});
+			
+			// Add all route polylines (same as run sheet)
+			const selectedRoute = routes[selectedRouteIndex];
+			const routeIdx = selectedRoute.index;
+			
+			routes.forEach((route) => {{
+				const isSelected = route.index === routeIdx;
+				try {{
+					let path = [];
+					
+					// Handle air routes (ZERO_RESULTS) - create geodesic path from coordinates
+					if (route.is_air_route && route.origin && route.destination) {{
+						// For air routes, create a simple path with just origin and destination
+						// Google Maps will automatically render it as a great circle when geodesic: true
+						path = [
+							{{ lat: route.origin.lat, lng: route.origin.lon }},
+							{{ lat: route.destination.lat, lng: route.destination.lon }}
+						];
+					}} else if (route.polyline) {{
+						// Decode polyline for regular routes
+						path = google.maps.geometry.encoding.decodePath(route.polyline);
+					}} else {{
+						console.warn(`Route ${{route.index}} has no polyline or coordinates`);
+						return;
+					}}
+					
+					if (!path || path.length === 0) {{
+						console.warn(`Route ${{route.index}} has invalid path`);
+						return;
+					}}
+					
+					// Extend bounds with route path
+					path.forEach(point => bounds.extend(point));
+					
+					const polyline = new google.maps.Polyline({{
+						path: path,
+						geodesic: true,  // Always use geodesic (great circle for air routes)
+						strokeColor: isSelected ? '#007bff' : '#dc3545',
+						strokeOpacity: isSelected ? 1.0 : 0.8,
+						strokeWeight: isSelected ? 6 : 4,
+						map: map,
+						zIndex: isSelected ? 2 : 1,
+						clickable: true
+					}});
+					
+					window.airShipmentPolylines[mapId].push({{
+						polyline: polyline,
+						routeIndex: route.index
+					}});
+					
+					console.log(`Added route ${{route.index}} (selected: ${{isSelected}})`);
+				}} catch (error) {{
+					console.error(`Error adding route ${{route.index}}:`, error);
+				}}
+			}});
+			
+			// Fit map to show all routes (same as run sheet)
+			map.fitBounds(bounds);
+			
+			// Hide fallback
+			const fallbackElement = document.getElementById('route-map-fallback');
+			if (fallbackElement) {{
+				fallbackElement.style.display = 'none';
+			}}
+			
+			console.log('Interactive Google Maps created successfully');
 		}}
 		
 		// Mapbox initialization (placeholder)
@@ -1109,15 +1347,15 @@ class AirShipment(Document):
 	
 	@frappe.whitelist(allow_guest=True)
 	def get_port_coordinates(self, port_name):
-		"""Get coordinates for a port from Location doctype"""
+		"""Get coordinates for a port from UNLOCO doctype"""
 		if not port_name:
 			return None
 		
 		try:
-			# Get location document
-			location = frappe.get_doc("Location", port_name);
-			if location and location.latitude and location.longitude:
-				return [float(location.latitude), float(location.longitude)]
+			# Get UNLOCO document
+			unloco = frappe.get_doc("UNLOCO", port_name)
+			if unloco and unloco.latitude and unloco.longitude:
+				return [float(unloco.latitude), float(unloco.longitude)]
 		except Exception as e:
 			frappe.log_error(f"Error getting coordinates for {port_name}: {str(e)}", "Air Shipment - Get Port Coordinates")
 		
@@ -2636,3 +2874,206 @@ class AirShipment(Document):
 				self.job_costing_number = job_ref.name
 				
 				frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+
+
+# Whitelisted API methods for client-side calls (module-level functions, same pattern as run sheet)
+
+@frappe.whitelist()
+def get_google_maps_api_key():
+	"""
+	Get the Google Maps API key for client-side use.
+	This properly decrypts the Password field from Logistics Settings.
+	
+	Returns:
+		dict: {
+			"api_key": str or None,
+			"has_key": bool
+		}
+	"""
+	try:
+		from frappe.utils.password import get_decrypted_password
+		
+		# Get the API key using get_decrypted_password for Password fields
+		api_key = get_decrypted_password(
+			"Logistics Settings",
+			"Logistics Settings",
+			"routing_google_api_key",
+			raise_exception=False
+		)
+		
+		if api_key and len(api_key) > 10:
+			return {
+				"api_key": api_key,
+				"has_key": True
+			}
+		else:
+			return {
+				"api_key": None,
+				"has_key": False
+			}
+	except Exception as e:
+		frappe.log_error(f"Error getting Google Maps API key: {str(e)}", "Air Shipment - Get Google Maps API Key")
+		return {
+			"api_key": None,
+			"has_key": False,
+			"error": str(e)
+		}
+
+
+@frappe.whitelist()
+def get_google_route_polyline(waypoints):
+	"""
+	Get Google Directions API route polyline for waypoints.
+	This returns an encoded polyline that can be used in Google Maps.
+	
+	Args:
+		waypoints: String of "lat,lon|lat,lon|..." format
+	
+	Returns:
+		dict: {
+			"routes": list of route options with polyline, distance, duration,
+			"success": bool
+		}
+	"""
+	try:
+		import requests
+		from frappe.utils.password import get_decrypted_password
+		
+		# Get API key
+		api_key = get_decrypted_password(
+			"Logistics Settings",
+			"Logistics Settings",
+			"routing_google_api_key",
+			raise_exception=False
+		)
+		
+		if not api_key or len(api_key) < 10:
+			return {
+				"success": False,
+				"error": "Google Maps API key not configured"
+			}
+		
+		# Parse waypoints
+		if isinstance(waypoints, str):
+			points = waypoints.split('|')
+		else:
+			return {"success": False, "error": "Invalid waypoints format"}
+		
+		if len(points) < 2:
+			return {"success": False, "error": "Need at least 2 waypoints"}
+		
+		# Build Directions API URL
+		origin = points[0]
+		destination = points[-1]
+		waypoint_str = '|'.join(points[1:-1]) if len(points) > 2 else ''
+		
+		url = "https://maps.googleapis.com/maps/api/directions/json"
+		params = {
+			"origin": origin,
+			"destination": destination,
+			"mode": "driving",
+			"units": "metric",
+			"alternatives": "true",
+			"key": api_key
+		}
+		
+		if waypoint_str:
+			params["waypoints"] = waypoint_str
+		
+		# Call Directions API
+		response = requests.get(url, params=params, timeout=10)
+		data = response.json()
+		
+		status = data.get("status")
+		
+		# For air freight, if Directions API returns ZERO_RESULTS (common for air routes),
+		# return coordinates for JavaScript to create a geodesic path
+		if status == "ZERO_RESULTS":
+			# Parse coordinates
+			origin_parts = origin.split(',')
+			dest_parts = destination.split(',')
+			
+			if len(origin_parts) == 2 and len(dest_parts) == 2:
+				origin_lat = float(origin_parts[0])
+				origin_lon = float(origin_parts[1])
+				dest_lat = float(dest_parts[0])
+				dest_lon = float(dest_parts[1])
+				
+				# Calculate great circle distance (Haversine formula)
+				from math import radians, sin, cos, sqrt, atan2
+				R = 6371  # Earth radius in km
+				lat1, lon1 = radians(origin_lat), radians(origin_lon)
+				lat2, lon2 = radians(dest_lat), radians(dest_lon)
+				dlat = lat2 - lat1
+				dlon = lon2 - lon1
+				a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+				c = 2 * atan2(sqrt(a), sqrt(1-a))
+				distance_km = R * c
+				
+				# Estimate duration (assuming average airspeed of 800 km/h)
+				estimated_duration_min = (distance_km / 800) * 60
+				
+				# Return coordinates for JavaScript to create geodesic path
+				# JavaScript will create a simple polyline with just start/end points
+				# and set geodesic: true, which will automatically create a great circle route
+				return {
+					"success": True,
+					"routes": [{
+						"index": 0,
+						"polyline": None,  # Will be created in JavaScript
+						"origin": {"lat": origin_lat, "lon": origin_lon},
+						"destination": {"lat": dest_lat, "lon": dest_lon},
+						"distance_km": round(distance_km, 2),
+						"duration_min": round(estimated_duration_min, 1),
+						"summary": "Air Route (Great Circle)",
+						"is_air_route": True
+					}],
+					"is_air_route": True
+				}
+		
+		if status != "OK":
+			error_msg = data.get("error_message", status)
+			return {
+				"success": False,
+				"error": f"Google Directions API error: {error_msg}"
+			}
+		
+		routes = data.get("routes", [])
+		if not routes:
+			return {"success": False, "error": "No routes returned"}
+		
+		# Extract all routes with their details
+		route_options = []
+		for idx, route in enumerate(routes):
+			overview_polyline = route.get("overview_polyline", {})
+			encoded_polyline = overview_polyline.get("points", "")
+			
+			if encoded_polyline:
+				# Get route summary (distance and duration)
+				legs = route.get("legs", [])
+				total_distance = sum(leg.get("distance", {}).get("value", 0) for leg in legs) / 1000.0  # Convert to km
+				total_duration = sum(leg.get("duration", {}).get("value", 0) for leg in legs) / 60.0  # Convert to minutes
+				
+				route_options.append({
+					"index": idx,
+					"polyline": encoded_polyline,
+					"distance_km": round(total_distance, 2),
+					"duration_min": round(total_duration, 1),
+					"summary": route.get("summary", f"Route {idx + 1}")
+				})
+		
+		if not route_options:
+			return {"success": False, "error": "No valid polylines in routes"}
+		
+		return {
+			"success": True,
+			"routes": route_options,
+			"polyline": route_options[0]["polyline"]  # Default to first route for backward compatibility
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting Google route polyline: {str(e)}", "Air Shipment - Get Google Route Polyline")
+		return {
+			"success": False,
+			"error": str(e)
+		}

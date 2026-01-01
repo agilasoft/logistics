@@ -20,6 +20,7 @@
   "load_type",
   "hazardous",
   "refrigeration",
+  "consolidate",
   "column_break_xzix",
   "location_type",
   "location_from",
@@ -134,6 +135,12 @@
    "label": "Load Type",
    "link_filters": "[[\"Load Type\",\"transport\",\"=\",1]]",
    "options": "Load Type"
+  },
+  {
+   "default": "0",
+   "fieldname": "consolidate",
+   "fieldtype": "Check",
+   "label": "Consolidate"
   },
   {
    "fieldname": "notes_tab",

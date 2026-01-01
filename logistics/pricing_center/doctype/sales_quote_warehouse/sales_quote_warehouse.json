@@ -44,7 +44,8 @@
    "label": "Item",
    "link_filters": "[[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
    "options": "Item",
-   "reqd": 1
+   "reqd": 1,
+   "permlevel": 0
   },
   {
    "columns": 2,
@@ -52,7 +53,8 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Item Name"
+   "label": "Item Name",
+   "permlevel": 0
   },
   {
    "default": "0",
@@ -60,7 +62,8 @@
    "fieldname": "storage_charge",
    "fieldtype": "Check",
    "label": "Storage Charge",
-   "read_only": 1
+   "read_only": 1,
+   "permlevel": 0
   },
   {
    "default": "0",
@@ -68,7 +71,8 @@
    "fieldname": "inbound_charge",
    "fieldtype": "Check",
    "label": "Inbound Charge",
-   "read_only": 1
+   "read_only": 1,
+   "permlevel": 0
   },
   {
    "default": "0",
@@ -76,7 +80,8 @@
    "fieldname": "outbound_charge",
    "fieldtype": "Check",
    "label": "Outbound Charge",
-   "read_only": 1
+   "read_only": 1,
+   "permlevel": 0
   },
   {
    "default": "0",
@@ -84,7 +89,8 @@
    "fieldname": "vas_charge",
    "fieldtype": "Check",
    "label": "VAS Charge",
-   "read_only": 1
+   "read_only": 1,
+   "permlevel": 0
   },
   {
    "default": "0",
@@ -92,7 +98,8 @@
    "fieldname": "stocktake_charge",
    "fieldtype": "Check",
    "label": "Stocktake Charge",
-   "read_only": 1
+   "read_only": 1,
+   "permlevel": 0
   },
   {
    "fieldname": "column_break_rbqm",
@@ -104,7 +111,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Handling Unit Type",
-   "options": "Handling Unit Type"
+   "options": "Handling Unit Type",
+   "permlevel": 0
   },
   {
    "columns": 1,
@@ -112,28 +120,32 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Storage Type",
-   "options": "Storage Type"
+   "options": "Storage Type",
+   "permlevel": 0
   },
   {
    "columns": 1,
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage",
+   "permlevel": 0
   },
   {
    "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Handling Unit\nWeight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
+   "options": "Handling Unit\nWeight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time",
+   "permlevel": 0
   },
   {
    "depends_on": "eval:doc.storage_charge && doc.billing_method == 'Per Volume'",
    "fieldname": "volume_calculation_method",
    "fieldtype": "Select",
    "label": "Volume Calculation Method",
-   "options": "Daily Volume\nPeak Volume\nAverage Volume\nEnd Volume"
+   "options": "Daily Volume\nPeak Volume\nAverage Volume\nEnd Volume",
+   "permlevel": 0
   },
   {
    "fieldname": "column_break_gyhp",
@@ -144,21 +156,24 @@
    "fieldname": "billing_time_unit",
    "fieldtype": "Select",
    "label": "Billing Time Unit",
-   "options": "Day\nWeek\nHour"
+   "options": "Day\nWeek\nHour",
+   "permlevel": 0
   },
   {
    "default": "1.0",
    "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.unit_type == 'Operation Time')",
    "fieldname": "billing_time_multiplier",
    "fieldtype": "Float",
-   "label": "Billing Time Multiplier"
+   "label": "Billing Time Multiplier",
+   "permlevel": 0
   },
   {
    "default": "1.0",
    "depends_on": "eval:doc.storage_charge || (doc.vas_charge && doc.unit_type == 'Operation Time')",
    "fieldname": "minimum_billing_time",
    "fieldtype": "Float",
-   "label": "Minimum Billing Time"
+   "label": "Minimum Billing Time",
+   "permlevel": 0
   },
   {
    "columns": 1,
@@ -166,7 +181,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "permlevel": 0
   },
   {
    "fieldname": "section_break_btnr",
@@ -176,7 +192,8 @@
    "depends_on": "eval:doc.calculation_method == 'First Plus Additional'",
    "fieldname": "minimum_quantity",
    "fieldtype": "Float",
-   "label": "Minimum Quantity"
+   "label": "Minimum Quantity",
+   "permlevel": 0
   },
   {
    "columns": 1,
@@ -184,14 +201,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "permlevel": 0
   },
   {
    "columns": 1,
    "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Unit Rate"
+   "label": "Unit Rate",
+   "permlevel": 0
   },
   {
    "fieldname": "column_break_vkhw",
@@ -203,32 +222,37 @@
    "fieldtype": "Link",
    "in_preview": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "permlevel": 0
   },
   {
    "columns": 1,
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Unit Cost"
+   "label": "Unit Cost",
+   "permlevel": 0
   },
   {
    "depends_on": "eval:doc.calculation_method == 'Per Unit'",
    "fieldname": "minimum_charge",
    "fieldtype": "Currency",
-   "label": "Minimum Charge"
+   "label": "Minimum Charge",
+   "permlevel": 0
   },
   {
    "depends_on": "eval:doc.calculation_method == 'Per Unit'",
    "fieldname": "maximum_charge",
    "fieldtype": "Currency",
-   "label": "Maximum Charge"
+   "label": "Maximum Charge",
+   "permlevel": 0
   },
   {
    "depends_on": "eval:doc.calculation_method == 'Base Plus Additional'",
    "fieldname": "base_amount",
    "fieldtype": "Currency",
-   "label": "Base Amount"
+   "label": "Base Amount",
+   "permlevel": 0
   }
  ],
  "grid_page_length": 50,

@@ -5,10 +5,72 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "maps_tab",
-  "map_renderer"
+  "routing_tab",
+  "routing_provider",
+  "osrm_base_url",
+  "routing_mapbox_api_key",
+  "routing_google_api_key",
+  "routing_default_avg_speed_kmh",
+  "column_break_rifi",
+  "routing_auto_compute",
+  "routing_show_map",
+  "map_renderer",
+  "maps_enable_external_links",
+  "routing_tiles_url",
+  "routing_tiles_attr",
+  "routing_timeout_sec"
  ],
  "fields": [
+  {
+   "fieldname": "routing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Routing & Maps"
+  },
+  {
+   "default": "OSRM",
+   "fieldname": "routing_provider",
+   "fieldtype": "Select",
+   "label": "Routing Provider",
+   "options": "Disabled\nOSRM\nMapbox\nGoogle"
+  },
+  {
+   "default": "https://router.project-osrm.org",
+   "fieldname": "osrm_base_url",
+   "fieldtype": "Data",
+   "label": "OSRM Base URL"
+  },
+  {
+   "fieldname": "routing_mapbox_api_key",
+   "fieldtype": "Password",
+   "label": "Mapbox API Key"
+  },
+  {
+   "fieldname": "routing_google_api_key",
+   "fieldtype": "Password",
+   "label": "Google API Key"
+  },
+  {
+   "default": "40",
+   "fieldname": "routing_default_avg_speed_kmh",
+   "fieldtype": "Float",
+   "label": "Default Avg Speed (KPH)"
+  },
+  {
+   "fieldname": "column_break_rifi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "routing_auto_compute",
+   "fieldtype": "Check",
+   "label": "Routing Auto Compute"
+  },
+  {
+   "default": "1",
+   "fieldname": "routing_show_map",
+   "fieldtype": "Check",
+   "label": "Routing Show Map"
+  },
   {
    "fieldname": "map_renderer",
    "fieldtype": "Select",
@@ -16,9 +78,27 @@
    "options": "OpenStreetMap\nGoogle Maps\nMapbox\nMapLibre"
   },
   {
-   "fieldname": "maps_tab",
-   "fieldtype": "Tab Break",
-   "label": "Maps"
+   "default": "0",
+   "fieldname": "maps_enable_external_links",
+   "fieldtype": "Check",
+   "label": "Maps Enable External Links"
+  },
+  {
+   "default": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+   "fieldname": "routing_tiles_url",
+   "fieldtype": "Data",
+   "label": "Routing Tiles URL"
+  },
+  {
+   "default": "&copy; <a target=\"_blank\" href=\"https://www.openstreetmap.org/copyright\">OSM</a> contributors",
+   "fieldname": "routing_tiles_attr",
+   "fieldtype": "Small Text",
+   "label": "Routing Tiles Attr"
+  },
+  {
+   "fieldname": "routing_timeout_sec",
+   "fieldtype": "Int",
+   "label": "Routing Timeout (sec)"
   }
  ],
  "grid_page_length": 50,

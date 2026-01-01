@@ -19,12 +19,12 @@
   "column_break_lzrh",
   "airline",
   "local_customer",
-  "freight_agent",
-  "column_break_bpch",
+  "column_break_vfbr",
   "release_type",
   "entry_type",
   "service_level",
-  "section_break_cllp",
+  "section_break_bdpp",
+  "column_break_bpch",
   "shipper",
   "origin_port",
   "etd",
@@ -32,12 +32,13 @@
   "consignee",
   "destination_port",
   "eta",
-  "column_break_uvws",
+  "column_break_ohdu",
+  "freight_agent",
+  "packages_section",
+  "packages",
   "volume",
   "weight",
   "chargeable",
-  "packages_section",
-  "packages",
   "insurance_section",
   "insurance_provider",
   "insurance_policy_number",
@@ -46,6 +47,39 @@
   "insurance_claim_number",
   "insurance_claim_status",
   "insurance_claim_date",
+  "documents_section",
+  "commercial_invoice_number",
+  "packing_list_number",
+  "certificate_of_origin",
+  "column_break_documents",
+  "export_license",
+  "import_permit",
+  "other_documents",
+  "customs_section",
+  "customs_declaration_number",
+  "customs_status",
+  "customs_broker",
+  "column_break_customs",
+  "duty_amount",
+  "tax_amount",
+  "customs_clearance_date",
+  "customs_notes",
+  "contacts_and_addresses_tab",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_cyzc",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_haya",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_tptt",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_xuwf",
+  "notify_party",
+  "column_break_mzhi",
+  "notify_party_address",
   "house_tab",
   "house_bl",
   "incoterm",
@@ -70,78 +104,6 @@
   "house_awb_no",
   "booking_reference",
   "agent_reference",
-  "dangerous_goods_tab",
-  "contains_dangerous_goods",
-  "dg_declaration_complete",
-  "dg_compliance_status",
-  "column_break_dg_main",
-  "dg_emergency_contact",
-  "dg_emergency_phone",
-  "dg_emergency_email",
-  "services_tab",
-  "services",
-  "charges_tab",
-  "sales_quote",
-  "charges",
-  "contacts_and_addresses_tab",
-  "shipper_address",
-  "shipper_address_display",
-  "column_break_cyzc",
-  "consignee_address",
-  "consignee_address_display",
-  "section_break_haya",
-  "shipper_contact",
-  "shipper_contact_display",
-  "column_break_tptt",
-  "consignee_contact",
-  "consignee_contact_display",
-  "section_break_xuwf",
-  "notify_party",
-  "column_break_mzhi",
-  "notify_party_address",
-  "sustainability_tab",
-  "sustainability_section",
-  "estimated_carbon_footprint",
-  "estimated_fuel_consumption",
-  "column_break_sustainability",
-  "sustainability_notes",
-  "uld_tab",
-  "uld_section",
-  "uld_type",
-  "uld_number",
-  "uld_capacity_kg",
-  "column_break_uld",
-  "uld_position",
-  "uld_tracking_status",
-  "customs_tab",
-  "customs_section",
-  "customs_declaration_number",
-  "customs_status",
-  "customs_broker",
-  "column_break_customs",
-  "duty_amount",
-  "tax_amount",
-  "customs_clearance_date",
-  "customs_notes",
-  "temperature_tab",
-  "temperature_section",
-  "requires_temperature_control",
-  "min_temperature",
-  "max_temperature",
-  "column_break_temperature",
-  "temperature_monitoring",
-  "cold_chain_compliance",
-  "temperature_log",
-  "documents_tab",
-  "documents_section",
-  "commercial_invoice_number",
-  "packing_list_number",
-  "certificate_of_origin",
-  "column_break_documents",
-  "export_license",
-  "import_permit",
-  "other_documents",
-  "iata_advanced_tab",
   "casslink_section",
   "cass_participant_code",
   "cass_settlement_status",
@@ -163,7 +125,30 @@
   "column_break_eawb",
   "eawb_signed_date",
   "eawb_signed_by",
-  "tracking_tab",
+  "other_details_tab",
+  "dangerous_goods_section",
+  "contains_dangerous_goods",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg_main",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
+  "uld_section",
+  "uld_type",
+  "uld_number",
+  "uld_capacity_kg",
+  "column_break_uld",
+  "uld_position",
+  "uld_tracking_status",
+  "temperature_section",
+  "requires_temperature_control",
+  "min_temperature",
+  "max_temperature",
+  "column_break_temperature",
+  "temperature_monitoring",
+  "cold_chain_compliance",
+  "temperature_log",
   "tracking_section",
   "tracking_provider",
   "tracking_number",
@@ -172,7 +157,19 @@
   "real_time_tracking_enabled",
   "last_tracking_update",
   "tracking_status",
-  "revenue_tab",
+  "services_tab",
+  "services",
+  "charges_tab",
+  "sales_quote",
+  "charges",
+  "billing_automation_section",
+  "auto_billing_enabled",
+  "billing_status",
+  "sales_invoice",
+  "column_break_billing",
+  "billing_date",
+  "billing_amount",
+  "billing_currency",
   "revenue_section",
   "revenue_recognition_date",
   "revenue_recognition_method",
@@ -181,22 +178,19 @@
   "partial_revenue_enabled",
   "recognized_revenue_amount",
   "revenue_reversal_date",
-  "billing_tab",
-  "billing_section",
-  "auto_billing_enabled",
-  "billing_status",
-  "sales_invoice",
-  "column_break_billing",
-  "billing_date",
-  "billing_amount",
-  "billing_currency",
-  "connections_tab",
+  "sustainability_tab",
+  "sustainability_section",
+  "estimated_carbon_footprint",
+  "estimated_fuel_consumption",
+  "column_break_sustainability",
+  "sustainability_notes",
   "accounts_tab",
   "company",
   "branch",
   "cost_center",
   "profit_center",
-  "job_costing_number"
+  "job_costing_number",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -301,10 +295,6 @@
    "options": "Service Level Agreement"
   },
   {
-   "fieldname": "section_break_cllp",
-   "fieldtype": "Section Break"
-  },
-  {
    "description": "Origin port UNLOCO code",
    "fieldname": "origin_port",
    "fieldtype": "Link",
@@ -323,10 +313,6 @@
    "label": "Destination Port",
    "options": "UNLOCO",
    "reqd": 1
-  },
-  {
-   "fieldname": "column_break_uvws",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "etd",
@@ -352,11 +338,6 @@
    "fieldname": "chargeable",
    "fieldtype": "Float",
    "label": "Chargeable (kg)"
-  },
-  {
-   "fieldname": "dangerous_goods_tab",
-   "fieldtype": "Tab Break",
-   "label": "Dangerous Goods"
   },
   {
    "default": "0",
@@ -633,11 +614,6 @@
    "label": "Sustainability Notes"
   },
   {
-   "fieldname": "uld_tab",
-   "fieldtype": "Tab Break",
-   "label": "ULD Management"
-  },
-  {
    "fieldname": "uld_section",
    "fieldtype": "Section Break",
    "label": "Unit Load Device (ULD) Information"
@@ -678,11 +654,7 @@
    "options": "\nNot Assigned\nAssigned\nLoaded\nIn Transit\nDelivered\nReturned"
   },
   {
-   "fieldname": "customs_tab",
-   "fieldtype": "Tab Break",
-   "label": "Customs"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "customs_section",
    "fieldtype": "Section Break",
    "label": "Customs Information"
@@ -772,11 +744,6 @@
    "label": "Claim Date"
   },
   {
-   "fieldname": "temperature_tab",
-   "fieldtype": "Tab Break",
-   "label": "Temperature Control"
-  },
-  {
    "fieldname": "temperature_section",
    "fieldtype": "Section Break",
    "label": "Temperature Control Information"
@@ -827,11 +794,7 @@
    "label": "Temperature Log"
   },
   {
-   "fieldname": "documents_tab",
-   "fieldtype": "Tab Break",
-   "label": "Documents"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Management"
@@ -882,11 +845,6 @@
    "fieldtype": "Table",
    "label": "Charges",
    "options": "Air Shipment Charges"
-  },
-  {
-   "fieldname": "iata_advanced_tab",
-   "fieldtype": "Tab Break",
-   "label": "IATA Advanced"
   },
   {
    "collapsible": 1,
@@ -1009,11 +967,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "tracking_tab",
-   "fieldtype": "Tab Break",
-   "label": "Tracking"
-  },
-  {
    "fieldname": "tracking_section",
    "fieldtype": "Section Break",
    "label": "Real-time Tracking"
@@ -1059,11 +1012,7 @@
    "read_only": 1
   },
   {
-   "fieldname": "revenue_tab",
-   "fieldtype": "Tab Break",
-   "label": "Revenue"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "revenue_section",
    "fieldtype": "Section Break",
    "label": "Revenue Recognition"
@@ -1105,16 +1054,6 @@
    "fieldname": "revenue_reversal_date",
    "fieldtype": "Date",
    "label": "Revenue Reversal Date"
-  },
-  {
-   "fieldname": "billing_tab",
-   "fieldtype": "Tab Break",
-   "label": "Billing"
-  },
-  {
-   "fieldname": "billing_section",
-   "fieldtype": "Section Break",
-   "label": "Billing Automation"
   },
   {
    "default": "0",
@@ -1241,13 +1180,41 @@
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "billing_automation_section",
+   "fieldtype": "Section Break",
+   "label": "Billing Automation"
+  },
+  {
+   "fieldname": "other_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Other Details"
+  },
+  {
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "column_break_vfbr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_bdpp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_ohdu",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-12-12 11:55:02.888196",
+ "modified": "2025-12-29 15:30:44.318081",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

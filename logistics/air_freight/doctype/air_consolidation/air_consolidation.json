@@ -43,14 +43,14 @@
   "column_break_5",
   "quality_control_notes",
   "handling_requirements",
+  "tab_attached_jobs",
+  "attached_air_freight_jobs",
   "tab_packages",
   "consolidation_packages",
   "tab_routes",
   "consolidation_routes",
   "tab_charges",
   "consolidation_charges",
-  "tab_attached_jobs",
-  "attached_air_freight_jobs",
   "accounts_tab",
   "company",
   "branch",
@@ -347,8 +347,8 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center",
    "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center",
    "reqd": 1
   },
   {
@@ -359,24 +359,34 @@
    "reqd": 1
   },
   {
+   "description": "This will be used when posting financial transactions to this job.",
    "fieldname": "job_costing_number",
    "fieldtype": "Link",
    "label": "Job Costing Number",
-   "options": "Job Costing Number",
-   "description": "This will be used when posting financial transactions to this job."
+   "options": "Job Costing Number"
   }
  ],
- "hide_toolbar": 1,
- "in_create": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-14 10:31:32.592217",
+ "modified": "2026-01-01 21:19:08.288399",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
   {
    "create": 1,
    "delete": 1,
@@ -408,6 +418,22 @@
    "read": 1,
    "report": 1,
    "role": "Air Freight User"
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
   }
  ],
  "quick_entry": 1,

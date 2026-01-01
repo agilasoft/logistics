@@ -64,8 +64,14 @@ class TransportOrder(Document):
                 )
                 self.set(legs_field, [])
         
+        # Validate that pick and drop facilities are different in each leg
+        self._validate_leg_facilities()
+        
         # Validate transport job type specific rules
         self._validate_transport_job_type()
+        
+        # Validate vehicle_type is required only if consolidate is not checked
+        self._validate_vehicle_type_required()
 
     def before_submit(self):
         """Validate transport legs before submitting the Transport Order."""
@@ -164,6 +170,19 @@ class TransportOrder(Document):
         except Exception as e:
             # Log error but don't fail validation
             frappe.log_error(f"Error auto-filling addresses for leg {leg_index}: {str(e)}", "Transport Order Address Auto-fill")
+
+    def _validate_leg_facilities(self):
+        """Validate that pick and drop facilities are different in each leg."""
+        legs_field = _find_child_table_fieldname(
+            "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+        )
+        legs = self.get(legs_field) or []
+        
+        for i, leg in enumerate(legs, 1):
+            facility_from = leg.get("facility_from")
+            facility_to = leg.get("facility_to")
+            if facility_from and facility_to and facility_from == facility_to:
+                frappe.throw(_("Row {0}: Pick facility and drop facility cannot be the same.").format(i))
 
     def _validate_transport_job_type(self):
         """Validate transport job type specific business rules."""
@@ -277,6 +296,12 @@ class TransportOrder(Document):
             compatible_types = load_type_doc.compatible_job_types or []
             if self.transport_job_type not in compatible_types:
                 frappe.msgprint(_("Selected load type may not be compatible with {0} transport.").format(self.transport_job_type))
+
+    def _validate_vehicle_type_required(self):
+        """Validate that vehicle_type is required only if consolidate is not checked."""
+        # Vehicle Type is mandatory only if Consolidate checkbox is not checked
+        if not self.vehicle_type and not self.consolidate:
+            frappe.throw(_("Vehicle Type is required when Consolidate is not checked"))
 
     def get_total_weight(self):
         """Calculate total weight from packages."""
@@ -820,6 +845,7 @@ def action_create_transport_job(docname: str):
             "load_type": getattr(doc, "load_type", None),
             "container_type": getattr(doc, "container_type", None),
             "container_no": getattr(doc, "container_no", None),
+            "consolidate": getattr(doc, "consolidate", None),
             "pick_address": getattr(doc, "pick_address", None),
             "drop_address": getattr(doc, "drop_address", None),
             "company": getattr(doc, "company", None),

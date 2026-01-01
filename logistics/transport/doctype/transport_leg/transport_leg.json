@@ -33,6 +33,9 @@
   "pick_mode",
   "pick_window_start",
   "pick_window_end",
+  "pick_can_be_consolidated",
+  "pick_signature",
+  "pick_signed_by",
   "drop_tab",
   "column_break_xsyy",
   "facility_type_to",
@@ -43,8 +46,9 @@
   "drop_mode",
   "drop_window_start",
   "drop_window_end",
-  "signature",
-  "signed_by",
+  "drop_can_be_consolidated",
+  "drop_signature",
+  "drop_signed_by",
   "date_signed",
   "routing_tab",
   "distance_km",
@@ -85,7 +89,9 @@
   "operations_section",
   "delay_reasons",
   "column_break_operations",
-  "exception_handling_notes"
+  "exception_handling_notes",
+  "selected_route_polyline",
+  "selected_route_index"
  ],
  "fields": [
   {
@@ -175,7 +181,7 @@
   {
    "fieldname": "pick_address",
    "fieldtype": "Link",
-   "label": "Address",
+   "label": "Pick Address",
    "options": "Address"
   },
   {
@@ -185,7 +191,7 @@
   {
    "fieldname": "drop_address",
    "fieldtype": "Link",
-   "label": "Address",
+   "label": "Drop Address",
    "options": "Address"
   },
   {
@@ -214,6 +220,24 @@
    "label": "Pick Window End"
   },
   {
+   "default": "0",
+   "fieldname": "pick_can_be_consolidated",
+   "fieldtype": "Check",
+   "label": "Can Be Consolidated"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pick_signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pick_signed_by",
+   "fieldtype": "Data",
+   "label": "Signed By"
+  },
+  {
    "fieldname": "drop_tab",
    "fieldtype": "Tab Break",
    "label": "Drop"
@@ -234,6 +258,24 @@
    "fieldname": "drop_window_end",
    "fieldtype": "Time",
    "label": "Drop Window End"
+  },
+  {
+   "default": "0",
+   "fieldname": "drop_can_be_consolidated",
+   "fieldtype": "Check",
+   "label": "Can Be Consolidated"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_signed_by",
+   "fieldtype": "Data",
+   "label": "Signed By"
   },
   {
    "fieldname": "column_break_jewt",
@@ -313,14 +355,14 @@
   {
    "fieldname": "selected_route_polyline",
    "fieldtype": "Long Text",
-   "label": "Selected Route Polyline",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Selected Route Polyline"
   },
   {
    "fieldname": "selected_route_index",
    "fieldtype": "Int",
-   "label": "Selected Route Index",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Selected Route Index"
   },
   {
    "fieldname": "routing_provider",
@@ -495,18 +537,6 @@
   },
   {
    "allow_on_submit": 1,
-   "fieldname": "signature",
-   "fieldtype": "Signature",
-   "label": "Signature"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "signed_by",
-   "fieldtype": "Data",
-   "label": "Signed By"
-  },
-  {
-   "allow_on_submit": 1,
    "fieldname": "date_signed",
    "fieldtype": "Datetime",
    "label": "Date Signed",
@@ -564,7 +594,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-02 15:51:32.514283",
+ "modified": "2025-12-18 16:31:26.569889",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Leg",

@@ -23,6 +23,7 @@
   "container_no",
   "hazardous",
   "refrigeration",
+  "consolidate",
   "section_break_jozr",
   "packages",
   "leg_plan_tab",
@@ -110,8 +111,7 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "reqd": 1
+   "options": "Vehicle Type"
   },
   {
    "fieldname": "load_type",
@@ -240,15 +240,15 @@
   {
    "fieldname": "container_type",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Container Type",
-   "options": "Container Type",
-   "hidden": 1
+   "options": "Container Type"
   },
   {
    "fieldname": "container_no",
    "fieldtype": "Data",
-   "label": "Container No.",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Container No."
   },
   {
    "fieldname": "entity_tab",
@@ -355,6 +355,12 @@
    "label": "Transport Job Type",
    "options": "Container\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "consolidate",
+   "fieldtype": "Check",
+   "label": "Consolidate"
   }
  ],
  "is_submittable": 1,
@@ -375,7 +381,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2025-12-13 11:14:22.742227",
+ "modified": "2026-01-01 11:58:20.249847",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

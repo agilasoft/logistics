@@ -13,12 +13,7 @@
   "sea",
   "transport",
   "transport_tab",
-  "can_consolidate",
-  "consolidation_rules",
-  "max_consolidation_jobs",
-  "column_break_limits",
-  "max_weight",
-  "max_volume"
+  "can_be_consolidated"
  ],
  "fields": [
   {
@@ -38,37 +33,6 @@
    "fieldname": "transport_tab",
    "fieldtype": "Tab Break",
    "label": "Transport"
-  },
-  {
-   "default": "0",
-   "fieldname": "can_consolidate",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Can Consolidate"
-  },
-  {
-   "fieldname": "consolidation_rules",
-   "fieldtype": "Text",
-   "label": "Consolidation Rules"
-  },
-  {
-   "fieldname": "max_consolidation_jobs",
-   "fieldtype": "Int",
-   "label": "Max Consolidation Jobs"
-  },
-  {
-   "fieldname": "column_break_limits",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "max_weight",
-   "fieldtype": "Float",
-   "label": "Max Weight (kg)"
-  },
-  {
-   "fieldname": "max_volume",
-   "fieldtype": "Float",
-   "label": "Max Volume (m\u00b3)"
   },
   {
    "fieldname": "column_break_ljsj",
@@ -91,11 +55,17 @@
    "fieldname": "transport",
    "fieldtype": "Check",
    "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_be_consolidated",
+   "fieldtype": "Check",
+   "label": "Can be Consolidated"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-04 12:36:17.211733",
+ "modified": "2026-01-01 11:52:02.473487",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Load Type",
