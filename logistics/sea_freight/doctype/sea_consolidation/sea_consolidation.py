@@ -10,9 +10,9 @@ from frappe.utils import flt, now_datetime, getdate
 from datetime import datetime, timedelta
 
 
-class SeaFreightConsolidation(Document):
+class SeaConsolidation(Document):
     def validate(self):
-        """Validate Sea Freight Consolidation document"""
+        """Validate Sea Consolidation document"""
         self.validate_dates()
         self.validate_consolidation_data()
         self.validate_route_consistency()
@@ -269,7 +269,7 @@ class SeaFreightConsolidation(Document):
             try:
                 job_costing = frappe.new_doc("Job Costing Number")
                 job_costing.job_name = self.name
-                job_costing.job_type = "Sea Freight Consolidation"
+                job_costing.job_type = "Sea Consolidation"
                 job_costing.company = self.company
                 job_costing.branch = self.branch
                 job_costing.cost_center = self.cost_center
@@ -278,7 +278,7 @@ class SeaFreightConsolidation(Document):
                 
                 self.job_costing_number = job_costing.name
             except Exception as e:
-                frappe.log_error(f"Error creating Job Costing Number for Sea Freight Consolidation {self.name}: {str(e)}")
+                frappe.log_error(f"Error creating Job Costing Number for Sea Consolidation {self.name}: {str(e)}")
     
     def update_consolidation_status(self):
         """Update consolidation status based on current state"""

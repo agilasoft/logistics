@@ -92,13 +92,6 @@ frappe.ui.form.on("Sales Quote", {
 			});
 		}
 		
-		// Add custom button to create Transport Order from current Sales Quote (only when transport has data)
-		if (frm.doc.transport && frm.doc.transport.length > 0 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Transport Order"), function() {
-				create_transport_order_from_sales_quote(frm);
-			}, __("Create"));
-		}
-		
 		// Add custom button to create Air Booking from current Sales Quote (only when air_freight has data and is One-Off)
 		if (frm.doc.one_off && frm.doc.air_freight && frm.doc.air_freight.length > 0 && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Create Air Booking"), function() {
@@ -435,7 +428,8 @@ function create_transport_order_from_sales_quote(frm) {
 							indicator: "green"
 						});
 						
-						// Open the created Transport Order
+						// Open the created Transport Order and clear scheduled_date for user to fill
+						frappe.route_options = { "__clear_scheduled_date": true };
 						frappe.set_route("Form", "Transport Order", r.message.transport_order);
 					} else if (r.message && r.message.message) {
 						// Show info message (e.g., Transport Order already exists)

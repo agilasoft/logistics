@@ -35,6 +35,7 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> D
         "consolidated_trips": 0,
         "total_legs": 0,
         "consolidations_created": [],
+        "consolidations_processed": [],
         "load_type_consolidations": 0,
     }
 
@@ -135,13 +136,19 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> D
                     
                     # Track consolidation if present
                     if consolidation:
-                        result["consolidations_created"].append({
+                        consol_info = {
                             "consolidation": consolidation["name"],
                             "run_sheet": rs_name,
-                            "load_type": trip.get("load_type"),
                             "legs_count": len(trip["legs"])
-                        })
-                        result["load_type_consolidations"] += 1
+                        }
+                        
+                        # Check if this is an existing consolidation or newly created
+                        if trip.get("_is_existing_consolidation"):
+                            result["consolidations_processed"].append(consol_info)
+                        else:
+                            consol_info["load_type"] = trip.get("load_type")
+                            result["consolidations_created"].append(consol_info)
+                            result["load_type_consolidations"] += 1
 
                 except Exception as e:
                     result["errors"].append(f"Trip consolidation failed: {cstr(e)}")
@@ -263,6 +270,7 @@ def _get_transport_legs(plan: Document, debug: Optional[List[str]] = None) -> Tu
     start, end = _date_window_for_plan(plan)
     window = f"{start} → {end}"
 
+    # First, get all legs in the date window
     filters = [[leg_date_field, ">=", start], [leg_date_field, "<=", end]]
     if _has_field("Transport Leg", "run_sheet"):
         filters.append(["run_sheet", "is", "not set"])
@@ -281,14 +289,126 @@ def _get_transport_legs(plan: Document, debug: Optional[List[str]] = None) -> Tu
             opt_fields.append(f)
 
     fields = list(dict.fromkeys(base_fields + opt_fields))
-    legs = frappe.get_all(
+    all_legs = frappe.get_all(
         "Transport Leg",
         filters=filters,
         fields=fields,
         order_by=f"{leg_date_field} asc, `order` asc, modified asc",
     )
-    debug.append(f"Legs fetched: {len(legs)} | Window {window} | Field '{leg_date_field}'")
-    return legs, leg_date_field, window
+    
+    # Get legs from Transport Consolidations (treat consolidations as groups)
+    consolidation_legs = _get_consolidation_legs(start, end, leg_date_field, debug)
+    
+    # Get jobs that are in consolidations
+    jobs_in_consolidations = set()
+    for consol_leg in consolidation_legs:
+        if consol_leg.get("transport_job"):
+            jobs_in_consolidations.add(consol_leg["transport_job"])
+    
+    # Filter out individual legs that belong to jobs already in a consolidation
+    # Keep only legs from jobs NOT in any consolidation
+    standalone_legs = [
+        leg for leg in all_legs 
+        if not leg.get("transport_job") or leg.get("transport_job") not in jobs_in_consolidations
+    ]
+    
+    # Combine consolidation legs with standalone legs
+    # Mark consolidation legs so they're processed as groups
+    final_legs = consolidation_legs + standalone_legs
+    
+    debug.append(f"Legs fetched: {len(final_legs)} total ({len(consolidation_legs)} from consolidations, {len(standalone_legs)} standalone) | Window {window} | Field '{leg_date_field}'")
+    return final_legs, leg_date_field, window
+
+
+def _get_consolidation_legs(start: str, end: str, leg_date_field: str, debug: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """
+    Get legs from Transport Consolidations that are in the date window.
+    Returns legs with a special marker indicating they belong to a consolidation.
+    """
+    debug = debug or []
+    consolidation_legs = []
+    
+    if not _doctype_exists("Transport Consolidation"):
+        debug.append("Transport Consolidation doctype does not exist")
+        return consolidation_legs
+    
+    # Get consolidations in the date window
+    consolidation_filters = [
+        ["consolidation_date", ">=", start],
+        ["consolidation_date", "<=", end],
+        ["docstatus", "<", 2]  # Not cancelled
+    ]
+    
+    # Check if consolidation has run_sheet field and filter out those with run sheets
+    if _has_field("Transport Consolidation", "run_sheet"):
+        consolidation_filters.append(["run_sheet", "is", "not set"])
+    
+    consolidations = frappe.get_all(
+        "Transport Consolidation",
+        filters=consolidation_filters,
+        fields=["name", "consolidation_date", "status"],
+        order_by="consolidation_date asc"
+    )
+    
+    debug.append(f"Found {len(consolidations)} Transport Consolidations in date window")
+    
+    for consolidation in consolidations:
+        try:
+            consol_doc = frappe.get_doc("Transport Consolidation", consolidation["name"])
+            
+            # Get all transport jobs in this consolidation
+            job_names = []
+            for job_row in consol_doc.transport_jobs or []:
+                if job_row.transport_job:
+                    job_names.append(job_row.transport_job)
+            
+            if not job_names:
+                continue
+            
+            # Get all legs from these jobs
+            leg_filters = [
+                ["transport_job", "in", job_names],
+                [leg_date_field, ">=", start],
+                [leg_date_field, "<=", end]
+            ]
+            if _has_field("Transport Leg", "run_sheet"):
+                leg_filters.append(["run_sheet", "is", "not set"])
+            if _has_field("Transport Leg", "docstatus"):
+                leg_filters.append(["docstatus", "<", 2])
+            
+            base_fields = ["name", leg_date_field]
+            opt_fields = []
+            for f in [
+                "vehicle_type", "hazardous", "order",
+                "facility_type_from", "facility_from",
+                "facility_type_to", "facility_to",
+                "run_date", "transport_job",
+            ]:
+                if _has_field("Transport Leg", f):
+                    opt_fields.append(f)
+            
+            fields = list(dict.fromkeys(base_fields + opt_fields))
+            consol_job_legs = frappe.get_all(
+                "Transport Leg",
+                filters=leg_filters,
+                fields=fields,
+                order_by=f"{leg_date_field} asc, `order` asc, modified asc",
+            )
+            
+            # Mark these legs as belonging to a consolidation
+            for leg in consol_job_legs:
+                leg["_consolidation_name"] = consolidation["name"]
+                leg["_consolidation_date"] = consolidation["consolidation_date"]
+                leg["_is_consolidation"] = True
+            
+            consolidation_legs.extend(consol_job_legs)
+            debug.append(f"Consolidation {consolidation['name']}: {len(consol_job_legs)} legs from {len(job_names)} jobs")
+            
+        except Exception as e:
+            debug.append(f"Error processing consolidation {consolidation.get('name')}: {cstr(e)}")
+            continue
+    
+    return consolidation_legs
 
 
 def _get_leg_date_value(leg: Dict[str, Any]) -> Optional[str]:
@@ -303,13 +423,57 @@ def _get_leg_date_value(leg: Dict[str, Any]) -> Optional[str]:
 
 def _consolidate_legs(day_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """
-    Consolidate legs into optimized trips based on Load Type consolidation rules and route optimization.
+    Consolidate legs into optimized trips based on Transport Consolidations, Load Type consolidation rules, and route optimization.
     """
     debug = debug or []
     trips = []
     
+    # First, process existing Transport Consolidations (legs marked with _is_consolidation)
+    consolidation_legs = [leg for leg in day_legs if leg.get("_is_consolidation")]
+    standalone_legs = [leg for leg in day_legs if not leg.get("_is_consolidation")]
+    
+    if consolidation_legs:
+        # Group consolidation legs by consolidation name
+        legs_by_consolidation = {}
+        for leg in consolidation_legs:
+            consol_name = leg.get("_consolidation_name")
+            if consol_name:
+                if consol_name not in legs_by_consolidation:
+                    legs_by_consolidation[consol_name] = []
+                legs_by_consolidation[consol_name].append(leg)
+        
+        # Create trips for each consolidation
+        for consol_name, consol_legs in legs_by_consolidation.items():
+            try:
+                # Get the consolidation document
+                consolidation_doc = frappe.get_doc("Transport Consolidation", consol_name)
+                
+                # Create trip for this consolidation
+                trip = {
+                    "legs": consol_legs,
+                    "vehicle_type": consol_legs[0].get("vehicle_type") if consol_legs else None,
+                    "consolidation": {
+                        "name": consol_name,
+                        "date": consolidation_doc.consolidation_date,
+                        "type": consolidation_doc.consolidation_type or "LTL"
+                    },
+                    "total_weight": sum(flt(leg.get("weight") or 0) for leg in consol_legs),
+                    "total_volume": sum(flt(leg.get("volume") or 0) for leg in consol_legs),
+                    "total_pallets": sum(flt(leg.get("pallets") or 0) for leg in consol_legs),
+                    "hazardous": any(leg.get("hazardous") for leg in consol_legs),
+                    "leg_count": len(consol_legs),
+                    "_is_existing_consolidation": True
+                }
+                trips.append(trip)
+                debug.append(f"Created trip for existing Transport Consolidation {consol_name} with {len(consol_legs)} legs")
+            except Exception as e:
+                debug.append(f"Error processing consolidation {consol_name}: {cstr(e)}")
+                # Fall back to treating these legs individually
+                standalone_legs.extend(consol_legs)
+    
+    # Now process standalone legs (not in existing consolidations)
     # First, check for Load Type-based consolidations
-    consolidation_trips = _create_load_type_consolidations(day_legs, debug)
+    consolidation_trips = _create_load_type_consolidations(standalone_legs, debug)
     if consolidation_trips:
         trips.extend(consolidation_trips)
         # Remove legs that were consolidated
@@ -319,10 +483,10 @@ def _consolidate_legs(day_legs: List[Dict[str, Any]], debug: Optional[List[str]]
                 consolidated_leg_names.add(leg["name"])
         
         # Filter out consolidated legs
-        remaining_legs = [leg for leg in day_legs if leg["name"] not in consolidated_leg_names]
+        remaining_legs = [leg for leg in standalone_legs if leg["name"] not in consolidated_leg_names]
         debug.append(f"Created {len(consolidation_trips)} Load Type consolidations, {len(remaining_legs)} legs remaining")
     else:
-        remaining_legs = day_legs
+        remaining_legs = standalone_legs
         debug.append("No Load Type consolidations found, using route optimization")
     
     # For remaining legs, use traditional route optimization

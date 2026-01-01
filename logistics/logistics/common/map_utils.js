@@ -7,7 +7,7 @@
 window.MapUtils = {
     
     /**
-     * Initialize map based on Transport Settings
+     * Initialize map based on Logistics Settings
      * @param {string} mapContainerId - ID of the map container element
      * @param {Array} originCoords - [lat, lon] for origin
      * @param {Array} destCoords - [lat, lon] for destination  
@@ -29,18 +29,18 @@ window.MapUtils = {
         const config = { ...defaultOptions, ...options };
         
         try {
-            // Get map renderer setting from Transport Settings
+            // Get map renderer setting from Logistics Settings
             let mapRenderer = 'openstreetmap'; // default
             try {
                 const settings = await frappe.call({
                     method: 'frappe.client.get_value',
                     args: {
-                        doctype: 'Transport Settings',
+                        doctype: 'Logistics Settings',
                         fieldname: 'map_renderer'
                     }
                 });
                 mapRenderer = settings.message?.map_renderer || 'openstreetmap';
-                console.log('Map Renderer from settings:', mapRenderer);
+                console.log('Map Renderer from Logistics Settings:', mapRenderer);
             } catch (e) {
                 console.log('Error getting map renderer settings:', e);
             }
@@ -286,12 +286,12 @@ window.MapUtils = {
      * Initialize Google Maps (Static API)
      */
     async initializeGoogleMap(mapContainerId, originCoords, destCoords, originLabel, destLabel, config) {
-        // Get Google Maps API key from Transport Settings
+        // Get Google Maps API key from Logistics Settings
         try {
             const settings = await frappe.call({
                 method: 'frappe.client.get_value',
                 args: {
-                    doctype: 'Transport Settings',
+                    doctype: 'Logistics Settings',
                     fieldname: 'routing_google_api_key'
                 }
             });

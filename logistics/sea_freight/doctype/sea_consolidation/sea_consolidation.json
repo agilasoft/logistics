@@ -73,7 +73,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Sea Freight Consolidation",
+   "options": "Sea Consolidation",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -134,20 +134,20 @@
    "label": "Route Information"
   },
   {
+   "description": "Origin port UNLOCO code",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
    "options": "UNLOCO",
-   "reqd": 1,
-   "description": "Origin port UNLOCO code"
+   "reqd": 1
   },
   {
+   "description": "Destination port UNLOCO code",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
    "options": "UNLOCO",
-   "reqd": 1,
-   "description": "Destination port UNLOCO code"
+   "reqd": 1
   },
   {
    "fieldname": "etd",
@@ -211,7 +211,7 @@
   {
    "fieldname": "total_volume",
    "fieldtype": "Float",
-   "label": "Total Volume (m³)",
+   "label": "Total Volume (m\u00b3)",
    "precision": "3",
    "read_only": 1
   },
@@ -376,8 +376,8 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center",
    "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center",
    "reqd": 1
   },
   {
@@ -388,21 +388,19 @@
    "reqd": 1
   },
   {
+   "description": "This will be used when posting financial transactions to this job.",
    "fieldname": "job_costing_number",
    "fieldtype": "Link",
    "label": "Job Costing Number",
-   "options": "Job Costing Number",
-   "description": "This will be used when posting financial transactions to this job."
+   "options": "Job Costing Number"
   }
  ],
- "hide_toolbar": 1,
- "in_create": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-01-27 00:00:00",
+ "modified": "2026-01-01 21:19:44.245621",
  "modified_by": "Administrator",
  "module": "Sea Freight",
- "name": "Sea Freight Consolidation",
+ "name": "Sea Consolidation",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
@@ -426,4 +424,3 @@
  "states": [],
  "track_changes": 1
 }
-

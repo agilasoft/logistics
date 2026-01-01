@@ -12,9 +12,6 @@ frappe.ui.form.on('Air Consolidation', {
         
         // Update consolidation metrics
         update_consolidation_metrics(frm);
-        
-        // Show consolidation summary
-        show_consolidation_summary(frm);
     },
     
     consolidation_type: function(frm) {

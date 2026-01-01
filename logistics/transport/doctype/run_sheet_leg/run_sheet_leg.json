@@ -13,10 +13,12 @@
   "facility_type_from",
   "facility_from",
   "pick_mode",
+  "address_from",
   "column_break_nstg",
   "facility_type_to",
   "facility_to",
-  "drop_mode"
+  "drop_mode",
+  "address_to"
  ],
  "fields": [
   {
@@ -101,13 +103,29 @@
    "label": "Drop Mode",
    "options": "Pick and Drop Mode",
    "read_only": 1
+  },
+  {
+   "fetch_from": "transport_leg.pick_address",
+   "fieldname": "address_from",
+   "fieldtype": "Link",
+   "label": "Address From",
+   "options": "Address",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "transport_leg.drop_address",
+   "fieldname": "address_to",
+   "fieldtype": "Link",
+   "label": "Address To",
+   "options": "Address",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-01 12:17:19.136285",
+ "modified": "2025-12-18 16:33:56.897467",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Run Sheet Leg",

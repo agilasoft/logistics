@@ -25,15 +25,17 @@ class SalesQuote(Document):
 			if not self.transport:
 				frappe.throw(_("No transport details found in this Sales Quote."))
 			
-			# Allow creation of multiple Transport Orders from the same Sales Quote
-			# No duplicate prevention - users can create multiple orders as needed
+			# Check if a Transport Order already exists for this Sales Quote
+			existing_transport_order = frappe.db.exists("Transport Order", {"sales_quote": self.name})
+			if existing_transport_order:
+				frappe.throw(_("A Transport Order has already been created from this Sales Quote."))
 			
 			# Create new Transport Order
 			transport_order = frappe.new_doc("Transport Order")
 			
 			# Map basic fields from Sales Quote to Transport Order
 			transport_order.customer = self.customer
-			transport_order.booking_date = today()
+			transport_order.booking_date = today()  # Use current system date
 			transport_order.sales_quote = self.name
 			transport_order.transport_template = getattr(self, 'transport_template', None)
 			transport_order.load_type = self.load_type
@@ -44,8 +46,8 @@ class SalesQuote(Document):
 			transport_order.cost_center = self.cost_center
 			transport_order.profit_center = self.profit_center
 			
-			# Set scheduled_date (required field) - use booking_date as default
-			transport_order.scheduled_date = transport_order.booking_date
+			# Set scheduled_date (required field) - use current system date
+			transport_order.scheduled_date = today()
 			
 			# Copy container_type from Sales Quote if it exists
 			container_type = getattr(self, 'container_type', None)
