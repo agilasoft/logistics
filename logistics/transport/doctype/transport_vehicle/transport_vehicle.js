@@ -29,43 +29,6 @@ frappe.ui.form.on("Transport Vehicle", {
 			}, __("Telematics"));
 		}
 		
-		// Add debug button for troubleshooting
-		if (frm.doc.telematics_external_id) {
-			frm.add_custom_button(__("Debug Telematics"), function() {
-				// Try the class method first, fallback to direct API call
-				frm.call({
-					method: "debug_telematics_connection",
-					doc: frm.doc,
-					callback: function(r) {
-						if (r.message) {
-							show_debug_info(r.message);
-						}
-					},
-					error: function(r) {
-						// Fallback: try API endpoint
-						frappe.call({
-							method: "logistics.transport.api_telematics_debug.debug_vehicle_telematics",
-							args: {
-								vehicle_name: frm.doc.name
-							},
-							callback: function(api_r) {
-								if (api_r.message) {
-									show_debug_info(api_r.message);
-								} else {
-									show_basic_debug_info(frm.doc);
-								}
-							},
-							error: function() {
-								show_basic_debug_info(frm.doc);
-							}
-						});
-					},
-					freeze: true,
-					freeze_message: __("Debugging telematics connection...")
-				});
-			}, __("Telematics"));
-		}
-		
 		// Add button to fetch CAN data specifically
 		if (frm.doc.telematics_external_id) {
 			frm.add_custom_button(__("Get CAN Data"), function() {
@@ -85,38 +48,42 @@ frappe.ui.form.on("Transport Vehicle", {
 			}, __("Telematics"));
 		}
 		
-		// Add button to get all device IDs
-		frm.add_custom_button(__("Get All Device IDs"), function() {
+		// Add button to view all devices with selection capability
+		frm.add_custom_button(__("View All Devices"), function() {
 			frappe.call({
 				method: "logistics.transport.api_telematics_debug.get_all_device_ids",
 				callback: function(r) {
 					if (r.message) {
-						show_all_devices(r.message);
+						show_all_devices(r.message, frm);
 					}
 				},
 				freeze: true,
-				freeze_message: __("Retrieving all device IDs...")
+				freeze_message: __("Retrieving all devices...")
 			});
 		}, __("Telematics"));
 		
-		// Add button to debug CAN data specifically
-		if (frm.doc.telematics_external_id) {
-			frm.add_custom_button(__("Debug CAN Data"), function() {
-				frappe.call({
-					method: "logistics.transport.api_telematics_debug.debug_can_data",
-					args: {
-						vehicle_name: frm.doc.name
-					},
+		// Add button to fetch Device ID using Device Name
+		if (frm.doc.telematics_device_name && frm.doc.telematics_provider) {
+			frm.add_custom_button(__("Fetch Device ID"), function() {
+				frm.call({
+					method: "fetch_device_id",
+					doc: frm.doc,
 					callback: function(r) {
-						if (r.message) {
-							show_can_debug_info(r.message);
+						if (r.message && r.message.success) {
+							frappe.msgprint({
+								title: __("Success"),
+								message: __("Device ID '{0}' has been fetched and updated in Telematics External ID field.", [r.message.device_id]),
+								indicator: "green"
+							});
+							frm.reload_doc();
 						}
 					},
 					freeze: true,
-					freeze_message: __("Debugging CAN data...")
+					freeze_message: __("Fetching Device ID...")
 				});
 			}, __("Telematics"));
 		}
+		
 	}
 });
 
@@ -203,390 +170,8 @@ function show_position_details(position_data) {
 	dialog.show();
 }
 
-function show_debug_info(debug_data) {
-	let devices_html = '';
-	if (debug_data.available_devices && debug_data.available_devices.length > 0) {
-		devices_html = `
-			<h5>Available Devices:</h5>
-			<table class="table table-bordered">
-				<thead>
-					<tr><th>Device ID</th><th>Name</th></tr>
-				</thead>
-				<tbody>
-					${debug_data.available_devices.map(dev => `
-						<tr>
-							<td>${dev.device_id || 'N/A'}</td>
-							<td>${dev.name || 'N/A'}</td>
-						</tr>
-					`).join('')}
-				</tbody>
-			</table>
-		`;
-	}
-	
-	let positions_html = '';
-	if (debug_data.available_positions && debug_data.available_positions.length > 0) {
-		positions_html = `
-			<h5>Available Positions:</h5>
-			<table class="table table-bordered">
-				<thead>
-					<tr><th>External ID</th><th>Device ID</th><th>Timestamp</th><th>Lat/Lon</th><th>Speed</th><th>Ignition</th><th>Odometer</th><th>Fuel</th></tr>
-				</thead>
-				<tbody>
-					${debug_data.available_positions.map(pos => `
-						<tr>
-							<td>${pos.external_id || 'N/A'}</td>
-							<td>${pos.device_id || 'N/A'}</td>
-							<td>${pos.timestamp || 'N/A'}</td>
-							<td>${pos.latitude || 'N/A'}, ${pos.longitude || 'N/A'}</td>
-							<td>${pos.speed_kph || 'N/A'} km/h</td>
-							<td>${pos.ignition || 'N/A'}</td>
-							<td>${pos.odometer_km || 'N/A'} km</td>
-							<td>${pos.fuel_l || 'N/A'}</td>
-						</tr>
-					`).join('')}
-				</tbody>
-			</table>
-		`;
-	}
-	
-	let can_data_html = '';
-	if (debug_data.available_can_data && debug_data.available_can_data.length > 0) {
-		can_data_html = `
-			<h5>Available CAN Data:</h5>
-			<table class="table table-bordered">
-				<thead>
-					<tr><th>External ID</th><th>Device ID</th><th>Timestamp</th><th>Fuel Level</th><th>RPM</th><th>Engine Hours</th><th>Coolant Temp</th><th>Ambient Temp</th></tr>
-				</thead>
-				<tbody>
-					${debug_data.available_can_data.map(can => `
-						<tr>
-							<td>${can.external_id || 'N/A'}</td>
-							<td>${can.device_id || 'N/A'}</td>
-							<td>${can.timestamp || 'N/A'}</td>
-							<td>${can.fuel_l || 'N/A'}</td>
-							<td>${can.rpm || 'N/A'}</td>
-							<td>${can.engine_hours || 'N/A'}</td>
-							<td>${can.coolant_c || 'N/A'}°C</td>
-							<td>${can.ambient_c || 'N/A'}°C</td>
-						</tr>
-					`).join('')}
-				</tbody>
-			</table>
-		`;
-	}
-	
-	// API Response Details
-	let api_responses_html = '';
-	if (debug_data.api_responses) {
-		api_responses_html = `
-			<h5>API Response Details:</h5>
-			<div class="panel-group" id="api-responses">
-		`;
-		
-		// Version Info
-		if (debug_data.api_responses.version_info) {
-			const version = debug_data.api_responses.version_info;
-			api_responses_html += `
-				<div class="panel panel-default">
-					<div class="panel-heading">
-						<h6 class="panel-title">
-							<a data-toggle="collapse" href="#version-info">
-								Version Info ${version.success ? '✅' : '❌'}
-							</a>
-						</h6>
-					</div>
-					<div id="version-info" class="panel-collapse collapse">
-						<div class="panel-body">
-							${version.success ? `
-								<h6>Raw API Response:</h6>
-								<pre style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(version.raw_response || version.data || version, null, 2)}</pre>
-							` : `
-								<h6>API Error:</h6>
-								<div class="alert alert-danger">
-									<strong>Error Type:</strong> ${version.error_type || 'Unknown'}<br>
-									<strong>Error Message:</strong> ${version.error || 'No error message available'}
-								</div>
-								<h6>Raw Error Response:</h6>
-								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(version, null, 2)}</pre>
-							`}
-						</div>
-					</div>
-				</div>
-			`;
-		}
-		
-		// Devices Response
-		if (debug_data.api_responses.devices_response) {
-			const devices = debug_data.api_responses.devices_response;
-			api_responses_html += `
-				<div class="panel panel-default">
-					<div class="panel-heading">
-						<h6 class="panel-title">
-							<a data-toggle="collapse" href="#devices-response">
-								Devices Response ${devices.success ? '✅' : '❌'} (${devices.count || 0} devices)
-							</a>
-						</h6>
-					</div>
-					<div id="devices-response" class="panel-collapse collapse">
-						<div class="panel-body">
-							${devices.success ? `
-								<h6>Raw API Response (${devices.count || 0} devices):</h6>
-								<pre style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(devices.raw_response || devices.data || devices, null, 2)}</pre>
-							` : `
-								<h6>API Error:</h6>
-								<div class="alert alert-danger">
-									<strong>Error Type:</strong> ${devices.error_type || 'Unknown'}<br>
-									<strong>Error Message:</strong> ${devices.error || 'No error message available'}
-								</div>
-								<h6>Raw Error Response:</h6>
-								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(devices, null, 2)}</pre>
-							`}
-						</div>
-					</div>
-				</div>
-			`;
-		}
-		
-		// Positions Response
-		if (debug_data.api_responses.positions_response) {
-			const positions = debug_data.api_responses.positions_response;
-			api_responses_html += `
-				<div class="panel panel-default">
-					<div class="panel-heading">
-						<h6 class="panel-title">
-							<a data-toggle="collapse" href="#positions-response">
-								Positions Response ${positions.success ? '✅' : '❌'} (${positions.count || 0} positions)
-							</a>
-						</h6>
-					</div>
-					<div id="positions-response" class="panel-collapse collapse">
-						<div class="panel-body">
-							${positions.success ? `
-								<h6>Raw API Response (${positions.count || 0} positions):</h6>
-								<pre style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(positions.raw_response || positions.data || positions, null, 2)}</pre>
-							` : `
-								<h6>API Error:</h6>
-								<div class="alert alert-danger">
-									<strong>Error Type:</strong> ${positions.error_type || 'Unknown'}<br>
-									<strong>Error Message:</strong> ${positions.error || 'No error message available'}
-								</div>
-								<h6>Raw Error Response:</h6>
-								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(positions, null, 2)}</pre>
-							`}
-						</div>
-					</div>
-				</div>
-			`;
-		}
-		
-		// CAN Data Response
-		if (debug_data.api_responses.can_data_response) {
-			const can_data = debug_data.api_responses.can_data_response;
-			api_responses_html += `
-				<div class="panel panel-default">
-					<div class="panel-heading">
-						<h6 class="panel-title">
-							<a data-toggle="collapse" href="#can-data-response">
-								CAN Data Response ${can_data.success ? '✅' : '❌'} (${can_data.count || 0} CAN records)
-							</a>
-						</h6>
-					</div>
-					<div id="can-data-response" class="panel-collapse collapse">
-						<div class="panel-body">
-							${can_data.success ? `
-								<h6>Raw API Response (${can_data.count || 0} CAN records):</h6>
-								<pre style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(can_data.raw_response || can_data.data || can_data, null, 2)}</pre>
-							` : `
-								<h6>API Error:</h6>
-								<div class="alert alert-danger">
-									<strong>Error Type:</strong> ${can_data.error_type || 'Unknown'}<br>
-									<strong>Error Message:</strong> ${can_data.error || 'No error message available'}
-								</div>
-								<h6>Raw Error Response:</h6>
-								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(can_data, null, 2)}</pre>
-							`}
-						</div>
-					</div>
-				</div>
-			`;
-		}
-		
-		// Vehicle Positions Response
-		if (debug_data.api_responses.vehicle_positions_response) {
-			const vehicle_positions = debug_data.api_responses.vehicle_positions_response;
-			api_responses_html += `
-				<div class="panel panel-default">
-					<div class="panel-heading">
-						<h6 class="panel-title">
-							<a data-toggle="collapse" href="#vehicle-positions-response">
-								Vehicle Positions Response ${vehicle_positions.success ? '✅' : '❌'} (${vehicle_positions.count || 0} positions)
-							</a>
-						</h6>
-					</div>
-					<div id="vehicle-positions-response" class="panel-collapse collapse">
-						<div class="panel-body">
-							${vehicle_positions.success ? `
-								<h6>Raw API Response (${vehicle_positions.count || 0} positions for vehicle ${vehicle_positions.vehicle_id || 'N/A'}):</h6>
-								<pre style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(vehicle_positions.raw_response || vehicle_positions.data || vehicle_positions, null, 2)}</pre>
-							` : `
-								<h6>API Error:</h6>
-								<div class="alert alert-danger">
-									<strong>Error Type:</strong> ${vehicle_positions.error_type || 'Unknown'}<br>
-									<strong>Error Message:</strong> ${vehicle_positions.error || 'No error message available'}
-								</div>
-								<h6>Raw Error Response:</h6>
-								<pre style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 12px;">${JSON.stringify(vehicle_positions, null, 2)}</pre>
-							`}
-						</div>
-					</div>
-				</div>
-			`;
-		}
-		
-		
-		api_responses_html += `</div>`;
-		
-		// Add a dedicated Raw API Responses section
-		if (debug_data.api_responses) {
-			api_responses_html += `
-				<h5>Raw API Responses Summary:</h5>
-				<div class="alert alert-info">
-					<strong>Complete API Response Data:</strong> The sections above show the raw, unprocessed data returned by the Remora API. 
-					This includes all fields, values, and structure exactly as received from the telematics provider.
-				</div>
-			`;
-		}
-	}
-	
-	let errors_html = '';
-	if (debug_data.errors && debug_data.errors.length > 0) {
-		errors_html = `
-			<h5>Errors:</h5>
-			<div class="alert alert-danger">
-				${debug_data.errors.map(error => `<div>${error}</div>`).join('')}
-			</div>
-		`;
-	}
-	
-	let dialog = new frappe.ui.Dialog({
-		title: __("Telematics Debug Information"),
-		fields: [
-			{
-				fieldtype: "HTML",
-				fieldname: "debug_info",
-				options: `
-					<div style="padding: 20px;">
-						<h4>Debug Information</h4>
-						<table class="table table-bordered">
-							<tr>
-								<td><strong>Vehicle:</strong></td>
-								<td>${debug_data.vehicle_name || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>External ID:</strong></td>
-								<td>${debug_data.telematics_external_id || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Provider:</strong></td>
-								<td>${debug_data.telematics_provider || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Provider Enabled:</strong></td>
-								<td>${debug_data.provider_enabled ? 'Yes' : 'No'}</td>
-							</tr>
-						${debug_data.provider_config ? `
-						<tr>
-							<td><strong>Provider Type:</strong></td>
-							<td>${debug_data.provider_config.provider_type || 'N/A'}</td>
-						</tr>
-						<tr>
-							<td><strong>SOAP Endpoint:</strong></td>
-							<td>${debug_data.provider_config.soap_endpoint || 'Default'}</td>
-						</tr>
-						` : ''}
-						${debug_data.debug_info ? `
-						<tr>
-							<td><strong>Debug Mode:</strong></td>
-							<td>${debug_data.debug_info.debug_mode_enabled ? 'Enabled' : 'Disabled'}</td>
-						</tr>
-						<tr>
-							<td><strong>Timeout:</strong></td>
-							<td>${debug_data.debug_info.timeout_seconds || 30} seconds</td>
-						</tr>
-						` : ''}
-						</table>
-						
-						${devices_html}
-						${positions_html}
-						${can_data_html}
-						${api_responses_html}
-						${errors_html}
-						
-						<div class="alert alert-info">
-							<strong>Note:</strong> Make sure the External ID matches one of the available Device IDs above.
-							Click on the API Response sections above to see detailed response data.
-						</div>
-					</div>
-				`
-			}
-		]
-	});
-	
-	dialog.show();
-}
 
-function show_basic_debug_info(doc) {
-	let dialog = new frappe.ui.Dialog({
-		title: __("Basic Telematics Debug Information"),
-		fields: [
-			{
-				fieldtype: "HTML",
-				fieldname: "basic_debug_info",
-				options: `
-					<div style="padding: 20px;">
-						<h4>Vehicle Configuration</h4>
-						<table class="table table-bordered">
-							<tr>
-								<td><strong>Vehicle:</strong></td>
-								<td>${doc.name || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>External ID:</strong></td>
-								<td>${doc.telematics_external_id || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Provider:</strong></td>
-								<td>${doc.telematics_provider || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Last Position:</strong></td>
-								<td>${doc.last_telematics_lat || 'N/A'}, ${doc.last_telematics_lon || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Last Update:</strong></td>
-								<td>${doc.last_telematics_ts || 'N/A'}</td>
-							</tr>
-						</table>
-						
-						<div class="alert alert-warning">
-							<strong>Note:</strong> The debug method is not available. Please check:
-							<ol>
-								<li>Make sure the server has been restarted after code changes</li>
-								<li>Check if the telematics provider is properly configured</li>
-								<li>Verify the external ID matches a device in your telematics system</li>
-							</ol>
-						</div>
-					</div>
-				`
-			}
-		]
-	});
-	
-	dialog.show();
-}
-
-function show_all_devices(data) {
+function show_all_devices(data, frm) {
 	let devices_html = '';
 	
 	if (data.error) {
@@ -598,26 +183,32 @@ function show_all_devices(data) {
 	} else if (data.devices && data.devices.length > 0) {
 		devices_html = `
 			<h5>Available Devices (${data.total_devices}):</h5>
-			<table class="table table-bordered table-striped">
-				<thead>
-					<tr>
-						<th>Device ID</th>
-						<th>Device Name</th>
-						<th>Provider</th>
-						<th>Provider Type</th>
-					</tr>
-				</thead>
-				<tbody>
-					${data.devices.map(device => `
+			<div style="max-height: 400px; overflow-y: auto;">
+				<table class="table table-bordered table-striped" id="devices-table">
+					<thead>
 						<tr>
-							<td><strong>${device.device_id}</strong></td>
-							<td>${device.device_name}</td>
-							<td>${device.provider}</td>
-							<td>${device.provider_type}</td>
+							<th style="width: 50px;">Select</th>
+							<th>Device ID</th>
+							<th>Device Name</th>
+							<th>Provider</th>
+							<th>Provider Type</th>
 						</tr>
-					`).join('')}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						${data.devices.map((device, index) => `
+							<tr class="device-row" data-device-id="${device.device_id}" data-device-name="${device.device_name || ''}" style="cursor: pointer;">
+								<td style="text-align: center;">
+									<input type="radio" name="selected_device" value="${index}" id="device_${index}">
+								</td>
+								<td><strong>${device.device_id}</strong></td>
+								<td>${device.device_name || 'N/A'}</td>
+								<td>${device.provider}</td>
+								<td>${device.provider_type}</td>
+							</tr>
+						`).join('')}
+					</tbody>
+				</table>
+			</div>
 		`;
 	} else {
 		devices_html = `
@@ -628,174 +219,86 @@ function show_all_devices(data) {
 	}
 	
 	let dialog = new frappe.ui.Dialog({
-		title: __("All Available Device IDs"),
+		title: __("View All Devices"),
 		fields: [
 			{
 				fieldtype: "HTML",
 				fieldname: "devices_info",
 				options: `
 					<div style="padding: 20px;">
-						<h4>Telematics Device IDs</h4>
+						<h4>Select a Device</h4>
 						${devices_html}
 						
 						<div class="alert alert-info">
 							<strong>Instructions:</strong>
 							<ol>
-								<li>Copy the Device ID you want to use</li>
-								<li>Update your vehicle's "Telematics External ID" field with this Device ID</li>
-								<li>Make sure the Provider matches your vehicle's telematics provider</li>
+								<li>Click on a device row or select the radio button to choose a device</li>
+								<li>Click "Select Device" to update the Transport Vehicle record</li>
+								<li>The Device ID will be set in "Telematics External ID" field</li>
+								<li>The Device Name will be set in "Telematics Device Name" field</li>
 							</ol>
 						</div>
 					</div>
 				`
 			}
-		]
-	});
-	
-	dialog.show();
-}
-
-function show_can_debug_info(debug_data) {
-	let can_data_html = '';
-	
-	if (debug_data.can_data_for_vehicle && debug_data.can_data_for_vehicle.length > 0) {
-		can_data_html = `
-			<h5>CAN Data for This Vehicle (${debug_data.can_data_for_vehicle.length} records):</h5>
-			<table class="table table-bordered table-striped">
-				<thead>
-					<tr>
-						<th>Device ID</th>
-						<th>Timestamp</th>
-						<th>Fuel Level</th>
-						<th>RPM</th>
-						<th>Engine Hours</th>
-						<th>Coolant Temp</th>
-						<th>Ambient Temp</th>
-					</tr>
-				</thead>
-				<tbody>
-					${debug_data.can_data_for_vehicle.map(can => `
-						<tr>
-							<td><strong>${can.device_id}</strong></td>
-							<td>${can.timestamp || 'N/A'}</td>
-							<td>${can.fuel_l !== null && can.fuel_l !== undefined ? can.fuel_l : 'N/A'}</td>
-							<td>${can.rpm !== null && can.rpm !== undefined ? can.rpm : 'N/A'}</td>
-							<td>${can.engine_hours !== null && can.engine_hours !== undefined ? can.engine_hours : 'N/A'}</td>
-							<td>${can.coolant_c !== null && can.coolant_c !== undefined ? can.coolant_c + '°C' : 'N/A'}</td>
-							<td>${can.ambient_c !== null && can.ambient_c !== undefined ? can.ambient_c + '°C' : 'N/A'}</td>
-						</tr>
-					`).join('')}
-				</tbody>
-			</table>
-		`;
-	} else {
-		can_data_html = `
-			<div class="alert alert-warning">
-				<strong>No CAN data found for this vehicle.</strong>
-				<p>This could mean:</p>
-				<ul>
-					<li>The device ID doesn't match any CAN data records</li>
-					<li>No CAN data is available from the telematics provider</li>
-					<li>The device doesn't support CAN data transmission</li>
-				</ul>
-			</div>
-		`;
-	}
-	
-	let all_can_data_html = '';
-	if (debug_data.all_can_data && debug_data.all_can_data.length > 0) {
-		all_can_data_html = `
-			<h5>All Available CAN Data (${debug_data.all_can_data.length} total records):</h5>
-			<table class="table table-bordered">
-				<thead>
-					<tr>
-						<th>Device ID</th>
-						<th>Timestamp</th>
-						<th>Fuel Level</th>
-						<th>RPM</th>
-						<th>Engine Hours</th>
-						<th>Raw Keys</th>
-					</tr>
-				</thead>
-				<tbody>
-					${debug_data.all_can_data.map(can => `
-						<tr>
-							<td>${can.device_id}</td>
-							<td>${can.timestamp || 'N/A'}</td>
-							<td>${can.fuel_l !== null && can.fuel_l !== undefined ? can.fuel_l : 'N/A'}</td>
-							<td>${can.rpm !== null && can.rpm !== undefined ? can.rpm : 'N/A'}</td>
-							<td>${can.engine_hours !== null && can.engine_hours !== undefined ? can.engine_hours : 'N/A'}</td>
-							<td>${can.raw_keys ? can.raw_keys.join(', ') : 'N/A'}</td>
-						</tr>
-					`).join('')}
-				</tbody>
-			</table>
-		`;
-	}
-	
-	let errors_html = '';
-	if (debug_data.errors && debug_data.errors.length > 0) {
-		errors_html = `
-			<h5>Errors:</h5>
-			<div class="alert alert-danger">
-				${debug_data.errors.map(error => `<div>${error}</div>`).join('')}
-			</div>
-		`;
-	}
-	
-	let dialog = new frappe.ui.Dialog({
-		title: __("CAN Data Debug Information"),
-		fields: [
-			{
-				fieldtype: "HTML",
-				fieldname: "can_debug_info",
-				options: `
-					<div style="padding: 20px;">
-						<h4>CAN Data Debug Information</h4>
-						<table class="table table-bordered">
-							<tr>
-								<td><strong>Vehicle:</strong></td>
-								<td>${debug_data.vehicle_name || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>External ID:</strong></td>
-								<td>${debug_data.telematics_external_id || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Provider:</strong></td>
-								<td>${debug_data.telematics_provider || 'N/A'}</td>
-							</tr>
-							<tr>
-								<td><strong>Provider Enabled:</strong></td>
-								<td>${debug_data.provider_enabled ? 'Yes' : 'No'}</td>
-							</tr>
-							<tr>
-								<td><strong>CAN Data Available:</strong></td>
-								<td>${debug_data.can_data_available ? 'Yes' : 'No'}</td>
-							</tr>
-							<tr>
-								<td><strong>Total CAN Records:</strong></td>
-								<td>${debug_data.can_data_count || 0}</td>
-							</tr>
-							<tr>
-								<td><strong>Records for This Vehicle:</strong></td>
-								<td>${debug_data.can_data_for_vehicle ? debug_data.can_data_for_vehicle.length : 0}</td>
-							</tr>
-						</table>
-						
-						${can_data_html}
-						${all_can_data_html}
-						${errors_html}
-						
-						<div class="alert alert-info">
-							<strong>Debug Information:</strong> This shows CAN data specifically for debugging purposes.
-							Make sure the External ID matches one of the Device IDs in the "All Available CAN Data" table above.
-						</div>
-					</div>
-				`
+		],
+		primary_action_label: __("Select Device"),
+		primary_action: function() {
+			let selected_radio = document.querySelector('input[name="selected_device"]:checked');
+			if (!selected_radio) {
+				frappe.msgprint({
+					title: __("No Selection"),
+					message: __("Please select a device first."),
+					indicator: "orange"
+				});
+				return;
 			}
-		]
+			
+			let selected_row = selected_radio.closest('.device-row');
+			let device_id = selected_row.getAttribute('data-device-id');
+			let device_name = selected_row.getAttribute('data-device-name') || '';
+			
+			// Update the form fields
+			frm.set_value('telematics_external_id', device_id);
+			frm.set_value('telematics_device_name', device_name);
+			
+			dialog.hide();
+			
+			frappe.msgprint({
+				title: __("Success"),
+				message: __("Device selected successfully!<br>Device ID: <strong>{0}</strong><br>Device Name: <strong>{1}</strong>", [device_id, device_name || 'N/A']),
+				indicator: "green"
+			});
+		}
 	});
+	
+	// Add click handler to rows for easier selection
+	setTimeout(function() {
+		let rows = dialog.$wrapper.find('.device-row');
+		rows.on('click', function(e) {
+			// Don't trigger if clicking on the radio button itself
+			if (e.target.type !== 'radio') {
+				let radio = $(this).find('input[type="radio"]');
+				radio.prop('checked', true);
+				// Add visual feedback
+				rows.removeClass('table-info');
+				$(this).addClass('table-info');
+			}
+		});
+		
+		// Add hover effect
+		rows.on('mouseenter', function() {
+			$(this).addClass('table-hover');
+		}).on('mouseleave', function() {
+			$(this).removeClass('table-hover');
+		});
+		
+		// Handle radio button change
+		dialog.$wrapper.find('input[name="selected_device"]').on('change', function() {
+			rows.removeClass('table-info');
+			$(this).closest('.device-row').addClass('table-info');
+		});
+	}, 100);
 	
 	dialog.show();
 }

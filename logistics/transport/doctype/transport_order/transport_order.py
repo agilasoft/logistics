@@ -1018,6 +1018,104 @@ def get_vehicle_compatibility(transport_job_type: str, vehicle_type: str = None)
 
 
 @frappe.whitelist()
+def get_allowed_vehicle_types(transport_job_type: str, refrigeration: bool = False) -> Dict[str, Any]:
+    """Get allowed vehicle types for a transport job type based on containerized flag, classifications, and reefer."""
+    if not transport_job_type:
+        return {"vehicle_types": []}
+    
+    filters = {}
+    
+    # Filter by containerized flag
+    if transport_job_type == "Container":
+        # For Container job type, only allow containerized vehicle types
+        filters["containerized"] = 1
+    elif transport_job_type == "Non-Container":
+        # For Non-Container job type, exclude containerized vehicle types
+        filters["containerized"] = 0
+    
+    # Filter by classifications for Heavy Haul and Oversized
+    if transport_job_type in ["Heavy Haul", "Oversized"]:
+        # Only allow Heavy or Special classifications
+        filters["classifications"] = ["in", ["Heavy", "Special"]]
+    
+    # Filter for Special job type: requires both reefer=1 and classifications=Special
+    if transport_job_type == "Special":
+        filters["reefer"] = 1
+        filters["classifications"] = "Special"
+    
+    # Filter by reefer if refrigeration is required (for other job types)
+    if refrigeration and transport_job_type != "Special":
+        filters["reefer"] = 1
+    
+    # Get vehicle types matching the filter
+    vehicle_types = frappe.get_all(
+        "Vehicle Type",
+        filters=filters,
+        fields=["name", "code", "description", "containerized", "reefer", "classifications"],
+        order_by="code"
+    )
+    
+    return {"vehicle_types": vehicle_types}
+
+
+@frappe.whitelist()
+def validate_vehicle_job_type_compatibility(transport_job_type: str, vehicle_type: str, refrigeration: bool = False) -> Dict[str, Any]:
+    """Validate if a vehicle type is compatible with the transport job type, classifications, and refrigeration requirements."""
+    if not transport_job_type or not vehicle_type:
+        return {"compatible": True, "message": ""}
+    
+    # Get vehicle type details
+    vehicle_details = frappe.get_value(
+        "Vehicle Type",
+        vehicle_type,
+        ["containerized", "code", "reefer", "classifications"],
+        as_dict=True
+    )
+    
+    if not vehicle_details:
+        return {"compatible": False, "message": f"Vehicle Type {vehicle_type} not found"}
+    
+    compatible = True
+    messages = []
+    
+    # Check containerized compatibility
+    if transport_job_type == "Container":
+        if not vehicle_details.containerized:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is not containerized. Container job type requires a containerized vehicle type.")
+    elif transport_job_type == "Non-Container":
+        if vehicle_details.containerized:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is containerized. Non-Container job type requires a non-containerized vehicle type.")
+    
+    # Check classifications for Heavy Haul and Oversized
+    if transport_job_type in ["Heavy Haul", "Oversized"]:
+        if vehicle_details.classifications not in ["Heavy", "Special"]:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} has classification '{vehicle_details.classifications}'. {transport_job_type} job type requires Heavy or Special classification.")
+    
+    # Check Special job type requirements: must have reefer=1 and classifications=Special
+    if transport_job_type == "Special":
+        if not vehicle_details.reefer:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} does not have reefer capability. Special job type requires a vehicle with reefer enabled.")
+        if vehicle_details.classifications != "Special":
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} has classification '{vehicle_details.classifications}'. Special job type requires Special classification.")
+    
+    # Check reefer requirement for other job types (only if refrigeration is actually checked)
+    # Only check if refrigeration is explicitly True/1 and transport_job_type is not "Special"
+    # Handle cases where refrigeration might be passed as 0, False, "0", None, etc.
+    refrigeration_enabled = refrigeration in (True, 1) or (isinstance(refrigeration, str) and refrigeration == "1")
+    if refrigeration_enabled and transport_job_type != "Special":
+        if not vehicle_details.reefer:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} does not have reefer capability. Refrigerated transport requires a vehicle with reefer enabled.")
+    
+    return {"compatible": compatible, "message": " ".join(messages) if messages else ""}
+
+
+@frappe.whitelist()
 def get_cost_estimation(transport_job_type: str, base_cost: float = 1000) -> Dict[str, Any]:
     """Get cost estimation based on transport job type."""
     if not transport_job_type or not base_cost:

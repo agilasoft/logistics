@@ -14,24 +14,30 @@
   "naming_series",
   "run_date",
   "run_type",
-  "column_break_aftz",
-  "base_location_type",
-  "base_location",
   "route_name",
-  "status",
+  "transport_consolidation",
   "column_break_gwan",
+  "status",
   "vehicle_type",
   "vehicle",
   "transport_company",
   "driver",
   "driver_name",
-  "transport_consolidation",
+  "dispatch_tab",
+  "column_break_aftz",
+  "dispatch_terminal",
+  "dispatcher",
+  "column_break_vvon",
+  "return_terminal",
+  "return_inspector",
   "transport_leg_tab",
   "legs",
   "section_break_pkdh",
   "estimated_completion_time",
   "actual_completion_time",
-  "route_optimization_score"
+  "route_optimization_score",
+  "selected_route_polyline",
+  "selected_route_index"
  ],
  "fields": [
   {
@@ -65,19 +71,6 @@
    "fieldtype": "Select",
    "label": "Run Type",
    "options": "Regular\nBackload\nSpot\nReposition\nOthers"
-  },
-  {
-   "fieldname": "base_location_type",
-   "fieldtype": "Link",
-   "label": "Base Location Type",
-   "link_filters": "[[\"DocType\",\"name\",\"=\",\"UNLOCO\"],[\"DocType\",\"name\",\"=\",\"Address\"],[\"DocType\",\"name\",\"=\",\"Transport Zone\"]]",
-   "options": "DocType"
-  },
-  {
-   "fieldname": "base_location",
-   "fieldtype": "Dynamic Link",
-   "label": "Base Location",
-   "options": "base_location_type"
   },
   {
    "fieldname": "column_break_aftz",
@@ -183,26 +176,59 @@
   {
    "fieldname": "selected_route_polyline",
    "fieldtype": "Long Text",
-   "label": "Selected Route Polyline",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Selected Route Polyline"
   },
   {
    "fieldname": "selected_route_index",
    "fieldtype": "Int",
-   "label": "Selected Route Index",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Selected Route Index"
   },
   {
    "fieldname": "section_break_pkdh",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "dispatch_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dispatch and Return"
+  },
+  {
+   "fieldname": "dispatch_terminal",
+   "fieldtype": "Link",
+   "label": "Dispatch Terminal",
+   "options": "Transport Terminal"
+  },
+  {
+   "fieldname": "dispatcher",
+   "fieldtype": "Link",
+   "label": "Dispatcher",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_vvon",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "return_terminal",
+   "fieldtype": "Link",
+   "label": "Return Terminal",
+   "options": "Transport Terminal"
+  },
+  {
+   "fieldname": "return_inspector",
+   "fieldtype": "Link",
+   "label": "Return Inspector",
+   "options": "Employee"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-12-04 17:15:58.348745",
- "modified_by": "paulinemae.cabile@agilasoft.com",
+ "modified": "2026-01-04 00:40:36.971319",
+ "modified_by": "Administrator",
  "module": "Transport",
  "name": "Run Sheet",
  "naming_rule": "By \"Naming Series\" field",

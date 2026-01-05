@@ -1,0 +1,9 @@
+# Copyright (c) 2026, www.agilasoft.com and Contributors
+# See license.txt
+
+# import frappe
+from frappe.tests.utils import FrappeTestCase
+
+
+class TestRunSheet(FrappeTestCase):
+	pass

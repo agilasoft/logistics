@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class TruckPark(Document):
+class TransportTerminal(Document):
 	pass

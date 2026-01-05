@@ -1,7 +1,7 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Truck Park", {
+// frappe.ui.form.on("Transport Terminal", {
 // 	refresh(frm) {
 
 // 	},

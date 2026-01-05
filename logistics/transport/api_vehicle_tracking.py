@@ -27,6 +27,7 @@ def get_vehicle_position(vehicle_name):
 				"longitude": vehicle.last_telematics_lon,
 				"timestamp": vehicle.last_telematics_ts,
 				"speed_kph": vehicle.last_speed_kph,
+				"heading_deg": vehicle.get("last_heading_deg") if hasattr(vehicle, "last_heading_deg") else None,
 				"ignition": vehicle.last_ignition_on,
 				"fuel_level": vehicle.get("last_fuel_level") if hasattr(vehicle, "last_fuel_level") else None,
 				"odometer_km": vehicle.last_odometer_km,
@@ -59,6 +60,7 @@ def get_vehicle_position(vehicle_name):
 						"longitude": pos.get("longitude"),
 						"timestamp": pos.get("timestamp"),
 						"speed_kph": pos.get("speed_kph"),
+						"heading_deg": pos.get("heading_deg"),  # Add heading for arrow direction
 						"ignition": pos.get("ignition"),
 						"fuel_level": pos.get("fuel_l"),  # Add fuel level from position data
 						"odometer_km": pos.get("odometer_km"),  # Add mileage/odometer data
@@ -230,6 +232,11 @@ def refresh_vehicle_data(vehicle_name):
 			
 			vehicle.last_provider = vehicle.telematics_provider
 			
+			# Update heading if available
+			if vehicle_position.get("heading_deg") is not None:
+				if hasattr(vehicle, "last_heading_deg"):
+					vehicle.last_heading_deg = vehicle_position.get("heading_deg")
+			
 			# Save the updated vehicle document
 			vehicle.save()
 			
@@ -240,6 +247,7 @@ def refresh_vehicle_data(vehicle_name):
 				"longitude": vehicle_position.get("longitude"),
 				"timestamp": vehicle_position.get("timestamp"),
 				"speed_kph": vehicle_position.get("speed_kph"),
+				"heading_deg": vehicle_position.get("heading_deg"),
 				"ignition": vehicle.last_ignition_on,
 				"fuel_level": vehicle.last_fuel_level,
 				"odometer_km": vehicle.last_odometer_km,

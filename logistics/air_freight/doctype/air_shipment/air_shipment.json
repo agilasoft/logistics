@@ -87,7 +87,7 @@
   "column_break_mjzk",
   "packs",
   "inner",
-  "gooda_value",
+  "goods_value",
   "insurance",
   "section_break_olqg",
   "description",
@@ -410,11 +410,6 @@
    "fieldname": "inner",
    "fieldtype": "Float",
    "label": "Inner"
-  },
-  {
-   "fieldname": "gooda_value",
-   "fieldtype": "Currency",
-   "label": "Gooda Value"
   },
   {
    "fieldname": "insurance",
@@ -1208,13 +1203,18 @@
   {
    "fieldname": "column_break_ohdu",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "goods_value",
+   "fieldtype": "Currency",
+   "label": "Goods Value"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-12-29 15:30:44.318081",
+ "modified": "2026-01-04 22:19:24.687474",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

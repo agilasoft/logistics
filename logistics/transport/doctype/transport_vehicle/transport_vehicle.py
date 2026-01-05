@@ -474,3 +474,111 @@ class TransportVehicle(Document):
 			frappe.log_error(f"Debug telematics connection error: {str(e)}", "Transport Vehicle Debug")
 		
 		return debug_info
+
+	@frappe.whitelist()
+	def fetch_device_id(self):
+		"""
+		Fetch Device ID using Telematics Device Name as reference.
+		Updates the Telematics External ID field with the found Device ID.
+		"""
+		if not self.telematics_device_name:
+			frappe.throw(_("Telematics Device Name is required to fetch Device ID"))
+		
+		if not self.telematics_provider:
+			frappe.throw(_("Telematics Provider is required to fetch Device ID"))
+		
+		try:
+			# Get provider configuration
+			from logistics.transport.telematics.resolve import _provider_conf
+			conf = _provider_conf(self.telematics_provider)
+			if not conf:
+				frappe.throw(_("Telematics provider {0} is not enabled or not found").format(self.telematics_provider))
+			
+			# Enable debug mode
+			conf["debug"] = 1
+			conf["request_timeout_sec"] = 30
+			
+			# Create provider instance
+			from logistics.transport.telematics.providers import make_provider
+			provider = make_provider(conf["provider_type"], conf)
+			
+			# Get device details
+			devices = []
+			if hasattr(provider, 'get_device_details'):
+				devices = provider.get_device_details()
+			elif hasattr(provider, 'GetDevices'):
+				from logistics.transport.telematics.providers.remora import _get_field
+				raw_devices = provider.GetDevices()
+				devices = [
+					{
+						"device_id": _get_field(dev, "deviceId", "DeviceId", "deviceID", "id", "Id", "ID"),
+						"name": _get_field(dev, "name", "Name", "deviceName", "DeviceName"),
+						"description": _get_field(dev, "description", "Description", "desc", "Desc"),
+						"external_id": _get_field(dev, "externalId", "ExternalId", "externalID", "ExternalID"),
+						"raw": dev
+					} for dev in raw_devices
+				]
+			else:
+				frappe.throw(_("Provider does not support device listing"))
+			
+			# Search for device matching the device name
+			# Try exact match first, then case-insensitive match
+			device_name = str(self.telematics_device_name).strip()
+			matched_device = None
+			
+			for device in devices:
+				device_name_field = device.get("name") or device.get("description") or ""
+				device_name_field = str(device_name_field).strip()
+				
+				# Exact match
+				if device_name_field == device_name:
+					matched_device = device
+					break
+			
+			# If no exact match, try case-insensitive match
+			if not matched_device:
+				device_name_lower = device_name.lower()
+				for device in devices:
+					device_name_field = device.get("name") or device.get("description") or ""
+					device_name_field = str(device_name_field).strip()
+					
+					if device_name_field.lower() == device_name_lower:
+						matched_device = device
+						break
+			
+			if not matched_device:
+				# List available device names for user reference
+				available_names = [str(d.get("name") or d.get("description") or "N/A").strip() for d in devices[:10]]
+				error_msg = _("Device with name '{0}' not found. Available device names: {1}").format(
+					device_name,
+					", ".join(available_names) if available_names else "None"
+				)
+				frappe.throw(error_msg)
+			
+			# Get the device ID
+			device_id = matched_device.get("device_id") or matched_device.get("external_id")
+			if not device_id:
+				frappe.throw(_("Device found but no Device ID available"))
+			
+			# Update the telematics_external_id field
+			self.telematics_external_id = str(device_id)
+			self.save()
+			
+			frappe.msgprint(
+				_("Device ID '{0}' found and updated successfully for device name '{1}'").format(
+					device_id,
+					device_name
+				),
+				alert=True
+			)
+			
+			return {
+				"device_id": str(device_id),
+				"device_name": device_name,
+				"matched_device_name": matched_device.get("name") or matched_device.get("description"),
+				"success": True
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"Error fetching device ID for vehicle {self.name}: {str(e)}", "Transport Vehicle Fetch Device ID")
+			frappe.throw(_("Failed to fetch Device ID: {0}").format(str(e)))

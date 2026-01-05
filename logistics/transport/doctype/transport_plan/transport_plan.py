@@ -11,8 +11,191 @@ from frappe.model.document import Document
 from frappe.utils import add_days, getdate, nowdate, cint, cstr, flt
 
 
+# ------------------------ Job-level grouping helpers ------------------------
+
+def _get_job_group_legs_setting(job_name: str, consolidate_legs_fallback: bool, debug: Optional[List[str]] = None) -> Optional[int]:
+    """
+    Read group_legs_in_one_runsheet from Transport Job.
+    Returns:
+        - 1 if group_legs_in_one_runsheet is checked
+        - 0 if group_legs_in_one_runsheet is unchecked
+        - None if field doesn't exist or job doesn't exist (use fallback)
+    """
+    debug = debug or []
+    try:
+        if not _doctype_exists("Transport Job"):
+            debug.append(f"Transport Job doctype does not exist, using fallback")
+            return None
+        
+        if not _has_field("Transport Job", "group_legs_in_one_runsheet"):
+            debug.append(f"Transport Job {job_name} does not have group_legs_in_one_runsheet field, using fallback")
+            return None
+        
+        job_value = frappe.db.get_value("Transport Job", job_name, "group_legs_in_one_runsheet")
+        if job_value is None:
+            debug.append(f"Transport Job {job_name} has no group_legs_in_one_runsheet value, using fallback")
+            return None
+        
+        setting = cint(job_value)
+        debug.append(f"Transport Job {job_name}: group_legs_in_one_runsheet = {setting}")
+        return setting
+    except Exception as e:
+        debug.append(f"Error reading group_legs_in_one_runsheet from Transport Job {job_name}: {cstr(e)}, using fallback")
+        return None
+
+
+def _process_job_legs_with_grouping(job_legs: List[Dict[str, Any]], runsheet_groups: Dict[str, Any], result: Dict[str, Any], debug: Optional[List[str]] = None) -> None:
+    """
+    Process legs with grouping: group by same vehicle type and same scheduled/run date.
+    Creates one Run Sheet per group (with allow_reuse=True).
+    Ensures Run Sheet is created/reused ONCE per group and reused for all legs in that group.
+    """
+    debug = debug or []
+    
+    # Group legs by vehicle type and date (same vehicle type, same scheduled/run date)
+    def _grouping_key(leg: Dict[str, Any]) -> Tuple[str, str]:
+        vehicle_type = cstr(leg.get("vehicle_type") or "")
+        # Use the date value (could be scheduled_date, run_date, date, etc.)
+        leg_date = _get_leg_date_value(leg) or ""
+        return (vehicle_type, leg_date)
+    
+    # Sort legs by grouping key
+    sorted_legs = sorted(job_legs, key=_grouping_key)
+    
+    # Group legs by vehicle type and date
+    for grouping_key, leg_group in itertools.groupby(sorted_legs, key=_grouping_key):
+        grouped_legs = list(leg_group)
+        vehicle_type, run_date = grouping_key
+        
+        debug.append(f"Processing {len(grouped_legs)} legs for job with vehicle_type={vehicle_type}, date={run_date}")
+        
+        if not grouped_legs:
+            continue
+        
+        # Find vehicle and driver for the group (using first leg)
+        group_debug: List[str] = []
+        vehicle = None
+        driver = None
+        
+        # Try to find a vehicle that can handle all legs in the group
+        vehicle = _find_candidate_vehicle(grouped_legs[0], group_debug)
+        if vehicle:
+            driver = _find_candidate_driver(grouped_legs[0], vehicle, group_debug)
+            if not driver:
+                group_debug.append("No driver available for the selected vehicle.")
+        else:
+            group_debug.append("No vehicle available for this leg group.")
+        
+        # Create or reuse Run Sheet ONCE for the entire group (using first leg only)
+        # Store the Run Sheet name in a local variable and reuse it for all subsequent legs
+        rs_name, reused = _create_or_reuse_run_sheet(
+            grouped_legs[0], vehicle, driver, group_debug, allow_reuse=True
+        )
+        
+        # Append all legs in the group to the SAME Run Sheet
+        # Do NOT call _create_or_reuse_run_sheet again for subsequent legs
+        for leg in grouped_legs:
+            try:
+                appended = _append_leg_to_runsheet(rs_name, leg, group_debug)
+                if appended:
+                    result["attached_legs"] += 1
+                
+                if _has_field("Transport Leg", "run_sheet"):
+                    frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
+            except Exception as e:
+                result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
+                continue
+        
+        # Group legs by Run Sheet for additional leg creation
+        if rs_name not in runsheet_groups:
+            runsheet_groups[rs_name] = {
+                "legs": [],
+                "reused": reused,
+                "debug": []
+            }
+        runsheet_groups[rs_name]["legs"].extend(grouped_legs)
+        runsheet_groups[rs_name]["debug"].extend(group_debug)
+        
+        # Track run sheets with and without vehicles
+        if vehicle:
+            if reused:
+                result["reused"].append(rs_name)
+            else:
+                result["created_with_vehicle"].append(rs_name)
+        else:
+            if reused:
+                result["reused"].append(rs_name)
+            else:
+                result["created_without_vehicle"].append(rs_name)
+        
+        # Keep backward compatibility
+        (result["reused"] if reused else result["created"]).append(rs_name)
+
+
+def _process_job_legs_individually(job_legs: List[Dict[str, Any]], runsheet_groups: Dict[str, Any], result: Dict[str, Any], debug: Optional[List[str]] = None) -> None:
+    """
+    Process legs individually: create one Run Sheet per leg (with allow_reuse=False).
+    """
+    debug = debug or []
+    debug.append(f"Processing {len(job_legs)} legs individually for job")
+    
+    for leg in job_legs:
+        leg_debug: List[str] = []
+        try:
+            vehicle = _find_candidate_vehicle(leg, leg_debug)
+            driver = None
+            
+            if vehicle:
+                driver = _find_candidate_driver(leg, vehicle, leg_debug)
+                if not driver:
+                    leg_debug.append("No driver available for the selected vehicle.")
+            else:
+                leg_debug.append("No vehicle available for this leg.")
+
+            # Create run sheet with or without vehicle/driver
+            # When grouping is disabled, always create new Run Sheet (no reuse/grouping)
+            rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug, allow_reuse=False)
+
+            # Append child row: set transport_leg THEN prefill other child fields from the leg
+            appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
+            if appended:
+                result["attached_legs"] += 1
+
+            if _has_field("Transport Leg", "run_sheet"):
+                frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
+
+            # Group legs by Run Sheet for additional leg creation
+            if rs_name not in runsheet_groups:
+                runsheet_groups[rs_name] = {
+                    "legs": [],
+                    "reused": reused,
+                    "debug": []
+                }
+            runsheet_groups[rs_name]["legs"].append(leg)
+            runsheet_groups[rs_name]["debug"].extend(leg_debug)
+
+            # Track run sheets with and without vehicles
+            if vehicle:
+                if reused:
+                    result["reused"].append(rs_name)
+                else:
+                    result["created_with_vehicle"].append(rs_name)
+            else:
+                if reused:
+                    result["reused"].append(rs_name)
+                else:
+                    result["created_without_vehicle"].append(rs_name)
+            
+            # Keep backward compatibility
+            (result["reused"] if reused else result["created"]).append(rs_name)
+
+        except Exception as e:
+            result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
+            continue
+
+
 @frappe.whitelist()
-def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> Dict[str, Any]:
+def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> Dict[str, Any]:
     """
     Allocate vehicles & drivers to Transport Legs, create/reuse Run Sheets,
     and append legs (we link only the Transport Leg, then prefill child fields
@@ -74,139 +257,173 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = True) -> D
         # Group legs by Run Sheet (vehicle + driver + date combination)
         runsheet_groups = {}
         
-        if consolidate_legs:
-            # Consolidate legs into optimized trips
-            consolidated_trips = _consolidate_legs(day_legs, result["debug"])
-            result["consolidated_trips"] = len(consolidated_trips)
-            result["total_legs"] = len(day_legs)
+        # Group legs by transport_job first
+        legs_by_job = {}
+        legs_without_job = []
+        
+        for leg in day_legs:
+            job_name = leg.get("transport_job")
+            if job_name:
+                if job_name not in legs_by_job:
+                    legs_by_job[job_name] = []
+                legs_by_job[job_name].append(leg)
+            else:
+                legs_without_job.append(leg)
+        
+        # Process legs grouped by job
+        for job_name, job_legs in legs_by_job.items():
+            # Read group_legs_in_one_runsheet from Transport Job
+            job_group_legs = _get_job_group_legs_setting(job_name, consolidate_legs, result["debug"])
             
-            for trip in consolidated_trips:
-                trip_debug: List[str] = []
-                try:
-                    # Find vehicle and driver for the entire trip
-                    vehicle = _find_vehicle_for_trip(trip["legs"], trip_debug)
-                    driver = None
-                    
-                    if vehicle:
-                        driver = _find_candidate_driver(trip["legs"][0], vehicle, trip_debug)
-                        if not driver:
-                            trip_debug.append("No driver available for the selected vehicle.")
-                    else:
-                        trip_debug.append("No vehicle available for this trip.")
+            if job_group_legs == 1:
+                # Apply grouping logic only to legs of this job (same vehicle type, same scheduled/run date)
+                _process_job_legs_with_grouping(job_legs, runsheet_groups, result, result["debug"])
+            elif job_group_legs == 0:
+                # Force "one Run Sheet per leg" behavior only for this job
+                _process_job_legs_individually(job_legs, runsheet_groups, result, result["debug"])
+            else:
+                # Fallback to consolidate_legs setting
+                if consolidate_legs:
+                    _process_job_legs_with_grouping(job_legs, runsheet_groups, result, result["debug"])
+                else:
+                    _process_job_legs_individually(job_legs, runsheet_groups, result, result["debug"])
+        
+        # Process legs without a transport_job using consolidate_legs setting
+        if legs_without_job:
+            if consolidate_legs:
+                # Consolidate legs into optimized trips
+                consolidated_trips = _consolidate_legs(legs_without_job, result["debug"])
+                result["consolidated_trips"] = len(consolidated_trips)
+                result["total_legs"] = len(legs_without_job)
+                
+                for trip in consolidated_trips:
+                    trip_debug: List[str] = []
+                    try:
+                        # Find vehicle and driver for the entire trip
+                        vehicle = _find_vehicle_for_trip(trip["legs"], trip_debug)
+                        driver = None
+                        
+                        if vehicle:
+                            driver = _find_candidate_driver(trip["legs"][0], vehicle, trip_debug)
+                            if not driver:
+                                trip_debug.append("No driver available for the selected vehicle.")
+                        else:
+                            trip_debug.append("No vehicle available for this trip.")
 
-                    # Create run sheet for the entire trip
-                    consolidation = trip.get("consolidation")
-                    rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug, consolidation)
+                        # Create run sheet for the entire trip
+                        consolidation = trip.get("consolidation")
+                        rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug, consolidation, allow_reuse=True)
 
-                    # Append all legs in the trip to the run sheet
-                    trip_legs_added = 0
-                    for leg in trip["legs"]:
-                        appended = _append_leg_to_runsheet(rs_name, leg, trip_debug)
+                        # Append all legs in the trip to the run sheet
+                        trip_legs_added = 0
+                        for leg in trip["legs"]:
+                            appended = _append_leg_to_runsheet(rs_name, leg, trip_debug)
+                            if appended:
+                                trip_legs_added += 1
+                                result["attached_legs"] += 1
+
+                            if _has_field("Transport Leg", "run_sheet"):
+                                frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
+
+                        # Group legs by Run Sheet for additional leg creation
+                        if rs_name not in runsheet_groups:
+                            runsheet_groups[rs_name] = {
+                                "legs": [],
+                                "reused": reused,
+                                "debug": []
+                            }
+                        runsheet_groups[rs_name]["legs"].extend(trip["legs"])
+                        runsheet_groups[rs_name]["debug"].extend(trip_debug)
+
+                        # Track run sheets with and without vehicles
+                        if vehicle:
+                            if reused:
+                                result["reused"].append(rs_name)
+                            else:
+                                result["created_with_vehicle"].append(rs_name)
+                        else:
+                            if reused:
+                                result["reused"].append(rs_name)
+                            else:
+                                result["created_without_vehicle"].append(rs_name)
+                        
+                        # Keep backward compatibility
+                        (result["reused"] if reused else result["created"]).append(rs_name)
+                        
+                        # Track consolidation if present
+                        if consolidation:
+                            consol_info = {
+                                "consolidation": consolidation["name"],
+                                "run_sheet": rs_name,
+                                "legs_count": len(trip["legs"])
+                            }
+                            
+                            # Check if this is an existing consolidation or newly created
+                            if trip.get("_is_existing_consolidation"):
+                                result["consolidations_processed"].append(consol_info)
+                            else:
+                                consol_info["load_type"] = trip.get("load_type")
+                                result["consolidations_created"].append(consol_info)
+                                result["load_type_consolidations"] += 1
+
+                    except Exception as e:
+                        result["errors"].append(f"Trip consolidation failed: {cstr(e)}")
+                        continue
+            else:
+                # Original logic: one run sheet per leg
+                for leg in legs_without_job:
+                    leg_debug: List[str] = []
+                    try:
+                        vehicle = _find_candidate_vehicle(leg, leg_debug)
+                        driver = None
+                        
+                        if vehicle:
+                            driver = _find_candidate_driver(leg, vehicle, leg_debug)
+                            if not driver:
+                                leg_debug.append("No driver available for the selected vehicle.")
+                        else:
+                            leg_debug.append("No vehicle available for this leg.")
+
+                        # Create run sheet with or without vehicle/driver
+                        # When consolidate_legs=False, always create new Run Sheet (no reuse/grouping)
+                        rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug, allow_reuse=False)
+
+                        # Append child row: set transport_leg THEN prefill other child fields from the leg
+                        appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
                         if appended:
-                            trip_legs_added += 1
                             result["attached_legs"] += 1
 
                         if _has_field("Transport Leg", "run_sheet"):
                             frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
 
-                    # Group legs by Run Sheet for additional leg creation
-                    if rs_name not in runsheet_groups:
-                        runsheet_groups[rs_name] = {
-                            "legs": [],
-                            "reused": reused,
-                            "debug": []
-                        }
-                    runsheet_groups[rs_name]["legs"].extend(trip["legs"])
-                    runsheet_groups[rs_name]["debug"].extend(trip_debug)
+                        # Group legs by Run Sheet for additional leg creation
+                        if rs_name not in runsheet_groups:
+                            runsheet_groups[rs_name] = {
+                                "legs": [],
+                                "reused": reused,
+                                "debug": []
+                            }
+                        runsheet_groups[rs_name]["legs"].append(leg)
+                        runsheet_groups[rs_name]["debug"].extend(leg_debug)
 
-                    # Track run sheets with and without vehicles
-                    if vehicle:
-                        if reused:
-                            result["reused"].append(rs_name)
+                        # Track run sheets with and without vehicles
+                        if vehicle:
+                            if reused:
+                                result["reused"].append(rs_name)
+                            else:
+                                result["created_with_vehicle"].append(rs_name)
                         else:
-                            result["created_with_vehicle"].append(rs_name)
-                    else:
-                        if reused:
-                            result["reused"].append(rs_name)
-                        else:
-                            result["created_without_vehicle"].append(rs_name)
-                    
-                    # Keep backward compatibility
-                    (result["reused"] if reused else result["created"]).append(rs_name)
-                    
-                    # Track consolidation if present
-                    if consolidation:
-                        consol_info = {
-                            "consolidation": consolidation["name"],
-                            "run_sheet": rs_name,
-                            "legs_count": len(trip["legs"])
-                        }
+                            if reused:
+                                result["reused"].append(rs_name)
+                            else:
+                                result["created_without_vehicle"].append(rs_name)
                         
-                        # Check if this is an existing consolidation or newly created
-                        if trip.get("_is_existing_consolidation"):
-                            result["consolidations_processed"].append(consol_info)
-                        else:
-                            consol_info["load_type"] = trip.get("load_type")
-                            result["consolidations_created"].append(consol_info)
-                            result["load_type_consolidations"] += 1
+                        # Keep backward compatibility
+                        (result["reused"] if reused else result["created"]).append(rs_name)
 
-                except Exception as e:
-                    result["errors"].append(f"Trip consolidation failed: {cstr(e)}")
-                    continue
-        else:
-            # Original logic: one run sheet per leg
-            for leg in day_legs:
-                leg_debug: List[str] = []
-                try:
-                    vehicle = _find_candidate_vehicle(leg, leg_debug)
-                    driver = None
-                    
-                    if vehicle:
-                        driver = _find_candidate_driver(leg, vehicle, leg_debug)
-                        if not driver:
-                            leg_debug.append("No driver available for the selected vehicle.")
-                    else:
-                        leg_debug.append("No vehicle available for this leg.")
-
-                    # Create run sheet with or without vehicle/driver
-                    rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug)
-
-                    # Append child row: set transport_leg THEN prefill other child fields from the leg
-                    appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
-                    if appended:
-                        result["attached_legs"] += 1
-
-                    if _has_field("Transport Leg", "run_sheet"):
-                        frappe.db.set_value("Transport Leg", leg["name"], "run_sheet", rs_name)
-
-                    # Group legs by Run Sheet for additional leg creation
-                    if rs_name not in runsheet_groups:
-                        runsheet_groups[rs_name] = {
-                            "legs": [],
-                            "reused": reused,
-                            "debug": []
-                        }
-                    runsheet_groups[rs_name]["legs"].append(leg)
-                    runsheet_groups[rs_name]["debug"].extend(leg_debug)
-
-                    # Track run sheets with and without vehicles
-                    if vehicle:
-                        if reused:
-                            result["reused"].append(rs_name)
-                        else:
-                            result["created_with_vehicle"].append(rs_name)
-                    else:
-                        if reused:
-                            result["reused"].append(rs_name)
-                        else:
-                            result["created_without_vehicle"].append(rs_name)
-                    
-                    # Keep backward compatibility
-                    (result["reused"] if reused else result["created"]).append(rs_name)
-
-                except Exception as e:
-                    result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
-                    continue
+                    except Exception as e:
+                        result["errors"].append(f"{_fmt_leg(leg)}: {cstr(e)}")
+                        continue
 
         # Add additional legs (base-to-first-pick, connecting, last-drop-to-base) to each Run Sheet
         for rs_name, group_data in runsheet_groups.items():
@@ -969,26 +1186,59 @@ def _driver_free_on_date(driver_name: str, day: Optional[str]) -> bool:
 
 # ------------------------ Run Sheet & legs ------------------------
 
-def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None, consolidation: Optional[Dict[str, Any]] = None) -> Tuple[str, bool]:
+def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None, consolidation: Optional[Dict[str, Any]] = None, allow_reuse: bool = False) -> Tuple[str, bool]:
+    """
+    Create a new Run Sheet or reuse an existing one.
+    
+    Args:
+        leg: Transport Leg dictionary
+        vehicle: Vehicle dictionary (optional)
+        driver: Driver dictionary (optional)
+        debug: Debug messages list (optional)
+        consolidation: Consolidation dictionary (optional)
+        allow_reuse: If True, allows reusing existing Run Sheets (grouping). If False, always creates new Run Sheet.
+    
+    Returns:
+        Tuple of (run_sheet_name, was_reused)
+    """
     debug = debug or []
     sched = _get_leg_date_value(leg) or nowdate()
     rs_date = f"{sched} 08:00:00"
 
-    # Only try to reuse if we have both vehicle and driver
+    # Try to reuse existing Run Sheet if allow_reuse is True
+    # First try exact match (vehicle + driver + date), then fall back to vehicle + date only
     existing = []
-    if vehicle and driver and _doctype_exists("Run Sheet") and _has_field("Run Sheet", "vehicle") and _has_field("Run Sheet", "driver") and _has_field("Run Sheet", "run_date"):
-        existing = frappe.get_all(
-            "Run Sheet",
-            filters=[
-                ["vehicle", "=", vehicle["name"]],
-                ["driver", "=", driver["name"]],
-                ["run_date", ">=", f"{sched} 00:00:00"],
-                ["run_date", "<=", f"{sched} 23:59:59"],
-                ["docstatus", "<", 2],
-            ],
-            fields=["name"],
-            limit_page_length=1,
-        )
+    if allow_reuse and vehicle and _doctype_exists("Run Sheet") and _has_field("Run Sheet", "vehicle") and _has_field("Run Sheet", "run_date"):
+        # First, try to find Run Sheet with exact match (vehicle + driver + date)
+        if driver and _has_field("Run Sheet", "driver"):
+            existing = frappe.get_all(
+                "Run Sheet",
+                filters=[
+                    ["vehicle", "=", vehicle["name"]],
+                    ["driver", "=", driver["name"]],
+                    ["run_date", ">=", f"{sched} 00:00:00"],
+                    ["run_date", "<=", f"{sched} 23:59:59"],
+                    ["docstatus", "<", 2],
+                ],
+                fields=["name"],
+                limit_page_length=1,
+            )
+        
+        # If no exact match found, try to find Run Sheet with same vehicle and date
+        # This prevents validation errors when vehicle is already assigned
+        if not existing:
+            existing = frappe.get_all(
+                "Run Sheet",
+                filters=[
+                    ["vehicle", "=", vehicle["name"]],
+                    ["run_date", ">=", f"{sched} 00:00:00"],
+                    ["run_date", "<=", f"{sched} 23:59:59"],
+                    ["docstatus", "<", 2],
+                ],
+                fields=["name"],
+                limit_page_length=1,
+            )
+    
     if existing:
         rs_name = existing[0]["name"]
         debug.append(f"Reusing Run Sheet: {rs_name}")

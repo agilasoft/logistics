@@ -228,8 +228,7 @@ async function run_regenerate_carbon(frm) {
   }
 }
 
-// ---------- Route Map (External Links Only) ----------
-// Map-free: uses only external map links (GMaps/OSM/Apple Maps). No Leaflet, no polyline.
+// ---------- Route Map (Uses Map Renderer from Transport Settings) ----------
 async function render_route_map(frm) {
   const $wrapper = frm.get_field('route_map').$wrapper;
   if (!$wrapper) return;
@@ -243,6 +242,21 @@ async function render_route_map(frm) {
   }
 
   try {
+    // Get map renderer setting (same as Run Sheet)
+    let mapRenderer = 'openstreetmap'; // default
+    try {
+      const settings = await frappe.call({
+        method: 'frappe.client.get_value',
+        args: {
+          doctype: 'Transport Settings',
+          fieldname: 'map_renderer'
+        }
+      });
+      mapRenderer = settings.message?.map_renderer || 'openstreetmap';
+    } catch (e) {
+      // Use default
+    }
+
     // Get coordinates for both addresses
     const [pickCoords, dropCoords] = await Promise.all([
       getAddressLatLon(pick),
@@ -257,6 +271,10 @@ async function render_route_map(frm) {
     const distance = frm.doc.route_distance_km ?? frm.doc.distance_km;
     const duration = frm.doc.route_duration_min ?? frm.doc.duration_min;
     
+    // Create unique map container ID
+    const mapId = `transport-leg-map-${frm.doc.name || 'new'}-${Date.now()}`;
+    
+    // Create HTML with map container (same structure as Run Sheet)
     const mapHtml = `
       <div class="text-muted small" style="margin-bottom: 10px; display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap;">
         <a href="https://www.google.com/maps/dir/?api=1&origin=${pickCoords.lat},${pickCoords.lon}&destination=${dropCoords.lat},${dropCoords.lon}" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
@@ -269,29 +287,319 @@ async function render_route_map(frm) {
           <i class="fa fa-external-link"></i> Apple Maps
         </a>
       </div>
-      <div style="padding: 20px; background: #f8f9fa; border-radius: 4px; text-align: center;">
-        <div style="margin-bottom: 15px;">
-          <div style="display: inline-block; margin: 0 15px;">
-            <span style="color: red; font-size: 20px;">●</span> <strong>Pick:</strong> ${pickCoords.lat.toFixed(4)}, ${pickCoords.lon.toFixed(4)}
-          </div>
-          <div style="display: inline-block; margin: 0 15px;">
-            <span style="color: green; font-size: 20px;">●</span> <strong>Drop:</strong> ${dropCoords.lat.toFixed(4)}, ${dropCoords.lon.toFixed(4)}
-          </div>
-        </div>
-        ${distance || duration ? `
-          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-            ${distance ? `<div style="margin: 5px 0;"><i class="fa fa-road"></i> <strong>Distance:</strong> ${fmt_num(distance, 1)} km</div>` : ''}
-            ${duration ? `<div style="margin: 5px 0;"><i class="fa fa-clock-o"></i> <strong>Duration:</strong> ${fmt_num(duration, 0)} min</div>` : ''}
-          </div>
-        ` : ''}
-      </div>
+      <div id="${mapId}" style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
     `;
     
     $wrapper.html(mapHtml);
     
+    // Initialize map based on renderer (same as Run Sheet)
+    // Use the map initialization functions from run_sheet.js
+    const legCoords = [{
+      pick: pickCoords,
+      drop: dropCoords,
+      order: 1
+    }];
+    
+    setTimeout(() => {
+      // Initialize map based on renderer
+      if (mapRenderer && mapRenderer.toLowerCase() === 'google maps') {
+        initializeTransportLegGoogleMap(mapId, legCoords, frm);
+      } else if (mapRenderer && mapRenderer.toLowerCase() === 'mapbox') {
+        initializeTransportLegMapboxMap(mapId, legCoords, frm);
+      } else if (mapRenderer && mapRenderer.toLowerCase() === 'maplibre') {
+        initializeTransportLegMapLibreMap(mapId, legCoords, frm);
+      } else {
+        initializeTransportLegOpenStreetMap(mapId, legCoords, frm);
+      }
+    }, 100);
+    
   } catch (error) {
     console.error('Error rendering route map:', error);
-    $wrapper.html('<div class="text-muted">Unable to load map</div>');
+    if ($wrapper) {
+      $wrapper.html('<div class="text-muted">Unable to load map</div>');
+    }
+  }
+}
+
+// ---------- Single-leg Map Initialization Functions ----------
+
+// Initialize OpenStreetMap for single leg
+function initializeTransportLegOpenStreetMap(mapId, legCoords, frm) {
+  if (!window.L) {
+    const leafletCSS = document.createElement('link');
+    leafletCSS.rel = 'stylesheet';
+    leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    leafletCSS.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    leafletCSS.crossOrigin = 'anonymous';
+    document.head.appendChild(leafletCSS);
+    
+    const leafletJS = document.createElement('script');
+    leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    leafletJS.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    leafletJS.crossOrigin = 'anonymous';
+    leafletJS.onload = () => createTransportLegOpenStreetMap(mapId, legCoords);
+    document.head.appendChild(leafletJS);
+  } else {
+    createTransportLegOpenStreetMap(mapId, legCoords);
+  }
+}
+
+function createTransportLegOpenStreetMap(mapId, legCoords) {
+  const mapElement = document.getElementById(mapId);
+  if (!mapElement) return;
+  
+  const leg = legCoords[0];
+  const centerLat = (leg.pick.lat + leg.drop.lat) / 2;
+  const centerLon = (leg.pick.lon + leg.drop.lon) / 2;
+  
+  const map = L.map(mapId).setView([centerLat, centerLon], 10);
+  
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+  
+  // Add pick marker
+  L.marker([leg.pick.lat, leg.pick.lon], {
+    icon: L.divIcon({
+      className: 'custom-div-icon',
+      html: '<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    })
+  }).addTo(map).bindPopup(`<strong>Pickup</strong><br>Coordinates: ${leg.pick.lat.toFixed(4)}, ${leg.pick.lon.toFixed(4)}`);
+  
+  // Add drop marker
+  L.marker([leg.drop.lat, leg.drop.lon], {
+    icon: L.divIcon({
+      className: 'custom-div-icon',
+      html: '<div style="background-color: green; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    })
+  }).addTo(map).bindPopup(`<strong>Drop</strong><br>Coordinates: ${leg.drop.lat.toFixed(4)}, ${leg.drop.lon.toFixed(4)}`);
+  
+  // Add route line
+  L.polyline([
+    [leg.pick.lat, leg.pick.lon],
+    [leg.drop.lat, leg.drop.lon]
+  ], {
+    color: 'blue',
+    weight: 3,
+    opacity: 0.6
+  }).addTo(map);
+  
+  map.fitBounds([
+    [leg.pick.lat, leg.pick.lon],
+    [leg.drop.lat, leg.drop.lon]
+  ], { padding: [50, 50] });
+}
+
+// Initialize Google Maps for single leg
+function initializeTransportLegGoogleMap(mapId, legCoords, frm) {
+  const leg = legCoords[0];
+  const mapElement = document.getElementById(mapId);
+  if (!mapElement) return;
+  
+  frappe.call({
+    method: 'logistics.transport.api_vehicle_tracking.get_google_maps_api_key'
+  }).then(response => {
+    const apiKey = response.message?.api_key;
+    if (apiKey && apiKey.length > 10) {
+      // Load Google Maps JS API first
+      if (window.google && window.google.maps) {
+        loadGoogleRouteAndMap(mapId, leg, apiKey);
+      } else {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => loadGoogleRouteAndMap(mapId, leg, apiKey);
+        script.onerror = () => {
+          mapElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #6c757d;">Failed to load Google Maps API</div>';
+        };
+        document.head.appendChild(script);
+      }
+    } else {
+      mapElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #6c757d;">Google Maps API key not configured</div>';
+    }
+  }).catch((error) => {
+    console.error('Error getting Google Maps API key:', error);
+    mapElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #6c757d;">Error loading Google Maps</div>';
+  });
+}
+
+function loadGoogleRouteAndMap(mapId, leg, apiKey) {
+  const waypointStr = `${leg.pick.lat},${leg.pick.lon}|${leg.drop.lat},${leg.drop.lon}`;
+  
+  frappe.call({
+    method: 'logistics.transport.api_vehicle_tracking.get_google_route_polyline',
+    args: { waypoints: waypointStr }
+  }).then(polylineResponse => {
+    const mapElement = document.getElementById(mapId);
+    if (!mapElement) return;
+    
+    if (polylineResponse.message && polylineResponse.message.success && polylineResponse.message.routes && polylineResponse.message.routes.length > 0) {
+      const route = polylineResponse.message.routes[0];
+      createTransportLegGoogleMap(mapId, route, leg, apiKey);
+    } else {
+      // Fallback: create map without route polyline (just markers and straight line)
+      console.warn('Route polyline not available, showing fallback map');
+      createTransportLegGoogleMapFallback(mapId, leg, apiKey);
+    }
+  }).catch((error) => {
+    console.error('Error getting route polyline:', error);
+    const mapElement = document.getElementById(mapId);
+    if (mapElement) {
+      // Fallback: create map without route polyline
+      createTransportLegGoogleMapFallback(mapId, leg, apiKey);
+    }
+  });
+}
+
+function createTransportLegGoogleMap(mapId, route, leg, apiKey) {
+  const mapElement = document.getElementById(mapId);
+  if (!mapElement || !window.google || !window.google.maps) return;
+  
+  const map = new google.maps.Map(mapElement, {
+    zoom: 10,
+    center: { lat: (leg.pick.lat + leg.drop.lat) / 2, lng: (leg.pick.lon + leg.drop.lon) / 2 }
+  });
+  
+  // Add route polyline if available
+  if (route && route.polyline) {
+    try {
+      const decodedPath = google.maps.geometry.encoding.decodePath(route.polyline);
+      const routePath = new google.maps.Polyline({
+        path: decodedPath,
+        geodesic: true,
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
+      routePath.setMap(map);
+    } catch (e) {
+      console.warn('Error decoding polyline, using straight line:', e);
+      // Fallback to straight line
+      const straightLine = new google.maps.Polyline({
+        path: [
+          { lat: leg.pick.lat, lng: leg.pick.lon },
+          { lat: leg.drop.lat, lng: leg.drop.lon }
+        ],
+        geodesic: true,
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
+      straightLine.setMap(map);
+    }
+  } else {
+    // No polyline, use straight line
+    const straightLine = new google.maps.Polyline({
+      path: [
+        { lat: leg.pick.lat, lng: leg.pick.lon },
+        { lat: leg.drop.lat, lng: leg.drop.lon }
+      ],
+      geodesic: true,
+      strokeColor: '#4285F4',
+      strokeOpacity: 0.8,
+      strokeWeight: 4
+    });
+    straightLine.setMap(map);
+  }
+  
+  // Add pick marker
+  new google.maps.Marker({
+    position: { lat: leg.pick.lat, lng: leg.pick.lon },
+    map: map,
+    label: { text: 'P', color: 'white' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: 'red', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
+  });
+  
+  // Add drop marker
+  new google.maps.Marker({
+    position: { lat: leg.drop.lat, lng: leg.drop.lon },
+    map: map,
+    label: { text: 'D', color: 'white' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: 'green', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
+  });
+  
+  const bounds = new google.maps.LatLngBounds();
+  bounds.extend({ lat: leg.pick.lat, lng: leg.pick.lon });
+  bounds.extend({ lat: leg.drop.lat, lng: leg.drop.lon });
+  map.fitBounds(bounds);
+}
+
+function createTransportLegGoogleMapFallback(mapId, leg, apiKey) {
+  const mapElement = document.getElementById(mapId);
+  if (!mapElement || !window.google || !window.google.maps) return;
+  
+  const map = new google.maps.Map(mapElement, {
+    zoom: 10,
+    center: { lat: (leg.pick.lat + leg.drop.lat) / 2, lng: (leg.pick.lon + leg.drop.lon) / 2 }
+  });
+  
+  // Use DirectionsService to get route
+  const directionsService = new google.maps.DirectionsService();
+  const directionsRenderer = new google.maps.DirectionsRenderer();
+  directionsRenderer.setMap(map);
+  
+  directionsService.route({
+    origin: { lat: leg.pick.lat, lng: leg.pick.lon },
+    destination: { lat: leg.drop.lat, lng: leg.drop.lon },
+    travelMode: google.maps.TravelMode.DRIVING
+  }, (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+    } else {
+      // Final fallback: just show markers and straight line
+      const straightLine = new google.maps.Polyline({
+        path: [
+          { lat: leg.pick.lat, lng: leg.pick.lon },
+          { lat: leg.drop.lat, lng: leg.drop.lon }
+        ],
+        geodesic: true,
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
+      straightLine.setMap(map);
+      
+      new google.maps.Marker({
+        position: { lat: leg.pick.lat, lng: leg.pick.lon },
+        map: map,
+        label: { text: 'P', color: 'white' },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: 'red', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
+      });
+      
+      new google.maps.Marker({
+        position: { lat: leg.drop.lat, lng: leg.drop.lon },
+        map: map,
+        label: { text: 'D', color: 'white' },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: 'green', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
+      });
+      
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend({ lat: leg.pick.lat, lng: leg.pick.lon });
+      bounds.extend({ lat: leg.drop.lat, lng: leg.drop.lon });
+      map.fitBounds(bounds);
+    }
+  });
+}
+
+// Initialize Mapbox for single leg (placeholder - can be implemented similarly)
+function initializeTransportLegMapboxMap(mapId, legCoords, frm) {
+  const mapElement = document.getElementById(mapId);
+  if (mapElement) {
+    mapElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #6c757d;">Mapbox map initialization not yet implemented for single legs</div>';
+  }
+}
+
+// Initialize MapLibre for single leg (placeholder - can be implemented similarly)
+function initializeTransportLegMapLibreMap(mapId, legCoords, frm) {
+  const mapElement = document.getElementById(mapId);
+  if (mapElement) {
+    mapElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #6c757d;">MapLibre map initialization not yet implemented for single legs</div>';
   }
 }
 
@@ -309,7 +617,10 @@ frappe.ui.form.on('Transport Leg', {
     set_drop_query(frm);
     render_pick_address(frm);
     render_drop_address(frm);
+    
+    // Try to render map - with delay in case field isn't ready yet
     render_route_map(frm);
+    setTimeout(() => render_route_map(frm), 500);
 
     addActionButtons(frm);
 
