@@ -665,7 +665,7 @@ class AirConsolidation(Document):
         # Warn if consolidation date is in the future
         if self.consolidation_date:
             from frappe.utils import getdate, today
-            if getdate(self.consolidation_date) > today():
+            if getdate(self.consolidation_date) > getdate(today()):
                 frappe.msgprint(_("Consolidation date is in the future. Please verify this is correct."), 
                     indicator="orange", title=_("Date Warning"))
     

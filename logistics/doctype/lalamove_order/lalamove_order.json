@@ -1,0 +1,267 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "lalamove_order_id",
+  "quotation_id",
+  "source_section",
+  "source_doctype",
+  "source_docname",
+  "module_links_section",
+  "transport_order",
+  "transport_job",
+  "transport_leg",
+  "column_break_modules",
+  "warehouse_job",
+  "air_shipment",
+  "air_booking",
+  "sea_shipment",
+  "sea_booking",
+  "order_details_section",
+  "status",
+  "price",
+  "currency",
+  "distance",
+  "column_break_order",
+  "scheduled_at",
+  "completed_at",
+  "driver_section",
+  "driver_name",
+  "driver_phone",
+  "driver_photo",
+  "column_break_driver",
+  "vehicle_type",
+  "vehicle_number",
+  "delivery_section",
+  "proof_of_delivery",
+  "metadata",
+  "error_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "LLO-.#########"
+  },
+  {
+   "fieldname": "lalamove_order_id",
+   "fieldtype": "Data",
+   "label": "Lalamove Order ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "quotation_id",
+   "fieldtype": "Link",
+   "label": "Quotation",
+   "options": "Lalamove Quotation"
+  },
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Source Document"
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Select",
+   "label": "Source DocType",
+   "options": "Transport Order\nTransport Job\nTransport Leg\nWarehouse Job\nAir Shipment\nAir Booking\nSea Shipment\nSea Booking",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_docname",
+   "fieldtype": "Dynamic Link",
+   "label": "Source Document",
+   "options": "source_doctype",
+   "reqd": 1
+  },
+  {
+   "fieldname": "module_links_section",
+   "fieldtype": "Section Break",
+   "label": "Module Links"
+  },
+  {
+   "fieldname": "transport_order",
+   "fieldtype": "Link",
+   "label": "Transport Order",
+   "options": "Transport Order"
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "label": "Transport Job",
+   "options": "Transport Job"
+  },
+  {
+   "fieldname": "transport_leg",
+   "fieldtype": "Link",
+   "label": "Transport Leg",
+   "options": "Transport Leg"
+  },
+  {
+   "fieldname": "column_break_modules",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "warehouse_job",
+   "fieldtype": "Link",
+   "label": "Warehouse Job",
+   "options": "Warehouse Job"
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment"
+  },
+  {
+   "fieldname": "air_booking",
+   "fieldtype": "Link",
+   "label": "Air Booking",
+   "options": "Air Booking"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment"
+  },
+  {
+   "fieldname": "sea_booking",
+   "fieldtype": "Link",
+   "label": "Sea Booking",
+   "options": "Sea Booking"
+  },
+  {
+   "fieldname": "order_details_section",
+   "fieldtype": "Section Break",
+   "label": "Order Details"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "ASSIGNING_DRIVER\nON_GOING\nPICKED_UP\nCOMPLETED\nCANCELLED\nEXPIRED",
+   "reqd": 1
+  },
+  {
+   "fieldname": "price",
+   "fieldtype": "Currency",
+   "label": "Price"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "distance",
+   "fieldtype": "Float",
+   "label": "Distance (km)"
+  },
+  {
+   "fieldname": "column_break_order",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scheduled_at",
+   "fieldtype": "Datetime",
+   "label": "Scheduled At"
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At"
+  },
+  {
+   "fieldname": "driver_section",
+   "fieldtype": "Section Break",
+   "label": "Driver Information"
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "label": "Driver Name"
+  },
+  {
+   "fieldname": "driver_phone",
+   "fieldtype": "Data",
+   "label": "Driver Phone"
+  },
+  {
+   "fieldname": "driver_photo",
+   "fieldtype": "Data",
+   "label": "Driver Photo URL"
+  },
+  {
+   "fieldname": "column_break_driver",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Data",
+   "label": "Vehicle Type"
+  },
+  {
+   "fieldname": "vehicle_number",
+   "fieldtype": "Data",
+   "label": "Vehicle Number"
+  },
+  {
+   "fieldname": "delivery_section",
+   "fieldtype": "Section Break",
+   "label": "Delivery"
+  },
+  {
+   "fieldname": "proof_of_delivery",
+   "fieldtype": "Attach",
+   "label": "Proof of Delivery"
+  },
+  {
+   "fieldname": "metadata",
+   "fieldtype": "JSON",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Text",
+   "label": "Error Message"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Lalamove Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Logistics User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+
+

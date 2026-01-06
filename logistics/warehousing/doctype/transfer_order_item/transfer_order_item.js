@@ -5,6 +5,13 @@ frappe.ui.form.on('Transfer Order Item', {
     refresh: function(frm) {
         update_uom_fields(frm);
     },
+    item: function(frm) {
+        // When item is selected, dimensions and weight are fetched via fetch_from
+        // Trigger volume calculation after a short delay to allow fetch_from to complete
+        setTimeout(function() {
+            calculate_volume(frm);
+        }, 100);
+    },
     length: function(frm) {
         calculate_volume(frm);
     },
@@ -12,6 +19,12 @@ frappe.ui.form.on('Transfer Order Item', {
         calculate_volume(frm);
     },
     height: function(frm) {
+        calculate_volume(frm);
+    },
+    dimension_uom: function(frm) {
+        calculate_volume(frm);
+    },
+    volume_uom: function(frm) {
         calculate_volume(frm);
     }
 });
@@ -59,7 +72,34 @@ function calculate_volume(frm) {
     const height = parseFloat(frm.doc.height) || 0;
     
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        frm.set_value("volume", volume);
+        // Get UOMs from form or warehouse settings
+        const dimension_uom = frm.get_value('dimension_uom');
+        const volume_uom = frm.get_value('volume_uom');
+        const company = frappe.defaults.get_user_default("Company");
+        
+        // Call server-side method to calculate volume with UOM conversion
+        frappe.call({
+            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    frm.set_value("volume", r.message.volume);
+                }
+            },
+            error: function(r) {
+                // Fallback to raw calculation on error
+                const volume = length * width * height;
+                frm.set_value("volume", volume);
+            }
+        });
+    } else {
+        frm.set_value("volume", 0);
     }
 }

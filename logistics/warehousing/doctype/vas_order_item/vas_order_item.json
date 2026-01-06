@@ -124,18 +124,21 @@
    "label": "Dimensions & Weight"
   },
   {
+   "fetch_from": "item.length",
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
    "precision": "3"
   },
   {
+   "fetch_from": "item.width",
    "fieldname": "width",
    "fieldtype": "Float",
    "label": "Width",
    "precision": "3"
   },
   {
+   "fetch_from": "item.height",
    "fieldname": "height",
    "fieldtype": "Float",
    "label": "Height",
@@ -148,6 +151,7 @@
    "precision": "3"
   },
   {
+   "fetch_from": "item.weight",
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",

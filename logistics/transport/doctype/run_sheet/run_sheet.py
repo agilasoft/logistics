@@ -213,47 +213,96 @@ class RunSheet(Document):
 			))
 	
 	def validate_legs_compatibility(self):
-		"""Validate that all legs are compatible (same vehicle type, reasonable date range)"""
+		"""
+		Validate that all legs are compatible:
+		- All legs must share the same transport_vehicle (via vehicle_type)
+		- All legs must share the same scheduled/run date
+		"""
 		if not self.legs or len(self.legs) < 2:
 			return
 		
-		# Get vehicle types from all legs
+		from frappe.utils import getdate
+		
+		# Collect vehicle types and dates from all legs
 		vehicle_types = set()
+		leg_run_dates = []
 		leg_dates = []
+		leg_names = []
 		
 		for row in self.legs:
 			if not row.transport_leg:
 				continue
 			
 			leg_doc = frappe.get_doc("Transport Leg", row.transport_leg)
+			leg_names.append(leg_doc.name)
+			
+			# Collect vehicle types
 			if leg_doc.vehicle_type:
 				vehicle_types.add(leg_doc.vehicle_type)
 			
-			# Collect dates for range check
-			if hasattr(leg_doc, "pick_window_start") and leg_doc.pick_window_start:
-				from frappe.utils import getdate
-				leg_dates.append(getdate(leg_doc.pick_window_start))
-			if hasattr(leg_doc, "drop_window_end") and leg_doc.drop_window_end:
-				from frappe.utils import getdate
-				leg_dates.append(getdate(leg_doc.drop_window_end))
+			# Collect run_date (preferred) or date (fallback) for scheduled/run date validation
+			leg_date = None
+			if hasattr(leg_doc, "run_date") and leg_doc.run_date:
+				leg_date = getdate(leg_doc.run_date)
+				leg_run_dates.append((leg_doc.name, leg_date, "run_date"))
+			elif hasattr(leg_doc, "date") and leg_doc.date:
+				leg_date = getdate(leg_doc.date)
+				leg_dates.append((leg_doc.name, leg_date, "date"))
 		
-		# Warn if legs have different vehicle types
+		# Validate: All legs must have the same vehicle_type
 		if len(vehicle_types) > 1:
-			frappe.msgprint(_("Warning: Legs have different vehicle types ({0}). This may cause issues.").format(
-				", ".join(vehicle_types)
-			), indicator="orange")
+			vehicle_types_list = sorted(list(vehicle_types))
+			frappe.throw(
+				_("Cannot group legs with different vehicle types. "
+				  "Legs have the following vehicle types: {0}. "
+				  "All legs must share the same vehicle type to be grouped in a Run Sheet.").format(
+					", ".join(vehicle_types_list)
+				),
+				title=_("Vehicle Type Mismatch")
+			)
 		
-		# Warn if legs span more than 7 days
-		if leg_dates:
-			from frappe.utils import getdate
-			min_date = min(leg_dates)
-			max_date = max(leg_dates)
-			days_span = (max_date - min_date).days
+		# Validate: All legs must have the same scheduled/run date
+		all_dates = leg_run_dates + leg_dates
+		if len(all_dates) > 1:
+			# Get unique dates
+			unique_dates = set(date for _, date, _ in all_dates)
+			if len(unique_dates) > 1:
+				# Find legs with mismatched dates for error message
+				date_groups = {}
+				for leg_name, date, date_type in all_dates:
+					date_str = str(date)
+					if date_str not in date_groups:
+						date_groups[date_str] = []
+					date_groups[date_str].append((leg_name, date_type))
+				
+				# Build error message showing which legs have which dates
+				date_details = []
+				for date_str, legs in sorted(date_groups.items()):
+					leg_list = ", ".join([f"{name} ({dt})" for name, dt in legs])
+					date_details.append(f"Date {date_str}: {leg_list}")
+				
+				frappe.throw(
+					_("Cannot group legs with different scheduled/run dates. "
+					  "All legs must share the same scheduled or run date to be grouped in a Run Sheet.\n\n"
+					  "Date mismatches found:\n{0}").format("\n".join(date_details)),
+					title=_("Date Mismatch")
+				)
+		
+		# Additional validation: If Run Sheet has a vehicle assigned, verify it matches leg vehicle types
+		if self.vehicle and vehicle_types:
+			vehicle_doc = frappe.get_doc("Transport Vehicle", self.vehicle)
+			vehicle_vehicle_type = getattr(vehicle_doc, "vehicle_type", None)
 			
-			if days_span > 7:
-				frappe.msgprint(_("Warning: Legs span {0} days. This may indicate a scheduling issue.").format(
-					days_span
-				), indicator="orange")
+			if vehicle_vehicle_type and vehicle_vehicle_type not in vehicle_types:
+				frappe.throw(
+					_("The assigned vehicle ({0}) has vehicle type '{1}', but the legs require vehicle type '{2}'. "
+					  "Please assign a vehicle with the correct vehicle type or remove legs with incompatible vehicle types.").format(
+						self.vehicle,
+						vehicle_vehicle_type,
+						", ".join(sorted(vehicle_types))
+					),
+					title=_("Vehicle Type Incompatibility")
+				)
 	
 	def update_legs_missing_data(self):
 		"""Update missing data in legs by fetching from Transport Leg"""
@@ -650,3 +699,272 @@ def fetch_missing_leg_data(run_sheet_name):
 		"updated_count": updated_count,
 		"message": _("Updated {0} leg(s) with missing data").format(updated_count)
 	}
+
+
+def _get_primary_address(facility_type, facility_name):
+	"""Get the primary address for a facility or terminal"""
+	if not facility_type or not facility_name:
+		return None
+	
+	try:
+		# For Transport Terminal, use the address field directly
+		if facility_type == "Transport Terminal":
+			terminal_doc = frappe.get_doc("Transport Terminal", facility_name)
+			if terminal_doc.address:
+				return terminal_doc.address
+			# If address field is not set, fall through to linked addresses
+		
+		# Map facility types to their primary address field names
+		primary_address_fields = {
+			"Shipper": "shipper_primary_address",
+			"Consignee": "consignee_primary_address", 
+			"Container Yard": "containeryard_primary_address",
+			"Container Depot": "containerdepot_primary_address",
+			"Container Freight Station": "cfs_primary_address"
+		}
+		
+		# Get the primary address field name for this facility type
+		primary_address_field = primary_address_fields.get(facility_type)
+		
+		if primary_address_field:
+			# Get the facility document and its primary address
+			facility_doc = frappe.get_doc(facility_type, facility_name)
+			primary_address = getattr(facility_doc, primary_address_field, None)
+			
+			if primary_address:
+				return primary_address
+		
+		# Fallback: Get addresses linked to this facility/terminal
+		addresses = frappe.get_all("Address",
+			filters={
+				"link_doctype": facility_type,
+				"link_name": facility_name
+			},
+			fields=["name", "is_primary_address", "is_shipping_address"],
+			order_by="is_primary_address DESC, is_shipping_address DESC, creation ASC"
+		)
+		
+		if addresses:
+			# Return the primary address, or shipping address, or first address
+			for address in addresses:
+				if address.is_primary_address or address.is_shipping_address:
+					return address.name
+			return addresses[0].name
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting primary address for {facility_type} {facility_name}: {str(e)}")
+	
+	return None
+
+
+@frappe.whitelist()
+def create_support_legs(run_sheet_name):
+	"""
+	Create support legs for a Run Sheet:
+	- Dispatch Leg: From Dispatch Terminal to First Pickup
+	- Connecting Legs: From each Drop Location to Next Pickup
+	- Return Leg: From Last Drop to Return Terminal
+	"""
+	if not run_sheet_name:
+		frappe.throw(_("Run Sheet name is required"))
+	
+	try:
+		rs = frappe.get_doc("Run Sheet", run_sheet_name)
+		
+		# Validate required fields
+		if not rs.dispatch_terminal:
+			frappe.throw(_("Dispatch Terminal is required to create support legs"))
+		
+		if not rs.return_terminal:
+			frappe.throw(_("Return Terminal is required to create support legs"))
+		
+		if not rs.legs or len(rs.legs) == 0:
+			frappe.throw(_("No legs found in this Run Sheet. Please add legs first."))
+		
+		created_legs = []
+		
+		# Get all legs with their Transport Leg details
+		legs_data = []
+		for leg_row in rs.legs:
+			if not leg_row.transport_leg:
+				continue
+			
+			leg_doc = frappe.get_doc("Transport Leg", leg_row.transport_leg)
+			legs_data.append({
+				"transport_leg": leg_row.transport_leg,
+				"transport_job": leg_doc.transport_job,
+				"facility_type_from": leg_doc.facility_type_from,
+				"facility_from": leg_doc.facility_from,
+				"pick_address": leg_doc.pick_address,
+				"facility_type_to": leg_doc.facility_type_to,
+				"facility_to": leg_doc.facility_to,
+				"drop_address": leg_doc.drop_address,
+				"vehicle_type": leg_doc.vehicle_type,
+				"run_date": leg_doc.run_date or rs.run_date,
+				"order": leg_doc.order or len(legs_data) + 1
+			})
+		
+		if not legs_data:
+			frappe.throw(_("No valid legs found in this Run Sheet"))
+		
+		# Sort legs by order
+		legs_data.sort(key=lambda x: x.get("order", 999))
+		
+		first_leg = legs_data[0]
+		last_leg = legs_data[-1]
+		
+		# 1. Create Dispatch Leg: From Dispatch Terminal to First Pickup
+		if first_leg.get("facility_type_from") and first_leg.get("facility_from"):
+			dispatch_leg = frappe.new_doc("Transport Leg")
+			dispatch_leg.leg_type = "Dispatch"
+			dispatch_leg.run_sheet = rs.name
+			dispatch_leg.transport_job = first_leg.get("transport_job")
+			dispatch_leg.run_date = first_leg.get("run_date")
+			dispatch_leg.vehicle_type = first_leg.get("vehicle_type") or rs.vehicle_type
+			
+			# Set from dispatch terminal
+			dispatch_leg.facility_type_from = "Transport Terminal"
+			dispatch_leg.facility_from = rs.dispatch_terminal
+			dispatch_address = _get_primary_address("Transport Terminal", rs.dispatch_terminal)
+			if dispatch_address:
+				dispatch_leg.pick_address = dispatch_address
+			
+			# Set to first pickup location
+			dispatch_leg.facility_type_to = first_leg.get("facility_type_from")
+			dispatch_leg.facility_to = first_leg.get("facility_from")
+			if first_leg.get("pick_address"):
+				dispatch_leg.drop_address = first_leg.get("pick_address")
+			
+			# Set order to be before the first leg
+			dispatch_leg.order = (first_leg.get("order", 1) or 1) - 1
+			
+			dispatch_leg.insert(ignore_permissions=True)
+			created_legs.append({"type": "Dispatch", "name": dispatch_leg.name})
+		
+		# 2. Create Connecting Legs: From each Drop Location to Next Pickup
+		# Collect connecting legs to create, then insert them in reverse order to avoid order conflicts
+		connecting_legs_to_create = []
+		for i in range(len(legs_data) - 1):
+			current_leg = legs_data[i]
+			next_leg = legs_data[i + 1]
+			
+			# Only create connecting leg if drop and next pickup are different locations
+			if (current_leg.get("facility_type_to") and current_leg.get("facility_to") and
+				next_leg.get("facility_type_from") and next_leg.get("facility_from") and
+				(current_leg.get("facility_to") != next_leg.get("facility_from") or
+				 current_leg.get("facility_type_to") != next_leg.get("facility_type_from"))):
+				
+				connecting_legs_to_create.append({
+					"current_leg": current_leg,
+					"next_leg": next_leg,
+					"index": i
+				})
+		
+		# Create connecting legs in reverse order and shift subsequent leg orders
+		for conn_info in reversed(connecting_legs_to_create):
+			current_leg = conn_info["current_leg"]
+			next_leg = conn_info["next_leg"]
+			i = conn_info["index"]
+			
+			# Shift all subsequent legs' orders by 1
+			for j in range(i + 1, len(legs_data)):
+				subsequent_leg_name = legs_data[j].get("transport_leg")
+				if subsequent_leg_name:
+					current_order = legs_data[j].get("order", j + 1) or (j + 1)
+					frappe.db.set_value("Transport Leg", subsequent_leg_name, "order", current_order + 1, update_modified=False)
+					legs_data[j]["order"] = current_order + 1
+			
+			# Create connecting leg
+			connecting_leg = frappe.new_doc("Transport Leg")
+			connecting_leg.leg_type = "Connecting"
+			connecting_leg.run_sheet = rs.name
+			connecting_leg.transport_job = next_leg.get("transport_job")
+			connecting_leg.run_date = next_leg.get("run_date")
+			connecting_leg.vehicle_type = next_leg.get("vehicle_type") or rs.vehicle_type
+			
+			# Set from current leg's drop location
+			connecting_leg.facility_type_from = current_leg.get("facility_type_to")
+			connecting_leg.facility_from = current_leg.get("facility_to")
+			if current_leg.get("drop_address"):
+				connecting_leg.pick_address = current_leg.get("drop_address")
+			
+			# Set to next leg's pickup location
+			connecting_leg.facility_type_to = next_leg.get("facility_type_from")
+			connecting_leg.facility_to = next_leg.get("facility_from")
+			if next_leg.get("pick_address"):
+				connecting_leg.drop_address = next_leg.get("pick_address")
+			
+			# Set order between current and next leg
+			current_order = current_leg.get("order", i + 1) or (i + 1)
+			connecting_leg.order = current_order + 1
+			
+			connecting_leg.insert(ignore_permissions=True)
+			created_legs.append({"type": "Connecting", "name": connecting_leg.name})
+		
+		# 3. Create Return Leg: From Last Drop to Return Terminal
+		if last_leg.get("facility_type_to") and last_leg.get("facility_to"):
+			return_leg = frappe.new_doc("Transport Leg")
+			return_leg.leg_type = "Return"
+			return_leg.run_sheet = rs.name
+			return_leg.transport_job = last_leg.get("transport_job")
+			return_leg.run_date = last_leg.get("run_date")
+			return_leg.vehicle_type = last_leg.get("vehicle_type") or rs.vehicle_type
+			
+			# Set from last drop location
+			return_leg.facility_type_from = last_leg.get("facility_type_to")
+			return_leg.facility_to = last_leg.get("facility_to")
+			if last_leg.get("drop_address"):
+				return_leg.pick_address = last_leg.get("drop_address")
+			
+			# Set to return terminal
+			return_leg.facility_type_to = "Transport Terminal"
+			return_leg.facility_to = rs.return_terminal
+			return_address = _get_primary_address("Transport Terminal", rs.return_terminal)
+			if return_address:
+				return_leg.drop_address = return_address
+			
+			# Set order to be after the last leg
+			return_leg.order = (last_leg.get("order", len(legs_data)) or len(legs_data)) + 1
+			
+			return_leg.insert(ignore_permissions=True)
+			created_legs.append({"type": "Return", "name": return_leg.name})
+		
+		# Add created legs to Run Sheet's legs child table
+		for leg_info in created_legs:
+			leg_name = leg_info["name"]
+			# Check if leg already exists in child table
+			exists = False
+			for row in rs.legs:
+				if row.transport_leg == leg_name:
+					exists = True
+					break
+			
+			if not exists:
+				rs.append("legs", {
+					"transport_leg": leg_name,
+					# Other fields will be auto-fetched via fetch_from
+				})
+		
+		# Save Run Sheet to persist the new legs in child table
+		rs.save(ignore_permissions=True)
+		
+		# Commit changes
+		frappe.db.commit()
+		
+		# Refresh the Run Sheet to show new legs
+		rs.reload()
+		
+		return {
+			"status": "success",
+			"message": _("Created {0} support leg(s)").format(len(created_legs)),
+			"legs_created": len(created_legs),
+			"legs": created_legs
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error creating support legs for Run Sheet {run_sheet_name}: {str(e)}")
+		frappe.db.rollback()
+		return {
+			"status": "error",
+			"message": str(e)
+		}

@@ -6,10 +6,13 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_7_tab",
+  "route_map",
+  "details_tab",
   "section_break_fcp1",
-  "status",
-  "amended_from",
   "naming_series",
+  "leg_type",
+  "amended_from",
   "date",
   "priority",
   "run_date",
@@ -20,6 +23,7 @@
   "hazardous",
   "refrigeration",
   "column_break_jewt",
+  "status",
   "order",
   "run_sheet",
   "sales_invoice",
@@ -61,8 +65,6 @@
   "column_break_yocf",
   "routing_provider",
   "routing_profile",
-  "tab_7_tab",
-  "route_map",
   "telematics_tab",
   "eta_at_drop",
   "remaining_km",
@@ -122,7 +124,7 @@
    "fieldname": "facility_type_from",
    "fieldtype": "Link",
    "label": "Facility Type From",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\",\"Terminal\"]]]",
    "options": "DocType"
   },
   {
@@ -139,7 +141,7 @@
    "fieldname": "facility_type_to",
    "fieldtype": "Link",
    "label": "Facility Type To",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\",\"Terminal\"]]]",
    "options": "DocType"
   },
   {
@@ -588,13 +590,24 @@
    "fieldname": "exception_handling_notes",
    "fieldtype": "Text Editor",
    "label": "Exception Handling Notes"
+  },
+  {
+   "fieldname": "leg_type",
+   "fieldtype": "Select",
+   "label": "Leg Type",
+   "options": "Job\nConnecting\nDispatch\nBackhaul\nReturn"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-12-18 16:31:26.569889",
+ "modified": "2026-01-04 10:17:53.031554",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Leg",

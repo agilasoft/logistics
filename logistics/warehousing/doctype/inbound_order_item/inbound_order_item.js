@@ -13,6 +13,12 @@ frappe.ui.form.on('Inbound Order Item', {
     },
     height: function(frm) {
         calculate_volume(frm);
+    },
+    dimension_uom: function(frm) {
+        calculate_volume(frm);
+    },
+    volume_uom: function(frm) {
+        calculate_volume(frm);
     }
 });
 

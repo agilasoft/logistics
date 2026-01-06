@@ -47,14 +47,14 @@ class AirFreightRate(Document):
     def get_rate_info(self):
         """Get rate information for display."""
         return {
-            'rate_name': self.rate_name,
+            'rate_name': getattr(self, 'name', None),  # Use document name if rate_name doesn't exist
             'calculation_method': self.calculation_method,
             'rate_value': self.rate_value,
             'currency': self.currency,
-            'origin_airport': self.origin_airport,
-            'destination_airport': self.destination_airport,
-            'airline': self.airline,
+            'origin_airport': getattr(self, 'origin_airport', None),
+            'destination_airport': getattr(self, 'destination_airport', None),
+            'airline': getattr(self, 'airline', None),
             'valid_from': self.valid_from,
-            'valid_to': self.valid_to,
-            'is_active': self.is_active
+            'valid_to': getattr(self, 'valid_to', None),
+            'is_active': getattr(self, 'is_active', 1)
         }

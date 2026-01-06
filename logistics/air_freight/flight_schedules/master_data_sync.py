@@ -5,8 +5,8 @@
 """
 Master Data Synchronization
 Syncs between:
-- Airline Master ↔ Airline
-- Airport Master ↔ Location
+- Airline Master → Airline (for migration)
+- Airport Master → UNLOCO (for migration)
 """
 
 from __future__ import unicode_literals
@@ -39,8 +39,39 @@ def sync_airline_master_to_airline(airline_master_name: str) -> Optional[str]:
 			# Update existing
 			airline = frappe.get_doc("Airline", existing)
 			airline.airline_name = airline_master.airline_name
-			if airline_master.icao_code and not airline.three_letter_numeric_code:
+			if airline_master.icao_code:
 				airline.three_letter_numeric_code = airline_master.icao_code
+				airline.icao_code = airline_master.icao_code
+			# Update IATA Integration tab fields
+			airline.iata_code = airline_master.iata_code
+			airline.callsign = airline_master.callsign
+			airline.country = airline_master.country
+			airline.airline_type = airline_master.airline_type
+			airline.is_active = airline_master.is_active
+			airline.is_cargo_carrier = airline_master.is_cargo_carrier
+			airline.is_passenger_carrier = airline_master.is_passenger_carrier
+			airline.supports_dangerous_goods = airline_master.supports_dangerous_goods
+			airline.supports_live_animals = airline_master.supports_live_animals
+			airline.supports_refrigerated = airline_master.supports_refrigerated
+			airline.supports_oversized = airline_master.supports_oversized
+			# Contact info
+			airline.website = airline_master.website
+			airline.phone = airline_master.phone
+			airline.email = airline_master.email
+			airline.address_line_1 = airline_master.address_line_1
+			airline.address_line_2 = airline_master.address_line_2
+			airline.city = airline_master.city
+			airline.postal_code = airline_master.postal_code
+			# API integration
+			airline.has_api_integration = airline_master.has_api_integration
+			airline.api_endpoint = airline_master.api_endpoint
+			airline.api_key = airline_master.api_key
+			airline.api_username = airline_master.api_username
+			airline.api_password = airline_master.api_password
+			# Metadata
+			airline.data_source = airline_master.data_source
+			airline.last_synced = airline_master.last_synced
+			airline.disabled = airline_master.disabled
 			airline.save(ignore_permissions=True)
 			
 			frappe.msgprint(f"Updated Airline: {airline.name}")
@@ -51,7 +82,35 @@ def sync_airline_master_to_airline(airline_master_name: str) -> Optional[str]:
 				"code": airline_master.iata_code,
 				"airline_name": airline_master.airline_name,
 				"two_character_code": airline_master.iata_code,
-				"three_letter_numeric_code": airline_master.icao_code
+				"three_letter_numeric_code": airline_master.icao_code,
+				# IATA Integration tab fields
+				"iata_code": airline_master.iata_code,
+				"icao_code": airline_master.icao_code,
+				"callsign": airline_master.callsign,
+				"country": airline_master.country,
+				"airline_type": airline_master.airline_type,
+				"is_active": airline_master.is_active,
+				"is_cargo_carrier": airline_master.is_cargo_carrier,
+				"is_passenger_carrier": airline_master.is_passenger_carrier,
+				"supports_dangerous_goods": airline_master.supports_dangerous_goods,
+				"supports_live_animals": airline_master.supports_live_animals,
+				"supports_refrigerated": airline_master.supports_refrigerated,
+				"supports_oversized": airline_master.supports_oversized,
+				"website": airline_master.website,
+				"phone": airline_master.phone,
+				"email": airline_master.email,
+				"address_line_1": airline_master.address_line_1,
+				"address_line_2": airline_master.address_line_2,
+				"city": airline_master.city,
+				"postal_code": airline_master.postal_code,
+				"has_api_integration": airline_master.has_api_integration,
+				"api_endpoint": airline_master.api_endpoint,
+				"api_key": airline_master.api_key,
+				"api_username": airline_master.api_username,
+				"api_password": airline_master.api_password,
+				"data_source": airline_master.data_source or "Airline Master Migration",
+				"last_synced": airline_master.last_synced,
+				"disabled": airline_master.disabled
 			})
 			airline.insert(ignore_permissions=True)
 			
@@ -65,121 +124,131 @@ def sync_airline_master_to_airline(airline_master_name: str) -> Optional[str]:
 		return None
 
 
-def sync_airline_to_airline_master(airline_name: str) -> Optional[str]:
-	"""
-	Sync Airline to Airline Master DocType
-	Creates or updates Airline Master based on Airline data
-	
-	Args:
-		airline_name: Name of Airline (IATA code)
-	
-	Returns:
-		Name of synced Airline Master record
-	"""
-	try:
-		airline = frappe.get_doc("Airline", airline_name)
-		
-		# Get IATA code from code field
-		iata_code = airline.code or airline.two_character_code
-		if not iata_code:
-			return None
-		
-		# Check if Airline Master exists
-		existing = frappe.db.exists("Airline Master", iata_code)
-		
-		if existing:
-			# Update existing
-			airline_master = frappe.get_doc("Airline Master", existing)
-			airline_master.airline_name = airline.airline_name
-			if airline.three_letter_numeric_code:
-				airline_master.icao_code = airline.three_letter_numeric_code
-			airline_master.save(ignore_permissions=True)
-			
-			frappe.msgprint(f"Updated Airline Master: {airline_master.name}")
-		else:
-			# Create new Airline Master
-			airline_master = frappe.get_doc({
-				"doctype": "Airline Master",
-				"iata_code": iata_code,
-				"airline_name": airline.airline_name,
-				"icao_code": airline.three_letter_numeric_code,
-				"data_source": "Manual"
-			})
-			airline_master.insert(ignore_permissions=True)
-			
-			frappe.msgprint(f"Created Airline Master: {airline_master.name}")
-		
-		frappe.db.commit()
-		return airline_master.name
-		
-	except Exception as e:
-		frappe.log_error(f"Error syncing Airline to Airline Master: {str(e)}")
-		return None
-
-
 # ============================================================================
-# AIRPORT/LOCATION SYNCHRONIZATION
+# AIRPORT/UNLOCO SYNCHRONIZATION
 # ============================================================================
 
-def sync_airport_master_to_location(airport_master_name: str) -> Optional[str]:
+def sync_airport_master_to_unloco(airport_master_name: str) -> Optional[str]:
 	"""
-	Sync Airport Master to Location DocType
-	Creates or updates Location based on Airport Master data
+	Sync Airport Master to UNLOCO DocType
+	Creates or updates UNLOCO based on Airport Master data
 	
 	Args:
 		airport_master_name: Name of Airport Master (IATA code)
 	
 	Returns:
-		Name of synced Location record
+		Name of synced UNLOCO record
 	"""
 	try:
 		airport_master = frappe.get_doc("Airport Master", airport_master_name)
 		
-		# Check if Location exists with this IATA code
+		# Check if UNLOCO exists with this IATA code
 		existing = frappe.db.get_value(
-			"Location",
-			{"custom_iata_code": airport_master.iata_code},
+			"UNLOCO",
+			{"iata_code": airport_master.iata_code},
 			"name"
 		)
 		
 		if existing:
-			# Update existing
-			location = frappe.get_doc("Location", existing)
-			location.location_name = airport_master.airport_name
-			location.custom_iata_code = airport_master.iata_code
-			if airport_master.latitude:
-				location.latitude = airport_master.latitude
-			if airport_master.longitude:
-				location.longitude = airport_master.longitude
-			if airport_master.country:
-				location.custom_country = airport_master.country
-			location.is_logistics_location = 1
-			location.save(ignore_permissions=True)
+			# Update existing UNLOCO with Airport Master data
+			unloco = frappe.get_doc("UNLOCO", existing)
+			# Update Airport tab fields
+			if airport_master.airport_name:
+				unloco.airport_name = airport_master.airport_name
+			if airport_master.airport_type:
+				unloco.airport_type = airport_master.airport_type
+			if airport_master.altitude_meters:
+				unloco.altitude_meters = airport_master.altitude_meters
+			if airport_master.gmt_offset:
+				unloco.gmt_offset = airport_master.gmt_offset
+			if airport_master.dst:
+				unloco.dst = airport_master.dst
+			if airport_master.is_cargo_hub is not None:
+				unloco.is_cargo_hub = airport_master.is_cargo_hub
+			if airport_master.is_international is not None:
+				unloco.is_international = airport_master.is_international
+			if airport_master.supports_dangerous_goods is not None:
+				unloco.supports_dangerous_goods = airport_master.supports_dangerous_goods
+			if airport_master.supports_live_animals is not None:
+				unloco.supports_live_animals = airport_master.supports_live_animals
+			if airport_master.supports_refrigerated is not None:
+				unloco.supports_refrigerated = airport_master.supports_refrigerated
+			# Contact info
+			if airport_master.website:
+				unloco.website = airport_master.website
+			if airport_master.phone:
+				unloco.phone = airport_master.phone
+			if airport_master.email:
+				unloco.email = airport_master.email
+			if airport_master.address_line_1:
+				unloco.address_line_1 = airport_master.address_line_1
+			if airport_master.address_line_2:
+				unloco.address_line_2 = airport_master.address_line_2
+			if airport_master.postal_code:
+				unloco.postal_code = airport_master.postal_code
+			# Metadata
+			if airport_master.is_active is not None:
+				unloco.is_active = airport_master.is_active
+			if airport_master.disabled is not None:
+				unloco.disabled = airport_master.disabled
+			if airport_master.last_synced:
+				unloco.last_synced = airport_master.last_synced
 			
-			frappe.msgprint(f"Updated Location: {location.name}")
+			unloco.save(ignore_permissions=True)
+			frappe.msgprint(f"Updated UNLOCO: {unloco.name}")
 		else:
-			# Create new Location
-			location = frappe.get_doc({
-				"doctype": "Location",
-				"location_name": f"{airport_master.airport_name} ({airport_master.iata_code})",
-				"custom_iata_code": airport_master.iata_code,
-				"custom_port_name": airport_master.airport_name,
-				"custom_proper_name": airport_master.city if airport_master.city else airport_master.airport_name,
-				"custom_country": airport_master.country,
+			# Create new UNLOCO with Airport Master data
+			# Generate UNLOCO code from country and IATA if possible
+			country_code = ""
+			if airport_master.country:
+				country_doc = frappe.get_doc("Country", airport_master.country)
+				country_code = country_doc.code if hasattr(country_doc, 'code') else ""
+			
+			unlocode = f"{country_code}{airport_master.iata_code}" if country_code else None
+			
+			unloco = frappe.get_doc({
+				"doctype": "UNLOCO",
+				"unlocode": unlocode or airport_master.iata_code,
+				"location_name": airport_master.airport_name,
+				"iata_code": airport_master.iata_code,
+				"icao_code": airport_master.icao_code,
+				"location_type": "Airport",
+				"country": airport_master.country if isinstance(airport_master.country, str) else None,
+				"city": airport_master.city,
 				"latitude": airport_master.latitude,
 				"longitude": airport_master.longitude,
-				"is_logistics_location": 1,
-				"is_group": 0
+				"timezone": airport_master.timezone,
+				"has_airport": 1,
+				# Airport tab fields
+				"airport_name": airport_master.airport_name,
+				"airport_type": airport_master.airport_type,
+				"altitude_meters": airport_master.altitude_meters,
+				"gmt_offset": airport_master.gmt_offset,
+				"dst": airport_master.dst,
+				"is_cargo_hub": airport_master.is_cargo_hub,
+				"is_international": airport_master.is_international,
+				"supports_dangerous_goods": airport_master.supports_dangerous_goods,
+				"supports_live_animals": airport_master.supports_live_animals,
+				"supports_refrigerated": airport_master.supports_refrigerated,
+				"website": airport_master.website,
+				"phone": airport_master.phone,
+				"email": airport_master.email,
+				"address_line_1": airport_master.address_line_1,
+				"address_line_2": airport_master.address_line_2,
+				"postal_code": airport_master.postal_code,
+				"is_active": airport_master.is_active,
+				"disabled": airport_master.disabled,
+				"last_synced": airport_master.last_synced,
+				"data_source": airport_master.data_source or "Airport Master Migration"
 			})
-			location.insert(ignore_permissions=True)
-			
-			frappe.msgprint(f"Created Location: {location.name}")
+			unloco.insert(ignore_permissions=True)
+			frappe.msgprint(f"Created UNLOCO: {unloco.name}")
 		
 		frappe.db.commit()
-		return location.name
+		return unloco.name
 		
 	except Exception as e:
-		frappe.log_error(f"Error syncing Airport Master to Location: {str(e)}")
+		frappe.log_error(f"Error syncing Airport Master to UNLOCO: {str(e)}")
 		return None
 
 
@@ -252,34 +321,6 @@ def sync_location_to_airport_master(location_name: str) -> Optional[str]:
 # ============================================================================
 
 @frappe.whitelist()
-def sync_all_airlines_to_airline_master():
-	"""Sync all Airlines to Airline Master"""
-	try:
-		airlines = frappe.get_all(
-			"Airline",
-			fields=["name", "code", "airline_name"],
-			filters={"code": ["!=", ""]}
-		)
-		
-		synced_count = 0
-		for airline in airlines:
-			result = sync_airline_to_airline_master(airline.name)
-			if result:
-				synced_count += 1
-		
-		return {
-			"success": True,
-			"total": len(airlines),
-			"synced": synced_count,
-			"message": f"Synced {synced_count} of {len(airlines)} airlines"
-		}
-		
-	except Exception as e:
-		frappe.log_error(f"Error in batch airline sync: {str(e)}")
-		return {"success": False, "error": str(e)}
-
-
-@frappe.whitelist()
 def sync_all_airline_masters_to_airline():
 	"""Sync all Airline Masters to Airline"""
 	try:
@@ -338,8 +379,8 @@ def sync_all_locations_to_airport_master():
 
 
 @frappe.whitelist()
-def sync_all_airport_masters_to_location():
-	"""Sync all Airport Masters to Location"""
+def sync_all_airport_masters_to_unloco():
+	"""Sync all Airport Masters to UNLOCO"""
 	try:
 		airport_masters = frappe.get_all(
 			"Airport Master",
@@ -348,7 +389,7 @@ def sync_all_airport_masters_to_location():
 		
 		synced_count = 0
 		for am in airport_masters:
-			result = sync_airport_master_to_location(am.name)
+			result = sync_airport_master_to_unloco(am.name)
 			if result:
 				synced_count += 1
 		
@@ -383,60 +424,17 @@ def get_airline_from_airline_master(airline_master_name: str) -> Optional[str]:
 		return None
 
 
-def get_location_from_airport_master(airport_master_name: str) -> Optional[str]:
-	"""Get Location name from Airport Master name"""
+def get_unloco_from_airport_master(airport_master_name: str) -> Optional[str]:
+	"""Get UNLOCO name from Airport Master name"""
 	try:
 		airport_master = frappe.get_doc("Airport Master", airport_master_name)
-		location = frappe.db.get_value(
-			"Location",
-			{"custom_iata_code": airport_master.iata_code},
-			"name"
-		)
+		unloco = frappe.db.get_value("UNLOCO", {"iata_code": airport_master.iata_code}, "name")
 		
-		if not location:
+		if not unloco:
 			# Auto-create if not exists
-			location = sync_airport_master_to_location(airport_master_name)
+			unloco = sync_airport_master_to_unloco(airport_master_name)
 		
-		return location
-	except:
-		return None
-
-
-def get_airline_master_from_airline(airline_name: str) -> Optional[str]:
-	"""Get Airline Master name from Airline name"""
-	try:
-		airline = frappe.get_doc("Airline", airline_name)
-		iata_code = airline.code or airline.two_character_code
-		
-		if not iata_code:
-			return None
-		
-		airline_master = frappe.db.exists("Airline Master", iata_code)
-		
-		if not airline_master:
-			# Auto-create if not exists
-			airline_master = sync_airline_to_airline_master(airline_name)
-		
-		return airline_master
-	except:
-		return None
-
-
-def get_airport_master_from_location(location_name: str) -> Optional[str]:
-	"""Get Airport Master name from Location name"""
-	try:
-		location = frappe.get_doc("Location", location_name)
-		
-		if not location.custom_iata_code:
-			return None
-		
-		airport_master = frappe.db.exists("Airport Master", location.custom_iata_code.upper())
-		
-		if not airport_master:
-			# Auto-create if not exists
-			airport_master = sync_location_to_airport_master(location_name)
-		
-		return airport_master
+		return unloco
 	except:
 		return None
 

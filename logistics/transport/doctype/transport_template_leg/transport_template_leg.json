@@ -16,7 +16,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Facility Type From",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\",\"Terminal\"]]]",
    "options": "DocType"
   },
   {
@@ -28,7 +28,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Facility Type To",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\",\"Terminal\"]]]",
    "options": "DocType"
   }
  ],

@@ -122,7 +122,7 @@
    "fieldname": "consolidation_agent",
    "fieldtype": "Link",
    "label": "Consolidation Agent",
-   "options": "User"
+   "options": "Freight Agent"
   },
   {
    "fieldname": "section_break_route",
@@ -133,14 +133,14 @@
    "fieldname": "origin_airport",
    "fieldtype": "Link",
    "label": "Origin Airport",
-   "options": "Airport Master",
+   "options": "UNLOCO",
    "reqd": 1
   },
   {
    "fieldname": "destination_airport",
    "fieldtype": "Link",
    "label": "Destination Airport",
-   "options": "Airport Master",
+   "options": "UNLOCO",
    "reqd": 1
   },
   {
@@ -163,7 +163,7 @@
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
-   "options": "Airline Master",
+   "options": "Airline",
    "reqd": 1
   },
   {
@@ -368,7 +368,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-01 21:19:08.288399",
+ "modified": "2026-01-06 08:26:48.490975",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",

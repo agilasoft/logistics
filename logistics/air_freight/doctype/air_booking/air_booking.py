@@ -13,6 +13,7 @@ class AirBooking(Document):
 		self.validate_required_fields()
 		self.validate_dates()
 		self.validate_accounts()
+		self.calculate_chargeable_weight()
 	
 	def validate_required_fields(self):
 		"""Validate required fields"""
@@ -87,6 +88,60 @@ class AirBooking(Document):
 			except Exception:
 				# If Branch doesn't have company field, skip validation
 				pass
+	
+	def calculate_chargeable_weight(self):
+		"""Calculate chargeable weight based on volume and weight"""
+		if not self.volume and not self.weight:
+			return
+		
+		# Get volume to weight divisor
+		divisor = self.get_volume_to_weight_divisor()
+		
+		# Calculate volume weight
+		volume_weight = 0
+		if self.volume and divisor:
+			# Convert volume from m³ to cm³, then divide by divisor
+			# Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
+			volume_weight = flt(self.volume) * (1000000.0 / divisor)
+		
+		# Calculate chargeable weight (higher of actual weight or volume weight)
+		if self.weight and volume_weight:
+			self.chargeable = max(flt(self.weight), volume_weight)
+		elif self.weight:
+			self.chargeable = flt(self.weight)
+		elif volume_weight:
+			self.chargeable = volume_weight
+		else:
+			self.chargeable = 0
+	
+	def get_volume_to_weight_divisor(self):
+		"""Get the volume to weight divisor based on factor type and airline settings"""
+		# Default to IATA standard
+		divisor = 6000
+		
+		# Get factor type (default to IATA if not set)
+		factor_type = self.volume_to_weight_factor_type or "IATA"
+		
+		if factor_type == "IATA":
+			# IATA standard: 6000 divisor (equivalent to 167 kg/m³)
+			divisor = 6000
+		elif factor_type == "Custom":
+			# Check if custom divisor is overridden on Air Booking
+			if self.custom_volume_to_weight_divisor:
+				divisor = flt(self.custom_volume_to_weight_divisor)
+			# Otherwise, get from Airline
+			elif self.airline:
+				airline_divisor = frappe.db.get_value("Airline", self.airline, "volume_to_weight_divisor")
+				if airline_divisor:
+					divisor = flt(airline_divisor)
+				else:
+					# Default to IATA if airline doesn't have a divisor set
+					divisor = 6000
+			else:
+				# Default to IATA if no airline selected
+				divisor = 6000
+		
+		return divisor
 	
 	@frappe.whitelist()
 	def fetch_quotations(self):

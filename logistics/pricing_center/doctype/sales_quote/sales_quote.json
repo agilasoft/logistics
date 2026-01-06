@@ -20,6 +20,14 @@
   "incoterm",
   "additional_terms",
   "service_level",
+  "column_break_lfap",
+  "is_sea",
+  "is_air",
+  "is_transport",
+  "is_customs",
+  "is_warehousing",
+  "section_break_lgvi",
+  "column_break_bpej",
   "column_break_nvoa",
   "weight",
   "weight_uom",
@@ -200,6 +208,7 @@
    "options": "UOM"
   },
   {
+   "depends_on": "eval:doc.is_sea",
    "fieldname": "sea_tab",
    "fieldtype": "Tab Break",
    "label": "Sea"
@@ -218,6 +227,7 @@
    "options": "Sales Quote Sea Freight"
   },
   {
+   "depends_on": "eval:doc.is_air",
    "fieldname": "air_tab",
    "fieldtype": "Tab Break",
    "label": "Air"
@@ -286,22 +296,22 @@
    "label": "Routing & Dates"
   },
   {
+   "description": "Origin port for air freight",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "Location",
-   "description": "Origin port for air freight"
+   "options": "Location"
   },
   {
    "fieldname": "column_break_air_routing",
    "fieldtype": "Column Break"
   },
   {
+   "description": "Destination port for air freight",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "Location",
-   "description": "Destination port for air freight"
+   "options": "Location"
   },
   {
    "fieldname": "column_break_air_dates",
@@ -375,6 +385,7 @@
    "label": "Marks and Nos"
   },
   {
+   "depends_on": "eval:doc.is_transport",
    "fieldname": "transport_tab",
    "fieldtype": "Tab Break",
    "label": "Transport"
@@ -389,11 +400,13 @@
    "options": "Sales Quote Transport"
   },
   {
+   "depends_on": "eval:doc.is_customs",
    "fieldname": "customs_tab",
    "fieldtype": "Tab Break",
    "label": "Customs"
   },
   {
+   "depends_on": "eval:doc.is_warehousing",
    "fieldname": "warehousing_tab",
    "fieldtype": "Tab Break",
    "label": "Warehousing"
@@ -527,6 +540,48 @@
    "fieldtype": "Link",
    "label": "Transport Template",
    "options": "Transport Template"
+  },
+  {
+   "fieldname": "column_break_lfap",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_sea",
+   "fieldtype": "Check",
+   "label": "Sea"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_air",
+   "fieldtype": "Check",
+   "label": "Air"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_transport",
+   "fieldtype": "Check",
+   "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_customs",
+   "fieldtype": "Check",
+   "label": "Customs"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_warehousing",
+   "fieldtype": "Check",
+   "label": "Warehousing"
+  },
+  {
+   "fieldname": "section_break_lgvi",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_bpej",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
@@ -544,7 +599,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2025-11-17 15:17:45.217967",
+ "modified": "2026-01-05 19:53:15.830278",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

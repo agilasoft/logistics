@@ -11,9 +11,62 @@ class TransportConsolidation(Document):
 	def validate(self):
 		"""Validate consolidation rules and calculate totals"""
 		self.validate_consolidation_rules()
+		self.determine_consolidation_type()
 		self.calculate_totals()
 		self.validate_capacity_limits()
 		self.validate_accounts()
+	
+	def determine_consolidation_type(self):
+		"""Auto-determine consolidation type based on pick and drop addresses"""
+		if not self.transport_jobs:
+			return
+		
+		# Collect all unique pick and drop addresses from transport legs
+		pick_addresses = set()
+		drop_addresses = set()
+		
+		for job_row in self.transport_jobs:
+			if not job_row.transport_job:
+				continue
+			
+			# Get Transport Legs for this job
+			job_legs = frappe.get_all(
+				"Transport Leg",
+				filters={"transport_job": job_row.transport_job},
+				fields=["pick_address", "drop_address"]
+			)
+			
+			for leg in job_legs:
+				if leg.get("pick_address"):
+					pick_addresses.add(leg.get("pick_address"))
+				if leg.get("drop_address"):
+					drop_addresses.add(leg.get("drop_address"))
+		
+		# Determine consolidation type based on address patterns
+		# Pick: One pick address, multiple drop addresses
+		# Drop: Multiple pick addresses, one drop address
+		# Both: One pick address, one drop address (all jobs same origin and destination)
+		# Route: Multiple pick addresses, multiple drop addresses (milk run)
+		
+		num_pick = len(pick_addresses)
+		num_drop = len(drop_addresses)
+		
+		if num_pick == 1 and num_drop == 1:
+			# All jobs have same pick and drop - Both/Full Consolidated
+			self.consolidation_type = "Both"
+		elif num_pick == 1 and num_drop > 1:
+			# One pick, multiple drops - Pick Consolidated
+			self.consolidation_type = "Pick"
+		elif num_pick > 1 and num_drop == 1:
+			# Multiple picks, one drop - Drop Consolidated
+			self.consolidation_type = "Drop"
+		elif num_pick > 1 and num_drop > 1:
+			# Multiple picks and drops - Route Consolidated (milk run)
+			self.consolidation_type = "Route"
+		else:
+			# Default to Route if unable to determine
+			if not self.consolidation_type:
+				self.consolidation_type = "Route"
 	
 	def validate_consolidation_rules(self):
 		"""Validate that jobs can be consolidated based on load type rules"""
@@ -239,9 +292,8 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 				"message": _("No Transport Legs found for the Transport Jobs in this consolidation")
 			}
 		
-		# Determine consolidation type: Pick Consolidated or Drop Consolidated
-		# Pick Consolidated: All jobs have the same pick address
-		# Drop Consolidated: All jobs have the same drop address
+		# Determine consolidation pattern based on addresses
+		# This determines how legs are organized in the Run Sheet
 		pick_addresses = set()
 		drop_addresses = set()
 		
@@ -251,20 +303,25 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 			if leg.drop_address:
 				drop_addresses.add(leg.drop_address)
 		
+		# Determine if it's pick consolidated or drop consolidated for Run Sheet routing
 		is_pick_consolidated = len(pick_addresses) == 1 and len(drop_addresses) > 1
 		is_drop_consolidated = len(drop_addresses) == 1 and len(pick_addresses) > 1
+		is_both_consolidated = len(pick_addresses) == 1 and len(drop_addresses) == 1
 		
-		# If neither condition is met, default to pick consolidated if there's one pick address
-		if not is_pick_consolidated and not is_drop_consolidated:
-			if len(pick_addresses) == 1:
+		# If neither condition is met, default based on consolidation type
+		if not is_pick_consolidated and not is_drop_consolidated and not is_both_consolidated:
+			# Use the consolidation_type field to determine routing pattern
+			if consolidation.consolidation_type == "Pick":
 				is_pick_consolidated = True
-			elif len(drop_addresses) == 1:
+			elif consolidation.consolidation_type == "Drop":
 				is_drop_consolidated = True
+			elif consolidation.consolidation_type == "Both":
+				is_both_consolidated = True
 			else:
-				# Cannot determine - use pick consolidated as default
+				# Route consolidation - default to pick consolidated for routing
 				is_pick_consolidated = True
 				frappe.msgprint(
-					_("Warning: Could not clearly determine consolidation type. Defaulting to Pick Consolidated."),
+					_("Warning: Route consolidation detected. Using pick-consolidated routing pattern."),
 					indicator="orange"
 				)
 		
@@ -306,8 +363,24 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 				"message": _("All Transport Legs are already assigned to other Run Sheets")
 			}
 		
-		# Add legs to Run Sheet based on consolidation type
-		if is_pick_consolidated:
+		# Add legs to Run Sheet based on consolidation pattern
+		if is_both_consolidated:
+			# Both Consolidated: Same pick and drop for all jobs
+			# Sort legs by order or name
+			sorted_legs = sorted(available_legs, key=lambda l: (l.order or 0, l.name))
+			
+			for leg in sorted_legs:
+				run_sheet.append("legs", {
+					"transport_leg": leg.name
+				})
+				
+				# Set both flags for both consolidated
+				leg.pick_consolidated = 1
+				leg.drop_consolidated = 1
+				leg.transport_consolidation = consolidation_name
+				leg.save(ignore_permissions=True)
+		
+		elif is_pick_consolidated:
 			# Pick Consolidated: One pick, multiple drops
 			# All legs share the same pick address but have different drop addresses
 			# Sort legs by drop address for logical routing order
@@ -343,6 +416,20 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 				leg.transport_consolidation = consolidation_name
 				leg.save(ignore_permissions=True)
 		
+		else:
+			# Route Consolidated: Multiple picks and drops (milk run)
+			# Sort by pick address first, then drop address for route optimization
+			sorted_legs = sorted(available_legs, key=lambda l: (l.pick_address or "", l.drop_address or "", l.name))
+			
+			for leg in sorted_legs:
+				run_sheet.append("legs", {
+					"transport_leg": leg.name
+				})
+				
+				# Route consolidations may have mixed patterns
+				leg.transport_consolidation = consolidation_name
+				leg.save(ignore_permissions=True)
+		
 		# Save Run Sheet
 		run_sheet.insert(ignore_permissions=True)
 		
@@ -355,8 +442,10 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 		return {
 			"status": "success",
 			"run_sheet_name": run_sheet.name,
+			"consolidation_type": consolidation.consolidation_type,
 			"is_pick_consolidated": is_pick_consolidated,
 			"is_drop_consolidated": is_drop_consolidated,
+			"is_both_consolidated": is_both_consolidated,
 			"legs_count": len(run_sheet.legs)
 		}
 		
@@ -436,11 +525,23 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 				if leg["drop_address"]:
 					drop_addresses.add(leg["drop_address"])
 			
-			# Determine consolidation type
-			is_pick_consolidated = len(pick_addresses) == 1 and len(drop_addresses) > 1
-			is_drop_consolidated = len(drop_addresses) == 1 and len(pick_addresses) > 1
+			# Determine consolidation type based on address patterns
+			num_pick = len(pick_addresses)
+			num_drop = len(drop_addresses)
 			
-			if is_pick_consolidated or is_drop_consolidated:
+			if num_pick == 1 and num_drop == 1:
+				consolidation_type_str = "Both"
+			elif num_pick == 1 and num_drop > 1:
+				consolidation_type_str = "Pick"
+			elif num_pick > 1 and num_drop == 1:
+				consolidation_type_str = "Drop"
+			elif num_pick > 1 and num_drop > 1:
+				consolidation_type_str = "Route"
+			else:
+				consolidation_type_str = "Route"  # Default
+			
+			# Only include jobs that can be consolidated (have clear pattern)
+			if num_pick > 0 and num_drop > 0:
 				# Get address names for display
 				pick_address_name = None
 				drop_address_name = None
@@ -449,8 +550,6 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 					pick_address_name = frappe.db.get_value("Address", list(pick_addresses)[0], "address_title") or list(pick_addresses)[0]
 				if drop_addresses:
 					drop_address_name = frappe.db.get_value("Address", list(drop_addresses)[0], "address_title") or list(drop_addresses)[0]
-				
-				consolidation_type_str = "Pick Consolidated" if is_pick_consolidated else "Drop Consolidated"
 				
 				job_info = {
 					"name": job_name,
@@ -466,13 +565,13 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 				consolidatable_jobs.append(job_info)
 				
 				# Group for consolidation suggestions
-				if is_pick_consolidated:
+				if consolidation_type_str == "Pick" or consolidation_type_str == "Both":
 					pick_addr = list(pick_addresses)[0]
 					if pick_addr not in pick_groups:
 						pick_groups[pick_addr] = []
 					pick_groups[pick_addr].append(job_info)
 				
-				if is_drop_consolidated:
+				if consolidation_type_str == "Drop" or consolidation_type_str == "Both":
 					drop_addr = list(drop_addresses)[0]
 					if drop_addr not in drop_groups:
 						drop_groups[drop_addr] = []
@@ -483,7 +582,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 		for pick_addr, jobs in pick_groups.items():
 			if len(jobs) > 1:  # Only groups with multiple jobs
 				consolidation_groups.append({
-					"type": "Pick Consolidated",
+					"type": "Pick",
 					"address": frappe.db.get_value("Address", pick_addr, "address_title") or pick_addr,
 					"jobs": [j["name"] for j in jobs],
 					"count": len(jobs)
@@ -492,7 +591,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 		for drop_addr, jobs in drop_groups.items():
 			if len(jobs) > 1:  # Only groups with multiple jobs
 				consolidation_groups.append({
-					"type": "Drop Consolidated",
+					"type": "Drop",
 					"address": frappe.db.get_value("Address", drop_addr, "address_title") or drop_addr,
 					"jobs": [j["name"] for j in jobs],
 					"count": len(jobs)

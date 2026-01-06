@@ -1,4 +1,6 @@
 {
+ "actions": [],
+ "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2020-12-16 11:20:42.171122",
  "doctype": "DocType",
@@ -7,13 +9,26 @@
  "field_order": [
   "code",
   "description",
-  "terminal_type"
+  "column_break_mmav",
+  "terminal_type",
+  "addresses_and_contacts_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_ekpq",
+  "contact_html",
+  "section_break_unej",
+  "terminal_primary_address",
+  "primary_address",
+  "column_break_giwp",
+  "terminal_primary_contact"
  ],
  "fields": [
   {
    "fieldname": "code",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Code",
+   "reqd": 1,
    "unique": 1
   },
   {
@@ -26,6 +41,57 @@
    "fieldtype": "Link",
    "label": "Terminal Type",
    "options": "Terminal Type"
+  },
+  {
+   "fieldname": "column_break_mmav",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "addresses_and_contacts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addresses and Contacts"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "column_break_ekpq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_unej",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "terminal_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Text"
+  },
+  {
+   "fieldname": "column_break_giwp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "terminal_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
   }
  ],
  "modified": "2020-12-16 11:20:42.171122",
@@ -47,7 +113,11 @@
    "write": 1
   }
  ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
  "quick_entry": 1,
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "track_changes": 1

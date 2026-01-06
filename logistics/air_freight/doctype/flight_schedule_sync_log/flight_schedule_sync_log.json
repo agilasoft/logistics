@@ -53,7 +53,7 @@
    "fieldname": "sync_type",
    "fieldtype": "Select",
    "label": "Sync Type",
-   "options": "Flight Schedule\nAirport Master\nAirline Master\nFlight Route\nReal-time Tracking"
+   "options": "Flight Schedule\nUNLOCO\nAirline\nFlight Route\nReal-time Tracking"
   },
   {
    "fieldname": "column_break_1",

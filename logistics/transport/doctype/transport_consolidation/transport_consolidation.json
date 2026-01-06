@@ -57,7 +57,7 @@
    "fieldname": "consolidation_type",
    "fieldtype": "Select",
    "label": "Consolidation Type",
-   "options": "LTL\nFTL\nPartial"
+   "options": "Pick\nDrop\nBoth\nRoute"
   },
   {
    "fieldname": "section_break_jobs",

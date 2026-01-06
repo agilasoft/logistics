@@ -25,6 +25,7 @@ class TransportJob(Document):
         # Validate transport job type - only when it IS set (like Transport Order does)
         # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
         self._validate_transport_job_type()
+        self._validate_load_type_compatibility()
         self.validate_legs()
         self.validate_accounts()
         self.validate_status_transition()
@@ -165,6 +166,35 @@ class TransportJob(Document):
                 frappe.throw(_("Container Type is required for Container transport jobs."))
             if not self.container_no:
                 frappe.throw(_("Container Number is required for Container transport jobs."))
+    
+    def _validate_load_type_compatibility(self):
+        """Validate load type compatibility with transport job type using boolean flags."""
+        if not self.load_type or not self.transport_job_type:
+            return
+        
+        # Map transport_job_type to boolean field name
+        field_map = {
+            "Container": "container",
+            "Non-Container": "non_container",
+            "Special": "special",
+            "Oversized": "oversized",
+            "Multimodal": "multimodal",
+            "Heavy Haul": "heavy_haul"
+        }
+        
+        job_type_field = field_map.get(self.transport_job_type)
+        if not job_type_field:
+            return
+        
+        # Get load type boolean flag value
+        load_type_flag = frappe.get_value("Load Type", self.load_type, job_type_field)
+        
+        if not load_type_flag:
+            load_type_name = frappe.get_value("Load Type", self.load_type, "load_type_name")
+            frappe.throw(_("Load Type '{0}' is not allowed for {1} transport jobs.").format(
+                load_type_name or self.load_type, 
+                self.transport_job_type
+            ))
     
     def validate_legs(self):
         """Validate that submitted jobs have at least one leg and update missing data"""
@@ -500,8 +530,11 @@ def get_available_vehicles(jobname: Optional[str] = None) -> Dict[str, Any]:
 def action_create_run_sheet(jobname: str, vehicle: Optional[str] = None, driver: Optional[str] = None,
                             transport_company: Optional[str] = None) -> Dict[str, Any]:
     """
-    Create a Run Sheet for a submitted Transport Job, and pull its legs in.
+    Create Run Sheet(s) for a submitted Transport Job, and pull its legs in.
     If `vehicle` is provided, ensure it isn't currently on an active run sheet.
+    
+    If group_legs_in_one_runsheet is checked, all legs are added to one Run Sheet.
+    If unchecked, separate Run Sheets are created per leg.
     """
     if not jobname:
         frappe.throw(_("Missing Transport Job name."))
@@ -519,7 +552,74 @@ def action_create_run_sheet(jobname: str, vehicle: Optional[str] = None, driver:
         if exists:
             frappe.throw(_("Selected vehicle is already assigned to an active Run Sheet ({0}).").format(exists))
 
-    # Create Run Sheet (Draft)
+    # Check if legs should be grouped in one run sheet
+    group_legs = getattr(job, "group_legs_in_one_runsheet", False)
+
+    if group_legs:
+        # Create one Run Sheet with all legs (original behavior)
+        rs = _create_single_run_sheet(job, vehicle, driver, transport_company)
+        rs.insert(ignore_permissions=False)
+
+        # Append legs from Transport Job -> to Run Sheet
+        added = _append_runsheet_legs_from_job(job, rs)
+
+        # Save RS after legs
+        rs.save(ignore_permissions=True)
+
+        return {"name": rs.name, "legs_added": added, "run_sheets_created": 1}
+    else:
+        # Create separate Run Sheets per leg
+        job_legs_field = _get_job_legs_fieldname(job)
+        job_rows = job.get(job_legs_field) or []
+        
+        if not job_rows:
+            frappe.throw(_("This Transport Job has no legs."))
+
+        run_sheets_created = []
+        total_legs_added = 0
+
+        for leg_row in job_rows:
+            leg_dict = leg_row.as_dict()
+            tl_name = leg_dict.get("transport_leg")
+            
+            # Skip if leg is already assigned to a Run Sheet
+            if tl_name:
+                current_rs = frappe.db.get_value("Transport Leg", tl_name, "run_sheet")
+                if current_rs:
+                    continue
+
+            # Create a new Run Sheet for this leg
+            rs = _create_single_run_sheet(job, vehicle, driver, transport_company)
+            rs.insert(ignore_permissions=False)
+
+            # Append only this leg to the Run Sheet
+            added = _append_single_leg_to_runsheet(job, rs, leg_row)
+
+            # Save RS after leg
+            rs.save(ignore_permissions=True)
+
+            run_sheets_created.append(rs.name)
+            total_legs_added += added
+
+        return {
+            "name": run_sheets_created[0] if run_sheets_created else None,  # First one for backward compatibility
+            "names": run_sheets_created,  # All created run sheets
+            "legs_added": total_legs_added,
+            "run_sheets_created": len(run_sheets_created)
+        }
+
+
+# ------------------------
+# Helper functions for Run Sheet creation
+# ------------------------
+
+def _create_single_run_sheet(job: Document, vehicle: Optional[str] = None, 
+                             driver: Optional[str] = None,
+                             transport_company: Optional[str] = None) -> Document:
+    """
+    Create a single Run Sheet document with common fields from the Transport Job.
+    Does not insert the document - caller must call insert() and save().
+    """
     rs = frappe.new_doc("Run Sheet")
     _safe_set(rs, "run_date", nowdate())
     _safe_set(rs, "vehicle_type", getattr(job, "vehicle_type", None))
@@ -529,16 +629,7 @@ def action_create_run_sheet(jobname: str, vehicle: Optional[str] = None, driver:
     _safe_set(rs, "customer", getattr(job, "customer", None))  # optional, if field exists
     _safe_set(rs, "transport_job", job.name)  # only if RS has such a field
     _safe_set(rs, "status", "Draft")  # if status exists
-
-    rs.insert(ignore_permissions=False)
-
-    # Append legs from Transport Job -> to Run Sheet
-    added = _append_runsheet_legs_from_job(job, rs)
-
-    # Save RS after legs
-    rs.save(ignore_permissions=True)
-
-    return {"name": rs.name, "legs_added": added}
+    return rs
 
 
 # ------------------------
@@ -605,6 +696,61 @@ def _append_runsheet_legs_from_job(job: Document, rs: Document) -> int:
         added += 1
 
     return added
+
+
+def _append_single_leg_to_runsheet(job: Document, rs: Document, leg_row: Document) -> int:
+    """
+    Append a single leg from Transport Job to a Run Sheet.
+    Similar to _append_runsheet_legs_from_job but for a single leg.
+    """
+    rs_legs_field = _get_runsheet_legs_fieldname(rs)
+    rs_child_dt = _get_runsheet_child_dt(rs)
+    rs_child_meta = frappe.get_meta(rs_child_dt)
+
+    # Build a copy map by common fieldnames between TJ Legs and RS Legs child doctypes
+    excluded = {'name','owner','creation','modified','modified_by','parent','parenttype','parentfield','idx','docstatus'}
+    allowed_rs_fields = {df.fieldname for df in rs_child_meta.fields if df.fieldname and df.fieldname not in excluded}
+
+    s = leg_row.as_dict()
+
+    # If the TL is already on a Run Sheet, skip
+    tl_name = s.get("transport_leg")
+    if tl_name:
+        current_rs = frappe.db.get_value("Transport Leg", tl_name, "run_sheet")
+        if current_rs:
+            # Skip to avoid double assignment
+            return 0
+
+    payload = {k: v for k, v in s.items() if k in allowed_rs_fields}
+
+    # Add a sensible sequence if RS has it
+    if "sequence" in allowed_rs_fields and "sequence" not in payload:
+        payload["sequence"] = 1
+
+    # Ensure the key link exists if RS child has the field
+    if "transport_leg" in allowed_rs_fields:
+        payload["transport_leg"] = tl_name
+
+    # Set defaults for status fields if present
+    if "leg_status" in allowed_rs_fields and not payload.get("leg_status"):
+        payload["leg_status"] = "Pending"
+
+    rs.append(rs_legs_field, payload)
+
+    # Immediately lock association on TL (optional but prevents races)
+    # Use proper document update to trigger status update hooks
+    if tl_name and _has_field("Transport Leg", "run_sheet"):
+        try:
+            leg_doc = frappe.get_doc("Transport Leg", tl_name)
+            if leg_doc.run_sheet != rs.name:
+                leg_doc.run_sheet = rs.name
+                leg_doc.save(ignore_permissions=True)
+        except Exception as e:
+            frappe.log_error(f"Error updating Transport Leg {tl_name} run_sheet assignment in transport_job: {str(e)}")
+            # Fallback to db.set_value if document update fails
+            frappe.db.set_value("Transport Leg", tl_name, "run_sheet", rs.name, update_modified=False)
+
+    return 1
 
 
 @frappe.whitelist()

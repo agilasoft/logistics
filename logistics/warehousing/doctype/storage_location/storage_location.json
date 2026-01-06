@@ -2,7 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:{site_code}/{building_code}/{zone_code}/{aisle_code}/{bay_code}/{level_code}/{location_code}",
+ "autoname": "format:{site_code}-{building_code}-{zone_code}-{aisle_code}-{bay_code}-{level_code}-{location_code}",
  "creation": "2025-08-18 13:15:25.722151",
  "doctype": "DocType",
  "engine": "InnoDB",

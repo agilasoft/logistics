@@ -146,6 +146,9 @@ frappe.ui.form.on("Air Shipment", {
 				frm._milestone_html_called = false;
 			}, 2000);
 		}
+		
+		// Populate display fields if they are empty but link fields have values
+		populate_display_fields_if_missing(frm);
 	},
 	
 	origin_port(frm) {
@@ -235,6 +238,144 @@ frappe.ui.form.on("Air Shipment", {
 		
 		// Refresh milestone view when DG declaration completion changes
 		refresh_milestone_view(frm);
+	},
+	
+	// Handler for shipper address - populate display field
+	shipper_address(frm) {
+		if (frm.doc.shipper_address) {
+			frappe.call({
+				method: 'frappe.contacts.doctype.address.address.get_address_display',
+				args: {
+					address_dict: frm.doc.shipper_address
+				},
+				callback: function(r) {
+					if (r.message) {
+						frm.set_value('shipper_address_display', r.message);
+					} else {
+						frm.set_value('shipper_address_display', '');
+					}
+				}
+			});
+		} else {
+			frm.set_value('shipper_address_display', '');
+		}
+	},
+	
+	// Handler for consignee address - populate display field
+	consignee_address(frm) {
+		if (frm.doc.consignee_address) {
+			frappe.call({
+				method: 'frappe.contacts.doctype.address.address.get_address_display',
+				args: {
+					address_dict: frm.doc.consignee_address
+				},
+				callback: function(r) {
+					if (r.message) {
+						frm.set_value('consignee_address_display', r.message);
+					} else {
+						frm.set_value('consignee_address_display', '');
+					}
+				}
+			});
+		} else {
+			frm.set_value('consignee_address_display', '');
+		}
+	},
+	
+	// Handler for shipper contact - populate display field
+	shipper_contact(frm) {
+		if (frm.doc.shipper_contact) {
+			frappe.call({
+				method: 'frappe.client.get',
+				args: {
+					doctype: 'Contact',
+					name: frm.doc.shipper_contact
+				},
+				callback: function(r) {
+					if (r.message) {
+						const contact = r.message;
+						let display_text = '';
+						
+						// Build contact display text
+						if (contact.first_name || contact.last_name) {
+							display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+						} else if (contact.name) {
+							display_text = contact.name;
+						}
+						
+						if (contact.designation) {
+							display_text += display_text ? '\n' + contact.designation : contact.designation;
+						}
+						
+						if (contact.phone) {
+							display_text += display_text ? '\n' + contact.phone : contact.phone;
+						}
+						
+						if (contact.mobile_no) {
+							display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
+						}
+						
+						if (contact.email_id) {
+							display_text += display_text ? '\n' + contact.email_id : contact.email_id;
+						}
+						
+						frm.set_value('shipper_contact_display', display_text);
+					} else {
+						frm.set_value('shipper_contact_display', '');
+					}
+				}
+			});
+		} else {
+			frm.set_value('shipper_contact_display', '');
+		}
+	},
+	
+	// Handler for consignee contact - populate display field
+	consignee_contact(frm) {
+		if (frm.doc.consignee_contact) {
+			frappe.call({
+				method: 'frappe.client.get',
+				args: {
+					doctype: 'Contact',
+					name: frm.doc.consignee_contact
+				},
+				callback: function(r) {
+					if (r.message) {
+						const contact = r.message;
+						let display_text = '';
+						
+						// Build contact display text
+						if (contact.first_name || contact.last_name) {
+							display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+						} else if (contact.name) {
+							display_text = contact.name;
+						}
+						
+						if (contact.designation) {
+							display_text += display_text ? '\n' + contact.designation : contact.designation;
+						}
+						
+						if (contact.phone) {
+							display_text += display_text ? '\n' + contact.phone : contact.phone;
+						}
+						
+						if (contact.mobile_no) {
+							display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
+						}
+						
+						if (contact.email_id) {
+							display_text += display_text ? '\n' + contact.email_id : contact.email_id;
+						}
+						
+						frm.set_value('consignee_contact_display', display_text);
+					} else {
+						frm.set_value('consignee_contact_display', '');
+					}
+				}
+			});
+		} else {
+			frm.set_value('consignee_contact_display', '');
+		}
 	}
 });
 
@@ -447,6 +588,121 @@ function check_and_update_dg_status(frm) {
 	
 	// Refresh milestone view to update DG compliance badge
 	refresh_milestone_view(frm);
+}
+
+// Function to populate display fields if they are missing but link fields have values
+function populate_display_fields_if_missing(frm) {
+	// Populate shipper address display if missing
+	if (frm.doc.shipper_address && !frm.doc.shipper_address_display) {
+		frappe.call({
+			method: 'frappe.contacts.doctype.address.address.get_address_display',
+			args: {
+				address_dict: frm.doc.shipper_address
+			},
+			callback: function(r) {
+				if (r.message) {
+					frm.set_value('shipper_address_display', r.message);
+				}
+			}
+		});
+	}
+	
+	// Populate consignee address display if missing
+	if (frm.doc.consignee_address && !frm.doc.consignee_address_display) {
+		frappe.call({
+			method: 'frappe.contacts.doctype.address.address.get_address_display',
+			args: {
+				address_dict: frm.doc.consignee_address
+			},
+			callback: function(r) {
+				if (r.message) {
+					frm.set_value('consignee_address_display', r.message);
+				}
+			}
+		});
+	}
+	
+	// Populate shipper contact display if missing
+	if (frm.doc.shipper_contact && !frm.doc.shipper_contact_display) {
+		frappe.call({
+			method: 'frappe.client.get',
+			args: {
+				doctype: 'Contact',
+				name: frm.doc.shipper_contact
+			},
+			callback: function(r) {
+				if (r.message) {
+					const contact = r.message;
+					let display_text = '';
+					
+					if (contact.first_name || contact.last_name) {
+						display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+					} else if (contact.name) {
+						display_text = contact.name;
+					}
+					
+					if (contact.designation) {
+						display_text += display_text ? '\n' + contact.designation : contact.designation;
+					}
+					
+					if (contact.phone) {
+						display_text += display_text ? '\n' + contact.phone : contact.phone;
+					}
+					
+					if (contact.mobile_no) {
+						display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
+					}
+					
+					if (contact.email_id) {
+						display_text += display_text ? '\n' + contact.email_id : contact.email_id;
+					}
+					
+					frm.set_value('shipper_contact_display', display_text);
+				}
+			}
+		});
+	}
+	
+	// Populate consignee contact display if missing
+	if (frm.doc.consignee_contact && !frm.doc.consignee_contact_display) {
+		frappe.call({
+			method: 'frappe.client.get',
+			args: {
+				doctype: 'Contact',
+				name: frm.doc.consignee_contact
+			},
+			callback: function(r) {
+				if (r.message) {
+					const contact = r.message;
+					let display_text = '';
+					
+					if (contact.first_name || contact.last_name) {
+						display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+					} else if (contact.name) {
+						display_text = contact.name;
+					}
+					
+					if (contact.designation) {
+						display_text += display_text ? '\n' + contact.designation : contact.designation;
+					}
+					
+					if (contact.phone) {
+						display_text += display_text ? '\n' + contact.phone : contact.phone;
+					}
+					
+					if (contact.mobile_no) {
+						display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
+					}
+					
+					if (contact.email_id) {
+						display_text += display_text ? '\n' + contact.email_id : contact.email_id;
+					}
+					
+					frm.set_value('consignee_contact_display', display_text);
+				}
+			}
+		});
+	}
 }
 
 // Function to refresh milestone view when DG compliance status changes

@@ -77,28 +77,9 @@ def auto_assign_vehicle_to_leg(leg_doc: Document) -> Optional[Dict[str, Any]]:
         
         vehicle = vehicles[0]["name"]
         
-        # Check if there's an existing Run Sheet for this vehicle on the same date
-        run_date = getattr(leg_doc, "pick_window_start", None)
-        if run_date:
-            from frappe.utils import getdate
-            run_date = getdate(run_date)
-            
-            existing_rs = frappe.db.exists("Run Sheet", {
-                "vehicle": vehicle,
-                "run_date": run_date,
-                "status": ["in", ["Draft", "Submitted", "In Progress"]]
-            })
-            
-            if existing_rs:
-                # Add leg to existing Run Sheet
-                rs_doc = frappe.get_doc("Run Sheet", existing_rs)
-                rs_doc.append("legs", {
-                    "transport_leg": leg_doc.name
-                })
-                rs_doc.save(ignore_permissions=True)
-                leg_doc.run_sheet = existing_rs
-                leg_doc.save(ignore_permissions=True)
-                return {"run_sheet": existing_rs, "vehicle": vehicle, "action": "added_to_existing"}
+        # DO NOT auto-group: Always create a new Run Sheet per leg
+        # Grouping must be explicitly enabled via group_legs_in_one_runsheet on Transport Job
+        # or consolidate_legs parameter in Transport Plan
         
         # Create new Run Sheet
         rs_doc = frappe.new_doc("Run Sheet")

@@ -72,6 +72,9 @@ class TransportOrder(Document):
         
         # Validate vehicle_type is required only if consolidate is not checked
         self._validate_vehicle_type_required()
+        
+        # Validate load type is allowed for job type
+        self.validate_load_type_allowed_for_job()
 
     def before_submit(self):
         """Validate transport legs before submitting the Transport Order."""
@@ -128,44 +131,50 @@ class TransportOrder(Document):
             if missing_fields:
                 frappe.throw(_("Row {0}: Missing required fields: {1}").format(i, ", ".join(missing_fields)))
             
-            # Validate address details if pick/drop mode requires them
-            if leg.get("pick_mode") == "Address" and not leg.get("pick_address"):
-                frappe.throw(_("Row {0}: Pick address is required when pick mode is 'Address'.").format(i))
+            # Validate address details if addresses are set (they should be valid Address links)
+            # Note: pick_mode and drop_mode are Link fields to Pick and Drop Mode records, not literal strings
+            if leg.get("pick_address") and not frappe.db.exists("Address", leg.get("pick_address")):
+                frappe.throw(_("Row {0}: Pick address '{1}' does not exist.").format(i, leg.get("pick_address")))
             
-            if leg.get("drop_mode") == "Address" and not leg.get("drop_address"):
-                frappe.throw(_("Row {0}: Drop address is required when drop mode is 'Address'.").format(i))
+            if leg.get("drop_address") and not frappe.db.exists("Address", leg.get("drop_address")):
+                frappe.throw(_("Row {0}: Drop address '{1}' does not exist.").format(i, leg.get("drop_address")))
             
             # Auto-fill addresses from facilities if not set
             self._auto_fill_leg_addresses(leg, i)
 
     def _auto_fill_leg_addresses(self, leg, leg_index):
-        """Auto-fill addresses from facilities if not already set."""
+        """Auto-fill addresses from facilities if not already set.
+        
+        Preserves existing pick_mode and drop_mode values - only sets pick_address and drop_address.
+        pick_mode and drop_mode are Link fields to Pick and Drop Mode records and should not be
+        set to literal strings like "Address".
+        """
         try:
             # Auto-fill pick address from facility
+            # Only set address if not already set, and preserve existing pick_mode value
             if not leg.get("pick_address") and leg.get("facility_type_from") and leg.get("facility_from"):
                 facility_doc = frappe.get_doc(leg.facility_type_from, leg.facility_from)
                 if hasattr(facility_doc, 'address') and facility_doc.address:
                     leg.pick_address = facility_doc.address
-                    leg.pick_mode = "Address"
-                    # Update the leg in the document
+                    # Update the leg in the document - only set pick_address, preserve pick_mode
                     legs_field = _find_child_table_fieldname(
                         "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
                     )
                     self.set_value(legs_field, leg_index - 1, "pick_address", facility_doc.address)
-                    self.set_value(legs_field, leg_index - 1, "pick_mode", "Address")
+                    # Do not modify pick_mode - preserve existing value or leave it unset
             
             # Auto-fill drop address from facility
+            # Only set address if not already set, and preserve existing drop_mode value
             if not leg.get("drop_address") and leg.get("facility_type_to") and leg.get("facility_to"):
                 facility_doc = frappe.get_doc(leg.facility_type_to, leg.facility_to)
                 if hasattr(facility_doc, 'address') and facility_doc.address:
                     leg.drop_address = facility_doc.address
-                    leg.drop_mode = "Address"
-                    # Update the leg in the document
+                    # Update the leg in the document - only set drop_address, preserve drop_mode
                     legs_field = _find_child_table_fieldname(
                         "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
                     )
                     self.set_value(legs_field, leg_index - 1, "drop_address", facility_doc.address)
-                    self.set_value(legs_field, leg_index - 1, "drop_mode", "Address")
+                    # Do not modify drop_mode - preserve existing value or leave it unset
                     
         except Exception as e:
             # Log error but don't fail validation
@@ -205,7 +214,7 @@ class TransportOrder(Document):
         self._validate_vehicle_type_compatibility()
         
         # Load type compatibility validation
-        self._validate_load_type_compatibility()
+        self.validate_load_type_allowed_for_job()
 
     def _validate_container_requirements(self):
         """Validate container-specific requirements."""
@@ -283,19 +292,34 @@ class TransportOrder(Document):
             if self.transport_job_type not in suitable_for:
                 frappe.msgprint(_("Selected vehicle type may not be suitable for {0} transport.").format(self.transport_job_type))
 
-    def _validate_load_type_compatibility(self):
-        """Validate load type compatibility with transport job type."""
+    def validate_load_type_allowed_for_job(self):
+        """Validate that the selected Load Type is allowed for the chosen Transport Job Type."""
         if not self.load_type or not self.transport_job_type:
             return
-        
-        # Get load type restrictions
-        load_type_doc = frappe.get_doc("Load Type", self.load_type)
-        
-        # Check if load type is compatible with job type
-        if hasattr(load_type_doc, 'compatible_job_types'):
-            compatible_types = load_type_doc.compatible_job_types or []
-            if self.transport_job_type not in compatible_types:
-                frappe.msgprint(_("Selected load type may not be compatible with {0} transport.").format(self.transport_job_type))
+
+        field_map = {
+            "Container": "container",
+            "Non-Container": "non_container",
+            "Special": "special",
+            "Oversized": "oversized",
+            "Multimodal": "multimodal",
+            "Heavy Haul": "heavy_haul"
+        }
+
+        allowed_field = field_map.get(self.transport_job_type)
+        if not allowed_field:
+            return
+
+        allowed = frappe.db.get_value(
+            "Load Type",
+            self.load_type,
+            allowed_field
+        )
+
+        if not allowed:
+            frappe.throw(
+                _(f"Load Type {self.load_type} is not allowed for {self.transport_job_type} jobs.")
+            )
 
     def _validate_vehicle_type_required(self):
         """Validate that vehicle_type is required only if consolidate is not checked."""
@@ -1018,6 +1042,125 @@ def get_vehicle_compatibility(transport_job_type: str, vehicle_type: str = None)
 
 
 @frappe.whitelist()
+def get_allowed_vehicle_types(transport_job_type: str, refrigeration: bool = False) -> Dict[str, Any]:
+    """Get allowed vehicle types for a transport job type based on boolean columns and reefer."""
+    if not transport_job_type:
+        return {"vehicle_types": []}
+    
+    filters = {}
+    
+    # Filter by container flag
+    if transport_job_type == "Container":
+        # For Container job type, only allow container vehicle types
+        filters["container"] = 1
+    elif transport_job_type == "Non-Container":
+        # For Non-Container job type, exclude container vehicle types
+        filters["container"] = 0
+    
+    # Filter by boolean columns for specific transport job types
+    if transport_job_type == "Special":
+        filters["special"] = 1
+        # Special job type also requires reefer
+        filters["reefer"] = 1
+    elif transport_job_type == "Oversized":
+        filters["oversized"] = 1
+    elif transport_job_type == "Heavy Haul":
+        filters["heavy_haul"] = 1
+    elif transport_job_type == "Multimodal":
+        # Check if multimodal field exists in Vehicle Type doctype
+        meta = frappe.get_meta("Vehicle Type")
+        if meta.has_field("multimodal"):
+            filters["multimodal"] = 1
+    
+    # Filter by reefer if refrigeration is required (for other job types)
+    # Note: Special job type already has reefer=1 filter above
+    if refrigeration and transport_job_type != "Special":
+        filters["reefer"] = 1
+    
+    # Get vehicle types matching the filter
+    vehicle_types = frappe.get_all(
+        "Vehicle Type",
+        filters=filters,
+        fields=["name", "code", "description", "container", "reefer"],
+        order_by="code"
+    )
+    
+    return {"vehicle_types": vehicle_types}
+
+
+@frappe.whitelist()
+def validate_vehicle_job_type_compatibility(transport_job_type: str, vehicle_type: str, refrigeration: bool = False) -> Dict[str, Any]:
+    """Validate if a vehicle type is compatible with the transport job type based on boolean columns and refrigeration requirements."""
+    if not transport_job_type or not vehicle_type:
+        return {"compatible": True, "message": ""}
+    
+    # Get vehicle type details - fetch boolean fields dynamically
+    meta = frappe.get_meta("Vehicle Type")
+    fields_to_fetch = ["container", "code", "reefer"]
+    
+    # Add boolean fields if they exist
+    boolean_fields = ["special", "oversized", "heavy_haul", "multimodal"]
+    for field in boolean_fields:
+        if meta.has_field(field):
+            fields_to_fetch.append(field)
+    
+    vehicle_details = frappe.get_value(
+        "Vehicle Type",
+        vehicle_type,
+        fields_to_fetch,
+        as_dict=True
+    )
+    
+    if not vehicle_details:
+        return {"compatible": False, "message": f"Vehicle Type {vehicle_type} not found"}
+    
+    compatible = True
+    messages = []
+    
+    # Check container compatibility
+    if transport_job_type == "Container":
+        if not vehicle_details.container:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is not container. Container job type requires a container vehicle type.")
+    elif transport_job_type == "Non-Container":
+        if vehicle_details.container:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is container. Non-Container job type requires a non-container vehicle type.")
+    
+    # Check boolean field compatibility for specific job types
+    if transport_job_type == "Special":
+        if not vehicle_details.reefer:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} does not have reefer capability. Special job type requires a vehicle with reefer enabled.")
+        if not getattr(vehicle_details, "special", False):
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is not marked as Special. Special job type requires a vehicle type with special capability.")
+    elif transport_job_type == "Oversized":
+        if not getattr(vehicle_details, "oversized", False):
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is not marked as Oversized. Oversized job type requires a vehicle type with oversized capability.")
+    elif transport_job_type == "Heavy Haul":
+        if not getattr(vehicle_details, "heavy_haul", False):
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is not marked as Heavy Haul. Heavy Haul job type requires a vehicle type with heavy haul capability.")
+    elif transport_job_type == "Multimodal":
+        if not getattr(vehicle_details, "multimodal", False):
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} is not marked as Multimodal. Multimodal job type requires a vehicle type with multimodal capability.")
+    
+    # Check reefer requirement for other job types (only if refrigeration is actually checked)
+    # Only check if refrigeration is explicitly True/1 and transport_job_type is not "Special"
+    # Handle cases where refrigeration might be passed as 0, False, "0", None, etc.
+    refrigeration_enabled = refrigeration in (True, 1) or (isinstance(refrigeration, str) and refrigeration == "1")
+    if refrigeration_enabled and transport_job_type != "Special":
+        if not vehicle_details.reefer:
+            compatible = False
+            messages.append(f"Vehicle Type {vehicle_details.code} does not have reefer capability. Refrigerated transport requires a vehicle with reefer enabled.")
+    
+    return {"compatible": compatible, "message": " ".join(messages) if messages else ""}
+
+
+@frappe.whitelist()
 def get_cost_estimation(transport_job_type: str, base_cost: float = 1000) -> Dict[str, Any]:
     """Get cost estimation based on transport job type."""
     if not transport_job_type or not base_cost:
@@ -1160,6 +1303,17 @@ def _create_and_attach_job_legs_from_order_legs(
         return
 
     for ol in order_legs:
+        # Validate pick_mode and drop_mode are valid Pick and Drop Mode records if set
+        # Ensure values are passed through unchanged and remain valid
+        pick_mode = getattr(ol, "pick_mode", None)
+        drop_mode = getattr(ol, "drop_mode", None)
+        
+        if pick_mode and not frappe.db.exists("Pick and Drop Mode", pick_mode):
+            frappe.throw(_("Invalid pick_mode '{0}' in Transport Order Leg. Must be a valid Pick and Drop Mode record.").format(pick_mode))
+        
+        if drop_mode and not frappe.db.exists("Pick and Drop Mode", drop_mode):
+            frappe.throw(_("Invalid drop_mode '{0}' in Transport Order Leg. Must be a valid Pick and Drop Mode record.").format(drop_mode))
+        
         # Create top-level Transport Leg
         leg = frappe.new_doc("Transport Leg")
         _safe_set(leg, "transport_job", job_doc.name)  # back-reference to the Job
@@ -1167,12 +1321,12 @@ def _create_and_attach_job_legs_from_order_legs(
 
         _safe_set(leg, "facility_type_from", getattr(ol, "facility_type_from", None))
         _safe_set(leg, "facility_from", getattr(ol, "facility_from", None))
-        _safe_set(leg, "pick_mode", getattr(ol, "pick_mode", None))
+        _safe_set(leg, "pick_mode", pick_mode)  # Use validated value
         _safe_set(leg, "pick_address", getattr(ol, "pick_address", None))
 
         _safe_set(leg, "facility_type_to", getattr(ol, "facility_type_to", None))
         _safe_set(leg, "facility_to", getattr(ol, "facility_to", None))
-        _safe_set(leg, "drop_mode", getattr(ol, "drop_mode", None))
+        _safe_set(leg, "drop_mode", drop_mode)  # Use validated value
         _safe_set(leg, "drop_address", getattr(ol, "drop_address", None))
         
         # Map transport details from order leg
@@ -1182,17 +1336,18 @@ def _create_and_attach_job_legs_from_order_legs(
         leg.insert(ignore_permissions=False)
 
         # Link into Transport Job Legs child table (denormalized snapshot for quick view/filter)
+        # Pass through pick_mode and drop_mode unchanged (already validated above)
         job_doc.append(
             job_legs_field,
             {
                 "transport_leg": leg.name,
                 "facility_type_from": getattr(ol, "facility_type_from", None),
                 "facility_from": getattr(ol, "facility_from", None),
-                "pick_mode": getattr(ol, "pick_mode", None),
+                "pick_mode": pick_mode,  # Use validated value, passed through unchanged
                 "pick_address": getattr(ol, "pick_address", None),
                 "facility_type_to": getattr(ol, "facility_type_to", None),
                 "facility_to": getattr(ol, "facility_to", None),
-                "drop_mode": getattr(ol, "drop_mode", None),
+                "drop_mode": drop_mode,  # Use validated value, passed through unchanged
                 "drop_address": getattr(ol, "drop_address", None),
                 "vehicle_type": getattr(ol, "vehicle_type", None),
                 "transport_job_type": getattr(ol, "transport_job_type", None),

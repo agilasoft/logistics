@@ -21,7 +21,7 @@ frappe.query_reports["Consolidation Savings Report"] = {
 			"fieldname": "consolidation_type",
 			"label": __("Consolidation Type"),
 			"fieldtype": "Select",
-			"options": "All\nLTL\nFTL\nPartial"
+			"options": "All\nPick\nDrop\nBoth\nRoute"
 		},
 		{
 			"fieldname": "status",

@@ -43,6 +43,7 @@
   "permits",
   "telematics_tab",
   "telematics_provider",
+  "telematics_device_name",
   "telematics_external_id",
   "column_break_bnct",
   "last_telematics_ts",
@@ -178,7 +179,7 @@
    "fieldname": "base_facility",
    "fieldtype": "Link",
    "label": "Base Facility",
-   "options": "Truck Park"
+   "options": "Transport Terminal"
   },
   {
    "fieldname": "address",
@@ -286,12 +287,17 @@
   {
    "fieldname": "column_break_mrie",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "telematics_device_name",
+   "fieldtype": "Data",
+   "label": "Telematics Device Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-30 16:22:10.640782",
+ "modified": "2026-01-04 00:30:14.476865",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle",

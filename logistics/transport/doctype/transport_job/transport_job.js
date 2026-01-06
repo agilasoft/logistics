@@ -1,6 +1,73 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+// Helper function to apply load_type filters (same pattern as vehicle_type)
+function apply_load_type_filters(frm, preserve_existing_value) {
+	// Filter load types based on transport job type and boolean columns
+	// preserve_existing_value: if true, don't clear load_type even if not in filtered list (used during refresh)
+	if (!frm.doc.transport_job_type) {
+		// Clear filters if no job type selected
+		frm.set_df_property('load_type', 'filters', {});
+		return;
+	}
+
+	// Build filters based on job type
+	var filters = {
+		transport: 1
+	};
+	
+	// Map transport_job_type to Load Type boolean field
+	if (frm.doc.transport_job_type === "Container") {
+		filters.container = 1;
+	} else if (frm.doc.transport_job_type === "Non-Container") {
+		filters.non_container = 1;
+	} else if (frm.doc.transport_job_type === "Special") {
+		filters.special = 1;
+	} else if (frm.doc.transport_job_type === "Oversized") {
+		filters.oversized = 1;
+	} else if (frm.doc.transport_job_type === "Heavy Haul") {
+		filters.heavy_haul = 1;
+	} else if (frm.doc.transport_job_type === "Multimodal") {
+		filters.multimodal = 1;
+	}
+
+	// Apply filters to load_type field
+	frm.set_df_property('load_type', 'filters', filters);
+	
+	// Only clear load_type if current selection is not in filtered list
+	// AND we're not preserving existing values (i.e., during refresh after save)
+	if (!preserve_existing_value && frm.doc.load_type) {
+		// Validate if current load_type is still allowed
+		frappe.call({
+			method: "frappe.client.get",
+			args: {
+				doctype: "Load Type",
+				name: frm.doc.load_type
+			},
+			callback: function(r) {
+				if (r.message) {
+					const load_type_doc = r.message;
+					const field_map = {
+						"Container": "container",
+						"Non-Container": "non_container",
+						"Special": "special",
+						"Oversized": "oversized",
+						"Multimodal": "multimodal",
+						"Heavy Haul": "heavy_haul"
+					};
+					const allowed_field = field_map[frm.doc.transport_job_type];
+					if (allowed_field && !load_type_doc[allowed_field]) {
+						frm.set_value('load_type', '');
+					}
+				}
+			}
+		});
+	}
+	
+	// Refresh the field to apply filters
+	frm.refresh_field('load_type');
+}
+
 frappe.ui.form.on('Transport Job', {
 	setup: function(frm) {
 		// Set default transport_job_type for new documents immediately
@@ -8,6 +75,8 @@ frappe.ui.form.on('Transport Job', {
 		if (frm.is_new() && !frm.doc.transport_job_type) {
 			frm.doc.transport_job_type = 'Non-Container';
 		}
+		// Apply load_type filters before field is ever used
+		apply_load_type_filters(frm);
 	},
 
 	onload: function(frm) {
@@ -19,6 +88,10 @@ frappe.ui.form.on('Transport Job', {
 		frm.events.toggle_container_fields(frm);
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
+		// Apply load_type filters on load (preserve existing values for existing documents)
+		if (frm.doc.transport_job_type) {
+			apply_load_type_filters(frm, !frm.is_new());
+		}
 	},
 
 	refresh: function(frm) {
@@ -30,6 +103,10 @@ frappe.ui.form.on('Transport Job', {
 		frm.events.toggle_container_fields(frm);
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
+		// Apply load_type filters on refresh (preserve existing values)
+		if (frm.doc.transport_job_type) {
+			apply_load_type_filters(frm, true);
+		}
 		
 		// Fetch and update missing data from Transport Leg
 		frm.events.update_legs_missing_data(frm);
@@ -40,11 +117,41 @@ frappe.ui.form.on('Transport Job', {
 				frm.events.fetch_missing_leg_data_server(frm);
 			}, __('Actions'));
 		}
+		
+		// Lalamove Integration
+		if (frm.doc.use_lalamove && !frm.is_new()) {
+			frm.add_custom_button(__('Lalamove'), function() {
+				// Load Lalamove utilities if not already loaded
+				if (typeof logistics === 'undefined' || !logistics.lalamove) {
+					frappe.require('/assets/logistics/lalamove/utils.js', function() {
+						frappe.require('/assets/logistics/lalamove/lalamove_form.js', function() {
+							logistics.lalamove.form.showLalamoveDialog(frm);
+						});
+					});
+				} else {
+					logistics.lalamove.form.showLalamoveDialog(frm);
+				}
+			}, __('Actions'));
+			
+			// Show order status indicator if order exists
+			if (frm.doc.lalamove_order) {
+				frappe.db.get_value('Lalamove Order', frm.doc.lalamove_order, ['status', 'lalamove_order_id'], (r) => {
+					if (r && r.status) {
+						const status_color = r.status === 'COMPLETED' ? 'green' : (r.status === 'CANCELLED' ? 'red' : 'blue');
+						frm.dashboard.add_indicator(__('Lalamove: {0}', [r.status]), status_color);
+					}
+				});
+			}
+		}
 	},
 
 	transport_job_type: function(frm) {
 		// Update container fields visibility when transport_job_type changes
 		frm.events.toggle_container_fields(frm);
+		// Apply load_type filters (same pattern as vehicle_type)
+		apply_load_type_filters(frm);
+		// Clear invalid value when job type changes
+		frm.set_value('load_type', null);
 	},
 
 	consolidate: function(frm) {
@@ -75,6 +182,7 @@ frappe.ui.form.on('Transport Job', {
 		const is_required = !frm.doc.consolidate;
 		frm.set_df_property('vehicle_type', 'reqd', is_required);
 	},
+
 
 	validate: function(frm) {
 		// Ensure transport_job_type is set before save
