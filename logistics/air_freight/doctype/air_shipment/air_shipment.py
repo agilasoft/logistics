@@ -1411,12 +1411,11 @@ class AirShipment(Document):
 		if not hasattr(self, '_settings_applied'):
 			self.apply_settings_defaults()
 		
-		# Create job costing if enabled in settings
-		settings = self.get_air_freight_settings()
-		if settings and settings.auto_create_job_costing:
-			self.create_job_costing_number_if_needed()
+		# Create job costing (method will check settings internally)
+		self.create_job_costing_number_if_needed()
 		
 		# Auto-generate AWB numbers if enabled in settings
+		settings = self.get_air_freight_settings()
 		if settings:
 			if settings.auto_generate_house_awb and not self.house_awb_no:
 				self.generate_house_awb_number()

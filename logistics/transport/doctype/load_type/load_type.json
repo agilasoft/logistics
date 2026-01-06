@@ -13,7 +13,14 @@
   "sea",
   "transport",
   "transport_tab",
-  "can_be_consolidated"
+  "can_be_consolidated",
+  "allowed_transport_job_types_section",
+  "container",
+  "non_container",
+  "special",
+  "oversized",
+  "multimodal",
+  "heavy_haul"
  ],
  "fields": [
   {
@@ -61,6 +68,47 @@
    "fieldname": "can_be_consolidated",
    "fieldtype": "Check",
    "label": "Can be Consolidated"
+  },
+  {
+   "fieldname": "allowed_transport_job_types_section",
+   "fieldtype": "Section Break",
+   "label": "Allowed Transport Job Types"
+  },
+  {
+   "default": "0",
+   "fieldname": "container",
+   "fieldtype": "Check",
+   "label": "Container"
+  },
+  {
+   "default": "0",
+   "fieldname": "non_container",
+   "fieldtype": "Check",
+   "label": "Non-Container"
+  },
+  {
+   "default": "0",
+   "fieldname": "special",
+   "fieldtype": "Check",
+   "label": "Special"
+  },
+  {
+   "default": "0",
+   "fieldname": "oversized",
+   "fieldtype": "Check",
+   "label": "Oversized"
+  },
+  {
+   "default": "0",
+   "fieldname": "multimodal",
+   "fieldtype": "Check",
+   "label": "Multimodal"
+  },
+  {
+   "default": "0",
+   "fieldname": "heavy_haul",
+   "fieldtype": "Check",
+   "label": "Heavy Haul"
   }
  ],
  "index_web_pages_for_search": 1,

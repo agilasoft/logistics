@@ -293,6 +293,12 @@ frappe.ui.form.on('Stocktake Order Item', {
     },
     height: function(frm, cdt, cdn) {
         calculate_volume(frm, cdt, cdn);
+    },
+    dimension_uom: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    volume_uom: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
     }
 });
 
@@ -304,17 +310,21 @@ function update_uom_fields(frm, cdt, cdn) {
         args: {
             doctype: 'Warehouse Settings',
             name: company,
-            fieldname: ['default_volume_uom', 'default_weight_uom']
+            fieldname: ['default_volume_uom', 'default_weight_uom', 'default_dimension_uom']
         },
         callback: function(r) {
             if (r.message) {
                 const volume_uom = r.message.default_volume_uom;
                 const weight_uom = r.message.default_weight_uom;
+                const dimension_uom = r.message.default_dimension_uom;
                 if (volume_uom) {
                     frappe.model.set_value(cdt, cdn, 'volume_uom', volume_uom);
                 }
                 if (weight_uom) {
                     frappe.model.set_value(cdt, cdn, 'weight_uom', weight_uom);
+                }
+                if (dimension_uom) {
+                    frappe.model.set_value(cdt, cdn, 'dimension_uom', dimension_uom);
                 }
             }
         }
@@ -328,7 +338,34 @@ function calculate_volume(frm, cdt, cdn) {
     const height = parseFloat(doc.height) || 0;
     
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        frappe.model.set_value(cdt, cdn, 'volume', volume);
+        // Get UOMs from child document or warehouse settings
+        const dimension_uom = doc.dimension_uom;
+        const volume_uom = doc.volume_uom;
+        const company = frappe.defaults.get_user_default("Company");
+        
+        // Call server-side method to calculate volume with UOM conversion
+        frappe.call({
+            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    frappe.model.set_value(cdt, cdn, 'volume', r.message.volume);
+                }
+            },
+            error: function(r) {
+                // Fallback to raw calculation on error
+                const volume = length * width * height;
+                frappe.model.set_value(cdt, cdn, 'volume', volume);
+            }
+        });
+    } else {
+        frappe.model.set_value(cdt, cdn, 'volume', 0);
     }
 }

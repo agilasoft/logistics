@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2025-01-01 00:00:00.000000",
+ "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -33,6 +33,8 @@
   "volume",
   "weight",
   "chargeable",
+  "volume_to_weight_factor_type",
+  "custom_volume_to_weight_divisor",
   "packages_section",
   "packages",
   "house_tab",
@@ -59,7 +61,8 @@
   "notes_tab",
   "internal_notes",
   "column_break_notes",
-  "client_notes"
+  "client_notes",
+  "amended_from"
  ],
  "fields": [
   {
@@ -84,6 +87,7 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
+   "link_filters": "[[\"Sales Quote\",\"is_air\",\"=\",1]]",
    "options": "Sales Quote"
   },
   {
@@ -160,7 +164,7 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Airport",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "etd",
@@ -195,7 +199,7 @@
   {
    "fieldname": "volume",
    "fieldtype": "Float",
-   "label": "Volume (m³)"
+   "label": "Volume (m\u00b3)"
   },
   {
    "fieldname": "weight",
@@ -205,7 +209,23 @@
   {
    "fieldname": "chargeable",
    "fieldtype": "Float",
-   "label": "Chargeable Weight (kg)"
+   "label": "Chargeable Weight (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "volume_to_weight_factor_type",
+   "fieldtype": "Select",
+   "label": "Volume to Weight Factor Type",
+   "options": "IATA\nCustom",
+   "default": "IATA",
+   "description": "IATA: Uses standard 6000 divisor (167 kg/m³). Custom: Uses airline-specific divisor or override."
+  },
+  {
+   "fieldname": "custom_volume_to_weight_divisor",
+   "fieldtype": "Float",
+   "label": "Custom Volume to Weight Divisor",
+   "depends_on": "eval:doc.volume_to_weight_factor_type === 'Custom'",
+   "description": "Override divisor for volume weight calculation (e.g., 3500, 5000). Leave empty to use airline default."
   },
   {
    "fieldname": "packages_section",
@@ -349,11 +369,22 @@
    "fieldname": "details_tab",
    "fieldtype": "Tab Break",
    "label": "Details"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Air Booking",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-01-01 00:00:00.000000",
+ "modified": "2026-01-05 19:54:30.774355",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",
@@ -384,8 +415,9 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
-

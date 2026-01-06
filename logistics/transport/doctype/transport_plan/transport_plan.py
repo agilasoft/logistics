@@ -44,13 +44,15 @@ def _get_job_group_legs_setting(job_name: str, consolidate_legs_fallback: bool, 
         return None
 
 
-def _process_job_legs_with_grouping(job_legs: List[Dict[str, Any]], runsheet_groups: Dict[str, Any], result: Dict[str, Any], debug: Optional[List[str]] = None) -> None:
+def _process_job_legs_with_grouping(job_legs: List[Dict[str, Any]], runsheet_groups: Dict[str, Any], result: Dict[str, Any], debug: Optional[List[str]] = None, vehicle_to_runsheet: Optional[Dict[str, str]] = None) -> None:
     """
     Process legs with grouping: group by same vehicle type and same scheduled/run date.
     Creates one Run Sheet per group (with allow_reuse=True).
     Ensures Run Sheet is created/reused ONCE per group and reused for all legs in that group.
     """
     debug = debug or []
+    if vehicle_to_runsheet is None:
+        vehicle_to_runsheet = {}
     
     # Group legs by vehicle type and date (same vehicle type, same scheduled/run date)
     def _grouping_key(leg: Dict[str, Any]) -> Tuple[str, str]:
@@ -78,7 +80,7 @@ def _process_job_legs_with_grouping(job_legs: List[Dict[str, Any]], runsheet_gro
         driver = None
         
         # Try to find a vehicle that can handle all legs in the group
-        vehicle = _find_candidate_vehicle(grouped_legs[0], group_debug)
+        vehicle = _find_candidate_vehicle(grouped_legs[0], group_debug, vehicle_to_runsheet, None)
         if vehicle:
             driver = _find_candidate_driver(grouped_legs[0], vehicle, group_debug)
             if not driver:
@@ -89,7 +91,7 @@ def _process_job_legs_with_grouping(job_legs: List[Dict[str, Any]], runsheet_gro
         # Create or reuse Run Sheet ONCE for the entire group (using first leg only)
         # Store the Run Sheet name in a local variable and reuse it for all subsequent legs
         rs_name, reused = _create_or_reuse_run_sheet(
-            grouped_legs[0], vehicle, driver, group_debug, allow_reuse=True
+            grouped_legs[0], vehicle, driver, group_debug, allow_reuse=True, vehicle_to_runsheet=vehicle_to_runsheet
         )
         
         # Append all legs in the group to the SAME Run Sheet
@@ -132,17 +134,19 @@ def _process_job_legs_with_grouping(job_legs: List[Dict[str, Any]], runsheet_gro
         (result["reused"] if reused else result["created"]).append(rs_name)
 
 
-def _process_job_legs_individually(job_legs: List[Dict[str, Any]], runsheet_groups: Dict[str, Any], result: Dict[str, Any], debug: Optional[List[str]] = None) -> None:
+def _process_job_legs_individually(job_legs: List[Dict[str, Any]], runsheet_groups: Dict[str, Any], result: Dict[str, Any], debug: Optional[List[str]] = None, vehicle_to_runsheet: Optional[Dict[str, str]] = None) -> None:
     """
     Process legs individually: create one Run Sheet per leg (with allow_reuse=False).
     """
     debug = debug or []
+    if vehicle_to_runsheet is None:
+        vehicle_to_runsheet = {}
     debug.append(f"Processing {len(job_legs)} legs individually for job")
     
     for leg in job_legs:
         leg_debug: List[str] = []
         try:
-            vehicle = _find_candidate_vehicle(leg, leg_debug)
+            vehicle = _find_candidate_vehicle(leg, leg_debug, vehicle_to_runsheet, None)
             driver = None
             
             if vehicle:
@@ -154,7 +158,7 @@ def _process_job_legs_individually(job_legs: List[Dict[str, Any]], runsheet_grou
 
             # Create run sheet with or without vehicle/driver
             # When grouping is disabled, always create new Run Sheet (no reuse/grouping)
-            rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug, allow_reuse=False)
+            rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug, allow_reuse=False, vehicle_to_runsheet=vehicle_to_runsheet)
 
             # Append child row: set transport_leg THEN prefill other child fields from the leg
             appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
@@ -247,6 +251,9 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
         })
         return _finalize_and_msgprint(plan_name, result)
 
+    # Step 1: Initialize mapping to track vehicle usage per Run Sheet: {vehicle_name: runsheet_name}
+    vehicle_to_runsheet: Dict[str, str] = {}
+
     def _date_key(leg: Dict[str, Any]) -> str:
         return _get_leg_date_value(leg) or ""
 
@@ -277,16 +284,16 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
             
             if job_group_legs == 1:
                 # Apply grouping logic only to legs of this job (same vehicle type, same scheduled/run date)
-                _process_job_legs_with_grouping(job_legs, runsheet_groups, result, result["debug"])
+                _process_job_legs_with_grouping(job_legs, runsheet_groups, result, result["debug"], vehicle_to_runsheet)
             elif job_group_legs == 0:
                 # Force "one Run Sheet per leg" behavior only for this job
-                _process_job_legs_individually(job_legs, runsheet_groups, result, result["debug"])
+                _process_job_legs_individually(job_legs, runsheet_groups, result, result["debug"], vehicle_to_runsheet)
             else:
                 # Fallback to consolidate_legs setting
                 if consolidate_legs:
-                    _process_job_legs_with_grouping(job_legs, runsheet_groups, result, result["debug"])
+                    _process_job_legs_with_grouping(job_legs, runsheet_groups, result, result["debug"], vehicle_to_runsheet)
                 else:
-                    _process_job_legs_individually(job_legs, runsheet_groups, result, result["debug"])
+                    _process_job_legs_individually(job_legs, runsheet_groups, result, result["debug"], vehicle_to_runsheet)
         
         # Process legs without a transport_job using consolidate_legs setting
         if legs_without_job:
@@ -300,7 +307,7 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
                     trip_debug: List[str] = []
                     try:
                         # Find vehicle and driver for the entire trip
-                        vehicle = _find_vehicle_for_trip(trip["legs"], trip_debug)
+                        vehicle = _find_vehicle_for_trip(trip["legs"], trip_debug, vehicle_to_runsheet, None)
                         driver = None
                         
                         if vehicle:
@@ -312,7 +319,7 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
 
                         # Create run sheet for the entire trip
                         consolidation = trip.get("consolidation")
-                        rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug, consolidation, allow_reuse=True)
+                        rs_name, reused = _create_or_reuse_run_sheet(trip["legs"][0], vehicle, driver, trip_debug, consolidation, allow_reuse=True, vehicle_to_runsheet=vehicle_to_runsheet)
 
                         # Append all legs in the trip to the run sheet
                         trip_legs_added = 0
@@ -374,7 +381,7 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
                 for leg in legs_without_job:
                     leg_debug: List[str] = []
                     try:
-                        vehicle = _find_candidate_vehicle(leg, leg_debug)
+                        vehicle = _find_candidate_vehicle(leg, leg_debug, vehicle_to_runsheet, None)
                         driver = None
                         
                         if vehicle:
@@ -386,7 +393,7 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
 
                         # Create run sheet with or without vehicle/driver
                         # When consolidate_legs=False, always create new Run Sheet (no reuse/grouping)
-                        rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug, allow_reuse=False)
+                        rs_name, reused = _create_or_reuse_run_sheet(leg, vehicle, driver, leg_debug, allow_reuse=False, vehicle_to_runsheet=vehicle_to_runsheet)
 
                         # Append child row: set transport_leg THEN prefill other child fields from the leg
                         appended = _append_leg_to_runsheet(rs_name, leg, leg_debug)
@@ -672,7 +679,7 @@ def _consolidate_legs(day_legs: List[Dict[str, Any]], debug: Optional[List[str]]
                     "consolidation": {
                         "name": consol_name,
                         "date": consolidation_doc.consolidation_date,
-                        "type": consolidation_doc.consolidation_type or "LTL"
+                        "type": consolidation_doc.consolidation_type or "Route"
                     },
                     "total_weight": sum(flt(leg.get("weight") or 0) for leg in consol_legs),
                     "total_volume": sum(flt(leg.get("volume") or 0) for leg in consol_legs),
@@ -815,7 +822,7 @@ def _create_transport_consolidation(load_type: str, legs: List[Dict[str, Any]], 
         consolidation = frappe.new_doc("Transport Consolidation")
         consolidation.consolidation_date = _get_leg_date_value(legs[0]) or nowdate()
         consolidation.status = "Draft"
-        consolidation.consolidation_type = "LTL"
+        # consolidation_type will be auto-determined in validate() based on addresses
         
         # Set accounting fields from first transport job
         if legs and legs[0].get("transport_job"):
@@ -961,11 +968,14 @@ def _calculate_trip_capacity(trip_legs: List[Dict[str, Any]]) -> Dict[str, float
     }
 
 
-def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List[str]] = None, vehicle_to_runsheet: Optional[Dict[str, str]] = None, target_runsheet: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Find a suitable vehicle for an entire trip based on capacity requirements.
     """
     debug = debug or []
+    if vehicle_to_runsheet is None:
+        vehicle_to_runsheet = {}
+    
     if not trip_legs:
         return None
     
@@ -1008,10 +1018,18 @@ def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List
         debug.append("No internal vehicles available for trip")
         return None
     
+    # Filter out vehicles already assigned to OTHER Run Sheets
+    # Allow vehicles assigned to the same Run Sheet (target_runsheet) if reusing
+    available_vehicles = [
+        v for v in vehicles 
+        if v["name"] not in vehicle_to_runsheet or 
+           (target_runsheet and vehicle_to_runsheet.get(v["name"]) == target_runsheet)
+    ]
+    
     # Check vehicle availability for the entire trip duration
     trip_date = _get_leg_date_value(first_leg)
     
-    for vehicle in vehicles:
+    for vehicle in available_vehicles:
         # Check if vehicle is available for the entire trip
         if not _vehicle_free_on_date(vehicle["name"], trip_date):
             debug.append(f"Vehicle {vehicle.get('vehicle_name') or vehicle['name']} busy on {trip_date}")
@@ -1041,8 +1059,11 @@ def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List
 
 # ------------------------ Vehicle & Driver ------------------------
 
-def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = None, vehicle_to_runsheet: Optional[Dict[str, str]] = None, target_runsheet: Optional[str] = None) -> Optional[Dict[str, Any]]:
     debug = debug or []
+    if vehicle_to_runsheet is None:
+        vehicle_to_runsheet = {}
+    
     if not _doctype_exists("Transport Vehicle"):
         debug.append("No 'Transport Vehicle' doctype.")
         return None
@@ -1074,7 +1095,15 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
     need_v = flt(leg.get("volume") or 0)
     need_p = flt(leg.get("pallets") or 0)
 
-    for v in vehicles:
+    # Filter out vehicles already assigned to OTHER Run Sheets
+    # Allow vehicles assigned to the same Run Sheet (target_runsheet) if reusing
+    available_vehicles = [
+        v for v in vehicles 
+        if v["name"] not in vehicle_to_runsheet or 
+           (target_runsheet and vehicle_to_runsheet.get(v["name"]) == target_runsheet)
+    ]
+
+    for v in available_vehicles:
         if not _vehicle_free_on_date(v["name"], sched):
             debug.append(f"Internal vehicle busy on {sched}: {v.get('vehicle_name') or v['name']}")
             continue
@@ -1186,7 +1215,7 @@ def _driver_free_on_date(driver_name: str, day: Optional[str]) -> bool:
 
 # ------------------------ Run Sheet & legs ------------------------
 
-def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None, consolidation: Optional[Dict[str, Any]] = None, allow_reuse: bool = False) -> Tuple[str, bool]:
+def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, Any]], driver: Optional[Dict[str, Any]], debug: Optional[List[str]] = None, consolidation: Optional[Dict[str, Any]] = None, allow_reuse: bool = False, vehicle_to_runsheet: Optional[Dict[str, str]] = None) -> Tuple[str, bool]:
     """
     Create a new Run Sheet or reuse an existing one.
     
@@ -1197,11 +1226,15 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
         debug: Debug messages list (optional)
         consolidation: Consolidation dictionary (optional)
         allow_reuse: If True, allows reusing existing Run Sheets (grouping). If False, always creates new Run Sheet.
+        vehicle_to_runsheet: Dict mapping vehicle_name -> runsheet_name to track vehicle usage per Run Sheet.
     
     Returns:
         Tuple of (run_sheet_name, was_reused)
     """
     debug = debug or []
+    if vehicle_to_runsheet is None:
+        vehicle_to_runsheet = {}
+    
     sched = _get_leg_date_value(leg) or nowdate()
     rs_date = f"{sched} 08:00:00"
 
@@ -1242,6 +1275,9 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
     if existing:
         rs_name = existing[0]["name"]
         debug.append(f"Reusing Run Sheet: {rs_name}")
+        # Track vehicle when reusing Run Sheet (allow same vehicle for same Run Sheet)
+        if vehicle and vehicle.get("name"):
+            vehicle_to_runsheet[vehicle["name"]] = rs_name
         return rs_name, True
 
     rs = frappe.new_doc("Run Sheet")
@@ -1264,6 +1300,9 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
     try:
         rs.insert(ignore_permissions=True)
         debug.append(f"Created Run Sheet: {rs.name}")
+        # Track vehicle when creating new Run Sheet
+        if vehicle and vehicle.get("name"):
+            vehicle_to_runsheet[vehicle["name"]] = rs.name
         return rs.name, False
     except Exception as e:
         raise Exception(f"Run Sheet save failed: {cstr(e)}")

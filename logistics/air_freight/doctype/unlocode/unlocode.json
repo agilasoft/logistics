@@ -52,7 +52,35 @@
   "auto_populate_tab",
   "auto_populate",
   "last_updated",
-  "data_source"
+  "data_source",
+  "airport_tab",
+  "airport_information_section",
+  "airport_name",
+  "airport_type",
+  "column_break_airport_1",
+  "altitude_meters",
+  "gmt_offset",
+  "dst",
+  "capabilities_section",
+  "is_cargo_hub",
+  "is_international",
+  "column_break_airport_2",
+  "supports_dangerous_goods",
+  "supports_live_animals",
+  "supports_refrigerated",
+  "contact_section",
+  "website",
+  "phone",
+  "email",
+  "column_break_airport_3",
+  "address_line_1",
+  "address_line_2",
+  "postal_code",
+  "metadata_section",
+  "last_synced",
+  "column_break_airport_4",
+  "is_active",
+  "disabled"
  ],
  "fields": [
   {
@@ -378,6 +406,179 @@
    "default": "Internal Database",
    "reqd": 0,
    "description": "Source of UNLOCO data"
+  },
+  {
+   "fieldname": "airport_tab",
+   "fieldtype": "Tab Break",
+   "label": "Airport"
+  },
+  {
+   "fieldname": "airport_information_section",
+   "fieldtype": "Section Break",
+   "label": "Airport Information"
+  },
+  {
+   "fieldname": "airport_name",
+   "fieldtype": "Data",
+   "label": "Airport Name",
+   "reqd": 0,
+   "description": "Official airport name"
+  },
+  {
+   "default": "Airport",
+   "fieldname": "airport_type",
+   "fieldtype": "Select",
+   "label": "Airport Type",
+   "options": "Airport\nHeliport\nSeaplane Base\nBalloonport\nClosed",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_airport_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "altitude_meters",
+   "fieldtype": "Float",
+   "label": "Altitude (Meters)",
+   "precision": 2,
+   "reqd": 0
+  },
+  {
+   "fieldname": "gmt_offset",
+   "fieldtype": "Data",
+   "label": "GMT Offset",
+   "reqd": 0,
+   "description": "GMT offset (e.g., +05:30, -08:00)"
+  },
+  {
+   "fieldname": "dst",
+   "fieldtype": "Data",
+   "label": "DST",
+   "reqd": 0,
+   "description": "Daylight Saving Time information"
+  },
+  {
+   "fieldname": "capabilities_section",
+   "fieldtype": "Section Break",
+   "label": "Capabilities"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cargo_hub",
+   "fieldtype": "Check",
+   "label": "Is Cargo Hub",
+   "reqd": 0
+  },
+  {
+   "default": "1",
+   "fieldname": "is_international",
+   "fieldtype": "Check",
+   "label": "Is International",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_airport_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Supports Dangerous Goods",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_live_animals",
+   "fieldtype": "Check",
+   "label": "Supports Live Animals",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_refrigerated",
+   "fieldtype": "Check",
+   "label": "Supports Refrigerated Cargo",
+   "reqd": 0
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "contact_section",
+   "fieldtype": "Section Break",
+   "label": "Contact Information"
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Website",
+   "reqd": 0
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone",
+   "reqd": 0
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_airport_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "address_line_1",
+   "fieldtype": "Data",
+   "label": "Address Line 1",
+   "reqd": 0
+  },
+  {
+   "fieldname": "address_line_2",
+   "fieldtype": "Data",
+   "label": "Address Line 2",
+   "reqd": 0
+  },
+  {
+   "fieldname": "postal_code",
+   "fieldtype": "Data",
+   "label": "Postal Code",
+   "reqd": 0
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1,
+   "reqd": 0,
+   "description": "Last time airport data was synced"
+  },
+  {
+   "fieldname": "column_break_airport_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled",
+   "reqd": 0
   }
  ],
  "grid_page_length": 50,

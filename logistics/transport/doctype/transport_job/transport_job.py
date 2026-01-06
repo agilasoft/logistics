@@ -25,6 +25,7 @@ class TransportJob(Document):
         # Validate transport job type - only when it IS set (like Transport Order does)
         # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
         self._validate_transport_job_type()
+        self._validate_load_type_compatibility()
         self.validate_legs()
         self.validate_accounts()
         self.validate_status_transition()
@@ -165,6 +166,35 @@ class TransportJob(Document):
                 frappe.throw(_("Container Type is required for Container transport jobs."))
             if not self.container_no:
                 frappe.throw(_("Container Number is required for Container transport jobs."))
+    
+    def _validate_load_type_compatibility(self):
+        """Validate load type compatibility with transport job type using boolean flags."""
+        if not self.load_type or not self.transport_job_type:
+            return
+        
+        # Map transport_job_type to boolean field name
+        field_map = {
+            "Container": "container",
+            "Non-Container": "non_container",
+            "Special": "special",
+            "Oversized": "oversized",
+            "Multimodal": "multimodal",
+            "Heavy Haul": "heavy_haul"
+        }
+        
+        job_type_field = field_map.get(self.transport_job_type)
+        if not job_type_field:
+            return
+        
+        # Get load type boolean flag value
+        load_type_flag = frappe.get_value("Load Type", self.load_type, job_type_field)
+        
+        if not load_type_flag:
+            load_type_name = frappe.get_value("Load Type", self.load_type, "load_type_name")
+            frappe.throw(_("Load Type '{0}' is not allowed for {1} transport jobs.").format(
+                load_type_name or self.load_type, 
+                self.transport_job_type
+            ))
     
     def validate_legs(self):
         """Validate that submitted jobs have at least one leg and update missing data"""

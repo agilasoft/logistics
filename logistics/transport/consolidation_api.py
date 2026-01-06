@@ -77,7 +77,7 @@ def create_consolidation_from_jobs(job_names: List[str], consolidation_date: str
 	consolidation = frappe.new_doc("Transport Consolidation")
 	consolidation.consolidation_date = consolidation_date
 	consolidation.status = "Draft"
-	consolidation.consolidation_type = "LTL"  # Default to LTL for consolidation
+	# consolidation_type will be auto-determined in validate() based on addresses
 	
 	# Add transport jobs
 	for job_name in job_names:

@@ -158,10 +158,16 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 	`;
 	
 	jobs.forEach(function(job) {
-		const consolidation_badge = job.consolidation_type === 'Pick Consolidated' ? 
-			'<span class="badge badge-info" style="background-color: #007bff;">Pick</span>' : 
-			(job.consolidation_type === 'Drop Consolidated' ? 
-				'<span class="badge badge-success" style="background-color: #28a745;">Drop</span>' : '-');
+		let consolidation_badge = '-';
+		if (job.consolidation_type === 'Pick') {
+			consolidation_badge = '<span class="badge badge-info" style="background-color: #007bff;">Pick</span>';
+		} else if (job.consolidation_type === 'Drop') {
+			consolidation_badge = '<span class="badge badge-success" style="background-color: #28a745;">Drop</span>';
+		} else if (job.consolidation_type === 'Both') {
+			consolidation_badge = '<span class="badge badge-warning" style="background-color: #ffc107;">Both</span>';
+		} else if (job.consolidation_type === 'Route') {
+			consolidation_badge = '<span class="badge badge-secondary" style="background-color: #6c757d;">Route</span>';
+		}
 		
 		const status_badge_color = get_status_color(job.status);
 		

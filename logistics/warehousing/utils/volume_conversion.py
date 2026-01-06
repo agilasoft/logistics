@@ -12,52 +12,12 @@ and volume needs to be in another unit (e.g., cubic meters).
 import frappe
 from frappe import _
 from frappe.utils import flt
-from typing import Optional, Dict
+from typing import Optional
 
 
 class ConversionNotFoundError(Exception):
 	"""Raised when a conversion factor cannot be found"""
 	pass
-
-
-# Standard conversion factors for common UOM combinations
-STANDARD_CONVERSIONS = {
-	# Centimeter to Cubic Meter
-	("CM", "CBM"): 0.000001,  # 1 cm³ = 0.000001 m³
-	("cm", "CBM"): 0.000001,
-	("cm", "cbm"): 0.000001,
-	("CM", "cbm"): 0.000001,
-	
-	# Meter to Cubic Meter
-	("M", "CBM"): 1.0,  # 1 m³ = 1 m³
-	("m", "CBM"): 1.0,
-	("M", "cbm"): 1.0,
-	("m", "cbm"): 1.0,
-	
-	# Millimeter to Cubic Meter
-	("MM", "CBM"): 0.000000001,  # 1 mm³ = 0.000000001 m³
-	("mm", "CBM"): 0.000000001,
-	("MM", "cbm"): 0.000000001,
-	("mm", "cbm"): 0.000000001,
-	
-	# Inch to Cubic Feet
-	("IN", "CFT"): 0.000578704,  # 1 in³ = 1/1728 ft³ ≈ 0.000578704 ft³
-	("in", "CFT"): 0.000578704,
-	("IN", "cft"): 0.000578704,
-	("in", "cft"): 0.000578704,
-	
-	# Feet to Cubic Feet
-	("FT", "CFT"): 1.0,  # 1 ft³ = 1 ft³
-	("ft", "CFT"): 1.0,
-	("FT", "cft"): 1.0,
-	("ft", "cft"): 1.0,
-	
-	# Centimeter to Cubic Centimeter (no conversion needed, but for consistency)
-	("CM", "CM3"): 1.0,
-	("cm", "CM3"): 1.0,
-	("CM", "cm3"): 1.0,
-	("cm", "cm3"): 1.0,
-}
 
 
 def get_volume_conversion_factor(
@@ -68,19 +28,19 @@ def get_volume_conversion_factor(
 	"""
 	Get conversion factor from dimension UOM to volume UOM.
 	
-	First checks custom conversions in the database, then falls back to
-	standard conversions.
+	Retrieves conversion factor from Dimension Volume UOM Conversion records
+	in the database. All conversions must be defined in the database.
 	
 	Args:
 		dimension_uom: UOM of dimensions (e.g., "CM", "M")
 		volume_uom: UOM of volume (e.g., "CBM", "CFT")
-		company: Optional company for company-specific conversions
+		company: Optional company for company-specific conversions (not currently used)
 	
 	Returns:
 		Conversion factor (float)
 	
 	Raises:
-		ConversionNotFoundError: If conversion not found and no fallback available
+		ConversionNotFoundError: If conversion not found in database
 	"""
 	if not dimension_uom or not volume_uom:
 		raise ConversionNotFoundError(
@@ -95,33 +55,54 @@ def get_volume_conversion_factor(
 	if dim_uom == vol_uom:
 		return 1.0
 	
-	# Try to get custom conversion from database
+	# Try to get conversion from database
+	# First try with normalized UOMs
+	conversion = None
 	try:
 		conversion = frappe.db.get_value(
 			"Dimension Volume UOM Conversion",
 			{
-				"dimension_uom": dimension_uom,
-				"volume_uom": volume_uom,
+				"dimension_uom": dim_uom,
+				"volume_uom": vol_uom,
 				"enabled": 1
 			},
 			"conversion_factor",
 			as_dict=True
 		)
-		
-		if conversion and conversion.get("conversion_factor"):
-			return flt(conversion.get("conversion_factor"))
-	except Exception:
-		pass  # Fall through to standard conversions
+	except (frappe.DoesNotExistError, frappe.ValidationError):
+		# Expected exceptions - no conversion found in database
+		pass
+	except Exception as e:
+		# Log unexpected errors
+		frappe.log_error(
+			_("Unexpected error fetching conversion from database: {0}").format(str(e)),
+			"Volume Conversion Database Error"
+		)
 	
-	# Try standard conversions
-	key = (dim_uom, vol_uom)
-	if key in STANDARD_CONVERSIONS:
-		return STANDARD_CONVERSIONS[key]
+	# If not found with normalized UOMs, try with original case
+	if not conversion or not conversion.get("conversion_factor"):
+		try:
+			conversion = frappe.db.get_value(
+				"Dimension Volume UOM Conversion",
+				{
+					"dimension_uom": dimension_uom.strip(),
+					"volume_uom": volume_uom.strip(),
+					"enabled": 1
+				},
+				"conversion_factor",
+				as_dict=True
+			)
+		except (frappe.DoesNotExistError, frappe.ValidationError):
+			pass
+		except Exception as e:
+			frappe.log_error(
+				_("Unexpected error fetching conversion from database: {0}").format(str(e)),
+				"Volume Conversion Database Error"
+			)
 	
-	# Try case-insensitive lookup
-	for (std_dim, std_vol), factor in STANDARD_CONVERSIONS.items():
-		if std_dim.upper() == dim_uom and std_vol.upper() == vol_uom:
-			return factor
+	# Return conversion factor if found
+	if conversion and conversion.get("conversion_factor"):
+		return flt(conversion.get("conversion_factor"))
 	
 	# If no conversion found, raise error
 	raise ConversionNotFoundError(
@@ -170,10 +151,6 @@ def calculate_volume_from_dimensions(
 	# Calculate raw volume (cubic dimension UOM)
 	raw_volume = length * width * height
 	
-	# If no UOMs provided, return raw calculation (backward compatible)
-	if not dimension_uom or not volume_uom:
-		return raw_volume
-	
 	# Get UOMs from warehouse settings if not provided
 	if not dimension_uom or not volume_uom:
 		try:
@@ -186,7 +163,7 @@ def calculate_volume_from_dimensions(
 		except Exception:
 			pass
 	
-	# If still no UOMs, return raw calculation
+	# If no UOMs provided (even after checking settings), return raw calculation (backward compatible)
 	if not dimension_uom or not volume_uom:
 		return raw_volume
 	

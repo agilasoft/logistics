@@ -1,10 +1,13 @@
 {
+ "actions": [],
+ "autoname": "field:employee",
  "creation": "2020-12-25 10:34:59.041313",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "employee",
+  "employee_name",
   "terminal"
  ],
  "fields": [
@@ -12,19 +15,29 @@
    "fieldname": "employee",
    "fieldtype": "Link",
    "label": "Employee",
-   "options": "Employee"
+   "options": "Employee",
+   "unique": 1
   },
   {
    "fieldname": "terminal",
    "fieldtype": "Link",
    "label": "Terminal",
    "options": "Terminal"
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "read_only": 1
   }
  ],
- "modified": "2020-12-25 10:36:07.405682",
+ "links": [],
+ "modified": "2026-01-05 21:14:44.055240",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Dispatcher",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -41,7 +54,10 @@
   }
  ],
  "quick_entry": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee_name",
  "track_changes": 1
 }

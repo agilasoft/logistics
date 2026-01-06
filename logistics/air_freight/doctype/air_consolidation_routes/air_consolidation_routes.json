@@ -75,14 +75,14 @@
    "fieldname": "origin_airport",
    "fieldtype": "Link",
    "label": "Origin Airport",
-   "options": "Airport Master",
+   "options": "UNLOCO",
    "reqd": 1
   },
   {
    "fieldname": "destination_airport",
    "fieldtype": "Link",
    "label": "Destination Airport",
-   "options": "Airport Master",
+   "options": "UNLOCO",
    "reqd": 1
   },
   {
@@ -93,7 +93,7 @@
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
-   "options": "Airline Master",
+   "options": "Airline",
    "reqd": 1
   },
   {

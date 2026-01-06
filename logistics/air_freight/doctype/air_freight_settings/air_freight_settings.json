@@ -132,13 +132,13 @@
    "fieldname": "default_origin_airport",
    "fieldtype": "Link",
    "label": "Default Origin Airport",
-   "options": "Airport Master"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "default_destination_airport",
    "fieldtype": "Link",
    "label": "Default Destination Airport",
-   "options": "Airport Master"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_location",

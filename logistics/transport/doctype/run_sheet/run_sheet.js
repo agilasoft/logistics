@@ -665,6 +665,44 @@ async function render_run_sheet_route_map(frm) {
     // Populate leg cards with status and conditional action buttons
     const legCardsContainer = document.getElementById(`${mapId}-leg-cards`);
     if (legCardsContainer) {
+      // Get location labels (will be set after map initialization, so we'll update cards later)
+      const updateLegCardsWithLabels = () => {
+        const locationLabels = window[`${mapId}_locationLabels`];
+        if (!locationLabels) {
+          // Labels not ready yet, will update after map loads
+          setTimeout(updateLegCardsWithLabels, 500);
+          return;
+        }
+        
+        // Update existing cards with labels instead of recreating them
+        legs.forEach((leg, index) => {
+          const card = legCardsContainer.querySelector(`[data-transport-leg="${leg.transport_leg}"][data-idx="${index + 1}"]`);
+          if (card) {
+            const legLabels = locationLabels.legLabelMap.get(index);
+            const pickLabel = legLabels ? legLabels.pickLabel : '';
+            const dropLabel = legLabels ? legLabels.dropLabel : '';
+            
+            // Update route labels with stop labels
+            const routePoints = card.querySelectorAll('.route-point');
+            if (routePoints.length >= 2) {
+              const pickLabelEl = routePoints[0].querySelector('.route-label');
+              const dropLabelEl = routePoints[1].querySelector('.route-label');
+              
+              if (pickLabelEl && pickLabel) {
+                const facilityTypeFrom = leg.facility_type_from || 'Pickup';
+                pickLabelEl.innerHTML = `<span class="stop-label-badge" style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-right: 6px;">${pickLabel}</span>${facilityTypeFrom}`;
+              }
+              
+              if (dropLabelEl && dropLabel) {
+                const facilityTypeTo = leg.facility_type_to || 'Drop';
+                dropLabelEl.innerHTML = `<span class="stop-label-badge" style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-right: 6px;">${dropLabel}</span>${facilityTypeTo}`;
+              }
+            }
+          }
+        });
+      };
+      
+      // First render without labels, then update with labels
       const legCardsHtml = await Promise.all(legs.map(async (leg, index) => {
         let status = 'Open';
         let startDate = null;
@@ -758,6 +796,9 @@ async function render_run_sheet_route_map(frm) {
       
       // Initialize drag-and-drop sorting
       initializeLegCardSorting(legCardsContainer, frm);
+      
+      // Update cards with labels after a short delay to allow map initialization
+      setTimeout(updateLegCardsWithLabels, 1000);
     }
     
     // Show fallback initially
@@ -833,6 +874,71 @@ async function render_run_sheet_route_map(frm) {
     console.error('Error rendering run sheet route map:', error);
     $wrapper.html('<div class="text-muted">Unable to load route map</div>');
   }
+}
+
+// Assign sequential letter labels (A, B, C...) to unique locations
+// Same locations get the same letter to avoid overlapping markers
+function assignLocationLabels(legCoords) {
+  const locationMap = new Map(); // Maps coordinate key to letter label
+  const labelToLocation = new Map(); // Maps letter to coordinate key
+  let nextLabelIndex = 0;
+  
+  // Helper to get coordinate key
+  const getCoordKey = (lat, lon) => `${lat.toFixed(6)},${lon.toFixed(6)}`;
+  
+  // Helper to get letter from index (A, B, C, ..., Z, AA, AB, ...)
+  const getLetterLabel = (index) => {
+    if (index < 26) {
+      return String.fromCharCode(65 + index); // A-Z
+    } else {
+      const firstLetter = String.fromCharCode(65 + Math.floor((index - 26) / 26));
+      const secondLetter = String.fromCharCode(65 + ((index - 26) % 26));
+      return firstLetter + secondLetter; // AA, AB, ...
+    }
+  };
+  
+  // Process all pick and drop locations
+  legCoords.forEach((legData) => {
+    const { pick, drop } = legData;
+    
+    // Process pick location
+    const pickKey = getCoordKey(pick.lat, pick.lon);
+    if (!locationMap.has(pickKey)) {
+      const label = getLetterLabel(nextLabelIndex);
+      locationMap.set(pickKey, label);
+      labelToLocation.set(label, pickKey);
+      nextLabelIndex++;
+    }
+    
+    // Process drop location
+    const dropKey = getCoordKey(drop.lat, drop.lon);
+    if (!locationMap.has(dropKey)) {
+      const label = getLetterLabel(nextLabelIndex);
+      locationMap.set(dropKey, label);
+      labelToLocation.set(label, dropKey);
+      nextLabelIndex++;
+    }
+  });
+  
+  // Create mapping for each leg
+  const legLabelMap = new Map();
+  legCoords.forEach((legData, index) => {
+    const pickKey = getCoordKey(legData.pick.lat, legData.pick.lon);
+    const dropKey = getCoordKey(legData.drop.lat, legData.drop.lon);
+    
+    legLabelMap.set(index, {
+      pickLabel: locationMap.get(pickKey),
+      dropLabel: locationMap.get(dropKey),
+      pickKey: pickKey,
+      dropKey: dropKey
+    });
+  });
+  
+  return {
+    locationMap: locationMap, // coordinate key -> letter
+    legLabelMap: legLabelMap, // leg index -> {pickLabel, dropLabel, pickKey, dropKey}
+    labelToLocation: labelToLocation // letter -> coordinate key
+  };
 }
 
 // Group leg coordinates for consolidation visualization
@@ -1136,13 +1242,20 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
       groupedLegCoords = groupLegCoordsForConsolidation(legCoords, isPickConsolidated, isDropConsolidated);
     }
     
+    // Assign sequential letter labels to unique locations
+    const locationLabels = assignLocationLabels(groupedLegCoords);
+    
+    // Store labels globally for leg cards to access
+    window[`${mapId}_locationLabels`] = locationLabels;
+    
     // Update external links with first and last coordinates
     updateExternalLinks(mapId, legCoords);
     
     // Initialize map based on renderer (pass vehicle position for tracking and consolidation info)
     const consolidationInfo = {
       isPickConsolidated: isPickConsolidated,
-      isDropConsolidated: isDropConsolidated
+      isDropConsolidated: isDropConsolidated,
+      locationLabels: locationLabels
     };
     
     if (mapRenderer && mapRenderer.toLowerCase() === 'google maps') {
@@ -1390,83 +1503,83 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
         // Add markers and routes for each leg
         const allMarkers = [];
         const allWaypoints = [];
-        const pickMarkersMap = new Map(); // Track pick markers for consolidation
-        const dropMarkersMap = new Map(); // Track drop markers for consolidation
+        const locationMarkersMap = new Map(); // Track markers by location key to avoid duplicates
+        const locationLegsMap = new Map(); // Track which legs use each location
         
-        const isPickConsolidated = consolidationInfo && consolidationInfo.isPickConsolidated;
-        const isDropConsolidated = consolidationInfo && consolidationInfo.isDropConsolidated;
+        const locationLabels = consolidationInfo && consolidationInfo.locationLabels;
         
+        // First pass: collect all locations and their labels
         legCoords.forEach((legData, index) => {
           const { leg, pick, drop } = legData;
           const pickKey = `${pick.lat.toFixed(6)},${pick.lon.toFixed(6)}`;
           const dropKey = `${drop.lat.toFixed(6)},${drop.lon.toFixed(6)}`;
           
-          // For pick consolidated: only create one pick marker if it's the same location
-          let pickMarker = null;
-          if (isPickConsolidated && pickMarkersMap.has(pickKey)) {
-            pickMarker = pickMarkersMap.get(pickKey);
-            // Update popup to include this leg
-            const existingPopup = pickMarker.getPopup();
-            const existingContent = existingPopup ? existingPopup.getContent() : '';
-            pickMarker.setPopupContent(
-              existingContent + `<br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}`
-            );
-          } else {
-            // Create new pick marker
-            const markerLabel = isPickConsolidated ? 'P' : `P${index + 1}`;
-            pickMarker = L.marker([pick.lat, pick.lon], {
-              icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: red; width: ${isPickConsolidated ? '24' : '20'}px; height: ${isPickConsolidated ? '24' : '20'}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: ${isPickConsolidated ? '12' : '10'}px;">${markerLabel}</div>`,
-                iconSize: [isPickConsolidated ? 24 : 20, isPickConsolidated ? 24 : 20],
-                iconAnchor: [isPickConsolidated ? 12 : 10, isPickConsolidated ? 12 : 10]
-              })
-            }).addTo(map);
-            
-            pickMarker.bindPopup(`<strong>${isPickConsolidated ? 'Consolidated Pickup' : `Stop ${index + 1} - Pickup`}</strong><br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>Coordinates: ${pick.lat.toFixed(4)}, ${pick.lon.toFixed(4)}`);
-            pickMarkersMap.set(pickKey, pickMarker);
-          }
+          // Get labels for this leg
+          const legLabels = locationLabels ? locationLabels.legLabelMap.get(index) : null;
+          const pickLabel = legLabels ? legLabels.pickLabel : '';
+          const dropLabel = legLabels ? legLabels.dropLabel : '';
           
-          // For drop consolidated: only create one drop marker if it's the same location
-          let dropMarker = null;
-          if (isDropConsolidated && dropMarkersMap.has(dropKey)) {
-            dropMarker = dropMarkersMap.get(dropKey);
-            // Update popup to include this leg
-            const existingPopup = dropMarker.getPopup();
-            const existingContent = existingPopup ? existingPopup.getContent() : '';
-            dropMarker.setPopupContent(
-              existingContent + `<br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}`
-            );
-          } else {
-            // Create new drop marker
-            const markerLabel = isDropConsolidated ? 'D' : `D${index + 1}`;
-            dropMarker = L.marker([drop.lat, drop.lon], {
-              icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: green; width: ${isDropConsolidated ? '24' : '20'}px; height: ${isDropConsolidated ? '24' : '20'}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: ${isDropConsolidated ? '12' : '10'}px;">${markerLabel}</div>`,
-                iconSize: [isDropConsolidated ? 24 : 20, isDropConsolidated ? 24 : 20],
-                iconAnchor: [isDropConsolidated ? 12 : 10, isDropConsolidated ? 12 : 10]
-              })
-            }).addTo(map);
-            
-            dropMarker.bindPopup(`<strong>${isDropConsolidated ? 'Consolidated Drop' : `Stop ${index + 1} - Drop`}</strong><br>Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>Coordinates: ${drop.lat.toFixed(4)}, ${drop.lon.toFixed(4)}`);
-            dropMarkersMap.set(dropKey, dropMarker);
+          // Track which legs use each location
+          if (!locationLegsMap.has(pickKey)) {
+            locationLegsMap.set(pickKey, []);
           }
+          locationLegsMap.get(pickKey).push({ leg, index, type: 'pick', label: pickLabel });
           
-          // Add individual leg route line
-          const routeColor = isPickConsolidated ? '#007bff' : (isDropConsolidated ? '#28a745' : (index === 0 ? 'blue' : 'orange'));
+          if (!locationLegsMap.has(dropKey)) {
+            locationLegsMap.set(dropKey, []);
+          }
+          locationLegsMap.get(dropKey).push({ leg, index, type: 'drop', label: dropLabel });
+        });
+        
+        // Second pass: create one marker per unique location
+        locationLegsMap.forEach((legsAtLocation, locationKey) => {
+          const firstLeg = legsAtLocation[0];
+          const isConsolidated = legsAtLocation.length > 1;
+          const [lat, lon] = locationKey.split(',').map(Number);
+          const isPick = firstLeg.type === 'pick';
+          const label = firstLeg.label || '';
+          
+          // Create marker with letter label
+          const marker = L.marker([lat, lon], {
+            icon: L.divIcon({
+              className: 'custom-div-icon',
+              html: `<div style="background-color: ${isPick ? 'red' : 'green'}; width: ${isConsolidated ? '24' : '20'}px; height: ${isConsolidated ? '24' : '20'}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: ${isConsolidated ? '12' : '10'}px;">${label}</div>`,
+              iconSize: [isConsolidated ? 24 : 20, isConsolidated ? 24 : 20],
+              iconAnchor: [isConsolidated ? 12 : 10, isConsolidated ? 12 : 10]
+            })
+          }).addTo(map);
+          
+          // Build popup content with all legs at this location
+          const locationType = isPick ? 'Pickup' : 'Drop';
+          const locationTypePlural = isPick ? 'Pickups' : 'Drops';
+          let popupContent = `<strong>${isConsolidated ? `Consolidated ${locationTypePlural}` : `${locationType} (${label})`}</strong><br>`;
+          
+          legsAtLocation.forEach(({ leg, index }) => {
+            popupContent += `Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>`;
+          });
+          
+          popupContent += `Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+          marker.bindPopup(popupContent);
+          
+          locationMarkersMap.set(locationKey, marker);
+          allMarkers.push(marker);
+        });
+        
+        // Third pass: add route lines between locations
+        legCoords.forEach((legData, index) => {
+          const { leg, pick, drop } = legData;
+          
+          // Add route line
           const routeLine = L.polyline([
             [pick.lat, pick.lon],
             [drop.lat, drop.lon]
           ], {
-            color: routeColor,
-            weight: isPickConsolidated || isDropConsolidated ? 4 : 3,
-            opacity: isPickConsolidated || isDropConsolidated ? 0.7 : 0.6,
-            dashArray: isPickConsolidated || isDropConsolidated ? '0' : (index === 0 ? '5, 5' : '10, 10')
+            color: index === 0 ? 'blue' : 'orange',
+            weight: 3,
+            opacity: 0.6,
+            dashArray: index === 0 ? '5, 5' : '10, 10'
           }).addTo(map);
           
-          if (!allMarkers.includes(pickMarker)) allMarkers.push(pickMarker);
-          if (!allMarkers.includes(dropMarker)) allMarkers.push(dropMarker);
           allWaypoints.push([pick.lat, pick.lon], [drop.lat, drop.lon]);
         });
         
@@ -1732,7 +1845,7 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
 }
 
 // Initialize Google Maps for multi-leg route
-function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
+function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
   // Use interactive Google Maps JavaScript API instead of static maps
   const waypoints = [];
   legCoords.forEach(legData => {
@@ -1791,7 +1904,7 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
             
             // Load Google Maps JavaScript API if not already loaded
             if (window.google && window.google.maps) {
-              initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey);
+              initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
             } else {
               // Load Google Maps JavaScript API
               const script = document.createElement('script');
@@ -1799,7 +1912,7 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
               script.async = true;
               script.defer = true;
               script.onload = () => {
-                initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey);
+                initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
               };
               script.onerror = () => {
                 console.warn('Failed to load Google Maps JavaScript API, showing fallback');
@@ -1829,7 +1942,7 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm) {
 }
 
 // Initialize interactive Google Maps with routes
-function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey) {
+function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey, legCoords = [], consolidationInfo = {}) {
   const mapElement = document.getElementById(mapId);
   if (!mapElement) return;
   
@@ -1898,39 +2011,116 @@ function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, first
   const selectedRoute = routes[selectedRouteIndex];
   const routeIndex = selectedRoute.index;
   
-  // Add start marker
-  const startMarker = new google.maps.Marker({
-    position: { lat: firstPick.lat, lng: firstPick.lon },
-    map: map,
-    label: 'A',
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 8,
-      fillColor: '#ff0000',
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2
-    },
-    title: 'Start Location'
-  });
-  bounds.extend({ lat: firstPick.lat, lng: firstPick.lon });
+  // Add markers for all unique locations with letter labels
+  const locationMarkersMap = new Map();
+  const locationLegsMap = new Map();
+  const locationLabels = consolidationInfo.locationLabels;
   
-  // Add end marker
-  const endMarker = new google.maps.Marker({
-    position: { lat: lastDrop.lat, lng: lastDrop.lon },
-    map: map,
-    label: 'B',
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 8,
-      fillColor: '#00ff00',
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2
-    },
-    title: 'End Location'
-  });
-  bounds.extend({ lat: lastDrop.lat, lng: lastDrop.lon });
+  if (legCoords && legCoords.length > 0 && locationLabels) {
+    // First pass: collect all locations
+    legCoords.forEach((legData, index) => {
+      const { leg, pick, drop } = legData;
+      const pickKey = `${pick.lat.toFixed(6)},${pick.lon.toFixed(6)}`;
+      const dropKey = `${drop.lat.toFixed(6)},${drop.lon.toFixed(6)}`;
+      
+      const legLabels = locationLabels.legLabelMap.get(index);
+      const pickLabel = legLabels ? legLabels.pickLabel : '';
+      const dropLabel = legLabels ? legLabels.dropLabel : '';
+      
+      if (!locationLegsMap.has(pickKey)) {
+        locationLegsMap.set(pickKey, []);
+      }
+      locationLegsMap.get(pickKey).push({ leg, index, type: 'pick', label: pickLabel });
+      
+      if (!locationLegsMap.has(dropKey)) {
+        locationLegsMap.set(dropKey, []);
+      }
+      locationLegsMap.get(dropKey).push({ leg, index, type: 'drop', label: dropLabel });
+    });
+    
+    // Second pass: create one marker per unique location
+    locationLegsMap.forEach((legsAtLocation, locationKey) => {
+      const firstLeg = legsAtLocation[0];
+      const isConsolidated = legsAtLocation.length > 1;
+      const [lat, lon] = locationKey.split(',').map(Number);
+      const isPick = firstLeg.type === 'pick';
+      const label = firstLeg.label || '';
+      
+      const marker = new google.maps.Marker({
+        position: { lat: lat, lng: lon },
+        map: map,
+        label: {
+          text: label,
+          color: 'white',
+          fontSize: '11px',
+          fontWeight: 'bold'
+        },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: isConsolidated ? 10 : 8,
+          fillColor: isPick ? '#dc3545' : '#28a745',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        },
+        title: `${isPick ? 'Pickup' : 'Drop'} (${label})`
+      });
+      
+      const locationType = isPick ? 'Pickup' : 'Drop';
+      const locationTypePlural = isPick ? 'Pickups' : 'Drops';
+      let infoContent = `<strong>${isConsolidated ? `Consolidated ${locationTypePlural}` : `${locationType} (${label})`}</strong><br>`;
+      
+      legsAtLocation.forEach(({ leg, index }) => {
+        infoContent += `Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>`;
+      });
+      
+      infoContent += `Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      
+      const infoWindow = new google.maps.InfoWindow({
+        content: infoContent
+      });
+      
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+      
+      locationMarkersMap.set(locationKey, marker);
+      bounds.extend({ lat: lat, lng: lon });
+    });
+  } else {
+    // Fallback: Add start and end markers
+    const startMarker = new google.maps.Marker({
+      position: { lat: firstPick.lat, lng: firstPick.lon },
+      map: map,
+      label: 'A',
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#ff0000',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      },
+      title: 'Start Location'
+    });
+    bounds.extend({ lat: firstPick.lat, lng: firstPick.lon });
+    
+    const endMarker = new google.maps.Marker({
+      position: { lat: lastDrop.lat, lng: lastDrop.lon },
+      map: map,
+      label: 'B',
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#00ff00',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      },
+      title: 'End Location'
+    });
+    bounds.extend({ lat: lastDrop.lat, lng: lastDrop.lon });
+  }
   
   // Add vehicle position marker if available
   if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
@@ -2321,7 +2511,7 @@ window.selectRouteByIndex = function(mapId, routeIndex, runSheetName) {
 }
 
 // Initialize Mapbox for multi-leg route
-function initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
+function initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
   // Load Mapbox GL JS if not already loaded
   if (!window.mapboxgl) {
     // Load Mapbox GL JS CSS
@@ -2336,7 +2526,7 @@ function initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
     mapboxJS.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js';
     mapboxJS.crossOrigin = 'anonymous';
     mapboxJS.onload = () => {
-      createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm);
+      createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo);
     };
     document.head.appendChild(mapboxJS);
   } else {
@@ -2344,7 +2534,7 @@ function initializeMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
   }
 }
 
-function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
+function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
   console.log('createMapboxRouteMap called with:');
   console.log('  mapId:', mapId);
   console.log('  legCoords:', legCoords);
@@ -2384,36 +2574,63 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
         // Add markers and routes for each leg
         const allMarkers = [];
         const allWaypoints = [];
+        const locationMarkersMap = new Map(); // Track markers by location key
+        const locationLegsMap = new Map(); // Track which legs use each location
         
+        const locationLabels = consolidationInfo.locationLabels;
+        
+        // First pass: collect all locations
         legCoords.forEach((legData, index) => {
           const { leg, pick, drop } = legData;
+          const pickKey = `${pick.lat.toFixed(6)},${pick.lon.toFixed(6)}`;
+          const dropKey = `${drop.lat.toFixed(6)},${drop.lon.toFixed(6)}`;
           
-          // Pick marker (red)
-          const pickMarker = new mapboxgl.Marker({
-            element: createMarkerElement('P' + (index + 1), 'red'),
+          const legLabels = locationLabels ? locationLabels.legLabelMap.get(index) : null;
+          const pickLabel = legLabels ? legLabels.pickLabel : '';
+          const dropLabel = legLabels ? legLabels.dropLabel : '';
+          
+          if (!locationLegsMap.has(pickKey)) {
+            locationLegsMap.set(pickKey, []);
+          }
+          locationLegsMap.get(pickKey).push({ leg, index, type: 'pick', label: pickLabel });
+          
+          if (!locationLegsMap.has(dropKey)) {
+            locationLegsMap.set(dropKey, []);
+          }
+          locationLegsMap.get(dropKey).push({ leg, index, type: 'drop', label: dropLabel });
+        });
+        
+        // Second pass: create one marker per unique location
+        locationLegsMap.forEach((legsAtLocation, locationKey) => {
+          const firstLeg = legsAtLocation[0];
+          const isConsolidated = legsAtLocation.length > 1;
+          const [lat, lon] = locationKey.split(',').map(Number);
+          const isPick = firstLeg.type === 'pick';
+          const label = firstLeg.label || '';
+          
+          const marker = new mapboxgl.Marker({
+            element: createMarkerElement(label, isPick ? 'red' : 'green'),
             anchor: 'center'
-          }).setLngLat([pick.lon, pick.lat]).addTo(map);
+          }).setLngLat([lon, lat]).addTo(map);
           
-          // Drop marker (green)
-          const dropMarker = new mapboxgl.Marker({
-            element: createMarkerElement('D' + (index + 1), 'green'),
-            anchor: 'center'
-          }).setLngLat([drop.lon, drop.lat]).addTo(map);
+          const locationType = isPick ? 'Pickup' : 'Drop';
+          const locationTypePlural = isPick ? 'Pickups' : 'Drops';
+          let popupContent = `<strong>${isConsolidated ? `Consolidated ${locationTypePlural}` : `${locationType} (${label})`}</strong><br>`;
           
-          // Add popups
-          pickMarker.setPopup(new mapboxgl.Popup().setHTML(`
-            <strong>Stop ${index + 1} - Pickup</strong><br>
-            Leg: ${leg.transport_leg || 'N/A'}<br>
-            Coordinates: ${pick.lat.toFixed(4)}, ${pick.lon.toFixed(4)}
-          `));
+          legsAtLocation.forEach(({ leg, index }) => {
+            popupContent += `Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>`;
+          });
           
-          dropMarker.setPopup(new mapboxgl.Popup().setHTML(`
-            <strong>Stop ${index + 1} - Drop</strong><br>
-            Leg: ${leg.transport_leg || 'N/A'}<br>
-            Coordinates: ${drop.lat.toFixed(4)}, ${drop.lon.toFixed(4)}
-          `));
+          popupContent += `Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+          marker.setPopup(new mapboxgl.Popup().setHTML(popupContent));
           
-          allMarkers.push(pickMarker, dropMarker);
+          locationMarkersMap.set(locationKey, marker);
+          allMarkers.push(marker);
+        });
+        
+        // Third pass: add waypoints for route lines
+        legCoords.forEach((legData) => {
+          const { pick, drop } = legData;
           allWaypoints.push([pick.lon, pick.lat], [drop.lon, drop.lat]);
         });
         
@@ -2621,7 +2838,7 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm) {
   checkElement();
 }
 
-function initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
+function initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
   // Load MapLibre GL JS if not already loaded
   if (!window.maplibregl) {
     // Load MapLibre GL JS CSS
@@ -2638,7 +2855,7 @@ function initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
     mapLibreJS.integrity = 'sha256-xGCE32m7qplbMBpRUnSobsU5BceEWbgNzLwnoMC40Ts=';
     mapLibreJS.crossOrigin = 'anonymous';
     mapLibreJS.onload = () => {
-      createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm);
+      createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo);
     };
     document.head.appendChild(mapLibreJS);
   } else {
@@ -2646,7 +2863,7 @@ function initializeMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
   }
 }
 
-function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
+function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
   console.log('createMapLibreRouteMap called with:');
   console.log('  mapId:', mapId);
   console.log('  legCoords:', legCoords);
@@ -2705,36 +2922,63 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm) {
         // Add markers and routes for each leg
         const allMarkers = [];
         const allWaypoints = [];
+        const locationMarkersMap = new Map(); // Track markers by location key
+        const locationLegsMap = new Map(); // Track which legs use each location
         
+        const locationLabels = consolidationInfo.locationLabels;
+        
+        // First pass: collect all locations
         legCoords.forEach((legData, index) => {
           const { leg, pick, drop } = legData;
+          const pickKey = `${pick.lat.toFixed(6)},${pick.lon.toFixed(6)}`;
+          const dropKey = `${drop.lat.toFixed(6)},${drop.lon.toFixed(6)}`;
           
-          // Pick marker (red)
-          const pickMarker = new maplibregl.Marker({
-            element: createMarkerElement('P' + (index + 1), 'red'),
+          const legLabels = locationLabels ? locationLabels.legLabelMap.get(index) : null;
+          const pickLabel = legLabels ? legLabels.pickLabel : '';
+          const dropLabel = legLabels ? legLabels.dropLabel : '';
+          
+          if (!locationLegsMap.has(pickKey)) {
+            locationLegsMap.set(pickKey, []);
+          }
+          locationLegsMap.get(pickKey).push({ leg, index, type: 'pick', label: pickLabel });
+          
+          if (!locationLegsMap.has(dropKey)) {
+            locationLegsMap.set(dropKey, []);
+          }
+          locationLegsMap.get(dropKey).push({ leg, index, type: 'drop', label: dropLabel });
+        });
+        
+        // Second pass: create one marker per unique location
+        locationLegsMap.forEach((legsAtLocation, locationKey) => {
+          const firstLeg = legsAtLocation[0];
+          const isConsolidated = legsAtLocation.length > 1;
+          const [lat, lon] = locationKey.split(',').map(Number);
+          const isPick = firstLeg.type === 'pick';
+          const label = firstLeg.label || '';
+          
+          const marker = new maplibregl.Marker({
+            element: createMarkerElement(label, isPick ? 'red' : 'green'),
             anchor: 'center'
-          }).setLngLat([pick.lon, pick.lat]).addTo(map);
+          }).setLngLat([lon, lat]).addTo(map);
           
-          // Drop marker (green)
-          const dropMarker = new maplibregl.Marker({
-            element: createMarkerElement('D' + (index + 1), 'green'),
-            anchor: 'center'
-          }).setLngLat([drop.lon, drop.lat]).addTo(map);
+          const locationType = isPick ? 'Pickup' : 'Drop';
+          const locationTypePlural = isPick ? 'Pickups' : 'Drops';
+          let popupContent = `<strong>${isConsolidated ? `Consolidated ${locationTypePlural}` : `${locationType} (${label})`}</strong><br>`;
           
-          // Add popups
-          pickMarker.setPopup(new maplibregl.Popup().setHTML(`
-            <strong>Stop ${index + 1} - Pickup</strong><br>
-            Leg: ${leg.transport_leg || 'N/A'}<br>
-            Coordinates: ${pick.lat.toFixed(4)}, ${pick.lon.toFixed(4)}
-          `));
+          legsAtLocation.forEach(({ leg, index }) => {
+            popupContent += `Leg ${index + 1}: ${leg.transport_leg || 'N/A'}<br>`;
+          });
           
-          dropMarker.setPopup(new maplibregl.Popup().setHTML(`
-            <strong>Stop ${index + 1} - Drop</strong><br>
-            Leg: ${leg.transport_leg || 'N/A'}<br>
-            Coordinates: ${drop.lat.toFixed(4)}, ${drop.lon.toFixed(4)}
-          `));
+          popupContent += `Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+          marker.setPopup(new maplibregl.Popup().setHTML(popupContent));
           
-          allMarkers.push(pickMarker, dropMarker);
+          locationMarkersMap.set(locationKey, marker);
+          allMarkers.push(marker);
+        });
+        
+        // Third pass: add waypoints for route lines
+        legCoords.forEach((legData) => {
+          const { pick, drop } = legData;
           allWaypoints.push([pick.lon, pick.lat], [drop.lon, drop.lat]);
         });
         

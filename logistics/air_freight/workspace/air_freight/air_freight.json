@@ -35,16 +35,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Airline Master",
-   "link_count": 0,
-   "link_to": "Airline Master",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Airline Membership",
    "link_count": 0,
    "link_to": "Airline Membership",
@@ -315,7 +305,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-12-12 13:54:42.677882",
+ "modified": "2026-01-05 16:35:47.574343",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight",
@@ -340,6 +330,14 @@
  "roles": [],
  "sequence_id": 3.0,
  "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Airports",
+   "link_to": "UNLOCO",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
   {
    "color": "Blue",
    "doc_view": "List",
@@ -387,14 +385,6 @@
    "doc_view": "List",
    "label": "Airlines",
    "link_to": "Airline",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Airports",
-   "link_to": "Location",
    "stats_filter": "[]",
    "type": "DocType"
   }

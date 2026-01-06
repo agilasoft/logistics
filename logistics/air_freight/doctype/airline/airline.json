@@ -28,11 +28,50 @@
     "column_break_performance",
     "preferred_carrier",
     "carrier_contract_terms",
-    "fuel_surcharge_rate",
-    "security_surcharge",
-    "efreight_tab",
+   "fuel_surcharge_rate",
+   "security_surcharge",
+   "volume_to_weight_divisor",
+   "efreight_tab",
     "airline_codes_tab",
-    "notes_tab"
+    "notes_tab",
+    "iata_integration_tab",
+    "iata_information_section",
+    "iata_code",
+    "icao_code",
+    "callsign",
+    "column_break_iata_1",
+    "country",
+    "airline_type",
+    "is_active",
+    "capabilities_section",
+    "is_cargo_carrier",
+    "is_passenger_carrier",
+    "supports_dangerous_goods",
+    "column_break_iata_2",
+    "supports_live_animals",
+    "supports_refrigerated",
+    "supports_oversized",
+    "contact_section",
+    "website",
+    "phone",
+    "email",
+    "column_break_iata_3",
+    "address_line_1",
+    "address_line_2",
+    "city",
+    "postal_code",
+    "api_section",
+    "has_api_integration",
+    "api_endpoint",
+    "api_key",
+    "column_break_iata_4",
+    "api_username",
+    "api_password",
+    "metadata_section",
+    "data_source",
+    "last_synced",
+    "column_break_iata_5",
+    "disabled"
   ],
  "fields": [
   {
@@ -169,6 +208,251 @@
    "fieldname": "security_surcharge",
    "fieldtype": "Currency",
    "label": "Security Surcharge"
+  },
+  {
+   "fieldname": "volume_to_weight_divisor",
+   "fieldtype": "Float",
+   "label": "Volume to Weight Divisor",
+   "description": "Divisor for calculating volume weight from dimensions (cm). IATA standard is 6000. Some carriers use 3500 or 5000.",
+   "default": 6000
+  },
+  {
+   "fieldname": "iata_integration_tab",
+   "fieldtype": "Tab Break",
+   "label": "IATA Integration"
+  },
+  {
+   "fieldname": "iata_information_section",
+   "fieldtype": "Section Break",
+   "label": "IATA Information"
+  },
+  {
+   "fieldname": "iata_code",
+   "fieldtype": "Data",
+   "label": "IATA Code",
+   "length": 2,
+   "reqd": 0,
+   "description": "IATA airline code (2 characters). Maps to Code field."
+  },
+  {
+   "fieldname": "icao_code",
+   "fieldtype": "Data",
+   "label": "ICAO Code",
+   "length": 3,
+   "reqd": 0,
+   "description": "ICAO airline code (3 characters). Maps to Three Letter Numeric Code field."
+  },
+  {
+   "fieldname": "callsign",
+   "fieldtype": "Data",
+   "label": "Callsign",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_iata_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "label": "Country",
+   "options": "Country",
+   "reqd": 0
+  },
+  {
+   "default": "Scheduled Airline",
+   "fieldname": "airline_type",
+   "fieldtype": "Select",
+   "label": "Airline Type",
+   "options": "Scheduled Airline\nCharter Airline\nCargo Only\nRegional\nLow Cost",
+   "reqd": 0
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "reqd": 0
+  },
+  {
+   "fieldname": "capabilities_section",
+   "fieldtype": "Section Break",
+   "label": "Capabilities"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cargo_carrier",
+   "fieldtype": "Check",
+   "label": "Is Cargo Carrier",
+   "reqd": 0
+  },
+  {
+   "default": "1",
+   "fieldname": "is_passenger_carrier",
+   "fieldtype": "Check",
+   "label": "Is Passenger Carrier",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Supports Dangerous Goods",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_iata_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_live_animals",
+   "fieldtype": "Check",
+   "label": "Supports Live Animals",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_refrigerated",
+   "fieldtype": "Check",
+   "label": "Supports Refrigerated Cargo",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_oversized",
+   "fieldtype": "Check",
+   "label": "Supports Oversized Cargo",
+   "reqd": 0
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "contact_section",
+   "fieldtype": "Section Break",
+   "label": "Contact Information"
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Website",
+   "reqd": 0
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone",
+   "reqd": 0
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_iata_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "address_line_1",
+   "fieldtype": "Data",
+   "label": "Address Line 1",
+   "reqd": 0
+  },
+  {
+   "fieldname": "address_line_2",
+   "fieldtype": "Data",
+   "label": "Address Line 2",
+   "reqd": 0
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City",
+   "reqd": 0
+  },
+  {
+   "fieldname": "postal_code",
+   "fieldtype": "Data",
+   "label": "Postal Code",
+   "reqd": 0
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "api_section",
+   "fieldtype": "Section Break",
+   "label": "API Integration"
+  },
+  {
+   "default": "0",
+   "fieldname": "has_api_integration",
+   "fieldtype": "Check",
+   "label": "Has API Integration",
+   "reqd": 0
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_endpoint",
+   "fieldtype": "Data",
+   "label": "API Endpoint",
+   "reqd": 0
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key",
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_iata_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_username",
+   "fieldtype": "Data",
+   "label": "API Username",
+   "reqd": 0
+  },
+  {
+   "depends_on": "has_api_integration",
+   "fieldname": "api_password",
+   "fieldtype": "Password",
+   "label": "API Password",
+   "reqd": 0
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Data",
+   "label": "Data Source",
+   "read_only": 1,
+   "reqd": 0
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1,
+   "reqd": 0
+  },
+  {
+   "fieldname": "column_break_iata_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled",
+   "reqd": 0
   }
  ],
  "grid_page_length": 50,

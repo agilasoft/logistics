@@ -5,6 +5,35 @@ frappe.ui.form.on('Stocktake Order Item', {
     refresh: function(frm) {
         update_uom_fields(frm);
     },
+    item: function(frm) {
+        // When item is selected, dimensions, weight, and volume are fetched via fetch_from
+        // Update UOM fields first, then check if volume needs to be calculated
+        update_uom_fields(frm);
+        // Use retry logic to wait for fields to be populated
+        let retryCount = 0;
+        const maxRetries = 5;
+        const checkAndCalculate = function() {
+            const volume = parseFloat(frm.doc.volume) || 0;
+            const length = parseFloat(frm.doc.length) || 0;
+            const width = parseFloat(frm.doc.width) || 0;
+            const height = parseFloat(frm.doc.height) || 0;
+            
+            // If volume was fetched from item, don't recalculate
+            if (volume > 0) {
+                return;
+            }
+            
+            // If volume not fetched but dimensions are available, calculate volume
+            if (length > 0 && width > 0 && height > 0) {
+                calculate_volume(frm);
+            } else if (retryCount < maxRetries) {
+                // Fields not yet populated, retry after delay
+                retryCount++;
+                setTimeout(checkAndCalculate, 150);
+            }
+        };
+        setTimeout(checkAndCalculate, 200);
+    },
     length: function(frm) {
         calculate_volume(frm);
     },
@@ -12,6 +41,12 @@ frappe.ui.form.on('Stocktake Order Item', {
         calculate_volume(frm);
     },
     height: function(frm) {
+        calculate_volume(frm);
+    },
+    dimension_uom: function(frm) {
+        calculate_volume(frm);
+    },
+    volume_uom: function(frm) {
         calculate_volume(frm);
     }
 });
@@ -52,14 +87,48 @@ function update_uom_fields(frm) {
     });
 }
 
-// Calculate volume from dimensions
+// Calculate volume from dimensions (only if volume is not already set)
 function calculate_volume(frm) {
+    // Check if volume is already set (fetched from item)
+    const existingVolume = parseFloat(frm.doc.volume) || 0;
+    if (existingVolume > 0) {
+        // Volume already fetched from item, don't recalculate
+        return;
+    }
+    
     const length = parseFloat(frm.doc.length) || 0;
     const width = parseFloat(frm.doc.width) || 0;
     const height = parseFloat(frm.doc.height) || 0;
     
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        frm.set_value("volume", volume);
+        // Get UOMs from form or warehouse settings
+        const dimension_uom = frm.get_value('dimension_uom');
+        const volume_uom = frm.get_value('volume_uom');
+        const company = frappe.defaults.get_user_default("Company");
+        
+        // Call server-side method to calculate volume with UOM conversion
+        frappe.call({
+            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    frm.set_value("volume", r.message.volume);
+                }
+            },
+            error: function(r) {
+                // Fallback to raw calculation on error
+                const volume = length * width * height;
+                frm.set_value("volume", volume);
+            }
+        });
+    } else {
+        frm.set_value("volume", 0);
     }
 }
