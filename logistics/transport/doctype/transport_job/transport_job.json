@@ -18,13 +18,13 @@
   "container_no",
   "load_type",
   "vehicle_type",
+  "hazardous",
+  "refrigeration",
+  "consolidate",
   "column_break_tjia",
   "transport_order",
   "status",
   "priority",
-  "hazardous",
-  "refrigeration",
-  "consolidate",
   "group_legs_in_one_runsheet",
   "section_break_jozr",
   "packages",
@@ -66,16 +66,6 @@
    "fieldtype": "Select",
    "label": "Naming Series",
    "options": "TRJ.#########"
-  },
-  {
-   "default": "Draft",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nCancelled",
-   "reqd": 1
   },
   {
    "default": "Normal",
@@ -374,6 +364,16 @@
    "fieldname": "scheduled_date",
    "fieldtype": "Date",
    "label": "Scheduled Date"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nCancelled",
+   "reqd": 1
   }
  ],
  "is_submittable": 1,
@@ -394,7 +394,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2026-01-03 19:11:52.891744",
+ "modified": "2026-01-22 15:21:25.225753",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

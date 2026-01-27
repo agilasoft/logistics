@@ -202,9 +202,31 @@ doc_events = {
     "Warehouse Job": {
         # keep your existing validate hook(s) if any
         "before_submit": "logistics.warehousing.api.warehouse_job_before_submit",
+        "on_update": "logistics.job_management.doc_events.on_job_update",
     },
     "Customer": {
         "after_save": "logistics.customer_hooks.add_portal_user_permissions",
         "on_update": "logistics.customer_hooks.remove_portal_user_permissions",
-    }
+    },
+    # Recognition Engine integration for job documents
+    "Air Shipment": {
+        "on_update": "logistics.job_management.doc_events.on_job_update",
+        "on_submit": "logistics.job_management.doc_events.on_job_submit",
+    },
+    "Sea Shipment": {
+        "on_update": "logistics.job_management.doc_events.on_job_update",
+        "on_submit": "logistics.job_management.doc_events.on_job_submit",
+    },
+    "Transport Job": {
+        "on_update": "logistics.job_management.doc_events.on_job_update",
+        "on_submit": "logistics.job_management.doc_events.on_job_submit",
+    },
+    "Customs Declaration": {
+        "on_update": "logistics.job_management.doc_events.on_job_update",
+        "on_submit": "logistics.job_management.doc_events.on_job_submit",
+    },
+    "General Job": {
+        "on_update": "logistics.job_management.doc_events.on_job_update",
+        "on_submit": "logistics.job_management.doc_events.on_job_submit",
+    },
 }

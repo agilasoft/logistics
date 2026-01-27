@@ -14,9 +14,9 @@
   "amended_from",
   "naming_series",
   "booking_date",
+  "column_break_lzrh",
   "house_type",
   "direction",
-  "column_break_lzrh",
   "airline",
   "local_customer",
   "column_break_vfbr",
@@ -28,17 +28,43 @@
   "shipper",
   "origin_port",
   "etd",
+  "atd",
   "column_break_oxhc",
   "consignee",
   "destination_port",
   "eta",
+  "ata",
   "column_break_ohdu",
   "freight_agent",
   "packages_section",
   "packages",
+  "measurements_section",
+  "packs",
+  "inner",
+  "goods_value",
+  "insurance",
+  "column_break_zwmm",
   "volume",
   "weight",
   "chargeable",
+  "services_section",
+  "services",
+  "temperature_section",
+  "requires_temperature_control",
+  "min_temperature",
+  "max_temperature",
+  "column_break_temperature",
+  "temperature_monitoring",
+  "cold_chain_compliance",
+  "temperature_log",
+  "dangerous_goods_section",
+  "contains_dangerous_goods",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg_main",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "insurance_section",
   "insurance_provider",
   "insurance_policy_number",
@@ -47,6 +73,14 @@
   "insurance_claim_number",
   "insurance_claim_status",
   "insurance_claim_date",
+  "tracking_section",
+  "tracking_provider",
+  "tracking_number",
+  "tracking_url",
+  "column_break_tracking",
+  "real_time_tracking_enabled",
+  "last_tracking_update",
+  "tracking_status",
   "documents_section",
   "commercial_invoice_number",
   "packing_list_number",
@@ -64,38 +98,22 @@
   "tax_amount",
   "customs_clearance_date",
   "customs_notes",
-  "contacts_and_addresses_tab",
-  "shipper_address",
-  "shipper_address_display",
-  "column_break_cyzc",
-  "consignee_address",
-  "consignee_address_display",
-  "section_break_haya",
-  "shipper_contact",
-  "shipper_contact_display",
-  "column_break_tptt",
-  "consignee_contact",
-  "consignee_contact_display",
-  "section_break_xuwf",
-  "notify_party",
-  "column_break_mzhi",
-  "notify_party_address",
   "house_tab",
   "house_bl",
+  "master_awb",
   "incoterm",
   "additional_terms",
   "column_break_mjzk",
-  "packs",
-  "inner",
-  "goods_value",
-  "insurance",
-  "section_break_olqg",
   "description",
-  "column_break_ngoa",
+  "column_break_uvrv",
   "marks_and_nos",
-  "master_tab",
-  "master_awb",
-  "column_break_wwsh",
+  "eawb_section",
+  "eawb_enabled",
+  "eawb_status",
+  "eawb_digital_signature",
+  "column_break_eawb",
+  "eawb_signed_date",
+  "eawb_signed_by",
   "iata_section",
   "iata_status",
   "iata_message_id",
@@ -118,47 +136,22 @@
   "column_break_tact",
   "tact_currency",
   "tact_rate_validity",
-  "eawb_section",
-  "eawb_enabled",
-  "eawb_status",
-  "eawb_digital_signature",
-  "column_break_eawb",
-  "eawb_signed_date",
-  "eawb_signed_by",
-  "other_details_tab",
-  "dangerous_goods_section",
-  "contains_dangerous_goods",
-  "dg_declaration_complete",
-  "dg_compliance_status",
-  "column_break_dg_main",
-  "dg_emergency_contact",
-  "dg_emergency_phone",
-  "dg_emergency_email",
-  "uld_section",
-  "uld_type",
-  "uld_number",
-  "uld_capacity_kg",
-  "column_break_uld",
-  "uld_position",
-  "uld_tracking_status",
-  "temperature_section",
-  "requires_temperature_control",
-  "min_temperature",
-  "max_temperature",
-  "column_break_temperature",
-  "temperature_monitoring",
-  "cold_chain_compliance",
-  "temperature_log",
-  "tracking_section",
-  "tracking_provider",
-  "tracking_number",
-  "tracking_url",
-  "column_break_tracking",
-  "real_time_tracking_enabled",
-  "last_tracking_update",
-  "tracking_status",
-  "services_tab",
-  "services",
+  "contacts_and_addresses_tab",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_cyzc",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_haya",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_tptt",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_xuwf",
+  "notify_party",
+  "column_break_mzhi",
+  "notify_party_address",
   "charges_tab",
   "sales_quote",
   "charges",
@@ -248,7 +241,8 @@
   {
    "fieldname": "house_type",
    "fieldtype": "Select",
-   "label": "House Type"
+   "label": "House Type",
+   "options": "Direct\nConsolidation\nBreak Bulk"
   },
   {
    "fieldname": "direction",
@@ -379,7 +373,7 @@
   {
    "fieldname": "house_tab",
    "fieldtype": "Tab Break",
-   "label": "House"
+   "label": "Airway Bill"
   },
   {
    "fieldname": "house_bl",
@@ -417,17 +411,9 @@
    "label": "Insurance"
   },
   {
-   "fieldname": "section_break_olqg",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "description",
    "fieldtype": "Long Text",
    "label": "Description"
-  },
-  {
-   "fieldname": "column_break_ngoa",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "marks_and_nos",
@@ -435,19 +421,11 @@
    "label": "Marks and Nos"
   },
   {
-   "fieldname": "master_tab",
-   "fieldtype": "Tab Break",
-   "label": "Master"
-  },
-  {
    "fieldname": "master_awb",
    "fieldtype": "Link",
    "label": "Master AWB",
-   "options": "Master Air Waybill"
-  },
-  {
-   "fieldname": "column_break_wwsh",
-   "fieldtype": "Column Break"
+   "options": "Master Air Waybill",
+   "search_index": 1
   },
   {
    "collapsible": 1,
@@ -609,46 +587,6 @@
    "label": "Sustainability Notes"
   },
   {
-   "fieldname": "uld_section",
-   "fieldtype": "Section Break",
-   "label": "Unit Load Device (ULD) Information"
-  },
-  {
-   "fieldname": "uld_type",
-   "fieldtype": "Link",
-   "label": "ULD Type",
-   "options": "Unit Load Device"
-  },
-  {
-   "description": "IATA ULD identification number",
-   "fieldname": "uld_number",
-   "fieldtype": "Data",
-   "label": "ULD Number"
-  },
-  {
-   "fieldname": "uld_capacity_kg",
-   "fieldtype": "Float",
-   "label": "ULD Capacity (kg)",
-   "precision": "2",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_uld",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Position of ULD on aircraft (e.g., A1, B2)",
-   "fieldname": "uld_position",
-   "fieldtype": "Data",
-   "label": "ULD Position"
-  },
-  {
-   "fieldname": "uld_tracking_status",
-   "fieldtype": "Select",
-   "label": "ULD Tracking Status",
-   "options": "\nNot Assigned\nAssigned\nLoaded\nIn Transit\nDelivered\nReturned"
-  },
-  {
    "collapsible": 1,
    "fieldname": "customs_section",
    "fieldtype": "Section Break",
@@ -739,6 +677,7 @@
    "label": "Claim Date"
   },
   {
+   "collapsible": 1,
    "fieldname": "temperature_section",
    "fieldtype": "Section Break",
    "label": "Temperature Control Information"
@@ -962,6 +901,7 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "tracking_section",
    "fieldtype": "Section Break",
    "label": "Real-time Tracking"
@@ -1089,11 +1029,6 @@
    "options": "Currency"
   },
   {
-   "fieldname": "services_tab",
-   "fieldtype": "Tab Break",
-   "label": "Services"
-  },
-  {
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
@@ -1183,11 +1118,7 @@
    "label": "Billing Automation"
   },
   {
-   "fieldname": "other_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Other Details"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
    "label": "Dangerous Goods"
@@ -1208,13 +1139,43 @@
    "fieldname": "goods_value",
    "fieldtype": "Currency",
    "label": "Goods Value"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "services_section",
+   "fieldtype": "Section Break",
+   "label": "Services"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
+   "fieldname": "column_break_zwmm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_uvrv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "atd",
+   "fieldtype": "Date",
+   "label": "ATD"
+  },
+  {
+   "fieldname": "ata",
+   "fieldtype": "Date",
+   "label": "ATA"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-04 22:19:24.687474",
+ "modified": "2026-01-15 11:57:22.111953",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

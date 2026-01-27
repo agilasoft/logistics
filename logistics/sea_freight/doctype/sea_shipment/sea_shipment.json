@@ -28,10 +28,12 @@
   "shipper",
   "origin_port",
   "etd",
+  "atd",
   "column_break_iklg",
   "consignee",
   "destination_port",
   "eta",
+  "ata",
   "column_break_qyob",
   "volume",
   "weight",
@@ -189,22 +191,22 @@
    "options": "Incoterm"
   },
   {
+   "description": "Origin port UNLOCO code",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Origin Port",
    "options": "UNLOCO",
-   "reqd": 1,
-   "description": "Origin port UNLOCO code"
+   "reqd": 1
   },
   {
+   "description": "Destination port UNLOCO code",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Destination Port",
    "options": "UNLOCO",
-   "reqd": 1,
-   "description": "Destination port UNLOCO code"
+   "reqd": 1
   },
   {
    "fieldname": "column_break_nbco",
@@ -840,35 +842,23 @@
    "fieldtype": "Currency",
    "label": "Estimated Penalty Amount",
    "read_only": 1
+  },
+  {
+   "fieldname": "atd",
+   "fieldtype": "Date",
+   "label": "ATD"
+  },
+  {
+   "fieldname": "ata",
+   "fieldtype": "Date",
+   "label": "ATA"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [
-  {
-   "group": "Accounting",
-   "link_doctype": "Sales Invoice",
-   "link_fieldname": "job_costing_number"
-  },
-  {
-   "group": "Accounting",
-   "link_doctype": "Purchase Invoice",
-   "link_fieldname": "job_costing_number"
-  },
-  {
-   "group": "Operations",
-   "link_doctype": "Transport Order",
-   "link_fieldname": "job_costing_number"
-  },
-  {
-   "group": "Operations",
-   "link_doctype": "Freight Routing",
-   "link_fieldname": "job_no",
-   "table_fieldname": "routes"
-  }
- ],
- "modified": "2025-10-14 10:31:30.736628",
+ "links": [],
+ "modified": "2026-01-15 12:01:27.353259",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",

@@ -48,14 +48,84 @@ async function getAddressLatLon(addrname) {
   return null;
 }
 
+// Determine vehicle state: 'OFF', 'IDLE', or 'ON'
+// IDLE = ignition ON but speed < 5 km/h (engine running but not moving)
+// ON = ignition ON and speed >= 5 km/h (vehicle moving)
+// OFF = ignition OFF
+function getVehicleState(vehiclePosition) {
+  if (!vehiclePosition) return 'OFF';
+  
+  const ignition = vehiclePosition.ignition === true || vehiclePosition.ignition === 1 || vehiclePosition.ignition === '1' || vehiclePosition.ignition === 'ON';
+  const speed = toNumber(vehiclePosition.speed_kph);
+  const IDLE_SPEED_THRESHOLD = 5; // km/h - below this is considered idle
+  
+  if (!ignition) {
+    return 'OFF';
+  } else if (speed < IDLE_SPEED_THRESHOLD) {
+    return 'IDLE';
+  } else {
+    return 'ON';
+  }
+}
+
+// Get display text and colors for vehicle state
+function getVehicleStateDisplay(state) {
+  switch (state) {
+    case 'IDLE':
+      return {
+        text: 'IDLE',
+        color: '#f59e0b', // amber/orange
+        bgColor: '#f59e0b',
+        labelColor: '#f59e0b',
+        statusColor: '#f59e0b'
+      };
+    case 'ON':
+      return {
+        text: 'ON',
+        color: '#10b981', // green
+        bgColor: '#10b981',
+        labelColor: '#10b981',
+        statusColor: '#10b981'
+      };
+    case 'OFF':
+    default:
+      return {
+        text: 'OFF',
+        color: '#ff0000', // red
+        bgColor: '#ff0000',
+        labelColor: '#ff0000',
+        statusColor: '#ff0000' // red for status indicator
+      };
+  }
+}
+
 // ---------- Multi-leg Route Map ----------
 async function render_run_sheet_route_map(frm) {
-  const $wrapper = frm.get_field('route_map').$wrapper;
-  if (!$wrapper) return;
+  // Wait for field to be ready
+  let $wrapper;
+  try {
+    const field = frm.get_field('route_map');
+    if (!field) {
+      console.warn('Route map field not found in form');
+      return;
+    }
+    $wrapper = field.$wrapper;
+    if (!$wrapper || $wrapper.length === 0) {
+      // Retry after a short delay if wrapper not ready
+      setTimeout(() => render_run_sheet_route_map(frm), 500);
+      return;
+    }
+  } catch (error) {
+    console.error('Error getting route_map field:', error);
+    return;
+  }
   
   const legs = frm.doc.legs || [];
   if (legs.length === 0) {
-    $wrapper.html('<div class="text-muted">No transport legs added to this run sheet</div>');
+    const message = frm.is_new() 
+      ? 'Save the Run Sheet and add transport legs in the Transport Leg tab to see the route map.'
+      : 'No transport legs added to this run sheet. Add legs in the Transport Leg tab to see the route map.';
+    $wrapper.html(`<div class="text-muted" style="padding: 20px; text-align: center;">${message}</div>`);
     return;
   }
 
@@ -728,7 +798,7 @@ async function render_run_sheet_route_map(frm) {
         // Determine status class
         const statusClass = status.toLowerCase().replace(' ', '-');
         
-        // Build action icons - hide start if started, hide end if ended
+        // Build action icons - show one at a time: start OR end
         const actionIcons = [];
         
         // Add drag handle icon (always first)
@@ -736,13 +806,19 @@ async function render_run_sheet_route_map(frm) {
            title="Drag to Reorder" 
            style="color: #6c757d; cursor: move;"></i>`);
         
-        if (!startDate) {
+        // Check if vehicle is assigned
+        const hasVehicle = frm && frm.doc && frm.doc.vehicle && frm.doc.vehicle.trim() !== '';
+        
+        // Show start button: only if vehicle is filled AND leg hasn't started
+        if (!startDate && hasVehicle) {
           actionIcons.push(`<i class="fa fa-play-circle action-icon" 
              title="Start Leg" 
              onclick="startTransportLeg('${leg.transport_leg}')"
              style="color: #28a745; cursor: pointer;"></i>`);
         }
-        if (!endDate) {
+        
+        // Show end button: only if start button was pressed (leg has started) AND leg hasn't ended
+        if (startDate && !endDate) {
           actionIcons.push(`<i class="fa fa-stop-circle action-icon" 
              title="End Leg" 
              onclick="endTransportLeg('${leg.transport_leg}')"
@@ -814,11 +890,22 @@ async function render_run_sheet_route_map(frm) {
           refreshBtn.disabled = true;
           
           try {
+            // Validate vehicle name before making API call
+            if (!frm || !frm.doc || !frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) {
+              frappe.show_alert({
+                message: __('No vehicle assigned to refresh'),
+                indicator: 'orange'
+              });
+              refreshBtn.innerHTML = '<i class="fa fa-refresh"></i>';
+              refreshBtn.disabled = false;
+              return;
+            }
+            
             // Call the new refresh API to get fresh telematics data
             const refreshResult = await frappe.call({
               method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
               args: {
-                vehicle_name: frm.doc.vehicle
+                vehicle_name: frm.doc.vehicle.trim()
               }
             });
             
@@ -872,7 +959,15 @@ async function render_run_sheet_route_map(frm) {
     
   } catch (error) {
     console.error('Error rendering run sheet route map:', error);
-    $wrapper.html('<div class="text-muted">Unable to load route map</div>');
+    if ($wrapper && $wrapper.length > 0) {
+      $wrapper.html(`
+        <div style="padding: 20px; text-align: center; color: #dc3545;">
+          <i class="fa fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 10px;"></i>
+          <div style="font-weight: 600; margin-bottom: 5px;">Unable to load route map</div>
+          <div style="font-size: 12px; color: #6c757d;">${error.message || 'Unknown error'}</div>
+        </div>
+      `);
+    }
   }
 }
 
@@ -1045,13 +1140,13 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
     
     // Fetch vehicle position if vehicle is assigned
     let vehiclePosition = null;
-    if (frm && frm.doc && frm.doc.vehicle) {
+    if (frm && frm.doc && frm.doc.vehicle && typeof frm.doc.vehicle === 'string' && frm.doc.vehicle.trim().length > 0) {
       try {
         console.log('Fetching vehicle position for:', frm.doc.vehicle);
         const vehicleData = await frappe.call({
           method: 'logistics.transport.api_vehicle_tracking.get_vehicle_position',
           args: {
-            vehicle_name: frm.doc.vehicle
+            vehicle_name: frm.doc.vehicle.trim()
           }
         });
         
@@ -1566,35 +1661,87 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
         });
         
         // Third pass: add route lines between locations
+        // First, add route from vehicle position to first pickup (if vehicle exists)
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude && legCoords.length > 0) {
+          const firstPick = legCoords[0].pick;
+          const vehicleToFirstPick = L.polyline([
+            [vehiclePosition.latitude, vehiclePosition.longitude],
+            [firstPick.lat, firstPick.lon]
+          ], {
+            color: '#007bff', // Blue
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '8, 4'
+          }).addTo(map);
+          
+          vehicleToFirstPick.bindPopup(`
+            <strong>Route to First Pickup</strong><br>
+            From vehicle to pickup location A
+          `);
+        }
+        
+        // Add route lines for each leg (pick to drop)
         legCoords.forEach((legData, index) => {
           const { leg, pick, drop } = legData;
           
-          // Add route line
+          // Add route line from pick to drop
           const routeLine = L.polyline([
             [pick.lat, pick.lon],
             [drop.lat, drop.lon]
           ], {
-            color: index === 0 ? 'blue' : 'orange',
-            weight: 3,
-            opacity: 0.6,
-            dashArray: index === 0 ? '5, 5' : '10, 10'
+            color: index === 0 ? '#007bff' : '#ff9800', // Blue for first leg, orange for others
+            weight: index === 0 ? 5 : 4, // Thicker for first leg
+            opacity: index === 0 ? 0.9 : 0.7,
+            dashArray: index === 0 ? '8, 4' : '10, 5'
           }).addTo(map);
+          
+          routeLine.bindPopup(`
+            <strong>Leg ${index + 1}</strong><br>
+            ${leg.transport_leg || 'N/A'}
+          `);
           
           allWaypoints.push([pick.lat, pick.lon], [drop.lat, drop.lon]);
         });
         
-        // Add overall route line connecting all waypoints in sequence
+        // Add connecting lines between consecutive legs (drop of leg N to pick of leg N+1)
+        for (let i = 0; i < legCoords.length - 1; i++) {
+          const currentDrop = legCoords[i].drop;
+          const nextPick = legCoords[i + 1].pick;
+          
+          // Only draw connecting line if drop and next pick are different locations
+          const dropKey = `${currentDrop.lat.toFixed(6)},${currentDrop.lon.toFixed(6)}`;
+          const pickKey = `${nextPick.lat.toFixed(6)},${nextPick.lon.toFixed(6)}`;
+          
+          if (dropKey !== pickKey) {
+            const connectingLine = L.polyline([
+              [currentDrop.lat, currentDrop.lon],
+              [nextPick.lat, nextPick.lon]
+            ], {
+              color: '#9c27b0', // Purple
+              weight: 3,
+              opacity: 0.6,
+              dashArray: '6, 6'
+            }).addTo(map);
+            
+            connectingLine.bindPopup(`
+              <strong>Connecting Route</strong><br>
+              From Leg ${i + 1} drop to Leg ${i + 2} pickup
+            `);
+          }
+        }
+        
+        // Add overall route line connecting all waypoints in sequence (as backup/overview)
         if (allWaypoints.length > 2) {
           const overallRoute = L.polyline(allWaypoints, {
-            color: 'purple',
-            weight: 5,
-            opacity: 0.8,
-            dashArray: '15, 10'
+            color: '#6c757d', // Gray - less prominent
+            weight: 2,
+            opacity: 0.4,
+            dashArray: '20, 10'
           }).addTo(map);
           
           // Add route info popup
           overallRoute.bindPopup(`
-            <strong>Complete Route</strong><br>
+            <strong>Complete Route Overview</strong><br>
             ${legCoords.length} transport legs<br>
             ${allWaypoints.length} total stops<br>
             <small>Click external links for turn-by-turn directions</small>
@@ -1613,8 +1760,12 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
           console.log('✓ CONDITION MET - Adding truck marker at:', vehiclePosition.latitude, vehiclePosition.longitude);
           
           const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
-          const ignition = vehiclePosition.ignition ? 'ON' : 'OFF';
-          const ignitionOn = vehiclePosition.ignition;
+          const vehicleState = getVehicleState(vehiclePosition);
+          const stateDisplay = getVehicleStateDisplay(vehicleState);
+          const ignition = stateDisplay.text;
+          // Truck icon color based on state: green when ON, amber when IDLE, gray when OFF
+          const truckIconColor = stateDisplay.color;
+          const truckLabelColor = stateDisplay.labelColor;
           
           // Font Awesome truck in white circle
           const truckIcon = L.divIcon({
@@ -1622,19 +1773,19 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
             html: `
               <div style="position: relative; width: 80px; height: 68px;">
                 <!-- Ignition status card (above truck) -->
-                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${ignitionOn ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${stateDisplay.bgColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                   Ignition: ${ignition}
                 </div>
                 
-                <!-- White circle with blue truck icon -->
-                <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid #e5e7eb; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
-                  <i class="fa fa-truck" style="color: #2563eb; font-size: 20px;"></i>
-                  <!-- Small ignition circle -->
-                  <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${ignitionOn ? '#10b981' : '#ef4444'}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+                <!-- White circle with truck icon (color based on state) -->
+                <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid ${truckIconColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                  <i class="fa fa-truck" style="color: ${truckIconColor}; font-size: 20px;"></i>
+                  <!-- Small state indicator circle -->
+                  <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${stateDisplay.statusColor}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
                 </div>
                 
-                <!-- Vehicle name label (below truck) -->
-                <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: #007bff; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;">
+                <!-- Vehicle name label (below truck, color based on ignition) -->
+                <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: ${truckLabelColor}; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid ${truckIconColor};">
                   ${vehicleName}
                 </div>
               </div>
@@ -1667,7 +1818,7 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
             <div style="padding: 6px;">
               <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
               <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
-                <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                <strong>Ignition:</strong> <span style="color: ${stateDisplay.color}; font-weight: 600;">${ignition}</span><br>
                 ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
                 ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
                 ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
@@ -1699,11 +1850,22 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
                 locateBtn.disabled = true;
                 
                 try {
+                  // Validate vehicle name before making API call
+                  if (!frm || !frm.doc || !frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) {
+                    frappe.show_alert({
+                      message: __('No vehicle assigned to locate'),
+                      indicator: 'orange'
+                    });
+                    locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                    locateBtn.disabled = false;
+                    return;
+                  }
+                  
                   // First refresh vehicle data to get latest position and ignition status
                   const refreshResult = await frappe.call({
                     method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
                     args: {
-                      vehicle_name: frm.doc.vehicle
+                      vehicle_name: frm.doc.vehicle.trim()
                     }
                   });
                   
@@ -1717,7 +1879,9 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
                     // Update stored position
                     window[`${mapId}_vehiclePosition`] = currentPosition;
                     
-                    refreshMessage = ` - Ignition: ${currentPosition.ignition ? 'ON' : 'OFF'}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
+                    const freshState = getVehicleState(currentPosition);
+                    const freshStateDisplay = getVehicleStateDisplay(freshState);
+                    refreshMessage = ` - Ignition: ${freshStateDisplay.text}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
                   } else {
                     console.warn('Could not refresh vehicle data, using cached position');
                     refreshMessage = ' (using cached position)';
@@ -1731,18 +1895,47 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
                     if (refreshResult.message && refreshResult.message.success) {
                       storedMarker.setLatLng([currentPosition.latitude, currentPosition.longitude]);
                       
+                      // Update marker icon color based on vehicle state
+                      const freshState = getVehicleState(currentPosition);
+                      const freshStateDisplay = getVehicleStateDisplay(freshState);
+                      const freshTruckIconColor = freshStateDisplay.color;
+                      const freshTruckLabelColor = freshStateDisplay.labelColor;
+                      const freshIgnition = freshStateDisplay.text;
+                      const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                      
+                      // Recreate icon with updated colors
+                      const freshTruckIcon = L.divIcon({
+                        className: 'custom-truck-marker',
+                        html: `
+                          <div style="position: relative; width: 80px; height: 68px;">
+                            <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${freshStateDisplay.bgColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                              Ignition: ${freshIgnition}
+                            </div>
+                            <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid ${freshTruckIconColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                              <i class="fa fa-truck" style="color: ${freshTruckIconColor}; font-size: 20px;"></i>
+                              <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${freshStateDisplay.statusColor}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+                            </div>
+                            <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: ${freshTruckLabelColor}; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid ${freshTruckIconColor};">
+                              ${vehicleName}
+                            </div>
+                          </div>
+                        `,
+                        iconSize: [80, 68],
+                        iconAnchor: [40, 34]
+                      });
+                      storedMarker.setIcon(freshTruckIcon);
+                      
                       // Update marker popup with fresh data
                       const speedDisplay = currentPosition.speed_kph ? `${currentPosition.speed_kph.toFixed(1)} km/h` : 'N/A';
                       const fuelDisplay = currentPosition.fuel_level ? `${currentPosition.fuel_level}%` : null;
                       const odometerDisplay = currentPosition.odometer_km ? `${currentPosition.odometer_km.toFixed(1)} km` : null;
-                      const ignition = currentPosition.ignition ? 'ON' : 'OFF';
-                      const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                      const ignition = freshStateDisplay.text;
                       
                       storedMarker.setPopupContent(`
                         <div style="padding: 6px;">
                           <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
                           <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
-                            <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                            <strong>Ignition:</strong> <span style="color: ${freshStateDisplay.color}; font-weight: 600;">${ignition}</span><br>
                             ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
                             ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
                             ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
@@ -1846,18 +2039,6 @@ function createOpenStreetRouteMap(mapId, legCoords, vehiclePosition, frm, consol
 
 // Initialize Google Maps for multi-leg route
 function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm, consolidationInfo = {}) {
-  // Use interactive Google Maps JavaScript API instead of static maps
-  const waypoints = [];
-  legCoords.forEach(legData => {
-    waypoints.push(`${legData.pick.lat},${legData.pick.lon}`);
-    waypoints.push(`${legData.drop.lat},${legData.drop.lon}`);
-  });
-  
-  // Add vehicle position as a marker if available
-  if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
-    waypoints.push(`${vehiclePosition.latitude},${vehiclePosition.longitude}`);
-  }
-  
   const firstPick = legCoords[0].pick;
   const lastDrop = legCoords[legCoords.length - 1].drop;
   
@@ -1868,70 +2049,44 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm, consol
     const apiKey = response.message?.api_key;
     
     if (apiKey && apiKey.length > 10) {
-      // First, get the actual route polyline from Google Directions API
-      const waypointStr = waypoints.join('|');
-      
-      frappe.call({
-        method: 'logistics.transport.api_vehicle_tracking.get_google_route_polyline',
-        args: {
-          waypoints: waypointStr
-        }
-      }).then(polylineResponse => {
-        const mapElement = document.getElementById(mapId);
-        if (!mapElement) return;
+      // Load Google Maps JavaScript API if not already loaded
+      if (window.google && window.google.maps && window.google.maps.DirectionsService) {
+        // Build waypoints from leg coordinates (Google Maps is already loaded)
+        const waypoints = [];
+        legCoords.forEach(legData => {
+          waypoints.push(new google.maps.LatLng(legData.pick.lat, legData.pick.lon));
+          waypoints.push(new google.maps.LatLng(legData.drop.lat, legData.drop.lon));
+        });
         
-        if (polylineResponse.message && polylineResponse.message.success) {
-          const routes = polylineResponse.message.routes || [];
-          const savedRouteIndex = frm && frm.doc && frm.doc.selected_route_index !== undefined ? frm.doc.selected_route_index : null;
+        const origin = new google.maps.LatLng(firstPick.lat, firstPick.lon);
+        const destination = new google.maps.LatLng(lastDrop.lat, lastDrop.lon);
+        
+        initializeInteractiveGoogleMapWithDirections(mapId, origin, destination, waypoints, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
+      } else {
+        // Load Google Maps JavaScript API with directions library
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,directions`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          // Build waypoints from leg coordinates (after Google Maps loads)
+          const waypoints = [];
+          legCoords.forEach(legData => {
+            waypoints.push(new google.maps.LatLng(legData.pick.lat, legData.pick.lon));
+            waypoints.push(new google.maps.LatLng(legData.drop.lat, legData.drop.lon));
+          });
           
-          // Determine which route to show (saved route or first route)
-          let selectedRouteIndex = 0;
-          if (savedRouteIndex !== null && savedRouteIndex >= 0 && savedRouteIndex < routes.length) {
-            const savedRoute = routes.find(r => r.index === savedRouteIndex);
-            if (savedRoute) {
-              selectedRouteIndex = routes.indexOf(savedRoute);
-            }
-          }
+          const origin = new google.maps.LatLng(firstPick.lat, firstPick.lon);
+          const destination = new google.maps.LatLng(lastDrop.lat, lastDrop.lon);
           
-          const selectedRoute = routes[selectedRouteIndex];
-          
-          if (selectedRoute) {
-            const routeIndex = selectedRoute.index;
-            
-            // Store routes globally for selection
-            if (!window.runSheetRoutes) window.runSheetRoutes = {};
-            window.runSheetRoutes[mapId] = routes;
-            
-            // Load Google Maps JavaScript API if not already loaded
-            if (window.google && window.google.maps) {
-              initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
-            } else {
-              // Load Google Maps JavaScript API
-              const script = document.createElement('script');
-              script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
-              script.async = true;
-              script.defer = true;
-              script.onload = () => {
-                initializeInteractiveGoogleMap(mapId, routes, routeIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
-              };
-              script.onerror = () => {
-                console.warn('Failed to load Google Maps JavaScript API, showing fallback');
-                showMapFallback(mapId);
-              };
-              document.head.appendChild(script);
-            }
-          } else {
-            console.warn('No routes available');
-            showMapFallback(mapId);
-          }
-        } else {
-          console.warn('Google Directions API failed:', polylineResponse.message?.error);
+          initializeInteractiveGoogleMapWithDirections(mapId, origin, destination, waypoints, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
+        };
+        script.onerror = () => {
+          console.warn('Failed to load Google Maps JavaScript API, showing fallback');
           showMapFallback(mapId);
-        }
-      }).catch(() => {
-        console.warn('Error getting route polyline');
-        showMapFallback(mapId);
-      });
+        };
+        document.head.appendChild(script);
+      }
     } else {
       console.warn('Google Maps API key not configured, showing fallback');
       showMapFallback(mapId);
@@ -1941,56 +2096,25 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm, consol
   });
 }
 
-// Initialize interactive Google Maps with routes
-function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, firstPick, lastDrop, vehiclePosition, frm, apiKey, legCoords = [], consolidationInfo = {}) {
+// Initialize interactive Google Maps with DirectionsService
+function initializeInteractiveGoogleMapWithDirections(mapId, origin, destination, waypoints, vehiclePosition, frm, apiKey, legCoords = [], consolidationInfo = {}) {
   const mapElement = document.getElementById(mapId);
   if (!mapElement) return;
   
   // Clear any existing content
   mapElement.innerHTML = '';
   
-  // Create route selector UI - always show if multiple routes
-  let routeSelectorHtml = '';
-  console.log(`Initializing map with ${routes.length} routes, selected index: ${selectedRouteIndex}`);
-  if (routes.length > 1) {
-    const routeIndex = routes[selectedRouteIndex].index;
-    routeSelectorHtml = `
-      <div style="position: absolute; top: 10px; left: 10px; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 100; max-width: 300px;">
-        <div style="font-weight: bold; margin-bottom: 8px; font-size: 12px;">Select Route (${routes.length} options):</div>
-        ${routes.map((route, idx) => {
-          const isSelected = route.index === routeIndex;
-          return `
-          <div 
-            class="route-option" 
-            data-route-index="${route.index}"
-            style="padding: 8px; margin: 4px 0; border: 2px solid ${isSelected ? '#007bff' : '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isSelected ? '#e7f3ff' : '#fff'}; font-size: 11px; transition: all 0.2s;"
-            onmouseover="this.style.background='#f0f0f0'"
-            onmouseout="this.style.background='${isSelected ? '#e7f3ff' : '#fff'}'"
-            onclick="window.selectRouteByIndex('${mapId}', ${route.index}, '${(frm && frm.doc && frm.doc.name) ? frm.doc.name : ''}')"
-          >
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <strong>Route ${route.index + 1}</strong>
-                ${isSelected ? '<span style="color: #007bff; margin-left: 5px;">✓ Selected</span>' : ''}
-              </div>
-            </div>
-            <div style="margin-top: 4px; color: #666;">
-              ${route.distance_km} km • ${route.duration_min} min
-            </div>
-          </div>
-        `;
-        }).join('')}
-      </div>
-    `;
+  // Determine initial map center (use vehicle position if available, otherwise use origin)
+  let mapCenter = origin;
+  if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+    mapCenter = new google.maps.LatLng(vehiclePosition.latitude, vehiclePosition.longitude);
   }
-  
-  mapElement.innerHTML = routeSelectorHtml;
   
   // Initialize the map
   const bounds = new google.maps.LatLngBounds();
   const map = new google.maps.Map(mapElement, {
     zoom: 10,
-    center: { lat: (firstPick.lat + lastDrop.lat) / 2, lng: (firstPick.lon + lastDrop.lon) / 2 },
+    center: mapCenter,
     mapTypeControl: true,
     streetViewControl: true,
     fullscreenControl: true,
@@ -1999,17 +2123,41 @@ function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, first
     rotateControl: true
   });
   
-  // Store map instance globally for route updates
+  // Store map instance globally
   if (!window.runSheetMaps) window.runSheetMaps = {};
   window.runSheetMaps[mapId] = map;
   
-  // Store polylines for route updates
-  if (!window.runSheetPolylines) window.runSheetPolylines = {};
-  window.runSheetPolylines[mapId] = [];
+  // Determine route origin (use vehicle position if available, otherwise use first pickup)
+  let routeOrigin = origin;
+  if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+    routeOrigin = new google.maps.LatLng(vehiclePosition.latitude, vehiclePosition.longitude);
+  }
   
-  // Add markers and routes
-  const selectedRoute = routes[selectedRouteIndex];
-  const routeIndex = selectedRoute.index;
+  // Store route data globally
+  if (!window.runSheetRouteData) window.runSheetRouteData = {};
+  window.runSheetRouteData[mapId] = {
+    origin: routeOrigin, // Store the actual route origin (vehicle position or first pickup)
+    originalOrigin: origin, // Store the original first pickup for reference
+    destination: destination,
+    waypoints: waypoints,
+    activeRouteIndex: 0,
+    directionsRenderer: null,
+    directionsService: new google.maps.DirectionsService(),
+    routePolylines: [],
+    vehicleMarker: null,
+    vehiclePosition: vehiclePosition,
+    deviationCheckInterval: null,
+    frm: frm
+  };
+  
+  const routeData = window.runSheetRouteData[mapId];
+  
+  // Create directions renderer
+  routeData.directionsRenderer = new google.maps.DirectionsRenderer({
+    map: map,
+    suppressMarkers: false,
+    preserveViewport: false
+  });
   
   // Add markers for all unique locations with letter labels
   const locationMarkersMap = new Map();
@@ -2090,7 +2238,7 @@ function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, first
   } else {
     // Fallback: Add start and end markers
     const startMarker = new google.maps.Marker({
-      position: { lat: firstPick.lat, lng: firstPick.lon },
+      position: origin,
       map: map,
       label: 'A',
       icon: {
@@ -2103,10 +2251,10 @@ function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, first
       },
       title: 'Start Location'
     });
-    bounds.extend({ lat: firstPick.lat, lng: firstPick.lon });
+    bounds.extend(origin);
     
     const endMarker = new google.maps.Marker({
-      position: { lat: lastDrop.lat, lng: lastDrop.lon },
+      position: destination,
       map: map,
       label: 'B',
       icon: {
@@ -2119,308 +2267,772 @@ function initializeInteractiveGoogleMap(mapId, routes, selectedRouteIndex, first
       },
       title: 'End Location'
     });
-    bounds.extend({ lat: lastDrop.lat, lng: lastDrop.lon });
+    bounds.extend(destination);
   }
   
-  // Add vehicle position marker if available
+  // Use vehicle position as origin if available, so route starts from truck icon
+  // routeOrigin is already set above when initializing routeData
+  let routeWaypoints = waypoints.length > 2 ? waypoints.slice(1, -1).map(wp => ({ location: wp, stopover: true })) : [];
+  
   if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
-    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
-    const heading = vehiclePosition.heading_deg || 0;
-    
-    // Create navigation arrow icon
-    const arrowIcon = {
-      path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-      scale: 6,
-      fillColor: '#2563eb',
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
-      rotation: heading,  // Rotate arrow based on heading
-      anchor: new google.maps.Point(0, 0),
-      labelOrigin: new google.maps.Point(0, 0)
-    };
-    
-    const vehicleMarker = new google.maps.Marker({
-      position: { lat: vehiclePosition.latitude, lng: vehiclePosition.longitude },
-      map: map,
-      icon: arrowIcon,
-      title: `${vehicleName} - Current Location`
-    });
-    bounds.extend({ lat: vehiclePosition.latitude, lng: vehiclePosition.longitude });
-    
-    // Function to build info window content
-    const buildInfoWindowContent = (position, showRefresh = true) => {
-      const speedDisplay = position.speed_kph ? `${position.speed_kph.toFixed(1)} km/h` : 'N/A';
-      const timestampDisplay = position.timestamp || 'N/A';
-      const odometerDisplay = position.odometer_km ? `${position.odometer_km.toFixed(1)} km` : 'N/A';
-      const fuelDisplay = position.fuel_level !== null && position.fuel_level !== undefined 
-        ? `${position.fuel_level}%` : 'N/A';
-      const headingDisplay = position.heading_deg !== null && position.heading_deg !== undefined
-        ? `${position.heading_deg.toFixed(1)}°` : 'N/A';
-      const ignition = position.ignition ? 'ON' : 'OFF';
-      const provider = position.provider || 'N/A';
-      const refreshBtnId = `${mapId}-refresh-telematics`;
+    // Include all waypoints since we're starting from vehicle position, not first pickup
+    routeWaypoints = waypoints.length > 0 ? waypoints.map(wp => ({ location: wp, stopover: true })) : [];
+    console.log('Using vehicle position as route origin:', vehiclePosition.latitude, vehiclePosition.longitude);
+  }
+  
+  // Request routes with alternatives
+  const request = {
+    origin: routeData.origin, // Use the route origin (vehicle position or first pickup)
+    destination: destination,
+    waypoints: routeWaypoints,
+    provideRouteAlternatives: true,
+    travelMode: google.maps.TravelMode.DRIVING,
+    optimizeWaypoints: false
+  };
+  
+  console.log('Requesting routes with alternatives:', request);
+  
+  routeData.directionsService.route(request, (result, status) => {
+    if (status === google.maps.DirectionsStatus.OK) {
+      console.log(`✓ Received ${result.routes.length} route(s) from DirectionsService`);
       
-      return `
-        <div style="padding: 8px 10px; min-width: 200px; max-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden;" onclick="event.stopPropagation();">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;">
-            <div style="font-weight: 600; font-size: 13px; color: #2563eb; display: flex; align-items: center; gap: 5px;">
-              <i class="fa fa-truck" style="font-size: 12px;"></i>${vehicleName}
+      // Log route details for debugging
+      result.routes.forEach((route, idx) => {
+        const hasOverviewPath = route.overview_path && (route.overview_path.getLength ? route.overview_path.getLength() > 0 : route.overview_path.length > 0);
+        const hasLegs = route.legs && route.legs.length > 0;
+        console.log(`  Route ${idx}: overview_path=${hasOverviewPath}, legs=${hasLegs}, distance=${route.legs ? route.legs.reduce((sum, leg) => sum + leg.distance.value, 0) / 1000 : 'N/A'}km`);
+      });
+      
+      // Store routes globally
+      if (!window.runSheetRoutes) window.runSheetRoutes = {};
+      window.runSheetRoutes[mapId] = result.routes;
+      
+      // Get saved route index or default to 0
+      const savedRouteIndex = frm && frm.doc && frm.doc.selected_route_index !== undefined ? frm.doc.selected_route_index : null;
+      let activeRouteIndex = 0;
+      if (savedRouteIndex !== null && savedRouteIndex >= 0 && savedRouteIndex < result.routes.length) {
+        activeRouteIndex = savedRouteIndex;
+      } else if (savedRouteIndex !== null) {
+        // Saved index is out of range - log warning and use default
+        console.warn(`Saved route index ${savedRouteIndex} is out of range for ${result.routes.length} routes. Using default route 0.`);
+        activeRouteIndex = 0;
+      }
+      
+      routeData.activeRouteIndex = activeRouteIndex;
+      
+      // Render all routes (primary in blue, alternatives in gray)
+      renderAllRoutes(mapId, result.routes, activeRouteIndex, map, bounds);
+      
+      // Create route selector UI
+      createRouteSelectorUI(mapId, result.routes, activeRouteIndex, frm);
+      
+      // Add vehicle marker and tracking
+      addVehicleMarkerAndTracking(mapId, vehiclePosition, frm, map, bounds);
+      
+      // Start deviation monitoring
+      startDeviationMonitoring(mapId, frm);
+      
+      // Fit map to show all routes
+      map.fitBounds(bounds);
+      
+      // Hide fallback
+      hideMapFallback(mapId);
+    } else {
+      console.error('DirectionsService failed:', status);
+      frappe.show_alert({
+        message: __('Failed to get routes: {0}', [status]),
+        indicator: 'red'
+      });
+      showMapFallback(mapId);
+    }
+  });
+}
+
+// Render all routes (primary in blue, alternatives in gray)
+function renderAllRoutes(mapId, routes, activeRouteIndex, map, bounds) {
+  const routeData = window.runSheetRouteData[mapId];
+  if (!routeData) return;
+  
+  // Clear existing polylines first
+  console.log(`Clearing ${routeData.routePolylines.length} existing route polylines...`);
+  routeData.routePolylines.forEach(polylineData => {
+    if (polylineData.polyline) {
+      polylineData.polyline.setMap(null);
+    }
+  });
+  routeData.routePolylines = [];
+  
+  // Clear directions renderer before drawing new routes
+  if (routeData.directionsRenderer) {
+    routeData.directionsRenderer.setDirections({ routes: [] });
+  }
+  
+  // Draw new route polylines
+  routes.forEach((route, index) => {
+    const isActive = index === activeRouteIndex;
+    
+    // Create polyline for this route
+    // overview_path is an MVCArray of LatLng objects
+    const routePath = [];
+    
+    // Try to get path from overview_path first (most efficient)
+    if (route.overview_path) {
+      try {
+        // Handle MVCArray by converting to array
+        const pathLength = route.overview_path.getLength();
+        if (pathLength > 0) {
+          for (let i = 0; i < pathLength; i++) {
+            const point = route.overview_path.getAt(i);
+            routePath.push(point);
+            if (bounds) {
+              bounds.extend(point);
+            }
+          }
+        }
+      } catch (e) {
+        // If overview_path is not an MVCArray, try as regular array
+        if (Array.isArray(route.overview_path) && route.overview_path.length > 0) {
+          route.overview_path.forEach(point => {
+            routePath.push(point);
+            if (bounds) {
+              bounds.extend(point);
+            }
+          });
+        }
+      }
+    }
+    
+    // Fallback: build path from route legs if overview_path is not available or empty
+    if (routePath.length === 0 && route.legs && route.legs.length > 0) {
+      console.log(`Route ${index} has no overview_path, building from legs...`);
+      route.legs.forEach((leg, legIndex) => {
+        if (leg.steps && leg.steps.length > 0) {
+          leg.steps.forEach(step => {
+            if (step.path) {
+              try {
+                // Handle MVCArray
+                const stepPathLength = step.path.getLength();
+                if (stepPathLength > 0) {
+                  for (let i = 0; i < stepPathLength; i++) {
+                    const point = step.path.getAt(i);
+                    routePath.push(point);
+                    if (bounds) {
+                      bounds.extend(point);
+                    }
+                  }
+                }
+              } catch (e) {
+                // If step.path is not an MVCArray, try as regular array
+                if (Array.isArray(step.path) && step.path.length > 0) {
+                  step.path.forEach(point => {
+                    routePath.push(point);
+                    if (bounds) {
+                      bounds.extend(point);
+                    }
+                  });
+                }
+              }
+            }
+          });
+        } else if (leg.start_location && leg.end_location) {
+          // If no steps, just use start and end locations
+          routePath.push(leg.start_location);
+          routePath.push(leg.end_location);
+          if (bounds) {
+            bounds.extend(leg.start_location);
+            bounds.extend(leg.end_location);
+          }
+        }
+      });
+    }
+    
+    // Skip if no valid path was found
+    if (routePath.length === 0) {
+      console.warn(`Route ${index} has no valid path data, skipping polyline creation`);
+      return;
+    }
+    
+    const polyline = new google.maps.Polyline({
+      path: routePath,
+      geodesic: true,
+      strokeColor: isActive ? '#007bff' : '#6c757d', // Blue for primary, gray for alternatives
+      strokeOpacity: isActive ? 1.0 : 0.6,
+      strokeWeight: isActive ? 6 : 4,
+      map: map,
+      zIndex: isActive ? 2 : 1,
+      clickable: true
+    });
+    
+    // Add click handler for alternative routes (gray routes)
+    if (!isActive) {
+      // Store original style for hover effects
+      const originalWeight = 4;
+      const originalOpacity = 0.6;
+      
+      polyline.addListener('click', (event) => {
+        const frm = routeData.frm;
+        console.log(`Clicked on alternative route ${index + 1}, setting as active`);
+        if (frm && frm.doc && frm.doc.name) {
+          window.selectRouteByIndex(mapId, index, frm.doc.name);
+        } else {
+          // Still allow selection even if frm is not available
+          window.selectRouteByIndex(mapId, index, null);
+        }
+      });
+      
+      // Add hover effect to show route is clickable
+      polyline.addListener('mouseover', () => {
+        polyline.setOptions({
+          strokeWeight: 5,
+          strokeOpacity: 0.9,
+          strokeColor: '#5a6268' // Slightly darker gray on hover
+        });
+        // Change cursor to pointer
+        if (map.getDiv()) {
+          map.getDiv().style.cursor = 'pointer';
+        }
+      });
+      
+      polyline.addListener('mouseout', () => {
+        polyline.setOptions({
+          strokeWeight: originalWeight,
+          strokeOpacity: originalOpacity,
+          strokeColor: '#6c757d' // Back to original gray
+        });
+        // Reset cursor
+        if (map.getDiv()) {
+          map.getDiv().style.cursor = '';
+        }
+      });
+    } else {
+      // For active route, show it's not clickable (already selected)
+      polyline.addListener('mouseover', () => {
+        if (map.getDiv()) {
+          map.getDiv().style.cursor = 'default';
+        }
+      });
+      
+      polyline.addListener('mouseout', () => {
+        if (map.getDiv()) {
+          map.getDiv().style.cursor = '';
+        }
+      });
+    }
+    
+    routeData.routePolylines.push({
+      polyline: polyline,
+      routeIndex: index,
+      route: route
+    });
+  });
+  
+  // Set active route in directions renderer (this will also add route markers)
+  // Only set directions renderer for the active route to avoid interfering with alternative route polylines
+  if (routes[activeRouteIndex] && routeData.directionsRenderer) {
+    // Suppress markers for alternative routes - we only want markers for the active route
+    routeData.directionsRenderer.setOptions({
+      suppressMarkers: false, // Show markers for active route
+      preserveViewport: false
+    });
+    
+    routeData.directionsRenderer.setDirections({
+      routes: [routes[activeRouteIndex]],
+      request: null
+    });
+  }
+  
+  // Log route rendering summary
+  const renderedCount = routeData.routePolylines.length;
+  console.log(`✓ Rendered ${renderedCount} route polyline(s) out of ${routes.length} route(s), active route index: ${activeRouteIndex}`);
+  
+  if (renderedCount < routes.length) {
+    console.warn(`⚠️ Some routes could not be rendered (${routes.length - renderedCount} missing)`);
+  }
+}
+
+// Create route selector UI
+function createRouteSelectorUI(mapId, routes, activeRouteIndex, frm) {
+  const mapElement = document.getElementById(mapId);
+  if (!mapElement) {
+    console.warn(`Map element not found for ${mapId}`);
+    return;
+  }
+  
+  if (!routes || routes.length <= 1) {
+    // Remove existing selector if there's only one route or no routes
+    const existingSelector = mapElement.querySelector('.route-selector-ui');
+    if (existingSelector) existingSelector.remove();
+    return;
+  }
+  
+  // Remove existing selector if any (search in parent container too)
+  const existingSelector = mapElement.querySelector('.route-selector-ui') || 
+                           mapElement.parentElement?.querySelector('.route-selector-ui');
+  if (existingSelector) {
+    existingSelector.remove();
+  }
+  
+  const routeSelectorHtml = `
+    <div class="route-selector-ui" style="position: absolute; top: 10px; left: 10px; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 100; max-width: 300px;">
+      <div style="font-weight: bold; margin-bottom: 8px; font-size: 12px;">Select Route (${routes.length} options):</div>
+      ${routes.map((route, idx) => {
+        const isSelected = idx === activeRouteIndex;
+        const distance = route.legs.reduce((sum, leg) => sum + leg.distance.value, 0) / 1000; // Convert to km
+        const duration = route.legs.reduce((sum, leg) => sum + leg.duration.value, 0) / 60; // Convert to minutes
+        
+        return `
+        <div 
+          class="route-option" 
+          data-route-index="${idx}"
+          style="padding: 8px; margin: 4px 0; border: 2px solid ${isSelected ? '#007bff' : '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isSelected ? '#e7f3ff' : '#fff'}; font-size: 11px; transition: all 0.2s;"
+          onmouseover="this.style.background='#f0f0f0'"
+          onmouseout="this.style.background='${isSelected ? '#e7f3ff' : '#fff'}'"
+          onclick="window.selectRouteByIndex('${mapId}', ${idx}, '${(frm && frm.doc && frm.doc.name) ? frm.doc.name : ''}')"
+        >
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Route ${idx + 1}</strong>
+              ${isSelected ? '<span style="color: #007bff; margin-left: 5px;">✓ Active</span>' : ''}
             </div>
-            ${showRefresh ? `
-            <button id="${refreshBtnId}" 
-              style="background: #2563eb; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; transition: background 0.2s; line-height: 1; width: 28px; height: 28px;"
-              onmouseover="this.style.background='#1d4ed8'"
-              onmouseout="this.style.background='#2563eb'"
-              title="Refresh telematics data">
-              <i class="fa fa-refresh"></i>
-            </button>
-            ` : ''}
           </div>
-          <div style="font-size: 12px; color: #374151; line-height: 1.6;">
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Provider:</span> <span style="color: #111827; font-weight: 500;">${provider}</span></div>
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Ignition:</span> 
-              <span style="color: ${ignition === 'ON' ? '#10b981' : '#ef4444'}; font-weight: 600;">${ignition}</span>
-            </div>
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Speed:</span> <span style="color: #111827; font-weight: 500;">${speedDisplay}</span></div>
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Heading:</span> <span style="color: #111827; font-weight: 500;">${headingDisplay}</span></div>
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Fuel:</span> <span style="color: #111827; font-weight: 500;">${fuelDisplay}</span></div>
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Odometer:</span> <span style="color: #111827; font-weight: 500;">${odometerDisplay}</span></div>
-            <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Updated:</span> <span style="color: #111827; font-size: 11px; font-weight: 500;">${timestampDisplay}</span></div>
-            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280; word-break: break-all;">
-              <div style="display: flex; justify-content: space-between; gap: 4px;"><span style="font-weight: 600;">Location:</span> <span style="text-align: right;">${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}</span></div>
-            </div>
+          <div style="margin-top: 4px; color: #666;">
+            ${distance.toFixed(1)} km • ${Math.round(duration)} min
           </div>
         </div>
       `;
-    };
-    
-    const infoWindow = new google.maps.InfoWindow({
-      content: buildInfoWindowContent(vehiclePosition),
-      maxWidth: 220,
-      disableAutoPan: false
-    });
-    
-    // Add CSS to hide scrollbars and remove close button
-    const style = document.createElement('style');
-    style.textContent = `
-      .gm-style-iw-c {
-        padding: 0 !important;
-        max-height: none !important;
-        overflow: hidden !important;
-      }
-      .gm-style-iw-d {
-        overflow: hidden !important;
-        max-height: none !important;
-      }
-      .gm-style-iw-tc {
-        display: none !important;
-      }
-      .gm-ui-hover-effect {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-    
-    // Close info window when clicking on the map (but not on the info window itself)
-    map.addListener('click', function(event) {
-      if (infoWindow) {
-        infoWindow.close();
-      }
-    });
-    
-    // Function to refresh telematics data and update info window
-    const refreshTelematicsData = async () => {
-      if (!frm || !frm.doc || !frm.doc.vehicle) {
-        frappe.show_alert({
-          message: __('No vehicle assigned to refresh'),
-          indicator: 'orange'
-        });
-        return;
-      }
-      
-      try {
-        // Show loading state - icon only with spinner
-        const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
-        if (refreshBtn) {
-          refreshBtn.innerHTML = '<i class="fa fa-spin fa-spinner"></i>';
-          refreshBtn.disabled = true;
-        }
-        
-        // Call refresh API
-        const refreshResult = await frappe.call({
-          method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
-          args: {
-            vehicle_name: frm.doc.vehicle
-          }
-        });
-        
-        if (refreshResult.message && refreshResult.message.success) {
-          // Update vehicle position with fresh data
-          const freshData = refreshResult.message;
-          
-          // Update marker position if coordinates changed
-          if (freshData.latitude && freshData.longitude) {
-            const newPosition = { lat: freshData.latitude, lng: freshData.longitude };
-            vehicleMarker.setPosition(newPosition);
-            
-            // Update arrow rotation if heading changed
-            if (freshData.heading_deg !== null && freshData.heading_deg !== undefined) {
-              const newArrowIcon = {
-                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                scale: 6,
-                fillColor: '#2563eb',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2,
-                rotation: freshData.heading_deg,
-                anchor: new google.maps.Point(0, 0),
-                labelOrigin: new google.maps.Point(0, 0)
-              };
-              vehicleMarker.setIcon(newArrowIcon);
-            }
-          }
-          
-          // Update info window content with fresh data
-          infoWindow.setContent(buildInfoWindowContent(freshData));
-          
-          // Reattach refresh button handler after content update
-          setTimeout(() => {
-            const newRefreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
-            if (newRefreshBtn) {
-              newRefreshBtn.onclick = refreshTelematicsData;
-            }
-          }, 100);
-          
-          // Update stored position
-          window[`${mapId}_vehiclePosition`] = freshData;
-          
-          frappe.show_alert({
-            message: __('Telematics data refreshed successfully'),
-            indicator: 'green'
-          });
-        } else {
-          frappe.show_alert({
-            message: __('Failed to refresh: {0}', [refreshResult.message?.error || 'Unknown error']),
-            indicator: 'orange'
-          });
-        }
-      } catch (error) {
-        console.error('Error refreshing telematics data:', error);
-        frappe.show_alert({
-          message: __('Error refreshing data: {0}', [error.message || 'Unknown error']),
-          indicator: 'red'
-        });
-      } finally {
-        // Re-enable refresh button - icon only
-        const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
-        if (refreshBtn) {
-          refreshBtn.innerHTML = '<i class="fa fa-refresh"></i>';
-          refreshBtn.disabled = false;
-        }
-      }
-    };
-    
-    // Show info window on click
-    vehicleMarker.addListener('click', function() {
-      infoWindow.open(map, vehicleMarker);
-      
-      // Attach refresh button handler after info window opens
-      setTimeout(() => {
-        const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
-        if (refreshBtn) {
-          refreshBtn.onclick = refreshTelematicsData;
-        }
-      }, 100);
-    });
-    
-    // Show info window on hover (optional - can be removed if too intrusive)
-    vehicleMarker.addListener('mouseover', function() {
-      infoWindow.open(map, vehicleMarker);
-      
-      // Attach refresh button handler after info window opens
-      setTimeout(() => {
-        const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
-        if (refreshBtn) {
-          refreshBtn.onclick = refreshTelematicsData;
-        }
-      }, 100);
-    });
-    
-    // Close info window when mouse leaves (optional)
-    vehicleMarker.addListener('mouseout', function() {
-      // Uncomment the line below if you want to auto-close on mouseout
-      // infoWindow.close();
-    });
-  }
+      }).join('')}
+    </div>
+  `;
   
-  // Add all route polylines
-  console.log(`Adding ${routes.length} routes to map`);
-  routes.forEach((route) => {
-    const isSelected = route.index === routeIndex;
-    try {
-      const path = google.maps.geometry.encoding.decodePath(route.polyline);
-      
-      if (!path || path.length === 0) {
-        console.warn(`Route ${route.index} has invalid polyline`);
-        return;
-      }
-      
-      // Extend bounds with route path
-      path.forEach(point => bounds.extend(point));
-      
-      const polyline = new google.maps.Polyline({
-        path: path,
-        geodesic: true,
-        strokeColor: isSelected ? '#007bff' : '#dc3545',  // Red for alternate routes to make them more visible
-        strokeOpacity: isSelected ? 1.0 : 0.8,  // High opacity for better visibility
-        strokeWeight: isSelected ? 6 : 4,  // Thicker lines for better visibility
-        map: map,
-        zIndex: isSelected ? 2 : 1,
-        clickable: true  // Make routes clickable
-      });
-      
-      // Add click handler to select route when clicking on polyline
-      if (!isSelected) {
-        polyline.addListener('click', () => {
-          const frm = cur_frm;
-          if (frm && frm.doc && frm.doc.name) {
-            window.selectRouteByIndex(mapId, route.index, frm.doc.name);
-          }
-        });
-      }
-      
-      window.runSheetPolylines[mapId].push({
-        polyline: polyline,
-        routeIndex: route.index
-      });
-      
-      console.log(`Added route ${route.index} (selected: ${isSelected})`);
-    } catch (error) {
-      console.error(`Error adding route ${route.index}:`, error);
-    }
+  mapElement.insertAdjacentHTML('beforeend', routeSelectorHtml);
+}
+
+// Add vehicle marker and tracking
+function addVehicleMarkerAndTracking(mapId, vehiclePosition, frm, map, bounds) {
+  if (!vehiclePosition || !vehiclePosition.latitude || !vehiclePosition.longitude) return;
+  
+  const routeData = window.runSheetRouteData[mapId];
+  if (!routeData) return;
+  
+  const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+  const heading = vehiclePosition.heading_deg || 0;
+  const vehicleState = getVehicleState(vehiclePosition);
+  const stateDisplay = getVehicleStateDisplay(vehicleState);
+  const arrowColor = stateDisplay.color;
+  
+  // Create navigation arrow icon
+  const arrowIcon = {
+    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+    scale: 6,
+    fillColor: arrowColor,
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWeight: 2,
+    rotation: heading,
+    anchor: new google.maps.Point(0, 0),
+    labelOrigin: new google.maps.Point(0, 0)
+  };
+  
+  const vehicleMarker = new google.maps.Marker({
+    position: { lat: vehiclePosition.latitude, lng: vehiclePosition.longitude },
+    map: map,
+    icon: arrowIcon,
+    title: `${vehicleName} - Current Location`,
+    zIndex: 10000
   });
   
-  // Fit map to show all routes
-  map.fitBounds(bounds);
+  bounds.extend({ lat: vehiclePosition.latitude, lng: vehiclePosition.longitude });
+  routeData.vehicleMarker = vehicleMarker;
   
-  // Hide fallback
-  hideMapFallback(mapId);
+  // Function to build info window content
+  const buildInfoWindowContent = (position, showRefresh = true) => {
+    const speedDisplay = position.speed_kph ? `${position.speed_kph.toFixed(1)} km/h` : 'N/A';
+    const timestampDisplay = position.timestamp || 'N/A';
+    const odometerDisplay = position.odometer_km ? `${position.odometer_km.toFixed(1)} km` : 'N/A';
+    const fuelDisplay = position.fuel_level !== null && position.fuel_level !== undefined 
+      ? `${position.fuel_level}%` : 'N/A';
+    const headingDisplay = position.heading_deg !== null && position.heading_deg !== undefined
+      ? `${position.heading_deg.toFixed(1)}°` : 'N/A';
+    const positionState = getVehicleState(position);
+    const positionStateDisplay = getVehicleStateDisplay(positionState);
+    const ignition = positionStateDisplay.text;
+    const provider = position.provider || 'N/A';
+    const refreshBtnId = `${mapId}-refresh-telematics`;
+    
+    return `
+      <div style="padding: 8px 10px; min-width: 200px; max-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden;" onclick="event.stopPropagation();">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;">
+          <div style="font-weight: 600; font-size: 13px; color: #2563eb; display: flex; align-items: center; gap: 5px;">
+            <i class="fa fa-truck" style="font-size: 12px;"></i>${vehicleName}
+          </div>
+          ${showRefresh ? `
+          <button id="${refreshBtnId}" 
+            style="background: #2563eb; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; transition: background 0.2s; line-height: 1; width: 28px; height: 28px;"
+            onmouseover="this.style.background='#1d4ed8'"
+            onmouseout="this.style.background='#2563eb'"
+            title="Refresh telematics data">
+            <i class="fa fa-refresh"></i>
+          </button>
+          ` : ''}
+        </div>
+        <div style="font-size: 12px; color: #374151; line-height: 1.6;">
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Provider:</span> <span style="color: #111827; font-weight: 500;">${provider}</span></div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Ignition:</span> 
+            <span style="color: ${positionStateDisplay.color}; font-weight: 600;">${ignition}</span>
+          </div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Speed:</span> <span style="color: #111827; font-weight: 500;">${speedDisplay}</span></div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Heading:</span> <span style="color: #111827; font-weight: 500;">${headingDisplay}</span></div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Fuel:</span> <span style="color: #111827; font-weight: 500;">${fuelDisplay}</span></div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Odometer:</span> <span style="color: #111827; font-weight: 500;">${odometerDisplay}</span></div>
+          <div style="margin-bottom: 4px; display: flex; justify-content: space-between;"><span style="color: #6b7280;">Updated:</span> <span style="color: #111827; font-size: 11px; font-weight: 500;">${timestampDisplay}</span></div>
+          <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280; word-break: break-all;">
+            <div style="display: flex; justify-content: space-between; gap: 4px;"><span style="font-weight: 600;">Location:</span> <span style="text-align: right;">${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+  
+  const infoWindow = new google.maps.InfoWindow({
+    content: buildInfoWindowContent(vehiclePosition),
+    maxWidth: 220,
+    disableAutoPan: false
+  });
+  
+  // Refresh telematics data function
+  const refreshTelematicsData = async () => {
+    if (!frm || !frm.doc || !frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) {
+      frappe.show_alert({
+        message: __('No vehicle assigned to refresh'),
+        indicator: 'orange'
+      });
+      return;
+    }
+    
+    try {
+      const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
+      if (refreshBtn) {
+        refreshBtn.innerHTML = '<i class="fa fa-spin fa-spinner"></i>';
+        refreshBtn.disabled = true;
+      }
+      
+      const refreshResult = await frappe.call({
+        method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
+        args: {
+          vehicle_name: frm.doc.vehicle.trim()
+        }
+      });
+      
+      if (refreshResult.message && refreshResult.message.success) {
+        const freshData = refreshResult.message;
+        routeData.vehiclePosition = freshData;
+        
+        if (freshData.latitude && freshData.longitude) {
+          const newPosition = { lat: freshData.latitude, lng: freshData.longitude };
+          vehicleMarker.setPosition(newPosition);
+          
+          const freshState = getVehicleState(freshData);
+          const freshStateDisplay = getVehicleStateDisplay(freshState);
+          const freshArrowColor = freshStateDisplay.color;
+          const newArrowIcon = {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 6,
+            fillColor: freshArrowColor,
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+            rotation: freshData.heading_deg || 0,
+            anchor: new google.maps.Point(0, 0),
+            labelOrigin: new google.maps.Point(0, 0)
+          };
+          vehicleMarker.setIcon(newArrowIcon);
+        }
+        
+        infoWindow.setContent(buildInfoWindowContent(freshData));
+        
+        setTimeout(() => {
+          const newRefreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
+          if (newRefreshBtn) {
+            newRefreshBtn.onclick = refreshTelematicsData;
+          }
+        }, 100);
+        
+        frappe.show_alert({
+          message: __('Telematics data refreshed successfully'),
+          indicator: 'green'
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing telematics data:', error);
+    } finally {
+      const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
+      if (refreshBtn) {
+        refreshBtn.innerHTML = '<i class="fa fa-refresh"></i>';
+        refreshBtn.disabled = false;
+      }
+    }
+  };
+  
+  vehicleMarker.addListener('click', function() {
+    infoWindow.open(map, vehicleMarker);
+    setTimeout(() => {
+      const refreshBtn = document.getElementById(`${mapId}-refresh-telematics`);
+      if (refreshBtn) {
+        refreshBtn.onclick = refreshTelematicsData;
+      }
+    }, 100);
+  });
+}
+
+// Start deviation monitoring
+function startDeviationMonitoring(mapId, frm) {
+  const routeData = window.runSheetRouteData[mapId];
+  if (!routeData || !frm || !frm.doc || !frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) return;
+  
+  // Clear existing interval
+  if (routeData.deviationCheckInterval) {
+    clearInterval(routeData.deviationCheckInterval);
+  }
+  
+  // Dynamic route recalculation threshold: 20 meters
+  // This ensures the route updates when truck takes a different road
+  const DEVIATION_THRESHOLD_METERS = 20; // 20 meters threshold for dynamic recalculation
+  const CHECK_INTERVAL_MS = 30000; // Check every 30 seconds for responsive updates
+  const MIN_TIME_BETWEEN_RECALCULATIONS_MS = 60000; // 1 minute minimum between recalculations to prevent excessive API calls
+  
+  routeData.deviationCheckInterval = setInterval(async () => {
+    try {
+      // Prevent recalculation if it was done recently
+      const timeSinceLastRecalculation = Date.now() - (routeData.lastRecalculationTime || 0);
+      if (timeSinceLastRecalculation < MIN_TIME_BETWEEN_RECALCULATIONS_MS) {
+        console.log(`Skipping deviation check - last recalculation was ${Math.round(timeSinceLastRecalculation / 1000)}s ago`);
+        return;
+      }
+      
+      // Get current vehicle position (validate vehicle name first)
+      if (!frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) {
+        console.log('Skipping deviation check - no valid vehicle assigned');
+        return;
+      }
+      
+      const vehicleData = await frappe.call({
+        method: 'logistics.transport.api_vehicle_tracking.get_vehicle_position',
+        args: {
+          vehicle_name: frm.doc.vehicle.trim()
+        }
+      });
+      
+      if (!vehicleData.message || !vehicleData.message.success) return;
+      
+      const currentPosition = vehicleData.message;
+      if (!currentPosition.latitude || !currentPosition.longitude) return;
+      
+      // Skip check if vehicle is not moving (ignition off or very low speed)
+      const vehicleState = getVehicleState(currentPosition);
+      if (vehicleState === 'OFF' || (currentPosition.speed_kph && currentPosition.speed_kph < 5)) {
+        console.log('Skipping deviation check - vehicle is stationary');
+        return;
+      }
+      
+      const currentLatLng = new google.maps.LatLng(currentPosition.latitude, currentPosition.longitude);
+      
+      // Get active route
+      const routes = window.runSheetRoutes && window.runSheetRoutes[mapId];
+      if (!routes || routes.length === 0) return;
+      
+      const activeRouteIndex = routeData.activeRouteIndex;
+      const activeRoute = routes[activeRouteIndex];
+      if (!activeRoute) return;
+      
+      // Check if vehicle is on the route by finding minimum distance to any point on the route
+      let minDistance = Infinity;
+      let closestPointIndex = -1;
+      if (activeRoute.overview_path && activeRoute.overview_path.length > 0) {
+        activeRoute.overview_path.forEach((point, index) => {
+          const distance = google.maps.geometry.spherical.computeDistanceBetween(
+            currentLatLng,
+            point
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestPointIndex = index;
+          }
+        });
+      }
+      
+      // Additional check: verify vehicle is moving towards destination, not away
+      // If vehicle is close to destination, don't trigger recalculation
+      const destination = routeData.destination;
+      if (destination) {
+        const distanceToDestination = google.maps.geometry.spherical.computeDistanceBetween(
+          currentLatLng,
+          destination
+        );
+        
+        // If vehicle is very close to destination (< 500m), don't recalculate
+        if (distanceToDestination < 500) {
+          console.log(`Vehicle is close to destination (${distanceToDestination.toFixed(0)}m), skipping deviation check`);
+          return;
+        }
+      }
+      
+      // Trigger recalculation if deviation exceeds threshold
+      if (minDistance > DEVIATION_THRESHOLD_METERS) {
+        console.log(`Vehicle deviated from route. Distance: ${minDistance.toFixed(0)}m, threshold: ${DEVIATION_THRESHOLD_METERS}m`);
+        
+        // Update last recalculation time
+        routeData.lastRecalculationTime = Date.now();
+        
+        // Recalculate route from current position
+        recalculateRouteFromCurrentPosition(mapId, currentPosition, frm);
+      }
+    } catch (error) {
+      console.error('Error checking deviation:', error);
+    }
+  }, CHECK_INTERVAL_MS);
+}
+
+// Recalculate route from current position
+// This function is called when the driver deviates from the active route.
+// It recalculates routes from the current GPS position while keeping the destination fixed.
+function recalculateRouteFromCurrentPosition(mapId, currentPosition, frm) {
+  const routeData = window.runSheetRouteData[mapId];
+  if (!routeData) return;
+  
+  console.log('Recalculating route from current truck position:', currentPosition.latitude, currentPosition.longitude);
+  
+  // Keep destination fixed - this ensures the route always goes to the intended destination
+  const destination = routeData.destination;
+  if (!destination) {
+    console.error('Cannot recalculate: destination is not set');
+    return;
+  }
+  
+  const origin = new google.maps.LatLng(currentPosition.latitude, currentPosition.longitude);
+  
+  // Clear existing route polylines before requesting new route
+  if (routeData.routePolylines && routeData.routePolylines.length > 0) {
+    console.log('Clearing existing route polylines...');
+    routeData.routePolylines.forEach(polylineData => {
+      if (polylineData.polyline) {
+        polylineData.polyline.setMap(null);
+      }
+    });
+    routeData.routePolylines = [];
+  }
+  
+  // Clear directions renderer
+  if (routeData.directionsRenderer) {
+    routeData.directionsRenderer.setDirections({ routes: [] });
+  }
+  
+  // Get remaining waypoints (if any)
+  const remainingWaypoints = routeData.waypoints.filter(wp => {
+    const wpLatLng = new google.maps.LatLng(wp.lat(), wp.lng());
+    const distanceToOrigin = google.maps.geometry.spherical.computeDistanceBetween(origin, wpLatLng);
+    const distanceToDest = google.maps.geometry.spherical.computeDistanceBetween(wpLatLng, destination);
+    // Keep waypoints that are closer to destination than to origin
+    return distanceToDest < distanceToOrigin;
+  });
+  
+  const request = {
+    origin: origin,
+    destination: destination,
+    waypoints: remainingWaypoints.length > 0 ? remainingWaypoints.map(wp => ({ location: wp, stopover: true })) : [],
+    provideRouteAlternatives: true,
+    travelMode: google.maps.TravelMode.DRIVING,
+    optimizeWaypoints: false
+  };
+  
+  console.log('Requesting new route from Google DirectionsService...');
+  routeData.directionsService.route(request, (result, status) => {
+    if (status === google.maps.DirectionsStatus.OK) {
+      console.log(`✓ Recalculated route from current position. Received ${result.routes.length} route(s)`);
+      
+      // Update stored routes
+      window.runSheetRoutes[mapId] = result.routes;
+      
+      // Validate and adjust active route index to ensure it's within bounds
+      let activeRouteIndex = routeData.activeRouteIndex;
+      if (activeRouteIndex < 0 || activeRouteIndex >= result.routes.length) {
+        console.warn(`Previous route index ${activeRouteIndex} is out of range for ${result.routes.length} routes. Resetting to 0.`);
+        activeRouteIndex = 0;
+      }
+      routeData.activeRouteIndex = activeRouteIndex;
+      
+      // Update origin to current position
+      routeData.origin = origin;
+      
+      // Re-render routes
+      const map = routeData.directionsRenderer.getMap();
+      const bounds = new google.maps.LatLngBounds();
+      
+      // Include vehicle position in bounds
+      if (currentPosition && currentPosition.latitude && currentPosition.longitude) {
+        bounds.extend({ lat: currentPosition.latitude, lng: currentPosition.longitude });
+      }
+      
+      // Include destination in bounds
+      bounds.extend(destination);
+      
+      // Render all routes (this will extend bounds with route paths and clear old routes)
+      renderAllRoutes(mapId, result.routes, activeRouteIndex, map, bounds);
+      
+      // Include all waypoints in bounds
+      if (remainingWaypoints && remainingWaypoints.length > 0) {
+        remainingWaypoints.forEach(wp => {
+          bounds.extend({ lat: wp.lat(), lng: wp.lng() });
+        });
+      }
+      
+      // Fit map to show all routes and waypoints
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 50 });
+      }
+      
+      // Update vehicle marker position if it exists
+      if (routeData.vehicleMarker && currentPosition && currentPosition.latitude && currentPosition.longitude) {
+        routeData.vehicleMarker.setPosition({ lat: currentPosition.latitude, lng: currentPosition.longitude });
+      }
+      
+      // Recreate route selector UI after a short delay to ensure DOM is ready
+      // This ensures route options remain visible after recalculation
+      setTimeout(() => {
+        createRouteSelectorUI(mapId, result.routes, activeRouteIndex, frm);
+        
+        // Double-check that selector was created (for debugging)
+        const mapElement = document.getElementById(mapId);
+        if (mapElement && result.routes.length > 1) {
+          const selector = mapElement.querySelector('.route-selector-ui');
+          if (!selector) {
+            console.warn('Route selector UI was not created, retrying...');
+            setTimeout(() => {
+              createRouteSelectorUI(mapId, result.routes, activeRouteIndex, frm);
+            }, 500);
+          } else {
+            console.log(`Route selector UI created with ${result.routes.length} route options`);
+          }
+        }
+      }, 100);
+      
+      frappe.show_alert({
+        message: __('Route recalculated from current position. Destination remains fixed.'),
+        indicator: 'green'
+      });
+    } else {
+      console.error('Failed to recalculate route:', status);
+      frappe.show_alert({
+        message: __('Failed to recalculate route: {0}', [status]),
+        indicator: 'red'
+      });
+    }
+  });
 }
 
 // Select a route by index and save it (global function for onclick handler)
 window.selectRouteByIndex = function(mapId, routeIndex, runSheetName) {
-  if (!runSheetName) {
-    frappe.show_alert({
-      message: __('Please save the Run Sheet first before selecting a route'),
-      indicator: 'orange'
-    });
-    return;
-  }
-  
-  // Get the route from stored routes
-  const routes = window.runSheetRoutes && window.runSheetRoutes[mapId];
-  if (!routes) {
+  const routeData = window.runSheetRouteData && window.runSheetRouteData[mapId];
+  if (!routeData) {
     frappe.show_alert({
       message: __('Route data not available. Please refresh the map.'),
       indicator: 'orange'
@@ -2428,86 +3040,94 @@ window.selectRouteByIndex = function(mapId, routeIndex, runSheetName) {
     return;
   }
   
-  const selectedRoute = routes.find(r => r.index === routeIndex);
-  if (!selectedRoute) {
+  // Get the routes
+  const routes = window.runSheetRoutes && window.runSheetRoutes[mapId];
+  if (!routes || routes.length === 0) {
     frappe.show_alert({
-      message: __('Route not found'),
-      indicator: 'red'
+      message: __('Route data not available. Please refresh the map.'),
+      indicator: 'orange'
     });
     return;
   }
   
-  // Update UI
-  const mapElement = document.getElementById(mapId);
-  if (mapElement) {
-    const routeOptions = mapElement.querySelectorAll('.route-option');
-    routeOptions.forEach(option => {
-      const currentIdx = parseInt(option.dataset.routeIndex);
-      if (currentIdx === routeIndex) {
-        option.style.borderColor = '#007bff';
-        option.style.backgroundColor = '#e7f3ff';
-        const checkmark = option.querySelector('span');
-        if (checkmark) checkmark.innerHTML = '✓ Selected';
-      } else {
-        option.style.borderColor = '#ddd';
-        option.style.backgroundColor = '#fff';
-        const checkmark = option.querySelector('span');
-        if (checkmark && checkmark.textContent.includes('Selected')) {
-          checkmark.innerHTML = '';
-        }
-      }
+  // Validate route index - if out of range, use the first available route
+  if (routeIndex < 0 || routeIndex >= routes.length) {
+    console.warn(`Route index ${routeIndex} is out of range (0-${routes.length - 1}). Using route 0 instead.`);
+    routeIndex = 0; // Default to first route instead of showing error
+    frappe.show_alert({
+      message: __('Route index was out of range. Using Route 1 instead.'),
+      indicator: 'orange'
     });
   }
   
-  // Update interactive map polylines if available
-  const map = window.runSheetMaps && window.runSheetMaps[mapId];
-  const polylines = window.runSheetPolylines && window.runSheetPolylines[mapId];
-  if (map && polylines && window.google && window.google.maps) {
-    polylines.forEach(polylineData => {
-      const isSelected = polylineData.routeIndex === routeIndex;
-      polylineData.polyline.setOptions({
-        strokeColor: isSelected ? '#007bff' : '#dc3545',
-        strokeOpacity: isSelected ? 1.0 : 0.8,
-        strokeWeight: isSelected ? 6 : 4,
-        zIndex: isSelected ? 2 : 1
+  const selectedRoute = routes[routeIndex];
+  const map = routeData.directionsRenderer.getMap();
+  const bounds = new google.maps.LatLngBounds();
+  
+  // Update active route index
+  routeData.activeRouteIndex = routeIndex;
+  
+  // Re-render all routes with new active route
+  renderAllRoutes(mapId, routes, routeIndex, map, bounds);
+  
+  // Update route selector UI
+  createRouteSelectorUI(mapId, routes, routeIndex, routeData.frm);
+  
+  // Update directions renderer
+  routeData.directionsRenderer.setDirections({
+    routes: [selectedRoute],
+    request: null
+  });
+  
+  // Save the selected route to Run Sheet if runSheetName is provided
+  if (runSheetName) {
+    // Calculate distance and duration
+    const distance = selectedRoute.legs.reduce((sum, leg) => sum + leg.distance.value, 0) / 1000; // Convert to km
+    const duration = selectedRoute.legs.reduce((sum, leg) => sum + leg.duration.value, 0) / 60; // Convert to minutes
+    
+    // Encode polyline (convert MVCArray to regular array)
+    const pathArray = [];
+    if (selectedRoute.overview_path) {
+      selectedRoute.overview_path.forEach(point => {
+        pathArray.push(point);
       });
-    });
-  }
-  
-  // Save the selected route to Run Sheet (will sync to legs automatically)
-  frappe.call({
-    method: 'logistics.transport.api_vehicle_tracking.save_selected_route',
-    args: {
-      run_sheet_name: runSheetName,
-      route_index: routeIndex,
-      polyline: selectedRoute.polyline,
-      distance_km: selectedRoute.distance_km,
-      duration_min: selectedRoute.duration_min,
-      route_type: 'run_sheet'
     }
-  }).then(response => {
-    if (response.message && response.message.success) {
-      frappe.show_alert({
-        message: __('Route ${0} selected and saved. Individual leg routes cleared for recalculation.', [routeIndex + 1]),
-        indicator: 'green'
-      });
-      
-      // Reload the form to refresh the map with saved route
-      if (cur_frm && cur_frm.doc.name === runSheetName) {
-        cur_frm.reload_doc();
+    const polyline = google.maps.geometry.encoding.encodePath(pathArray);
+    
+    frappe.call({
+      method: 'logistics.transport.api_vehicle_tracking.save_selected_route',
+      args: {
+        run_sheet_name: runSheetName,
+        route_index: routeIndex,
+        polyline: polyline,
+        distance_km: distance,
+        duration_min: Math.round(duration),
+        route_type: 'run_sheet'
       }
-    } else {
+    }).then(response => {
+      if (response.message && response.message.success) {
+        frappe.show_alert({
+          message: __('Route {0} selected and saved', [routeIndex + 1]),
+          indicator: 'green'
+        });
+      } else {
+        frappe.show_alert({
+          message: __('Failed to save route: {0}', [response.message?.error || 'Unknown error']),
+          indicator: 'red'
+        });
+      }
+    }).catch(error => {
       frappe.show_alert({
-        message: __('Failed to save route: ${0}', [response.message?.error || 'Unknown error']),
+        message: __('Error saving route: {0}', [error.message || 'Unknown error']),
         indicator: 'red'
       });
-    }
-  }).catch(error => {
-    frappe.show_alert({
-      message: __('Error saving route: ${0}', [error.message || 'Unknown error']),
-      indicator: 'red'
     });
-  });
+  } else {
+    frappe.show_alert({
+      message: __('Route {0} selected', [routeIndex + 1]),
+      indicator: 'green'
+    });
+  }
 }
 
 // Initialize Mapbox for multi-leg route
@@ -2629,43 +3249,170 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidat
         });
         
         // Third pass: add waypoints for route lines
+        // Build waypoints array including vehicle position if available
+        const routeWaypoints = [];
+        
+        // Add vehicle position to start if available
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          routeWaypoints.push([vehiclePosition.longitude, vehiclePosition.latitude]);
+        }
+        
+        // Add all leg waypoints
         legCoords.forEach((legData) => {
           const { pick, drop } = legData;
+          routeWaypoints.push([pick.lon, pick.lat], [drop.lon, drop.lat]);
           allWaypoints.push([pick.lon, pick.lat], [drop.lon, drop.lat]);
         });
         
-        // Add overall route line connecting all waypoints in sequence
-        if (allWaypoints.length > 2) {
-          map.on('load', () => {
-            map.addSource('route', {
+        // Add route lines when map loads
+        map.on('load', () => {
+          // Add route from vehicle to first pickup (if vehicle exists)
+          if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude && legCoords.length > 0) {
+            const firstPick = legCoords[0].pick;
+            map.addSource('vehicle-to-first', {
               type: 'geojson',
               data: {
                 type: 'Feature',
                 properties: {},
                 geometry: {
                   type: 'LineString',
-                  coordinates: allWaypoints
+                  coordinates: [
+                    [vehiclePosition.longitude, vehiclePosition.latitude],
+                    [firstPick.lon, firstPick.lat]
+                  ]
                 }
               }
             });
             
             map.addLayer({
-              id: 'route',
+              id: 'vehicle-to-first',
               type: 'line',
-              source: 'route',
+              source: 'vehicle-to-first',
               layout: {
                 'line-join': 'round',
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': 'purple',
-                'line-width': 5,
+                'line-color': '#007bff',
+                'line-width': 4,
                 'line-opacity': 0.8,
-                'line-dasharray': [2, 2]
+                'line-dasharray': [8, 4]
+              }
+            });
+          }
+          
+          // Add individual leg routes with different colors
+          legCoords.forEach((legData, index) => {
+            const { pick, drop } = legData;
+            const sourceId = `leg-${index}`;
+            
+            map.addSource(sourceId, {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [pick.lon, pick.lat],
+                    [drop.lon, drop.lat]
+                  ]
+                }
+              }
+            });
+            
+            map.addLayer({
+              id: sourceId,
+              type: 'line',
+              source: sourceId,
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': index === 0 ? '#007bff' : '#ff9800',
+                'line-width': index === 0 ? 5 : 4,
+                'line-opacity': index === 0 ? 0.9 : 0.7,
+                'line-dasharray': index === 0 ? [8, 4] : [10, 5]
               }
             });
           });
-        }
+          
+          // Add connecting lines between consecutive legs
+          for (let i = 0; i < legCoords.length - 1; i++) {
+            const currentDrop = legCoords[i].drop;
+            const nextPick = legCoords[i + 1].pick;
+            
+            // Only draw connecting line if drop and next pick are different locations
+            const dropKey = `${currentDrop.lat.toFixed(6)},${currentDrop.lon.toFixed(6)}`;
+            const pickKey = `${nextPick.lat.toFixed(6)},${nextPick.lon.toFixed(6)}`;
+            
+            if (dropKey !== pickKey) {
+              const connectSourceId = `connect-${i}`;
+              map.addSource(connectSourceId, {
+                type: 'geojson',
+                data: {
+                  type: 'Feature',
+                  properties: {},
+                  geometry: {
+                    type: 'LineString',
+                    coordinates: [
+                      [currentDrop.lon, currentDrop.lat],
+                      [nextPick.lon, nextPick.lat]
+                    ]
+                  }
+                }
+              });
+              
+              map.addLayer({
+                id: connectSourceId,
+                type: 'line',
+                source: connectSourceId,
+                layout: {
+                  'line-join': 'round',
+                  'line-cap': 'round'
+                },
+                paint: {
+                  'line-color': '#9c27b0',
+                  'line-width': 3,
+                  'line-opacity': 0.6,
+                  'line-dasharray': [6, 6]
+                }
+              });
+            }
+          }
+          
+          // Add overall route line as backup (less prominent)
+          if (routeWaypoints.length > 2) {
+            map.addSource('route-overview', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: routeWaypoints
+                }
+              }
+            });
+            
+            map.addLayer({
+              id: 'route-overview',
+              type: 'line',
+              source: 'route-overview',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#6c757d',
+                'line-width': 2,
+                'line-opacity': 0.4,
+                'line-dasharray': [20, 10]
+              }
+            });
+          }
+        });
         
         // Add vehicle/truck marker if position is available (Mapbox)
         console.log('=== MAPBOX TRUCK MARKER SECTION ===');
@@ -2673,27 +3420,31 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidat
           console.log('Mapbox: ✓ Adding truck marker');
           
           const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
-          const ignition = vehiclePosition.ignition ? 'ON' : 'OFF';
-          const ignitionOn = vehiclePosition.ignition;
+          const vehicleState = getVehicleState(vehiclePosition);
+          const stateDisplay = getVehicleStateDisplay(vehicleState);
+          const ignition = stateDisplay.text;
+          // Truck icon color based on state: green when ON, amber when IDLE, gray when OFF
+          const truckIconColor = stateDisplay.color;
+          const truckLabelColor = stateDisplay.labelColor;
           
           // Font Awesome truck in white circle (Mapbox)
           const truckEl = document.createElement('div');
           truckEl.innerHTML = `
             <div style="position: relative; width: 80px; height: 68px;">
               <!-- Ignition status card (above truck) -->
-              <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${ignitionOn ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${stateDisplay.bgColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                 Ignition: ${ignition}
               </div>
               
-              <!-- White circle with blue truck icon -->
-              <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid #e5e7eb; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
-                <i class="fa fa-truck" style="color: #2563eb; font-size: 20px;"></i>
-                <!-- Small ignition circle -->
-                <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${ignitionOn ? '#10b981' : '#ef4444'}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+              <!-- White circle with truck icon (color based on state) -->
+              <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid ${truckIconColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                <i class="fa fa-truck" style="color: ${truckIconColor}; font-size: 20px;"></i>
+                <!-- Small state indicator circle -->
+                <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${stateDisplay.statusColor}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
               </div>
               
-              <!-- Vehicle name label (below truck) -->
-              <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: #007bff; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;">
+              <!-- Vehicle name label (below truck, color based on state) -->
+              <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: ${truckLabelColor}; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid ${truckIconColor};">
                 ${vehicleName}
               </div>
             </div>
@@ -2715,7 +3466,7 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidat
             <div style="padding: 6px;">
               <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
               <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
-                <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                <strong>Ignition:</strong> <span style="color: ${stateDisplay.color}; font-weight: 600;">${ignition}</span><br>
                 ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
                 ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
                 ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
@@ -2742,11 +3493,22 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidat
                 locateBtn.disabled = true;
                 
                 try {
+                  // Validate vehicle name before making API call
+                  if (!frm || !frm.doc || !frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) {
+                    frappe.show_alert({
+                      message: __('No vehicle assigned to locate'),
+                      indicator: 'orange'
+                    });
+                    locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                    locateBtn.disabled = false;
+                    return;
+                  }
+                  
                   // First refresh vehicle data to get latest position and ignition status
                   const refreshResult = await frappe.call({
                     method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
                     args: {
-                      vehicle_name: frm.doc.vehicle
+                      vehicle_name: frm.doc.vehicle.trim()
                     }
                   });
                   
@@ -2760,23 +3522,48 @@ function createMapboxRouteMap(mapId, legCoords, vehiclePosition, frm, consolidat
                     // Update stored position
                     window[`${mapId}_vehiclePosition`] = currentPosition;
                     
-                    refreshMessage = ` - Ignition: ${currentPosition.ignition ? 'ON' : 'OFF'}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
+                    const freshState = getVehicleState(currentPosition);
+                    const freshStateDisplay = getVehicleStateDisplay(freshState);
+                    refreshMessage = ` - Ignition: ${freshStateDisplay.text}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
                     
                     // Update marker position if we have fresh data
                     truckMarker.setLngLat([currentPosition.longitude, currentPosition.latitude]);
+                    
+                    // Update marker icon color based on vehicle state
+                    const freshTruckIconColor = freshStateDisplay.color;
+                    const freshTruckLabelColor = freshStateDisplay.labelColor;
+                    const freshIgnition = freshStateDisplay.text;
+                    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                    
+                    // Recreate marker element with updated colors
+                    const freshTruckEl = document.createElement('div');
+                    freshTruckEl.innerHTML = `
+                      <div style="position: relative; width: 80px; height: 68px;">
+                        <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${freshStateDisplay.bgColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                          Ignition: ${freshIgnition}
+                        </div>
+                        <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid ${freshTruckIconColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                          <i class="fa fa-truck" style="color: ${freshTruckIconColor}; font-size: 20px;"></i>
+                          <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${freshStateDisplay.statusColor}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+                        </div>
+                        <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: ${freshTruckLabelColor}; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid ${freshTruckIconColor};">
+                          ${vehicleName}
+                        </div>
+                      </div>
+                    `;
+                    truckMarker.getElement().innerHTML = freshTruckEl.innerHTML;
                     
                     // Update marker popup with fresh data
                     const speedDisplay = currentPosition.speed_kph ? `${currentPosition.speed_kph.toFixed(1)} km/h` : 'N/A';
                     const fuelDisplay = currentPosition.fuel_level ? `${currentPosition.fuel_level}%` : null;
                     const odometerDisplay = currentPosition.odometer_km ? `${currentPosition.odometer_km.toFixed(1)} km` : null;
-                    const ignition = currentPosition.ignition ? 'ON' : 'OFF';
-                    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                    const ignition = freshStateDisplay.text;
                     
                     truckMarker.setPopup(new mapboxgl.Popup({offset: 25}).setHTML(`
                       <div style="padding: 6px;">
                         <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
                         <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
-                          <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                          <strong>Ignition:</strong> <span style="color: ${freshStateDisplay.color}; font-weight: 600;">${ignition}</span><br>
                           ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
                           ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
                           ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
@@ -2977,43 +3764,170 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolid
         });
         
         // Third pass: add waypoints for route lines
+        // Build waypoints array including vehicle position if available
+        const routeWaypoints = [];
+        
+        // Add vehicle position to start if available
+        if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude) {
+          routeWaypoints.push([vehiclePosition.longitude, vehiclePosition.latitude]);
+        }
+        
+        // Add all leg waypoints
         legCoords.forEach((legData) => {
           const { pick, drop } = legData;
+          routeWaypoints.push([pick.lon, pick.lat], [drop.lon, drop.lat]);
           allWaypoints.push([pick.lon, pick.lat], [drop.lon, drop.lat]);
         });
         
-        // Add overall route line connecting all waypoints in sequence
-        if (allWaypoints.length > 2) {
-          map.on('load', () => {
-            map.addSource('route', {
+        // Add route lines when map loads
+        map.on('load', () => {
+          // Add route from vehicle to first pickup (if vehicle exists)
+          if (vehiclePosition && vehiclePosition.latitude && vehiclePosition.longitude && legCoords.length > 0) {
+            const firstPick = legCoords[0].pick;
+            map.addSource('vehicle-to-first', {
               type: 'geojson',
               data: {
                 type: 'Feature',
                 properties: {},
                 geometry: {
                   type: 'LineString',
-                  coordinates: allWaypoints
+                  coordinates: [
+                    [vehiclePosition.longitude, vehiclePosition.latitude],
+                    [firstPick.lon, firstPick.lat]
+                  ]
                 }
               }
             });
             
             map.addLayer({
-              id: 'route',
+              id: 'vehicle-to-first',
               type: 'line',
-              source: 'route',
+              source: 'vehicle-to-first',
               layout: {
                 'line-join': 'round',
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': 'purple',
-                'line-width': 5,
+                'line-color': '#007bff',
+                'line-width': 4,
                 'line-opacity': 0.8,
-                'line-dasharray': [2, 2]
+                'line-dasharray': [8, 4]
+              }
+            });
+          }
+          
+          // Add individual leg routes with different colors
+          legCoords.forEach((legData, index) => {
+            const { pick, drop } = legData;
+            const sourceId = `leg-${index}`;
+            
+            map.addSource(sourceId, {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [pick.lon, pick.lat],
+                    [drop.lon, drop.lat]
+                  ]
+                }
+              }
+            });
+            
+            map.addLayer({
+              id: sourceId,
+              type: 'line',
+              source: sourceId,
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': index === 0 ? '#007bff' : '#ff9800',
+                'line-width': index === 0 ? 5 : 4,
+                'line-opacity': index === 0 ? 0.9 : 0.7,
+                'line-dasharray': index === 0 ? [8, 4] : [10, 5]
               }
             });
           });
-        }
+          
+          // Add connecting lines between consecutive legs
+          for (let i = 0; i < legCoords.length - 1; i++) {
+            const currentDrop = legCoords[i].drop;
+            const nextPick = legCoords[i + 1].pick;
+            
+            // Only draw connecting line if drop and next pick are different locations
+            const dropKey = `${currentDrop.lat.toFixed(6)},${currentDrop.lon.toFixed(6)}`;
+            const pickKey = `${nextPick.lat.toFixed(6)},${nextPick.lon.toFixed(6)}`;
+            
+            if (dropKey !== pickKey) {
+              const connectSourceId = `connect-${i}`;
+              map.addSource(connectSourceId, {
+                type: 'geojson',
+                data: {
+                  type: 'Feature',
+                  properties: {},
+                  geometry: {
+                    type: 'LineString',
+                    coordinates: [
+                      [currentDrop.lon, currentDrop.lat],
+                      [nextPick.lon, nextPick.lat]
+                    ]
+                  }
+                }
+              });
+              
+              map.addLayer({
+                id: connectSourceId,
+                type: 'line',
+                source: connectSourceId,
+                layout: {
+                  'line-join': 'round',
+                  'line-cap': 'round'
+                },
+                paint: {
+                  'line-color': '#9c27b0',
+                  'line-width': 3,
+                  'line-opacity': 0.6,
+                  'line-dasharray': [6, 6]
+                }
+              });
+            }
+          }
+          
+          // Add overall route line as backup (less prominent)
+          if (routeWaypoints.length > 2) {
+            map.addSource('route-overview', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: routeWaypoints
+                }
+              }
+            });
+            
+            map.addLayer({
+              id: 'route-overview',
+              type: 'line',
+              source: 'route-overview',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#6c757d',
+                'line-width': 2,
+                'line-opacity': 0.4,
+                'line-dasharray': [20, 10]
+              }
+            });
+          }
+        });
         
         // Add vehicle/truck marker if position is available (MapLibre)
         console.log('=== MAPLIBRE TRUCK MARKER SECTION ===');
@@ -3026,8 +3940,12 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolid
           console.log('MapLibre: ✓ CONDITION MET - Adding truck marker');
           
           const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
-          const ignition = vehiclePosition.ignition ? 'ON' : 'OFF';
-          const ignitionOn = vehiclePosition.ignition;
+          const vehicleState = getVehicleState(vehiclePosition);
+          const stateDisplay = getVehicleStateDisplay(vehicleState);
+          const ignition = stateDisplay.text;
+          // Truck icon color based on state: green when ON, amber when IDLE, gray when OFF
+          const truckIconColor = stateDisplay.color;
+          const truckLabelColor = stateDisplay.labelColor;
           
           // Font Awesome truck in white circle (MapLibre)
           const truckEl = document.createElement('div');
@@ -3035,19 +3953,19 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolid
           truckEl.innerHTML = `
             <div style="position: relative; width: 80px; height: 68px;">
               <!-- Ignition status card (above truck) -->
-              <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${ignitionOn ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${stateDisplay.bgColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                 Ignition: ${ignition}
               </div>
               
-              <!-- White circle with blue truck icon -->
-              <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid #e5e7eb; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
-                <i class="fa fa-truck" style="color: #2563eb; font-size: 20px;"></i>
-                <!-- Small ignition circle -->
-                <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${ignitionOn ? '#10b981' : '#ef4444'}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+              <!-- White circle with truck icon (color based on state) -->
+              <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid ${truckIconColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                <i class="fa fa-truck" style="color: ${truckIconColor}; font-size: 20px;"></i>
+                <!-- Small state indicator circle -->
+                <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${stateDisplay.statusColor}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
               </div>
               
-              <!-- Vehicle name label (below truck) -->
-              <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: #007bff; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;">
+              <!-- Vehicle name label (below truck, color based on state) -->
+              <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: ${truckLabelColor}; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid ${truckIconColor};">
                 ${vehicleName}
               </div>
             </div>
@@ -3072,7 +3990,7 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolid
             <div style="padding: 6px;">
               <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
               <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
-                <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                <strong>Ignition:</strong> <span style="color: ${stateDisplay.color}; font-weight: 600;">${ignition}</span><br>
                 ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
                 ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
                 ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
@@ -3104,11 +4022,22 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolid
                 locateBtn.disabled = true;
                 
                 try {
+                  // Validate vehicle name before making API call
+                  if (!frm || !frm.doc || !frm.doc.vehicle || typeof frm.doc.vehicle !== 'string' || frm.doc.vehicle.trim().length === 0) {
+                    frappe.show_alert({
+                      message: __('No vehicle assigned to locate'),
+                      indicator: 'orange'
+                    });
+                    locateBtn.innerHTML = '<i class="fa fa-location-arrow"></i> Locate';
+                    locateBtn.disabled = false;
+                    return;
+                  }
+                  
                   // First refresh vehicle data to get latest position and ignition status
                   const refreshResult = await frappe.call({
                     method: 'logistics.transport.api_vehicle_tracking.refresh_vehicle_data',
                     args: {
-                      vehicle_name: frm.doc.vehicle
+                      vehicle_name: frm.doc.vehicle.trim()
                     }
                   });
                   
@@ -3122,23 +4051,49 @@ function createMapLibreRouteMap(mapId, legCoords, vehiclePosition, frm, consolid
                     // Update stored position
                     window[`${mapId}_vehiclePosition`] = currentPosition;
                     
-                    refreshMessage = ` - Ignition: ${currentPosition.ignition ? 'ON' : 'OFF'}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
+                    const freshState = getVehicleState(currentPosition);
+                    const freshStateDisplay = getVehicleStateDisplay(freshState);
+                    refreshMessage = ` - Ignition: ${freshStateDisplay.text}, Speed: ${currentPosition.speed_kph ? currentPosition.speed_kph.toFixed(1) : 'N/A'} km/h`;
                     
                     // Update marker position if we have fresh data
                     truckMarker.setLngLat([currentPosition.longitude, currentPosition.latitude]);
+                    
+                    // Update marker icon color based on vehicle state
+                    const freshTruckIconColor = freshStateDisplay.color;
+                    const freshTruckLabelColor = freshStateDisplay.labelColor;
+                    const freshIgnition = freshStateDisplay.text;
+                    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                    
+                    // Recreate marker element with updated colors
+                    const freshTruckEl = document.createElement('div');
+                    freshTruckEl.className = 'maplibre-truck-marker';
+                    freshTruckEl.innerHTML = `
+                      <div style="position: relative; width: 80px; height: 68px;">
+                        <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: ${freshStateDisplay.bgColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                          Ignition: ${freshIgnition}
+                        </div>
+                        <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: white; border-radius: 50%; border: 2px solid ${freshTruckIconColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+                          <i class="fa fa-truck" style="color: ${freshTruckIconColor}; font-size: 20px;"></i>
+                          <div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: ${freshStateDisplay.statusColor}; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+                        </div>
+                        <div style="position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: white; color: ${freshTruckLabelColor}; padding: 2px 8px; border-radius: 3px; white-space: nowrap; font-size: 11px; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 1px solid ${freshTruckIconColor};">
+                          ${vehicleName}
+                        </div>
+                      </div>
+                    `;
+                    truckMarker.getElement().innerHTML = freshTruckEl.innerHTML;
                     
                     // Update marker popup with fresh data
                     const speedDisplay = currentPosition.speed_kph ? `${currentPosition.speed_kph.toFixed(1)} km/h` : 'N/A';
                     const fuelDisplay = currentPosition.fuel_level ? `${currentPosition.fuel_level}%` : null;
                     const odometerDisplay = currentPosition.odometer_km ? `${currentPosition.odometer_km.toFixed(1)} km` : null;
-                    const ignition = currentPosition.ignition ? 'ON' : 'OFF';
-                    const vehicleName = (frm && frm.doc && frm.doc.vehicle) || 'Vehicle';
+                    const ignition = freshStateDisplay.text;
                     
                     truckMarker.setPopup(new maplibregl.Popup({offset: 25}).setHTML(`
                       <div style="padding: 6px;">
                         <div style="font-weight: 600; font-size: 13px; color: #007bff; margin-bottom: 8px;">${vehicleName}</div>
                         <div style="font-size: 11px; color: #6b7280; line-height: 1.6;">
-                          <strong>Ignition:</strong> ${ignition === 'ON' ? '<span style="color: #10b981;">ON</span>' : '<span style="color: #6b7280;">OFF</span>'}<br>
+                          <strong>Ignition:</strong> <span style="color: ${freshStateDisplay.color}; font-weight: 600;">${ignition}</span><br>
                           ${speedDisplay !== 'N/A' ? `<strong>Speed:</strong> ${speedDisplay}<br>` : ''}
                           ${fuelDisplay ? `<strong>Fuel:</strong> ${fuelDisplay}<br>` : ''}
                           ${odometerDisplay ? `<strong>Mileage:</strong> ${odometerDisplay}<br>` : ''}
@@ -3260,11 +4215,169 @@ function createMarkerElement(text, color) {
   return el;
 }
 
+// ---------- Dynamic Status Update Functions ----------
+/**
+ * Update Run Sheet status by calling server-side method
+ * This ensures the status is recalculated based on current leg statuses
+ */
+function updateRunSheetStatusFromDB(frm) {
+  if (!frm || !frm.doc || !frm.doc.name) {
+    console.log('[Status Update] Skipping: No form or document name');
+    return;
+  }
+  
+  // Only update status for submitted documents (docstatus = 1)
+  // Draft documents will have their status updated on save
+  if (frm.doc.docstatus !== 1) {
+    console.log(`[Status Update] Skipping: Document not submitted (docstatus=${frm.doc.docstatus})`);
+    return;
+  }
+  
+  // Don't update if status is manually set to "Hold"
+  // When status = "Hold", it prevents all automatic status updates
+  // This allows users to manually pause status changes (e.g., when a run is on hold)
+  // Hold status must be set manually by the user - the system never sets it automatically
+  if (frm.doc.status === 'Hold') {
+    console.log('[Status Update] Skipping: Status is Hold (manual hold - prevents auto-updates)');
+    return;
+  }
+  
+  console.log(`[Status Update] Calling server to update status for ${frm.doc.name} (current: ${frm.doc.status})`);
+  
+  // Call server-side method to recalculate and update status
+  frappe.call({
+    method: 'logistics.transport.doctype.run_sheet.run_sheet.update_status_from_client',
+    args: {
+      run_sheet_name: frm.doc.name
+    },
+    callback: function(r) {
+      if (!r.exc && r.message && r.message.success) {
+        const new_status = r.message.status;
+        const old_status = r.message.old_status || frm.doc.status;
+        const changed = r.message.changed;
+        
+        console.log(`[Status Update] Server returned: old=${old_status}, new=${new_status}, changed=${changed}, current=${frm.doc.status}`);
+        
+        // Always update the form field if the status from server is different
+        // This ensures the UI stays in sync with the database
+        if (new_status) {
+          if (new_status !== frm.doc.status) {
+            const previous_status = frm.doc.status;
+            frm.doc.status = new_status;
+            frm.refresh_field('status');
+            
+            console.log(`✓ Run Sheet status updated in UI: ${previous_status} → ${new_status}`);
+            
+            // Show alert if status changed significantly
+            if (old_status !== new_status && 
+                (old_status === 'Dispatched' && new_status === 'In-Progress') ||
+                (old_status === 'In-Progress' && new_status === 'Completed')) {
+              frappe.show_alert({
+                message: __('Status updated: {0} → {1}', [old_status, new_status]),
+                indicator: 'blue'
+              }, 3);
+            }
+          } else {
+            console.log(`[Status Update] Status is already correct: ${new_status}`);
+          }
+        } else {
+          console.warn(`[Status Update] No status returned from server`);
+        }
+      } else {
+        if (r.message && r.message.error) {
+          console.error('Error updating Run Sheet status:', r.message.error);
+        } else if (r.exc) {
+          console.error('Exception updating Run Sheet status:', r.exc);
+        }
+      }
+    },
+    error: function(r) {
+      console.error('Error calling update_status_from_client:', r);
+    },
+    freeze: false,
+    async: false
+  });
+}
+
+/**
+ * Start periodic status polling for submitted Run Sheets
+ * Polls every 10 seconds to check for status changes
+ */
+function startStatusPolling(frm) {
+  if (!frm || !frm.doc || !frm.doc.name) {
+    return;
+  }
+  
+  // Only poll for submitted documents
+  if (frm.doc.docstatus !== 1) {
+    return;
+  }
+  
+  // Clear any existing polling interval
+  if (frm._statusPollInterval) {
+    clearInterval(frm._statusPollInterval);
+  }
+  
+  // Poll every 5 seconds for more responsive updates
+  frm._statusPollInterval = setInterval(() => {
+    // Only poll if form is still active and document is still submitted
+    // IMPORTANT: Status polling stops when status = "Hold"
+    // This prevents automatic status updates when user manually sets status to "Hold"
+    if (frm && frm.doc && frm.doc.docstatus === 1 && frm.doc.status !== 'Hold') {
+      updateRunSheetStatusFromDB(frm);
+    } else {
+      // Stop polling if conditions are no longer met (including when status = "Hold")
+      if (frm._statusPollInterval) {
+        clearInterval(frm._statusPollInterval);
+        frm._statusPollInterval = null;
+      }
+    }
+  }, 5000); // 5 seconds for more responsive updates
+  
+  // Also update immediately
+  updateRunSheetStatusFromDB(frm);
+}
+
+/**
+ * Stop status polling
+ */
+function stopStatusPolling(frm) {
+  if (frm && frm._statusPollInterval) {
+    clearInterval(frm._statusPollInterval);
+    frm._statusPollInterval = null;
+  }
+}
+
 // ---------- Transport Leg Action Functions ----------
 window.startTransportLeg = function(transportLegName) {
   console.log('Start Transport Leg:', transportLegName);
   if (!transportLegName) {
     frappe.show_alert({message: __('No transport leg linked'), indicator: 'orange'});
+    return;
+  }
+  
+  // Check if vehicle is assigned to the Run Sheet - prevent starting if vehicle is empty
+  const frm = cur_frm || (window.cur_frm);
+  if (!frm || !frm.doc) {
+    frappe.show_alert({
+      message: __('Cannot start leg: Run Sheet form not available'),
+      indicator: 'orange'
+    });
+    return;
+  }
+  
+  // Validate vehicle field is not empty
+  const vehicle = frm.doc.vehicle;
+  if (!vehicle || (typeof vehicle === 'string' && vehicle.trim() === '')) {
+    frappe.show_alert({
+      message: __('Cannot start leg: Vehicle must be assigned to the Run Sheet first. Please select a vehicle before starting the leg.'),
+      indicator: 'orange'
+    });
+    frappe.msgprint({
+      title: __('Vehicle Required'),
+      message: __('Please assign a vehicle to this Run Sheet before starting any transport legs.'),
+      indicator: 'orange'
+    });
     return;
   }
   
@@ -3277,9 +4390,13 @@ window.startTransportLeg = function(transportLegName) {
     callback: function(r) {
       if (!r.exc && r.message && r.message.ok) {
         frappe.show_alert({message: __('Leg started - Status: {0}', [r.message.status]), indicator: 'green'});
-        // Refresh the map to update status badges
+        // Update status dynamically and refresh the map
         if (cur_frm) {
-          render_run_sheet_route_map(cur_frm);
+          // Wait a moment for backend to update Transport Leg status, then update Run Sheet status
+          setTimeout(() => {
+            updateRunSheetStatusFromDB(cur_frm);
+            render_run_sheet_route_map(cur_frm);
+          }, 1000); // Increased delay to ensure backend has processed the leg status change
         }
       } else {
         frappe.show_alert({message: __('Error starting leg: {0}', [r.message?.message || 'Unknown error']), indicator: 'red'});
@@ -3304,9 +4421,13 @@ window.endTransportLeg = function(transportLegName) {
     callback: function(r) {
       if (!r.exc && r.message && r.message.ok) {
         frappe.show_alert({message: __('Leg ended - Status: {0}', [r.message.status]), indicator: 'green'});
-        // Refresh the map to update status badges
+        // Update status dynamically and refresh the map
         if (cur_frm) {
-          render_run_sheet_route_map(cur_frm);
+          // Wait a moment for backend to update Transport Leg status, then update Run Sheet status
+          setTimeout(() => {
+            updateRunSheetStatusFromDB(cur_frm);
+            render_run_sheet_route_map(cur_frm);
+          }, 1000); // Increased delay to ensure backend has processed the leg status change
         }
       } else {
         frappe.show_alert({message: __('Error ending leg: {0}', [r.message?.message || 'Unknown error']), indicator: 'red'});
@@ -3327,11 +4448,24 @@ window.viewTransportLeg = function(transportLegName) {
 // ---------- form bindings ----------
 frappe.ui.form.on('Run Sheet', {
   refresh(frm) {
-    if (frm.doc.name) {
+    // Always try to render the route map, even for new documents
+    // Use setTimeout to ensure form is fully loaded
+    setTimeout(() => {
       render_run_sheet_route_map(frm);
-      
+    }, 300);
+    
+    if (frm.doc.name) {
       // Fetch and update missing data from Transport Leg
       update_legs_missing_data_rs(frm);
+      
+      // Update status dynamically for submitted documents
+      if (frm.doc.docstatus === 1) {
+        // Update immediately and start polling
+        setTimeout(() => {
+          updateRunSheetStatusFromDB(frm);
+          startStatusPolling(frm);
+        }, 500);
+      }
       
       // Add Refresh Legs button
       if (!frm.is_new()) {
@@ -3365,10 +4499,133 @@ frappe.ui.form.on('Run Sheet', {
     update_legs_missing_data_rs(frm);
   },
   
-  legs(frm) {
-    if (frm.doc.name) {
-      render_run_sheet_route_map(frm);
+  before_submit(frm) {
+    // Prevent submission if vehicle is empty
+    if (!frm.doc.vehicle) {
+      frappe.msgprint({
+        title: __('Validation Error'),
+        message: __('Vehicle is required. Please select a vehicle before submitting the document.'),
+        indicator: 'red'
+      });
+      frappe.validated = false;
+      return Promise.reject(__('Vehicle is required. Please select a vehicle before submitting the document.'));
     }
+  },
+  
+  after_submit(frm) {
+    // Immediately set status to "Dispatched" in the UI after submission
+    // The Python after_submit() hook will also set it to "Dispatched" via db_set()
+    // This ensures the UI reflects the correct status immediately
+    frm.doc.status = 'Dispatched';
+    frm.refresh_field('status');
+    
+    // Refresh status field after submission to ensure it matches database
+    // The Python after_submit() hook updates the status via db_set()
+    // Use a retry mechanism to ensure Python after_submit completes and status is updated
+    let retry_count = 0;
+    const max_retries = 10;
+    const retry_delay = 400;
+    
+    const fetch_and_update_status = function() {
+      // Fetch the latest status directly from database (bypassing form cache)
+      frappe.db.get_value('Run Sheet', frm.doc.name, ['status', 'docstatus'], (r) => {
+        if (r && r.docstatus === 1) {
+          const db_status = r.status || 'Dispatched';
+          
+          // Update the document's status value directly
+          // Ensure it's "Dispatched" if backend hasn't set it yet
+          const new_status = r.status || 'Dispatched';
+          if (new_status !== frm.doc.status) {
+            frm.doc.status = new_status;
+            // Refresh the status field to ensure UI reflects current value
+            frm.refresh_field('status');
+          }
+          
+          // Update docstatus if needed
+          if (r.docstatus !== undefined && r.docstatus !== frm.doc.docstatus) {
+            frm.doc.docstatus = r.docstatus;
+          }
+          
+          // Start periodic polling for status updates after submission
+          setTimeout(() => {
+            startStatusPolling(frm);
+          }, 500);
+        } else if (retry_count < max_retries) {
+          // Retry if docstatus is not 1 yet (backend still processing)
+          retry_count++;
+          setTimeout(fetch_and_update_status, retry_delay);
+        } else {
+          // If max retries reached, ensure status is at least "Dispatched"
+          if (frm.doc.status !== 'Dispatched') {
+            frm.doc.status = 'Dispatched';
+            frm.refresh_field('status');
+          }
+          // Start polling anyway
+          setTimeout(() => {
+            startStatusPolling(frm);
+          }, 500);
+        }
+      });
+    };
+    
+    // Start fetching status after a short delay to allow backend to process
+    setTimeout(fetch_and_update_status, 200);
+    
+    // Also trigger status recalculation using the new method
+    setTimeout(() => {
+      updateRunSheetStatusFromDB(frm);
+    }, 1000);
+  },
+  
+  legs(frm) {
+    // Re-render map when legs change
+    setTimeout(() => {
+      render_run_sheet_route_map(frm);
+    }, 300);
+    // Update status dynamically when legs change (legs added/removed)
+    if (!frm.is_new()) {
+      // For submitted documents, fetch from DB; for drafts, just refresh field
+      if (frm.doc.docstatus === 1) {
+        setTimeout(() => {
+          updateRunSheetStatusFromDB(frm);
+        }, 500);
+      } else {
+        frm.refresh_field('status');
+      }
+    }
+  },
+  
+  // Re-render map when Dashboard tab is shown
+  map_tab(frm) {
+    setTimeout(() => {
+      render_run_sheet_route_map(frm);
+    }, 200);
+  },
+  
+  status: function(frm) {
+    // Handle status change events - update UI if status changed
+    // Status is automatically updated by backend, this is just for UI feedback
+    if (frm.doc.docstatus === 1) {
+      // If status changed to "Hold", stop polling immediately
+      // Hold status prevents automatic updates, so polling should stop
+      if (frm.doc.status === 'Hold') {
+        console.log('[Status Change] Status set to Hold - stopping status polling');
+        stopStatusPolling(frm);
+        return; // Don't update status when manually set to Hold
+      }
+      
+      // For submitted documents, ensure we have the latest status
+      // (unless status is Hold, which updateRunSheetStatusFromDB will check)
+      updateRunSheetStatusFromDB(frm);
+    }
+  },
+  
+  // Clean up polling when form is closed
+  onload_post_render(frm) {
+    // Stop polling when form is unloaded
+    $(frm.wrapper).on('remove', function() {
+      stopStatusPolling(frm);
+    });
   }
 });
 
@@ -3389,6 +4646,12 @@ async function refresh_legs_from_transport_leg(frm) {
     
     if (result.message && result.message.status === 'success') {
       frm.reload_doc();
+      // After reload, update status dynamically for submitted documents
+      setTimeout(() => {
+        if (frm.doc.docstatus === 1) {
+          updateRunSheetStatusFromDB(frm);
+        }
+      }, 500);
       frappe.show_alert({
         message: __('Legs refreshed successfully'),
         indicator: 'green'
@@ -3418,6 +4681,12 @@ async function sync_legs_to_transport_leg(frm) {
     });
     
     if (result.message && result.message.status === 'success') {
+      // Update status dynamically after syncing
+      setTimeout(() => {
+        if (frm.doc.docstatus === 1) {
+          updateRunSheetStatusFromDB(frm);
+        }
+      }, 500);
       frappe.show_alert({
         message: __('Legs synced successfully'),
         indicator: 'green'

@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:ban_name",
+ "creation": "2026-01-08 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "ban_name",
+  "ban_type",
+  "start_date",
+  "end_date",
+  "all_day",
+  "start_time",
+  "end_time",
+  "scope_level",
+  "scope_location",
+  "restricted_addresses",
+  "restricted_routes",
+  "restricted_vehicle_types",
+  "min_vehicle_weight_restriction",
+  "is_active",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "ban_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Ban Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "ban_type",
+   "fieldtype": "Select",
+   "label": "Ban Type",
+   "options": "Area Ban\nRoute Ban\nTime-Based Ban\nWeight-Based Ban\nVehicle Type Ban",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "all_day",
+   "fieldtype": "Check",
+   "label": "All Day"
+  },
+  {
+   "depends_on": "eval:!doc.all_day",
+   "fieldname": "start_time",
+   "fieldtype": "Time",
+   "label": "Start Time"
+  },
+  {
+   "depends_on": "eval:!doc.all_day",
+   "fieldname": "end_time",
+   "fieldtype": "Time",
+   "label": "End Time"
+  },
+  {
+   "fieldname": "scope_level",
+   "fieldtype": "Select",
+   "label": "Scope Level",
+   "options": "Nationwide\nRegion\nProvince\nCity / Municipality\nBarangay\nPort\nRoad / Corridor"
+  },
+  {
+   "fieldname": "scope_location",
+   "fieldtype": "Dynamic Link",
+   "label": "Scope Location",
+   "options": "scope_level"
+  },
+  {
+   "fieldname": "restricted_addresses",
+   "fieldtype": "Table",
+   "label": "Restricted Addresses/Areas",
+   "options": "Truck Ban Restricted Addresses"
+  },
+  {
+   "fieldname": "restricted_routes",
+   "fieldtype": "Table",
+   "label": "Restricted Routes",
+   "options": "Truck Ban Restricted Routes"
+  },
+  {
+   "fieldname": "restricted_vehicle_types",
+   "fieldtype": "Table",
+   "label": "Restricted Vehicle Types",
+   "options": "Truck Ban Constraint Vehicle Types",
+   "description": "If specified, ban applies only to these vehicle types. If empty, applies to all vehicle types."
+  },
+  {
+   "fieldname": "min_vehicle_weight_restriction",
+   "fieldtype": "Float",
+   "label": "Minimum Vehicle Weight (kg)",
+   "description": "Vehicles with weight above this value are banned. Leave empty if not applicable."
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Truck Ban Constraint",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

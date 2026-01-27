@@ -14,6 +14,12 @@
   "transport",
   "transport_tab",
   "can_be_consolidated",
+  "can_handle_consolidation",
+  "consolidation_settings_section",
+  "max_consolidation_jobs",
+  "max_weight",
+  "max_volume",
+  "consolidation_rules",
   "allowed_transport_job_types_section",
   "container",
   "non_container",
@@ -70,6 +76,38 @@
    "label": "Can be Consolidated"
   },
   {
+   "fieldname": "consolidation_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Settings"
+  },
+  {
+   "default": "0",
+   "description": "Maximum number of transport jobs that can be consolidated together. 0 = unlimited",
+   "fieldname": "max_consolidation_jobs",
+   "fieldtype": "Int",
+   "label": "Max Consolidation Jobs"
+  },
+  {
+   "default": "0",
+   "description": "Maximum total weight for consolidated shipments. 0 = unlimited",
+   "fieldname": "max_weight",
+   "fieldtype": "Float",
+   "label": "Max Weight (kg)"
+  },
+  {
+   "default": "0",
+   "description": "Maximum total volume for consolidated shipments. 0 = unlimited",
+   "fieldname": "max_volume",
+   "fieldtype": "Float",
+   "label": "Max Volume (m\u00b3)"
+  },
+  {
+   "description": "Document specific consolidation rules, compatibility requirements, and special handling instructions",
+   "fieldname": "consolidation_rules",
+   "fieldtype": "Long Text",
+   "label": "Consolidation Rules"
+  },
+  {
    "fieldname": "allowed_transport_job_types_section",
    "fieldtype": "Section Break",
    "label": "Allowed Transport Job Types"
@@ -109,11 +147,17 @@
    "fieldname": "heavy_haul",
    "fieldtype": "Check",
    "label": "Heavy Haul"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_handle_consolidation",
+   "fieldtype": "Check",
+   "label": "Can handle Consolidation"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-01 11:52:02.473487",
+ "modified": "2026-01-22 14:41:05.586296",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Load Type",

@@ -1422,9 +1422,32 @@ class AirShipment(Document):
 			if settings.auto_generate_master_awb and not self.master_awb:
 				self.generate_master_awb_reference()
 		
+		# Validate and clear invalid link fields before saving
+		# This prevents LinkValidationError during save
+		if hasattr(self, 'service_level') and self.service_level:
+			if not frappe.db.exists("Service Level Agreement", self.service_level):
+				self.service_level = None
+		if hasattr(self, 'release_type') and self.release_type:
+			if not frappe.db.exists("Release Type", self.release_type):
+				self.release_type = None
+		
 		# Save the document to persist changes
 		if self.job_costing_number or self.house_awb_no or self.master_awb:
-			self.save(ignore_permissions=True)
+			try:
+				self.save(ignore_permissions=True)
+			except Exception as e:
+				# If save fails due to invalid links, clear them and try again
+				if "Could not find" in str(e):
+					if hasattr(self, 'service_level') and self.service_level:
+						if not frappe.db.exists("Service Level Agreement", self.service_level):
+							self.service_level = None
+					if hasattr(self, 'release_type') and self.release_type:
+						if not frappe.db.exists("Release Type", self.release_type):
+							self.release_type = None
+					# Try save again
+					self.save(ignore_permissions=True)
+				else:
+					raise
 	
 	def validate_dangerous_goods(self):
 		"""Validate dangerous goods requirements"""
@@ -1950,7 +1973,7 @@ class AirShipment(Document):
 			
 			# Validate each package has required fields
 			for idx, package in enumerate(self.packages, 1):
-				if not package.commodity and not package.description:
+				if not package.commodity and not package.goods_description:
 					frappe.msgprint(
 						_("Package {0}: Commodity or description is recommended.").format(idx),
 						indicator="blue",
@@ -2741,8 +2764,13 @@ class AirShipment(Document):
 			self.profit_center = settings.default_profit_center
 		if not self.incoterm and settings.default_incoterm:
 			self.incoterm = settings.default_incoterm
+		# Only set service_level if default_service_level exists as a valid Service Level Agreement record
+		# Note: default_service_level is a Select field (text), but service_level is a Link field
 		if not self.service_level and settings.default_service_level:
-			self.service_level = settings.default_service_level
+			# Check if the default_service_level value exists as a Service Level Agreement record
+			if frappe.db.exists("Service Level Agreement", settings.default_service_level):
+				self.service_level = settings.default_service_level
+			# Otherwise, don't set it (leave it empty)
 		
 		# Apply location settings
 		if not self.origin_port and settings.default_origin_port:

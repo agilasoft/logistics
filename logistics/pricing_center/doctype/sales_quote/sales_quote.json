@@ -76,7 +76,9 @@
   "column_break_cxfw",
   "location_type",
   "location_from",
+  "pick_mode",
   "location_to",
+  "drop_mode",
   "section_break_disr",
   "transport",
   "customs_tab",
@@ -478,6 +480,7 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\",\"load_type\",\"=\",\"eval:doc.load_type\"]]",
    "options": "Vehicle Type"
   },
   {
@@ -582,6 +585,20 @@
   {
    "fieldname": "column_break_bpej",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "label": "Pick Mode",
+   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_pick\",\"=\",1]]",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "label": "Drop Mode",
+   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_drop\",\"=\",1]]",
+   "options": "Pick and Drop Mode"
   }
  ],
  "grid_page_length": 50,
@@ -599,7 +616,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-01-05 19:53:15.830278",
+ "modified": "2026-01-22 16:47:27.114186",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",
@@ -621,7 +638,9 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "shipper,consignee",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "customer"
 }

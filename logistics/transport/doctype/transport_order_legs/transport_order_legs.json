@@ -29,7 +29,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Facility Type From",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\",\"Terminal\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipper\",\"Consignee\",\"Container Yard\",\"Container Depot\",\"Container Freight Station\",\"Storage Facility\",\"Sorting Hub\",\"Truck Park\",\"Transport Terminal\"]]]",
    "options": "DocType"
   },
   {
@@ -109,6 +109,7 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\",\"load_type\",\"=\",\"eval:doc.load_type\"]]",
    "options": "Vehicle Type"
   },
   {
@@ -130,7 +131,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-12-17 12:16:56.826727",
+ "modified": "2026-01-16 00:27:30.175097",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Legs",

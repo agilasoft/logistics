@@ -8,24 +8,19 @@
  "field_order": [
   "code",
   "depot_name",
-  "column_break_hmed",
-  "addresses_and_contacts_tab",
+  "addresses_tab",
   "addresses_and_contacts",
   "address_html",
-  "column_break_rzmy",
+  "column_break_nivp",
   "contact_html",
-  "section_break_zpkm",
+  "section_break_vizq",
   "containerdepot_primary_address",
   "primary_address",
-  "column_break_gnpt",
-  "containerdepot_primary_contact"
+  "column_break_umfc",
+  "containerdepot_primary_contact",
+  "connections_tab"
  ],
  "fields": [
-  {
-   "fieldname": "depot_name",
-   "fieldtype": "Data",
-   "label": "Depot Name"
-  },
   {
    "fieldname": "code",
    "fieldtype": "Data",
@@ -33,11 +28,12 @@
    "unique": 1
   },
   {
-   "fieldname": "column_break_hmed",
-   "fieldtype": "Column Break"
+   "fieldname": "depot_name",
+   "fieldtype": "Data",
+   "label": "Depot Name"
   },
   {
-   "fieldname": "addresses_and_contacts_tab",
+   "fieldname": "addresses_tab",
    "fieldtype": "Tab Break",
    "label": "Addresses and Contacts"
   },
@@ -51,7 +47,7 @@
    "label": "Addresses"
   },
   {
-   "fieldname": "column_break_rzmy",
+   "fieldname": "column_break_nivp",
    "fieldtype": "Column Break"
   },
   {
@@ -60,7 +56,7 @@
    "label": "Contacts"
   },
   {
-   "fieldname": "section_break_zpkm",
+   "fieldname": "section_break_vizq",
    "fieldtype": "Section Break"
   },
   {
@@ -72,10 +68,10 @@
   {
    "fieldname": "primary_address",
    "fieldtype": "Text",
-   "read_only": 1
+   "label": "Primary Address"
   },
   {
-   "fieldname": "column_break_gnpt",
+   "fieldname": "column_break_umfc",
    "fieldtype": "Column Break"
   },
   {
@@ -83,6 +79,12 @@
    "fieldtype": "Link",
    "label": "Primary Contact",
    "options": "Contact"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "grid_page_length": 50,

@@ -67,11 +67,17 @@ def _filter_candidates_by_hu_priority(
     order_handling_unit = order_row.get("handling_unit")
     order_handling_unit_type = order_row.get("handling_unit_type")
     
+    # Priority hierarchy: User-set values take absolute priority over policy
+    # 1. Priority 1: User-set specific handling_unit (highest priority)
+    # 2. Priority 2: User-set handling_unit_type (prioritized before policy)
+    # 3. Priority 999: Policy-based selection (lowest priority, only for overflow)
+    
     # Add priority scores to candidates to maintain priority after ordering
     for c in candidates:
         c["_hu_priority"] = 999  # Default low priority (for overflow allocation)
     
-    # Priority 1: Specific handling unit from order
+    # Priority 1: User-set specific handling unit (highest priority)
+    # User manually set a specific handling unit - this takes absolute priority
     if order_handling_unit:
         for c in candidates:
             if c.get("handling_unit") == order_handling_unit:
@@ -80,7 +86,8 @@ def _filter_candidates_by_hu_priority(
         # This allows overflow allocation from other handling units if needed
         return candidates
     
-    # Priority 2: Handling unit type from order
+    # Priority 2: User-set handling unit type (prioritized before policy)
+    # User manually set a handling_unit_type - this takes priority over policy-based selection
     if order_handling_unit_type:
         # Get HU type for each candidate
         for c in candidates:
@@ -95,10 +102,11 @@ def _filter_candidates_by_hu_priority(
         
         # Return all candidates (priority 2 will be allocated first, then overflow from priority 999)
         # This allows overflow allocation from other handling_unit_type if needed
+        # User-set handling_unit_type is ALWAYS prioritized before policy
         return candidates
     
-    # Priority 3: Pick policy (already handled by _order_candidates)
-    # All candidates have priority 999, will be ordered by pick policy
+    # Priority 999: Pick policy (already handled by _order_candidates)
+    # No user-set values - all candidates have priority 999, will be ordered by pick policy
     return candidates
 
 

@@ -64,6 +64,9 @@ class TransportOrder(Document):
                 )
                 self.set(legs_field, [])
         
+        # Validate sales_quote duplication rules for one-off quotes
+        self._validate_sales_quote_duplication()
+        
         # Validate that pick and drop facilities are different in each leg
         self._validate_leg_facilities()
         
@@ -75,9 +78,27 @@ class TransportOrder(Document):
         
         # Validate load type is allowed for job type
         self.validate_load_type_allowed_for_job()
+        
+        # Validate consolidation eligibility
+        self.validate_consolidation_eligibility()
+        
+        # Validate vehicle type compatibility with load type
+        self.validate_vehicle_type_load_type_compatibility()
+        
+        # Capacity validation
+        self.validate_vehicle_type_capacity()
 
     def before_submit(self):
         """Validate transport legs before submitting the Transport Order."""
+        # Validate sales_quote is not empty
+        if not self.sales_quote:
+            frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
+        
+        # Validate packages is not empty
+        packages = getattr(self, 'packages', []) or []
+        if not packages:
+            frappe.throw(_("Packages are required. Please add at least one package before submitting the Transport Order."))
+        
         self._validate_transport_legs()
 
     def _validate_transport_legs(self):
@@ -139,8 +160,38 @@ class TransportOrder(Document):
             if leg.get("drop_address") and not frappe.db.exists("Address", leg.get("drop_address")):
                 frappe.throw(_("Row {0}: Drop address '{1}' does not exist.").format(i, leg.get("drop_address")))
             
+            # Validate PEZA/non-PEZA address classification
+            self._validate_peza_addresses(leg, i)
+            
             # Auto-fill addresses from facilities if not set
             self._auto_fill_leg_addresses(leg, i)
+
+    def _validate_peza_addresses(self, leg, leg_index):
+        """Validate that addresses have PEZA/non-PEZA classification set."""
+        pick_address = leg.get("pick_address")
+        drop_address = leg.get("drop_address")
+        
+        if pick_address:
+            try:
+                address_doc = frappe.get_doc("Address", pick_address)
+                # Check if custom_peza_classification field exists and is set
+                if address_doc.meta.has_field("custom_peza_classification"):
+                    peza_classification = getattr(address_doc, "custom_peza_classification", None)
+                    if not peza_classification:
+                        frappe.throw(_("Row {0}: Pick address '{1}' must have PEZA classification set (PEZA or Non-PEZA).").format(leg_index, pick_address))
+            except Exception as e:
+                frappe.log_error(f"Error validating PEZA classification for pick address {pick_address}: {str(e)}", "PEZA Validation Error")
+        
+        if drop_address:
+            try:
+                address_doc = frappe.get_doc("Address", drop_address)
+                # Check if custom_peza_classification field exists and is set
+                if address_doc.meta.has_field("custom_peza_classification"):
+                    peza_classification = getattr(address_doc, "custom_peza_classification", None)
+                    if not peza_classification:
+                        frappe.throw(_("Row {0}: Drop address '{1}' must have PEZA classification set (PEZA or Non-PEZA).").format(leg_index, drop_address))
+            except Exception as e:
+                frappe.log_error(f"Error validating PEZA classification for drop address {drop_address}: {str(e)}", "PEZA Validation Error")
 
     def _auto_fill_leg_addresses(self, leg, leg_index):
         """Auto-fill addresses from facilities if not already set.
@@ -179,6 +230,43 @@ class TransportOrder(Document):
         except Exception as e:
             # Log error but don't fail validation
             frappe.log_error(f"Error auto-filling addresses for leg {leg_index}: {str(e)}", "Transport Order Address Auto-fill")
+
+    def _validate_sales_quote_duplication(self):
+        """Validate sales_quote duplication rules.
+        
+        If this is a new document (being duplicated) and has a sales_quote
+        with one_off=1, clear the sales_quote field to prevent duplication
+        of one-off quote references.
+        """
+        # Only check for new documents (duplications are new documents)
+        if not self.is_new() or not self.sales_quote:
+            return
+        
+        try:
+            # Check if the sales_quote has one_off=1
+            one_off = frappe.db.get_value("Sales Quote", self.sales_quote, "one_off")
+            
+            if one_off == 1:
+                # Clear the sales_quote field for duplicated documents
+                original_sales_quote = self.sales_quote
+                self.sales_quote = None
+                
+                # Also clear charges that were populated from sales_quote
+                if hasattr(self, "charges") and self.charges:
+                    self.set("charges", [])
+                
+                # Show message to user
+                frappe.msgprint(
+                    _("Sales Quote '{0}' is a one-off quote and cannot be duplicated. The Sales Quote field has been cleared.").format(original_sales_quote),
+                    title=_("Sales Quote Cleared"),
+                    indicator="orange"
+                )
+        except Exception as e:
+            # If sales_quote doesn't exist or other error, log but don't fail validation
+            frappe.log_error(
+                f"Error validating sales_quote duplication for Transport Order: {str(e)}",
+                "Transport Order Sales Quote Validation Error"
+            )
 
     def _validate_leg_facilities(self):
         """Validate that pick and drop facilities are different in each leg."""
@@ -221,8 +309,10 @@ class TransportOrder(Document):
         if not self.container_type:
             frappe.throw(_("Container Type is required for Container transport jobs."))
         
-        if not self.container_no:
-            frappe.throw(_("Container Number is required for Container transport jobs."))
+        # Skip container_no validation when creating from Sales Quote
+        if not getattr(self.flags, 'skip_container_no_validation', False):
+            if not self.container_no:
+                frappe.throw(_("Container Number is required for Container transport jobs."))
         
         # Validate container number format if needed
         if self.container_no and len(self.container_no) < 4:
@@ -257,8 +347,9 @@ class TransportOrder(Document):
 
     def _validate_special_requirements(self):
         """Validate special transport requirements."""
-        if not self.internal_notes:
-            frappe.throw(_("Special transport requires detailed instructions in Internal Notes."))
+        # Skip validation when creating from Sales Quote
+        if getattr(self.flags, 'skip_special_requirements_validation', False):
+            return
         
         # Check for hazardous materials
         if self.hazardous:
@@ -321,8 +412,111 @@ class TransportOrder(Document):
                 _(f"Load Type {self.load_type} is not allowed for {self.transport_job_type} jobs.")
             )
 
+    def validate_vehicle_type_capacity(self):
+        """Validate vehicle type capacity when vehicle_type is assigned"""
+        if not getattr(self, 'vehicle_type', None):
+            return
+        
+        try:
+            from logistics.transport.capacity.vehicle_type_capacity import get_vehicle_type_capacity_info
+            from logistics.transport.capacity.uom_conversion import convert_weight, convert_volume, get_default_uoms
+            
+            default_uoms = get_default_uoms(self.company)
+            
+            # Calculate capacity requirements from packages
+            requirements = self.calculate_capacity_requirements()
+            
+            if requirements['weight'] == 0 and requirements['volume'] == 0 and requirements['pallets'] == 0:
+                return  # No requirements to validate
+            
+            # Get vehicle type capacity information
+            capacity_info = get_vehicle_type_capacity_info(self.vehicle_type, self.company)
+            
+            # Validate capacity
+            if requirements['weight'] > 0 and capacity_info.get('max_weight', 0) < requirements['weight']:
+                frappe.throw(_("Total weight ({0} {1}) exceeds typical capacity for vehicle type {2}").format(
+                    requirements['weight'], requirements['weight_uom'], self.vehicle_type
+                ))
+            
+            if requirements['volume'] > 0 and capacity_info.get('max_volume', 0) < requirements['volume']:
+                frappe.throw(_("Total volume ({0} {1}) exceeds typical capacity for vehicle type {2}").format(
+                    requirements['volume'], requirements['volume_uom'], self.vehicle_type
+                ))
+            
+            if requirements['pallets'] > 0 and capacity_info.get('max_pallets', 0) < requirements['pallets']:
+                frappe.throw(_("Total pallets ({0}) exceeds typical capacity for vehicle type {1}").format(
+                    requirements['pallets'], self.vehicle_type
+                ))
+        except ImportError:
+            # Capacity management not fully implemented yet
+            pass
+        except Exception as e:
+            frappe.log_error(f"Error validating vehicle type capacity in Transport Order: {str(e)}", "Capacity Validation Error")
+    
+    def calculate_capacity_requirements(self):
+        """Calculate total capacity requirements from packages"""
+        try:
+            from logistics.transport.capacity.uom_conversion import (
+                convert_weight, convert_volume, calculate_volume_from_dimensions,
+                get_default_uoms
+            )
+            default_uoms = get_default_uoms(self.company)
+            
+            total_weight = 0
+            total_volume = 0
+            total_pallets = 0
+            weight_uom = default_uoms['weight']
+            volume_uom = default_uoms['volume']
+            
+            packages = getattr(self, 'packages', []) or []
+            
+            for pkg in packages:
+                # Weight
+                pkg_weight = flt(getattr(pkg, 'weight', 0))
+                if pkg_weight > 0:
+                    pkg_weight_uom = getattr(pkg, 'weight_uom', None) or weight_uom
+                    total_weight += convert_weight(pkg_weight, pkg_weight_uom, weight_uom, self.company)
+                
+                # Volume - prefer direct volume, calculate from dimensions if not available
+                pkg_volume = flt(getattr(pkg, 'volume', 0))
+                if pkg_volume > 0:
+                    pkg_volume_uom = getattr(pkg, 'volume_uom', None) or volume_uom
+                    total_volume += convert_volume(pkg_volume, pkg_volume_uom, volume_uom, self.company)
+                elif hasattr(pkg, 'length') and hasattr(pkg, 'width') and hasattr(pkg, 'height'):
+                    # Calculate from dimensions
+                    length = flt(getattr(pkg, 'length', 0))
+                    width = flt(getattr(pkg, 'width', 0))
+                    height = flt(getattr(pkg, 'height', 0))
+                    if length > 0 and width > 0 and height > 0:
+                        dim_uom = getattr(pkg, 'dimension_uom', None) or default_uoms['dimension']
+                        pkg_volume = calculate_volume_from_dimensions(
+                            length, width, height,
+                            dimension_uom=dim_uom,
+                            volume_uom=volume_uom,
+                            company=self.company
+                        )
+                        total_volume += pkg_volume
+                
+                # Pallets
+                total_pallets += flt(getattr(pkg, 'no_of_packs', 0))
+            
+            return {
+                'weight': total_weight,
+                'weight_uom': weight_uom,
+                'volume': total_volume,
+                'volume_uom': volume_uom,
+                'pallets': total_pallets
+            }
+        except Exception as e:
+            frappe.log_error(f"Error calculating capacity requirements: {str(e)}", "Capacity Calculation Error")
+            return {'weight': 0, 'weight_uom': 'KG', 'volume': 0, 'volume_uom': 'CBM', 'pallets': 0}
+    
     def _validate_vehicle_type_required(self):
         """Validate that vehicle_type is required only if consolidate is not checked."""
+        # Skip vehicle_type validation when creating from Sales Quote
+        if getattr(self.flags, 'skip_vehicle_type_validation', False):
+            return
+        
         # Vehicle Type is mandatory only if Consolidate checkbox is not checked
         if not self.vehicle_type and not self.consolidate:
             frappe.throw(_("Vehicle Type is required when Consolidate is not checked"))
@@ -431,7 +625,7 @@ class TransportOrder(Document):
         # Get load type document
         try:
             load_type_doc = frappe.get_doc("Load Type", self.load_type)
-            if not getattr(load_type_doc, 'can_consolidate', False):
+            if not getattr(load_type_doc, 'can_be_consolidated', False):
                 return False
             
             # Check if job type is suitable for consolidation
@@ -441,6 +635,58 @@ class TransportOrder(Document):
             return True
         except Exception:
             return False
+    
+    def validate_consolidation_eligibility(self):
+        """Validate consolidation eligibility and provide user feedback."""
+        if not self.load_type:
+            return
+        
+        try:
+            load_type_doc = frappe.get_doc("Load Type", self.load_type)
+            # Check if load type allows consolidation (use can_handle_consolidation field)
+            can_handle_consolidation = getattr(load_type_doc, "can_handle_consolidation", 0)
+            if not (can_handle_consolidation == 1 or can_handle_consolidation == True):
+                if self.consolidate:
+                    frappe.msgprint(
+                        _("Load Type {0} does not allow consolidation. The Consolidate checkbox may not be effective.").format(
+                            self.load_type
+                        ),
+                        indicator="orange"
+                    )
+        except Exception:
+            pass  # Load type validation already handled elsewhere
+    
+    def validate_vehicle_type_load_type_compatibility(self):
+        """Ensure selected Vehicle Type is compatible with Load Type."""
+        if not self.vehicle_type or not self.load_type:
+            return
+        
+        try:
+            # Check if Vehicle Type has load_type restrictions
+            vehicle_type_doc = frappe.get_doc("Vehicle Type", self.vehicle_type)
+            
+            # If Vehicle Type has a load_type field, validate it matches
+            if hasattr(vehicle_type_doc, 'load_type') and vehicle_type_doc.load_type:
+                if vehicle_type_doc.load_type != self.load_type:
+                    frappe.msgprint(
+                        _("Warning: Vehicle Type {0} has Load Type {1} which differs from selected Load Type {2}").format(
+                            self.vehicle_type, vehicle_type_doc.load_type, self.load_type
+                        ),
+                        indicator="orange"
+                    )
+            
+            # Check Vehicle Type Load Types child table if it exists
+            if hasattr(vehicle_type_doc, 'allowed_load_types') and vehicle_type_doc.allowed_load_types:
+                allowed_load_types = [lt.load_type for lt in vehicle_type_doc.allowed_load_types if lt.load_type]
+                if allowed_load_types and self.load_type not in allowed_load_types:
+                    frappe.msgprint(
+                        _("Warning: Vehicle Type {0} may not be compatible with Load Type {1}").format(
+                            self.vehicle_type, self.load_type
+                        ),
+                        indicator="orange"
+                    )
+        except Exception:
+            pass  # Vehicle type validation already handled elsewhere
 
     def get_estimated_duration(self):
         """Get estimated duration based on transport job type."""
@@ -496,6 +742,10 @@ class TransportOrder(Document):
 
     def on_change(self):
         """Handle changes to the document."""
+        # Skip if flag is set (e.g., when creating from Sales Quote)
+        if getattr(self.flags, 'skip_sales_quote_on_change', False):
+            return
+            
         if self.has_value_changed("sales_quote"):
             if self.sales_quote:
                 self._populate_charges_from_sales_quote()
@@ -756,6 +1006,106 @@ def _map_template_row_to_order_row(order_child_dt: str, tmpl_row: Dict[str, Any]
 # Whitelisted actions
 # -------------------------------------------------------------------
 @frappe.whitelist()
+def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
+    """Populate charges from sales_quote. Called from frontend when sales_quote field changes.
+    
+    Returns charge data that can be populated in the frontend.
+    """
+    if not sales_quote:
+        return {"charges": []}
+    
+    try:
+        # Verify that the sales_quote exists
+        if not frappe.db.exists("Sales Quote", sales_quote):
+            return {
+                "error": f"Sales Quote {sales_quote} does not exist",
+                "charges": []
+            }
+        
+        # Fetch sales_quote_transport records from the selected sales_quote
+        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+        sales_quote_transport_records = frappe.get_all(
+            "Sales Quote Transport",
+            filters={"parent": sales_quote, "parenttype": "Sales Quote"},
+            fields=fields_to_fetch,
+            order_by="idx"
+        )
+        
+        if not sales_quote_transport_records:
+            return {
+                "charges": [],
+                "message": f"No transport charges found in Sales Quote: {sales_quote}"
+            }
+        
+        # Map and populate charges
+        charges = []
+        for sqt_record in sales_quote_transport_records:
+            charge_row = _map_sales_quote_transport_to_charge_dict(sqt_record)
+            if charge_row:
+                charges.append(charge_row)
+        
+        # If docname is provided and document exists, save the charges and sales_quote
+        if docname and frappe.db.exists("Transport Order", docname):
+            doc = frappe.get_doc("Transport Order", docname)
+            # Also update sales_quote field to ensure it's saved when we reload
+            doc.sales_quote = sales_quote
+            doc.set("charges", [])
+            for charge_row in charges:
+                doc.append("charges", charge_row)
+            doc.save(ignore_permissions=True)
+        
+        return {
+            "charges": charges,
+            "charges_count": len(charges)
+        }
+        
+    except Exception as e:
+        frappe.log_error(
+            f"Error populating charges from sales quote {sales_quote}: {str(e)}",
+            "Transport Order Charges Population Error"
+        )
+        return {
+            "error": str(e),
+            "charges": []
+        }
+
+
+def _map_sales_quote_transport_to_charge_dict(sqt_record):
+    """Map sales_quote_transport record to transport_order_charges format (returns dict)."""
+    try:
+        # Map overlapping fields directly
+        charge_data = {}
+        for field in SALES_QUOTE_CHARGE_FIELDS:
+            if field in sqt_record:
+                charge_data[field] = sqt_record.get(field)
+        
+        # Fallbacks for essential fields
+        item_doc = None
+        if sqt_record.get("item_code"):
+            if not charge_data.get("item_name") or not charge_data.get("uom"):
+                item_doc = frappe.get_doc("Item", sqt_record.item_code)
+                if not charge_data.get("item_name"):
+                    charge_data["item_name"] = item_doc.item_name
+                if not charge_data.get("uom"):
+                    charge_data["uom"] = item_doc.stock_uom
+        
+        if charge_data.get("unit_rate") is None:
+            charge_data["unit_rate"] = 0
+        
+        if not charge_data.get("quantity"):
+            charge_data["quantity"] = 1
+        
+        return charge_data
+        
+    except Exception as e:
+        frappe.log_error(
+            f"Error mapping sales quote transport record: {str(e)}",
+            "Transport Order Charge Mapping Error"
+        )
+        return None
+
+
+@frappe.whitelist()
 def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
     """Populate Transport Order legs from the selected Transport Template."""
     if not docname:
@@ -793,9 +1143,20 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
         if not row_data:
             continue
         
-        # Auto-fill transport_job_type and vehicle_type from parent if not set in template
-        if not row_data.get("transport_job_type") and getattr(doc, "transport_job_type", None):
+        # Auto-fill transport_job_type from parent Transport Order (default to parent value)
+        if getattr(doc, "transport_job_type", None):
             row_data["transport_job_type"] = doc.transport_job_type
+        
+        # Auto-fill scheduled_date from parent Transport Order (default to parent value)
+        # This ensures scheduled_date defaults to Transport Order's scheduled_date
+        # The _map_template_row_to_order_row function already calculates scheduled_date from
+        # base_date + day_offset, but we ensure it defaults to base_date if not set
+        if base_date and _has_field(order_child_dt, "scheduled_date"):
+            # If scheduled_date was not set by template mapping, use base_date directly
+            if not row_data.get("scheduled_date"):
+                row_data["scheduled_date"] = base_date
+            # Otherwise, scheduled_date is already set from base_date + day_offset in
+            # _map_template_row_to_order_row, which is correct (defaults to base_date when offset=0)
         
         if not row_data.get("vehicle_type") and getattr(doc, "vehicle_type", None):
             row_data["vehicle_type"] = doc.vehicle_type
@@ -1158,6 +1519,37 @@ def validate_vehicle_job_type_compatibility(transport_job_type: str, vehicle_typ
             messages.append(f"Vehicle Type {vehicle_details.code} does not have reefer capability. Refrigerated transport requires a vehicle with reefer enabled.")
     
     return {"compatible": compatible, "message": " ".join(messages) if messages else ""}
+
+
+@frappe.whitelist()
+def get_vehicle_types_for_load_type(load_type: str) -> Dict[str, Any]:
+    """
+    Get list of Vehicle Types that have the specified load_type in their allowed_load_types.
+    
+    Args:
+        load_type: The Load Type name to filter by
+        
+    Returns:
+        dict: List of Vehicle Type names that allow the specified load_type
+    """
+    if not load_type:
+        return {"vehicle_types": []}
+    
+    # Verify that the load_type exists
+    if not frappe.db.exists("Load Type", load_type):
+        return {"vehicle_types": []}
+    
+    # Get all Vehicle Types that have this load_type in their allowed_load_types child table
+    vehicle_types = frappe.db.sql("""
+        SELECT DISTINCT parent
+        FROM `tabVehicle Type Load Types`
+        WHERE load_type = %s
+        AND parent IS NOT NULL
+    """, (load_type,), as_dict=True)
+    
+    vehicle_type_names = [vt.parent for vt in vehicle_types if vt.parent]
+    
+    return {"vehicle_types": vehicle_type_names}
 
 
 @frappe.whitelist()

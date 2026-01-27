@@ -224,8 +224,8 @@ class AirBooking(Document):
 				self.packs = sales_quote_data.get("air_packs")
 			if not self.inner:
 				self.inner = sales_quote_data.get("air_inner")
-			if not self.gooda_value:
-				self.gooda_value = sales_quote_data.get("air_gooda_value")
+			if not self.goods_value:
+				self.goods_value = sales_quote_data.get("air_gooda_value")
 			if not self.insurance:
 				self.insurance = sales_quote_data.get("air_insurance")
 			if not self.description:
@@ -505,28 +505,38 @@ class AirBooking(Document):
 			# Map basic fields from Air Booking to Air Shipment
 			air_shipment.local_customer = self.local_customer
 			air_shipment.booking_date = self.booking_date or today()
-			air_shipment.air_booking = self.name
+			# Note: air_booking field doesn't exist in Air Shipment, so we skip it
 			air_shipment.sales_quote = self.sales_quote
 			air_shipment.shipper = self.shipper
 			air_shipment.consignee = self.consignee
 			air_shipment.origin_port = self.origin_port
-			air_shipment.destination_port = self.destination_port
+			air_shipment.destination_port = self.destination_port  # Both now use UNLOCO
 			air_shipment.direction = self.direction
 			air_shipment.weight = self.weight
 			air_shipment.volume = self.volume
 			air_shipment.chargeable = self.chargeable
-			air_shipment.service_level = self.service_level
+			# Only copy service_level if it exists as a valid record
+			if self.service_level and frappe.db.exists("Service Level Agreement", self.service_level):
+				air_shipment.service_level = self.service_level
+			else:
+				# Explicitly clear the field if the record doesn't exist
+				air_shipment.service_level = None
 			air_shipment.incoterm = self.incoterm
 			air_shipment.additional_terms = self.additional_terms
 			air_shipment.airline = self.airline
 			air_shipment.freight_agent = self.freight_agent
 			air_shipment.house_type = self.house_type
-			air_shipment.release_type = self.release_type
-			air_shipment.entry_type = self.entry_type
+			# Only copy release_type if it exists as a valid record
+			if self.release_type and frappe.db.exists("Release Type", self.release_type):
+				air_shipment.release_type = self.release_type
+			else:
+				# Explicitly clear the field if the record doesn't exist
+				air_shipment.release_type = None
+			air_shipment.entry_type = self.entry_type  # Both now have same options
 			air_shipment.house_bl = self.house_bl
 			air_shipment.packs = self.packs
 			air_shipment.inner = self.inner
-			air_shipment.gooda_value = self.gooda_value
+			air_shipment.goods_value = self.goods_value  # Both now use goods_value
 			air_shipment.insurance = self.insurance
 			air_shipment.description = self.description
 			air_shipment.marks_and_nos = self.marks_and_nos
@@ -576,11 +586,50 @@ class AirBooking(Document):
 						"invoice_reference": charge.invoice_reference
 					})
 			
-			# Insert the Air Shipment
-			air_shipment.insert(ignore_permissions=True)
+			# Final validation check before insert - ensure all link fields are valid
+			# This prevents errors during insert/after_insert hooks
+			if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
+				if not frappe.db.exists("Service Level Agreement", air_shipment.service_level):
+					air_shipment.service_level = None
+			if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
+				if not frappe.db.exists("Release Type", air_shipment.release_type):
+					air_shipment.release_type = None
 			
-			# Save the Air Shipment
-			air_shipment.save(ignore_permissions=True)
+			# Insert the Air Shipment
+			try:
+				air_shipment.insert(ignore_permissions=True)
+			except (frappe.ValidationError, frappe.LinkValidationError) as e:
+				# If validation fails due to invalid link fields, clear them and try again
+				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
+					# Clear potentially invalid link fields
+					if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
+						if not frappe.db.exists("Service Level Agreement", air_shipment.service_level):
+							air_shipment.service_level = None
+					if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
+						if not frappe.db.exists("Release Type", air_shipment.release_type):
+							air_shipment.release_type = None
+					# Try insert again
+					air_shipment.insert(ignore_permissions=True)
+				else:
+					raise
+			
+			# Save the Air Shipment (after_insert may have already saved it, but we save again to be sure)
+			try:
+				air_shipment.save(ignore_permissions=True)
+			except (frappe.ValidationError, frappe.LinkValidationError) as e:
+				# If validation fails due to invalid link fields, clear them and try again
+				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
+					# Clear potentially invalid link fields
+					if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
+						if not frappe.db.exists("Service Level Agreement", air_shipment.service_level):
+							air_shipment.service_level = None
+					if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
+						if not frappe.db.exists("Release Type", air_shipment.release_type):
+							air_shipment.release_type = None
+					# Try save again
+					air_shipment.save(ignore_permissions=True)
+				else:
+					raise
 			
 			frappe.msgprint(
 				_("Air Shipment {0} created successfully from Air Booking {1}").format(air_shipment.name, self.name),

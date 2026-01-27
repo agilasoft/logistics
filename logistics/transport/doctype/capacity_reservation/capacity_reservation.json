@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-20 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle",
+  "reservation_date",
+  "reservation_start_time",
+  "reservation_end_time",
+  "column_break_1",
+  "reserved_weight",
+  "reserved_weight_uom",
+  "reserved_volume",
+  "reserved_volume_uom",
+  "reserved_pallets",
+  "reserved_containers",
+  "section_break_source",
+  "transport_job",
+  "transport_leg",
+  "run_sheet",
+  "column_break_2",
+  "status",
+  "reserved_by",
+  "released_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Transport Vehicle",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reservation_date",
+   "fieldtype": "Date",
+   "label": "Reservation Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reservation_start_time",
+   "fieldtype": "Time",
+   "label": "Start Time"
+  },
+  {
+   "fieldname": "reservation_end_time",
+   "fieldtype": "Time",
+   "label": "End Time"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reserved_weight",
+   "fieldtype": "Float",
+   "label": "Reserved Weight"
+  },
+  {
+   "default": "KG",
+   "fieldname": "reserved_weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "reserved_volume",
+   "fieldtype": "Float",
+   "label": "Reserved Volume"
+  },
+  {
+   "default": "CBM",
+   "fieldname": "reserved_volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "reserved_pallets",
+   "fieldtype": "Float",
+   "label": "Reserved Pallets"
+  },
+  {
+   "fieldname": "reserved_containers",
+   "fieldtype": "Float",
+   "label": "Reserved Containers"
+  },
+  {
+   "fieldname": "section_break_source",
+   "fieldtype": "Section Break",
+   "label": "Source"
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "label": "Transport Job",
+   "options": "Transport Job"
+  },
+  {
+   "fieldname": "transport_leg",
+   "fieldtype": "Link",
+   "label": "Transport Leg",
+   "options": "Transport Leg"
+  },
+  {
+   "fieldname": "run_sheet",
+   "fieldtype": "Link",
+   "label": "Run Sheet",
+   "options": "Run Sheet"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Reserved",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Reserved\nActive\nReleased\nCancelled"
+  },
+  {
+   "fieldname": "reserved_by",
+   "fieldtype": "Link",
+   "label": "Reserved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "released_at",
+   "fieldtype": "Datetime",
+   "label": "Released At",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-20 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Capacity Reservation",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,139 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:factor_name",
+ "creation": "2026-01-08 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "factor_name",
+  "factor_type",
+  "severity",
+  "start_datetime",
+  "end_datetime",
+  "affected_addresses",
+  "affected_routes",
+  "impact_type",
+  "estimated_delay_minutes",
+  "alternative_route_suggestions",
+  "restricted_vehicle_types",
+  "is_active",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "factor_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Factor Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "factor_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Factor Type",
+   "options": "Road Closure\nPort Congestion\nWeather Event\nTraffic Incident\nConstruction\nSpecial Event\nOther",
+   "reqd": 1
+  },
+  {
+   "default": "Medium",
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "Low\nMedium\nHigh\nCritical"
+  },
+  {
+   "fieldname": "start_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Start Date/Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "End Date/Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "affected_addresses",
+   "fieldtype": "Table",
+   "label": "Affected Addresses/Areas",
+   "options": "Ad-Hoc Factor Affected Addresses"
+  },
+  {
+   "fieldname": "affected_routes",
+   "fieldtype": "Table",
+   "label": "Affected Routes (From-To)",
+   "options": "Ad-Hoc Factor Affected Routes"
+  },
+  {
+   "default": "Delays Only",
+   "fieldname": "impact_type",
+   "fieldtype": "Select",
+   "label": "Impact Type",
+   "options": "Complete Blockage\nPartial Blockage\nDelays Only\nAccess Restricted"
+  },
+  {
+   "depends_on": "eval:in_list(['Partial Blockage', 'Delays Only', 'Access Restricted'], doc.impact_type)",
+   "fieldname": "estimated_delay_minutes",
+   "fieldtype": "Int",
+   "label": "Estimated Delay (minutes)",
+   "description": "Expected delay caused by this factor"
+  },
+  {
+   "fieldname": "alternative_route_suggestions",
+   "fieldtype": "Text",
+   "label": "Alternative Route Suggestions"
+  },
+  {
+   "fieldname": "restricted_vehicle_types",
+   "fieldtype": "Table",
+   "label": "Restricted Vehicle Types (Optional)",
+   "options": "Ad-Hoc Factor Vehicle Types",
+   "description": "Vehicle types affected by this factor (leave empty for all)"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Ad-Hoc Transport Factor",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

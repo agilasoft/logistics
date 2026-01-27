@@ -49,6 +49,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_land_transport_charge\",\"=\",1]]",
    "options": "Item",
    "reqd": 1
   },
@@ -254,7 +255,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-25 10:20:43.944837",
+ "modified": "2026-01-15 14:18:04.643029",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Transport Job Charges",

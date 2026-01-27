@@ -21,7 +21,9 @@
   "column_break_mrie",
   "capacity_tab",
   "capacity_weight",
+  "capacity_weight_uom",
   "capacity_volume",
+  "capacity_volume_uom",
   "capacity_pallets",
   "column_break_kckw",
   "can_carry_container",
@@ -34,6 +36,7 @@
   "routing_tab",
   "base_facility",
   "address",
+  "license_plate_number",
   "avg_speed",
   "cost_per_km",
   "cost_per_hour",
@@ -115,9 +118,25 @@
    "label": "Capacity Weight"
   },
   {
+   "default": "KG",
+   "fieldname": "capacity_weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "description": "Unit of measure for weight capacity"
+  },
+  {
    "fieldname": "capacity_volume",
    "fieldtype": "Float",
    "label": "Capacity Volume"
+  },
+  {
+   "default": "CBM",
+   "fieldname": "capacity_volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM",
+   "description": "Unit of measure for volume capacity"
   },
   {
    "fieldname": "capacity_pallets",
@@ -198,9 +217,16 @@
    "options": "Transport Vehicle Zones"
   },
   {
+   "fieldname": "license_plate_number",
+   "fieldtype": "Data",
+   "label": "License Plate Number",
+   "description": "Vehicle license plate number for plate coding constraint checks"
+  },
+  {
    "fieldname": "avg_speed",
    "fieldtype": "Float",
-   "label": "Avg Speed"
+   "label": "Avg Speed",
+   "description": "Average speed in km/h for travel time calculations"
   },
   {
    "fieldname": "cost_per_km",

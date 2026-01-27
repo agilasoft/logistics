@@ -44,7 +44,7 @@
   "column_break_house",
   "packs",
   "inner",
-  "gooda_value",
+  "goods_value",
   "insurance",
   "section_break_description",
   "description",
@@ -101,7 +101,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport",
+   "options": "Import\nExport\nDomestic",
    "reqd": 1
   },
   {
@@ -133,15 +133,15 @@
   },
   {
    "fieldname": "release_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Release Type",
-   "options": "Prepaid\nCollect"
+   "options": "Release Type"
   },
   {
    "fieldname": "entry_type",
    "fieldtype": "Select",
    "label": "Entry Type",
-   "options": "Direct\nTransit\nTransshipment"
+   "options": "Customs Permit\nTransshipment\nATA Carnet"
   },
   {
    "fieldname": "service_level",
@@ -184,8 +184,8 @@
   {
    "fieldname": "destination_port",
    "fieldtype": "Link",
-   "label": "Destination Airport",
-   "options": "Location"
+   "label": "Destination Port",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "eta",
@@ -256,7 +256,7 @@
   },
   {
    "fieldname": "additional_terms",
-   "fieldtype": "Small Text",
+   "fieldtype": "Data",
    "label": "Additional Terms"
   },
   {
@@ -265,16 +265,16 @@
   },
   {
    "fieldname": "packs",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Packs"
   },
   {
    "fieldname": "inner",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Inner"
   },
   {
-   "fieldname": "gooda_value",
+   "fieldname": "goods_value",
    "fieldtype": "Currency",
    "label": "Goods Value"
   },
@@ -289,7 +289,7 @@
   },
   {
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "Description"
   },
   {
@@ -298,7 +298,7 @@
   },
   {
    "fieldname": "marks_and_nos",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "Marks and Nos"
   },
   {

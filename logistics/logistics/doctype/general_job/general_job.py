@@ -8,8 +8,13 @@ from frappe import _
 
 class GeneralJob(Document):
 	def before_save(self):
-		"""Calculate sustainability metrics before saving"""
+		"""Calculate sustainability metrics and create job costing number before saving"""
 		self.calculate_sustainability_metrics()
+		self.create_job_costing_number_if_needed()
+
+	def after_insert(self):
+		"""Create job costing number for new documents"""
+		self.create_job_costing_number_if_needed()
 	
 	def after_submit(self):
 		"""Record sustainability metrics after job submission"""
@@ -67,3 +72,42 @@ class GeneralJob(Document):
 		# Estimate based on energy consumption
 		energy_factor = 0.4  # kg CO2e per kWh
 		return self.estimated_energy_consumption * energy_factor
+
+	def create_job_costing_number_if_needed(self):
+		"""Create Job Costing Number if it doesn't exist"""
+		if self.job_costing_number:
+			return
+
+		if not self.company:
+			return
+
+		try:
+			# Check if Job Costing Number already exists for this job
+			existing_jcn = frappe.db.exists("Job Costing Number", {"job_no": self.name})
+			if existing_jcn:
+				self.job_costing_number = existing_jcn
+				return
+
+			# Create new Job Costing Number
+			jcn = frappe.new_doc("Job Costing Number")
+			jcn.job_type = "General Job"
+			jcn.job_no = self.name
+			jcn.company = self.company
+			jcn.branch = getattr(self, "branch", None)
+			jcn.cost_center = getattr(self, "cost_center", None)
+			jcn.profit_center = getattr(self, "profit_center", None)
+			jcn.insert(ignore_permissions=True)
+			self.job_costing_number = jcn.name
+		except Exception as e:
+			frappe.log_error(f"Error creating Job Costing Number for General Job {self.name}: {str(e)}", "Job Costing Number Creation Error")
+
+
+@frappe.whitelist()
+def create_job_costing_number(docname):
+	"""Create Job Costing Number for a General Job via button action"""
+	doc = frappe.get_doc("General Job", docname)
+	doc.create_job_costing_number_if_needed()
+	if doc.job_costing_number:
+		doc.save()
+		return doc.job_costing_number
+	return None

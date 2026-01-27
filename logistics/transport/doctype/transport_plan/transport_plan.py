@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 import itertools
+from datetime import datetime
 
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import add_days, getdate, nowdate, cint, cstr, flt
+from frappe.utils import add_days, getdate, nowdate, cint, cstr, flt, get_datetime, get_time
 
 
 # ------------------------ Job-level grouping helpers ------------------------
@@ -763,9 +764,10 @@ def _create_load_type_consolidations(day_legs: List[Dict[str, Any]], debug: Opti
     for load_type, legs in legs_by_load_type.items():
         debug.append(f"Processing {len(legs)} legs for Load Type: {load_type}")
         
-        # Check if load type allows consolidation
+        # Check if load type allows consolidation (use can_handle_consolidation field)
         load_type_doc = frappe.get_doc("Load Type", load_type)
-        if not load_type_doc.can_consolidate:
+        can_handle_consolidation = getattr(load_type_doc, "can_handle_consolidation", 0)
+        if not (can_handle_consolidation == 1 or can_handle_consolidation == True):
             debug.append(f"Load Type {load_type} does not allow consolidation, skipping")
             continue
         
@@ -836,9 +838,7 @@ def _create_transport_consolidation(load_type: str, legs: List[Dict[str, Any]], 
         # Add transport jobs
         for job_name in transport_jobs:
             consolidation.append("transport_jobs", {
-                "transport_job": job_name,
-                "weight": 0,  # Will be calculated from packages
-                "volume": 0    # Will be calculated from packages
+                "transport_job": job_name
             })
         
         consolidation.save()
@@ -1074,8 +1074,11 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
     if leg.get("vehicle_type") and _has_field("Transport Vehicle", "vehicle_type"):
         v_filters.append(["vehicle_type", "=", leg["vehicle_type"]])
 
-    v_fields = ["name", "vehicle_name", "company_owned"]
-    for vf in ["vehicle_type", "transport_company", "capacity_weight", "capacity_volume", "capacity_pallets"]:
+    # IMPORTANT: Ensure avg_speed and vehicle_type are included in vehicle fields query
+    # vehicle_type is needed for plate coding exemption checks
+    # license_plate_number is needed for plate coding checks
+    v_fields = ["name", "vehicle_name", "company_owned", "avg_speed", "vehicle_type"]
+    for vf in ["license_plate_number", "transport_company", "capacity_weight", "capacity_volume", "capacity_pallets"]:
         if _has_field("Transport Vehicle", vf):
             v_fields.append(vf)
 
@@ -1103,10 +1106,47 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
            (target_runsheet and vehicle_to_runsheet.get(v["name"]) == target_runsheet)
     ]
 
+    # Get scheduled datetime for constraint checking
+    scheduled_datetime = None
+    if sched:
+        try:
+            # Try to get time from leg, or use start of day
+            leg_time = leg.get("pick_window_start") or leg.get("scheduled_time")
+            if leg_time:
+                sched_date = getdate(sched)
+                leg_time_obj = get_time(leg_time)
+                scheduled_datetime = datetime.combine(sched_date, leg_time_obj)
+            else:
+                scheduled_datetime = get_datetime(f"{sched} 00:00:00")
+        except Exception:
+            scheduled_datetime = get_datetime(f"{sched} 00:00:00")
+
     for v in available_vehicles:
         if not _vehicle_free_on_date(v["name"], sched):
             debug.append(f"Internal vehicle busy on {sched}: {v.get('vehicle_name') or v['name']}")
             continue
+
+        # NEW: Check constraints if scheduled_datetime is available
+        if scheduled_datetime:
+            try:
+                from logistics.transport.constraint_validator import validate_vehicle_constraints
+                
+                is_valid, constraint_reason, delay_minutes, alternatives = validate_vehicle_constraints(
+                    v, leg, scheduled_datetime, debug
+                )
+                
+                if not is_valid:
+                    debug.append(f"Vehicle {v.get('vehicle_name') or v['name']} failed constraint: {constraint_reason}")
+                    if alternatives:
+                        debug.append(f"Alternative routes available: {len(alternatives)}")
+                    continue
+                
+                # If there are delays but route is still valid, log warning
+                if delay_minutes and delay_minutes > 0:
+                    debug.append(f"Vehicle {v.get('vehicle_name') or v['name']} will experience {delay_minutes} minutes delay due to constraints")
+            except Exception as e:
+                # If constraint checking fails, log but don't block vehicle assignment
+                debug.append(f"Error checking constraints for vehicle {v.get('vehicle_name') or v['name']}: {cstr(e)}")
 
         ok = True
         if need_w and _has_field("Transport Vehicle", "capacity_weight"):
@@ -1170,25 +1210,94 @@ def _find_candidate_driver(leg: Dict[str, Any], vehicle: Dict[str, Any], debug: 
 
 
 def _vehicle_free_on_date(vehicle_name: str, day: Optional[str]) -> bool:
+    """
+    Check if vehicle is free on the given date.
+    A vehicle is considered free if:
+    1. It has no active Run Sheets, OR
+    2. All active Run Sheets have estimated_return_datetime before the requested day's start time
+    
+    Args:
+        vehicle_name: Name of the vehicle
+        day: Date string (YYYY-MM-DD format)
+    
+    Returns:
+        True if vehicle is free, False otherwise
+    """
     if not _doctype_exists("Run Sheet") or not _has_field("Run Sheet", "vehicle") or not _has_field("Run Sheet", "run_date"):
         return True
     if not day:
         return True
 
-    start = f"{day} 00:00:00"
-    end = f"{day} 23:59:59"
-    rows = frappe.get_all(
-        "Run Sheet",
-        filters=[
-            ["vehicle", "=", vehicle_name],
-            ["run_date", ">=", start],
-            ["run_date", "<=", end],
-            ["docstatus", "<", 2],
-        ],
-        fields=["name"],
-        limit_page_length=1,
-    )
-    return not rows
+    # Get the start of the requested day as datetime
+    requested_datetime = f"{day} 00:00:00"
+    
+    # Build base filters for active Run Sheets
+    base_filters = [
+        ["vehicle", "=", vehicle_name],
+        ["docstatus", "<", 2],
+    ]
+    
+    # Add status filter if status field exists
+    if _has_field("Run Sheet", "status"):
+        base_filters.append(["status", "in", ["Draft", "Dispatched", "In-Progress", "Submitted"]])
+    
+    # Check if estimated_return_datetime field exists
+    has_estimated_return = _has_field("Run Sheet", "estimated_return_datetime")
+    
+    if has_estimated_return:
+        # Get all active Run Sheets for this vehicle with their estimated return datetime
+        # Vehicle is free if:
+        # 1. No active Run Sheets exist, OR
+        # 2. All active Run Sheets have estimated_return_datetime < requested_datetime
+        rows = frappe.get_all(
+            "Run Sheet",
+            filters=base_filters,
+            fields=["name", "estimated_return_datetime", "run_date"],
+            limit_page_length=100,
+        )
+        
+        if not rows:
+            return True
+        
+        # Check if any Run Sheet has estimated_return_datetime after the requested day
+        # If estimated_return_datetime is not set, fall back to checking run_date
+        requested_dt = get_datetime(requested_datetime)
+        
+        for row in rows:
+            # If estimated_return_datetime is set, use it
+            if row.get("estimated_return_datetime"):
+                return_dt = get_datetime(row["estimated_return_datetime"])
+                if return_dt >= requested_dt:
+                    return False
+            else:
+                # Fall back to run_date if estimated_return_datetime is not set
+                # Use end of run_date day as a conservative estimate
+                if row.get("run_date"):
+                    run_date_str = str(row["run_date"])
+                    if " " in run_date_str:
+                        run_date_only = run_date_str.split(" ")[0]
+                    else:
+                        run_date_only = run_date_str
+                    run_date_end = f"{run_date_only} 23:59:59"
+                    run_date_dt = get_datetime(run_date_end)
+                    if run_date_dt >= requested_dt:
+                        return False
+        
+        return True
+    else:
+        # Fall back to original behavior if estimated_return_datetime field doesn't exist
+        start = f"{day} 00:00:00"
+        end = f"{day} 23:59:59"
+        rows = frappe.get_all(
+            "Run Sheet",
+            filters=base_filters + [
+                ["run_date", ">=", start],
+                ["run_date", "<=", end],
+            ],
+            fields=["name"],
+            limit_page_length=1,
+        )
+        return not rows
 
 
 def _driver_free_on_date(driver_name: str, day: Optional[str]) -> bool:
@@ -1242,17 +1351,23 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
     # First try exact match (vehicle + driver + date), then fall back to vehicle + date only
     existing = []
     if allow_reuse and vehicle and _doctype_exists("Run Sheet") and _has_field("Run Sheet", "vehicle") and _has_field("Run Sheet", "run_date"):
+        # Build base filters for reuse query
+        base_filters = [
+            ["vehicle", "=", vehicle["name"]],
+            ["run_date", ">=", f"{sched} 00:00:00"],
+            ["run_date", "<=", f"{sched} 23:59:59"],
+            ["docstatus", "<", 2],
+        ]
+        
+        # Add status filter if status field exists (to match validation logic)
+        if _has_field("Run Sheet", "status"):
+            base_filters.append(["status", "in", ["Draft", "Submitted", "In Progress"]])
+        
         # First, try to find Run Sheet with exact match (vehicle + driver + date)
         if driver and _has_field("Run Sheet", "driver"):
             existing = frappe.get_all(
                 "Run Sheet",
-                filters=[
-                    ["vehicle", "=", vehicle["name"]],
-                    ["driver", "=", driver["name"]],
-                    ["run_date", ">=", f"{sched} 00:00:00"],
-                    ["run_date", "<=", f"{sched} 23:59:59"],
-                    ["docstatus", "<", 2],
-                ],
+                filters=base_filters + [["driver", "=", driver["name"]]],
                 fields=["name"],
                 limit_page_length=1,
             )
@@ -1262,12 +1377,7 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
         if not existing:
             existing = frappe.get_all(
                 "Run Sheet",
-                filters=[
-                    ["vehicle", "=", vehicle["name"]],
-                    ["run_date", ">=", f"{sched} 00:00:00"],
-                    ["run_date", "<=", f"{sched} 23:59:59"],
-                    ["docstatus", "<", 2],
-                ],
+                filters=base_filters,
                 fields=["name"],
                 limit_page_length=1,
             )
@@ -1279,6 +1389,34 @@ def _create_or_reuse_run_sheet(leg: Dict[str, Any], vehicle: Optional[Dict[str, 
         if vehicle and vehicle.get("name"):
             vehicle_to_runsheet[vehicle["name"]] = rs_name
         return rs_name, True
+
+    # Before creating a new Run Sheet, double-check that vehicle is not already assigned
+    # This prevents validation errors when reuse logic fails to find an existing Run Sheet
+    if vehicle and allow_reuse and _doctype_exists("Run Sheet") and _has_field("Run Sheet", "vehicle"):
+        # Check if vehicle is already assigned to an active Run Sheet (matching validation logic)
+        status_filter = []
+        if _has_field("Run Sheet", "status"):
+            status_filter = [["status", "in", ["Draft", "Submitted", "In Progress"]]]
+        
+        conflicting_rs = frappe.get_all(
+            "Run Sheet",
+            filters=[
+                ["vehicle", "=", vehicle["name"]],
+                ["run_date", ">=", f"{sched} 00:00:00"],
+                ["run_date", "<=", f"{sched} 23:59:59"],
+                ["docstatus", "<", 2],
+            ] + status_filter,
+            fields=["name"],
+            limit_page_length=1,
+        )
+        
+        if conflicting_rs:
+            # Found a conflicting Run Sheet - reuse it instead of creating a new one
+            rs_name = conflicting_rs[0]["name"]
+            debug.append(f"Found conflicting Run Sheet {rs_name} for vehicle {vehicle['name']}, reusing it")
+            if vehicle and vehicle.get("name"):
+                vehicle_to_runsheet[vehicle["name"]] = rs_name
+            return rs_name, True
 
     rs = frappe.new_doc("Run Sheet")
     if _has_field("Run Sheet", "run_date"):

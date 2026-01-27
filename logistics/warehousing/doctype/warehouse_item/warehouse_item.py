@@ -50,14 +50,44 @@ class WarehouseItem(Document):
 			)
 			
 			# If volume is provided, check if it matches calculated volume (with tolerance for UOM conversion)
-			if self.volume and abs(flt(self.volume) - calculated_volume) > 0.001:
-				frappe.msgprint(
-					_("Volume ({0}) does not match calculated volume ({1}) from dimensions. Please verify your entries.").format(
-						self.volume, calculated_volume
-					),
-					title=_("Volume Mismatch"),
-					indicator="orange"
-				)
+			if self.volume:
+				entered_volume = flt(self.volume)
+				calculated_vol = flt(calculated_volume)
+				
+				# Check for potential unit mismatch (difference is more than 1000x)
+				# This suggests the entered volume might be in a different unit
+				if entered_volume > 0 and calculated_vol > 0:
+					ratio1 = entered_volume / calculated_vol
+					ratio2 = calculated_vol / entered_volume
+					if ratio1 > 1000 or ratio2 > 1000:
+						frappe.msgprint(
+							_("Volume ({0}) appears to be in a different unit than calculated volume ({1}). Please verify the volume UOM settings or clear the volume field to auto-calculate.").format(
+								entered_volume, calculated_vol
+							),
+							title=_("Volume Unit Mismatch"),
+							indicator="orange"
+						)
+					# Normal validation with tolerance (only if not a unit mismatch)
+					elif abs(entered_volume - calculated_vol) > 0.001:
+						# Use relative tolerance for large volumes, absolute tolerance for small volumes
+						relative_diff = abs(entered_volume - calculated_vol) / max(abs(calculated_vol), 1.0)
+						if relative_diff > 0.01:  # 1% tolerance
+							frappe.msgprint(
+								_("Volume ({0}) does not match calculated volume ({1}) from dimensions. Please verify your entries.").format(
+									entered_volume, calculated_vol
+								),
+								title=_("Volume Mismatch"),
+								indicator="orange"
+							)
+				elif entered_volume != calculated_vol:
+					# Handle case where one volume is zero or negative
+					frappe.msgprint(
+						_("Volume ({0}) does not match calculated volume ({1}) from dimensions. Please verify your entries.").format(
+							entered_volume, calculated_vol
+						),
+						title=_("Volume Mismatch"),
+						indicator="orange"
+					)
 			elif not self.volume:
 				# Auto-calculate volume if not provided
 				self.volume = calculated_volume

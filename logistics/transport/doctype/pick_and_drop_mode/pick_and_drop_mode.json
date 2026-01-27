@@ -12,7 +12,21 @@
   "usage",
   "column_break_tyfz",
   "allow_in_pick",
-  "allow_in_drop"
+  "allow_in_drop",
+  "column_break_gjrq",
+  "with_equipment",
+  "loading_time_tab",
+  "base_loading_time_minutes",
+  "loading_time_calculation_method",
+  "loading_time_per_volume_m3",
+  "loading_time_per_weight_kg",
+  "max_loading_time_minutes",
+  "column_break_unloading",
+  "base_unloading_time_minutes",
+  "unloading_time_calculation_method",
+  "unloading_time_per_volume_m3",
+  "unloading_time_per_weight_kg",
+  "max_unloading_time_minutes"
  ],
  "fields": [
   {
@@ -48,12 +62,108 @@
    "fieldname": "usage",
    "fieldtype": "Data",
    "label": "Usage"
+  },
+  {
+   "fieldname": "loading_time_tab",
+   "fieldtype": "Tab Break",
+   "label": "Loading and Unloading Time"
+  },
+  {
+   "default": "15",
+   "description": "Base time required for loading operations (minimum time regardless of volume/weight)",
+   "fieldname": "base_loading_time_minutes",
+   "fieldtype": "Float",
+   "label": "Base Loading Time (minutes)"
+  },
+  {
+   "default": "Volume-Based",
+   "description": "How to calculate loading time based on cargo",
+   "fieldname": "loading_time_calculation_method",
+   "fieldtype": "Select",
+   "label": "Loading Time Calculation Method",
+   "options": "Fixed Time\nVolume-Based\nWeight-Based\nVolume and Weight Combined"
+  },
+  {
+   "default": "5",
+   "depends_on": "eval:in_list(['Volume-Based', 'Volume and Weight Combined'], doc.loading_time_calculation_method)",
+   "description": "Additional minutes per cubic meter of volume",
+   "fieldname": "loading_time_per_volume_m3",
+   "fieldtype": "Float",
+   "label": "Loading Time per m\u00b3 (minutes)"
+  },
+  {
+   "default": "2",
+   "depends_on": "eval:in_list(['Weight-Based', 'Volume and Weight Combined'], doc.loading_time_calculation_method)",
+   "description": "Additional minutes per 100kg of weight",
+   "fieldname": "loading_time_per_weight_kg",
+   "fieldtype": "Float",
+   "label": "Loading Time per 100kg (minutes)"
+  },
+  {
+   "default": "0",
+   "description": "Maximum loading time cap (0 = no limit)",
+   "fieldname": "max_loading_time_minutes",
+   "fieldtype": "Float",
+   "label": "Maximum Loading Time (minutes)"
+  },
+  {
+   "fieldname": "column_break_unloading",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "15",
+   "description": "Base time required for unloading operations (minimum time regardless of volume/weight)",
+   "fieldname": "base_unloading_time_minutes",
+   "fieldtype": "Float",
+   "label": "Base Unloading Time (minutes)"
+  },
+  {
+   "default": "Volume-Based",
+   "description": "How to calculate unloading time based on cargo",
+   "fieldname": "unloading_time_calculation_method",
+   "fieldtype": "Select",
+   "label": "Unloading Time Calculation Method",
+   "options": "Fixed Time\nVolume-Based\nWeight-Based\nVolume and Weight Combined"
+  },
+  {
+   "default": "5",
+   "depends_on": "eval:in_list(['Volume-Based', 'Volume and Weight Combined'], doc.unloading_time_calculation_method)",
+   "description": "Additional minutes per cubic meter of volume",
+   "fieldname": "unloading_time_per_volume_m3",
+   "fieldtype": "Float",
+   "label": "Unloading Time per m\u00b3 (minutes)"
+  },
+  {
+   "default": "2",
+   "depends_on": "eval:in_list(['Weight-Based', 'Volume and Weight Combined'], doc.unloading_time_calculation_method)",
+   "description": "Additional minutes per 100kg of weight",
+   "fieldname": "unloading_time_per_weight_kg",
+   "fieldtype": "Float",
+   "label": "Unloading Time per 100kg (minutes)"
+  },
+  {
+   "default": "0",
+   "description": "Maximum unloading time cap (0 = no limit)",
+   "fieldname": "max_unloading_time_minutes",
+   "fieldtype": "Float",
+   "label": "Maximum Unloading Time (minutes)"
+  },
+  {
+   "fieldname": "column_break_gjrq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "with_equipment",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "With Equipment"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-10 19:11:51.307518",
+ "modified": "2026-01-26 15:25:57.178039",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Pick and Drop Mode",

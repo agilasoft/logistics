@@ -1,0 +1,276 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:name",
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "general_section",
+  "default_provider",
+  "column_break_general",
+  "enabled",
+  "lalamove_section",
+  "lalamove_enabled",
+  "lalamove_api_key",
+  "lalamove_api_secret",
+  "lalamove_environment",
+  "lalamove_market",
+  "column_break_lalamove",
+  "lalamove_webhook_secret",
+  "transportify_section",
+  "transportify_enabled",
+  "transportify_api_key",
+  "transportify_api_secret",
+  "column_break_transportify",
+  "transportify_environment",
+  "transportify_webhook_secret",
+  "grabexpress_section",
+  "grabexpress_enabled",
+  "grabexpress_api_key",
+  "grabexpress_api_secret",
+  "column_break_grabexpress",
+  "grabexpress_environment",
+  "pandago_section",
+  "pandago_enabled",
+  "pandago_api_key",
+  "pandago_api_secret",
+  "column_break_pandago",
+  "pandago_environment",
+  "ninjavan_section",
+  "ninjavan_enabled",
+  "ninjavan_api_key",
+  "ninjavan_api_secret",
+  "column_break_ninjavan",
+  "ninjavan_environment"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_section",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "fieldname": "default_provider",
+   "fieldtype": "Select",
+   "label": "Default Provider",
+   "options": "lalamove\ntransportify\ngrabexpress\npandago\nninjavan",
+   "default": "lalamove"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": 1,
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "ODDS Integration Enabled"
+  },
+  {
+   "fieldname": "lalamove_section",
+   "fieldtype": "Section Break",
+   "label": "Lalamove Settings"
+  },
+  {
+   "default": 0,
+   "fieldname": "lalamove_enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "lalamove_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "lalamove_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "lalamove_environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Sandbox\nProduction",
+   "default": "Sandbox"
+  },
+  {
+   "fieldname": "lalamove_market",
+   "fieldtype": "Data",
+   "label": "Market Code",
+   "placeholder": "e.g., HK_HKG, SG_SIN"
+  },
+  {
+   "fieldname": "column_break_lalamove",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lalamove_webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret"
+  },
+  {
+   "fieldname": "transportify_section",
+   "fieldtype": "Section Break",
+   "label": "Transportify Settings"
+  },
+  {
+   "default": 0,
+   "fieldname": "transportify_enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "transportify_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "transportify_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "column_break_transportify",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transportify_environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Sandbox\nProduction",
+   "default": "Sandbox"
+  },
+  {
+   "fieldname": "transportify_webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret"
+  },
+  {
+   "fieldname": "grabexpress_section",
+   "fieldtype": "Section Break",
+   "label": "GrabExpress Settings"
+  },
+  {
+   "default": 0,
+   "fieldname": "grabexpress_enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "grabexpress_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "grabexpress_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "column_break_grabexpress",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "grabexpress_environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Sandbox\nProduction",
+   "default": "Sandbox"
+  },
+  {
+   "fieldname": "pandago_section",
+   "fieldtype": "Section Break",
+   "label": "PandaGo Settings"
+  },
+  {
+   "default": 0,
+   "fieldname": "pandago_enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "pandago_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "pandago_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "column_break_pandago",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pandago_environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Sandbox\nProduction",
+   "default": "Sandbox"
+  },
+  {
+   "fieldname": "ninjavan_section",
+   "fieldtype": "Section Break",
+   "label": "NinjaVAN Settings"
+  },
+  {
+   "default": 0,
+   "fieldname": "ninjavan_enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "ninjavan_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "ninjavan_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "column_break_ninjavan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ninjavan_environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Sandbox\nProduction",
+   "default": "Sandbox"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "ODDS Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+

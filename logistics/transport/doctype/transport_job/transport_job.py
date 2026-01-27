@@ -21,6 +21,14 @@ class TransportJob(Document):
         except:
             pass
         
+        # Reset status and docstatus for new/duplicated documents
+        # When duplicating, both status and docstatus are copied from the original, so we need to reset them
+        if self.is_new():
+            # Always reset docstatus to 0 for new documents (duplicates may have docstatus = 1)
+            self.docstatus = 0
+            # Always reset status to Draft for new documents (duplicates may have status = Submitted/In Progress/Completed)
+            self.status = "Draft"
+        
         self.validate_required_fields()
         # Validate transport job type - only when it IS set (like Transport Order does)
         # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
@@ -29,6 +37,13 @@ class TransportJob(Document):
         self.validate_legs()
         self.validate_accounts()
         self.validate_status_transition()
+        
+        # Prevent duplicate Transport Jobs for the same transport_order
+        self._validate_no_duplicate_transport_order()
+        
+        # Capacity validation
+        self.validate_vehicle_type_capacity()
+        self.validate_capacity()
         
         # DEBUG: Log after validation
         try:
@@ -51,17 +66,262 @@ class TransportJob(Document):
         
         self.calculate_sustainability_metrics()
         self.create_job_costing_number_if_needed()
-        self.update_status()
+        
+        # Update status - but be careful during submission
+        # Check database directly to see if document is actually submitted (more reliable than self.docstatus)
+        if not self.is_new():
+            db_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
+            db_status = frappe.db.get_value(self.doctype, self.name, "status")
+            
+            # If document is submitted in database but status is Draft, fix it immediately using SQL
+            # This bypasses any hooks that might interfere
+            if db_docstatus == 1 and db_status == "Draft":
+                frappe.db.sql(
+                    f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
+                    (self.name,)
+                )
+                frappe.db.commit()
+                # Reload to get updated status
+                self.reload()
+                return  # Don't call update_status, status is already fixed
+            
+            # If document is submitted, ensure docstatus is set correctly in object
+            if db_docstatus == 1:
+                self.docstatus = 1
+                # Also ensure status is not Draft (safeguard)
+                if db_status == "Draft":
+                    frappe.db.sql(
+                        f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
+                        (self.name,)
+                    )
+                    frappe.db.commit()
+                    self.reload()
+                    return
+        
+        # Skip status update if document is being submitted (flagged with _submitting)
+        if not getattr(self, '_submitting', False):
+            old_status = self.status
+            self.update_status()
+            new_status = self.status
+            
+            # For submitted documents, update status if it changed (but never to Draft)
+            if self.docstatus == 1:
+                if new_status and new_status != "Draft" and old_status != new_status:
+                    self.db_set("status", new_status, update_modified=False)
+                elif new_status == "Draft":
+                    # This should never happen, but force to Submitted as safeguard
+                    self.db_set("status", "Submitted", update_modified=False)
     
     def after_insert(self):
         """Create job costing number for new documents"""
         self.create_job_costing_number_if_needed()
     
+    def before_submit(self):
+        """Mark document as submitting and set status to Submitted"""
+        # Set flag to prevent before_save from calling update_status during submission
+        self._submitting = True
+        
+        # CRITICAL: Set status to "Submitted" BEFORE submission completes
+        # This ensures status is set even if after_submit doesn't run
+        # Use direct SQL to bypass any hooks
+        if not self.is_new():
+            frappe.db.sql(
+                f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
+                (self.name,)
+            )
+            frappe.db.commit()
+            # Also set in the object
+            self.status = "Submitted"
+    
     def after_submit(self):
         """Record sustainability metrics and update status after job submission"""
-        if self.status == "Draft":
-            self.status = "Submitted"
+        # IMPORTANT: Ensure docstatus is 1 (sometimes it's not set in the object yet)
+        # Reload from database to get the actual docstatus
+        current_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
+        if current_docstatus != 1:
+            # If not submitted, something went wrong - log and return
+            frappe.log_error(
+                f"Transport Job {self.name} after_submit called but docstatus is {current_docstatus}, not 1",
+                "Transport Job After Submit Error"
+            )
+            return
+        
+        # Ensure docstatus is set in the object for update_status to work
+        self.docstatus = 1
+        
+        # Clear submitting flag
+        if hasattr(self, '_submitting'):
+            delattr(self, '_submitting')
+        
+        # CRITICAL: Set status to "Submitted" IMMEDIATELY using direct SQL to bypass any hooks
+        # This ensures status is set even if something tries to reset it
+        frappe.db.sql(
+            f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
+            (self.name,)
+        )
+        frappe.db.commit()
+        
+        # Verify status was saved correctly
+        db_status = frappe.db.get_value(self.doctype, self.name, "status")
+        if db_status != "Submitted":
+            # If status wasn't saved correctly, try again with db_set
+            frappe.log_error(
+                f"Transport Job {self.name} status not set to Submitted after SQL update. Current status: {db_status}. Retrying with db_set.",
+                "Transport Job Status Update Error"
+            )
+            self.db_set("status", "Submitted", update_modified=False)
+            frappe.db.commit()
+        
+        # Reload the document to get the latest state
+        self.reload()
+        
+        # Update status based on leg statuses (this may change status to "In Progress" or "Completed" if legs are already in those states)
+        # This allows status to be updated based on current leg statuses after initial submission
+        self.update_status()
+        new_status = self.status
+        
+        # Ensure status is never "Draft" for a submitted document
+        if not new_status or new_status == "Draft":
+            new_status = "Submitted"
+        
+        # Update status in database if it changed from "Submitted"
+        # Always ensure it's set correctly (never Draft for submitted documents)
+        if new_status != "Draft" and new_status != db_status:
+            frappe.db.sql(
+                f"UPDATE `tab{self.doctype}` SET `status` = %s WHERE `name` = %s",
+                (new_status, self.name)
+            )
+            frappe.db.commit()
+            # Publish realtime event for status change
+            frappe.publish_realtime(
+                'transport_job_status_changed',
+                {
+                    'job_name': self.name,
+                    'status': new_status,
+                    'previous_status': db_status,
+                    'docstatus': 1
+                },
+                user=frappe.session.user
+            )
+        
+        # Final verification - ensure status is never Draft for submitted documents
+        final_status = frappe.db.get_value(self.doctype, self.name, "status")
+        if final_status == "Draft":
+            frappe.log_error(
+                f"Transport Job {self.name} status is still Draft after after_submit. Forcing to Submitted via SQL.",
+                "Transport Job Status Update Error"
+            )
+            frappe.db.sql(
+                f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
+                (self.name,)
+            )
+            frappe.db.commit()
+        
         self.record_sustainability_metrics()
+        
+        # Reserve capacity if vehicle is assigned
+        self.reserve_capacity()
+    
+    def after_save(self):
+        """Ensure status is correct after save, especially for submitted documents"""
+        # This hook runs after every save, including after submission
+        # Check database directly to see if document is actually submitted
+        if not self.is_new():
+            db_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
+            db_status = frappe.db.get_value(self.doctype, self.name, "status")
+            
+            # CRITICAL: If document is submitted but status is Draft, fix it immediately
+            # This catches cases where after_submit didn't run or status was reset
+            if db_docstatus == 1 and db_status == "Draft":
+                # Use direct SQL to bypass any hooks and ensure it's saved
+                frappe.db.sql(
+                    f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
+                    (self.name,)
+                )
+                frappe.db.commit()
+                frappe.log_error(
+                    f"Transport Job {self.name} status was Draft after save for submitted document (docstatus=1). Fixed to Submitted in after_save hook.",
+                    "Transport Job Status Fix in after_save"
+                )
+                # Reload to reflect the change
+                self.reload()
+                # After fixing, update based on leg statuses
+                self.docstatus = 1
+                self.update_status()
+                new_status = self.status
+                if new_status and new_status != "Draft" and new_status != "Submitted":
+                    frappe.db.sql(
+                        f"UPDATE `tab{self.doctype}` SET `status` = %s WHERE `name` = %s",
+                        (new_status, self.name)
+                    )
+                    frappe.db.commit()
+                return
+            
+            # For submitted documents, ensure status is correct based on leg statuses
+            if db_docstatus == 1:
+                # Ensure docstatus is set in object
+                self.docstatus = 1
+                
+                # Reload to get latest leg data
+                self.reload()
+                
+                # Update status based on leg statuses (may change to "In Progress" or "Completed")
+                self.update_status()
+                new_status = self.status
+                
+                # Ensure status is never "Draft" for a submitted document
+                if not new_status or new_status == "Draft":
+                    new_status = "Submitted"
+                
+                # Update if status needs to change (always update to ensure it's current)
+                if new_status != "Draft" and new_status != db_status:
+                    frappe.db.sql(
+                        f"UPDATE `tab{self.doctype}` SET `status` = %s WHERE `name` = %s",
+                        (new_status, self.name)
+                    )
+                    frappe.db.commit()
+                    # Log the update for debugging
+                    if new_status != "Submitted":
+                        frappe.log_error(
+                            f"Transport Job {self.name} status updated from '{db_status}' to '{new_status}' in after_save hook based on leg statuses.",
+                            "Transport Job Status Update in after_save"
+                        )
+                    # Publish realtime event for status change
+                    frappe.publish_realtime(
+                        'transport_job_status_changed',
+                        {
+                            'job_name': self.name,
+                            'status': new_status,
+                            'previous_status': db_status,
+                            'docstatus': db_docstatus
+                        },
+                        user=frappe.session.user
+                    )
+    
+    def on_cancel(self):
+        """Handle cancellation - set status to Cancelled and release capacity"""
+        # Get previous status before cancellation
+        previous_status = frappe.db.get_value(self.doctype, self.name, "status") or "Draft"
+        
+        # Set status to Cancelled when document is cancelled
+        # Use db_set to update directly in database (bypasses validation)
+        self.db_set("status", "Cancelled", update_modified=False)
+        frappe.db.commit()
+        
+        # Publish realtime event for status change
+        frappe.publish_realtime(
+            'transport_job_status_changed',
+            {
+                'job_name': self.name,
+                'status': 'Cancelled',
+                'previous_status': previous_status,
+                'docstatus': 2
+            },
+            user=frappe.session.user
+        )
+        
+        # Release capacity if vehicle was assigned
+        self.release_capacity()
     
     def calculate_sustainability_metrics(self):
         """Calculate sustainability metrics for this transport job"""
@@ -152,6 +412,28 @@ class TransportJob(Document):
         if not self.transport_job_type:
             frappe.throw(_("Transport Job Type is required"))
     
+    def _validate_no_duplicate_transport_order(self):
+        """Validate that no duplicate Transport Job exists for the same transport_order"""
+        if not self.transport_order:
+            return  # No transport_order set, skip validation
+        
+        # Check for existing Transport Job with the same transport_order
+        existing = frappe.db.exists(
+            "Transport Job",
+            {
+                "transport_order": self.transport_order,
+                "name": ["!=", self.name]
+            }
+        )
+        
+        if existing:
+            frappe.throw(
+                _("A Transport Job ({0}) already exists for Transport Order {1}. Duplicate Transport Jobs are not allowed.").format(
+                    existing,
+                    self.transport_order
+                )
+            )
+    
     def _validate_transport_job_type(self):
         """Validate transport job type specific business rules - only when transport_job_type IS set."""
         # IMPORTANT: Only validate when transport_job_type IS set (like Transport Order does)
@@ -218,6 +500,13 @@ class TransportJob(Document):
         if not job_legs:
             return
         
+        # Check for duplicate transport_leg values
+        transport_leg_counts = {}
+        for leg in job_legs:
+            transport_leg_name = leg.get("transport_leg")
+            if transport_leg_name:
+                transport_leg_counts[transport_leg_name] = transport_leg_counts.get(transport_leg_name, 0) + 1
+        
         # Fields to fetch from Transport Leg
         fields_to_fetch = [
             "facility_type_from",
@@ -237,6 +526,9 @@ class TransportJob(Document):
             if not transport_leg_name:
                 # If transport_leg is not set, skip this row
                 continue
+            
+            # Check if this transport_leg is a duplicate
+            is_duplicate = transport_leg_counts.get(transport_leg_name, 0) > 1
             
             # Check if any required fields are missing
             has_missing = any(not leg.get(field) for field in fields_to_fetch[:-1])  # Exclude 'date' from required check (it's at the end)
@@ -271,8 +563,27 @@ class TransportJob(Document):
                     if not leg.get("drop_address") and transport_leg.get("drop_address"):
                         leg.drop_address = transport_leg.drop_address
                     
-                    if not leg.get("run_sheet") and transport_leg.get("run_sheet"):
+                    # Don't update run_sheet if there are duplicate transport_leg values
+                    # Check for run_sheet from Transport Leg first
+                    if not leg.get("run_sheet") and transport_leg.get("run_sheet") and not is_duplicate:
                         leg.run_sheet = transport_leg.run_sheet
+                    
+                    # If run_sheet is still missing, check if Transport Leg belongs to a consolidation with a run_sheet
+                    if not leg.get("run_sheet") and transport_leg.get("transport_consolidation") and not is_duplicate:
+                        try:
+                            consolidation_name = transport_leg.get("transport_consolidation")
+                            consolidation_run_sheet = frappe.db.get_value(
+                                "Transport Consolidation",
+                                consolidation_name,
+                                "run_sheet"
+                            )
+                            if consolidation_run_sheet:
+                                leg.run_sheet = consolidation_run_sheet
+                        except Exception as e:
+                            frappe.log_error(
+                                f"Error fetching run_sheet from Transport Consolidation for leg {transport_leg_name}: {str(e)}",
+                                "Transport Job Consolidation Run Sheet Fetch Error"
+                            )
                     
                     # Also update scheduled_date if missing
                     if not leg.get("scheduled_date") and transport_leg.get("date"):
@@ -335,48 +646,78 @@ class TransportJob(Document):
             frappe.throw(_("Cannot cancel Transport Job with Sales Invoice {0}").format(self.sales_invoice))
     
     def update_status(self):
-        """Update status based on job submission and leg statuses"""
+        """Update status based on job submission and leg statuses
+        
+        This method automatically determines the correct status based on:
+        - Document state (docstatus 0 = Draft, docstatus 1 = Submitted/In Progress/Completed, docstatus 2 = Cancelled)
+        - Leg statuses for submitted documents
+        - Ensures status always follows docstatus
+        """
         if self.is_new():
-            if not self.status:
-                self.status = "Draft"
+            # New documents are always Draft
+            self.status = "Draft"
             return
         
-        # If submitted, check leg statuses to determine job status
-        if self.docstatus == 1:  # Submitted
+        # If cancelled (docstatus = 2), status must be Cancelled
+        if self.docstatus == 2:
+            self.status = "Cancelled"
+            return
+        
+        # If draft (docstatus = 0), status must be Draft
+        if self.docstatus == 0:
+            self.status = "Draft"
+            return
+        
+        # If submitted (docstatus = 1), check leg statuses to determine job status
+        # Default to "Submitted" unless legs indicate "In Progress" or "Completed"
+        if self.docstatus == 1:
             legs_field = _get_job_legs_fieldname(self)
             job_legs = self.get(legs_field) or []
             
             if not job_legs:
-                if self.status != "Submitted":
-                    self.status = "Submitted"
+                # No legs - status should be Submitted
+                self.status = "Submitted"
                 return
             
-            # Get all leg statuses
+            # Get all leg statuses directly from database to ensure we have the latest
+            # This is important because leg statuses may have changed since the job was loaded
             leg_statuses = []
             for leg_row in job_legs:
                 transport_leg_name = leg_row.get("transport_leg")
                 if transport_leg_name:
+                    # Always fetch fresh status from database
                     leg_status = frappe.db.get_value("Transport Leg", transport_leg_name, "status")
                     if leg_status:
                         leg_statuses.append(leg_status)
             
             if not leg_statuses:
-                if self.status != "Submitted":
-                    self.status = "Submitted"
+                # No leg statuses found - default to Submitted
+                self.status = "Submitted"
                 return
             
             # Determine job status based on leg statuses
-            if all(status == "Completed" for status in leg_statuses):
-                old_status = self.status
+            # Map Transport Leg statuses to Transport Job statuses:
+            # - "Completed" or "Billed" → "Completed"
+            # - "Started" or "Assigned" → "In Progress"
+            # - "Open" → "Submitted"
+            
+            old_status = self.status
+            
+            if all(status in ["Completed", "Billed"] for status in leg_statuses):
                 self.status = "Completed"
                 # Trigger auto-billing if status changed to Completed
                 if old_status != "Completed":
                     self._trigger_auto_billing()
-            elif any(status in ["In Progress", "Dispatched"] for status in leg_statuses):
-                if self.status not in ["In Progress", "Completed"]:
+            elif any(status in ["Started", "Assigned"] for status in leg_statuses):
+                self.status = "In Progress"
+            elif all(status == "Open" for status in leg_statuses):
+                self.status = "Submitted"
+            else:
+                # Mixed statuses - if any leg is in progress or completed, job is in progress
+                if any(status in ["Started", "Assigned", "Completed", "Billed"] for status in leg_statuses):
                     self.status = "In Progress"
-            elif all(status in ["Draft", "Pending"] for status in leg_statuses):
-                if self.status != "Submitted":
+                else:
+                    # Fallback to Submitted if we can't determine
                     self.status = "Submitted"
     
     def _trigger_auto_billing(self):
@@ -415,6 +756,186 @@ class TransportJob(Document):
             self.job_costing_number = jcn.name
         except Exception as e:
             frappe.log_error(f"Error creating Job Costing Number for Transport Job {self.name}: {str(e)}", "Job Costing Number Creation Error")
+    
+    # ==================== Capacity Management ====================
+    
+    def calculate_capacity_requirements(self) -> Dict[str, Any]:
+        """
+        Calculate total capacity requirements from packages with UOM conversion.
+        
+        Returns:
+            Dictionary with 'weight', 'weight_uom', 'volume', 'volume_uom', 'pallets'
+        """
+        try:
+            from logistics.transport.capacity.uom_conversion import (
+                convert_weight, convert_volume, calculate_volume_from_dimensions,
+                get_default_uoms
+            )
+            default_uoms = get_default_uoms(self.company)
+            
+            total_weight = 0
+            total_volume = 0
+            total_pallets = 0
+            weight_uom = default_uoms['weight']
+            volume_uom = default_uoms['volume']
+            
+            packages = getattr(self, 'packages', []) or []
+            
+            for pkg in packages:
+                # Weight
+                pkg_weight = flt(getattr(pkg, 'weight', 0))
+                if pkg_weight > 0:
+                    pkg_weight_uom = getattr(pkg, 'weight_uom', None) or weight_uom
+                    total_weight += convert_weight(pkg_weight, pkg_weight_uom, weight_uom, self.company)
+                
+                # Volume - prefer direct volume, calculate from dimensions if not available
+                pkg_volume = flt(getattr(pkg, 'volume', 0))
+                if pkg_volume > 0:
+                    pkg_volume_uom = getattr(pkg, 'volume_uom', None) or volume_uom
+                    total_volume += convert_volume(pkg_volume, pkg_volume_uom, volume_uom, self.company)
+                elif hasattr(pkg, 'length') and hasattr(pkg, 'width') and hasattr(pkg, 'height'):
+                    # Calculate from dimensions
+                    length = flt(getattr(pkg, 'length', 0))
+                    width = flt(getattr(pkg, 'width', 0))
+                    height = flt(getattr(pkg, 'height', 0))
+                    if length > 0 and width > 0 and height > 0:
+                        dim_uom = getattr(pkg, 'dimension_uom', None) or default_uoms['dimension']
+                        pkg_volume = calculate_volume_from_dimensions(
+                            length, width, height,
+                            dimension_uom=dim_uom,
+                            volume_uom=volume_uom,
+                            company=self.company
+                        )
+                        total_volume += pkg_volume
+                
+                # Pallets
+                total_pallets += flt(getattr(pkg, 'no_of_packs', 0))
+            
+            return {
+                'weight': total_weight,
+                'weight_uom': weight_uom,
+                'volume': total_volume,
+                'volume_uom': volume_uom,
+                'pallets': total_pallets
+            }
+        except Exception as e:
+            frappe.log_error(f"Error calculating capacity requirements: {str(e)}", "Capacity Calculation Error")
+            return {'weight': 0, 'weight_uom': 'KG', 'volume': 0, 'volume_uom': 'CBM', 'pallets': 0}
+    
+    def validate_vehicle_type_capacity(self):
+        """Validate vehicle type capacity when vehicle_type is assigned"""
+        if not getattr(self, 'vehicle_type', None):
+            return
+        
+        try:
+            from logistics.transport.capacity.capacity_manager import CapacityManager
+            from logistics.transport.capacity.vehicle_type_capacity import get_vehicle_type_capacity_info
+            
+            # Calculate capacity requirements
+            requirements = self.calculate_capacity_requirements()
+            
+            if requirements['weight'] == 0 and requirements['volume'] == 0 and requirements['pallets'] == 0:
+                return  # No requirements to validate
+            
+            # Get vehicle type capacity information
+            capacity_info = get_vehicle_type_capacity_info(self.vehicle_type)
+            
+            # Check capacity with buffer
+            buffer = 10.0 / 100.0  # 10% buffer
+            
+            if requirements['weight'] > 0:
+                max_weight = capacity_info.get('max_weight', 0) * (1 - buffer)
+                if requirements['weight'] > max_weight:
+                    frappe.msgprint(_("Warning: Required weight ({0} {1}) may exceed capacity for vehicle type {2}").format(
+                        requirements['weight'], requirements['weight_uom'], self.vehicle_type
+                    ), indicator='orange')
+            
+            if requirements['volume'] > 0:
+                max_volume = capacity_info.get('max_volume', 0) * (1 - buffer)
+                if requirements['volume'] > max_volume:
+                    frappe.msgprint(_("Warning: Required volume ({0} {1}) may exceed capacity for vehicle type {2}").format(
+                        requirements['volume'], requirements['volume_uom'], self.vehicle_type
+                    ), indicator='orange')
+            
+            if requirements['pallets'] > 0:
+                max_pallets = capacity_info.get('max_pallets', 0) * (1 - buffer)
+                if requirements['pallets'] > max_pallets:
+                    frappe.msgprint(_("Warning: Required pallets ({0}) may exceed capacity for vehicle type {1}").format(
+                        requirements['pallets'], self.vehicle_type
+                    ), indicator='orange')
+        except ImportError:
+            # Capacity management not fully implemented yet
+            pass
+        except Exception as e:
+            frappe.log_error(f"Error validating vehicle type capacity: {str(e)}", "Capacity Validation Error")
+    
+    def validate_capacity(self):
+        """Validate capacity if vehicle is assigned"""
+        if not getattr(self, 'vehicle', None):
+            return
+        
+        try:
+            from logistics.transport.capacity.capacity_manager import CapacityManager
+            
+            requirements = self.calculate_capacity_requirements()
+            
+            if requirements['weight'] == 0 and requirements['volume'] == 0 and requirements['pallets'] == 0:
+                return  # No requirements to validate
+            
+            manager = CapacityManager(self.company)
+            check_result = manager.check_capacity_sufficient(
+                self.vehicle,
+                {
+                    'weight': requirements['weight'],
+                    'volume': requirements['volume'],
+                    'pallets': requirements['pallets']
+                }
+            )
+            
+            if not check_result['sufficient']:
+                if manager.settings.get('strict_validation', True):
+                    frappe.throw(_("Insufficient vehicle capacity:\n{0}").format(
+                        "\n".join(check_result['warnings'])
+                    ))
+                else:
+                    for warning in check_result['warnings']:
+                        frappe.msgprint(warning, indicator='orange')
+            elif check_result['warnings']:
+                for warning in check_result['warnings']:
+                    frappe.msgprint(warning, indicator='yellow')
+        except ImportError:
+            # Capacity management not fully implemented yet
+            pass
+        except Exception as e:
+            frappe.log_error(f"Error validating capacity: {str(e)}", "Capacity Validation Error")
+    
+    def reserve_capacity(self):
+        """Reserve capacity when job is assigned to vehicle"""
+        if not getattr(self, 'vehicle', None) or self.docstatus != 1:  # Only for submitted jobs
+            return
+        
+        try:
+            from logistics.transport.capacity.capacity_reserver import reserve_job_capacity
+            reserve_job_capacity(self)
+        except ImportError:
+            # Capacity reserver not implemented yet
+            pass
+        except Exception as e:
+            frappe.log_error(f"Error reserving capacity: {str(e)}", "Capacity Reservation Error")
+    
+    def release_capacity(self):
+        """Release capacity when job is completed/cancelled"""
+        if not getattr(self, 'vehicle', None):
+            return
+        
+        try:
+            from logistics.transport.capacity.capacity_reserver import release_job_capacity
+            release_job_capacity(self)
+        except ImportError:
+            # Capacity reserver not implemented yet
+            pass
+        except Exception as e:
+            frappe.log_error(f"Error releasing capacity: {str(e)}", "Capacity Release Error")
 
 ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider these "active"
 
@@ -766,12 +1287,32 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     if job.docstatus != 1:
         frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
     
+    # Validate required fields
+    if not job.customer:
+        frappe.throw(_("Customer is required to create Sales Invoice. Please set a customer on the Transport Job."))
+    
+    if not job.company:
+        frappe.throw(_("Company is required to create Sales Invoice. Please set a company on the Transport Job."))
+    
     # Validate all legs are completed
     _validate_all_legs_completed(job)
     
     # Check if Sales Invoice already exists for this job
-    if getattr(job, "sales_invoice", None):
-        frappe.throw(_("Sales Invoice {0} already exists for this Transport Job.").format(job.sales_invoice))
+    existing_sales_invoice = getattr(job, "sales_invoice", None)
+    if existing_sales_invoice:
+        # Check if the Sales Invoice actually exists (it might have been deleted)
+        if frappe.db.exists("Sales Invoice", existing_sales_invoice):
+            frappe.throw(_("Sales Invoice {0} already exists for this Transport Job.").format(existing_sales_invoice))
+        else:
+            # Sales Invoice was deleted, clear the stale reference
+            frappe.db.set_value("Transport Job", job.name, "sales_invoice", None, update_modified=False)
+            frappe.db.commit()
+            # Reload the job document to get the updated value
+            job.reload()
+            frappe.msgprint(
+                _("Cleared stale reference to deleted Sales Invoice {0}. You can now create a new Sales Invoice.").format(existing_sales_invoice),
+                indicator="blue"
+            )
     
     # Create Sales Invoice
     si = frappe.new_doc("Sales Invoice")
@@ -804,37 +1345,67 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     charges = job.get("charges") or []
     si_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
     
+    # Check if there are any charges with item_code
+    valid_charges_count = 0
+    if charges:
+        valid_charges = [ch for ch in charges if getattr(ch, "item_code", None)]
+        valid_charges_count = len(valid_charges)
+        if not valid_charges:
+            frappe.throw(_("Transport Job has charges but none have an Item Code. Please set Item Code on the charges before creating Sales Invoice."))
+    
+    items_created = 0
     if charges:
         # Create items from charges
         for charge in charges:
             item_code = getattr(charge, "item_code", None)
-            item_name = getattr(charge, "item_name", None) or getattr(charge, "charge_type", "Transport Service")
-            description = getattr(charge, "description", None) or item_name
-            qty = flt(getattr(charge, "quantity", 1))
-            rate = flt(getattr(charge, "rate", 0))
-            amount = flt(getattr(charge, "amount", 0))
+            if not item_code:
+                # Skip charges without item_code
+                continue
             
-            # Use amount if provided, otherwise calculate from rate * qty
-            if amount > 0:
-                rate = amount / qty if qty > 0 else amount
+            item_name = getattr(charge, "item_name", None) or "Transport Service"
+            qty = flt(getattr(charge, "quantity", 1))
+            
+            # Transport Job Charges uses 'unit_rate' and 'estimated_revenue'
+            # Use estimated_revenue if available, otherwise use unit_rate
+            unit_rate = flt(getattr(charge, "unit_rate", 0))
+            estimated_revenue = flt(getattr(charge, "estimated_revenue", 0))
+            
+            # Calculate rate: prefer estimated_revenue, fallback to unit_rate
+            # If estimated_revenue exists, calculate rate from it
+            if estimated_revenue > 0:
+                rate = estimated_revenue / qty if qty > 0 else estimated_revenue
+            elif unit_rate > 0:
+                rate = unit_rate
+            else:
+                rate = 0
             
             item_payload = {
+                "item_code": item_code,
                 "item_name": item_name,
-                "description": description,
                 "qty": qty,
                 "rate": rate
             }
             
-            if item_code:
-                item_payload["item_code"] = item_code
+            # Add UOM if available
+            uom = getattr(charge, "uom", None)
+            if uom and "uom" in si_item_fields:
+                item_payload["uom"] = uom
+            
+            # Add description if available (use item_name or revenue_calc_notes)
+            description = getattr(charge, "revenue_calc_notes", None)
+            if description and "description" in si_item_fields:
+                item_payload["description"] = description
+            elif item_name and "description" in si_item_fields:
+                item_payload["description"] = item_name
             
             # Add accounting fields to Sales Invoice Item
-            if getattr(job, "cost_center", None):
+            if getattr(job, "cost_center", None) and "cost_center" in si_item_fields:
                 item_payload["cost_center"] = job.cost_center
-            if getattr(job, "profit_center", None):
+            if getattr(job, "profit_center", None) and "profit_center" in si_item_fields:
                 item_payload["profit_center"] = job.profit_center
             
             si.append("items", item_payload)
+            items_created += 1
     else:
         # Fallback: Create a single item if no charges
         item_name = f"Transport Job: {job.name}"
@@ -866,6 +1437,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             item_payload["profit_center"] = job.profit_center
         
         si.append("items", item_payload)
+        items_created += 1
+    
+    # Validate that at least one item was created
+    if items_created == 0:
+        frappe.throw(_("Cannot create Sales Invoice. No valid items could be created from the charges. Please ensure charges have Item Code and valid amounts."))
     
     # Set missing values and insert
     si.set_missing_values()
@@ -878,12 +1454,13 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
         "ok": True,
         "message": _("Sales Invoice {0} created successfully.").format(si.name),
         "sales_invoice": si.name,
-        "charges_used": len(charges)
+        "charges_used": valid_charges_count,
+        "items_created": items_created
     }
 
 
 def _validate_all_legs_completed(job: Document) -> None:
-    """Validate that all legs in the Transport Job are completed"""
+    """Validate that all legs in the Transport Job are completed or billed"""
     legs_field = _get_job_legs_fieldname(job)
     job_legs = job.get(legs_field) or []
     
@@ -898,12 +1475,14 @@ def _validate_all_legs_completed(job: Document) -> None:
             continue
             
         leg_doc = frappe.get_doc("Transport Leg", transport_leg_name)
-        if leg_doc.status != "Completed":
+        # Accept both "Completed" and "Billed" statuses as valid for billing
+        if leg_doc.status not in ["Completed", "Billed"]:
             incomplete_legs.append(leg_doc)
     
     if incomplete_legs:
         incomplete_names = [leg.name for leg in incomplete_legs]
-        frappe.throw(_("Cannot create Sales Invoice. The following legs are not completed: {0}").format(", ".join(incomplete_names)))
+        incomplete_statuses = [f"{leg.name} ({leg.status})" for leg in incomplete_legs]
+        frappe.throw(_("Cannot create Sales Invoice. The following legs are not completed: {0}").format(", ".join(incomplete_statuses)))
 
 
 @frappe.whitelist()
@@ -928,6 +1507,13 @@ def fetch_missing_leg_data(job_name: str) -> Dict[str, Any]:
     if not job_legs:
         return {"ok": True, "updated_count": 0, "message": _("No legs found in this Transport Job")}
     
+    # Check for duplicate transport_leg values
+    transport_leg_counts = {}
+    for leg in job_legs:
+        transport_leg_name = leg.get("transport_leg")
+        if transport_leg_name:
+            transport_leg_counts[transport_leg_name] = transport_leg_counts.get(transport_leg_name, 0) + 1
+    
     # Fields to fetch from Transport Leg
     fields_to_fetch = [
         "facility_type_from",
@@ -948,6 +1534,9 @@ def fetch_missing_leg_data(job_name: str) -> Dict[str, Any]:
         transport_leg_name = leg.get("transport_leg")
         if not transport_leg_name:
             continue
+        
+        # Check if this transport_leg is a duplicate
+        is_duplicate = transport_leg_counts.get(transport_leg_name, 0) > 1
         
         # Check if any required fields are missing (excluding 'date' which is last)
         has_missing = any(not leg.get(field) for field in fields_to_fetch[:-1])
@@ -1001,10 +1590,31 @@ def fetch_missing_leg_data(job_name: str) -> Dict[str, Any]:
                                        transport_leg.drop_address, update_modified=False)
                     updated_this_leg = True
                 
-                if not leg.get("run_sheet") and transport_leg.get("run_sheet"):
+                # Don't update run_sheet if there are duplicate transport_leg values
+                # Check for run_sheet from Transport Leg first
+                if not leg.get("run_sheet") and transport_leg.get("run_sheet") and not is_duplicate:
                     frappe.db.set_value("Transport Job Legs", leg.name, "run_sheet", 
                                        transport_leg.run_sheet, update_modified=False)
                     updated_this_leg = True
+                
+                # If run_sheet is still missing, check if Transport Leg belongs to a consolidation with a run_sheet
+                if not leg.get("run_sheet") and transport_leg.get("transport_consolidation") and not is_duplicate:
+                    try:
+                        consolidation_name = transport_leg.get("transport_consolidation")
+                        consolidation_run_sheet = frappe.db.get_value(
+                            "Transport Consolidation",
+                            consolidation_name,
+                            "run_sheet"
+                        )
+                        if consolidation_run_sheet:
+                            frappe.db.set_value("Transport Job Legs", leg.name, "run_sheet", 
+                                               consolidation_run_sheet, update_modified=False)
+                            updated_this_leg = True
+                    except Exception as e:
+                        frappe.log_error(
+                            f"Error fetching run_sheet from Transport Consolidation for leg {transport_leg_name}: {str(e)}",
+                            "Fetch Missing Leg Data Error"
+                        )
                 
                 if not leg.get("scheduled_date") and transport_leg.get("date"):
                     frappe.db.set_value("Transport Job Legs", leg.name, "scheduled_date", 
@@ -1019,6 +1629,29 @@ def fetch_missing_leg_data(job_name: str) -> Dict[str, Any]:
                     f"Error fetching data from Transport Leg {transport_leg_name}: {str(e)}",
                     "Fetch Missing Leg Data Error"
                 )
+        
+        # Always check for consolidation run_sheet, even if other fields are not missing
+        # But skip if this transport_leg is a duplicate
+        is_duplicate = transport_leg_counts.get(transport_leg_name, 0) > 1
+        if not leg.get("run_sheet") and not is_duplicate:
+            try:
+                transport_leg = frappe.get_doc("Transport Leg", transport_leg_name)
+                if transport_leg.get("transport_consolidation"):
+                    consolidation_name = transport_leg.get("transport_consolidation")
+                    consolidation_run_sheet = frappe.db.get_value(
+                        "Transport Consolidation",
+                        consolidation_name,
+                        "run_sheet"
+                    )
+                    if consolidation_run_sheet:
+                        frappe.db.set_value("Transport Job Legs", leg.name, "run_sheet", 
+                                           consolidation_run_sheet, update_modified=False)
+                        updated_count += 1
+            except Exception as e:
+                frappe.log_error(
+                    f"Error fetching run_sheet from Transport Consolidation for leg {transport_leg_name}: {str(e)}",
+                    "Fetch Missing Leg Data Error"
+                )
     
     # Commit the changes
     frappe.db.commit()
@@ -1027,4 +1660,181 @@ def fetch_missing_leg_data(job_name: str) -> Dict[str, Any]:
         "ok": True,
         "updated_count": updated_count,
         "message": _("Updated {0} leg(s) with missing data").format(updated_count)
+    }
+
+
+@frappe.whitelist()
+def fix_submitted_job_status(job_name: str) -> Dict[str, Any]:
+    """
+    Fix status for a submitted Transport Job that is still showing as Draft.
+    This can happen if after_submit hook didn't run properly.
+    
+    Args:
+        job_name: Name of the Transport Job
+        
+    Returns:
+        Dict with status and updated status value
+    """
+    if not job_name:
+        frappe.throw(_("Transport Job name is required"))
+    
+    # Get current status from database directly
+    current_status = frappe.db.get_value("Transport Job", job_name, "status")
+    current_docstatus = frappe.db.get_value("Transport Job", job_name, "docstatus")
+    
+    # Only fix if document is submitted but status is Draft or None
+    if current_docstatus == 1 and (not current_status or current_status == "Draft"):
+        job = frappe.get_doc("Transport Job", job_name)
+        job.docstatus = 1  # Ensure docstatus is set for update_status
+        
+        # First, always set to "Submitted" for submitted documents
+        frappe.db.set_value("Transport Job", job_name, "status", "Submitted", update_modified=False)
+        frappe.db.commit()
+        
+        # Then call update_status to determine correct status based on leg statuses
+        job.reload()
+        job.update_status()
+        new_status = job.status
+        
+        # If update_status determined a different status (In Progress or Completed), update it
+        # But ensure it's never "Draft" for a submitted document
+        if new_status and new_status != "Draft" and new_status != "Submitted":
+            frappe.db.set_value("Transport Job", job_name, "status", new_status, update_modified=False)
+            frappe.db.commit()
+        elif not new_status or new_status == "Draft":
+            # Fallback: ensure status is always "Submitted" for submitted documents
+            frappe.db.set_value("Transport Job", job_name, "status", "Submitted", update_modified=False)
+            frappe.db.commit()
+            new_status = "Submitted"
+        
+        return {
+            "ok": True,
+            "message": _("Status updated from {0} to {1}").format(current_status or "Draft", new_status),
+            "old_status": current_status or "Draft",
+            "new_status": new_status
+        }
+    else:
+        return {
+            "ok": False,
+            "message": _("Document is not submitted or status is already correct"),
+            "current_status": current_status,
+            "docstatus": current_docstatus
+        }
+
+
+@frappe.whitelist()
+def update_run_sheet_from_consolidation(job_name: str):
+    """
+    Update run_sheet in Transport Job Legs from Transport Consolidation if available.
+    This works even for submitted documents.
+    
+    Args:
+        job_name: Name of the Transport Job
+        
+    Returns:
+        Dict with status and count of updated legs
+    """
+    if not job_name:
+        frappe.throw(_("Transport Job name is required"))
+    
+    job = frappe.get_doc("Transport Job", job_name)
+    legs_field = _get_job_legs_fieldname(job)
+    job_legs = job.get(legs_field) or []
+    
+    if not job_legs:
+        return {"ok": True, "updated_count": 0, "message": _("No legs found in this Transport Job")}
+    
+    updated_count = 0
+    
+    for leg in job_legs:
+        transport_leg_name = leg.get("transport_leg")
+        if not transport_leg_name:
+            continue
+        
+        # Only update if run_sheet is missing
+        if not leg.get("run_sheet"):
+            try:
+                transport_leg = frappe.get_doc("Transport Leg", transport_leg_name)
+                if transport_leg.get("transport_consolidation"):
+                    consolidation_name = transport_leg.get("transport_consolidation")
+                    consolidation_run_sheet = frappe.db.get_value(
+                        "Transport Consolidation",
+                        consolidation_name,
+                        "run_sheet"
+                    )
+                    if consolidation_run_sheet:
+                        frappe.db.set_value("Transport Job Legs", leg.name, "run_sheet", 
+                                           consolidation_run_sheet, update_modified=False)
+                        updated_count += 1
+            except Exception as e:
+                frappe.log_error(
+                    f"Error fetching run_sheet from Transport Consolidation for leg {transport_leg_name}: {str(e)}",
+                    "Update Run Sheet From Consolidation Error"
+                )
+    
+    # Commit the changes
+    if updated_count > 0:
+        frappe.db.commit()
+    
+    return {
+        "ok": True,
+        "updated_count": updated_count,
+        "message": _("Updated {0} leg(s) with run_sheet from consolidation").format(updated_count) if updated_count > 0 else _("No updates needed")
+    }
+
+
+@frappe.whitelist()
+def update_run_sheet_from_transport_leg(job_name: str):
+    """
+    Update run_sheet in Transport Job Legs from Transport Leg if available.
+    This works even for submitted documents.
+    This ensures that when a Run Sheet is created from a Transport Job,
+    the run_sheet field in the legs child table is populated dynamically.
+    
+    Args:
+        job_name: Name of the Transport Job
+        
+    Returns:
+        Dict with status and count of updated legs
+    """
+    if not job_name:
+        frappe.throw(_("Transport Job name is required"))
+    
+    job = frappe.get_doc("Transport Job", job_name)
+    legs_field = _get_job_legs_fieldname(job)
+    job_legs = job.get(legs_field) or []
+    
+    if not job_legs:
+        return {"ok": True, "updated_count": 0, "message": _("No legs found in this Transport Job")}
+    
+    updated_count = 0
+    
+    for leg in job_legs:
+        transport_leg_name = leg.get("transport_leg")
+        if not transport_leg_name:
+            continue
+        
+        # Get run_sheet from Transport Leg
+        try:
+            transport_leg_run_sheet = frappe.db.get_value("Transport Leg", transport_leg_name, "run_sheet")
+            
+            # Update if Transport Leg has a run_sheet and it's different from the child table value
+            if transport_leg_run_sheet and transport_leg_run_sheet != leg.get("run_sheet"):
+                frappe.db.set_value("Transport Job Legs", leg.name, "run_sheet", 
+                                   transport_leg_run_sheet, update_modified=False)
+                updated_count += 1
+        except Exception as e:
+            frappe.log_error(
+                f"Error fetching run_sheet from Transport Leg {transport_leg_name} for Transport Job {job_name}: {str(e)}",
+                "Update Run Sheet From Transport Leg Error"
+            )
+    
+    # Commit the changes
+    if updated_count > 0:
+        frappe.db.commit()
+    
+    return {
+        "ok": True,
+        "updated_count": updated_count,
+        "message": _("Updated {0} leg(s) with run_sheet from Transport Leg").format(updated_count) if updated_count > 0 else _("No updates needed")
     }

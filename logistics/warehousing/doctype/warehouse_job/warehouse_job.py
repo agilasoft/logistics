@@ -3569,7 +3569,7 @@ def allocate_items(job_name: str) -> Dict[str, Any]:
             )
         elif job_type == "Putaway":
             result = frappe.call(
-                "logistics.warehousing.api.allocate_putaway",
+                "logistics.warehousing.api_parts.putaway.allocate_putaway",
                 warehouse_job=job_name
             )
         elif job_type == "Move":

@@ -1240,11 +1240,17 @@ def _allocate_hu_to_orders(
         for hu in available_hus:
             hu["_hu_priority"] = 999  # Default low priority (for overflow allocation)
         
-        # Check for specific handling unit in order (should be handled elsewhere, but check here too)
+        # Priority hierarchy: User-set values take absolute priority over policy
+        # 1. Priority 1: User-set specific handling_unit (highest priority)
+        # 2. Priority 2: User-set handling_unit_type (prioritized before policy)
+        # 3. Priority 999: Policy-based selection (lowest priority, only for overflow)
+        
         order_handling_unit = order_row.get("handling_unit")
+        order_handling_unit_type = order_row.get("handling_unit_type")
         
         if order_handling_unit:
-            # Priority 1: Specific handling unit from order
+            # Priority 1: User-set specific handling unit (highest priority)
+            # User manually set a specific handling unit - this takes absolute priority
             specific_hu_found = False
             for hu in available_hus:
                 if hu.get("name") == order_handling_unit:
@@ -1252,30 +1258,35 @@ def _allocate_hu_to_orders(
                     specific_hu_found = True
             
             if not specific_hu_found:
-                # Specific HU not found - fallback to all available HUs (putaway policy)
+                # User-set specific HU not found - fallback to all available HUs (putaway policy)
                 fallback_occurred = True
-                fallback_message = _("Order row {0}: Specified handling unit '{1}' not available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit)
+                fallback_message = _("Order row {0}: User-specified handling unit '{1}' not available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit)
                 warnings.append(fallback_message)
             
             # Return all HUs with priority scores (priority 1 will be allocated first, then overflow from others)
             # This allows overflow allocation from other handling units if needed
             available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
         elif order_handling_unit_type:
-            # Priority 2: Handling unit type from order
+            # Priority 2: User-set handling unit type (prioritized before policy)
+            # User manually set a handling_unit_type - this takes priority over policy-based selection
             type_filtered_found = False
             for hu in available_hus:
                 if hu.get("type") == order_handling_unit_type:
-                    hu["_hu_priority"] = 2
+                    hu["_hu_priority"] = 2  # User-set type gets priority 2 (before policy)
                     type_filtered_found = True
+                else:
+                    # Non-matching types get lower priority (999) - only used for overflow
+                    hu["_hu_priority"] = 999
             
             if not type_filtered_found:
-                # No HUs of specified type - fallback to all available HUs (putaway policy)
+                # User-set type not found - fallback to all available HUs (putaway policy)
                 fallback_occurred = True
-                fallback_message = _("Order row {0}: No handling units of type '{1}' available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit_type)
+                fallback_message = _("Order row {0}: User-specified handling unit type '{1}' not available. Fallback to putaway policy.").format(order_row.get("name", "?"), order_handling_unit_type)
                 warnings.append(fallback_message)
             
-            # Return all HUs with priority scores (priority 2 will be allocated first, then overflow from priority 999)
-            # This allows overflow allocation from other handling_unit_type if needed
+            # Sort by priority first (user-specified type priority 2 comes before policy priority 999)
+            # Then apply policy sorting within each priority group
+            # This ensures user-specified handling_unit_type is ALWAYS prioritized before policy
             available_hus = _order_hus_by_putaway_policy(available_hus, item, company)
         else:
             # No type specified, order by putaway policy
