@@ -36,6 +36,7 @@
   "ata",
   "column_break_ohdu",
   "freight_agent",
+  "uld_type",
   "packages_section",
   "packages",
   "measurements_section",
@@ -265,6 +266,12 @@
    "fieldtype": "Link",
    "label": "Freight Agent",
    "options": "Freight Agent"
+  },
+  {
+   "fieldname": "uld_type",
+   "fieldtype": "Link",
+   "label": "ULD Type",
+   "options": "ULD Type"
   },
   {
    "fieldname": "column_break_bpch",

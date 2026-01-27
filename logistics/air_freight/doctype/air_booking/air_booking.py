@@ -525,6 +525,12 @@ class AirBooking(Document):
 			air_shipment.additional_terms = self.additional_terms
 			air_shipment.airline = self.airline
 			air_shipment.freight_agent = self.freight_agent
+			# Only copy uld_type if it exists as a valid record
+			if self.uld_type and frappe.db.exists("ULD Type", self.uld_type):
+				air_shipment.uld_type = self.uld_type
+			else:
+				# Explicitly clear the field if the record doesn't exist
+				air_shipment.uld_type = None
 			air_shipment.house_type = self.house_type
 			# Only copy release_type if it exists as a valid record
 			if self.release_type and frappe.db.exists("Release Type", self.release_type):

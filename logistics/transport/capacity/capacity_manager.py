@@ -254,8 +254,9 @@ class CapacityManager:
 		if required_weight > 0:
 			if required_weight > available['weight']:
 				sufficient = False
+				weight_uom = available.get('weight_uom') or self.default_uoms.get('weight', '')
 				warnings.append(_("Insufficient weight capacity: Required {0} {1}, Available {2} {1}").format(
-					required_weight, available.get('weight_uom', 'KG'), available['weight']
+					required_weight, weight_uom, available['weight']
 				))
 			elif required_weight > available['weight'] * (self.settings.get('alert_threshold', 80) / 100.0):
 				warnings.append(_("Weight capacity approaching limit: {0}% utilized").format(
@@ -265,8 +266,9 @@ class CapacityManager:
 		if required_volume > 0:
 			if required_volume > available['volume']:
 				sufficient = False
+				volume_uom = available.get('volume_uom') or self.default_uoms.get('volume', '')
 				warnings.append(_("Insufficient volume capacity: Required {0} {1}, Available {2} {1}").format(
-					required_volume, available.get('volume_uom', 'CBM'), available['volume']
+					required_volume, volume_uom, available['volume']
 				))
 			elif required_volume > available['volume'] * (self.settings.get('alert_threshold', 80) / 100.0):
 				warnings.append(_("Volume capacity approaching limit: {0}% utilized").format(

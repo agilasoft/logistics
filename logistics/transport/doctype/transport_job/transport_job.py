@@ -820,7 +820,16 @@ class TransportJob(Document):
             }
         except Exception as e:
             frappe.log_error(f"Error calculating capacity requirements: {str(e)}", "Capacity Calculation Error")
-            return {'weight': 0, 'weight_uom': 'KG', 'volume': 0, 'volume_uom': 'CBM', 'pallets': 0}
+            # Try to get default UOMs from settings, fallback to empty if unavailable
+            try:
+                from logistics.transport.capacity.uom_conversion import get_default_uoms
+                default_uoms = get_default_uoms(self.company)
+                weight_uom = default_uoms.get('weight', '')
+                volume_uom = default_uoms.get('volume', '')
+            except Exception:
+                weight_uom = ''
+                volume_uom = ''
+            return {'weight': 0, 'weight_uom': weight_uom, 'volume': 0, 'volume_uom': volume_uom, 'pallets': 0}
     
     def validate_vehicle_type_capacity(self):
         """Validate vehicle type capacity when vehicle_type is assigned"""

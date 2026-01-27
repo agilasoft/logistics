@@ -123,7 +123,7 @@ website_route_rules = [
 # Installation
 # ------------
 
-# before_install = "logistics.install.before_install"
+before_install = "logistics.install.before_install.before_install"
 after_install = "logistics.install.after_install.after_install"
 # after_migrate = "logistics.patches.v1_1_fix_item_deletion_parent_columns.execute"
 

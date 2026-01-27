@@ -1,0 +1,169 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-27 23:38:03.212095",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "description",
+  "column_break_dwsh",
+  "aircraft_compatibility",
+  "table_eeps",
+  "dimensions_tab",
+  "section_break_kgxc",
+  "length",
+  "length_uom",
+  "column_break_dkdj",
+  "width",
+  "width_uom",
+  "column_break_xtfd",
+  "height",
+  "height_uom",
+  "section_break_tbsl",
+  "tare_weight",
+  "tare_weight_uom",
+  "column_break_fubv",
+  "minimum_chargeable_weight",
+  "minimum_chargeable_weight_uom",
+  "column_break_llco"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_kgxc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "length_uom",
+   "fieldtype": "Link",
+   "label": "Length UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_dkdj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "width_uom",
+   "fieldtype": "Link",
+   "label": "Width UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_xtfd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "height_uom",
+   "fieldtype": "Link",
+   "label": "Height UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_dwsh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "aircraft_compatibility",
+   "fieldtype": "Tab Break",
+   "label": "Aircraft Compatibility"
+  },
+  {
+   "fieldname": "table_eeps",
+   "fieldtype": "Table",
+   "label": "null",
+   "options": "Air Booking Charges"
+  },
+  {
+   "fieldname": "dimensions_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dimensions"
+  },
+  {
+   "fieldname": "section_break_tbsl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "tare_weight",
+   "fieldtype": "Float",
+   "label": "Tare Weight"
+  },
+  {
+   "fieldname": "tare_weight_uom",
+   "fieldtype": "Link",
+   "label": "Tare Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_fubv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "minimum_chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Minimum Chargeable Weight"
+  },
+  {
+   "fieldname": "minimum_chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Minimum Chargeable Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_llco",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-28 00:00:23.183558",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "ULD Type",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
