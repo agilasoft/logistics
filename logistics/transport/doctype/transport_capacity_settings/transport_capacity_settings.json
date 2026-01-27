@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-20 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_capacity_management",
+  "enable_capacity_reservation",
+  "auto_reserve_capacity",
+  "capacity_validation_strict",
+  "default_capacity_buffer",
+  "capacity_alert_threshold",
+  "column_break_1",
+  "snapshot_frequency",
+  "retention_days",
+  "uom_section",
+  "default_dimension_uom",
+  "default_volume_uom",
+  "default_weight_uom",
+  "column_break_uom",
+  "enable_uom_conversion",
+  "require_uom_for_capacity"
+ ],
+ "fields": [
+  {
+   "default": 1,
+   "fieldname": "enable_capacity_management",
+   "fieldtype": "Check",
+   "label": "Enable Capacity Management"
+  },
+  {
+   "default": 1,
+   "fieldname": "enable_capacity_reservation",
+   "fieldtype": "Check",
+   "label": "Enable Capacity Reservation"
+  },
+  {
+   "default": 1,
+   "fieldname": "auto_reserve_capacity",
+   "fieldtype": "Check",
+   "label": "Auto Reserve Capacity on Assignment"
+  },
+  {
+   "default": 1,
+   "fieldname": "capacity_validation_strict",
+   "fieldtype": "Check",
+   "label": "Strict Capacity Validation",
+   "description": "Prevent assignments exceeding capacity"
+  },
+  {
+   "default": 10,
+   "fieldname": "default_capacity_buffer",
+   "fieldtype": "Percent",
+   "label": "Default Capacity Buffer %"
+  },
+  {
+   "default": 80,
+   "fieldname": "capacity_alert_threshold",
+   "fieldtype": "Percent",
+   "label": "Default Alert Threshold %"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Daily",
+   "fieldname": "snapshot_frequency",
+   "fieldtype": "Select",
+   "label": "Utilization Snapshot Frequency",
+   "options": "Hourly\nDaily\nWeekly"
+  },
+  {
+   "default": 90,
+   "fieldname": "retention_days",
+   "fieldtype": "Int",
+   "label": "Snapshot Retention (days)"
+  },
+  {
+   "fieldname": "uom_section",
+   "fieldtype": "Section Break",
+   "label": "Default Units of Measure"
+  },
+  {
+   "default": "CM",
+   "fieldname": "default_dimension_uom",
+   "fieldtype": "Link",
+   "label": "Default Dimension UOM",
+   "options": "UOM",
+   "description": "Default unit for length, width, height (e.g., CM, M, FT)"
+  },
+  {
+   "default": "CBM",
+   "fieldname": "default_volume_uom",
+   "fieldtype": "Link",
+   "label": "Default Volume UOM",
+   "options": "UOM",
+   "description": "Default unit for volume (e.g., CBM, CFT, L)"
+  },
+  {
+   "default": "KG",
+   "fieldname": "default_weight_uom",
+   "fieldtype": "Link",
+   "label": "Default Weight UOM",
+   "options": "UOM",
+   "description": "Default unit for weight (e.g., KG, TON, LB)"
+  },
+  {
+   "fieldname": "column_break_uom",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": 1,
+   "fieldname": "enable_uom_conversion",
+   "fieldtype": "Check",
+   "label": "Enable UOM Conversion",
+   "description": "Automatically convert between different UOMs in capacity calculations"
+  },
+  {
+   "default": 0,
+   "fieldname": "require_uom_for_capacity",
+   "fieldtype": "Check",
+   "label": "Require UOM for Capacity Fields",
+   "description": "Require UOM to be specified for all capacity-related fields"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-01-20 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Capacity Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

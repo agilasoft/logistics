@@ -4,10 +4,177 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 from frappe.utils import today, getdate, flt
 
 
 class SalesQuote(Document):
+	def validate(self):
+		"""Validate Sales Quote including capacity"""
+		self.validate_vehicle_type_capacity()
+	
+	def validate_vehicle_type_capacity(self):
+		"""Validate vehicle type capacity when vehicle_type is assigned"""
+		if not getattr(self, 'vehicle_type', None) or not getattr(self, 'is_transport', None):
+			return
+		
+		try:
+			from logistics.transport.capacity.vehicle_type_capacity import get_vehicle_type_capacity_info
+			from logistics.transport.capacity.uom_conversion import convert_weight, convert_volume, get_default_uoms
+			
+			default_uoms = get_default_uoms(self.company)
+			
+			# Calculate capacity requirements from quote
+			required_weight = flt(getattr(self, 'weight', 0))
+			required_weight_uom = getattr(self, 'weight_uom', None) or default_uoms['weight']
+			required_volume = flt(getattr(self, 'volume', 0))
+			required_volume_uom = getattr(self, 'volume_uom', None) or default_uoms['volume']
+			
+			if required_weight == 0 and required_volume == 0:
+				return  # No requirements to validate
+			
+			# Convert to standard UOMs for comparison
+			required_weight_std = convert_weight(required_weight, required_weight_uom, default_uoms['weight'], self.company)
+			required_volume_std = convert_volume(required_volume, required_volume_uom, default_uoms['volume'], self.company)
+			
+			# Get vehicle type capacity (average or minimum from vehicles of this type)
+			capacity_info = get_vehicle_type_capacity_info(self.vehicle_type, self.company)
+			
+			# Check if capacity is sufficient (compare in standard UOMs)
+			if required_weight_std > 0 and capacity_info.get('max_weight', 0) < required_weight_std:
+				frappe.msgprint(_("Warning: Required weight ({0} {1}) may exceed typical capacity for vehicle type {2}").format(
+					required_weight, required_weight_uom, self.vehicle_type
+				), indicator='orange')
+			
+			if required_volume_std > 0 and capacity_info.get('max_volume', 0) < required_volume_std:
+				frappe.msgprint(_("Warning: Required volume ({0} {1}) may exceed typical capacity for vehicle type {2}").format(
+					required_volume, required_volume_uom, self.vehicle_type
+				), indicator='orange')
+		except ImportError:
+			# Capacity management not fully implemented yet
+			pass
+		except Exception as e:
+			frappe.log_error(f"Error validating vehicle type capacity in Sales Quote: {str(e)}", "Capacity Validation Error")
+	def validate(self):
+		"""Validate Sales Quote data"""
+		self.validate_vehicle_type_load_type()
+		self.validate_vehicle_type_capacity()
+	
+	def validate_vehicle_type_load_type(self):
+		"""Validate that the selected vehicle_type is allowed for the selected load_type"""
+		if not self.vehicle_type or not self.load_type:
+			return
+		
+		# Check if the vehicle_type has the selected load_type in its allowed_load_types
+		allowed_load_types = frappe.db.get_all(
+			"Vehicle Type Load Types",
+			filters={"parent": self.vehicle_type},
+			fields=["load_type"]
+		)
+		
+		allowed_load_type_names = [alt.load_type for alt in allowed_load_types]
+		
+		if self.load_type not in allowed_load_type_names:
+			frappe.throw(
+				_("Vehicle Type '{0}' is not allowed for Load Type '{1}'. Please select a Vehicle Type that allows this Load Type.").format(
+					self.vehicle_type, self.load_type
+				),
+				title=_("Invalid Vehicle Type")
+			)
+	
+	def _determine_transport_job_type(self, current_job_type, load_type, container_type):
+		"""
+		Determine the appropriate transport_job_type based on load_type compatibility.
+		
+		Args:
+			current_job_type: The currently set transport_job_type (may be None)
+			load_type: The load_type name
+			container_type: The container_type (may be None)
+		
+		Returns:
+			str: The appropriate transport_job_type
+		"""
+		if not load_type:
+			# If no load_type, default to Non-Container
+			return current_job_type or "Non-Container"
+		
+		# Get load type's allowed job type flags
+		load_type_doc = frappe.db.get_value(
+			"Load Type",
+			load_type,
+			["container", "non_container", "special", "oversized", "multimodal", "heavy_haul"],
+			as_dict=True
+		)
+		
+		if not load_type_doc:
+			# If load_type doesn't exist, default to Non-Container
+			return current_job_type or "Non-Container"
+		
+		# Map transport_job_type to boolean field name
+		field_map = {
+			"Container": "container",
+			"Non-Container": "non_container",
+			"Special": "special",
+			"Oversized": "oversized",
+			"Multimodal": "multimodal",
+			"Heavy Haul": "heavy_haul"
+		}
+		
+		# Helper function to find the best default job type based on load_type flags
+		def find_best_job_type():
+			"""Find the best default job type based on load_type's allowed flags."""
+			# Priority: Container > Non-Container > Special > Oversized > Multimodal > Heavy Haul
+			if load_type_doc.get("container"):
+				# If Container is allowed and container_type is provided, prefer Container
+				if container_type:
+					return "Container"
+				# If Container is allowed but container_type is missing, check if Non-Container is also allowed
+				if load_type_doc.get("non_container"):
+					return "Non-Container"
+				# If only Container is allowed but container_type is missing, throw error
+				frappe.throw(
+					_("Load Type '{0}' requires Container job type, but Container Type is missing. Please set Container Type in Sales Quote.").format(
+						load_type
+					),
+					title=_("Missing Container Type")
+				)
+			elif load_type_doc.get("non_container"):
+				return "Non-Container"
+			elif load_type_doc.get("special"):
+				return "Special"
+			elif load_type_doc.get("oversized"):
+				return "Oversized"
+			elif load_type_doc.get("multimodal"):
+				return "Multimodal"
+			elif load_type_doc.get("heavy_haul"):
+				return "Heavy Haul"
+			else:
+				# No job types are allowed for this load_type, default to Non-Container
+				# (validation will catch this later)
+				return "Non-Container"
+		
+		# If transport_job_type is already set, validate it's compatible with load_type
+		if current_job_type:
+			allowed_field = field_map.get(current_job_type)
+			if allowed_field and load_type_doc.get(allowed_field):
+				# Current job type is allowed, but check if Container requires container_type
+				if current_job_type == "Container" and not container_type:
+					# Container job type requires container_type, check if Non-Container is also allowed
+					if load_type_doc.get("non_container"):
+						return "Non-Container"
+					# If only Container is allowed but container_type is missing, throw error
+					frappe.throw(
+						_("Container job type requires Container Type, but it is missing. Please set Container Type in Sales Quote."),
+						title=_("Missing Container Type")
+					)
+				return current_job_type
+			else:
+				# Current job type is not allowed for this load_type, find an alternative
+				return find_best_job_type()
+		
+		# No job type set, determine default based on load_type's allowed job types
+		return find_best_job_type()
+	
 	@frappe.whitelist()
 	def create_transport_order_from_sales_quote(self):
 		"""
@@ -25,10 +192,8 @@ class SalesQuote(Document):
 			if not self.transport:
 				frappe.throw(_("No transport details found in this Sales Quote."))
 			
-			# Check if a Transport Order already exists for this Sales Quote
-			existing_transport_order = frappe.db.exists("Transport Order", {"sales_quote": self.name})
-			if existing_transport_order:
-				frappe.throw(_("A Transport Order has already been created from this Sales Quote."))
+			# Note: Allow multiple Transport Orders from the same Sales Quote (as per UI requirements)
+			# Removed check that prevented multiple orders from same Sales Quote
 			
 			# Create new Transport Order
 			transport_order = frappe.new_doc("Transport Order")
@@ -36,7 +201,7 @@ class SalesQuote(Document):
 			# Map basic fields from Sales Quote to Transport Order
 			transport_order.customer = self.customer
 			transport_order.booking_date = today()  # Use current system date
-			transport_order.sales_quote = self.name
+			transport_order.sales_quote = self.name  # Set Sales Quote number (e.g., SQU000000158)
 			transport_order.transport_template = getattr(self, 'transport_template', None)
 			transport_order.load_type = self.load_type
 			transport_order.vehicle_type = self.vehicle_type
@@ -54,14 +219,12 @@ class SalesQuote(Document):
 			if container_type:
 				transport_order.container_type = container_type
 			
-			# Handle transport_job_type validation: if it's "Container" but container_type is missing,
-			# set transport_job_type to "Non-Container" to avoid validation errors (user can change it later)
-			if transport_order.transport_job_type == "Container" and not container_type:
-				transport_order.transport_job_type = "Non-Container"
-			
-			# Ensure transport_job_type is set (it's a required field)
-			if not transport_order.transport_job_type:
-				transport_order.transport_job_type = "Non-Container"
+			# Determine appropriate transport_job_type based on load_type compatibility
+			transport_order.transport_job_type = self._determine_transport_job_type(
+				transport_order.transport_job_type,
+				transport_order.load_type,
+				container_type
+			)
 			
 			# Debug: Log sales_quote and transport_template fields
 			frappe.log_error(f"SQ: {self.name}", "Debug Sales Quote")
@@ -79,11 +242,30 @@ class SalesQuote(Document):
 			except Exception as e:
 				frappe.log_error(f"Error setting location fields: {str(e)}", "Debug Location Fields Error")
 			
-			# Populate charges from Sales Quote Transport BEFORE insert
+			# Set flags to skip validations when creating from Sales Quote
+			transport_order.flags.skip_container_no_validation = True
+			transport_order.flags.skip_vehicle_type_validation = True
+			transport_order.flags.skip_special_requirements_validation = True
+			# Flag to prevent on_change from interfering when creating from Sales Quote
+			transport_order.flags.skip_sales_quote_on_change = True
+			
+			# Insert the Transport Order first
+			transport_order.insert(ignore_permissions=True)
+			
+			# Reload the document to ensure we're working with the saved state
+			transport_order.reload()
+			
+			# Re-set flag after reload to prevent on_change from interfering
+			transport_order.flags.skip_sales_quote_on_change = True
+			
+			# Ensure sales_quote field is preserved after reload
+			transport_order.sales_quote = self.name
+			
+			# Populate charges from Sales Quote Transport AFTER insert to ensure they're saved
 			_populate_charges_from_sales_quote(transport_order, self)
 			
-			# Insert the Transport Order (this will save charges too)
-			transport_order.insert(ignore_permissions=True)
+			# Save the Transport Order again to persist the charges and sales_quote
+			transport_order.save(ignore_permissions=True)
 			
 			# Debug: Log final values after save
 			frappe.log_error(f"Final: SQ={transport_order.sales_quote}, T={getattr(transport_order, 'transport_template', 'NONE')}", "Debug Final Basic")
@@ -103,6 +285,12 @@ class SalesQuote(Document):
 					frappe.log_error(f"Legs Added: {leg_plan_result.get('legs_added', 0)}", "Debug Leg Count")
 					frappe.log_error(f"Template: {leg_plan_result.get('template', 'NONE')}", "Debug Leg Template")
 					frappe.log_error(f"Success: {leg_plan_result.get('ok', False)}", "Debug Leg Success")
+					
+					# Ensure sales_quote field is preserved after leg plan creation
+					transport_order.reload()
+					transport_order.sales_quote = self.name
+					transport_order.flags.skip_sales_quote_on_change = True
+					transport_order.save(ignore_permissions=True)
 				except Exception as e:
 					frappe.log_error(f"Error running Get Leg Plan: {str(e)}", "Debug Leg Plan Error")
 			
@@ -124,11 +312,15 @@ class SalesQuote(Document):
 			}
 			
 		except Exception as e:
+			error_msg = str(e)
+			# Truncate error message for logging if too long (error log title has 140 char limit)
+			# Keep log message short - just the essential info
+			log_msg = f"SQ {self.name}: {error_msg[:100]}" if len(error_msg) > 100 else f"SQ {self.name}: {error_msg}"
 			frappe.log_error(
-				f"Error creating Transport Order from Sales Quote {self.name}: {str(e)}",
+				log_msg,
 				"Sales Quote to Transport Order Creation Error"
 			)
-			frappe.throw(f"Error creating Transport Order: {str(e)}")
+			frappe.throw(f"Error creating Transport Order: {error_msg}")
 
 	@frappe.whitelist()
 	def create_air_shipment_from_sales_quote(self):
@@ -900,6 +1092,37 @@ def create_sea_booking_from_sales_quote(sales_quote_name):
 	"""
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
 	return sales_quote.create_sea_booking_from_sales_quote()
+
+
+@frappe.whitelist()
+def get_vehicle_types_for_load_type(load_type):
+	"""
+	Get list of Vehicle Types that have the specified load_type in their allowed_load_types.
+	
+	Args:
+		load_type: The Load Type name to filter by
+		
+	Returns:
+		dict: List of Vehicle Type names that allow the specified load_type
+	"""
+	if not load_type:
+		return {"vehicle_types": []}
+	
+	# Verify that the load_type exists
+	if not frappe.db.exists("Load Type", load_type):
+		return {"vehicle_types": []}
+	
+	# Get all Vehicle Types that have this load_type in their allowed_load_types child table
+	vehicle_types = frappe.db.sql("""
+		SELECT DISTINCT parent
+		FROM `tabVehicle Type Load Types`
+		WHERE load_type = %s
+		AND parent IS NOT NULL
+	""", (load_type,), as_dict=True)
+	
+	vehicle_type_names = [vt.parent for vt in vehicle_types if vt.parent]
+	
+	return {"vehicle_types": vehicle_type_names}
 
 
 def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):

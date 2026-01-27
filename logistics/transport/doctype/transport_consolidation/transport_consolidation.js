@@ -3,7 +3,7 @@
 
 frappe.ui.form.on("Transport Consolidation", {
 	refresh(frm) {
-		// Add custom button to fetch consolidatable jobs
+		// Add custom button to fetch jobs (always show dialog for manual selection)
 		frm.add_custom_button(__("Jobs"), function() {
 			fetch_consolidatable_jobs(frm);
 		}, __("Fetch"));
@@ -14,20 +14,105 @@ frappe.ui.form.on("Transport Consolidation", {
 				create_run_sheet_from_consolidation(frm);
 			}, __("Create"));
 		}
+		
+		// Set query filter for transport_job field in child table
+		// Exclude jobs that have any leg with run_sheet assigned
+		frm.set_query("transport_job", "transport_jobs", function() {
+			// Call server method to get filters
+			let filters = { docstatus: 1 }; // Default: only submitted jobs
+			
+			frappe.call({
+				method: "logistics.transport.doctype.transport_consolidation_job.transport_consolidation_job.get_transport_job_filter",
+				async: false,
+				callback: function(r) {
+					if (r.message) {
+						filters = r.message;
+					}
+				}
+			});
+			
+			return {
+				filters: filters
+			};
+		});
 	},
+	
+	consolidation_type(frm) {
+		// When consolidation_type changes in the form, update the dialog if it's open
+		if (frm._consolidation_dialog && frm._consolidation_dialog.fields_dict && 
+		    frm._consolidation_dialog.fields_dict.filter_consolidation_type) {
+			const current_dialog_value = frm._consolidation_dialog.fields_dict.filter_consolidation_type.get_value() || "";
+			const form_value = frm.doc.consolidation_type || "";
+			if (current_dialog_value !== form_value) {
+				// Prevent recursive update
+				if (frm._consolidation_dialog._updating_from_dialog) {
+					return;
+				}
+				const field = frm._consolidation_dialog.fields_dict.filter_consolidation_type;
+				field.set_value(form_value);
+				// Trigger filter update if filter_jobs function is available
+				if (frm._consolidation_dialog._filter_jobs) {
+					setTimeout(function() {
+						frm._consolidation_dialog._filter_jobs();
+					}, 100);
+				}
+			}
+		}
+	}
 });
 
-function fetch_consolidatable_jobs(frm) {
+// Handle child table events for Transport Consolidation Job
+frappe.ui.form.on("Transport Consolidation Job", {
+	transport_job(frm, cdt, cdn) {
+		// When transport_job is selected, calculate weight and volume from packages
+		let row = locals[cdt][cdn];
+		if (row.transport_job) {
+			// Call server method to calculate weight and volume
+			frappe.call({
+				method: "logistics.transport.doctype.transport_consolidation_job.transport_consolidation_job.calculate_weight_volume_from_job",
+				args: {
+					transport_job: row.transport_job,
+					company: frm.doc.company || null
+				},
+				callback: function(r) {
+					if (r.message) {
+						frappe.model.set_value(cdt, cdn, "weight", r.message.weight || 0);
+						frappe.model.set_value(cdt, cdn, "volume", r.message.volume || 0);
+					}
+				}
+			});
+		} else {
+			// Clear weight and volume if transport_job is cleared
+			frappe.model.set_value(cdt, cdn, "weight", 0);
+			frappe.model.set_value(cdt, cdn, "volume", 0);
+		}
+	}
+});
+
+function fetch_matching_jobs(frm) {
+	// Check if document is saved before fetching jobs
+	if (frm.doc.__islocal) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Transport Consolidation first before fetching matching jobs."),
+			indicator: "orange"
+		});
+		return;
+	}
+	
+	// Automatically find and add matching jobs
 	frappe.call({
-		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_jobs",
+		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.fetch_matching_jobs",
 		args: {
-			consolidation_type: frm.doc.consolidation_type || null,
-			company: frm.doc.company || null,
-			date: frm.doc.consolidation_date || null
+			consolidation_name: frm.doc.name
 		},
 		callback: function(r) {
 			if (r.message && r.message.status === "success") {
-				show_jobs_dialog(frm, r.message.jobs, r.message.consolidation_groups);
+				frappe.show_alert({
+					message: __("Added {0} matching job(s) to consolidation", [r.message.added_count || 0]),
+					indicator: "green"
+				});
+				frm.reload_doc();
 			} else {
 				frappe.show_alert({
 					message: __("Error fetching jobs: {0}", [r.message.message || "Unknown error"]),
@@ -44,30 +129,414 @@ function fetch_consolidatable_jobs(frm) {
 	});
 }
 
-function show_jobs_dialog(frm, jobs, consolidation_groups) {
-	if (!jobs || jobs.length === 0) {
-		frappe.msgprint({
-			title: __("No Jobs Found"),
-			message: __("No consolidatable jobs found matching the criteria."),
-			indicator: "orange"
-		});
-		return;
+function fetch_consolidatable_jobs(frm) {
+	frappe.call({
+		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_jobs",
+		args: {
+			consolidation_type: frm.doc.consolidation_type || null,
+			company: frm.doc.company || null,
+			date: frm.doc.consolidation_date || null,
+			current_consolidation: frm.doc.name && !frm.doc.__islocal ? frm.doc.name : null
+		},
+		callback: function(r) {
+			if (r.message && r.message.status === "success") {
+				show_jobs_dialog(frm, r.message.jobs, r.message.consolidation_groups, r.message.debug);
+			} else {
+				frappe.show_alert({
+					message: __("Error fetching jobs: {0}", [r.message.message || "Unknown error"]),
+					indicator: "red"
+				});
+			}
+		},
+		error: function(r) {
+			frappe.show_alert({
+				message: __("Error fetching jobs"),
+				indicator: "red"
+			});
+		}
+	});
+}
+
+function reload_jobs_with_filter(frm, dialog, consolidation_type) {
+	// Show loading indicator
+	if (dialog.fields_dict.summary_info) {
+		dialog.fields_dict.summary_info.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading jobs...") + '</div>');
 	}
 	
+	// Re-fetch jobs from server with new consolidation_type filter
+	frappe.call({
+		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_jobs",
+		args: {
+			consolidation_type: consolidation_type || null,
+			company: frm.doc.company || null,
+			date: frm.doc.consolidation_date || null,
+			current_consolidation: frm.doc.name && !frm.doc.__islocal ? frm.doc.name : null
+		},
+		callback: function(r) {
+			if (r.message && r.message.status === "success") {
+				// Update the jobs list in the dialog
+				update_dialog_jobs(dialog, r.message.jobs, r.message.consolidation_groups, r.message.debug);
+			} else {
+				frappe.show_alert({
+					message: __("Error fetching jobs: {0}", [r.message.message || "Unknown error"]),
+					indicator: "red"
+				});
+			}
+		},
+		error: function(r) {
+			frappe.show_alert({
+				message: __("Error fetching jobs"),
+				indicator: "red"
+			});
+		}
+	});
+}
+
+function setup_diagnostics_toggle(dialog) {
+	// Setup toggle functionality for collapsible diagnostics section
+	setTimeout(function() {
+		dialog.$wrapper.find('.diagnostics-toggle-header').off('click').on('click', function() {
+			const $header = $(this);
+			const targetId = $header.data('target');
+			const $content = $('#' + targetId);
+			const $icon = $header.find('.diagnostics-toggle-icon');
+			
+			if ($content.is(':visible')) {
+				$content.slideUp(200);
+				$icon.css('transform', 'rotate(0deg)');
+			} else {
+				$content.slideDown(200);
+				$icon.css('transform', 'rotate(180deg)');
+			}
+		});
+	}, 100);
+}
+
+function setup_address_tooltips(dialog) {
+	// Setup tooltip positioning for Route consolidation addresses
+	setTimeout(function() {
+		const $container = dialog.fields_dict.jobs_table.$wrapper.find('.address-tooltip-container');
+		const wrappers = dialog.fields_dict.jobs_table.$wrapper.find('.address-tooltip-wrapper');
+		
+		// Function to update tooltip position
+		function updateTooltipPosition($wrapper, $tooltip, $addressText) {
+			if ($tooltip.is(':visible') || $tooltip.css('visibility') === 'visible') {
+				const rect = $addressText[0].getBoundingClientRect();
+				$tooltip.css({
+					position: 'fixed',
+					left: rect.left + 'px',
+					bottom: (window.innerHeight - rect.top + 8) + 'px',
+					zIndex: 10000
+				});
+			}
+		}
+		
+		wrappers.each(function() {
+			const $wrapper = $(this);
+			const $tooltip = $wrapper.find('.address-tooltip');
+			if ($tooltip.length === 0) return;
+			
+			const $addressText = $wrapper.find('div').first();
+			
+			// Remove existing handlers to avoid duplicates
+			$wrapper.off('mouseenter mouseleave');
+			
+			$wrapper.on('mouseenter', function() {
+				const rect = $addressText[0].getBoundingClientRect();
+				$tooltip.css({
+					position: 'fixed',
+					left: rect.left + 'px',
+					bottom: (window.innerHeight - rect.top + 8) + 'px',
+					zIndex: 10000
+				});
+			});
+			
+			// Update tooltip position on scroll
+			$container.off('scroll.tooltip').on('scroll.tooltip', function() {
+				updateTooltipPosition($wrapper, $tooltip, $addressText);
+			});
+		});
+	}, 100);
+}
+
+function update_dialog_jobs(dialog, jobs, consolidation_groups, debug_info) {
+	// Update the jobs data using the dialog's update function if available
+	if (dialog._update_jobs_data) {
+		dialog._update_jobs_data(jobs, consolidation_groups, debug_info);
+	} else {
+		// Fallback: update directly
+		if (!dialog._jobs_data) {
+			dialog._jobs_data = {};
+		}
+		dialog._jobs_data.all_jobs = jobs || [];
+		dialog._jobs_data.filtered_jobs = jobs || [];
+		dialog._jobs_data.consolidation_groups = consolidation_groups || [];
+		dialog._jobs_data.debug_info = debug_info || {};
+	}
+	
+	// Update the jobs table
+	const table_html = build_jobs_table_html(jobs || [], consolidation_groups || []);
+	if (dialog.fields_dict.jobs_table) {
+		dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+		setup_address_tooltips(dialog);
+	}
+	
+	// Re-apply current filters (if any) to the newly loaded jobs
+	if (dialog._filter_jobs) {
+		setTimeout(function() {
+			dialog._filter_jobs();
+		}, 100);
+	}
+	
+	// Update summary info
+	if (dialog.fields_dict.summary_info) {
+		const has_jobs = jobs && jobs.length > 0;
+		
+		let diagnostics_html = '';
+		if (debug_info) {
+			const diagnostics_id = 'diagnostics_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+			let diagnostics_content = '';
+			diagnostics_content += __("Total jobs found: {0}", [debug_info.total_jobs_found || 0]) + '<br>';
+			diagnostics_content += __("Consolidatable jobs found: {0}", [debug_info.consolidatable_jobs_found || 0]) + '<br>';
+			diagnostics_content += __("Consolidation groups found: {0}", [debug_info.consolidation_groups_found || 0]) + '<br>';
+			
+			if (debug_info.jobs_without_legs > 0) {
+				diagnostics_content += __("Jobs without Transport Legs: {0}", [debug_info.jobs_without_legs]) + '<br>';
+			}
+			if (debug_info.jobs_without_load_type > 0) {
+				diagnostics_content += __("Jobs without Load Type: {0}", [debug_info.jobs_without_load_type]) + '<br>';
+			}
+			if (debug_info.jobs_without_consolidate_flag > 0) {
+				diagnostics_content += __("Jobs without consolidate flag set: {0}", [debug_info.jobs_without_consolidate_flag]) + '<br>';
+			}
+			if (debug_info.jobs_with_invalid_load_type > 0) {
+				diagnostics_content += __("Jobs with Load Type that doesn't allow consolidation (can_handle_consolidation=0): {0}", [debug_info.jobs_with_invalid_load_type]) + '<br>';
+			}
+			if (debug_info.jobs_without_addresses > 0) {
+				diagnostics_content += __("Jobs without pick/drop addresses: {0}", [debug_info.jobs_without_addresses]) + '<br>';
+			}
+			if (debug_info.jobs_already_consolidated > 0) {
+				diagnostics_content += __("Jobs already in consolidations: {0}", [debug_info.jobs_already_consolidated]) + '<br>';
+			}
+			if (debug_info.jobs_with_runsheet > 0) {
+				diagnostics_content += __("Jobs with run sheets assigned: {0}", [debug_info.jobs_with_runsheet]) + '<br>';
+			}
+			if (debug_info.company_filter) {
+				diagnostics_content += __("Company filter: {0}", [debug_info.company_filter]) + '<br>';
+			}
+			if (debug_info.consolidation_type_filter) {
+				diagnostics_content += __("Consolidation type filter: {0}", [debug_info.consolidation_type_filter]) + '<br>';
+			}
+			if (debug_info.current_consolidation) {
+				diagnostics_content += __("Current consolidation: {0}", [debug_info.current_consolidation]) + '<br>';
+			}
+			if (debug_info.message) {
+				diagnostics_content += '<br><em>' + debug_info.message + '</em><br>';
+			}
+			
+			diagnostics_html = '<div style="margin-top: 15px; border-radius: 4px; border-left: 3px solid #ffc107; background-color: #f8f9fa;">';
+			diagnostics_html += '<div class="diagnostics-toggle-header" data-target="' + diagnostics_id + '" style="padding: 10px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">';
+			diagnostics_html += '<strong>' + __("Diagnostics") + '</strong>';
+			diagnostics_html += '<i class="fa fa-chevron-down diagnostics-toggle-icon" style="transition: transform 0.2s;"></i>';
+			diagnostics_html += '</div>';
+			diagnostics_html += '<div id="' + diagnostics_id + '" class="diagnostics-content" style="display: none; padding: 10px; padding-top: 0;">';
+			diagnostics_html += diagnostics_content;
+			diagnostics_html += '</div>';
+			diagnostics_html += '</div>';
+		}
+	
+	const summary_html = `<div style="margin-bottom: 15px;">
+			<p style="font-size: 13px; color: ${has_jobs ? '#6c757d' : '#dc3545'};">
+				${has_jobs ? 
+					`Found <strong>${jobs.length}</strong> job(s) that can be consolidated.` :
+					`<strong>No consolidatable jobs found</strong> matching the criteria.`
+				}
+				${consolidation_groups && consolidation_groups.length > 0 ? 
+					`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : 
+					(has_jobs ? '<br>No consolidation groups found (jobs may not share common pick/drop addresses).' : '')
+				}
+			</p>
+			${diagnostics_html}
+		</div>`;
+		dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+		
+		// Setup toggle functionality for diagnostics
+		setup_diagnostics_toggle(dialog);
+	}
+	
+	// Update select all checkbox state
+	if (dialog.fields_dict.select_all) {
+		const total = dialog.$wrapper.find('.job-checkbox').length;
+		const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
+		dialog.fields_dict.select_all.set_value(checked === total && total > 0);
+	}
+	
+	// Re-setup event handlers for checkboxes
+	dialog.$wrapper.on('change', '.job-checkbox', function() {
+		const total = dialog.$wrapper.find('.job-checkbox').length;
+		const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
+		if (dialog.fields_dict.select_all) {
+			dialog.fields_dict.select_all.set_value(checked === total && total > 0);
+		}
+	});
+}
+
+function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
+	// Always show the dialog, even when no jobs are found
 	let selected_jobs = [];
+	let all_jobs = jobs || []; // Store original jobs list
+	let filtered_jobs = jobs || []; // Current filtered list
+	let has_jobs = jobs && jobs.length > 0;
+	
+	// Store jobs data in a way that can be accessed by update_dialog_jobs
+	// This will be attached to the dialog object later
+	
+	// Get unique values for filter dropdowns
+	const unique_customers = has_jobs ? [...new Set(jobs.map(j => j.customer).filter(Boolean))].sort() : [];
+	
+	// Collect all unique address IDs from pick_addresses and drop_addresses arrays
+	const all_pick_address_ids = new Set();
+	const all_drop_address_ids = new Set();
+	if (has_jobs) {
+		jobs.forEach(function(job) {
+			if (job.pick_addresses && Array.isArray(job.pick_addresses)) {
+				job.pick_addresses.forEach(function(addr) {
+					all_pick_address_ids.add(addr);
+				});
+			}
+			if (job.drop_addresses && Array.isArray(job.drop_addresses)) {
+				job.drop_addresses.forEach(function(addr) {
+					all_drop_address_ids.add(addr);
+				});
+			}
+		});
+	}
+	
+	
+	// Build diagnostics HTML
+	let diagnostics_html = '';
+	if (debug_info) {
+		const diagnostics_id = 'diagnostics_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+		let diagnostics_content = '';
+		diagnostics_content += __("Total jobs found: {0}", [debug_info.total_jobs_found || 0]) + '<br>';
+		diagnostics_content += __("Consolidatable jobs found: {0}", [debug_info.consolidatable_jobs_found || 0]) + '<br>';
+		diagnostics_content += __("Consolidation groups found: {0}", [debug_info.consolidation_groups_found || 0]) + '<br>';
+		
+		if (debug_info.jobs_without_legs > 0) {
+			diagnostics_content += __("Jobs without Transport Legs: {0}", [debug_info.jobs_without_legs]) + '<br>';
+		}
+		if (debug_info.jobs_without_load_type > 0) {
+			diagnostics_content += __("Jobs without Load Type: {0}", [debug_info.jobs_without_load_type]) + '<br>';
+		}
+		if (debug_info.jobs_without_consolidate_flag > 0) {
+			diagnostics_content += __("Jobs without consolidate flag set: {0}", [debug_info.jobs_without_consolidate_flag]) + '<br>';
+		}
+		if (debug_info.jobs_with_invalid_load_type > 0) {
+			diagnostics_content += __("Jobs with Load Type that doesn't allow consolidation (can_handle_consolidation=0): {0}", [debug_info.jobs_with_invalid_load_type]) + '<br>';
+		}
+		if (debug_info.jobs_without_addresses > 0) {
+			diagnostics_content += __("Jobs without pick/drop addresses: {0}", [debug_info.jobs_without_addresses]) + '<br>';
+		}
+		if (debug_info.jobs_already_consolidated > 0) {
+			diagnostics_content += __("Jobs already in consolidations: {0}", [debug_info.jobs_already_consolidated]) + '<br>';
+		}
+		if (debug_info.jobs_with_runsheet > 0) {
+			diagnostics_content += __("Jobs with run sheets assigned: {0}", [debug_info.jobs_with_runsheet]) + '<br>';
+		}
+		if (debug_info.company_filter) {
+			diagnostics_content += __("Company filter: {0}", [debug_info.company_filter]) + '<br>';
+		}
+		if (debug_info.consolidation_type_filter) {
+			diagnostics_content += __("Consolidation type filter: {0}", [debug_info.consolidation_type_filter]) + '<br>';
+		}
+		if (debug_info.current_consolidation) {
+			diagnostics_content += __("Current consolidation: {0}", [debug_info.current_consolidation]) + '<br>';
+		}
+		if (debug_info.message) {
+			diagnostics_content += '<br><em>' + debug_info.message + '</em><br>';
+		}
+		
+		diagnostics_html = '<div style="margin-top: 15px; border-radius: 4px; border-left: 3px solid #ffc107; background-color: #f8f9fa;">';
+		diagnostics_html += '<div class="diagnostics-toggle-header" data-target="' + diagnostics_id + '" style="padding: 10px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">';
+		diagnostics_html += '<strong>' + __("Diagnostics") + '</strong>';
+		diagnostics_html += '<i class="fa fa-chevron-down diagnostics-toggle-icon" style="transition: transform 0.2s;"></i>';
+		diagnostics_html += '</div>';
+		diagnostics_html += '<div id="' + diagnostics_id + '" class="diagnostics-content" style="display: none; padding: 10px; padding-top: 0;">';
+		diagnostics_html += diagnostics_content;
+		diagnostics_html += '</div>';
+		diagnostics_html += '</div>';
+	}
 	
 	const dialog = new frappe.ui.Dialog({
-		title: __("Consolidatable Jobs"),
+		title: __("Consolidation Suggestions"),
 		fields: [
 			{
+				fieldname: "summary_info",
 				fieldtype: "HTML",
 				options: `<div style="margin-bottom: 15px;">
-					<p style="font-size: 13px; color: #6c757d;">
-						Found <strong>${jobs.length}</strong> job(s) that can be consolidated.
+					<p style="font-size: 13px; color: ${has_jobs ? '#6c757d' : '#dc3545'};">
+						${has_jobs ? 
+							`Found <strong>${jobs.length}</strong> job(s) that can be consolidated.` :
+							`<strong>No consolidatable jobs found</strong> matching the criteria.`
+						}
 						${consolidation_groups && consolidation_groups.length > 0 ? 
-							`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : ''}
+							`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : 
+							(has_jobs ? '<br>No consolidation groups found (jobs may not share common pick/drop addresses).' : '')
+						}
 					</p>
+					${diagnostics_html}
 				</div>`
+			},
+			{
+				fieldtype: "Section Break",
+				label: __("Filters")
+			},
+			{
+				fieldname: "filter_customer",
+				fieldtype: "Link",
+				label: __("Customer"),
+				options: "Customer",
+				get_query: function() {
+					return {
+						filters: {
+							name: ["in", unique_customers]
+						}
+					};
+				}
+			},
+			{
+				fieldname: "filter_pick_address",
+				fieldtype: "Link",
+				label: __("Pick Address"),
+				options: "Address",
+				get_query: function() {
+					return {
+						filters: {
+							name: ["in", Array.from(all_pick_address_ids)]
+						}
+					};
+				}
+			},
+			{
+				fieldname: "filter_drop_address",
+				fieldtype: "Link",
+				label: __("Drop Address"),
+				options: "Address",
+				get_query: function() {
+					return {
+						filters: {
+							name: ["in", Array.from(all_drop_address_ids)]
+						}
+					};
+				}
+			},
+			{
+				fieldname: "filter_consolidation_type",
+				fieldtype: "Select",
+				label: __("Consolidation Type"),
+				options: "Route\nPick\nDrop\nBoth",
+				default: frm.doc.consolidation_type || "",
+				description: __("Filter jobs by consolidation type pattern. Changes here will update the form field.")
 			},
 			{
 				fieldtype: "Section Break",
@@ -78,18 +547,25 @@ function show_jobs_dialog(frm, jobs, consolidation_groups) {
 				fieldtype: "HTML",
 				options: build_jobs_table_html(jobs, consolidation_groups)
 			},
-			{
-				fieldtype: "Section Break"
-			},
-			{
-				fieldname: "select_all",
-				fieldtype: "Check",
-				label: __("Select All"),
-				default: 0
-			}
+			...(has_jobs ? [
+				{
+					fieldtype: "Section Break"
+				},
+				{
+					fieldname: "select_all",
+					fieldtype: "Check",
+					label: __("Select All"),
+					default: 0
+				}
+			] : [])
 		],
-		primary_action_label: __("Add Selected Jobs"),
+		primary_action_label: has_jobs ? __("Add Selected Jobs") : __("Close"),
 		primary_action: function(values) {
+			if (!has_jobs) {
+				dialog.hide();
+				return;
+			}
+			
 			// Get selected jobs from checkboxes
 			const checkboxes = dialog.$wrapper.find('.job-checkbox:checked');
 			selected_jobs = [];
@@ -106,15 +582,177 @@ function show_jobs_dialog(frm, jobs, consolidation_groups) {
 				return;
 			}
 			
+			// Check if document is saved before adding jobs
+			if (frm.doc.__islocal) {
+				frappe.msgprint({
+					title: __("Save Required"),
+					message: __("Please save the Transport Consolidation first before adding jobs."),
+					indicator: "orange"
+				});
+				return;
+			}
+			
 			add_jobs_to_consolidation(frm, selected_jobs, dialog);
 		}
 	});
 	
 	dialog.show();
 	
-	// Wait for dialog to render, then set up event handlers
+	// Setup tooltips after dialog is shown
+	if (has_jobs && dialog.fields_dict.jobs_table) {
+		setup_address_tooltips(dialog);
+	}
+	
+	// Setup toggle functionality for diagnostics
+	setup_diagnostics_toggle(dialog);
+	
+	// Set initial value of filter_consolidation_type to match form field
+	if (dialog.fields_dict.filter_consolidation_type && frm.doc.consolidation_type) {
+		dialog.fields_dict.filter_consolidation_type.set_value(frm.doc.consolidation_type);
+	}
+	
+	// Store dialog reference and filter function in form for synchronization
+	frm._consolidation_dialog = dialog;
+	
+	// Clean up dialog reference when dialog is closed
+	const original_hide = dialog.hide;
+	dialog.hide = function() {
+		if (frm._consolidation_dialog === dialog) {
+			frm._consolidation_dialog = null;
+		}
+		original_hide.call(this);
+	};
+	
+	// Function to filter jobs based on filter values
+	function filter_jobs() {
+		// Use updated all_jobs from dialog if available
+		const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
+		
+		const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
+		const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
+		const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
+		const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
+		
+		// Note: consolidation_type filtering is done server-side, so we don't filter by it here
+		// The jobs returned from server are already filtered by consolidation_type
+		filtered_jobs = jobs_to_filter.filter(function(job) {
+			// Filter by customer
+			if (filter_customer && job.customer !== filter_customer) {
+				return false;
+			}
+			
+			// Filter by pick address (check if any pick address ID matches)
+			if (filter_pick_address) {
+				const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
+					job.pick_addresses.some(function(addr) {
+						return addr === filter_pick_address;
+					});
+				if (!pick_matches) {
+					return false;
+				}
+			}
+			
+			// Filter by drop address (check if any drop address ID matches)
+			if (filter_drop_address) {
+				const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
+					job.drop_addresses.some(function(addr) {
+						return addr === filter_drop_address;
+					});
+				if (!drop_matches) {
+					return false;
+				}
+			}
+			
+			// Note: consolidation_type filtering is done server-side when jobs are fetched
+			// So we don't need to filter by it here - the jobs are already filtered
+			
+			return true;
+		});
+		
+		// Update the table
+		const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
+		if (dialog.fields_dict.jobs_table) {
+			dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+			setup_address_tooltips(dialog);
+		}
+		
+		// Update select all checkbox state
+		update_select_all_state();
+		
+		// Update count in summary (preserve diagnostics if it exists)
+		if (dialog.fields_dict.summary_info) {
+			const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+			const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+			
+			const summary_html = `<div style="margin-bottom: 15px;">
+				<p style="font-size: 13px; color: #6c757d;">
+					Found <strong>${filtered_jobs.length}</strong> job(s) that can be consolidated.
+					${consolidation_groups && consolidation_groups.length > 0 ? 
+						`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : ''}
+				</p>
+				${diagnostics_html}
+			</div>`;
+			dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+			
+			// Re-setup toggle functionality after updating HTML
+			setup_diagnostics_toggle(dialog);
+		}
+	}
+	
+	// Store filter_jobs function reference in dialog for external access
+	dialog._filter_jobs = filter_jobs;
+	
+	// Wait for dialog to render, then set up event handlers (always set up, even when no jobs)
 	setTimeout(function() {
-		// Handle select all checkbox
+		// Set up filter change handlers
+		// For Link fields, use a combination of events to catch all changes
+		function setup_link_field_handler(field) {
+			if (!field) return;
+			
+			// Listen to input change
+			if (field.$input) {
+				field.$input.on('change', filter_jobs);
+			}
+			
+			// Listen to the autocomplete selection (for Link fields)
+			field.$wrapper.on('change', 'input', filter_jobs);
+			
+			// Override set_value to trigger filter
+			const original_set_value = field.set_value;
+			if (original_set_value) {
+				field.set_value = function(value) {
+					const result = original_set_value.call(this, value);
+					setTimeout(filter_jobs, 100);
+					return result;
+				};
+			}
+		}
+		
+		setup_link_field_handler(dialog.fields_dict.filter_customer);
+		setup_link_field_handler(dialog.fields_dict.filter_pick_address);
+		setup_link_field_handler(dialog.fields_dict.filter_drop_address);
+		
+		// For Select fields, use standard change event
+		if (dialog.fields_dict.filter_consolidation_type) {
+			// Store flag in dialog to prevent recursive updates
+			dialog._updating_from_dialog = false;
+			dialog.fields_dict.filter_consolidation_type.$input.on('change', function() {
+				// Update form field when dialog filter changes
+				const new_value = dialog.fields_dict.filter_consolidation_type.get_value() || "";
+				if (frm.doc.consolidation_type !== new_value && !dialog._updating_from_dialog) {
+					dialog._updating_from_dialog = true;
+					frm.set_value("consolidation_type", new_value);
+					setTimeout(function() {
+						dialog._updating_from_dialog = false;
+					}, 200);
+				}
+				// Re-fetch jobs from server with new consolidation_type filter
+				// This is necessary because the backend filters jobs based on consolidation_type
+				reload_jobs_with_filter(frm, dialog, new_value);
+			});
+		}
+		
+		// Handle select all checkbox (only if it exists)
 		if (dialog.fields_dict.select_all) {
 			dialog.fields_dict.select_all.$input.on('change', function() {
 				const checked = $(this).is(':checked');
@@ -126,7 +764,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups) {
 		dialog.$wrapper.on('change', '.job-checkbox', function() {
 			update_select_all_state();
 		});
-		
+	
 		function update_select_all_state() {
 			const total = dialog.$wrapper.find('.job-checkbox').length;
 			const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
@@ -138,8 +776,91 @@ function show_jobs_dialog(frm, jobs, consolidation_groups) {
 }
 
 function build_jobs_table_html(jobs, consolidation_groups) {
-	let html = `
-		<div style="max-height: 400px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 4px;">
+	if (!jobs || jobs.length === 0) {
+		return `
+			<div style="padding: 20px; text-align: center; color: #6c757d;">
+				<p>${__("No consolidatable jobs available to display.")}</p>
+			</div>
+		`;
+	}
+	
+	// Add custom tooltip CSS styles
+	const tooltip_css = `
+		<style>
+			.address-tooltip-container {
+				position: relative;
+				max-height: 400px;
+				overflow-y: auto;
+				overflow-x: auto;
+				border: 1px solid #d1d5db;
+				border-radius: 4px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+			.address-tooltip-container table {
+				width: 100%;
+				table-layout: auto;
+				margin: 0;
+				border-collapse: collapse;
+			}
+			.address-tooltip-container table th,
+			.address-tooltip-container table td {
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+			}
+			.address-tooltip-wrapper {
+				position: relative;
+				display: inline-block;
+				cursor: pointer;
+				width: 100%;
+				z-index: 1;
+			}
+			.address-tooltip {
+				visibility: hidden;
+				opacity: 0;
+				position: fixed;
+				background: #ff9800;
+				color: #fff;
+				padding: 12px 16px;
+				border-radius: 8px;
+				white-space: normal;
+				z-index: 10000;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+				transition: opacity 0.2s, visibility 0.2s;
+				pointer-events: none;
+				font-size: 13px;
+				line-height: 1.6;
+				min-width: 200px;
+				max-width: 300px;
+			}
+			.address-tooltip::after {
+				content: '';
+				position: absolute;
+				top: 100%;
+				left: 20px;
+				border: 8px solid transparent;
+				border-top-color: #ff9800;
+			}
+			.address-tooltip-wrapper:hover .address-tooltip {
+				visibility: visible;
+				opacity: 1;
+			}
+			.address-tooltip-list {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				white-space: normal;
+			}
+			.address-tooltip-list li {
+				margin: 4px 0;
+				padding: 0;
+				color: #fff;
+			}
+		</style>
+	`;
+	
+	let html = tooltip_css + `
+		<div class="address-tooltip-container">
 			<table class="table table-bordered table-condensed" style="font-size: 12px; margin: 0;">
 				<thead>
 					<tr style="background-color: #f8f9fa;">
@@ -151,11 +872,23 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 						<th style="padding: 8px;">${__("Pick Address")}</th>
 						<th style="padding: 8px;">${__("Drop Address")}</th>
 						<th style="padding: 8px;">${__("Type")}</th>
-						<th style="padding: 8px;">${__("Status")}</th>
 					</tr>
 				</thead>
 				<tbody>
 	`;
+	
+	// Helper function to escape HTML
+	function escapeHtml(text) {
+		if (!text) return '';
+		const map = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#039;'
+		};
+		return text.replace(/[&<>"']/g, m => map[m]);
+	}
 	
 	jobs.forEach(function(job) {
 		let consolidation_badge = '-';
@@ -169,7 +902,69 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 			consolidation_badge = '<span class="badge badge-secondary" style="background-color: #6c757d;">Route</span>';
 		}
 		
-		const status_badge_color = get_status_color(job.status);
+		// Show consolidation status if some legs are already consolidated
+		let consolidation_status = '';
+		if (job.has_partial_consolidation) {
+			consolidation_status = `<span class="badge badge-warning" style="background-color: #ff9800;" title="${__('Some legs are already consolidated')}">
+				${__('Partial')} (${job.available_legs_count}/${job.legs_count})
+			</span>`;
+		}
+		
+		// Build tooltip for Route consolidation type or blank consolidation type with multiple addresses
+		let pick_address_cell = job.pick_address || '-';
+		let drop_address_cell = job.drop_address || '-';
+		let pick_address_tooltip_html = '';
+		let drop_address_tooltip_html = '';
+		
+		// Show tooltip with all addresses when consolidation_type is Route or blank/empty and there are multiple addresses
+		const is_route_or_blank = job.consolidation_type === 'Route' || !job.consolidation_type || job.consolidation_type === '';
+		if (is_route_or_blank) {
+			// Check if there are multiple pick addresses (indicated by "X different" text or multiple titles)
+			const has_multiple_pick = job.pick_address && job.pick_address.includes('different');
+			if (has_multiple_pick && job.pick_address_titles && job.pick_address_titles.length > 1) {
+				// Create numbered list HTML for tooltip
+				const pick_list_items = job.pick_address_titles.map((addr, idx) => 
+					`<li>${idx + 1}. ${escapeHtml(addr)}</li>`
+				).join('');
+				pick_address_tooltip_html = `<ul class="address-tooltip-list">${pick_list_items}</ul>`;
+			}
+			
+			// Check if there are multiple drop addresses (indicated by "X different" text or multiple titles)
+			const has_multiple_drop = job.drop_address && job.drop_address.includes('different');
+			if (has_multiple_drop && job.drop_address_titles && job.drop_address_titles.length > 1) {
+				// Create numbered list HTML for tooltip
+				const drop_list_items = job.drop_address_titles.map((addr, idx) => 
+					`<li>${idx + 1}. ${escapeHtml(addr)}</li>`
+				).join('');
+				drop_address_tooltip_html = `<ul class="address-tooltip-list">${drop_list_items}</ul>`;
+			}
+		}
+		
+		// Build pick address cell with tooltip if needed
+		let pick_cell_html = '';
+		if (pick_address_tooltip_html) {
+			pick_cell_html = `
+				<div class="address-tooltip-wrapper" style="display: inline-block; width: 100%;">
+					<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${pick_address_cell}</div>
+					<div class="address-tooltip">${pick_address_tooltip_html}</div>
+				</div>
+			`;
+		} else {
+			pick_cell_html = `<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pick_address_cell}">${pick_address_cell}</div>`;
+		}
+		
+		// Build drop address cell with tooltip if needed
+		let drop_cell_html = '';
+		if (drop_address_tooltip_html) {
+			drop_cell_html = `
+				<div class="address-tooltip-wrapper" style="display: inline-block; width: 100%;">
+					<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${drop_address_cell}</div>
+					<div class="address-tooltip">${drop_address_tooltip_html}</div>
+				</div>
+			`;
+		} else {
+			drop_cell_html = `<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${drop_address_cell}">${drop_address_cell}</div>`;
+		}
 		
 		html += `
 			<tr>
@@ -178,14 +973,12 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 				</td>
 				<td style="padding: 8px;">
 					<a href="/app/transport-job/${job.name}" target="_blank">${job.name}</a>
+					${consolidation_status ? '<br>' + consolidation_status : ''}
 				</td>
 				<td style="padding: 8px;">${job.customer || '-'}</td>
-				<td style="padding: 8px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.pick_address || '-'}">${job.pick_address || '-'}</td>
-				<td style="padding: 8px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.drop_address || '-'}">${job.drop_address || '-'}</td>
+				<td style="padding: 8px;">${pick_cell_html}</td>
+				<td style="padding: 8px;">${drop_cell_html}</td>
 				<td style="padding: 8px;">${consolidation_badge}</td>
-				<td style="padding: 8px;">
-					<span class="badge badge-${status_badge_color}">${job.status || 'Draft'}</span>
-				</td>
 			</tr>
 		`;
 	});
@@ -197,17 +990,6 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 	`;
 	
 	return html;
-}
-
-function get_status_color(status) {
-	const statusColors = {
-		'Draft': 'secondary',
-		'Submitted': 'primary',
-		'In Progress': 'info',
-		'Completed': 'success',
-		'Cancelled': 'danger'
-	};
-	return statusColors[status] || 'secondary';
 }
 
 function add_jobs_to_consolidation(frm, job_names, dialog) {
@@ -242,6 +1024,16 @@ function add_jobs_to_consolidation(frm, job_names, dialog) {
 }
 
 function create_run_sheet_from_consolidation(frm) {
+	// Check if document is saved before creating Run Sheet
+	if (frm.doc.__islocal) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Transport Consolidation first before creating a Run Sheet."),
+			indicator: "orange"
+		});
+		return;
+	}
+	
 	frappe.call({
 		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.create_run_sheet_from_consolidation",
 		args: {

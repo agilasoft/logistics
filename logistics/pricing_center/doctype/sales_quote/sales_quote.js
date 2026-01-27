@@ -2,19 +2,37 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Sales Quote", {
+	setup(frm) {
+		// Initialize cache for allowed vehicle types
+		frm.allowed_vehicle_types_cache = {};
+	},
+	
+	onload(frm) {
+		// Set up vehicle_type query filter based on load_type
+		if (frm.doc.load_type) {
+			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
+		}
+		frm.events.setup_vehicle_type_query(frm);
+	},
+	
 	refresh(frm) {
-		
+		// Re-apply vehicle_type filter on refresh
+		if (frm.doc.load_type) {
+			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
+		}
+		frm.events.setup_vehicle_type_query(frm);
 		
 		// Add custom button to create Transport Order if quote is One-Off and submitted
 		if (frm.doc.one_off && frm.doc.transport && frm.doc.transport.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
-			// Always show create button - allow multiple Transport Orders from same Sales Quote
-			frm.add_custom_button(__("Create Transport Order"), function() {
-				create_transport_order_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Transport Orders if any exist
+			// Check if Transport Order already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Transport Order", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
+				if (!r || !r.name) {
+					// No existing Transport Order - show create button
+					frm.add_custom_button(__("Create Transport Order"), function() {
+						create_transport_order_from_sales_quote(frm);
+					}, __("Create"));
+				} else {
+					// Transport Order exists - only show view button
 					frm.add_custom_button(__("View Transport Orders"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Transport Order");
@@ -42,14 +60,15 @@ frappe.ui.form.on("Sales Quote", {
 		
 		// Add custom button to create Declaration if quote is One-Off and submitted
 		if (frm.doc.one_off && frm.doc.customs && frm.doc.customs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
-			// Always show create button - allow multiple Declarations from same Sales Quote
-			frm.add_custom_button(__("Create Declaration"), function() {
-				create_declaration_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Declarations if any exist
+			// Check if Declaration already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
+				if (!r || !r.name) {
+					// No existing Declaration - show create button
+					frm.add_custom_button(__("Create Declaration"), function() {
+						create_declaration_from_sales_quote(frm);
+					}, __("Create"));
+				} else {
+					// Declaration exists - only show view button
 					frm.add_custom_button(__("View Declarations"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Declaration");
@@ -60,13 +79,15 @@ frappe.ui.form.on("Sales Quote", {
 		
 		// Add custom button to create Air Shipment if quote is One-Off and has air freight
 		if (frm.doc.one_off && frm.doc.air_freight && frm.doc.air_freight.length > 0 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Create Air Shipment"), function() {
-				create_air_shipment_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Air Shipments if any exist
+			// Check if Air Shipment already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Air Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
+				if (!r || !r.name) {
+					// No existing Air Shipment - show create button
+					frm.add_custom_button(__("Create Air Shipment"), function() {
+						create_air_shipment_from_sales_quote(frm);
+					}, __("Create"));
+				} else {
+					// Air Shipment exists - only show view button
 					frm.add_custom_button(__("View Air Shipments"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Air Shipment");
@@ -77,13 +98,15 @@ frappe.ui.form.on("Sales Quote", {
 		
 		// Add custom button to create Sea Shipment if quote is One-Off and has sea freight
 		if (frm.doc.one_off && frm.doc.sea_freight && frm.doc.sea_freight.length > 0 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Create Sea Shipment"), function() {
-				create_sea_shipment_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Sea Shipments if any exist
+			// Check if Sea Shipment already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Sea Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
+				if (!r || !r.name) {
+					// No existing Sea Shipment - show create button
+					frm.add_custom_button(__("Create Sea Shipment"), function() {
+						create_sea_shipment_from_sales_quote(frm);
+					}, __("Create"));
+				} else {
+					// Sea Shipment exists - only show view button
 					frm.add_custom_button(__("View Sea Shipments"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Sea Shipment");
@@ -94,13 +117,15 @@ frappe.ui.form.on("Sales Quote", {
 		
 		// Add custom button to create Air Booking from current Sales Quote (only when air_freight has data and is One-Off)
 		if (frm.doc.one_off && frm.doc.air_freight && frm.doc.air_freight.length > 0 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Create Air Booking"), function() {
-				create_air_booking_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Air Bookings if any exist
+			// Check if Air Booking already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Air Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
+				if (!r || !r.name) {
+					// No existing Air Booking - show create button
+					frm.add_custom_button(__("Create Air Booking"), function() {
+						create_air_booking_from_sales_quote(frm);
+					}, __("Create"));
+				} else {
+					// Air Booking exists - only show view button
 					frm.add_custom_button(__("View Air Bookings"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Air Booking");
@@ -111,13 +136,15 @@ frappe.ui.form.on("Sales Quote", {
 		
 		// Add custom button to create Sea Booking from current Sales Quote (only when sea_freight has data and is One-Off)
 		if (frm.doc.one_off && frm.doc.sea_freight && frm.doc.sea_freight.length > 0 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Sea Booking"), function() {
-				create_sea_booking_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Sea Bookings if any exist
+			// Check if Sea Booking already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Sea Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
+				if (!r || !r.name) {
+					// No existing Sea Booking - show create button
+					frm.add_custom_button(__("Sea Booking"), function() {
+						create_sea_booking_from_sales_quote(frm);
+					}, __("Create"));
+				} else {
+					// Sea Booking exists - only show view button
 					frm.add_custom_button(__("View Sea Bookings"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Sea Booking");
@@ -126,6 +153,89 @@ frappe.ui.form.on("Sales Quote", {
 			});
 		}
 	},
+	
+	load_type(frm) {
+		// When load_type changes, load allowed vehicle types and filter vehicle_type
+		if (frm.doc.load_type) {
+			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type, function() {
+				// After loading, check if current vehicle_type is still valid
+				if (frm.doc.vehicle_type) {
+					const allowed = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+					if (allowed.length > 0 && !allowed.includes(frm.doc.vehicle_type)) {
+						// Current vehicle_type is not in the allowed list, clear it
+						frm.set_value('vehicle_type', '');
+					}
+				}
+				// Refresh the vehicle_type field to apply new filter
+				frm.refresh_field('vehicle_type');
+			});
+		} else {
+			// If load_type is cleared, also clear vehicle_type and remove filter
+			frm.set_value('vehicle_type', '');
+			frm.events.setup_vehicle_type_query(frm);
+		}
+	},
+	
+	load_allowed_vehicle_types(frm, load_type, callback) {
+		// Load allowed vehicle types for the given load_type and cache them
+		if (!load_type) {
+			if (callback) callback();
+			return;
+		}
+		
+		// Check cache first
+		if (frm.allowed_vehicle_types_cache[load_type]) {
+			if (callback) callback();
+			return;
+		}
+		
+		// Load from server
+		frappe.call({
+			method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_vehicle_types_for_load_type",
+			args: {
+				load_type: load_type
+			},
+			callback: function(r) {
+				if (r.message && r.message.vehicle_types) {
+					frm.allowed_vehicle_types_cache[load_type] = r.message.vehicle_types;
+				} else {
+					frm.allowed_vehicle_types_cache[load_type] = [];
+				}
+				if (callback) callback();
+			}
+		});
+	},
+	
+	setup_vehicle_type_query(frm) {
+		// Set up get_query for vehicle_type to filter based on load_type
+		if (frm.fields_dict.vehicle_type) {
+			frm.fields_dict.vehicle_type.get_query = function() {
+				if (!frm.doc.load_type) {
+					return {
+						filters: {}
+					};
+				}
+				
+				// Get cached allowed vehicle types
+				const allowed_vehicle_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+				
+				if (allowed_vehicle_types.length === 0) {
+					// If no vehicle types are allowed, return empty filter (will show no results)
+					return {
+						filters: {
+							name: ["in", []]
+						}
+					};
+				}
+				
+				return {
+					filters: {
+						name: ["in", allowed_vehicle_types]
+					}
+				};
+			};
+		}
+	}
 	
 });
 
@@ -404,9 +514,32 @@ function trigger_air_freight_calculation(frm, cdt, cdn) {
 }
 
 function create_transport_order_from_sales_quote(frm) {
+	// Check if one-off and order already exists
+	if (frm.doc.one_off) {
+		frappe.db.get_value("Transport Order", {"sales_quote": frm.doc.name}, "name", function(r) {
+			if (r && r.name) {
+				frappe.msgprint({
+					title: __("Cannot Create Multiple Orders"),
+					message: __("This is a One-Off Sales Quote and a Transport Order already exists. Only one order can be created from a One-Off quote."),
+					indicator: "orange"
+				});
+				// Show existing order
+				frappe.set_route("Form", "Transport Order", r.name);
+				return;
+			}
+			// No existing order - proceed with creation
+			show_transport_order_confirmation(frm);
+		});
+	} else {
+		// Not one-off - allow multiple orders
+		show_transport_order_confirmation(frm);
+	}
+}
+
+function show_transport_order_confirmation(frm) {
 	// Show confirmation dialog
 	frappe.confirm(
-		__("Are you sure you want to create a Transport Order from this Sales Quote? You can create multiple orders from the same Sales Quote."),
+		__("Are you sure you want to create a Transport Order from this Sales Quote?"),
 		function() {
 			// Show loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Transport Order..."));
@@ -459,9 +592,32 @@ function create_transport_order_from_sales_quote(frm) {
 }
 
 function create_air_shipment_from_sales_quote(frm) {
+	// Check if one-off and shipment already exists
+	if (frm.doc.one_off) {
+		frappe.db.get_value("Air Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
+			if (r && r.name) {
+				frappe.msgprint({
+					title: __("Cannot Create Multiple Orders"),
+					message: __("This is a One-Off Sales Quote and an Air Shipment already exists. Only one shipment can be created from a One-Off quote."),
+					indicator: "orange"
+				});
+				// Show existing shipment
+				frappe.set_route("Form", "Air Shipment", r.name);
+				return;
+			}
+			// No existing shipment - proceed with creation
+			show_air_shipment_confirmation(frm);
+		});
+	} else {
+		// Not one-off - allow multiple shipments
+		show_air_shipment_confirmation(frm);
+	}
+}
+
+function show_air_shipment_confirmation(frm) {
 	// Show confirmation dialog
 	frappe.confirm(
-		__("Are you sure you want to create an Air Shipment from this Sales Quote? You can create multiple shipments from the same Sales Quote."),
+		__("Are you sure you want to create an Air Shipment from this Sales Quote?"),
 		function() {
 			// Show loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Air Shipment..."));
@@ -513,9 +669,32 @@ function create_air_shipment_from_sales_quote(frm) {
 }
 
 function create_sea_shipment_from_sales_quote(frm) {
+	// Check if one-off and shipment already exists
+	if (frm.doc.one_off) {
+		frappe.db.get_value("Sea Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
+			if (r && r.name) {
+				frappe.msgprint({
+					title: __("Cannot Create Multiple Orders"),
+					message: __("This is a One-Off Sales Quote and a Sea Shipment already exists. Only one shipment can be created from a One-Off quote."),
+					indicator: "orange"
+				});
+				// Show existing shipment
+				frappe.set_route("Form", "Sea Shipment", r.name);
+				return;
+			}
+			// No existing shipment - proceed with creation
+			show_sea_shipment_confirmation(frm);
+		});
+	} else {
+		// Not one-off - allow multiple shipments
+		show_sea_shipment_confirmation(frm);
+	}
+}
+
+function show_sea_shipment_confirmation(frm) {
 	// Show confirmation dialog
 	frappe.confirm(
-		__("Are you sure you want to create a Sea Shipment from this Sales Quote? You can create multiple shipments from the same Sales Quote."),
+		__("Are you sure you want to create a Sea Shipment from this Sales Quote?"),
 		function() {
 			// Show loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Sea Shipment..."));
@@ -621,9 +800,32 @@ function create_warehouse_contract_from_sales_quote(frm) {
 }
 
 function create_air_booking_from_sales_quote(frm) {
+	// Check if one-off and booking already exists
+	if (frm.doc.one_off) {
+		frappe.db.get_value("Air Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
+			if (r && r.name) {
+				frappe.msgprint({
+					title: __("Cannot Create Multiple Orders"),
+					message: __("This is a One-Off Sales Quote and an Air Booking already exists. Only one booking can be created from a One-Off quote."),
+					indicator: "orange"
+				});
+				// Show existing booking
+				frappe.set_route("Form", "Air Booking", r.name);
+				return;
+			}
+			// No existing booking - proceed with creation
+			show_air_booking_confirmation(frm);
+		});
+	} else {
+		// Not one-off - allow multiple bookings
+		show_air_booking_confirmation(frm);
+	}
+}
+
+function show_air_booking_confirmation(frm) {
 	// Show confirmation dialog
 	frappe.confirm(
-		__("Are you sure you want to create an Air Booking from this Sales Quote? You can create multiple bookings from the same Sales Quote."),
+		__("Are you sure you want to create an Air Booking from this Sales Quote?"),
 		function() {
 			// Show loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Air Booking..."));
@@ -675,9 +877,32 @@ function create_air_booking_from_sales_quote(frm) {
 }
 
 function create_sea_booking_from_sales_quote(frm) {
+	// Check if one-off and booking already exists
+	if (frm.doc.one_off) {
+		frappe.db.get_value("Sea Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
+			if (r && r.name) {
+				frappe.msgprint({
+					title: __("Cannot Create Multiple Orders"),
+					message: __("This is a One-Off Sales Quote and a Sea Booking already exists. Only one booking can be created from a One-Off quote."),
+					indicator: "orange"
+				});
+				// Show existing booking
+				frappe.set_route("Form", "Sea Booking", r.name);
+				return;
+			}
+			// No existing booking - proceed with creation
+			show_sea_booking_confirmation(frm);
+		});
+	} else {
+		// Not one-off - allow multiple bookings
+		show_sea_booking_confirmation(frm);
+	}
+}
+
+function show_sea_booking_confirmation(frm) {
 	// Show confirmation dialog
 	frappe.confirm(
-		__("Are you sure you want to create a Sea Booking from this Sales Quote? You can create multiple bookings from the same Sales Quote."),
+		__("Are you sure you want to create a Sea Booking from this Sales Quote?"),
 		function() {
 			// Show loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Sea Booking..."));
@@ -729,9 +954,32 @@ function create_sea_booking_from_sales_quote(frm) {
 }
 
 function create_declaration_from_sales_quote(frm) {
+	// Check if one-off and declaration already exists
+	if (frm.doc.one_off) {
+		frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
+			if (r && r.name) {
+				frappe.msgprint({
+					title: __("Cannot Create Multiple Orders"),
+					message: __("This is a One-Off Sales Quote and a Declaration already exists. Only one declaration can be created from a One-Off quote."),
+					indicator: "orange"
+				});
+				// Show existing declaration
+				frappe.set_route("Form", "Declaration", r.name);
+				return;
+			}
+			// No existing declaration - proceed with creation
+			show_declaration_confirmation(frm);
+		});
+	} else {
+		// Not one-off - allow multiple declarations
+		show_declaration_confirmation(frm);
+	}
+}
+
+function show_declaration_confirmation(frm) {
 	// Show confirmation dialog
 	frappe.confirm(
-		__("Are you sure you want to create a Declaration from this Sales Quote? You can create multiple declarations from the same Sales Quote."),
+		__("Are you sure you want to create a Declaration from this Sales Quote?"),
 		function() {
 			// Show loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Declaration..."));

@@ -1,3 +1,34 @@
+// Helper function to load allowed vehicle types for a load_type and cache them
+function load_allowed_vehicle_types(frm, load_type, callback) {
+	// Load allowed vehicle types for the given load_type and cache them
+	if (!load_type) {
+		if (callback) callback();
+		return;
+	}
+	
+	// Check cache first
+	if (frm.allowed_vehicle_types_cache[load_type]) {
+		if (callback) callback();
+		return;
+	}
+	
+	// Load from server
+	frappe.call({
+		method: "logistics.transport.doctype.transport_order.transport_order.get_vehicle_types_for_load_type",
+		args: {
+			load_type: load_type
+		},
+		callback: function(r) {
+			if (r.message && r.message.vehicle_types) {
+				frm.allowed_vehicle_types_cache[load_type] = r.message.vehicle_types;
+			} else {
+				frm.allowed_vehicle_types_cache[load_type] = [];
+			}
+			if (callback) callback();
+		}
+	});
+}
+
 // Helper function to apply load_type filters (same pattern as vehicle_type)
 function apply_load_type_filters(frm, preserve_existing_value) {
 	// Filter load types based on transport job type and boolean columns
@@ -67,11 +98,34 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 
 frappe.ui.form.on("Transport Order", {
 	setup: function(frm) {
+		// Initialize cache for allowed vehicle types
+		frm.allowed_vehicle_types_cache = {};
 		// Apply load_type filters before field is ever used
 		apply_load_type_filters(frm);
 	},
 
 	onload: function(frm) {
+		// Check if this is a duplicated document with a one-off sales_quote
+		// Clear sales_quote field if it's a one-off quote (server-side validation will also handle this)
+		if (frm.is_new() && frm.doc.sales_quote) {
+			var sales_quote_name = frm.doc.sales_quote;
+			frappe.db.get_value('Sales Quote', sales_quote_name, ['one_off'], function(r) {
+				if (r && r.one_off === 1) {
+					// Clear the sales_quote field and charges
+					frm.set_value('sales_quote', '');
+					if (frm.doc.charges && frm.doc.charges.length > 0) {
+						frm.clear_table('charges');
+						frm.refresh_field('charges');
+					}
+					frappe.msgprint({
+						title: __("Sales Quote Cleared"),
+						message: __("Sales Quote '{0}' is a one-off quote and cannot be duplicated. The Sales Quote field has been cleared.").format(sales_quote_name),
+						indicator: 'orange'
+					});
+				}
+			});
+		}
+		
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
 		// Apply transport job type filters on load (preserve existing values for existing documents)
@@ -83,13 +137,70 @@ frappe.ui.form.on("Transport Order", {
 			apply_load_type_filters(frm, !frm.is_new());
 		}
 		
+		// Set vehicle_type query filter based on load_type (main form)
+		if (frm.fields_dict.vehicle_type) {
+			frm.fields_dict.vehicle_type.get_query = function() {
+				if (!frm.doc.load_type) {
+					return {
+						filters: {}
+					};
+				}
+				
+				// Get cached allowed vehicle types
+				const allowed_vehicle_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+				
+				if (allowed_vehicle_types.length === 0) {
+					// If no vehicle types are allowed, return empty filter (will show no results)
+					return {
+						filters: {
+							name: ["in", []]
+						}
+					};
+				}
+				
+				return {
+					filters: {
+						name: ["in", allowed_vehicle_types]
+					}
+				};
+			};
+		}
+		
+		// Load allowed vehicle types for current load_type if set
+		if (frm.doc.load_type) {
+			load_allowed_vehicle_types(frm, frm.doc.load_type);
+		}
+		
 		// Set vehicle_type query filter for legs grid (once per form)
 		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
 			frm.fields_dict.legs.grid.get_field('vehicle_type').get_query = function () {
 				// 'this' context is the grid row
 				var leg = this;
-				var filters = {};
 				
+				// Filter by load_type if available (from parent or leg)
+				var leg_load_type = leg.load_type || frm.doc.load_type;
+				if (leg_load_type) {
+					// Get cached allowed vehicle types
+					const allowed_vehicle_types = frm.allowed_vehicle_types_cache[leg_load_type] || [];
+					
+					if (allowed_vehicle_types.length === 0) {
+						// If no vehicle types are allowed, return empty filter (will show no results)
+						return {
+							filters: {
+								name: ["in", []]
+							}
+						};
+					}
+					
+					return {
+						filters: {
+							name: ["in", allowed_vehicle_types]
+						}
+					};
+				}
+				
+				// Fallback to transport_job_type filtering if no load_type
+				var filters = {};
 				if (!leg.transport_job_type) {
 					return { filters: {} };
 				}
@@ -120,6 +231,42 @@ frappe.ui.form.on("Transport Order", {
 				
 				return { filters: filters };
 			};
+			
+			// Set pick_address query filter for legs grid
+			var pick_address_field = frm.fields_dict.legs.grid.get_field('pick_address');
+			if (pick_address_field) {
+				pick_address_field.get_query = function () {
+					// 'this' context is the grid row
+					var leg = this;
+					if (leg.facility_type_from && leg.facility_from) {
+						return { 
+							filters: { 
+								link_doctype: leg.facility_type_from, 
+								link_name: leg.facility_from 
+							} 
+						};
+					}
+					return { filters: { name: '__none__' } };
+				};
+			}
+			
+			// Set drop_address query filter for legs grid
+			var drop_address_field = frm.fields_dict.legs.grid.get_field('drop_address');
+			if (drop_address_field) {
+				drop_address_field.get_query = function () {
+					// 'this' context is the grid row
+					var leg = this;
+					if (leg.facility_type_to && leg.facility_to) {
+						return { 
+							filters: { 
+								link_doctype: leg.facility_type_to, 
+								link_name: leg.facility_to 
+							} 
+						};
+					}
+					return { filters: { name: '__none__' } };
+				};
+			}
 		}
 	},
 
@@ -129,6 +276,18 @@ frappe.ui.form.on("Transport Order", {
 			frm.set_value('scheduled_date', '');
 			// Clear the route option to avoid clearing on subsequent refreshes
 			delete frappe.route_options.__clear_scheduled_date;
+		}
+		
+		// Show charges populated message after reload (from sales_quote change)
+		if (frappe.route_options && frappe.route_options.__show_charges_message) {
+			var msg_info = frappe.route_options.__show_charges_message;
+			frappe.msgprint({
+				title: __("Charges Updated"),
+				message: __("Successfully populated {0} charges from Sales Quote: {1}", [msg_info.count, msg_info.sales_quote]),
+				indicator: 'green'
+			});
+			// Clear the route option to avoid showing on subsequent refreshes
+			delete frappe.route_options.__show_charges_message;
 		}
 		
 		// Ensure submit button is available for saved documents (docstatus = 0)
@@ -214,7 +373,12 @@ frappe.ui.form.on("Transport Order", {
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
 		
+		// Apply vehicle_type filters based on load_type on refresh (preserve existing values)
+		if (frm.doc.load_type) {
+			frm.events.apply_vehicle_type_filters_for_load_type(frm, true);
+		}
 		// Apply transport job type filters on refresh (preserve existing values)
+		// Note: This is now secondary to load_type filtering
 		if (frm.doc.transport_job_type) {
 			frm.events.apply_transport_job_type_filters(frm, true);
 		}
@@ -228,8 +392,31 @@ frappe.ui.form.on("Transport Order", {
 			frm.fields_dict.legs.grid.get_field('vehicle_type').get_query = function () {
 				// 'this' context is the grid row
 				var leg = this;
-				var filters = {};
 				
+				// Filter by load_type if available (from parent or leg)
+				var leg_load_type = leg.load_type || frm.doc.load_type;
+				if (leg_load_type) {
+					// Get cached allowed vehicle types
+					const allowed_vehicle_types = frm.allowed_vehicle_types_cache[leg_load_type] || [];
+					
+					if (allowed_vehicle_types.length === 0) {
+						// If no vehicle types are allowed, return empty filter (will show no results)
+						return {
+							filters: {
+								name: ["in", []]
+							}
+						};
+					}
+					
+					return {
+						filters: {
+							name: ["in", allowed_vehicle_types]
+						}
+					};
+				}
+				
+				// Fallback to transport_job_type filtering if no load_type
+				var filters = {};
 				if (!leg.transport_job_type) {
 					return { filters: {} };
 				}
@@ -260,6 +447,47 @@ frappe.ui.form.on("Transport Order", {
 				
 				return { filters: filters };
 			};
+			
+			// Set pick_address query filter for legs grid (ensure it's set on refresh)
+			var pick_address_field = frm.fields_dict.legs.grid.get_field('pick_address');
+			if (pick_address_field) {
+				pick_address_field.get_query = function () {
+					// 'this' context is the grid row
+					var leg = this;
+					if (leg.facility_type_from && leg.facility_from) {
+						return { 
+							filters: { 
+								link_doctype: leg.facility_type_from, 
+								link_name: leg.facility_from 
+							} 
+						};
+					}
+					return { filters: { name: '__none__' } };
+				};
+			}
+			
+			// Set drop_address query filter for legs grid (ensure it's set on refresh)
+			var drop_address_field = frm.fields_dict.legs.grid.get_field('drop_address');
+			if (drop_address_field) {
+				drop_address_field.get_query = function () {
+					// 'this' context is the grid row
+					var leg = this;
+					if (leg.facility_type_to && leg.facility_to) {
+						return { 
+							filters: { 
+								link_doctype: leg.facility_type_to, 
+								link_name: leg.facility_to 
+							} 
+						};
+					}
+					return { filters: { name: '__none__' } };
+				};
+			}
+		}
+		
+		// Load allowed vehicle types for current load_type if set
+		if (frm.doc.load_type) {
+			load_allowed_vehicle_types(frm, frm.doc.load_type);
 		}
 	},
 	
@@ -274,6 +502,40 @@ frappe.ui.form.on("Transport Order", {
 		populate_legs_vehicle_type_from_parent(frm);
 	},
 	
+	load_type: function(frm) {
+		// If load_type is cleared, clear vehicle_type and reset filters
+		if (!frm.doc.load_type) {
+			if (frm.fields_dict.vehicle_type) {
+				frm.fields_dict.vehicle_type.get_query = function() {
+					return { filters: {} };
+				};
+			}
+			if (frm.doc.vehicle_type) {
+				frm.set_value('vehicle_type', '');
+			}
+			frm.refresh_field('vehicle_type');
+			return;
+		}
+		
+		// Load allowed vehicle types for the selected load_type
+		load_allowed_vehicle_types(frm, frm.doc.load_type, function() {
+			// Clear vehicle_type if it's not compatible with new load_type
+			if (frm.doc.vehicle_type) {
+				const allowed_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+				if (!allowed_types.includes(frm.doc.vehicle_type)) {
+					frm.set_value('vehicle_type', '');
+					frappe.msgprint({
+						title: __("Incompatible Vehicle Type"),
+						message: __("Selected vehicle type is not compatible with the selected load type."),
+						indicator: 'orange'
+					});
+				}
+			}
+			// Refresh the field to apply filters
+			frm.refresh_field('vehicle_type');
+		});
+	},
+
 	transport_job_type: function(frm) {
 		// Apply filters and field visibility based on transport job type
 		frm.events.apply_transport_job_type_filters(frm);
@@ -287,6 +549,10 @@ frappe.ui.form.on("Transport Order", {
 		apply_load_type_filters(frm);
 		// Clear invalid value when job type changes
 		frm.set_value('load_type', null);
+		// Clear vehicle_type when load_type is cleared (since vehicle_type depends on load_type)
+		if (frm.doc.vehicle_type) {
+			frm.set_value('vehicle_type', '');
+		}
 	},
 
 	refrigeration: function(frm) {
@@ -312,6 +578,132 @@ frappe.ui.form.on("Transport Order", {
 		}
 	},
 
+	sales_quote: function(frm) {
+		// If sales_quote is cleared, clear charges
+		if (!frm.doc.sales_quote) {
+			// Clear charges table
+			frm.clear_table('charges');
+			frm.refresh_field('charges');
+			return;
+		}
+
+		// Get the Sales Quote to check if it's one-off
+		frappe.db.get_value('Sales Quote', frm.doc.sales_quote, ['one_off'], function(r) {
+			if (r && r.one_off === 1) {
+				// Check if a Transport Order already exists for this Sales Quote
+				// Build filters to exclude the current document if it's being edited
+				var filters = {
+					sales_quote: frm.doc.sales_quote
+				};
+				
+				// If this is an existing document, exclude it from the check
+				if (!frm.is_new() && frm.doc.name) {
+					filters.name = ['!=', frm.doc.name];
+				}
+
+				// Use get_list to check if any Transport Order exists with this sales_quote
+				frappe.db.get_list('Transport Order', {
+					filters: filters,
+					limit: 1,
+					fields: ['name']
+				}).then(function(existing_orders) {
+					if (existing_orders && existing_orders.length > 0) {
+						frappe.msgprint({
+							title: __("Error"),
+							message: __("A Transport Order has already been created from this Sales Quote."),
+							indicator: 'red'
+						});
+						// Clear the sales_quote field
+						frm.set_value('sales_quote', '');
+					}
+				});
+			}
+		});
+
+		// Populate charges from sales_quote
+		var docname = frm.is_new() ? null : frm.doc.name;
+		var was_saved = !frm.is_new() && docname; // Track if document was saved on server
+		
+		frappe.call({
+			method: "logistics.transport.doctype.transport_order.transport_order.populate_charges_from_sales_quote",
+			args: {
+				docname: docname,
+				sales_quote: frm.doc.sales_quote
+			},
+			freeze: true,
+			freeze_message: __("Fetching charges from Sales Quote..."),
+			callback: function(r) {
+				if (r.message) {
+					if (r.message.error) {
+						frappe.msgprint({
+							title: __("Error"),
+							message: r.message.error,
+							indicator: 'red'
+						});
+						return;
+					}
+					
+					if (r.message.message) {
+						frappe.msgprint({
+							title: __("No Charges Found"),
+							message: r.message.message,
+							indicator: 'orange'
+						});
+					}
+					
+					// If document was saved on server, reload to sync timestamp
+					// This prevents "Document has been modified" error
+					// The server-side method now saves the sales_quote field, so it will be preserved on reload
+					if (was_saved) {
+						// Store message info in route_options to show after reload
+						if (r.message.charges_count > 0) {
+							frappe.route_options = frappe.route_options || {};
+							frappe.route_options.__show_charges_message = {
+								count: r.message.charges_count,
+								sales_quote: frm.doc.sales_quote
+							};
+						}
+						frm.reload_doc();
+					} else {
+						// Populate charges in the frontend (only if document wasn't saved on server)
+						if (r.message.charges && r.message.charges.length > 0) {
+							frm.clear_table('charges');
+							r.message.charges.forEach(function(charge) {
+								var row = frm.add_child('charges');
+								// Set values directly on the row object
+								Object.keys(charge).forEach(function(key) {
+									if (charge[key] !== null && charge[key] !== undefined) {
+										row[key] = charge[key];
+									}
+								});
+							});
+							frm.refresh_field('charges');
+							
+							if (r.message.charges_count > 0) {
+								frappe.msgprint({
+									title: __("Charges Updated"),
+									message: __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, frm.doc.sales_quote]),
+									indicator: 'green'
+								});
+							}
+						} else {
+							// Clear charges if none found
+							frm.clear_table('charges');
+							frm.refresh_field('charges');
+						}
+					}
+				}
+			},
+			error: function(r) {
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Failed to populate charges from Sales Quote."),
+					indicator: 'red'
+				});
+			}
+		});
+	},
+
 	consolidate: function(frm) {
 		// Update vehicle_type required state when consolidate checkbox changes
 		frm.events.toggle_vehicle_type_required(frm);
@@ -323,12 +715,55 @@ frappe.ui.form.on("Transport Order", {
 		frm.set_df_property('vehicle_type', 'reqd', is_required);
 	},
 
+	apply_vehicle_type_filters_for_load_type: function(frm, preserve_existing_value) {
+		// Filter vehicle types based on load_type using allowed_load_types
+		// preserve_existing_value: if true, don't clear vehicle_type even if not in filtered list (used during refresh)
+		if (!frm.doc.load_type) {
+			// Clear filters if no load_type selected
+			if (frm.fields_dict.vehicle_type) {
+				frm.fields_dict.vehicle_type.get_query = function() {
+					return { filters: {} };
+				};
+			}
+			frm.refresh_field('vehicle_type');
+			return;
+		}
+
+		// Load allowed vehicle types and then validate
+		load_allowed_vehicle_types(frm, frm.doc.load_type, function() {
+			// Validate current vehicle_type if set
+			if (!preserve_existing_value && frm.doc.vehicle_type) {
+				const allowed_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+				if (!allowed_types.includes(frm.doc.vehicle_type)) {
+					frm.set_value('vehicle_type', '');
+				}
+			}
+			frm.refresh_field('vehicle_type');
+		});
+	},
+
 	apply_transport_job_type_filters: function(frm, preserve_existing_value) {
 		// Filter vehicle types based on transport job type, refrigeration, and boolean columns
+		// NOTE: This is now secondary to load_type filtering. Vehicle type filtering is primarily based on load_type.
 		// preserve_existing_value: if true, don't clear vehicle_type even if not in filtered list (used during refresh)
 		if (!frm.doc.transport_job_type) {
 			// Clear filters if no job type selected
-			frm.set_df_property('vehicle_type', 'filters', {});
+			// But only if load_type is also not set (since vehicle_type now depends on load_type)
+			if (!frm.doc.load_type) {
+				if (frm.fields_dict.vehicle_type) {
+					frm.fields_dict.vehicle_type.get_query = function() {
+						return { filters: {} };
+					};
+				}
+				frm.refresh_field('vehicle_type');
+			}
+			return;
+		}
+
+		// If load_type is set, vehicle_type filtering is handled by load_type
+		// Only apply transport_job_type filters if load_type is not set
+		if (frm.doc.load_type) {
+			// Vehicle type filtering is handled by load_type, so skip transport_job_type filtering
 			return;
 		}
 
@@ -396,7 +831,6 @@ frappe.ui.form.on("Transport Order", {
 		
 		// Container No. field - hidden for Non-Container and other non-container types
 		frm.set_df_property('container_no', 'hidden', !is_container);
-		frm.set_df_property('container_no', 'reqd', is_container);
 		
 		// Clear container fields if not container job type
 		if (!is_container) {
@@ -481,6 +915,18 @@ frappe.ui.form.on("Transport Order", {
 		// This validation only runs on submit, not on save
 		// Note: Server-side validation in Python will also check for required leg fields
 		console.log("before_submit: Starting validation for Transport Order", frm.doc.name);
+		
+		// Validate packages is not empty
+		var packages = frm.doc.packages || [];
+		if (!packages || packages.length === 0) {
+			frappe.msgprint({
+				title: __("Validation Error"),
+				message: __("Packages are required. Please add at least one package before submitting the Transport Order."),
+				indicator: 'red'
+			});
+			return Promise.reject(__("Packages are required. Please add at least one package before submitting the Transport Order."));
+		}
+		
 		return new Promise(function(resolve, reject) {
 			var validation_promises = [];
 			var timeout_id;
@@ -670,6 +1116,53 @@ function populate_legs_transport_job_type_from_parent(frm) {
 	}
 }
 
+// ---------- Auto-fill Address Functions for Transport Order Legs ----------
+async function auto_fill_pick_address(frm, cdt, cdn) {
+	var leg = frappe.get_doc(cdt, cdn);
+	if (!leg.facility_type_from || !leg.facility_from) {
+		return;
+	}
+	
+	try {
+		const result = await frappe.call({
+			method: 'logistics.transport.doctype.transport_order_legs.transport_order_legs.get_primary_address',
+			args: {
+				facility_type: leg.facility_type_from,
+				facility_name: leg.facility_from
+			}
+		});
+		
+		if (result.message && !leg.pick_address) {
+			frappe.model.set_value(cdt, cdn, 'pick_address', result.message);
+		}
+	} catch (error) {
+		console.error('Error auto-filling pick address:', error);
+	}
+}
+
+async function auto_fill_drop_address(frm, cdt, cdn) {
+	var leg = frappe.get_doc(cdt, cdn);
+	if (!leg.facility_type_to || !leg.facility_to) {
+		return;
+	}
+	
+	try {
+		const result = await frappe.call({
+			method: 'logistics.transport.doctype.transport_order_legs.transport_order_legs.get_primary_address',
+			args: {
+				facility_type: leg.facility_type_to,
+				facility_name: leg.facility_to
+			}
+		});
+		
+		if (result.message && !leg.drop_address) {
+			frappe.model.set_value(cdt, cdn, 'drop_address', result.message);
+		}
+	} catch (error) {
+		console.error('Error auto-filling drop address:', error);
+	}
+}
+
 // Child table events for Transport Order Legs
 frappe.ui.form.on('Transport Order Legs', {
 	legs_add: function(frm, cdt, cdn) {
@@ -699,6 +1192,62 @@ frappe.ui.form.on('Transport Order Legs', {
 	vehicle_type: function(frm, cdt, cdn) {
 		// Validate vehicle type compatibility when changed in a leg
 		validate_leg_vehicle_compatibility(frm, cdt, cdn);
+	},
+
+	facility_type_from: function(frm, cdt, cdn) {
+		// Fetch primary address when facility_type_from changes
+		var leg = frappe.get_doc(cdt, cdn);
+		if (leg.facility_type_from && leg.facility_from) {
+			auto_fill_pick_address(frm, cdt, cdn);
+		} else {
+			// Clear pick_address if facility_type_from is cleared
+			if (leg.pick_address) {
+				frappe.model.set_value(cdt, cdn, 'pick_address', '');
+			}
+		}
+		frm.refresh_field('legs');
+	},
+
+	facility_from: function(frm, cdt, cdn) {
+		// Fetch primary address when facility_from changes
+		var leg = frappe.get_doc(cdt, cdn);
+		if (leg.facility_type_from && leg.facility_from) {
+			auto_fill_pick_address(frm, cdt, cdn);
+		} else {
+			// Clear pick_address if facility_from is cleared
+			if (leg.pick_address) {
+				frappe.model.set_value(cdt, cdn, 'pick_address', '');
+			}
+		}
+		frm.refresh_field('legs');
+	},
+
+	facility_type_to: function(frm, cdt, cdn) {
+		// Fetch primary address when facility_type_to changes
+		var leg = frappe.get_doc(cdt, cdn);
+		if (leg.facility_type_to && leg.facility_to) {
+			auto_fill_drop_address(frm, cdt, cdn);
+		} else {
+			// Clear drop_address if facility_type_to is cleared
+			if (leg.drop_address) {
+				frappe.model.set_value(cdt, cdn, 'drop_address', '');
+			}
+		}
+		frm.refresh_field('legs');
+	},
+
+	facility_to: function(frm, cdt, cdn) {
+		// Fetch primary address when facility_to changes
+		var leg = frappe.get_doc(cdt, cdn);
+		if (leg.facility_type_to && leg.facility_to) {
+			auto_fill_drop_address(frm, cdt, cdn);
+		} else {
+			// Clear drop_address if facility_to is cleared
+			if (leg.drop_address) {
+				frappe.model.set_value(cdt, cdn, 'drop_address', '');
+			}
+		}
+		frm.refresh_field('legs');
 	}
 });
 
@@ -830,3 +1379,30 @@ function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 	});
 }
 
+// ---------- Package Volume Calculation Functions ----------
+// Helper function to calculate volume for a package row
+function calculate_package_volume(frm, cdt, cdn) {
+	var package_row = frappe.get_doc(cdt, cdn);
+	if (package_row.length && package_row.width && package_row.height) {
+		// Calculate volume: length × width × height
+		const volume = package_row.length * package_row.width * package_row.height;
+		frappe.model.set_value(cdt, cdn, 'volume', volume);
+	} else {
+		frappe.model.set_value(cdt, cdn, 'volume', 0);
+	}
+}
+
+// Child table events for Transport Order Package
+frappe.ui.form.on('Transport Order Package', {
+	length: function(frm, cdt, cdn) {
+		calculate_package_volume(frm, cdt, cdn);
+	},
+
+	width: function(frm, cdt, cdn) {
+		calculate_package_volume(frm, cdt, cdn);
+	},
+
+	height: function(frm, cdt, cdn) {
+		calculate_package_volume(frm, cdt, cdn);
+	}
+});

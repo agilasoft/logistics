@@ -1,0 +1,324 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-08 11:14:25.685999",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "constraint_name",
+  "constraint_type",
+  "column_break_giva",
+  "start_date",
+  "end_date",
+  "all_day",
+  "start_time",
+  "end_time",
+  "column_break_udjb",
+  "container",
+  "non_container",
+  "special",
+  "oversized",
+  "multimodal",
+  "heavy_haul",
+  "plate_last_digit_coding_column",
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "philippines_specific_rules",
+  "column_break_cezo",
+  "vehicle_type",
+  "weight_limit",
+  "column_break_qtdd",
+  "truck_ban",
+  "ban_time_from",
+  "ban_time_to",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday"
+ ],
+ "fields": [
+  {
+   "fieldname": "constraint_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Constraint Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_giva",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "constraint_type",
+   "fieldtype": "Select",
+   "label": "Constraint Type",
+   "options": "Public Holiday\nLocal Holiday\nTruck Ban\nCoding Scheme\nPort Restriction\nCurfew / LGU Restriction\nWeather / Force Majeure",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "all_day",
+   "fieldtype": "Check",
+   "label": "All Day"
+  },
+  {
+   "depends_on": "eval: !doc.all_day",
+   "fieldname": "start_time",
+   "fieldtype": "Time",
+   "label": "Start Time"
+  },
+  {
+   "depends_on": "eval: !doc.all_day",
+   "fieldname": "end_time",
+   "fieldtype": "Time",
+   "label": "End Time"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "weight_limit",
+   "fieldtype": "Float",
+   "label": "Weight Limit"
+  },
+  {
+   "fieldname": "column_break_udjb",
+   "fieldtype": "Column Break",
+   "label": "Transport Job Type"
+  },
+  {
+   "default": "0",
+   "fieldname": "container",
+   "fieldtype": "Check",
+   "label": "Container"
+  },
+  {
+   "default": "0",
+   "fieldname": "non_container",
+   "fieldtype": "Check",
+   "label": "Non-Container"
+  },
+  {
+   "default": "0",
+   "fieldname": "special",
+   "fieldtype": "Check",
+   "label": "Special"
+  },
+  {
+   "default": "0",
+   "fieldname": "oversized",
+   "fieldtype": "Check",
+   "label": "Oversized"
+  },
+  {
+   "default": "0",
+   "fieldname": "multimodal",
+   "fieldtype": "Check",
+   "label": "Multimodal"
+  },
+  {
+   "default": "0",
+   "fieldname": "heavy_haul",
+   "fieldtype": "Check",
+   "label": "Heavy Haul"
+  },
+  {
+   "fieldname": "column_break_cezo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "monday",
+   "fieldtype": "Check",
+   "label": "Monday"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "tuesday",
+   "fieldtype": "Check",
+   "label": "Tuesday"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "wednesday",
+   "fieldtype": "Check",
+   "label": "Wednesday"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "thursday",
+   "fieldtype": "Check",
+   "label": "Thursday"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "friday",
+   "fieldtype": "Check",
+   "label": "Friday"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "saturday",
+   "fieldtype": "Check",
+   "label": "Saturday"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "sunday",
+   "fieldtype": "Check",
+   "label": "Sunday"
+  },
+  {
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "ban_time_to",
+   "fieldtype": "Time",
+   "label": "Ban Time To"
+  },
+  {
+   "fieldname": "plate_last_digit_coding_column",
+   "fieldtype": "Column Break",
+   "label": "Plate Last Digit (Coding)"
+  },
+  {
+   "default": "0",
+   "fieldname": "0",
+   "fieldtype": "Check",
+   "label": "0"
+  },
+  {
+   "default": "0",
+   "fieldname": "1",
+   "fieldtype": "Check",
+   "label": "1"
+  },
+  {
+   "default": "0",
+   "fieldname": "2",
+   "fieldtype": "Check",
+   "label": "2"
+  },
+  {
+   "default": "0",
+   "fieldname": "3",
+   "fieldtype": "Check",
+   "label": "3"
+  },
+  {
+   "default": "0",
+   "fieldname": "4",
+   "fieldtype": "Check",
+   "label": "4"
+  },
+  {
+   "default": "0",
+   "fieldname": "5",
+   "fieldtype": "Check",
+   "label": "5"
+  },
+  {
+   "default": "0",
+   "fieldname": "6",
+   "fieldtype": "Check",
+   "label": "6"
+  },
+  {
+   "default": "0",
+   "fieldname": "7",
+   "fieldtype": "Check",
+   "label": "7"
+  },
+  {
+   "default": "0",
+   "fieldname": "8",
+   "fieldtype": "Check",
+   "label": "8"
+  },
+  {
+   "default": "0",
+   "fieldname": "9",
+   "fieldtype": "Check",
+   "label": "9"
+  },
+  {
+   "default": "0",
+   "fieldname": "truck_ban",
+   "fieldtype": "Check",
+   "label": "Truck Ban"
+  },
+  {
+   "depends_on": "eval: doc.truck_ban",
+   "fieldname": "ban_time_from",
+   "fieldtype": "Time",
+   "label": "Ban Time From"
+  },
+  {
+   "fieldname": "philippines_specific_rules",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_qtdd",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-09 15:09:19.135069",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Scheduling Constraint",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

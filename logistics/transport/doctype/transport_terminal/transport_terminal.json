@@ -8,8 +8,17 @@
  "field_order": [
   "code",
   "terminal_name",
-  "column_break_kgcb",
-  "address"
+  "addresses_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_nivp",
+  "contact_html",
+  "section_break_vizq",
+  "transportterminal_primary_address",
+  "primary_address",
+  "column_break_umfc",
+  "transportterminal_primary_contact",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -24,20 +33,64 @@
    "label": "Terminal Name"
   },
   {
-   "fieldname": "column_break_kgcb",
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addresses and Contacts"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "transportterminal_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_nivp",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "address",
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_vizq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_umfc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transportterminal_primary_contact",
    "fieldtype": "Link",
-   "label": "Address",
-   "options": "Address"
+   "label": "Primary Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Text",
+   "label": "Primary Address"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-04 01:22:55.259965",
+ "modified": "2026-01-15 19:03:28.166551",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Terminal",

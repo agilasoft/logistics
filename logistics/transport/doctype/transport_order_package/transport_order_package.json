@@ -16,7 +16,7 @@
   "no_of_packs",
   "column_break_3",
   "length",
-  "widht",
+  "width",
   "height",
   "volume",
   "weight",
@@ -76,6 +76,7 @@
    "options": "Commodity"
   },
   {
+   "fetch_from": "commodity.default_hs_code",
    "fieldname": "hs_code",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -147,13 +148,6 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Length"
-  },
-  {
-   "columns": 1,
-   "fieldname": "widht",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Width"
   },
   {
    "columns": 1,
@@ -397,11 +391,18 @@
    "fieldname": "goods_details_section",
    "fieldtype": "Section Break",
    "label": "Goods Details"
+  },
+  {
+   "columns": 1,
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2025-10-22 18:53:56.081268",
+ "modified": "2026-01-25 22:57:56.452202",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Package",

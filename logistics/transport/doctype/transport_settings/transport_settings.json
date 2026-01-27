@@ -28,6 +28,41 @@
   "telematics_tab",
   "default_telematics_provider",
   "telematics_poll_interval_min",
+  "constraint_features_tab",
+  "section_constraint_features",
+  "enable_constraint_system",
+  "constraint_checking_mode",
+  "column_break_constraints",
+  "enable_time_window_constraints",
+  "enable_address_day_availability",
+  "enable_plate_coding_constraints",
+  "enable_truck_ban_constraints",
+  "enable_adhoc_factors",
+  "section_routing_constraints",
+  "use_routing_service_for_distance",
+  "require_vehicle_avg_speed",
+  "cache_route_distances",
+  "distance_cache_ttl_hours",
+  "section_loading_unloading",
+  "default_base_loading_time_minutes",
+  "default_loading_time_calculation_method",
+  "default_loading_time_per_volume_m3",
+  "default_loading_time_per_weight_kg",
+  "default_base_unloading_time_minutes",
+  "default_unloading_time_calculation_method",
+  "default_unloading_time_per_volume_m3",
+  "default_unloading_time_per_weight_kg",
+  "section_adhoc_factors",
+  "adhoc_factor_delay_threshold_minutes",
+  "adhoc_factor_blocking_impact_types",
+  "section_performance",
+  "constraint_cache_enabled",
+  "constraint_cache_refresh_interval_minutes",
+  "max_constraint_check_timeout_seconds",
+  "section_validation",
+  "warn_on_missing_vehicle_avg_speed",
+  "warn_on_missing_cargo_volume",
+  "allow_vehicle_assignment_with_warnings",
   "carbon_tab",
   "carbon_autocompute",
   "carbon_default_factor_g_per_km",
@@ -220,6 +255,259 @@
    "fieldname": "telematics_poll_interval_min",
    "fieldtype": "Int",
    "label": "Telematics Poll Interval (min)"
+  },
+  {
+   "fieldname": "constraint_features_tab",
+   "fieldtype": "Tab Break",
+   "label": "Constraint Features"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_constraint_features",
+   "fieldtype": "Section Break",
+   "label": "Constraint Features"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_constraint_system",
+   "fieldtype": "Check",
+   "label": "Enable Constraint System",
+   "description": "Master switch to enable/disable all constraint checking in vehicle selection"
+  },
+  {
+   "default": "Strict",
+   "depends_on": "eval:doc.enable_constraint_system",
+   "fieldname": "constraint_checking_mode",
+   "fieldtype": "Select",
+   "label": "Constraint Checking Mode",
+   "options": "Strict\nWarning\nDisabled",
+   "description": "Strict: Block vehicle assignment if constraints fail\nWarning: Allow assignment but show warnings\nDisabled: Skip constraint checking"
+  },
+  {
+   "fieldname": "column_break_constraints",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.enable_constraint_system",
+   "fieldname": "enable_time_window_constraints",
+   "fieldtype": "Check",
+   "label": "Enable Time Window Constraints",
+   "description": "Check pick/drop time windows when assigning vehicles"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.enable_constraint_system",
+   "fieldname": "enable_address_day_availability",
+   "fieldtype": "Check",
+   "label": "Enable Address Day Availability",
+   "description": "Check day-of-week restrictions for pick/drop operations"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_constraint_system",
+   "fieldname": "enable_plate_coding_constraints",
+   "fieldtype": "Check",
+   "label": "Enable Plate Number Coding Constraints",
+   "description": "Check license plate coding restrictions (odd/even days, last digit rules)"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_constraint_system",
+   "fieldname": "enable_truck_ban_constraints",
+   "fieldtype": "Check",
+   "label": "Enable Truck Ban Constraints",
+   "description": "Check area and time-based truck ban restrictions"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_constraint_system",
+   "fieldname": "enable_adhoc_factors",
+   "fieldtype": "Check",
+   "label": "Enable Ad-Hoc Transport Factors",
+   "description": "Consider ad-hoc factors (road closures, port congestion, etc.) in planning"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_routing_constraints",
+   "fieldtype": "Section Break",
+   "label": "Routing and Travel Time"
+  },
+  {
+   "default": "1",
+   "fieldname": "use_routing_service_for_distance",
+   "fieldtype": "Check",
+   "label": "Use Routing Service for Distance",
+   "description": "Use routing provider API to calculate distances (if available)"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_vehicle_avg_speed",
+   "fieldtype": "Check",
+   "label": "Require Vehicle Average Speed",
+   "description": "If checked, skip vehicles without avg_speed set (instead of using default)"
+  },
+  {
+   "default": "1",
+   "fieldname": "cache_route_distances",
+   "fieldtype": "Check",
+   "label": "Cache Route Distances",
+   "description": "Cache calculated distances for performance"
+  },
+  {
+   "default": "24",
+   "depends_on": "eval:doc.cache_route_distances",
+   "fieldname": "distance_cache_ttl_hours",
+   "fieldtype": "Int",
+   "label": "Distance Cache TTL (hours)",
+   "description": "Time to live for distance cache entries"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_loading_unloading",
+   "fieldtype": "Section Break",
+   "label": "Loading and Unloading Time Defaults"
+  },
+  {
+   "default": "15",
+   "fieldname": "default_base_loading_time_minutes",
+   "fieldtype": "Float",
+   "label": "Default Base Loading Time (minutes)",
+   "description": "Default base loading time if not specified in Pick Mode or Address"
+  },
+  {
+   "default": "Volume-Based",
+   "fieldname": "default_loading_time_calculation_method",
+   "fieldtype": "Select",
+   "label": "Default Loading Time Calculation Method",
+   "options": "Fixed Time\nVolume-Based\nWeight-Based\nVolume and Weight Combined",
+   "description": "Default method for calculating loading time"
+  },
+  {
+   "default": "5",
+   "depends_on": "eval:in_list(['Volume-Based', 'Volume and Weight Combined'], doc.default_loading_time_calculation_method)",
+   "fieldname": "default_loading_time_per_volume_m3",
+   "fieldtype": "Float",
+   "label": "Default Loading Time per m³ (minutes)",
+   "description": "Default additional minutes per cubic meter of volume"
+  },
+  {
+   "default": "2",
+   "depends_on": "eval:in_list(['Weight-Based', 'Volume and Weight Combined'], doc.default_loading_time_calculation_method)",
+   "fieldname": "default_loading_time_per_weight_kg",
+   "fieldtype": "Float",
+   "label": "Default Loading Time per 100kg (minutes)",
+   "description": "Default additional minutes per 100kg of weight"
+  },
+  {
+   "default": "15",
+   "fieldname": "default_base_unloading_time_minutes",
+   "fieldtype": "Float",
+   "label": "Default Base Unloading Time (minutes)",
+   "description": "Default base unloading time if not specified in Drop Mode or Address"
+  },
+  {
+   "default": "Volume-Based",
+   "fieldname": "default_unloading_time_calculation_method",
+   "fieldtype": "Select",
+   "label": "Default Unloading Time Calculation Method",
+   "options": "Fixed Time\nVolume-Based\nWeight-Based\nVolume and Weight Combined",
+   "description": "Default method for calculating unloading time"
+  },
+  {
+   "default": "5",
+   "depends_on": "eval:in_list(['Volume-Based', 'Volume and Weight Combined'], doc.default_unloading_time_calculation_method)",
+   "fieldname": "default_unloading_time_per_volume_m3",
+   "fieldtype": "Float",
+   "label": "Default Unloading Time per m³ (minutes)",
+   "description": "Default additional minutes per cubic meter of volume"
+  },
+  {
+   "default": "2",
+   "depends_on": "eval:in_list(['Weight-Based', 'Volume and Weight Combined'], doc.default_unloading_time_calculation_method)",
+   "fieldname": "default_unloading_time_per_weight_kg",
+   "fieldtype": "Float",
+   "label": "Default Unloading Time per 100kg (minutes)",
+   "description": "Default additional minutes per 100kg of weight"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.enable_adhoc_factors",
+   "fieldname": "section_adhoc_factors",
+   "fieldtype": "Section Break",
+   "label": "Ad-Hoc Factors Settings"
+  },
+  {
+   "default": "60",
+   "depends_on": "eval:doc.enable_adhoc_factors",
+   "fieldname": "adhoc_factor_delay_threshold_minutes",
+   "fieldtype": "Int",
+   "label": "Ad-Hoc Factor Delay Threshold (minutes)",
+   "description": "Maximum delay from ad-hoc factors before blocking route assignment"
+  },
+  {
+   "default": "Complete Blockage",
+   "depends_on": "eval:doc.enable_adhoc_factors",
+   "fieldname": "adhoc_factor_blocking_impact_types",
+   "fieldtype": "MultiSelect",
+   "label": "Ad-Hoc Factor Impact Types That Block Routes",
+   "options": "Complete Blockage\nPartial Blockage\nDelays Only\nAccess Restricted",
+   "description": "Impact types that will block route assignment (others will only add delays)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_performance",
+   "fieldtype": "Section Break",
+   "label": "Performance Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "constraint_cache_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Constraint Cache",
+   "description": "Cache active constraints for better performance"
+  },
+  {
+   "default": "60",
+   "depends_on": "eval:doc.constraint_cache_enabled",
+   "fieldname": "constraint_cache_refresh_interval_minutes",
+   "fieldtype": "Int",
+   "label": "Constraint Cache Refresh Interval (minutes)",
+   "description": "How often to refresh the constraint cache"
+  },
+  {
+   "default": "30",
+   "fieldname": "max_constraint_check_timeout_seconds",
+   "fieldtype": "Int",
+   "label": "Max Constraint Check Timeout (seconds)",
+   "description": "Maximum time allowed for constraint checking before timeout"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_validation",
+   "fieldtype": "Section Break",
+   "label": "Validation Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "warn_on_missing_vehicle_avg_speed",
+   "fieldtype": "Check",
+   "label": "Warn on Missing Vehicle Average Speed",
+   "description": "Show warning when vehicle doesn't have avg_speed set"
+  },
+  {
+   "default": "1",
+   "fieldname": "warn_on_missing_cargo_volume",
+   "fieldtype": "Check",
+   "label": "Warn on Missing Cargo Volume",
+   "description": "Show warning when cargo volume cannot be calculated for loading/unloading time"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_vehicle_assignment_with_warnings",
+   "fieldtype": "Check",
+   "label": "Allow Vehicle Assignment with Warnings",
+   "description": "Allow vehicle assignment even if constraint warnings exist (when mode is Warning)"
   }
  ],
  "grid_page_length": 50,

@@ -35,3 +35,4 @@ frappe.ui.form.on('Warehouse Job', {
 	}
 });
 
+

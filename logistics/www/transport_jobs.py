@@ -208,7 +208,7 @@ def get_customer_jobs(customer):
         # Get transport jobs for the customer
         jobs = frappe.get_all("Transport Job",
             filters={"customer": customer},
-            fields=["name", "booking_date", "vehicle_type", "status", "sales_invoice"],
+            fields=["name", "booking_date", "vehicle_type", "status"],
             order_by="booking_date desc"
         )
         

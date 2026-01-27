@@ -9,7 +9,9 @@
   "naming_series",
   "full_name",
   "supplier",
-  "customer"
+  "customer",
+  "column_break_afri",
+  "company_owned"
  ],
  "fields": [
   {
@@ -34,10 +36,20 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_afri",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "company_owned",
+   "fieldtype": "Check",
+   "label": "Company Owned"
   }
  ],
  "links": [],
- "modified": "2025-09-25 09:49:06.850288",
+ "modified": "2026-01-27 15:43:14.307941",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Company",
@@ -62,5 +74,6 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
+ "title_field": "supplier",
  "track_changes": 1
 }

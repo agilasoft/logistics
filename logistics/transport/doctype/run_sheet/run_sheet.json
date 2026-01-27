@@ -19,6 +19,7 @@
   "column_break_gwan",
   "status",
   "vehicle_type",
+  "trailer_type",
   "vehicle",
   "transport_company",
   "driver",
@@ -27,9 +28,11 @@
   "column_break_aftz",
   "dispatch_terminal",
   "dispatcher",
+  "estimated_dispatch_datetime",
   "column_break_vvon",
   "return_terminal",
   "return_inspector",
+  "estimated_return_datetime",
   "transport_leg_tab",
   "legs",
   "section_break_pkdh",
@@ -120,11 +123,14 @@
   {
    "fieldname": "legs",
    "fieldtype": "Table",
-   "options": "Run Sheet Leg"
+   "options": "Run Sheet Leg",
+   "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Status",
    "options": "Draft\nDispatched\nIn-Progress\nHold\nCompleted\nCancelled"
   },
@@ -221,13 +227,29 @@
    "fieldtype": "Link",
    "label": "Return Inspector",
    "options": "Employee"
+  },
+  {
+   "fieldname": "estimated_dispatch_datetime",
+   "fieldtype": "Datetime",
+   "label": "Estimated Dispatch Datetime"
+  },
+  {
+   "fieldname": "estimated_return_datetime",
+   "fieldtype": "Datetime",
+   "label": "Estimated Return Datetime"
+  },
+  {
+   "fieldname": "trailer_type",
+   "fieldtype": "Link",
+   "label": "Trailer Type",
+   "options": "Vehicle Type"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-04 00:40:36.971319",
+ "modified": "2026-01-26 13:19:36.852301",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Run Sheet",
@@ -252,6 +274,31 @@
  "search_fields": "route_name,vehicle,transport_company",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
+ "states": [
+  {
+   "color": "Gray",
+   "title": "Draft"
+  },
+  {
+   "color": "Blue",
+   "title": "Dispatched"
+  },
+  {
+   "color": "Orange",
+   "title": "In-Progress"
+  },
+  {
+   "color": "Red",
+   "title": "Hold"
+  },
+  {
+   "color": "Green",
+   "title": "Completed"
+  },
+  {
+   "color": "Red",
+   "title": "Cancelled"
+  }
+ ],
  "title_field": "vehicle"
 }

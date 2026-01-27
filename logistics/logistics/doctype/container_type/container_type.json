@@ -253,7 +253,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-28 22:52:40.748371",
+ "modified": "2026-01-22 16:50:27.180351",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container Type",
@@ -274,7 +274,9 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "container_make",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "description"
 }

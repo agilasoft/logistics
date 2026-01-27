@@ -196,6 +196,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
                 <input type="text" class="form-control input-sm" id="rss-input" placeholder="${__("Enter or scan Run Sheet (e.g., RS-00000123)")}">
                 <button class="btn btn-sm btn-default" id="rss-load">${__("Load")}</button>
                 <a class="btn btn-sm btn-default" id="rss-open">${__("Open Document")}</a>
+                <button class="btn btn-sm btn-primary" id="rss-print"><i class="fa fa-print"></i> ${__("Print")}</button>
                 <div class="rss-right">
                   <span id="rss-status" class="badge"></span>
                   <button class="btn btn-sm btn-default" id="rss-sync">${__("Sync Now")}</button>
@@ -226,7 +227,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
             <div class="modal-dialog modal-lg" role="document">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h4 class="modal-title">${__("Sign ePOD")}</h4>
+                  <h4 class="modal-title" id="rss-signature-modal-title">${__("Sign ePOD")}</h4>
                   <button type="button" class="close" data-dismiss="modal">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -304,6 +305,14 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
             .modal-dialog{ margin: 10px; }
             .modal-body{ padding: 15px; }
           }
+          @media print {
+            .rss-bar button, .rss-bar a, .rss-right, .rss .leg-actions { display: none !important; }
+            .rss-bar { border-bottom: 1px solid #ccc; padding-bottom: 8px; margin-bottom: 10px; }
+            .rss .card { border: none; box-shadow: none; page-break-inside: avoid; }
+            .rss .leg-card { page-break-inside: avoid; margin-bottom: 10px; }
+            body { margin: 0; padding: 10px; }
+            @page { size: A4; margin: 1cm; }
+          }
         </style>
       `);
 
@@ -312,6 +321,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
       this.$scan   = $ui.find("#rss-scan");
       this.$load   = $ui.find("#rss-load");
       this.$open   = $ui.find("#rss-open");
+      this.$print  = $ui.find("#rss-print");
       this.$head   = $ui.find("#rss-head");
       this.$legs   = $ui.find("#rss-legs");
       this.$status = $ui.find("#rss-status");
@@ -349,6 +359,14 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
       this.$open.on("click", () => {
         if (!this.state.rs) return;
         frappe.set_route("Form", "Run Sheet", this.state.rs);
+      });
+
+      this.$print.on("click", () => {
+        if (!this.state.rs) {
+          frappe.show_alert({ message: __("Please load a Run Sheet first"), indicator: "orange" });
+          return;
+        }
+        window.print();
       });
 
       this.$sync.on("click", () => this.try_sync_queue());
@@ -564,6 +582,8 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
         const hasStart = !!r.start_date;
         const hasEnd   = !!r.end_date;
         const unsynced = unsyncedByLeg.has(r.name);
+        const hasPickSignature = !!r.pick_signature;
+        const hasDropSignature = !!r.drop_signature;
 
         const coordsOk = !!(r._pick_coord && r._drop_coord);
         const gmapUrl = coordsOk
@@ -584,7 +604,8 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
               <div class="leg-actions">
                 ${!hasStart ? `<button class="btn btn-sm btn-primary leg-start">${__("Start")}</button>` : ""}
                 ${hasStart && !hasEnd ? `<button class="btn btn-sm btn-success leg-end">${__("End")}</button>` : ""}
-                ${hasStart && !r.signature ? `<button class="btn btn-sm btn-info leg-sign-epod">${__("Sign ePOD")}</button>` : ""}
+                ${hasStart && !hasPickSignature ? `<button class="btn btn-sm btn-info leg-sign-pick-epod">${__("Pick Sign")}</button>` : ""}
+                ${hasStart && !hasDropSignature ? `<button class="btn btn-sm btn-info leg-sign-drop-epod">${__("Drop Sign")}</button>` : ""}
                 ${gmapUrl ? `<a class="btn btn-sm btn-default" target="_blank" rel="noopener" href="${gmapUrl}">${__("View Map")}</a>` : ""}
               </div>
             </div>
@@ -593,7 +614,8 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
               <div><label>${__("Started")}:</label><span class="leg-start-at">${this.fmt_dt(r.start_date)}</span></div>
               <div><label>${__("Ended")}:</label><span class="leg-end-at">${this.fmt_dt(r.end_date)}</span></div>
               <div><label>${__("Planned")}:</label><span>${this.plan_text(r)}</span></div>
-              ${r.signature ? `<div><label>${__("Signed")}:</label><span>${frappe.utils.escape_html(r.signed_by || "")} (${this.fmt_dt(r.date_signed)})</span></div>` : ""}
+              ${hasPickSignature ? `<div><label>${__("Pick Signed")}:</label><span>${frappe.utils.escape_html(r.pick_signed_by || "")} (${this.fmt_dt(r.date_signed)})</span></div>` : ""}
+              ${hasDropSignature ? `<div><label>${__("Drop Signed")}:</label><span>${frappe.utils.escape_html(r.drop_signed_by || "")} (${this.fmt_dt(r.date_signed)})</span></div>` : ""}
             </div>
           </div>
         `;
@@ -654,12 +676,23 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
         this.render_legs(this.state.legs); // Re-render to update button visibility
       });
 
-      $root.find(".leg-sign-epod").on("click", async (ev) => {
+      $root.find(".leg-sign-pick-epod").on("click", async (ev) => {
         const $btn  = $(ev.currentTarget);
         const $card = $btn.closest(".leg-card");
         const name  = $card.data("row");
         
         this.current_leg_for_signature = name;
+        this.current_signature_type = "pick";
+        this.show_signature_dialog();
+      });
+
+      $root.find(".leg-sign-drop-epod").on("click", async (ev) => {
+        const $btn  = $(ev.currentTarget);
+        const $card = $btn.closest(".leg-card");
+        const name  = $card.data("row");
+        
+        this.current_leg_for_signature = name;
+        this.current_signature_type = "drop";
         this.show_signature_dialog();
       });
     }
@@ -709,6 +742,10 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
     show_signature_dialog() {
       // Initialize signature canvas
       this.init_signature_canvas();
+      
+      // Set modal title based on signature type
+      const title = this.current_signature_type === "pick" ? __("Sign Pick") : __("Sign Drop");
+      $("#rss-signature-modal-title").text(title);
       
       // Set current date/time
       const now = new Date();
@@ -860,24 +897,35 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
         return;
       }
 
-      const updates = {
-        signature: signature,
-        signed_by: signedBy,
-        date_signed: dateSigned
-      };
+      // Determine which fields to update based on signature type
+      const updates = {};
+      if (this.current_signature_type === "pick") {
+        updates.pick_signature = signature;
+        updates.pick_signed_by = signedBy;
+      } else {
+        updates.drop_signature = signature;
+        updates.drop_signed_by = signedBy;
+      }
+      updates.date_signed = dateSigned;
 
       const ok = await this.apply_leg_updates(this.current_leg_for_signature, updates);
       if (ok) {
         // Update the leg data and re-render to hide the sign button
         const leg = this.state.legs.find(l => l.name === this.current_leg_for_signature);
         if (leg) {
-          leg.signature = signature;
-          leg.signed_by = signedBy;
+          if (this.current_signature_type === "pick") {
+            leg.pick_signature = signature;
+            leg.pick_signed_by = signedBy;
+          } else {
+            leg.drop_signature = signature;
+            leg.drop_signed_by = signedBy;
+          }
           leg.date_signed = dateSigned;
         }
         $("#rss-signature-modal").modal("hide");
         this.render_legs(this.state.legs); // Re-render to hide the sign button
-        frappe.show_alert({ message: __("Signature saved"), indicator: "green" });
+        const typeLabel = this.current_signature_type === "pick" ? __("Pick") : __("Drop");
+        frappe.show_alert({ message: __("{0} signature saved", [typeLabel]), indicator: "green" });
       }
     }
 

@@ -49,15 +49,15 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_land_transport_charge\",\"=\",1]]",
    "options": "Item",
-   "reqd": 1,
-   "permlevel": 0
+   "reqd": 1
   },
   {
+   "fetch_from": "item_code.custom_land_transport_charge",
    "fieldname": "item_name",
    "fieldtype": "Data",
-   "label": "Item Name",
-   "permlevel": 0
+   "label": "Item Name"
   },
   {
    "fieldname": "column_break_jbbp",
@@ -67,23 +67,20 @@
    "default": "0",
    "fieldname": "use_tariff_in_revenue",
    "fieldtype": "Check",
-   "label": "Use Tariff in Revenue",
-   "permlevel": 0
+   "label": "Use Tariff in Revenue"
   },
   {
    "default": "0",
    "fieldname": "use_tariff_in_cost",
    "fieldtype": "Check",
-   "label": "Use Tariff in Cost",
-   "permlevel": 0
+   "label": "Use Tariff in Cost"
   },
   {
    "depends_on": "eval:doc.use_tariff_in_revenue || doc.use_tariff_in_cost",
    "fieldname": "tariff",
    "fieldtype": "Link",
    "label": "Tariff",
-   "options": "Tariff",
-   "permlevel": 0
+   "options": "Tariff"
   },
   {
    "fieldname": "section_break_yyll",
@@ -96,89 +93,78 @@
   },
   {
    "columns": 1,
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Calculation Method",
    "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "fieldname": "quantity",
    "fieldtype": "Float",
-   "label": "Quantity",
-   "permlevel": 0
+   "label": "Quantity"
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM",
-   "permlevel": 0
+   "options": "UOM"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency",
-   "permlevel": 0
+   "options": "Currency"
   },
   {
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"Per Unit\" || doc.calculation_method == \"Fixed Amount\" || doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"First Plus Additional\" || doc.calculation_method == \"Percentage\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
    "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "minimum_quantity",
    "fieldtype": "Float",
    "label": "Minimum Quantity",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "minimum_charge",
    "fieldtype": "Currency",
    "label": "Minimum Charge",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "maximum_charge",
    "fieldtype": "Currency",
    "label": "Maximum Charge",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"Percentage\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
   },
   {
    "columns": 1,
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Estimated Revenue",
-   "permlevel": 0
+   "label": "Estimated Revenue"
   },
   {
    "fieldname": "column_break_pndm",
@@ -186,88 +172,77 @@
    "label": "Cost"
   },
   {
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
-   "label": "Quantity",
-   "permlevel": 0
+   "label": "Quantity"
   },
   {
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM",
-   "permlevel": 0
+   "options": "UOM"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency",
-   "permlevel": 0
+   "options": "Currency"
   },
   {
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\" || doc.cost_calculation_method == \"Fixed Amount\" || doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"First Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
    "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_minimum_quantity",
    "fieldtype": "Float",
    "label": "Minimum Quantity",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_minimum_charge",
    "fieldtype": "Currency",
    "label": "Minimum Charge",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_maximum_charge",
    "fieldtype": "Currency",
    "label": "Maximum Charge",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
-   "permlevel": 0
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
   },
   {
    "columns": 1,
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Estimated Cost",
-   "permlevel": 0
+   "label": "Estimated Cost"
   },
   {
    "fieldname": "calculation_notes_section",
@@ -278,8 +253,7 @@
    "fieldname": "revenue_calc_notes",
    "fieldtype": "Long Text",
    "label": "Revenue",
-   "read_only": 1,
-   "permlevel": 0
+   "read_only": 1
   },
   {
    "fieldname": "column_break_crci",
@@ -289,15 +263,14 @@
    "fieldname": "cost_calc_notes",
    "fieldtype": "Long Text",
    "label": "Cost",
-   "read_only": 1,
-   "permlevel": 0
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-10-25 10:20:25.110038",
+ "modified": "2026-01-08 16:03:02.588022",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Transport",

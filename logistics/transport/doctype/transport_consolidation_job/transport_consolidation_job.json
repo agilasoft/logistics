@@ -1,5 +1,6 @@
 {
- "creation": "2025-01-27 00:00:00.000000",
+ "actions": [],
+ "creation": "2025-01-27 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -42,7 +43,7 @@
   {
    "fieldname": "volume",
    "fieldtype": "Float",
-   "label": "Volume (m³)"
+   "label": "Volume (m\u00b3)"
   },
   {
    "fieldname": "column_break_2",
@@ -64,14 +65,17 @@
   }
  ],
  "istable": 1,
- "modified": "2025-01-27 00:00:00.000000",
+ "links": [],
+ "modified": "2026-01-26 09:37:58.165286",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Consolidation Job",
  "owner": "Administrator",
  "permissions": [],
  "quick_entry": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }

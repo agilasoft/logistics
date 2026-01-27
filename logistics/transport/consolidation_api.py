@@ -24,7 +24,9 @@ def get_consolidatable_jobs(load_type: str, date: str = None) -> Dict[str, Any]:
 	# Get load type details
 	load_type_doc = frappe.get_doc("Load Type", load_type)
 	
-	if not load_type_doc.can_consolidate:
+	# Check if load type allows consolidation (use can_handle_consolidation field)
+	can_handle_consolidation = getattr(load_type_doc, "can_handle_consolidation", 0)
+	if not (can_handle_consolidation == 1 or can_handle_consolidation == True):
 		return {"jobs": [], "message": "Load Type does not allow consolidation"}
 	
 	# Get transport jobs with same load type and date
@@ -73,6 +75,9 @@ def create_consolidation_from_jobs(job_names: List[str], consolidation_date: str
 	if not load_types:
 		frappe.throw(_("Transport Jobs must have a Load Type to be consolidated"))
 	
+	# Get the load type (all jobs should have the same one)
+	load_type = list(load_types)[0]
+	
 	# Create consolidation
 	consolidation = frappe.new_doc("Transport Consolidation")
 	consolidation.consolidation_date = consolidation_date
@@ -89,9 +94,7 @@ def create_consolidation_from_jobs(job_names: List[str], consolidation_date: str
 				job.name, job.load_type, load_type))
 		
 		consolidation.append("transport_jobs", {
-			"transport_job": job.name,
-			"weight": 0,  # Will be calculated from packages
-			"volume": 0    # Will be calculated from packages
+			"transport_job": job.name
 		})
 	
 	consolidation.save()

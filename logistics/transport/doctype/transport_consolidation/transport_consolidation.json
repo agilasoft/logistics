@@ -9,8 +9,8 @@
   "naming_series",
   "consolidation_date",
   "column_break_1",
-  "status",
   "consolidation_type",
+  "load_type",
   "section_break_jobs",
   "transport_jobs",
   "section_break_details",
@@ -47,17 +47,18 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Status",
-   "options": "Draft\nPlanned\nIn Progress\nCompleted\nCancelled"
-  },
-  {
    "fieldname": "consolidation_type",
    "fieldtype": "Select",
    "label": "Consolidation Type",
-   "options": "Pick\nDrop\nBoth\nRoute"
+   "options": "Route\nPick\nDrop\nBoth"
+  },
+  {
+   "description": "The Load Type for this consolidation. All jobs must have the same Load Type.",
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"transport\",\"=\",1],[\"Load Type\",\"can_handle_consolidation\",\"=\",1]]",
+   "options": "Load Type"
   },
   {
    "fieldname": "section_break_jobs",
@@ -159,7 +160,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-12-29 23:16:15.778733",
+ "modified": "2026-01-25 18:52:07.078383",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Consolidation",

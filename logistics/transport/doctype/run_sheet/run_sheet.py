@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import flt, get_datetime
 
 
 class RunSheet(Document):
@@ -19,6 +19,49 @@ class RunSheet(Document):
 		self.validate_legs_compatibility()
 		self.update_legs_missing_data()
 		self.sync_legs_to_transport_leg()
+	
+	def before_save(self):
+		"""Update status before saving"""
+		# Call update_status() to calculate correct status
+		# For submitted documents (docstatus = 1), update_status() will use db_set() 
+		# to persist status changes if the status changed
+		self.update_status()
+	
+	def before_submit(self):
+		"""Validate required fields before submission and mark as submitting"""
+		self.validate_vehicle_required()
+		# Set flag to prevent before_save from calling update_status during submission
+		self._submitting = True
+	
+	def after_submit(self):
+		"""Set initial status after submission and check leg states"""
+		# IMPORTANT: Ensure docstatus is 1 (sometimes it's not set in the object yet)
+		# Reload from database to get the actual docstatus
+		current_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
+		if current_docstatus != 1:
+			# If not submitted, something went wrong - log and return
+			frappe.log_error(
+				f"Run Sheet {self.name} after_submit called but docstatus is {current_docstatus}, not 1",
+				"Run Sheet After Submit Error"
+			)
+			return
+		
+		# Ensure docstatus is set in the object for update_status to work
+		self.docstatus = 1
+		
+		# Clear submitting flag
+		if hasattr(self, '_submitting'):
+			delattr(self, '_submitting')
+		
+		# Set status to "Dispatched" via db_set()
+		self.db_set("status", "Dispatched", update_modified=False)
+		
+		# Call update_status() to calculate correct status based on leg states
+		self.update_status()
+	
+	def on_cancel(self):
+		"""Set status to Cancelled when document is cancelled"""
+		self.db_set("status", "Cancelled", update_modified=False)
 	
 	def on_update(self):
 		"""Update Transport Leg records after Run Sheet is saved"""
@@ -138,38 +181,90 @@ class RunSheet(Document):
 			except Exception as e:
 				frappe.log_error(f"Error clearing Transport Leg {leg_name} run_sheet assignment: {str(e)}")
 	
+	def validate_vehicle_required(self):
+		"""Validate that vehicle is required before submission"""
+		if not self.vehicle:
+			frappe.throw(_("Vehicle is required. Please select a vehicle before submitting the document."))
+	
 	def validate_vehicle_availability(self):
-		"""Validate that the assigned vehicle is not already on another active Run Sheet"""
+		"""Validate that the assigned vehicle is not already on another active Run Sheet.
+		Checks estimated_return_datetime to ensure vehicle is available for the scheduled date.
+		"""
 		if not self.vehicle:
 			return
 		
-		if self.is_new():
-			# Check if vehicle is already on an active Run Sheet
-			existing_rs = frappe.db.exists("Run Sheet", {
-				"vehicle": self.vehicle,
-				"status": ["in", ["Draft", "Submitted", "In Progress"]],
-				"name": ["!=", self.name]
-			})
+		# Get the scheduled dispatch datetime for this Run Sheet
+		# Prefer estimated_dispatch_datetime, fall back to run_date
+		scheduled_dispatch = None
+		if hasattr(self, "estimated_dispatch_datetime") and self.estimated_dispatch_datetime:
+			scheduled_dispatch = self.estimated_dispatch_datetime
+		elif hasattr(self, "run_date") and self.run_date:
+			scheduled_dispatch = self.run_date
+		
+		# Build filters for active Run Sheets
+		base_filters = {
+			"vehicle": self.vehicle,
+			"name": ["!=", self.name],
+		}
+		
+		# Add status filter if status field exists
+		if self.meta.has_field("status"):
+			base_filters["status"] = ["in", ["Draft", "Dispatched", "In-Progress", "Submitted"]]
+		
+		# Get all active Run Sheets for this vehicle
+		existing_run_sheets = frappe.get_all(
+			"Run Sheet",
+			filters=base_filters,
+			fields=["name", "estimated_return_datetime", "run_date"],
+			limit_page_length=100,
+		)
+		
+		if not existing_run_sheets:
+			return
+		
+		# If we have a scheduled dispatch time, check if any existing Run Sheet's
+		# estimated_return_datetime is after our scheduled dispatch
+		if scheduled_dispatch:
+			scheduled_dt = get_datetime(scheduled_dispatch)
 			
-			if existing_rs:
+			for rs in existing_run_sheets:
+				# Check estimated_return_datetime if available
+				if rs.get("estimated_return_datetime"):
+					return_dt = get_datetime(rs["estimated_return_datetime"])
+					if return_dt > scheduled_dt:
+						frappe.throw(_("Vehicle {0} is already assigned to an active Run Sheet ({1}) "
+									  "which has estimated return datetime {2}. "
+									  "The vehicle will not be available until after that time.").format(
+							self.vehicle, 
+							rs["name"],
+							frappe.format(rs["estimated_return_datetime"], {"fieldtype": "Datetime"})
+						))
+				# Fall back to run_date if estimated_return_datetime is not set
+				elif rs.get("run_date"):
+					run_date_str = str(rs["run_date"])
+					if " " in run_date_str:
+						run_date_only = run_date_str.split(" ")[0]
+					else:
+						run_date_only = run_date_str
+					# Use end of run_date day as conservative estimate
+					run_date_end = f"{run_date_only} 23:59:59"
+					run_date_dt = get_datetime(run_date_end)
+					if run_date_dt > scheduled_dt:
+						frappe.throw(_("Vehicle {0} is already assigned to an active Run Sheet ({1}) "
+									  "on {2}. Please set estimated_return_datetime on the existing Run Sheet "
+									  "to enable proper scheduling.").format(
+							self.vehicle, 
+							rs["name"],
+							run_date_only
+						))
+		else:
+			# If no scheduled dispatch time is set, use original validation
+			# (check if vehicle is assigned to any active Run Sheet)
+			if existing_run_sheets:
+				existing_rs = existing_run_sheets[0]["name"]
 				frappe.throw(_("Vehicle {0} is already assigned to an active Run Sheet ({1})").format(
 					self.vehicle, existing_rs
 				))
-		else:
-			# For existing documents, check if vehicle changed
-			old_vehicle = frappe.db.get_value("Run Sheet", self.name, "vehicle")
-			if old_vehicle != self.vehicle:
-				# Check if new vehicle is available
-				existing_rs = frappe.db.exists("Run Sheet", {
-					"vehicle": self.vehicle,
-					"status": ["in", ["Draft", "Submitted", "In Progress"]],
-					"name": ["!=", self.name]
-				})
-				
-				if existing_rs:
-					frappe.throw(_("Vehicle {0} is already assigned to an active Run Sheet ({1})").format(
-						self.vehicle, existing_rs
-					))
 	
 	def validate_capacity(self):
 		"""Validate that the vehicle has sufficient capacity for all legs"""
@@ -434,6 +529,104 @@ class RunSheet(Document):
 					leg_doc.save(ignore_permissions=True)
 			except Exception as e:
 				frappe.log_error(f"Error clearing Transport Leg {leg_name} run_sheet assignment on Run Sheet deletion: {str(e)}")
+	
+	def update_status(self):
+		"""Update status based on document state and Transport Leg statuses
+		
+		This method automatically determines the correct status based on:
+		- Document state (docstatus 0 = Draft, docstatus 1 = Dispatched/In-Progress/Completed, docstatus 2 = Cancelled)
+		- Transport Leg statuses for submitted documents
+		- Ensures status always follows docstatus
+		"""
+		if self.is_new():
+			# New documents are always Draft
+			self.status = "Draft"
+			return
+		
+		# If cancelled (docstatus = 2), status must be Cancelled
+		if self.docstatus == 2:
+			self.status = "Cancelled"
+			return
+		
+		# If draft (docstatus = 0), status must be Draft (unless manually set to Hold)
+		if self.docstatus == 0:
+			# Don't override "Hold" status if manually set
+			if not self.status or (self.status != "Hold" and self.status != "Cancelled"):
+				self.status = "Draft"
+			return
+		
+		# If submitted (docstatus = 1), check leg statuses to determine Run Sheet status
+		# Default to "Dispatched" unless legs indicate "In-Progress" or "Completed"
+		if self.docstatus == 1:
+			# Don't auto-update if status is manually set to "Hold"
+			if self.status == "Hold":
+				return
+			
+			if not self.legs:
+				# No legs - status should be Dispatched
+				if self.status != "Dispatched":
+					self.status = "Dispatched"
+				return
+			
+			# Get all leg statuses directly from database to ensure we have the latest
+			# This is important because leg statuses may have changed since the Run Sheet was loaded
+			leg_statuses = []
+			for leg_row in self.legs:
+				transport_leg_name = leg_row.get("transport_leg")
+				if transport_leg_name:
+					# Always fetch fresh status from database
+					leg_status = frappe.db.get_value("Transport Leg", transport_leg_name, "status")
+					if leg_status:
+						leg_statuses.append(leg_status)
+			
+			if not leg_statuses:
+				# No leg statuses found - default to Dispatched
+				if self.status != "Dispatched":
+					self.status = "Dispatched"
+				return
+			
+			# Determine Run Sheet status based on leg statuses
+			# Map Transport Leg statuses to Run Sheet statuses:
+			# - "Completed" or "Billed" → "Completed" (if all legs are completed)
+			# - "Started" → "In-Progress" (if any leg is started)
+			# - "Assigned" → "Dispatched" (if any leg is assigned but not started)
+			# - "Open" → "Dispatched" (if all legs are open)
+			# - Submitted document (docstatus = 1) → "Dispatched" by default
+			
+			old_status = self.status
+			
+			if all(status in ["Completed", "Billed"] for status in leg_statuses):
+				new_status = "Completed"
+			elif any(status == "Started" for status in leg_statuses):
+				# If any leg is started, status is In-Progress
+				new_status = "In-Progress"
+			elif any(status == "Assigned" for status in leg_statuses):
+				# If any leg is assigned (but not started), status is Dispatched
+				new_status = "Dispatched"
+			elif all(status == "Open" for status in leg_statuses):
+				# If all legs are open, status is Dispatched
+				new_status = "Dispatched"
+			else:
+				# Mixed statuses - prioritize Started > Assigned > Completed
+				if any(status == "Started" for status in leg_statuses):
+					new_status = "In-Progress"
+				elif any(status == "Assigned" for status in leg_statuses):
+					new_status = "Dispatched"
+				elif any(status in ["Completed", "Billed"] for status in leg_statuses):
+					# If some legs are completed but not all, status is In-Progress
+					new_status = "In-Progress"
+				else:
+					# Fallback to Dispatched if we can't determine
+					new_status = "Dispatched"
+			
+			# Update status if it changed
+			if new_status != old_status:
+				self.status = new_status
+				
+				# For submitted documents, use db_set to persist the change
+				# This prevents validation loops and works with submitted documents
+				if self.docstatus == 1:
+					self.db_set("status", new_status, update_modified=False)
 
 
 # Whitelisted methods for client-side calls
@@ -707,20 +900,14 @@ def _get_primary_address(facility_type, facility_name):
 		return None
 	
 	try:
-		# For Transport Terminal, use the address field directly
-		if facility_type == "Transport Terminal":
-			terminal_doc = frappe.get_doc("Transport Terminal", facility_name)
-			if terminal_doc.address:
-				return terminal_doc.address
-			# If address field is not set, fall through to linked addresses
-		
 		# Map facility types to their primary address field names
 		primary_address_fields = {
 			"Shipper": "shipper_primary_address",
 			"Consignee": "consignee_primary_address", 
 			"Container Yard": "containeryard_primary_address",
 			"Container Depot": "containerdepot_primary_address",
-			"Container Freight Station": "cfs_primary_address"
+			"Container Freight Station": "cfs_primary_address",
+			"Transport Terminal": "transportterminal_primary_address"
 		}
 		
 		# Get the primary address field name for this facility type
@@ -755,6 +942,76 @@ def _get_primary_address(facility_type, facility_name):
 		frappe.log_error(f"Error getting primary address for {facility_type} {facility_name}: {str(e)}")
 	
 	return None
+
+
+@frappe.whitelist()
+def update_status_from_client(run_sheet_name):
+	"""
+	Update Run Sheet status from client-side JavaScript.
+	This method recalculates the status based on current leg statuses
+	and returns the updated status.
+	
+	Args:
+		run_sheet_name: Name of the Run Sheet
+		
+	Returns:
+		Dict with status and success flag
+	"""
+	if not run_sheet_name:
+		return {
+			"success": False,
+			"error": "Run Sheet name is required"
+		}
+	
+	try:
+		rs = frappe.get_doc("Run Sheet", run_sheet_name)
+		
+		# Only update status for submitted documents
+		if rs.docstatus != 1:
+			return {
+				"success": True,
+				"status": rs.status,
+				"message": "Status update only applies to submitted documents"
+			}
+		
+		# Don't update if status is manually set to "Hold"
+		if rs.status == "Hold":
+			return {
+				"success": True,
+				"status": rs.status,
+				"message": "Status is set to Hold and will not be auto-updated"
+			}
+		
+		# Store old status from database (may be different from in-memory)
+		db_status = frappe.db.get_value("Run Sheet", run_sheet_name, "status")
+		old_status = db_status or rs.status
+		
+		# Call update_status() to recalculate based on current leg statuses
+		rs.update_status()
+		
+		# Get the new status (may have been updated by update_status)
+		new_status = rs.status
+		
+		# Always persist to database if different from current DB value
+		# This ensures the database is always up-to-date
+		if new_status != db_status:
+			rs.db_set("status", new_status, update_modified=False)
+			frappe.db.commit()
+			frappe.logger().info(f"Run Sheet {run_sheet_name} status updated: {db_status} → {new_status}")
+		
+		return {
+			"success": True,
+			"status": new_status,
+			"old_status": old_status,
+			"db_status": db_status,
+			"changed": new_status != old_status
+		}
+	except Exception as e:
+		frappe.log_error(f"Error updating Run Sheet status for {run_sheet_name}: {str(e)}", "Run Sheet Status Update Error")
+		return {
+			"success": False,
+			"error": str(e)
+		}
 
 
 @frappe.whitelist()

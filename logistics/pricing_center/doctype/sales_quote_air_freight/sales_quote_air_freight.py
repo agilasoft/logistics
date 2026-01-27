@@ -231,6 +231,11 @@ class SalesQuoteAirFreight(Document):
             self.revenue_calc_notes = "No calculation method specified"
             return
         
+        # Handle Qty Break method separately
+        if self.calculation_method == "Qty Break":
+            self._calculate_qty_break_revenue()
+            return
+        
         if not self.unit_rate or self.unit_rate == 0:
             self.estimated_revenue = 0
             self.revenue_calc_notes = "No unit rate specified"
@@ -273,6 +278,11 @@ class SalesQuoteAirFreight(Document):
         if not self.cost_calculation_method:
             self.estimated_cost = 0
             self.cost_calc_notes = "No cost calculation method specified"
+            return
+        
+        # Handle Qty Break method separately
+        if self.cost_calculation_method == "Qty Break":
+            self._calculate_qty_break_cost()
             return
         
         if not self.unit_cost or self.unit_cost == 0:
@@ -535,6 +545,142 @@ class SalesQuoteAirFreight(Document):
             frappe.log_error(f"Error in trigger_calculations: {str(e)}")
             return False
     
+    def _calculate_qty_break_revenue(self):
+        """Calculate revenue using qty break rates"""
+        try:
+            # Get actual quantity (package count)
+            parent_doc = self.get_parent_doc()
+            actual_qty = 0
+            
+            if parent_doc:
+                # Try to get package count from parent
+                if hasattr(parent_doc, 'total_pieces') and parent_doc.total_pieces:
+                    actual_qty = flt(parent_doc.total_pieces)
+                elif hasattr(parent_doc, 'packages') and parent_doc.packages:
+                    actual_qty = len(parent_doc.packages)
+                else:
+                    actual_qty = flt(self.quantity or 0)
+            else:
+                actual_qty = flt(self.quantity or 0)
+            
+            if actual_qty <= 0:
+                self.estimated_revenue = 0
+                self.revenue_calc_notes = "No quantity available for qty break calculation"
+                return
+            
+            # Get qty break rates
+            qty_breaks = self._get_qty_break_rates('Selling')
+            
+            if not qty_breaks:
+                self.estimated_revenue = 0
+                self.revenue_calc_notes = "No qty break rates defined"
+                return
+            
+            # Find applicable rate based on quantity
+            applicable_rate = self._find_applicable_qty_break_rate(actual_qty, qty_breaks)
+            
+            if not applicable_rate:
+                self.estimated_revenue = 0
+                self.revenue_calc_notes = f"No applicable qty break rate found for quantity {actual_qty}"
+                return
+            
+            # Calculate revenue: quantity * unit_rate
+            self.estimated_revenue = flt(actual_qty) * flt(applicable_rate.get('unit_rate', 0))
+            self.revenue_calc_notes = f"Qty Break: {actual_qty} packages × {applicable_rate.get('unit_rate', 0)} = {self.estimated_revenue} (Break: {applicable_rate.get('qty_break', 0)})"
+            
+        except Exception as e:
+            frappe.log_error(f"Qty break revenue calculation error: {str(e)}")
+            self.estimated_revenue = 0
+            self.revenue_calc_notes = f"Error: {str(e)}"
+    
+    def _calculate_qty_break_cost(self):
+        """Calculate cost using qty break rates"""
+        try:
+            # Get actual quantity (package count)
+            parent_doc = self.get_parent_doc()
+            actual_qty = 0
+            
+            if parent_doc:
+                # Try to get package count from parent
+                if hasattr(parent_doc, 'total_pieces') and parent_doc.total_pieces:
+                    actual_qty = flt(parent_doc.total_pieces)
+                elif hasattr(parent_doc, 'packages') and parent_doc.packages:
+                    actual_qty = len(parent_doc.packages)
+                else:
+                    actual_qty = flt(self.cost_quantity or 0)
+            else:
+                actual_qty = flt(self.cost_quantity or 0)
+            
+            if actual_qty <= 0:
+                self.estimated_cost = 0
+                self.cost_calc_notes = "No quantity available for qty break calculation"
+                return
+            
+            # Get qty break rates
+            qty_breaks = self._get_qty_break_rates('Cost')
+            
+            if not qty_breaks:
+                self.estimated_cost = 0
+                self.cost_calc_notes = "No qty break rates defined"
+                return
+            
+            # Find applicable rate based on quantity
+            applicable_rate = self._find_applicable_qty_break_rate(actual_qty, qty_breaks)
+            
+            if not applicable_rate:
+                self.estimated_cost = 0
+                self.cost_calc_notes = f"No applicable qty break rate found for quantity {actual_qty}"
+                return
+            
+            # Calculate cost: quantity * unit_rate
+            self.estimated_cost = flt(actual_qty) * flt(applicable_rate.get('unit_rate', 0))
+            self.cost_calc_notes = f"Qty Break: {actual_qty} packages × {applicable_rate.get('unit_rate', 0)} = {self.estimated_cost} (Break: {applicable_rate.get('qty_break', 0)})"
+            
+        except Exception as e:
+            frappe.log_error(f"Qty break cost calculation error: {str(e)}")
+            self.estimated_cost = 0
+            self.cost_calc_notes = f"Error: {str(e)}"
+    
+    def _get_qty_break_rates(self, record_type='Selling'):
+        """Get qty break rates for this air freight line"""
+        if not self.name or self.name == 'new':
+            return []
+        
+        try:
+            qty_breaks = frappe.get_all(
+                'Sales Quote Qty Break',
+                filters={
+                    'reference_doctype': 'Sales Quote Air Freight',
+                    'reference_no': self.name,
+                    'type': record_type
+                },
+                fields=['qty_break', 'unit_rate', 'rate_type', 'currency'],
+                order_by='qty_break asc'
+            )
+            return qty_breaks
+        except Exception as e:
+            frappe.log_error(f"Error getting qty break rates: {str(e)}")
+            return []
+    
+    def _find_applicable_qty_break_rate(self, quantity, qty_breaks):
+        """Find the applicable qty break rate for the given quantity"""
+        if not qty_breaks:
+            return None
+        
+        # Sort by qty_break descending to find the highest break that applies
+        sorted_breaks = sorted(qty_breaks, key=lambda x: flt(x.get('qty_break', 0)), reverse=True)
+        
+        # Find the highest break that the quantity meets or exceeds
+        for qb in sorted_breaks:
+            if flt(quantity) >= flt(qb.get('qty_break', 0)):
+                return qb
+        
+        # If no break applies, return the minimum break (lowest threshold)
+        if sorted_breaks:
+            return sorted(sorted_breaks, key=lambda x: flt(x.get('qty_break', 0)))[0]
+        
+        return None
+    
     def get_calculation_summary(self):
         """Get summary of calculations"""
         return {
@@ -724,6 +870,94 @@ def trigger_air_freight_calculations_for_line(line_data):
         
     except Exception as e:
         frappe.log_error(f"Calculation error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+@frappe.whitelist()
+def get_qty_break_html(air_freight_name, record_type='Selling'):
+    """
+    Get HTML representation of qty break rates
+    
+    Args:
+        air_freight_name: Name of Sales Quote Air Freight record
+        record_type: 'Selling' or 'Cost'
+        
+    Returns:
+        HTML string
+    """
+    try:
+        if not air_freight_name:
+            return {'success': False, 'html': ''}
+        
+        qty_breaks = frappe.get_all(
+            'Sales Quote Qty Break',
+            filters={
+                'reference_doctype': 'Sales Quote Air Freight',
+                'reference_no': air_freight_name,
+                'type': record_type
+            },
+            fields=['qty_break', 'unit_rate', 'rate_type', 'currency'],
+            order_by='qty_break asc'
+        )
+        
+        if not qty_breaks:
+            return {'success': True, 'html': '<span class="text-muted">No qty breaks defined</span>'}
+        
+        html = '<div class="qty-break-summary">'
+        html += '<table class="table table-condensed table-bordered" style="margin: 0;">'
+        html += '<thead><tr><th>Qty Break</th><th>Unit Rate</th><th>Currency</th></tr></thead>'
+        html += '<tbody>'
+        
+        for qb in qty_breaks:
+            html += f'<tr>'
+            html += f'<td>{flt(qb.get("qty_break", 0))}</td>'
+            html += f'<td>{flt(qb.get("unit_rate", 0))}</td>'
+            html += f'<td>{qb.get("currency", "")}</td>'
+            html += f'</tr>'
+        
+        html += '</tbody></table></div>'
+        
+        return {'success': True, 'html': html}
+        
+    except Exception as e:
+        frappe.log_error(f"Error getting qty break HTML: {str(e)}")
+        return {'success': False, 'html': f'<span class="text-danger">Error: {str(e)}</span>'}
+
+
+@frappe.whitelist()
+def refresh_qty_break_html_fields(air_freight_name):
+    """
+    Refresh qty break HTML fields for a Sales Quote Air Freight record
+    
+    Args:
+        air_freight_name: Name of Sales Quote Air Freight record
+        
+    Returns:
+        Success status with HTML strings
+    """
+    try:
+        if not air_freight_name:
+            return {'success': False, 'error': 'Air freight name is required'}
+        
+        # Get selling qty break HTML
+        selling_result = get_qty_break_html(air_freight_name, 'Selling')
+        selling_html = selling_result.get('html', '') if selling_result.get('success') else ''
+        
+        # Get cost qty break HTML
+        cost_result = get_qty_break_html(air_freight_name, 'Cost')
+        cost_html = cost_result.get('html', '') if cost_result.get('success') else ''
+        
+        return {
+            'success': True,
+            'selling_html': selling_html,
+            'cost_html': cost_html
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Error refreshing qty break HTML fields: {str(e)}")
         return {
             'success': False,
             'error': str(e)

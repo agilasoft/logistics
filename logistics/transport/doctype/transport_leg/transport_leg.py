@@ -41,6 +41,7 @@ class TransportLeg(Document):
         self.sync_to_run_sheet()
         self.sync_route_to_run_sheet()
         self.update_transport_job_status()
+        self.update_run_sheet_status()
         self._trigger_auto_vehicle_assignment()
     
     def on_trash(self):
@@ -175,7 +176,8 @@ class TransportLeg(Document):
                 "Consignee": "consignee_primary_address", 
                 "Container Yard": "containeryard_primary_address",
                 "Container Depot": "containerdepot_primary_address",
-                "Container Freight Station": "cfs_primary_address"
+                "Container Freight Station": "cfs_primary_address",
+                "Transport Terminal": "transportterminal_primary_address"
             }
             
             # Get the primary address field name for this facility type
@@ -258,16 +260,8 @@ class TransportLeg(Document):
                 if drop_end <= drop_start:
                     frappe.throw(_("Drop Window End must be after Drop Window Start"))
         
-        # Warn if drop window starts before pick window ends on the same date
-        if self.pick_window_end and self.drop_window_start:
-            pick_end_time = get_time(self.pick_window_end)
-            drop_start_time = get_time(self.drop_window_start)
-            # Ensure we have time objects, not timedelta
-            if isinstance(pick_end_time, time) and isinstance(drop_start_time, time):
-                pick_end = datetime.combine(leg_date, pick_end_time)
-                drop_start = datetime.combine(leg_date, drop_start_time)
-                if drop_start.date() == pick_end.date() and drop_start < pick_end:
-                    frappe.msgprint(_("Warning: Drop Window Start is before Pick Window End on the same date. This may indicate a scheduling issue."), indicator="orange")
+        # Note: Pick and Drop window settings are independent settings from their respective addresses
+        # and should not be compared to each other. They are validated separately above.
     
     def validate_route_compatibility(self):
         """Validate route compatibility"""
@@ -289,11 +283,223 @@ class TransportLeg(Document):
             return
         
         try:
-            job_doc = frappe.get_doc("Transport Job", self.transport_job)
-            job_doc.update_status()
-            job_doc.save(ignore_permissions=True)
+            # Check database directly for current status
+            db_status = frappe.db.get_value("Transport Job", self.transport_job, "status")
+            db_docstatus = frappe.db.get_value("Transport Job", self.transport_job, "docstatus")
+            
+            # Only update if job is submitted
+            if db_docstatus != 1:
+                return
+            
+            # Fetch all legs for this job directly from database to ensure we have the latest data
+            # This is more reliable than relying on the child table which might be cached
+            # IMPORTANT: We need to use the current leg's in-memory status (self.status) instead of
+            # the database value, because the database might not be updated yet when after_save() runs
+            leg_statuses_data = frappe.db.get_all(
+                "Transport Leg",
+                filters={"transport_job": self.transport_job, "docstatus": ["<", 2]},
+                fields=["name", "status"]
+            )
+            
+            # Build leg_statuses list, replacing the current leg's status with in-memory value
+            # This ensures we use the most up-to-date status for the current leg
+            leg_statuses = []
+            current_leg_found = False
+            for leg in leg_statuses_data:
+                if leg.name == self.name:
+                    # Use the in-memory status for the current leg (most up-to-date)
+                    if self.status:
+                        leg_statuses.append(self.status)
+                    current_leg_found = True
+                else:
+                    if leg.status:
+                        leg_statuses.append(leg.status)
+            
+            # If current leg wasn't found in the query (shouldn't happen, but safety check)
+            if not current_leg_found and self.status:
+                leg_statuses.append(self.status)
+            
+            # Compute new_status using the same logic as TransportJob.update_status()
+            # This ensures consistency across the codebase
+            if not leg_statuses:
+                # No legs found - default to Submitted
+                new_status = "Submitted"
+            else:
+                # Determine job status based on leg statuses
+                # Map Transport Leg statuses to Transport Job statuses:
+                # - "Completed" or "Billed" → "Completed"
+                # - "Started" or "Assigned" → "In Progress"
+                # - "Open" → "Submitted"
+                # This logic matches TransportJob.update_status() exactly
+                if all(status in ["Completed", "Billed"] for status in leg_statuses):
+                    new_status = "Completed"
+                elif any(status in ["Started", "Assigned"] for status in leg_statuses):
+                    new_status = "In Progress"
+                elif all(status == "Open" for status in leg_statuses):
+                    new_status = "Submitted"
+                else:
+                    # Mixed statuses - if any leg is in progress or completed, job is in progress
+                    if any(status in ["Started", "Assigned", "Completed", "Billed"] for status in leg_statuses):
+                        new_status = "In Progress"
+                    else:
+                        # Fallback to Submitted if we can't determine
+                        new_status = "Submitted"
+            
+            # Ensure status is never "Draft" for submitted documents
+            if not new_status or new_status == "Draft":
+                new_status = "Submitted"
+            
+            # Only update if status actually changed
+            # This prevents unnecessary database writes and realtime events
+            if new_status != db_status:
+                # Use frappe.db.set_value instead of raw SQL for better safety and consistency
+                # update_modified=False to avoid changing the modified timestamp unnecessarily
+                frappe.db.set_value(
+                    "Transport Job",
+                    self.transport_job,
+                    "status",
+                    new_status,
+                    update_modified=False
+                )
+                frappe.db.commit()
+                
+                # Log if status changed significantly (for debugging)
+                if db_status == "Submitted" and new_status in ["In Progress", "Completed"]:
+                    frappe.log_error(
+                        f"Transport Job {self.transport_job} status updated from '{db_status}' to '{new_status}' via leg {self.name} (status: {self.status}). "
+                        f"All leg statuses: {leg_statuses}",
+                        "Transport Job Status Update via Leg"
+                    )
+                
+                # Only publish realtime event when status actually changed
+                # This ensures clients only receive events for real status changes
+                frappe.publish_realtime(
+                    'transport_job_status_changed',
+                    {
+                        'job_name': self.transport_job,
+                        'status': new_status,
+                        'previous_status': db_status,
+                        'docstatus': db_docstatus,
+                        'triggered_by': 'transport_leg',
+                        'leg_name': self.name,
+                        'leg_status': self.status
+                    },
+                    user=frappe.session.user
+                )
+            else:
+                # Log when status should change but doesn't (for debugging)
+                if self.status in ["Started", "Assigned"] and new_status == "In Progress" and db_status != "In Progress":
+                    frappe.log_error(
+                        f"Transport Job {self.transport_job} status should be 'In Progress' but is '{db_status}'. "
+                        f"Leg {self.name} status: {self.status}, All leg statuses: {leg_statuses}, Calculated new_status: {new_status}",
+                        "Transport Job Status Update Issue"
+                    )
         except Exception as e:
             frappe.log_error(f"Error updating Transport Job status for leg {self.name}: {str(e)}", "Transport Leg Status Update Error")
+    
+    def update_run_sheet_status(self):
+        """Update the parent Run Sheet status when this leg's status changes"""
+        if not self.run_sheet:
+            return
+        
+        try:
+            # Check database directly for current status
+            db_status = frappe.db.get_value("Run Sheet", self.run_sheet, "status")
+            db_docstatus = frappe.db.get_value("Run Sheet", self.run_sheet, "docstatus")
+            
+            # Only update if Run Sheet is submitted
+            if db_docstatus != 1:
+                return
+            
+            # Don't auto-update if status is manually set to "Hold"
+            if db_status == "Hold":
+                return
+            
+            # Get all legs for this Run Sheet directly from database to ensure we have the latest data
+            # IMPORTANT: We need to use the current leg's in-memory status (self.status) instead of
+            # the database value, because the database might not be updated yet when after_save() runs
+            leg_statuses_data = frappe.db.get_all(
+                "Transport Leg",
+                filters={"run_sheet": self.run_sheet, "docstatus": ["<", 2]},
+                fields=["name", "status"]
+            )
+            
+            # Build leg_statuses list, replacing the current leg's status with in-memory value
+            # This ensures we use the most up-to-date status for the current leg
+            leg_statuses = []
+            current_leg_found = False
+            for leg in leg_statuses_data:
+                if leg.name == self.name:
+                    # Use the in-memory status for the current leg (most up-to-date)
+                    if self.status:
+                        leg_statuses.append(self.status)
+                    current_leg_found = True
+                else:
+                    if leg.status:
+                        leg_statuses.append(leg.status)
+            
+            # If current leg wasn't found in the query (shouldn't happen, but safety check)
+            if not current_leg_found and self.status:
+                leg_statuses.append(self.status)
+            
+            # Compute new_status using the same logic as RunSheet.update_status()
+            if not leg_statuses:
+                # No legs found - default to Dispatched
+                new_status = "Dispatched"
+            else:
+                # Determine Run Sheet status based on leg statuses
+                # Map Transport Leg statuses to Run Sheet statuses:
+                # - "Completed" or "Billed" → "Completed" (if all legs are completed)
+                # - "Started" → "In-Progress" (if any leg is started)
+                # - "Assigned" → "Dispatched" (if any leg is assigned but not started)
+                # - "Open" → "Dispatched" (if all legs are open)
+                if all(status in ["Completed", "Billed"] for status in leg_statuses):
+                    new_status = "Completed"
+                elif any(status == "Started" for status in leg_statuses):
+                    # If any leg is started, status is In-Progress
+                    new_status = "In-Progress"
+                elif any(status == "Assigned" for status in leg_statuses):
+                    # If any leg is assigned (but not started), status is Dispatched
+                    new_status = "Dispatched"
+                elif all(status == "Open" for status in leg_statuses):
+                    # If all legs are open, status is Dispatched
+                    new_status = "Dispatched"
+                else:
+                    # Mixed statuses - prioritize Started > Assigned > Completed
+                    if any(status == "Started" for status in leg_statuses):
+                        new_status = "In-Progress"
+                    elif any(status == "Assigned" for status in leg_statuses):
+                        new_status = "Dispatched"
+                    elif any(status in ["Completed", "Billed"] for status in leg_statuses):
+                        # If some legs are completed but not all, status is In-Progress
+                        new_status = "In-Progress"
+                    else:
+                        # Fallback to Dispatched if we can't determine
+                        new_status = "Dispatched"
+            
+            # Only update if status actually changed
+            # This prevents unnecessary database writes
+            if new_status != db_status:
+                # Use frappe.db.set_value instead of raw SQL for better safety and consistency
+                # update_modified=False to avoid changing the modified timestamp unnecessarily
+                frappe.db.set_value(
+                    "Run Sheet",
+                    self.run_sheet,
+                    "status",
+                    new_status,
+                    update_modified=False
+                )
+                frappe.db.commit()
+                
+                # Log if status changed significantly (for debugging)
+                if db_status == "Dispatched" and new_status in ["In-Progress", "Completed"]:
+                    frappe.log_error(
+                        f"Run Sheet {self.run_sheet} status updated from '{db_status}' to '{new_status}' via leg {self.name} (status: {self.status}). "
+                        f"All leg statuses: {leg_statuses}",
+                        "Run Sheet Status Update via Leg"
+                    )
+        except Exception as e:
+            frappe.log_error(f"Error updating Run Sheet status for leg {self.name}: {str(e)}", "Transport Leg Run Sheet Status Update Error")
     
     def _trigger_auto_vehicle_assignment(self):
         """Trigger auto-vehicle assignment if enabled and leg doesn't have a run sheet"""

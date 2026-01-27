@@ -16,11 +16,14 @@
   "quantity",
   "uom",
   "weight",
-  "volume",
+  "weight_uom",
   "column_break_3",
   "length",
-  "widht",
+  "width",
   "height",
+  "volume",
+  "volume_uom",
+  "dimension_uom",
   "atl",
   "section_break_dg_identification",
   "dg_identification_section",
@@ -76,6 +79,7 @@
    "options": "Commodity"
   },
   {
+   "fetch_from": "commodity.default_hs_code",
    "fieldname": "hs_code",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -134,6 +138,13 @@
    "label": "Weight"
   },
   {
+   "default": "KG",
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
    "fieldname": "column_break_3",
    "fieldtype": "Column Break"
   },
@@ -146,25 +157,33 @@
   },
   {
    "columns": 1,
-   "fieldname": "widht",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Width"
-  },
-  {
-   "columns": 1,
    "fieldname": "height",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Height"
   },
   {
+   "default": "CM",
+   "description": "Unit for length, width, height",
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
    "columns": 1,
    "fieldname": "volume",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Volume (m³)",
+   "label": "Volume",
    "read_only": 1
+  },
+  {
+   "default": "CBM",
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
   },
   {
    "default": "0",
@@ -329,12 +348,12 @@
   {
    "fieldname": "min_temperature",
    "fieldtype": "Float",
-   "label": "Min Temperature (°C)"
+   "label": "Min Temperature (\u00b0C)"
   },
   {
    "fieldname": "max_temperature",
    "fieldtype": "Float",
-   "label": "Max Temperature (°C)"
+   "label": "Max Temperature (\u00b0C)"
   },
   {
    "fieldname": "section_break_dg_radioactive",
@@ -390,11 +409,18 @@
    "fieldname": "additional_handling_instructions",
    "fieldtype": "Long Text",
    "label": "Additional Handling Instructions"
+  },
+  {
+   "columns": 1,
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2025-10-02 15:34:12.662772",
+ "modified": "2026-01-25 22:57:37.853143",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job Package",
