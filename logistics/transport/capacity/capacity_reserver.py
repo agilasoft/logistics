@@ -123,14 +123,18 @@ def reserve_leg_capacity(leg_doc: Document, vehicle: str, requirements: Dict[str
 		# Get scheduled date
 		reservation_date = getattr(leg_doc, 'date', None) or getdate()
 		
+		# Get default UOMs from settings
+		from logistics.transport.capacity.uom_conversion import get_default_uoms
+		default_uoms = get_default_uoms(company=getattr(leg_doc, 'company', None))
+		
 		# Create reservation
 		reservation = frappe.new_doc("Capacity Reservation")
 		reservation.vehicle = vehicle
 		reservation.reservation_date = reservation_date
 		reservation.reserved_weight = flt(requirements.get('weight', 0))
-		reservation.reserved_weight_uom = requirements.get('weight_uom', 'KG')
+		reservation.reserved_weight_uom = requirements.get('weight_uom') or default_uoms.get('weight', '')
 		reservation.reserved_volume = flt(requirements.get('volume', 0))
-		reservation.reserved_volume_uom = requirements.get('volume_uom', 'CBM')
+		reservation.reserved_volume_uom = requirements.get('volume_uom') or default_uoms.get('volume', '')
 		reservation.reserved_pallets = flt(requirements.get('pallets', 0))
 		reservation.transport_leg = leg_doc.name
 		reservation.status = "Reserved"

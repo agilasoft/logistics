@@ -17,6 +17,7 @@
   "airline",
   "local_customer",
   "freight_agent",
+  "uld_type",
   "column_break_customer",
   "release_type",
   "entry_type",
@@ -213,19 +214,19 @@
    "read_only": 1
   },
   {
+   "default": "IATA",
+   "description": "IATA: Uses standard 6000 divisor (167 kg/m\u00b3). Custom: Uses airline-specific divisor or override.",
    "fieldname": "volume_to_weight_factor_type",
    "fieldtype": "Select",
    "label": "Volume to Weight Factor Type",
-   "options": "IATA\nCustom",
-   "default": "IATA",
-   "description": "IATA: Uses standard 6000 divisor (167 kg/m³). Custom: Uses airline-specific divisor or override."
+   "options": "IATA\nCustom"
   },
   {
+   "depends_on": "eval:doc.volume_to_weight_factor_type === 'Custom'",
+   "description": "Override divisor for volume weight calculation (e.g., 3500, 5000). Leave empty to use airline default.",
    "fieldname": "custom_volume_to_weight_divisor",
    "fieldtype": "Float",
-   "label": "Custom Volume to Weight Divisor",
-   "depends_on": "eval:doc.volume_to_weight_factor_type === 'Custom'",
-   "description": "Override divisor for volume weight calculation (e.g., 3500, 5000). Leave empty to use airline default."
+   "label": "Custom Volume to Weight Divisor"
   },
   {
    "fieldname": "packages_section",
@@ -328,19 +329,22 @@
    "fieldname": "branch",
    "fieldtype": "Link",
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "reqd": 1
   },
   {
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "reqd": 1
   },
   {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
-   "options": "Profit Center"
+   "options": "Profit Center",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_accounts",
@@ -379,15 +383,22 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "uld_type",
+   "fieldtype": "Link",
+   "label": "ULD Type",
+   "options": "ULD Type"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-05 19:54:30.774355",
+ "modified": "2026-01-28 00:00:50.431959",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {

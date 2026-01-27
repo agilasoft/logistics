@@ -1,2 +1,0 @@
-frappe
-zeep>=4.2

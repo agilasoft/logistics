@@ -35,27 +35,46 @@ def get_default_uoms(company: Optional[str] = None) -> Dict[str, str]:
 		company: Optional company for company-specific settings
 	
 	Returns:
-		Dictionary with 'weight', 'volume', and 'dimension' UOMs
-	"""
-	defaults = {
-		'weight': 'KG',
-		'volume': 'CBM',
-		'dimension': 'CM'
-	}
+		Dictionary with 'weight', 'volume', and 'dimension' UOMs from settings
 	
+	Raises:
+		frappe.ValidationError: If Transport Capacity Settings is not configured
+	"""
 	try:
 		settings = frappe.get_single("Transport Capacity Settings")
+		defaults = {}
+		
 		if hasattr(settings, 'default_weight_uom') and settings.default_weight_uom:
 			defaults['weight'] = settings.default_weight_uom
 		if hasattr(settings, 'default_volume_uom') and settings.default_volume_uom:
 			defaults['volume'] = settings.default_volume_uom
 		if hasattr(settings, 'default_dimension_uom') and settings.default_dimension_uom:
 			defaults['dimension'] = settings.default_dimension_uom
-	except Exception:
-		# If settings don't exist, use defaults
-		pass
-	
-	return defaults
+		
+		# Validate that all required UOMs are configured
+		missing = []
+		if 'weight' not in defaults:
+			missing.append('Default Weight UOM')
+		if 'volume' not in defaults:
+			missing.append('Default Volume UOM')
+		if 'dimension' not in defaults:
+			missing.append('Default Dimension UOM')
+		
+		if missing:
+			frappe.throw(
+				_("Transport Capacity Settings is not fully configured. Please set: {0}").format(", ".join(missing)),
+				title=_("Settings Required")
+			)
+		
+		return defaults
+	except frappe.DoesNotExistError:
+		frappe.throw(
+			_("Transport Capacity Settings not found. Please configure default UOMs in Transport Capacity Settings."),
+			title=_("Settings Required")
+		)
+	except Exception as e:
+		frappe.log_error(f"Error getting default UOMs: {str(e)}", "UOM Settings Error")
+		raise
 
 
 def get_uom_conversion_factor(from_uom: str, to_uom: str) -> float:
@@ -357,26 +376,41 @@ def calculate_volume_from_dimensions(
 			pass
 	
 	# Fallback: convert dimensions to standard, calculate, then convert volume
-	# Convert all dimensions to CM
-	length_cm = convert_dimension(length, dimension_uom, 'CM', company)
-	width_cm = convert_dimension(width, dimension_uom, 'CM', company)
-	height_cm = convert_dimension(height, dimension_uom, 'CM', company)
+	# Get default dimension UOM from settings for intermediate conversion
+	defaults = get_default_uoms(company)
+	standard_dimension_uom = defaults['dimension']
+	standard_volume_uom = defaults['volume']
 	
-	# Calculate volume in CM³
-	volume_cm3 = length_cm * width_cm * height_cm
+	# Convert all dimensions to standard dimension UOM
+	length_std = convert_dimension(length, dimension_uom, standard_dimension_uom, company)
+	width_std = convert_dimension(width, dimension_uom, standard_dimension_uom, company)
+	height_std = convert_dimension(height, dimension_uom, standard_dimension_uom, company)
 	
-	# Convert CM³ to target volume UOM
-	if volume_uom.upper() == 'CBM':
+	# Calculate volume in standard dimension UOM³
+	volume_std3 = length_std * width_std * height_std
+	
+	# Convert standard dimension UOM³ to standard volume UOM
+	# This requires a conversion factor based on the standard dimension UOM
+	# For CM -> CBM: divide by 1,000,000; for M -> CBM: multiply by 1
+	if standard_dimension_uom.upper() == 'CM':
 		# CM³ to CBM: divide by 1,000,000
-		return volume_cm3 / 1000000.0
-	elif volume_uom.upper() == 'CFT':
-		# CM³ to CFT: convert to CBM first, then to CFT
-		volume_cbm = volume_cm3 / 1000000.0
-		return convert_volume(volume_cbm, 'CBM', 'CFT', company)
+		volume_std = volume_std3 / 1000000.0
+	elif standard_dimension_uom.upper() == 'M':
+		# M³ to CBM: same (1 m³ = 1 CBM)
+		volume_std = volume_std3
 	else:
-		# Convert to CBM first, then to target
-		volume_cbm = volume_cm3 / 1000000.0
-		return convert_volume(volume_cbm, 'CBM', volume_uom, company)
+		# For other dimension UOMs, convert to CM first, then to CBM
+		length_cm = convert_dimension(length_std, standard_dimension_uom, 'CM', company)
+		width_cm = convert_dimension(width_std, standard_dimension_uom, 'CM', company)
+		height_cm = convert_dimension(height_std, standard_dimension_uom, 'CM', company)
+		volume_cm3 = length_cm * width_cm * height_cm
+		volume_std = volume_cm3 / 1000000.0
+	
+	# Convert from standard volume UOM to target volume UOM
+	if volume_uom.upper() == standard_volume_uom.upper():
+		return volume_std
+	else:
+		return convert_volume(volume_std, standard_volume_uom, volume_uom, company)
 
 
 def standardize_capacity_value(
@@ -404,7 +438,12 @@ def standardize_capacity_value(
 		return flt(value)
 	
 	defaults = get_default_uoms(company)
-	standard_uom = defaults.get(capacity_type, 'KG' if capacity_type == 'weight' else 'CBM')
+	standard_uom = defaults.get(capacity_type)
+	if not standard_uom:
+		frappe.throw(
+			_("Default {0} UOM not configured in Transport Capacity Settings").format(capacity_type.title()),
+			title=_("Settings Required")
+		)
 	
 	if capacity_type == 'weight':
 		return convert_weight(value, uom, standard_uom, company)

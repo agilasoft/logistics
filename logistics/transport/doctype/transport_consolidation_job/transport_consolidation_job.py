@@ -88,10 +88,10 @@ class TransportConsolidationJob(Document):
 				get_default_uoms
 			)
 			
-			# Get default UOMs
+			# Get default UOMs from settings
 			default_uoms = get_default_uoms(company)
-			weight_uom = default_uoms['weight']  # Typically 'KG'
-			volume_uom = default_uoms['volume']   # Typically 'CBM'
+			weight_uom = default_uoms['weight']
+			volume_uom = default_uoms['volume']
 			
 			total_weight = 0
 			total_volume = 0
@@ -213,10 +213,10 @@ def calculate_weight_volume_from_job(transport_job: str, company: str = None) ->
 			get_default_uoms
 		)
 		
-		# Get default UOMs
+		# Get default UOMs from settings
 		default_uoms = get_default_uoms(company)
-		weight_uom = default_uoms['weight']  # Typically 'KG'
-		volume_uom = default_uoms['volume']   # Typically 'CBM'
+		weight_uom = default_uoms['weight']
+		volume_uom = default_uoms['volume']
 		
 		total_weight = 0
 		total_volume = 0

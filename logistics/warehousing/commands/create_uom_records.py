@@ -22,7 +22,7 @@ def create_uom_records():
     # UOM records to create
     uom_records = [
         {"uom_name": "CBM", "must_be_whole_number": 0},
-        {"uom_name": "Kg", "must_be_whole_number": 0},
+        {"uom_name": "KG", "must_be_whole_number": 0},
         {"uom_name": "M", "must_be_whole_number": 0},
         {"uom_name": "CM", "must_be_whole_number": 0},
         {"uom_name": "MM", "must_be_whole_number": 0},
