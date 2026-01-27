@@ -14,9 +14,10 @@ dynamic = ["version"]
 dependencies = [
     "frappe",
     "zeep>=4.2",
-    # PyPika URL dependency required for Frappe v16+ with uv installer
+    # URL dependencies required for Frappe v16+ with uv installer
     # Dependency resolver will handle version conflicts with v15
-    "PyPika @ git+https://github.com/frappe/pypika@2c50e6142b2d61d2d243e466fdd5dc03b3d918f2"
+    "PyPika @ git+https://github.com/frappe/pypika@2c50e6142b2d61d2d243e466fdd5dc03b3d918f2",
+    "gunicorn @ git+https://github.com/frappe/gunicorn@bb554053bb87218120d76ab6676af7015680e8b6"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

@@ -406,15 +406,15 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Truck Park",
+   "label": "Terminal",
    "link_count": 0,
-   "link_to": "Transport Terminal",
+   "link_to": "Terminal",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-01-09 15:05:12.094753",
+ "modified": "2026-01-27 20:35:30.143500",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport",
