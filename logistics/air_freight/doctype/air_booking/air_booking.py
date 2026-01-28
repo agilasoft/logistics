@@ -490,6 +490,63 @@ class AirBooking(Document):
 			)
 			return None
 	
+	@frappe.whitelist()
+	def check_conversion_readiness(self):
+		"""
+		Check if Air Booking is ready for conversion to Air Shipment.
+		
+		Returns:
+			dict: Status with missing_fields list and is_ready boolean
+		"""
+		missing_fields = []
+		
+		# Validate link fields that will be copied
+		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
+			missing_fields.append({
+				"field": "service_level",
+				"label": "Service Level",
+				"tab": "Details",
+				"message": f"Service Level '{self.service_level}' does not exist"
+			})
+		
+		if self.release_type and not frappe.db.exists("Release Type", self.release_type):
+			missing_fields.append({
+				"field": "release_type",
+				"label": "Release Type",
+				"tab": "Details",
+				"message": f"Release Type '{self.release_type}' does not exist"
+			})
+		
+		if hasattr(self, 'uld_type') and self.uld_type and not frappe.db.exists("ULD Type", self.uld_type):
+			missing_fields.append({
+				"field": "uld_type",
+				"label": "ULD Type",
+				"tab": "Details",
+				"message": f"ULD Type '{self.uld_type}' does not exist"
+			})
+		
+		# Validate ports exist as UNLOCO
+		if self.origin_port and not frappe.db.exists("UNLOCO", self.origin_port):
+			missing_fields.append({
+				"field": "origin_port",
+				"label": "Origin Port",
+				"tab": "Details",
+				"message": f"Origin Port '{self.origin_port}' is not a valid UNLOCO code"
+			})
+		
+		if self.destination_port and not frappe.db.exists("UNLOCO", self.destination_port):
+			missing_fields.append({
+				"field": "destination_port",
+				"label": "Destination Port",
+				"tab": "Details",
+				"message": f"Destination Port '{self.destination_port}' is not a valid UNLOCO code"
+			})
+		
+		return {
+			"is_ready": len(missing_fields) == 0,
+			"missing_fields": missing_fields
+		}
+	
 	def validate_before_conversion(self):
 		"""
 		Validate that all required fields are present before conversion to Air Shipment.
@@ -497,28 +554,11 @@ class AirBooking(Document):
 		Raises:
 			frappe.ValidationError: If required fields are missing
 		"""
-		# Check dangerous goods requirements if applicable
-		if hasattr(self, 'contains_dangerous_goods') and self.contains_dangerous_goods:
-			# Note: Air Booking doesn't have dangerous goods fields, but we check in case they're added
-			# This validation is mainly for Air Shipment, but we can add a warning here
-			pass
+		readiness = self.check_conversion_readiness()
 		
-		# Validate link fields that will be copied
-		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
-			frappe.throw(_("Service Level '{0}' does not exist. Please select a valid Service Level.").format(self.service_level))
-		
-		if self.release_type and not frappe.db.exists("Release Type", self.release_type):
-			frappe.throw(_("Release Type '{0}' does not exist. Please select a valid Release Type.").format(self.release_type))
-		
-		if hasattr(self, 'uld_type') and self.uld_type and not frappe.db.exists("ULD Type", self.uld_type):
-			frappe.throw(_("ULD Type '{0}' does not exist. Please select a valid ULD Type.").format(self.uld_type))
-		
-		# Validate ports exist as UNLOCO (both Booking and Shipment use UNLOCO)
-		if self.origin_port and not frappe.db.exists("UNLOCO", self.origin_port):
-			frappe.throw(_("Origin Port '{0}' is not a valid UNLOCO code. Please set a valid UNLOCO code for Origin Port.").format(self.origin_port))
-		
-		if self.destination_port and not frappe.db.exists("UNLOCO", self.destination_port):
-			frappe.throw(_("Destination Port '{0}' is not a valid UNLOCO code. Please set a valid UNLOCO code for Destination Port.").format(self.destination_port))
+		if not readiness["is_ready"]:
+			messages = [field["message"] for field in readiness["missing_fields"]]
+			frappe.throw(_("Cannot convert to Air Shipment. Missing or invalid fields:\n{0}").format("\n".join(f"- {msg}" for msg in messages)))
 	
 	@frappe.whitelist()
 	def convert_to_shipment(self):
