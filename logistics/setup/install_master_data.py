@@ -11,8 +11,8 @@ def execute():
     print("Installing logistics master data...")
     
     try:
-        # Install UOM records first (required for Transport Capacity Settings)
-        install_required_uoms()
+        # Note: UOMs are user-defined and should be created manually
+        # Users must configure default UOMs in Transport Capacity Settings
         
         # Install Load Type data
         install_load_types()
@@ -49,56 +49,6 @@ def execute():
         }
 
 
-def install_required_uoms():
-    """Install required UOM records for Transport Capacity Settings
-    
-    Reads default UOM values from Transport Capacity Settings doctype definition
-    and creates those UOM records if they don't exist.
-    """
-    print("📏 Installing required UOM records...")
-    
-    try:
-        # Read the Transport Capacity Settings doctype to get default UOM values
-        doctype_path = frappe.get_app_path("logistics", "transport", "doctype", 
-                                          "transport_capacity_settings", "transport_capacity_settings.json")
-        
-        import json
-        with open(doctype_path, 'r') as f:
-            doctype_def = json.load(f)
-        
-        # Extract default UOM values from field definitions
-        uom_names = set()
-        for field in doctype_def.get("fields", []):
-            if field.get("fieldname") in ["default_dimension_uom", "default_volume_uom", "default_weight_uom"]:
-                default_value = field.get("default")
-                if default_value:
-                    uom_names.add(default_value)
-        
-        created_count = 0
-        for uom_name in uom_names:
-            try:
-                # Check if UOM already exists
-                if frappe.db.exists("UOM", uom_name):
-                    print(f"  ✓ UOM {uom_name} already exists")
-                    continue
-                
-                # Create UOM record
-                uom_doc = frappe.new_doc("UOM")
-                uom_doc.uom_name = uom_name
-                uom_doc.must_be_whole_number = 0
-                uom_doc.insert(ignore_permissions=True)
-                created_count += 1
-                print(f"  ✅ Created UOM: {uom_name}")
-                
-            except Exception as e:
-                print(f"  ❌ Error creating UOM {uom_name}: {e}")
-                frappe.log_error(f"Error creating UOM {uom_name}: {str(e)}")
-        
-        print(f"📏 UOM records: {created_count} created")
-        
-    except Exception as e:
-        print(f"  ⚠️  Error reading Transport Capacity Settings defaults: {e}")
-        frappe.log_error(f"Error reading Transport Capacity Settings defaults: {str(e)}")
 
 
 def install_load_types():

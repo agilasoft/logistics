@@ -490,6 +490,36 @@ class AirBooking(Document):
 			)
 			return None
 	
+	def validate_before_conversion(self):
+		"""
+		Validate that all required fields are present before conversion to Air Shipment.
+		
+		Raises:
+			frappe.ValidationError: If required fields are missing
+		"""
+		# Check dangerous goods requirements if applicable
+		if hasattr(self, 'contains_dangerous_goods') and self.contains_dangerous_goods:
+			# Note: Air Booking doesn't have dangerous goods fields, but we check in case they're added
+			# This validation is mainly for Air Shipment, but we can add a warning here
+			pass
+		
+		# Validate link fields that will be copied
+		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
+			frappe.throw(_("Service Level '{0}' does not exist. Please select a valid Service Level.").format(self.service_level))
+		
+		if self.release_type and not frappe.db.exists("Release Type", self.release_type):
+			frappe.throw(_("Release Type '{0}' does not exist. Please select a valid Release Type.").format(self.release_type))
+		
+		if hasattr(self, 'uld_type') and self.uld_type and not frappe.db.exists("ULD Type", self.uld_type):
+			frappe.throw(_("ULD Type '{0}' does not exist. Please select a valid ULD Type.").format(self.uld_type))
+		
+		# Validate ports exist as UNLOCO (both Booking and Shipment use UNLOCO)
+		if self.origin_port and not frappe.db.exists("UNLOCO", self.origin_port):
+			frappe.throw(_("Origin Port '{0}' is not a valid UNLOCO code. Please set a valid UNLOCO code for Origin Port.").format(self.origin_port))
+		
+		if self.destination_port and not frappe.db.exists("UNLOCO", self.destination_port):
+			frappe.throw(_("Destination Port '{0}' is not a valid UNLOCO code. Please set a valid UNLOCO code for Destination Port.").format(self.destination_port))
+	
 	@frappe.whitelist()
 	def convert_to_shipment(self):
 		"""
@@ -499,6 +529,9 @@ class AirBooking(Document):
 			dict: Result with created Air Shipment name and status
 		"""
 		try:
+			# Validate before conversion
+			self.validate_before_conversion()
+			
 			# Create new Air Shipment
 			air_shipment = frappe.new_doc("Air Shipment")
 			
