@@ -491,6 +491,76 @@ class AirBooking(Document):
 			return None
 	
 	@frappe.whitelist()
+	def check_conversion_readiness(self):
+		"""
+		Check if Air Booking is ready for conversion to Air Shipment.
+		
+		Returns:
+			dict: Status with missing_fields list and is_ready boolean
+		"""
+		missing_fields = []
+		
+		# Validate link fields that will be copied
+		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
+			missing_fields.append({
+				"field": "service_level",
+				"label": "Service Level",
+				"tab": "Details",
+				"message": f"Service Level '{self.service_level}' does not exist"
+			})
+		
+		if self.release_type and not frappe.db.exists("Release Type", self.release_type):
+			missing_fields.append({
+				"field": "release_type",
+				"label": "Release Type",
+				"tab": "Details",
+				"message": f"Release Type '{self.release_type}' does not exist"
+			})
+		
+		if hasattr(self, 'uld_type') and self.uld_type and not frappe.db.exists("ULD Type", self.uld_type):
+			missing_fields.append({
+				"field": "uld_type",
+				"label": "ULD Type",
+				"tab": "Details",
+				"message": f"ULD Type '{self.uld_type}' does not exist"
+			})
+		
+		# Validate ports exist as UNLOCO
+		if self.origin_port and not frappe.db.exists("UNLOCO", self.origin_port):
+			missing_fields.append({
+				"field": "origin_port",
+				"label": "Origin Port",
+				"tab": "Details",
+				"message": f"Origin Port '{self.origin_port}' is not a valid UNLOCO code"
+			})
+		
+		if self.destination_port and not frappe.db.exists("UNLOCO", self.destination_port):
+			missing_fields.append({
+				"field": "destination_port",
+				"label": "Destination Port",
+				"tab": "Details",
+				"message": f"Destination Port '{self.destination_port}' is not a valid UNLOCO code"
+			})
+		
+		return {
+			"is_ready": len(missing_fields) == 0,
+			"missing_fields": missing_fields
+		}
+	
+	def validate_before_conversion(self):
+		"""
+		Validate that all required fields are present before conversion to Air Shipment.
+		
+		Raises:
+			frappe.ValidationError: If required fields are missing
+		"""
+		readiness = self.check_conversion_readiness()
+		
+		if not readiness["is_ready"]:
+			messages = [field["message"] for field in readiness["missing_fields"]]
+			frappe.throw(_("Cannot convert to Air Shipment. Missing or invalid fields:\n{0}").format("\n".join(f"- {msg}" for msg in messages)))
+	
+	@frappe.whitelist()
 	def convert_to_shipment(self):
 		"""
 		Convert Air Booking to Air Shipment.
@@ -499,6 +569,9 @@ class AirBooking(Document):
 			dict: Result with created Air Shipment name and status
 		"""
 		try:
+			# Validate before conversion
+			self.validate_before_conversion()
+			
 			# Create new Air Shipment
 			air_shipment = frappe.new_doc("Air Shipment")
 			

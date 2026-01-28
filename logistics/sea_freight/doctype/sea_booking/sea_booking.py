@@ -302,6 +302,110 @@ class SeaBooking(Document):
 			return None
 	
 	@frappe.whitelist()
+	def check_conversion_readiness(self):
+		"""
+		Check if Sea Booking is ready for conversion to Sea Shipment.
+		
+		Returns:
+			dict: Status with missing_fields list and is_ready boolean
+		"""
+		missing_fields = []
+		
+		# Check required accounting fields
+		if not self.branch:
+			missing_fields.append({
+				"field": "branch",
+				"label": "Branch",
+				"tab": "Accounts",
+				"message": "Branch is required for conversion to Sea Shipment"
+			})
+		
+		if not self.cost_center:
+			missing_fields.append({
+				"field": "cost_center",
+				"label": "Cost Center",
+				"tab": "Accounts",
+				"message": "Cost Center is required for conversion to Sea Shipment"
+			})
+		
+		if not self.profit_center:
+			missing_fields.append({
+				"field": "profit_center",
+				"label": "Profit Center",
+				"tab": "Accounts",
+				"message": "Profit Center is required for conversion to Sea Shipment"
+			})
+		
+		# Check shipping_line
+		if not self.shipping_line:
+			missing_fields.append({
+				"field": "shipping_line",
+				"label": "Shipping Line",
+				"tab": "Details",
+				"message": "Shipping Line is required for conversion to Sea Shipment"
+			})
+		
+		# Validate ports
+		if self.origin_port and not frappe.db.exists("UNLOCO", self.origin_port):
+			if frappe.db.exists("Location", self.origin_port):
+				missing_fields.append({
+					"field": "origin_port",
+					"label": "Origin Port",
+					"tab": "Details",
+					"message": "Origin Port must be a UNLOCO code, not a Location"
+				})
+			else:
+				missing_fields.append({
+					"field": "origin_port",
+					"label": "Origin Port",
+					"tab": "Details",
+					"message": "Origin Port is not a valid UNLOCO code"
+				})
+		
+		if self.destination_port and not frappe.db.exists("UNLOCO", self.destination_port):
+			if frappe.db.exists("Location", self.destination_port):
+				missing_fields.append({
+					"field": "destination_port",
+					"label": "Destination Port",
+					"tab": "Details",
+					"message": "Destination Port must be a UNLOCO code, not a Location"
+				})
+			else:
+				missing_fields.append({
+					"field": "destination_port",
+					"label": "Destination Port",
+					"tab": "Details",
+					"message": "Destination Port is not a valid UNLOCO code"
+				})
+		
+		# Validate link fields
+		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
+			missing_fields.append({
+				"field": "service_level",
+				"label": "Service Level",
+				"tab": "Details",
+				"message": f"Service Level '{self.service_level}' does not exist"
+			})
+		
+		return {
+			"is_ready": len(missing_fields) == 0,
+			"missing_fields": missing_fields
+		}
+	
+	def validate_before_conversion(self):
+		"""
+		Validate that all required fields are present before conversion to Sea Shipment.
+		
+		Raises:
+			frappe.ValidationError: If required fields are missing
+		"""
+		readiness = self.check_conversion_readiness()
+		
+		if not readiness["is_ready"]:
+			messages = [field["message"] for field in readiness["missing_fields"]]
+			frappe.throw(_("Cannot convert to Sea Shipment. Missing or invalid fields:\n{0}").format("\n".join(f"- {msg}" for msg in messages)))
+	
+	@frappe.whitelist()
 	def convert_to_shipment(self):
 		"""
 		Convert Sea Booking to Sea Shipment.
@@ -310,6 +414,9 @@ class SeaBooking(Document):
 			dict: Result with created Sea Shipment name and status
 		"""
 		try:
+			# Validate before conversion
+			self.validate_before_conversion()
+			
 			# Create new Sea Shipment
 			sea_shipment = frappe.new_doc("Sea Shipment")
 			
