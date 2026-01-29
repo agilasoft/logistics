@@ -3,3 +3,4 @@ logistics.warehousing.patches.add_putaway_indexes
 logistics.transport.patches.add_telematics_indexes
 logistics.patches.v1_0_install_dimensions
 logistics.patches.v1_0_install_master_data
+logistics.patches.v1_0_remove_duplicate_recognition_custom_field
