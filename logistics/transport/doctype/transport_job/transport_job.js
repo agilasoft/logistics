@@ -288,16 +288,11 @@ frappe.ui.form.on('Transport Job', {
 			}, __('Actions'));
 		}
 		
-		// Add button to create Run Sheet (only for submitted documents and if no Run Sheet exists)
+		// Add button to create Run Sheet (only for submitted documents)
 		if (!frm.is_new() && frm.doc.docstatus === 1) {
-			// Check if any leg already has a run_sheet assigned
-			const has_existing_run_sheet = frm.doc.legs && frm.doc.legs.some(leg => leg.run_sheet);
-			
-			if (!has_existing_run_sheet) {
-				frm.add_custom_button(__('Run Sheet'), function() {
-					frm.events.create_run_sheet(frm);
-				}, __('Create'));
-			}
+			frm.add_custom_button(__('Run Sheet'), function() {
+				frm.events.create_run_sheet(frm);
+			}, __('Create'));
 		}
 		
 		// Status is automatically updated via trigger-based hooks (document lifecycle and Transport Leg changes)

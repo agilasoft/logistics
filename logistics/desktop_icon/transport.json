@@ -1,0 +1,22 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-01-28 14:07:29.586338",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "full-page",
+ "icon_image": "",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Transport",
+ "link_to": "Transport",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-01-29 12:52:29.959429",
+ "modified_by": "Administrator",
+ "name": "Transport",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

@@ -31,9 +31,9 @@ CargoNext is designed to streamline logistics operations for businesses of all s
 
 ## Requirements
 
-- Frappe Framework (v15+)
-- ERPNext
-- Python 3.8 or higher
+- Frappe Framework (v16+)
+- ERPNext (v16+)
+- Python 3.14 or higher
 
 ## Installation
 
