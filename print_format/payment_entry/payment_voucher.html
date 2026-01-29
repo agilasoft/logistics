@@ -374,14 +374,15 @@
         
         /* Signature Section */
         .signature-section {
-            margin-top: 3mm;
-            padding: 1.5mm;
+            margin-top: 0;
+            padding: 0;
             page-break-inside: avoid;
         }
         
         .signature-table {
             width: 100%;
             border-collapse: collapse;
+            border: 2px solid #000;
         }
         
         .signature-table th {
@@ -391,6 +392,16 @@
             font-weight: bold;
             border: 1px solid #000;
             background: #e0e0e0;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+        }
+        
+        .signature-table th:first-child {
+            border-left: 2px solid #000;
+        }
+        
+        .signature-table th:last-child {
+            border-right: 2px solid #000;
         }
         
         .signature-table td {
@@ -400,6 +411,18 @@
             border: 1px solid #000;
             height: 15mm;
             vertical-align: bottom;
+        }
+        
+        .signature-table td:first-child {
+            border-left: 2px solid #000;
+        }
+        
+        .signature-table td:last-child {
+            border-right: 2px solid #000;
+        }
+        
+        .signature-table tbody tr:last-child td {
+            border-bottom: 2px solid #000;
         }
         
         /* Footer Section */
@@ -439,10 +462,13 @@
         }
         
         .payment-note {
-            font-size: 7pt;
+            font-weight: bold;
+            font-size: 8pt;
             font-style: italic;
             margin-top: 1mm;
+            margin-bottom: 1mm;
             padding: 0.5mm;
+            text-align: center;
         }
         
         @page {
@@ -639,14 +665,10 @@
             <!-- Right Column - Payment Details -->
             <div class="right-column">
                 <div class="field-row">
-                    <div class="field-label">PAGE:</div>
-                    <div class="field-value">1 of 1</div>
-                </div>
-                <div class="field-row">
                     <div class="field-label">DATE:</div>
                     <div class="field-value">
                         {% if doc.posting_date %}
-                            {{ frappe.utils.formatdate(doc.posting_date, 'dd-MMM-yy') }}
+                            {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
                         {% endif %}
                     </div>
                 </div>
@@ -713,15 +735,15 @@
                                 <td>
                                     {% if ref.reference_doctype == "Purchase Invoice" %}
                                         {% set inv_doc = frappe.get_doc("Purchase Invoice", ref.reference_name) %}
-                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'dd-MMM-yy') if inv_doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'MM-dd-yyyy') if inv_doc.posting_date else '' }}
                                     {% elif ref.reference_doctype == "Sales Invoice" %}
                                         {% set inv_doc = frappe.get_doc("Sales Invoice", ref.reference_name) %}
-                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'dd-MMM-yy') if inv_doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'MM-dd-yyyy') if inv_doc.posting_date else '' }}
                                     {% elif ref.reference_doctype == "Expense Claim" %}
                                         {% set inv_doc = frappe.get_doc("Expense Claim", ref.reference_name) %}
-                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'dd-MMM-yy') if inv_doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'MM-dd-yyyy') if inv_doc.posting_date else '' }}
                                     {% else %}
-                                        {{ frappe.utils.formatdate(doc.posting_date, 'dd-MMM-yy') if doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '' }}
                                     {% endif %}
                                 </td>
                                 <td>
@@ -752,7 +774,7 @@
                     {% else %}
                         <tr class="table-row">
                             <td>INV</td>
-                            <td>{{ frappe.utils.formatdate(doc.posting_date, 'dd-MMM-yy') if doc.posting_date else '' }}</td>
+                            <td>{{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '' }}</td>
                             <td></td>
                             <td>{{ frappe.utils.fmt_money(doc.paid_amount, precision=2) }}</td>
                         </tr>
