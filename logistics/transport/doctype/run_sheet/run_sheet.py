@@ -87,7 +87,7 @@ class RunSheet(Document):
 			fields=["name", "transport_job", "facility_from", "facility_to", 
 			        "facility_type_from", "facility_type_to", "pick_mode", 
 			        "drop_mode", "status", "order"],
-			order_by="`order` asc, creation asc"
+			order_by="order asc, creation asc"
 		)
 		
 		# Get existing leg links from child table

@@ -109,7 +109,6 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\",\"load_type\",\"=\",\"eval:doc.load_type\"]]",
    "options": "Vehicle Type"
   },
   {

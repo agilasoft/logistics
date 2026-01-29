@@ -1,0 +1,21 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-01-28 14:07:29.590241",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "sidebar-expand",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Air Freight",
+ "link_to": "Air Freight",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-01-29 09:55:00.872120",
+ "modified_by": "Administrator",
+ "name": "Air Freight",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

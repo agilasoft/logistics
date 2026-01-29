@@ -17,6 +17,7 @@ app_license = "MIT"
 # include js, css files in header of desk.html
 # app_include_css = "/assets/logistics/css/logistics.css"
 app_include_js = [
+    "/assets/logistics/js/desktop_icon_cache_bust.js",
     "/assets/logistics/js/create_from_sales_quote.js"
 ]
 # Lalamove JS files are loaded on-demand in form scripts to avoid loading for all pages

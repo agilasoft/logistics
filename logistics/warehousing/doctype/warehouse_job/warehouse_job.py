@@ -3709,7 +3709,7 @@ def create_operations(job_name: str) -> Dict[str, Any]:
                 "used_in": job.type
             },
             fields=["name", "code", "operation_name", "unit_std_hours", "handling_basis", "handling_uom", "notes", "order"],
-            order_by="`order` asc, operation_name asc"
+            order_by="order asc, operation_name asc"
         )
         
         if not templates:
