@@ -901,8 +901,9 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 					dialog._all_legs = legs;
 					dialog._legs_job_names = filtered_job_names;
 					
-					// Sort legs
-					dialog._filtered_legs = sort_legs(legs, sort_by, sort_order);
+					// Sort legs (map job sort options to leg sort options)
+					const leg_sort_by = (sort_by === 'Scheduled Date' || sort_by === 'Date') ? 'Date' : sort_by;
+					dialog._filtered_legs = sort_legs(legs, leg_sort_by, sort_order);
 					
 					// Update the table
 					const table_html = build_legs_table_html(dialog._filtered_legs);
@@ -932,7 +933,9 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				});
 			} else {
 				// Job list hasn't changed, just sort the existing legs
-				dialog._filtered_legs = sort_legs(dialog._all_legs || [], sort_by, sort_order);
+				// Map job sort options to leg sort options
+				const leg_sort_by = (sort_by === 'Scheduled Date' || sort_by === 'Date') ? 'Date' : sort_by;
+				dialog._filtered_legs = sort_legs(dialog._all_legs || [], leg_sort_by, sort_order);
 				
 				// Update the table
 				const table_html = build_legs_table_html(dialog._filtered_legs);
