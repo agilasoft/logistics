@@ -29,6 +29,8 @@
   "column_break_3",
   "surcharge_amount",
   "total_amount",
+  "estimated_revenue",
+  "estimated_cost",
   "section_break_status",
   "billing_status",
   "column_break_4",
@@ -181,6 +183,18 @@
    "label": "Total Amount",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "precision": "2"
+  },
+  {
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "label": "Estimated Cost",
+   "precision": "2"
   },
   {
    "fieldname": "section_break_status",

@@ -78,7 +78,27 @@ function extractLatLonFromGeo(geo) {
 function set_pick_query(frm) {
   frm.set_query('pick_address', () => {
     if (frm.doc.facility_type_from && frm.doc.facility_from) {
-      return { filters: { link_doctype: frm.doc.facility_type_from, link_name: frm.doc.facility_from } };
+      // Use server-side method to get addresses - avoids permission errors with link_doctype
+      let address_names = [];
+      frappe.call({
+        method: 'logistics.transport.doctype.transport_leg.transport_leg.get_addresses_for_facility',
+        args: {
+          facility_type: frm.doc.facility_type_from,
+          facility_name: frm.doc.facility_from
+        },
+        async: false,
+        callback: function(r) {
+          if (r.message) {
+            address_names = r.message;
+          }
+        }
+      });
+      
+      if (address_names.length > 0) {
+        return { filters: { name: ['in', address_names] } };
+      } else {
+        return { filters: { name: '__none__' } };
+      }
     }
     return { filters: { name: '__none__' } };
   });
@@ -86,7 +106,27 @@ function set_pick_query(frm) {
 function set_drop_query(frm) {
   frm.set_query('drop_address', () => {
     if (frm.doc.facility_type_to && frm.doc.facility_to) {
-      return { filters: { link_doctype: frm.doc.facility_type_to, link_name: frm.doc.facility_to } };
+      // Use server-side method to get addresses - avoids permission errors with link_doctype
+      let address_names = [];
+      frappe.call({
+        method: 'logistics.transport.doctype.transport_leg.transport_leg.get_addresses_for_facility',
+        args: {
+          facility_type: frm.doc.facility_type_to,
+          facility_name: frm.doc.facility_to
+        },
+        async: false,
+        callback: function(r) {
+          if (r.message) {
+            address_names = r.message;
+          }
+        }
+      });
+      
+      if (address_names.length > 0) {
+        return { filters: { name: ['in', address_names] } };
+      } else {
+        return { filters: { name: '__none__' } };
+      }
     }
     return { filters: { name: '__none__' } };
   });

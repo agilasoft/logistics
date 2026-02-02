@@ -140,9 +140,9 @@ def get_data(filters):
 		{conditions}
 		GROUP BY tc.name, tc.consolidation_date, tc.consolidation_type, tc.status, tc.total_weight, tc.total_volume, tc.run_sheet
 		ORDER BY tc.consolidation_date DESC
-	""".format(conditions=conditions)
+	""".format(conditions=" AND " + conditions if conditions else "")
 	
-	data = frappe.db.sql(query, as_dict=True)
+	data = frappe.db.sql(query, filters, as_dict=True)
 	
 	# Process data and calculate savings metrics
 	for row in data:

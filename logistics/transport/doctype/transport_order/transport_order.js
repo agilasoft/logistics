@@ -489,6 +489,18 @@ frappe.ui.form.on("Transport Order", {
 		if (frm.doc.load_type) {
 			load_allowed_vehicle_types(frm, frm.doc.load_type);
 		}
+		
+		// Render address HTML for all existing legs
+		if (frm.doc.legs && frm.doc.legs.length > 0) {
+			frm.doc.legs.forEach(function(leg) {
+				if (leg.pick_address) {
+					render_pick_address_html(frm, leg.doctype, leg.name);
+				}
+				if (leg.drop_address) {
+					render_drop_address_html(frm, leg.doctype, leg.name);
+				}
+			});
+		}
 	},
 	
 	vehicle_type: function(frm) {
@@ -1134,6 +1146,10 @@ async function auto_fill_pick_address(frm, cdt, cdn) {
 		
 		if (result.message && !leg.pick_address) {
 			frappe.model.set_value(cdt, cdn, 'pick_address', result.message);
+			// Render address HTML after setting the address
+			setTimeout(function() {
+				render_pick_address_html(frm, cdt, cdn);
+			}, 100);
 		}
 	} catch (error) {
 		console.error('Error auto-filling pick address:', error);
@@ -1157,10 +1173,55 @@ async function auto_fill_drop_address(frm, cdt, cdn) {
 		
 		if (result.message && !leg.drop_address) {
 			frappe.model.set_value(cdt, cdn, 'drop_address', result.message);
+			// Render address HTML after setting the address
+			setTimeout(function() {
+				render_drop_address_html(frm, cdt, cdn);
+			}, 100);
 		}
 	} catch (error) {
 		console.error('Error auto-filling drop address:', error);
 	}
+}
+
+// ---------- Render Address HTML Functions for Transport Order Legs ----------
+function render_pick_address_html(frm, cdt, cdn) {
+	var leg = frappe.get_doc(cdt, cdn);
+	if (!leg.pick_address) {
+		frappe.model.set_value(cdt, cdn, 'pick_address_html', '');
+		return;
+	}
+	
+	frappe.call({
+		method: 'logistics.utils.address.render_address_html',
+		args: { address_name: leg.pick_address },
+		callback: function(r) {
+			if (r.message) {
+				// Remove <br> tags from the address HTML
+				var address_html = r.message.replace(/<br\s*\/?>/gi, '');
+				frappe.model.set_value(cdt, cdn, 'pick_address_html', address_html);
+			}
+		}
+	});
+}
+
+function render_drop_address_html(frm, cdt, cdn) {
+	var leg = frappe.get_doc(cdt, cdn);
+	if (!leg.drop_address) {
+		frappe.model.set_value(cdt, cdn, 'drop_address_html', '');
+		return;
+	}
+	
+	frappe.call({
+		method: 'logistics.utils.address.render_address_html',
+		args: { address_name: leg.drop_address },
+		callback: function(r) {
+			if (r.message) {
+				// Remove <br> tags from the address HTML
+				var address_html = r.message.replace(/<br\s*\/?>/gi, '');
+				frappe.model.set_value(cdt, cdn, 'drop_address_html', address_html);
+			}
+		}
+	});
 }
 
 // Child table events for Transport Order Legs
@@ -1248,6 +1309,16 @@ frappe.ui.form.on('Transport Order Legs', {
 			}
 		}
 		frm.refresh_field('legs');
+	},
+
+	pick_address: function(frm, cdt, cdn) {
+		// Render address HTML when pick_address changes
+		render_pick_address_html(frm, cdt, cdn);
+	},
+
+	drop_address: function(frm, cdt, cdn) {
+		// Render address HTML when drop_address changes
+		render_drop_address_html(frm, cdt, cdn);
 	}
 });
 

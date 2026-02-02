@@ -518,7 +518,7 @@ def _get_transport_legs(plan: Document, debug: Optional[List[str]] = None) -> Tu
         "Transport Leg",
         filters=filters,
         fields=fields,
-        order_by=f"{leg_date_field} asc, `order` asc, modified asc",
+        order_by=f"{leg_date_field} asc, order asc, modified asc",
     )
     
     # Get legs from Transport Consolidations (treat consolidations as groups)
@@ -617,7 +617,7 @@ def _get_consolidation_legs(start: str, end: str, leg_date_field: str, debug: Op
                 "Transport Leg",
                 filters=leg_filters,
                 fields=fields,
-                order_by=f"{leg_date_field} asc, `order` asc, modified asc",
+                order_by=f"{leg_date_field} asc, order asc, modified asc",
             )
             
             # Mark these legs as belonging to a consolidation

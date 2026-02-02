@@ -4,26 +4,26 @@
  "creation": "2025-08-20 14:14:57.670314",
  "doctype": "DocType",
  "engine": "InnoDB",
-  "field_order": [
-    "posting_date",
-    "warehouse_job",
-    "item",
-    "column_break_cqfu",
-    "storage_location",
-    "handling_unit",
-    "serial_no",
-    "batch_no",
-    "column_break_evhh",
-    "quantity",
-    "beg_quantity",
-    "end_qty",
-    "billing_tab",
-    "volume",
-    "weight",
-    "entity_tab",
-    "company",
-    "branch"
-  ],
+ "field_order": [
+  "posting_date",
+  "warehouse_job",
+  "item",
+  "column_break_cqfu",
+  "storage_location",
+  "handling_unit",
+  "serial_no",
+  "batch_no",
+  "column_break_evhh",
+  "quantity",
+  "beg_quantity",
+  "end_qty",
+  "billing_tab",
+  "volume",
+  "weight",
+  "entity_tab",
+  "company",
+  "branch"
+ ],
  "fields": [
   {
    "fieldname": "handling_unit",
@@ -146,40 +146,88 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Warehouse Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Warehouse User",
+   "share": 1,
+   "write": 1
   }
  ],
  "indexes": [
   {
    "index_name": "idx_warehouse_job_handling_unit",
-   "fields": ["warehouse_job", "handling_unit"]
+   "fields": [
+    "warehouse_job",
+    "handling_unit"
+   ]
   },
   {
    "index_name": "idx_storage_location_posting_date",
-   "fields": ["storage_location", "posting_date"]
+   "fields": [
+    "storage_location",
+    "posting_date"
+   ]
   },
   {
    "index_name": "idx_company_branch",
-   "fields": ["company", "branch"]
+   "fields": [
+    "company",
+    "branch"
+   ]
   },
   {
    "index_name": "idx_handling_unit_quantity",
-   "fields": ["handling_unit", "quantity"]
+   "fields": [
+    "handling_unit",
+    "quantity"
+   ]
   },
   {
    "index_name": "idx_item_posting_date",
-   "fields": ["item", "posting_date"]
+   "fields": [
+    "item",
+    "posting_date"
+   ]
   },
   {
    "index_name": "idx_item_storage_location",
-   "fields": ["item", "storage_location"]
+   "fields": [
+    "item",
+    "storage_location"
+   ]
   },
   {
    "index_name": "idx_handling_unit_storage_location",
-   "fields": ["handling_unit", "storage_location"]
+   "fields": [
+    "handling_unit",
+    "storage_location"
+   ]
   },
   {
    "index_name": "idx_handling_unit_item",
-   "fields": ["handling_unit", "item"]
+   "fields": [
+    "handling_unit",
+    "item"
+   ]
   }
  ],
  "row_format": "Dynamic",

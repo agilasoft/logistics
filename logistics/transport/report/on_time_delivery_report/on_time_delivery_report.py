@@ -116,7 +116,8 @@ def get_columns():
 
 def get_data(filters):
 	conditions = get_conditions(filters)
-	
+	conditions_clause = (" AND " + conditions) if conditions else ""
+
 	# Get delivery performance data
 	query = """
 		SELECT 
@@ -139,9 +140,9 @@ def get_data(filters):
 		LEFT JOIN `tabTransport Job` tj ON tl.transport_job = tj.name
 		LEFT JOIN `tabRun Sheet` rs ON tl.run_sheet = rs.name
 		WHERE tl.docstatus = 1
-		{conditions}
+		{conditions_clause}
 		ORDER BY tl.end_date DESC
-	""".format(conditions=conditions)
+	""".format(conditions_clause=conditions_clause)
 	
 	data = frappe.db.sql(query, as_dict=True)
 	

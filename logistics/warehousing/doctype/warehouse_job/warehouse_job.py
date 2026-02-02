@@ -3105,13 +3105,31 @@ class WarehouseJob(Document):
             )
             end = beg + delta
 
-            # Prevent negative ending balances when outbound
-            if end < 0:
+            # Prevent negative ending balances only for outbound operations (negative delta)
+            # Allow inbound operations (positive delta) even if beginning qty is 0
+            if delta < 0 and end < 0:
+                # Build detailed error message with search parameters
+                search_params = []
+                search_params.append(_("Location: {0}").format(ji.location))
+                if getattr(ji, "handling_unit", None):
+                    search_params.append(_("Handling Unit: {0}").format(ji.handling_unit))
+                if getattr(ji, "batch_no", None):
+                    search_params.append(_("Batch: {0}").format(ji.batch_no))
+                if getattr(ji, "serial_no", None):
+                    search_params.append(_("Serial: {0}").format(ji.serial_no))
+                if row_company:
+                    search_params.append(_("Company: {0}").format(row_company))
+                if row_branch:
+                    search_params.append(_("Branch: {0}").format(row_branch))
+                
+                params_str = ", ".join(search_params)
+                
                 frappe.throw(
                     _(
                         "Row #{0}: Insufficient stock to move/pick {1}. "
-                        "Beginning qty: {2}, would end at {3}."
-                    ).format(ji.idx, abs(delta), beg, end)
+                        "Beginning qty: {2}, would end at {3}. "
+                        "Searched with: {4}"
+                    ).format(ji.idx, abs(delta), beg, end, params_str)
                 )
 
             _make_ledger_row(self, ji, delta, beg, end, posting_dt)
@@ -3215,6 +3233,109 @@ def warehouse_job_fetch_charge_price(warehouse_job: str, item_code: str) -> dict
     contract = getattr(job, "warehouse_contract", None) or _find_customer_contract(getattr(job, "customer", None))
     rate, currency, uom = _get_charge_price_from_contract(contract, item_code)
     return {"rate": flt(rate or 0.0), "currency": currency, "uom": uom}
+
+
+@frappe.whitelist()
+def fetch_charges_from_contract(warehouse_job: str, clear_existing: int = 0) -> dict:
+    """Fetch and populate charges from warehouse contract for a warehouse job."""
+    try:
+        job = frappe.get_doc("Warehouse Job", warehouse_job)
+        
+        # Get contract
+        contract = getattr(job, "warehouse_contract", None) or _find_customer_contract(getattr(job, "customer", None))
+        if not contract:
+            return {"ok": False, "message": "No warehouse contract found for this job."}
+        
+        # Get contract items for job charges
+        contract_items = frappe.db.sql("""
+            SELECT 
+                item_charge AS item_code, 
+                rate, 
+                currency, 
+                uom, 
+                handling_unit_type, 
+                storage_type, 
+                unit_type,
+                calculation_method,
+                minimum_quantity,
+                minimum_charge,
+                maximum_charge,
+                base_amount,
+                inbound_charge,
+                outbound_charge,
+                transfer_charge,
+                vas_charge,
+                stocktake_charge,
+                billing_time_unit,
+                billing_time_multiplier,
+                minimum_billing_time
+            FROM `tabWarehouse Contract Item`
+            WHERE parent = %s AND parenttype = 'Warehouse Contract'
+            AND (inbound_charge = 1 OR outbound_charge = 1 OR transfer_charge = 1 OR vas_charge = 1 OR stocktake_charge = 1)
+            ORDER BY handling_unit_type, storage_type
+        """, (contract,), as_dict=True)
+        
+        if not contract_items:
+            return {"ok": False, "message": "No job charge items found in contract."}
+        
+        # Clear existing charges if requested
+        if int(clear_existing or 0):
+            job.set("charges", [])
+        
+        # Get job type to filter applicable contract items
+        job_type = getattr(job, "type", "Generic")
+        charges_created = 0
+        standard_cost_warnings = []
+        
+        # Create charges from matching contract items
+        for contract_item in contract_items:
+            # Check if this contract item applies to the job type
+            if not _contract_item_applies_to_job_type(contract_item, job_type):
+                continue
+            
+            # Check if charge already exists for this item
+            if not int(clear_existing or 0):
+                existing_charge = None
+                for ch in job.charges:
+                    if getattr(ch, "item_code", None) == contract_item.get("item_code"):
+                        existing_charge = ch
+                        break
+                
+                if existing_charge:
+                    continue  # Skip if charge already exists
+            
+            # Create charge from contract item
+            charge = _create_charge_from_contract_item(job, contract_item)
+            if charge:
+                # Calculate and set standard cost if enabled
+                warnings = _calculate_standard_cost_for_charge(charge, job)
+                if warnings:
+                    standard_cost_warnings.extend(warnings)
+                
+                # Append charge to job
+                job.append("charges", charge)
+                charges_created += 1
+        
+        # Save the job
+        if charges_created > 0:
+            job.save(ignore_permissions=True)
+            frappe.db.commit()
+        
+        # Prepare response message
+        message = f"Fetched {charges_created} charge(s) from contract."
+        if standard_cost_warnings:
+            message += f"\n\nStandard Cost Warnings:\n" + "\n".join([f"• {warning}" for warning in standard_cost_warnings])
+        
+        return {
+            "ok": True, 
+            "message": message,
+            "charges_created": charges_created,
+            "warnings": standard_cost_warnings
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Error fetching charges from contract: {str(e)}")
+        return {"ok": False, "message": f"Error: {str(e)}"}
 
 
 @frappe.whitelist()
@@ -4432,11 +4553,18 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
         # Calculate billing quantity based on contract method
         billing_qty, billing_method = _calculate_contract_based_quantity_for_job(job, contract_item)
         
-        if billing_qty <= 0:
+        # For fetch, allow charges even with 0 quantity (user can calculate later)
+        # Only skip if billing_qty is negative
+        if billing_qty < 0:
             return None
         
         rate = flt(contract_item.get("rate", 0))
         calculation_method = contract_item.get("calculation_method", "Per Unit")
+        
+        # If quantity is 0, set default quantity to 1 for display purposes
+        if billing_qty == 0:
+            billing_qty = 1.0
+        
         total = _apply_calculation_method(billing_qty, rate, contract_item)
         
         # For Base Plus Additional and First Plus Additional, simplify display:
@@ -4449,15 +4577,25 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
             display_qty = billing_qty
             display_rate = rate
         
+        # Get item name from item master if available
+        item_name = None
+        item_code = contract_item.get("item_code")
+        if item_code:
+            try:
+                item_doc = frappe.get_doc("Item", item_code)
+                item_name = item_doc.item_name
+            except:
+                pass
+        
         # Create charge
         charge = {
-            "item_code": contract_item.get("item_code"),
-            "item_name": f"Job Charge ({job.get('job_type', 'Generic')})",
+            "item_code": item_code,
+            "item_name": item_name or f"Job Charge ({getattr(job, 'type', 'Generic')})",
             "uom": contract_item.get("uom", "Day"),
             "quantity": display_qty,
             "rate": display_rate,
             "total": total,
-            "currency": contract_item.get("currency", _get_default_currency(job.company)),
+            "currency": contract_item.get("currency", _get_default_currency(getattr(job, 'company', None))),
             "calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(
                 job, contract_item, billing_method, billing_qty
             )

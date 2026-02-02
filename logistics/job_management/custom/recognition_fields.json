@@ -157,20 +157,6 @@
       "label": "Accrual Closed",
       "read_only": 1,
       "insert_after": "accrual_adjustment_journal_entry"
-    },
-    {
-      "dt": "Air Shipment Charges",
-      "fieldname": "estimated_revenue",
-      "fieldtype": "Currency",
-      "label": "Estimated Revenue",
-      "insert_after": "amount"
-    },
-    {
-      "dt": "Air Shipment Charges",
-      "fieldname": "estimated_cost",
-      "fieldtype": "Currency",
-      "label": "Estimated Cost",
-      "insert_after": "estimated_revenue"
     }
   ],
   "custom_perms": [],

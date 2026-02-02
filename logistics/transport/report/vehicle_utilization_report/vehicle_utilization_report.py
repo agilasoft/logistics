@@ -121,7 +121,8 @@ def get_columns():
 
 def get_data(filters):
 	conditions = get_conditions(filters)
-	
+	conditions_clause = (" AND " + conditions) if conditions else ""
+
 	# Get vehicle utilization data
 	query = """
 		SELECT 
@@ -138,10 +139,10 @@ def get_data(filters):
 		FROM `tabRun Sheet` rs
 		LEFT JOIN `tabTransport Leg` tl ON tl.run_sheet = rs.name
 		WHERE rs.docstatus = 1
-		{conditions}
+		{conditions_clause}
 		GROUP BY rs.vehicle, rs.vehicle_type, rs.transport_company, rs.status
 		ORDER BY total_distance DESC
-	""".format(conditions=conditions)
+	""".format(conditions_clause=conditions_clause)
 	
 	data = frappe.db.sql(query, as_dict=True)
 	

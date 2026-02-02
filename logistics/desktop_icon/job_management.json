@@ -1,0 +1,21 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-01-28 14:07:29.570048",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "project",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Job Management",
+ "link_to": "Job Management",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-01-29 16:14:26.736322",
+ "modified_by": "Administrator",
+ "name": "Job Management",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

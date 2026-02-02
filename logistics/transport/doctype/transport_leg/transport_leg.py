@@ -689,6 +689,32 @@ def regenerate_carbon(leg_name: str):
 
 
 @frappe.whitelist()
+def get_addresses_for_facility(facility_type: str, facility_name: str):
+    """Get all addresses linked to a facility - used for frontend query filters"""
+    if not facility_type or not facility_name:
+        return []
+    
+    try:
+        # Get addresses linked to this facility
+        # This runs server-side with proper permissions, avoiding permission errors
+        addresses = frappe.get_all("Address",
+            filters={
+                "link_doctype": facility_type,
+                "link_name": facility_name
+            },
+            fields=["name"],
+            order_by="is_primary_address DESC, is_shipping_address DESC, creation ASC"
+        )
+        
+        return [addr.name for addr in addresses]
+        
+    except Exception as e:
+        frappe.log_error(f"Error getting addresses for {facility_type} {facility_name}: {str(e)}")
+    
+    return []
+
+
+@frappe.whitelist()
 def get_primary_address(facility_type: str, facility_name: str):
     """Get the primary address for a facility"""
     if not facility_type or not facility_name:

@@ -6,6 +6,18 @@ from frappe import _
 from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date
 from datetime import datetime, timedelta
 
+# Default report json so report_view.js can JSON.parse it (avoids "undefined" is not valid JSON)
+DEFAULT_REPORT_JSON = '{"filters": [], "order_by": "creation desc", "add_totals_row": 0, "page_length": 20}'
+
+
+def onload(doc, method=None):
+	"""Ensure Fuel Consumption Analysis Report has valid json when loaded so report_view.js does not get undefined."""
+	if doc.get("name") != "Fuel Consumption Analysis":
+		return
+	if doc.get("json") in (None, "", "null"):
+		doc.json = DEFAULT_REPORT_JSON
+
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -128,7 +140,8 @@ def get_columns():
 
 def get_data(filters):
 	conditions = get_conditions(filters)
-	
+	conditions_clause = (" AND " + conditions) if conditions else ""
+
 	# Get fuel consumption data
 	query = """
 		SELECT 
@@ -144,10 +157,10 @@ def get_data(filters):
 		FROM `tabRun Sheet` rs
 		LEFT JOIN `tabTransport Leg` tl ON tl.run_sheet = rs.name
 		WHERE rs.docstatus = 1
-		{conditions}
+		{conditions_clause}
 		GROUP BY rs.vehicle, rs.vehicle_type, rs.transport_company
 		ORDER BY total_distance DESC
-	""".format(conditions=conditions)
+	""".format(conditions_clause=conditions_clause)
 	
 	data = frappe.db.sql(query, as_dict=True)
 	

@@ -1202,7 +1202,7 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     order_items = frappe.get_all(
         "Warehouse Job Order Items",
         filters={"parent": job.name, "parenttype": "Warehouse Job"},
-        fields=["distinct item AS item"],
+        fields=["item"],
         ignore_permissions=True,
     )
     item_list = [r["item"] for r in order_items if (r.get("item") or "").strip()]
