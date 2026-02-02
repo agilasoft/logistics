@@ -164,72 +164,17 @@ function fetch_legs_for_jobs(job_names, callback) {
 		return;
 	}
 	
+	// Get unique job names
+	const unique_job_names = [...new Set(job_names)];
+	
 	frappe.call({
-		method: "frappe.client.get_list",
+		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_legs",
 		args: {
-			doctype: "Transport Leg",
-			filters: {
-				transport_job: ["in", job_names],
-				docstatus: ["<", 2] // Not cancelled
-			},
-			fields: [
-				"name", "transport_job", "status", "pick_address", "drop_address",
-				"facility_type_from", "facility_from", "facility_type_to", "facility_to",
-				"date", "run_date", "order", "vehicle_type", "hazardous"
-			],
-			order_by: "transport_job, `order` asc"
+			job_names: unique_job_names
 		},
 		callback: function(r) {
-			if (r.message) {
-				// Enrich legs with job information
-				const legs = r.message;
-				// Get job details for each leg
-				const job_names_set = new Set(job_names);
-				const jobs_to_fetch = Array.from(job_names_set);
-				
-				frappe.call({
-					method: "frappe.client.get_list",
-					args: {
-						doctype: "Transport Job",
-						filters: {
-							name: ["in", jobs_to_fetch]
-						},
-						fields: ["name", "customer", "load_type", "scheduled_date", "company"]
-					},
-					callback: function(job_r) {
-						const jobs_map = {};
-						if (job_r.message) {
-							job_r.message.forEach(function(job) {
-								jobs_map[job.name] = job;
-							});
-						}
-						
-						// Enrich legs with job information
-						legs.forEach(function(leg) {
-							const job = jobs_map[leg.transport_job];
-							if (job) {
-								leg.customer = job.customer;
-								leg.load_type = job.load_type;
-								leg.scheduled_date = job.scheduled_date;
-								leg.company = job.company;
-							}
-							
-							// Get address titles
-							if (leg.pick_address) {
-								frappe.db.get_value("Address", leg.pick_address, "address_title", function(addr_r) {
-									leg.pick_address_title = addr_r && addr_r.message ? addr_r.message.address_title : leg.pick_address;
-								});
-							}
-							if (leg.drop_address) {
-								frappe.db.get_value("Address", leg.drop_address, "address_title", function(addr_r) {
-									leg.drop_address_title = addr_r && addr_r.message ? addr_r.message.address_title : leg.drop_address;
-								});
-							}
-						});
-						
-						callback(legs);
-					}
-				});
+			if (r.message && r.message.status === "success") {
+				callback(r.message.legs || []);
 			} else {
 				callback([]);
 			}
@@ -845,95 +790,224 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 		original_hide.call(this);
 	};
 	
-	// Function to filter jobs based on filter values
+	// Function to filter jobs or legs based on filter values
 	function filter_jobs() {
-		// Use updated all_jobs from dialog if available
-		const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
-		
-		const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
-		const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
-		const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
-		const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
-		
-		// Note: consolidation_type filtering is done server-side, so we don't filter by it here
-		// The jobs returned from server are already filtered by consolidation_type
-		filtered_jobs = jobs_to_filter.filter(function(job) {
-			// Filter by customer
-			if (filter_customer && job.customer !== filter_customer) {
-				return false;
-			}
+		if (current_view === "legs") {
+			// Filter legs
+			const legs_to_filter = all_legs;
 			
-			// Filter by pick address (check if any pick address ID matches)
-			if (filter_pick_address) {
-				const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
-					job.pick_addresses.some(function(addr) {
-						return addr === filter_pick_address;
-					});
-				if (!pick_matches) {
+			const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
+			const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
+			const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
+			
+			filtered_legs = legs_to_filter.filter(function(leg) {
+				// Filter by customer
+				if (filter_customer && leg.customer !== filter_customer) {
 					return false;
 				}
-			}
-			
-			// Filter by drop address (check if any drop address ID matches)
-			if (filter_drop_address) {
-				const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
-					job.drop_addresses.some(function(addr) {
-						return addr === filter_drop_address;
-					});
-				if (!drop_matches) {
+				
+				// Filter by pick address
+				if (filter_pick_address && leg.pick_address !== filter_pick_address) {
 					return false;
 				}
+				
+				// Filter by drop address
+				if (filter_drop_address && leg.drop_address !== filter_drop_address) {
+					return false;
+				}
+				
+				return true;
+			});
+			
+			// Sort legs
+			const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Date';
+			const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
+			filtered_legs = sort_legs(filtered_legs, sort_by, sort_order);
+			
+			// Update the table
+			const table_html = build_legs_table_html(filtered_legs);
+			if (dialog.fields_dict.jobs_table) {
+				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
 			}
 			
-			// Note: consolidation_type filtering is done server-side when jobs are fetched
-			// So we don't need to filter by it here - the jobs are already filtered
+			// Update select all checkbox state
+			update_select_all_state();
 			
-			return true;
-		});
-		
-		// Sort jobs
-		const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Scheduled Date';
-		const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
-		filtered_jobs = sort_jobs(filtered_jobs, sort_by, sort_order);
-		
-		// Update the table
-		const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
-		if (dialog.fields_dict.jobs_table) {
-			dialog.fields_dict.jobs_table.$wrapper.html(table_html);
-			setup_address_tooltips(dialog);
-		}
-		
-		// Update select all checkbox state
-		update_select_all_state();
-		
-		// Update count in summary (preserve diagnostics if it exists)
-		if (dialog.fields_dict.summary_info) {
-			const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
-			const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+			// Update count in summary
+			if (dialog.fields_dict.summary_info) {
+				const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+				const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+				
+				const summary_html = `<div style="margin-bottom: 15px;">
+					<p style="font-size: 13px; color: #6c757d;">
+						Found <strong>${filtered_legs.length}</strong> transport leg(s).
+					</p>
+					${diagnostics_html}
+				</div>`;
+				dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+				
+				setup_diagnostics_toggle(dialog);
+				setup_filter_toggle(dialog);
+			}
+		} else {
+			// Filter jobs (original logic)
+			// Use updated all_jobs from dialog if available
+			const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
 			
-			const summary_html = `<div style="margin-bottom: 15px;">
-				<p style="font-size: 13px; color: #6c757d;">
-					Found <strong>${filtered_jobs.length}</strong> job(s) that can be consolidated.
-					${consolidation_groups && consolidation_groups.length > 0 ? 
-						`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : ''}
-				</p>
-				${diagnostics_html}
-			</div>`;
-			dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+			const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
+			const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
+			const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
+			const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
 			
-			// Re-setup toggle functionality after updating HTML
-			setup_diagnostics_toggle(dialog);
+			// Note: consolidation_type filtering is done server-side, so we don't filter by it here
+			// The jobs returned from server are already filtered by consolidation_type
+			filtered_jobs = jobs_to_filter.filter(function(job) {
+				// Filter by customer
+				if (filter_customer && job.customer !== filter_customer) {
+					return false;
+				}
+				
+				// Filter by pick address (check if any pick address ID matches)
+				if (filter_pick_address) {
+					const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
+						job.pick_addresses.some(function(addr) {
+							return addr === filter_pick_address;
+						});
+					if (!pick_matches) {
+						return false;
+					}
+				}
+				
+				// Filter by drop address (check if any drop address ID matches)
+				if (filter_drop_address) {
+					const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
+						job.drop_addresses.some(function(addr) {
+							return addr === filter_drop_address;
+						});
+					if (!drop_matches) {
+						return false;
+					}
+				}
+				
+				// Note: consolidation_type filtering is done server-side when jobs are fetched
+				// So we don't need to filter by it here - the jobs are already filtered
+				
+				return true;
+			});
 			
-			// Re-setup filter toggle functionality
-			setup_filter_toggle(dialog);
+			// Sort jobs
+			const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Scheduled Date';
+			const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
+			filtered_jobs = sort_jobs(filtered_jobs, sort_by, sort_order);
+			
+			// Update the table
+			const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
+			if (dialog.fields_dict.jobs_table) {
+				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+				setup_address_tooltips(dialog);
+			}
+			
+			// Update select all checkbox state
+			update_select_all_state();
+			
+			// Update count in summary (preserve diagnostics if it exists)
+			if (dialog.fields_dict.summary_info) {
+				const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+				const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+				
+				const summary_html = `<div style="margin-bottom: 15px;">
+					<p style="font-size: 13px; color: #6c757d;">
+						Found <strong>${filtered_jobs.length}</strong> job(s) that can be consolidated.
+						${consolidation_groups && consolidation_groups.length > 0 ? 
+							`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : ''}
+					</p>
+					${diagnostics_html}
+				</div>`;
+				dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+				
+				// Re-setup toggle functionality after updating HTML
+				setup_diagnostics_toggle(dialog);
+				
+				// Re-setup filter toggle functionality
+				setup_filter_toggle(dialog);
+			}
 		}
 	}
 	
 	// Store filter_jobs function reference in dialog for external access
 	dialog._filter_jobs = filter_jobs;
 	
+	// Function to switch between jobs and legs view
+	function switch_view(view_type) {
+		current_view = view_type;
+		
+		// Update toggle buttons
+		dialog.$wrapper.find('.view-toggle-btn').removeClass('btn-primary').addClass('btn-default');
+		dialog.$wrapper.find(`.view-toggle-btn[data-view="${view_type}"]`).removeClass('btn-default').addClass('btn-primary');
+		
+		// Update section label
+		const section_label = dialog.$wrapper.find('label:contains("Available Jobs")').closest('.form-section').find('label');
+		if (view_type === "legs") {
+			section_label.text(__("Available Transport Legs"));
+		} else {
+			section_label.text(__("Available Jobs"));
+		}
+		
+		if (view_type === "legs") {
+			// Switch to legs view
+			if (all_legs.length === 0) {
+				// Fetch legs for all jobs
+				const job_names = all_jobs.map(function(job) { return job.name; });
+				dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
+				
+				fetch_legs_for_jobs(job_names, function(legs) {
+					all_legs = legs;
+					filtered_legs = legs;
+					
+					// Apply current filters to legs
+					if (dialog._filter_jobs) {
+						dialog._filter_jobs();
+					} else {
+						// Update table directly
+						const table_html = build_legs_table_html(filtered_legs);
+						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+						update_select_all_state();
+					}
+				});
+			} else {
+				// Legs already fetched, just update the table
+				if (dialog._filter_jobs) {
+					dialog._filter_jobs();
+				} else {
+					const table_html = build_legs_table_html(filtered_legs);
+					dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+					update_select_all_state();
+				}
+			}
+		} else {
+			// Switch to jobs view
+			if (dialog._filter_jobs) {
+				dialog._filter_jobs();
+			} else {
+				const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
+				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+				setup_address_tooltips(dialog);
+				update_select_all_state();
+			}
+		}
+	}
+	
+	// Store switch_view function in dialog
+	dialog._switch_view = switch_view;
+	
 	// Wait for dialog to render, then set up event handlers (always set up, even when no jobs)
 	setTimeout(function() {
+		// Set up view toggle buttons
+		dialog.$wrapper.on('click', '.view-toggle-btn', function() {
+			const view_type = $(this).data('view');
+			switch_view(view_type);
+		});
+		
 		// Set up filter change handlers
 		// For Link fields, use a combination of events to catch all changes
 		function setup_link_field_handler(field) {
@@ -1098,6 +1172,124 @@ function sort_jobs(jobs, sort_by, sort_order) {
 	});
 	
 	return sorted_jobs;
+}
+
+function build_legs_table_html(legs) {
+	if (!legs || legs.length === 0) {
+		return `
+			<div style="padding: 20px; text-align: center; color: #6c757d;">
+				<p>${__("No transport legs available to display.")}</p>
+			</div>
+		`;
+	}
+	
+	// Add custom tooltip CSS styles (reuse from jobs table)
+	const tooltip_css = `
+		<style>
+			.address-tooltip-container {
+				position: relative;
+				max-height: 400px;
+				overflow-y: auto;
+				overflow-x: auto;
+				border: 1px solid #d1d5db;
+				border-radius: 4px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+			.address-tooltip-container table {
+				width: 100%;
+				table-layout: fixed;
+				margin: 0;
+				border-collapse: collapse;
+			}
+			.address-tooltip-container table th,
+			.address-tooltip-container table td {
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.address-tooltip-container table td {
+				max-width: 0;
+			}
+		</style>
+	`;
+	
+	let html = tooltip_css + `
+		<div class="address-tooltip-container">
+			<table class="table table-bordered table-condensed" style="font-size: 12px; margin: 0;">
+				<thead>
+					<tr style="background-color: #f8f9fa;">
+						<th style="width: 40px; text-align: center; padding: 8px;">
+							<input type="checkbox" class="select-all-checkbox">
+						</th>
+						<th style="width: 10%; padding: 8px;">${__("Leg")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Job")}</th>
+						<th style="width: 12%; padding: 8px;">${__("Customer")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Date")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Load Type")}</th>
+						<th style="width: 18%; padding: 8px;">${__("Pick Address")}</th>
+						<th style="width: 18%; padding: 8px;">${__("Drop Address")}</th>
+						<th style="width: 8%; padding: 8px;">${__("Status")}</th>
+					</tr>
+				</thead>
+				<tbody>
+	`;
+	
+	legs.forEach(function(leg) {
+		// Format date
+		let date_display = '-';
+		if (leg.date) {
+			date_display = frappe.datetime.str_to_user(leg.date);
+		} else if (leg.run_date) {
+			date_display = frappe.datetime.str_to_user(leg.run_date);
+		}
+		
+		// Get address display
+		const pick_address_display = leg.pick_address_title || leg.pick_address || '-';
+		const drop_address_display = leg.drop_address_title || leg.drop_address || '-';
+		
+		// Status badge
+		let status_badge = leg.status || 'Open';
+		let status_class = 'badge-secondary';
+		if (status_badge === 'Completed') {
+			status_class = 'badge-success';
+		} else if (status_badge === 'Started') {
+			status_class = 'badge-info';
+		} else if (status_badge === 'Assigned') {
+			status_class = 'badge-primary';
+		}
+		
+		html += `
+			<tr>
+				<td style="text-align: center; padding: 8px;">
+					<input type="checkbox" class="job-checkbox" data-job-name="${leg.transport_job}" data-leg-name="${leg.name}">
+				</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+					<a href="/app/transport-leg/${leg.name}" target="_blank">${leg.name}</a>
+				</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+					<a href="/app/transport-job/${leg.transport_job}" target="_blank">${leg.transport_job || '-'}</a>
+				</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${leg.customer || '-'}">${leg.customer || '-'}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${date_display}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${leg.load_type || '-'}">${leg.load_type || '-'}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pick_address_display}">${pick_address_display}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${drop_address_display}">${drop_address_display}</td>
+				<td style="padding: 8px;">
+					<span class="badge ${status_class}">${status_badge}</span>
+				</td>
+			</tr>
+		`;
+	});
+	
+	html += `
+				</tbody>
+			</table>
+		</div>
+	`;
+	
+	return html;
 }
 
 function build_jobs_table_html(jobs, consolidation_groups) {
