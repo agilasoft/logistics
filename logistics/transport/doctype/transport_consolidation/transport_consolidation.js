@@ -457,6 +457,9 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	let all_jobs = jobs || []; // Store original jobs list
 	let filtered_jobs = jobs || []; // Current filtered list
 	let has_jobs = jobs && jobs.length > 0;
+	let current_view = "jobs"; // Track current view: "jobs" or "legs"
+	let all_legs = []; // Store all legs data
+	let filtered_legs = []; // Current filtered legs list
 	
 	// Store jobs data in a way that can be accessed by update_dialog_jobs
 	// This will be attached to the dialog object later
@@ -647,6 +650,23 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 			{
 				fieldtype: "Section Break",
 				label: __("Available Jobs")
+			},
+			{
+				fieldname: "view_toggle",
+				fieldtype: "HTML",
+				options: `
+					<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+						<label style="margin: 0; font-weight: 500;">${__("View:")}</label>
+						<div style="display: flex; gap: 5px; align-items: center;">
+							<button type="button" class="btn btn-sm view-toggle-btn ${has_jobs ? 'btn-primary' : 'btn-default'}" data-view="jobs" style="min-width: 100px;">
+								${__("Jobs")}
+							</button>
+							<button type="button" class="btn btn-sm view-toggle-btn ${has_jobs ? 'btn-default' : 'btn-primary'}" data-view="legs" style="min-width: 100px;">
+								${__("Transport Legs")}
+							</button>
+						</div>
+					</div>
+				`
 			},
 			{
 				fieldname: "jobs_table",
