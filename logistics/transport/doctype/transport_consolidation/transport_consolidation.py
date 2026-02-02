@@ -1960,6 +1960,110 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 		}
 
 
+@frappe.whitelist()
+def get_consolidatable_legs(job_names: list = None):
+	"""
+	Get transport legs for the given job names.
+	Enriches legs with job information and address titles.
+	
+	Args:
+		job_names: List of Transport Job names
+		
+	Returns:
+		Dictionary with status and legs list
+	"""
+	try:
+		if not job_names:
+			return {
+				"status": "success",
+				"legs": []
+			}
+		
+		# Get unique job names
+		unique_job_names = list(set(job_names))
+		
+		# Fetch transport legs
+		leg_fields = [
+			"name", "transport_job", "status", "pick_address", "drop_address",
+			"facility_type_from", "facility_from", "facility_type_to", "facility_to",
+			"date", "run_date", "order", "vehicle_type", "hazardous"
+		]
+		
+		# Add consolidation fields if they exist
+		if frappe.db.has_column("Transport Leg", "pick_consolidated"):
+			leg_fields.append("pick_consolidated")
+		if frappe.db.has_column("Transport Leg", "drop_consolidated"):
+			leg_fields.append("drop_consolidated")
+		if frappe.db.has_column("Transport Leg", "transport_consolidation"):
+			leg_fields.append("transport_consolidation")
+		if frappe.db.has_column("Transport Leg", "run_sheet"):
+			leg_fields.append("run_sheet")
+		
+		legs = frappe.get_all(
+			"Transport Leg",
+			filters={
+				"transport_job": ["in", unique_job_names],
+				"docstatus": ["<", 2]  # Not cancelled
+			},
+			fields=leg_fields,
+			order_by="transport_job, `order` asc"
+		)
+		
+		# Get job details
+		jobs = frappe.get_all(
+			"Transport Job",
+			filters={"name": ["in", unique_job_names]},
+			fields=["name", "customer", "load_type", "scheduled_date", "company"]
+		)
+		
+		# Create job map
+		jobs_map = {job["name"]: job for job in jobs}
+		
+		# Enrich legs with job information and address titles
+		enriched_legs = []
+		for leg in legs:
+			job = jobs_map.get(leg["transport_job"])
+			if job:
+				leg["customer"] = job.get("customer")
+				leg["load_type"] = job.get("load_type")
+				leg["scheduled_date"] = job.get("scheduled_date")
+				leg["company"] = job.get("company")
+			
+			# Get address titles
+			if leg.get("pick_address"):
+				try:
+					pick_title = frappe.db.get_value("Address", leg["pick_address"], "address_title")
+					leg["pick_address_title"] = pick_title or leg["pick_address"]
+				except Exception:
+					leg["pick_address_title"] = leg["pick_address"]
+			else:
+				leg["pick_address_title"] = None
+			
+			if leg.get("drop_address"):
+				try:
+					drop_title = frappe.db.get_value("Address", leg["drop_address"], "address_title")
+					leg["drop_address_title"] = drop_title or leg["drop_address"]
+				except Exception:
+					leg["drop_address_title"] = leg["drop_address"]
+			else:
+				leg["drop_address_title"] = None
+			
+			enriched_legs.append(leg)
+		
+		return {
+			"status": "success",
+			"legs": enriched_legs
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error fetching consolidatable legs: {str(e)}")
+		return {
+			"status": "error",
+			"message": str(e),
+			"legs": []
+		}
+
+
 def _apply_consolidation_automation(consolidation_name: str, consolidation_type: str, job_names: list):
 	"""
 	Apply automation logic to set consolidation checkboxes based on consolidation type.

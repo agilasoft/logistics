@@ -686,10 +686,10 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 					<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
 						<label style="margin: 0; font-weight: 500;">${__("View:")}</label>
 						<div style="display: flex; gap: 5px; align-items: center;">
-							<button type="button" class="btn btn-sm view-toggle-btn ${has_jobs ? 'btn-primary' : 'btn-default'}" data-view="jobs" style="min-width: 100px;">
+							<button type="button" class="btn btn-sm view-toggle-btn btn-primary" data-view="jobs" style="min-width: 100px;">
 								${__("Jobs")}
 							</button>
-							<button type="button" class="btn btn-sm view-toggle-btn ${has_jobs ? 'btn-default' : 'btn-primary'}" data-view="legs" style="min-width: 100px;">
+							<button type="button" class="btn btn-sm view-toggle-btn btn-default" data-view="legs" style="min-width: 100px;">
 								${__("Transport Legs")}
 							</button>
 						</div>
@@ -720,12 +720,19 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				return;
 			}
 			
-			// Get selected jobs from checkboxes
+			// Get selected jobs from checkboxes (works for both jobs and legs view)
 			const checkboxes = dialog.$wrapper.find('.job-checkbox:checked');
 			selected_jobs = [];
+			const selected_job_names = new Set();
+			
 			checkboxes.each(function() {
-				selected_jobs.push($(this).data('job-name'));
+				const job_name = $(this).data('job-name');
+				if (job_name) {
+					selected_job_names.add(job_name);
+				}
 			});
+			
+			selected_jobs = Array.from(selected_job_names);
 			
 			if (selected_jobs.length === 0) {
 				frappe.msgprint({
@@ -946,12 +953,15 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 		dialog.$wrapper.find(`.view-toggle-btn[data-view="${view_type}"]`).removeClass('btn-default').addClass('btn-primary');
 		
 		// Update section label
-		const section_label = dialog.$wrapper.find('label:contains("Available Jobs")').closest('.form-section').find('label');
+		const section_label = dialog.$wrapper.find('label:contains("Available Jobs"), label:contains("Available Transport Legs")').closest('.form-section').find('label');
 		if (view_type === "legs") {
 			section_label.text(__("Available Transport Legs"));
 		} else {
 			section_label.text(__("Available Jobs"));
 		}
+		
+		// Note: Sort options are kept the same for both views
+		// The sort functions will handle the mapping appropriately
 		
 		if (view_type === "legs") {
 			// Switch to legs view
@@ -1100,6 +1110,86 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 			dialog.$wrapper.find('.select-all-checkbox').prop('checked', all_checked);
 		}
 	}, 100);
+}
+
+function sort_legs(legs, sort_by, sort_order) {
+	if (!legs || legs.length === 0) {
+		return legs;
+	}
+	
+	const is_ascending = sort_order === 'Ascending';
+	const sorted_legs = [...legs];
+	
+	sorted_legs.sort(function(a, b) {
+		let a_value, b_value;
+		
+		// Map job sort options to leg fields
+		switch(sort_by) {
+			case 'Leg':
+			case 'Job':  // For legs view, "Job" means leg name, but we'll use transport_job
+				if (sort_by === 'Leg') {
+					a_value = a.name || '';
+					b_value = b.name || '';
+				} else {
+					a_value = a.transport_job || '';
+					b_value = b.transport_job || '';
+				}
+				break;
+			case 'Customer':
+				a_value = a.customer || '';
+				b_value = b.customer || '';
+				break;
+			case 'Date':
+			case 'Scheduled Date':  // Map "Scheduled Date" to leg date
+				a_value = a.date || a.run_date || a.scheduled_date || '';
+				b_value = b.date || b.run_date || b.scheduled_date || '';
+				if (!a_value && !b_value) return 0;
+				if (!a_value) return is_ascending ? 1 : -1;
+				if (!b_value) return is_ascending ? -1 : 1;
+				const date_compare = a_value.localeCompare(b_value);
+				return is_ascending ? date_compare : -date_compare;
+			case 'Load Type':
+				a_value = a.load_type || '';
+				b_value = b.load_type || '';
+				break;
+			case 'Pick Address':
+				a_value = (a.pick_address_title || a.pick_address || '').toLowerCase();
+				b_value = (b.pick_address_title || b.pick_address || '').toLowerCase();
+				break;
+			case 'Drop Address':
+				a_value = (a.drop_address_title || a.drop_address || '').toLowerCase();
+				b_value = (b.drop_address_title || b.drop_address || '').toLowerCase();
+				break;
+			case 'Status':
+				a_value = a.status || '';
+				b_value = b.status || '';
+				break;
+			case 'Type':  // For legs, type doesn't apply, sort by status instead
+				a_value = a.status || '';
+				b_value = b.status || '';
+				break;
+			default:
+				a_value = '';
+				b_value = '';
+		}
+		
+		if (typeof a_value === 'string' && sort_by !== 'Date' && sort_by !== 'Scheduled Date') {
+			a_value = a_value.toLowerCase();
+		}
+		if (typeof b_value === 'string' && sort_by !== 'Date' && sort_by !== 'Scheduled Date') {
+			b_value = b_value.toLowerCase();
+		}
+		
+		if (a_value < b_value) {
+			return is_ascending ? -1 : 1;
+		}
+		if (a_value > b_value) {
+			return is_ascending ? 1 : -1;
+		}
+		return 0;
+	});
+	
+	return sorted_legs;
 }
 
 function sort_jobs(jobs, sort_by, sort_order) {
