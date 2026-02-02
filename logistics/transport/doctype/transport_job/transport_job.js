@@ -288,11 +288,16 @@ frappe.ui.form.on('Transport Job', {
 			}, __('Actions'));
 		}
 		
-		// Add button to create Run Sheet (only for submitted documents)
+		// Add button to create Run Sheet (only for submitted documents and if no Run Sheet exists)
 		if (!frm.is_new() && frm.doc.docstatus === 1) {
-			frm.add_custom_button(__('Run Sheet'), function() {
-				frm.events.create_run_sheet(frm);
-			}, __('Create'));
+			// Check if any leg already has a run_sheet assigned
+			const has_existing_run_sheet = frm.doc.legs && frm.doc.legs.some(leg => leg.run_sheet);
+			
+			if (!has_existing_run_sheet) {
+				frm.add_custom_button(__('Run Sheet'), function() {
+					frm.events.create_run_sheet(frm);
+				}, __('Create'));
+			}
 		}
 		
 		// Status is automatically updated via trigger-based hooks (document lifecycle and Transport Leg changes)
@@ -325,8 +330,8 @@ frappe.ui.form.on('Transport Job', {
 		}
 		
 		// Add Create Sales Invoice button under Actions menu
-		// Only show for submitted documents without existing sales invoice
-		if (!frm.is_new() && frm.doc.docstatus === 1 && !frm.doc.sales_invoice) {
+		// Only show for submitted documents with "Completed" status without existing sales invoice
+		if (!frm.is_new() && frm.doc.docstatus === 1 && frm.doc.status === 'Completed' && !frm.doc.sales_invoice) {
 			frm.add_custom_button(__('Create Sales Invoice'), function() {
 				frm.events.create_sales_invoice_manual(frm);
 			}, __('Actions'));
@@ -444,6 +449,16 @@ frappe.ui.form.on('Transport Job', {
 				message: __('Sales Invoice {0} already exists for this Transport Job', [frm.doc.sales_invoice]),
 				indicator: 'blue'
 			}, 5);
+			return;
+		}
+		
+		// Check if Transport Job status is "Completed"
+		if (frm.doc.status !== 'Completed') {
+			frappe.msgprint({
+				title: __('Cannot Create Sales Invoice'),
+				message: __('Sales Invoice can only be created when Transport Job status is "Completed". Current status: {0}', [frm.doc.status || 'Draft']),
+				indicator: 'red'
+			});
 			return;
 		}
 		

@@ -85,10 +85,6 @@
             margin-bottom: 0;
         }
         
-        .vat-reg {
-            font-size: 7pt;
-        }
-        
         /* Document Title */
         .document-title {
             text-align: center;
@@ -119,9 +115,18 @@
             padding-right: 5mm;
         }
         
+        .left-column .field-row {
+            justify-content: flex-end;
+        }
+        
+        .left-column .field-label {
+            width: 25mm;
+            text-align: right;
+        }
+        
         .right-column {
             flex: 1;
-            padding-left: 5mm;
+            padding-left: 8mm;
         }
         
         .field-row {
@@ -160,12 +165,11 @@
             font-weight: bold;
             font-size: 8pt;
             margin-top: 5mm;
-            margin-bottom: 1mm;
+            margin-bottom: 2mm;
             line-height: 1;
         }
         
         .customer-name-box {
-            padding: 0.3mm 0.5mm;
             font-size: 11pt;
             font-weight: bold;
             font-weight: 900;
@@ -176,7 +180,6 @@
         }
         
         .customer-address-box {
-            padding: 0.3mm 0.5mm;
             font-size: 8pt;
             background: white;
             width: 100mm;
@@ -226,7 +229,7 @@
         .table-summary-container {
             display: flex;
             flex-direction: column;
-            gap: 2mm;
+            gap: 0.5mm;
             flex: 1;
             min-height: 0;
         }
@@ -235,58 +238,150 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 0;
+            border: none;
+            line-height: 1.2;
+            table-layout: fixed;
+        }
+        
+        .invoice-table th:nth-child(1),
+        .invoice-table td:nth-child(1) {
+            width: 15%;
+        }
+        
+        .invoice-table th:nth-child(2),
+        .invoice-table td:nth-child(2) {
+            width: 60%;
+        }
+        
+        .invoice-table th:nth-child(3),
+        .invoice-table td:nth-child(3) {
+            width: 25%;
         }
         
         .table-header {
-            background: #e0e0e0;
-            border: 2px solid #000;
+            background: transparent;
         }
         
         .table-header th {
-            padding: 0.3mm 0.5mm;
-            padding-bottom: 50mm;
+            padding: 0;
             text-align: left;
-            font-size: 7pt;
+            font-size: 8pt;
             font-weight: bold;
+            border: none;
+            line-height: 1.0;
+        }
+        
+        .table-header tr:first-child th {
+            background: #e0e0e0;
             color: #000;
+            text-transform: uppercase;
+            padding: 0.02mm 0.05mm;
+            line-height: 1.0;
             border-top: 2px solid #000;
             border-bottom: 2px solid #000;
             border-left: none;
             border-right: none;
+            height: 12px;
         }
         
-        .table-header th:first-child {
-            border-left: 2px solid #000;
+        .table-header tr:first-child th:first-child {
+            text-align: left;
+            border-top: 2px solid #000 !important;
+            border-bottom: 2px solid #000 !important;
+            border-left: 2px solid #000 !important;
+            border-right: none !important;
         }
         
-        .table-header th:last-child {
-            border-right: 2px solid #000;
-        }
-        
-        .table-header th:last-child {
+        .table-header tr:first-child th:last-child {
             text-align: right;
+            border-top: 2px solid #000 !important;
+            border-bottom: 2px solid #000 !important;
+            border-left: none !important;
+            border-right: 2px solid #000 !important;
         }
         
-        .table-header th[colspan] {
-            text-align: center;
+        .table-header tr:first-child th:nth-child(2) {
+            border-bottom: 2px solid #000;
+        }
+        
+        .table-header tr:last-child th {
+            text-align: left;
+            font-weight: bold;
+            padding: 0;
+            line-height: 1.0;
+            background: #e0e0e0;
+            border-top: none;
+            border-bottom: 1px solid #000;
+            border-left: none;
+            border-right: none;
+            height: 10px;
+        }
+        
+        .table-header tr:last-child th:first-child {
+            border-left: 2px solid #000 !important;
+            border-bottom: 1px solid #000 !important;
+        }
+        
+        .table-header tr:last-child th:nth-child(2) {
+            border-bottom: 1px solid #000 !important;
+        }
+        
+        .table-header tr:last-child th:last-child {
+            text-align: right;
+            border-right: 2px solid #000 !important;
+            border-bottom: 1px solid #000 !important;
+            border-left: none !important;
         }
         
         .table-row td {
-            padding: 0.3mm 0.5mm;
-            padding-bottom: 50mm;
+            padding: 0.05mm 0.1mm;
             font-size: 7pt;
             background: white;
             border: none;
+            text-align: left;
+            vertical-align: top;
+            line-height: 1.0;
         }
         
         .table-row td:last-child {
             text-align: right;
         }
         
+        .table-row.summary-row td {
+            border-bottom: none;
+            padding-top: 0.05mm;
+        }
+        
+        .table-row.summary-row td:last-child {
+            border-bottom: 1px solid #000;
+            padding-bottom: 0.3mm;
+        }
+        
         .invoice-description {
-            font-size: 6pt;
-            color: #333;
-            margin-top: 0.5mm;
+            display: inline;
+            font-size: 7pt;
+            color: #000;
+            line-height: 1.2;
+        }
+        
+        /* Right-aligned Summary Table */
+        .right-summary-table {
+            width: 45%;
+            margin-left: auto;
+            border-collapse: collapse;
+            margin-top: 1mm;
+        }
+        
+        .right-summary-table td {
+            border-bottom: 1px solid #000;
+            font-size: 7pt;
+            padding: 0.3mm 0.5mm;
+            text-align: right;
+        }
+        
+        .right-summary-table td.summary-party {
+            text-align: left;
+            border-bottom: none;
         }
         
         /* Summary and Received Container */
@@ -383,6 +478,7 @@
             width: 100%;
             border-collapse: collapse;
             border: 2px solid #000;
+            table-layout: fixed;
         }
         
         .signature-table th {
@@ -394,6 +490,11 @@
             background: #e0e0e0;
             border-top: 2px solid #000;
             border-bottom: 2px solid #000;
+            width: 25%;
+        }
+        
+        .signature-table td {
+            width: 25%;
         }
         
         .signature-table th:first-child {
@@ -405,11 +506,11 @@
         }
         
         .signature-table td {
-            padding: 5mm 0.5mm 0.3mm 0.5mm;
+            padding: 2mm 0.5mm 0.3mm 0.5mm;
             text-align: center;
-            font-size: 7pt;
+            font-size: 6pt;
             border: 1px solid #000;
-            height: 15mm;
+            height: 8mm;
             vertical-align: bottom;
         }
         
@@ -443,15 +544,6 @@
         
         .footer-row {
             margin-bottom: 0;
-        }
-        
-        .footer-disclaimer {
-            text-align: center;
-            font-weight: bold;
-            font-weight: 900;
-            margin-top: 3mm;
-            font-size: 10pt;
-            text-transform: uppercase;
         }
         
         /* QR Code */
@@ -536,7 +628,24 @@
             <div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
-                    {% if company_doc.address %}
+                    {% if doc.branch %}
+                        {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
+                        {% if branch_doc.custom_registration_details %}
+                            {{ branch_doc.custom_registration_details }}
+                        {% elif company_doc.address_html %}
+                            {{ company_doc.address_html }}
+                        {% elif company_doc.address %}
+                            {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                            {{ company_address.address_line1 if company_address.address_line1 else '' }}
+                            {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
+                            {% if company_address.city %}{{ company_address.city }}{% endif %}
+                            {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                            {% if company_address.country %}{{ company_address.country }}{% endif %}
+                            {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% endif %}
+                    {% elif company_doc.address_html %}
+                        {{ company_doc.address_html }}
+                    {% elif company_doc.address %}
                         {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                         {{ company_address.address_line1 if company_address.address_line1 else '' }}
                         {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
@@ -544,27 +653,6 @@
                         {% if company_address.state %}, {{ company_address.state }}{% endif %}
                         {% if company_address.country %}{{ company_address.country }}{% endif %}
                         {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
-                    {% elif company_doc.address_line1 %}
-                        {{ company_doc.address_line1 }}<br>
-                        {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
-                        {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
-                        {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
-                    {% endif %}
-                </div>
-                <div class="vat-reg">
-                    {% if doc.branch %}
-                        {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                        {% if branch_doc.custom_registration_details %}
-                            {{ branch_doc.custom_registration_details }}
-                        {% elif company_doc.tax_id %}
-                            VAT Reg. TIN: {{ company_doc.tax_id }}
-                        {% elif company_doc.tin %}
-                            VAT Reg. TIN: {{ company_doc.tin }}
-                        {% endif %}
-                    {% elif company_doc.tax_id %}
-                        VAT Reg. TIN: {{ company_doc.tax_id }}
-                    {% elif company_doc.tin %}
-                        VAT Reg. TIN: {{ company_doc.tin }}
                     {% endif %}
                 </div>
             </div>
@@ -711,17 +799,13 @@
             <table class="invoice-table">
                 <thead class="table-header">
                     <tr>
-                        <th colspan="2">TRANSACTION REFERENCES</th>
-                        <th colspan="2">
+                        <th colspan="2" style="width: 75%;">TRANSACTION REFERENCES</th>
+                        <th style="width: 25%;">
                             {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
                             {{ currency }} PAYMENT
                         </th>
                     </tr>
                     <tr>
-                        <th colspan="4">PAYABLE TRANSACTIONS</th>
-                    </tr>
-                    <tr>
-                        <th>INV</th>
                         <th>DATE</th>
                         <th>INVOICE NUMBER</th>
                         <th>AMOUNT</th>
@@ -731,86 +815,70 @@
                     {% if doc.references %}
                         {% for ref in doc.references %}
                             <tr class="table-row">
-                                <td>INV</td>
                                 <td>
                                     {% if ref.reference_doctype == "Purchase Invoice" %}
                                         {% set inv_doc = frappe.get_doc("Purchase Invoice", ref.reference_name) %}
-                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'MM-dd-yyyy') if inv_doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'dd-MMM-yy') if inv_doc.posting_date else '' }}
                                     {% elif ref.reference_doctype == "Sales Invoice" %}
                                         {% set inv_doc = frappe.get_doc("Sales Invoice", ref.reference_name) %}
-                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'MM-dd-yyyy') if inv_doc.posting_date else '' }}
-                                    {% elif ref.reference_doctype == "Expense Claim" %}
-                                        {% set inv_doc = frappe.get_doc("Expense Claim", ref.reference_name) %}
-                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'MM-dd-yyyy') if inv_doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(inv_doc.posting_date, 'dd-MMM-yy') if inv_doc.posting_date else '' }}
                                     {% else %}
-                                        {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '' }}
+                                        {{ frappe.utils.formatdate(doc.posting_date, 'dd-MMM-yy') if doc.posting_date else '' }}
                                     {% endif %}
                                 </td>
                                 <td>
                                     {{ ref.reference_name }}
-                                    {% if ref.reference_doctype == "Purchase Invoice" %}
-                                        {% set inv_doc = frappe.get_doc("Purchase Invoice", ref.reference_name) %}
-                                        {% if inv_doc.remarks %}
-                                            <div class="invoice-description">{{ inv_doc.remarks }}</div>
-                                        {% elif inv_doc.items %}
-                                            {% for item in inv_doc.items[:1] %}
-                                                {% if item.description %}<div class="invoice-description">{{ item.description }}</div>{% endif %}
-                                            {% endfor %}
-                                        {% endif %}
-                                    {% elif ref.reference_doctype == "Sales Invoice" %}
-                                        {% set inv_doc = frappe.get_doc("Sales Invoice", ref.reference_name) %}
-                                        {% if inv_doc.remarks %}
-                                            <div class="invoice-description">{{ inv_doc.remarks }}</div>
-                                        {% elif inv_doc.items %}
-                                            {% for item in inv_doc.items[:1] %}
-                                                {% if item.description %}<div class="invoice-description">{{ item.description }}</div>{% endif %}
-                                            {% endfor %}
-                                        {% endif %}
-                                    {% endif %}
                                 </td>
-                                <td>{{ frappe.utils.fmt_money(ref.allocated_amount, precision=2) }}</td>
+                                <td>
+                                    {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
+                                    {{ frappe.utils.fmt_money(ref.allocated_amount, precision=2) }} {{ currency }}
+                                </td>
                             </tr>
                         {% endfor %}
                     {% else %}
                         <tr class="table-row">
-                            <td>INV</td>
-                            <td>{{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '' }}</td>
+                            <td>{{ frappe.utils.formatdate(doc.posting_date, 'dd-MMM-yy') if doc.posting_date else '' }}</td>
                             <td></td>
-                            <td>{{ frappe.utils.fmt_money(doc.paid_amount, precision=2) }}</td>
+                            <td>
+                                {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
+                                {{ frappe.utils.fmt_money(doc.paid_amount, precision=2) }} {{ currency }}
+                            </td>
                         </tr>
                     {% endif %}
-                    <tr class="table-row">
-                        <td></td>
-                        <td></td>
-                        <td>
-                            {% if doc.party_name %}
-                                {{ doc.party_name }}
-                            {% elif doc.party %}
-                                {{ doc.party }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
-                            {% set total_payment = doc.paid_amount %}
-                            {% if doc.references %}
-                                {% set total_payment = 0 %}
-                                {% for ref in doc.references %}
-                                    {% set total_payment = total_payment + ref.allocated_amount %}
-                                {% endfor %}
-                            {% endif %}
-                            {{ frappe.utils.fmt_money(total_payment, precision=2) }} {{ currency }}
-                        </td>
-                    </tr>
                 </tbody>
             </table>
             
-            <!-- Payment Note -->
-            <div class="payment-note">
-                PLEASE BE ADVISED: THIS REMITTANCE PAYS THE ITEMISED TRANSACTIONS TO THE VALUES NOTED ABOVE
-            </div>
+            <!-- Right-Aligned Summary Row -->
+            <table class="right-summary-table">
+                <tr>
+                    <td class="summary-party">
+                        {% if doc.party_name %}
+                            {{ doc.party_name }}
+                        {% elif doc.party %}
+                            {{ doc.party }}
+                        {% endif %}
+                    </td>
+                    <td class="summary-amount">
+                        {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
+                        {% set total_payment = doc.paid_amount %}
+                        {% if doc.references %}
+                            {% set total_payment = 0 %}
+                            {% for ref in doc.references %}
+                                {% set total_payment = total_payment + ref.allocated_amount %}
+                            {% endfor %}
+                        {% endif %}
+                        {{ frappe.utils.fmt_money(total_payment, precision=2) }} {{ currency }}
+                    </td>
+                </tr>
+            </table>
             
             <!-- Summary and Payment Info Container -->
             <div class="summary-received-container">
+                <!-- Payment Note -->
+                <div class="payment-note">
+                    PLEASE BE ADVISED: THIS REMITTANCE PAYS THE ITEMISED TRANSACTIONS TO THE VALUES NOTED ABOVE
+                </div>
+                
                 <!-- Summary Section -->
                 <div class="summary-section">
                     <div class="summary-row">
@@ -848,8 +916,8 @@
                                         {{ user_doc.full_name or user_doc.name }}
                                     {% endif %}
                                 </td>
-                                <td></td>
-                                <td></td>
+                                <td>Desiree Virtudazo</td>
+                                <td>Jeff Bangquil</td>
                                 <td>SIGNATURE OVER PRINTED NAME</td>
                             </tr>
                         </tbody>
@@ -917,7 +985,6 @@
                     -
                 {% endif %}
             </div>
-            <div class="footer-disclaimer">"THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX"</div>
         </div>
         </div>
     </div>

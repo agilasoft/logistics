@@ -1,0 +1,21 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-01-28 14:07:29.593848",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "month-view",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Sea Freight",
+ "link_to": "Sea Freight",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-01-29 15:51:05.528722",
+ "modified_by": "Administrator",
+ "name": "Sea Freight",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

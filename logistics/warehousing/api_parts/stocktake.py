@@ -64,8 +64,19 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
             stock_items_query += " AND COALESCE(hu.company, sl.company, l.company) = %s"
             additional_params.append(company)
         if branch and (("branch" in slf) or ("branch" in huf) or ("branch" in llf)):
-            stock_items_query += " AND COALESCE(hu.branch, sl.branch, l.branch) = %s"
-            additional_params.append(branch)
+            # Ensure all non-null branch values match the job branch
+            branch_conditions = []
+            if "branch" in huf:
+                branch_conditions.append("(hu.branch IS NULL OR hu.branch = %s)")
+                additional_params.append(branch)
+            if "branch" in slf:
+                branch_conditions.append("(sl.branch IS NULL OR sl.branch = %s)")
+                additional_params.append(branch)
+            if "branch" in llf:
+                branch_conditions.append("(l.branch IS NULL OR l.branch = %s)")
+                additional_params.append(branch)
+            if branch_conditions:
+                stock_items_query += " AND " + " AND ".join(branch_conditions)
         
         # Add additional filters
         if additional_filters:
@@ -104,16 +115,36 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     if company and (("company" in slf) or ("company" in huf) or ("company" in llf)) :
         conds.append("COALESCE(hu.company, sl.company, l.company) = %s"); params.append(company)
     if branch and  (("branch"  in slf) or ("branch"  in huf) or ("branch"  in llf)):
-        conds.append("COALESCE(hu.branch,  sl.branch,  l.branch)  = %s"); params.append(branch)
+        # Ensure all non-null branch values match the job branch to prevent fetching branches not similar to job doc
+        # Storage locations with different branches must be excluded
+        branch_conditions = []
+        if "branch" in huf:
+            branch_conditions.append("(hu.branch IS NULL OR hu.branch = %s)")
+            params.append(branch)
+        if "branch" in slf:
+            # Strictly enforce: if storage location has a branch, it must match job branch
+            branch_conditions.append("(sl.branch IS NULL OR sl.branch = %s)")
+            params.append(branch)
+        if "branch" in llf:
+            branch_conditions.append("(l.branch IS NULL OR l.branch = %s)")
+            params.append(branch)
+        if branch_conditions:
+            conds.append("(" + " AND ".join(branch_conditions) + ")")
 
+    # Include storage location branch in query for post-processing validation
+    select_fields = "l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no, SUM(l.quantity) AS system_qty"
+    group_by_fields = "l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no"
+    if branch and "branch" in slf:
+        select_fields += ", sl.branch AS storage_location_branch"
+        group_by_fields += ", sl.branch"
+    
     aggregates = frappe.db.sql(f"""
-        SELECT l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no,
-               SUM(l.quantity) AS system_qty
+        SELECT {select_fields}
         FROM `tabWarehouse Stock Ledger` l
         LEFT JOIN `tabStorage Location` sl ON sl.name = l.storage_location
         LEFT JOIN `tabHandling Unit`    hu ON hu.name = l.handling_unit
         WHERE {' AND '.join(conds)}
-        GROUP BY l.item, l.storage_location, l.handling_unit, l.batch_no, l.serial_no
+        GROUP BY {group_by_fields}
         HAVING SUM(l.quantity) > 0
     """, tuple(params), as_dict=True) or []
 
@@ -161,9 +192,20 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
         created_rows += 1
 
     # Only create count rows for items that actually exist in stock ledger
+    # Additional validation: ensure storage locations match job branch
     for a in aggregates:
         if a.get("item") not in item_set: continue
-        _append_count_row(a.get("item"), a.get("storage_location"), a.get("handling_unit"),
+        
+        # Validate storage location branch matches job branch if branch is specified
+        storage_location = a.get("storage_location")
+        if branch and storage_location and "branch" in slf:
+            # Check storage location branch from query result
+            sl_branch = a.get("storage_location_branch")
+            if sl_branch and sl_branch != branch:
+                # Skip storage locations with different branches
+                continue
+        
+        _append_count_row(a.get("item"), storage_location, a.get("handling_unit"),
                           a.get("batch_no"), a.get("serial_no"), flt(a.get("system_qty") or 0))
 
     job.save(ignore_permissions=True)

@@ -1296,6 +1296,10 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     if job.docstatus != 1:
         frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
     
+    # Validate Transport Job status is "Completed"
+    if getattr(job, "status", None) != "Completed":
+        frappe.throw(_("Sales Invoice can only be created when Transport Job status is 'Completed'. Current status: {0}").format(job.status or "Draft"))
+    
     # Validate required fields
     if not job.customer:
         frappe.throw(_("Customer is required to create Sales Invoice. Please set a customer on the Transport Job."))

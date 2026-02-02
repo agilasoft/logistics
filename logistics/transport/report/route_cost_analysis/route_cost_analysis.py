@@ -133,8 +133,9 @@ def get_columns():
 	]
 
 def get_data(filters):
-	conditions = get_conditions(filters)
-	
+	conditions, params = get_conditions(filters)
+	conditions_clause = (" AND " + conditions) if conditions else ""
+
 	# Get route cost analysis data
 	query = """
 		SELECT 
@@ -153,12 +154,12 @@ def get_data(filters):
 		FROM `tabRun Sheet` rs
 		LEFT JOIN `tabTransport Leg` tl ON tl.run_sheet = rs.name
 		WHERE rs.docstatus = 1
-		{conditions}
+		{conditions_clause}
 		GROUP BY rs.route_name, rs.vehicle_type, rs.vehicle, rs.driver, rs.transport_company
 		ORDER BY total_distance DESC
-	""".format(conditions=conditions)
+	""".format(conditions_clause=conditions_clause)
 	
-	data = frappe.db.sql(query, as_dict=True)
+	data = frappe.db.sql(query, params, as_dict=True)
 	
 	# Process data and calculate cost metrics
 	for row in data:
@@ -182,46 +183,58 @@ def get_data(filters):
 
 def get_conditions(filters):
 	conditions = []
+	params = {}
 	
 	if filters.get("from_date"):
 		conditions.append("rs.run_date >= %(from_date)s")
+		params["from_date"] = filters.get("from_date")
 	
 	if filters.get("to_date"):
 		conditions.append("rs.run_date <= %(to_date)s")
+		params["to_date"] = filters.get("to_date")
 	
 	if filters.get("route_name"):
 		conditions.append("rs.route_name = %(route_name)s")
+		params["route_name"] = filters.get("route_name")
 	
 	if filters.get("vehicle_type"):
 		conditions.append("rs.vehicle_type = %(vehicle_type)s")
+		params["vehicle_type"] = filters.get("vehicle_type")
 	
 	if filters.get("transport_company"):
 		conditions.append("rs.transport_company = %(transport_company)s")
+		params["transport_company"] = filters.get("transport_company")
 	
 	if filters.get("cost_range"):
 		# This would need to be implemented based on calculated costs
 		pass
 	
-	return " AND ".join(conditions) if conditions else ""
+	return " AND ".join(conditions) if conditions else "", params
 
 def calculate_route_costs(row):
 	"""Calculate various cost components for a route"""
 	costs = {}
 	
+	# Get values with None handling
+	total_distance = flt(row.get("total_distance") or 0)
+	total_duration = flt(row.get("total_duration") or 0)
+	total_trips = flt(row.get("total_trips") or 0)
+	vehicle_type = row.get("vehicle_type")
+	
 	# Fuel cost calculation
-	fuel_cost = calculate_fuel_cost(row.total_distance, row.vehicle_type)
+	fuel_cost = calculate_fuel_cost(total_distance, vehicle_type)
 	costs["fuel_cost"] = fuel_cost
 	
 	# Driver cost calculation
-	driver_cost = calculate_driver_cost(row.total_duration, row.driver)
+	driver_cost = calculate_driver_cost(total_duration, row.get("driver"))
 	costs["driver_cost"] = driver_cost
 	
 	# Vehicle cost calculation
-	vehicle_cost = calculate_vehicle_cost(row.total_distance, row.vehicle)
+	vehicle_cost = calculate_vehicle_cost(total_distance, row.get("vehicle"))
 	costs["vehicle_cost"] = vehicle_cost
 	
 	# Maintenance cost calculation
-	maintenance_cost = calculate_maintenance_cost(row.total_distance, row.vehicle_type)
+	maintenance_cost = calculate_maintenance_cost(total_distance, vehicle_type)
 	costs["maintenance_cost"] = maintenance_cost
 	
 	# Total cost
@@ -229,14 +242,14 @@ def calculate_route_costs(row):
 	costs["total_cost"] = total_cost
 	
 	# Cost per kilometer
-	if row.total_distance > 0:
-		costs["cost_per_km"] = total_cost / row.total_distance
+	if total_distance > 0:
+		costs["cost_per_km"] = total_cost / total_distance
 	else:
 		costs["cost_per_km"] = 0
 	
 	# Cost per trip
-	if row.total_trips > 0:
-		costs["cost_per_trip"] = total_cost / row.total_trips
+	if total_trips > 0:
+		costs["cost_per_trip"] = total_cost / total_trips
 	else:
 		costs["cost_per_trip"] = 0
 	
@@ -244,6 +257,9 @@ def calculate_route_costs(row):
 
 def calculate_fuel_cost(distance, vehicle_type):
 	"""Calculate fuel cost based on distance and vehicle type"""
+	if not distance or distance <= 0:
+		return 0
+	
 	# Fuel consumption rates (L/100km) by vehicle type
 	fuel_consumption = {
 		"Truck": 25,  # L/100km
@@ -252,7 +268,7 @@ def calculate_fuel_cost(distance, vehicle_type):
 		"Motorcycle": 4
 	}
 	
-	consumption_rate = fuel_consumption.get(vehicle_type, 15)
+	consumption_rate = fuel_consumption.get(vehicle_type, 15) if vehicle_type else 15
 	fuel_price_per_liter = 1.50  # USD per liter
 	
 	fuel_consumed = (distance / 100) * consumption_rate
@@ -260,6 +276,9 @@ def calculate_fuel_cost(distance, vehicle_type):
 
 def calculate_driver_cost(duration, driver):
 	"""Calculate driver cost based on duration"""
+	if not duration or duration <= 0:
+		return 0
+	
 	# Default driver hourly rate
 	hourly_rate = 25  # USD per hour
 	
@@ -271,6 +290,9 @@ def calculate_driver_cost(duration, driver):
 
 def calculate_vehicle_cost(distance, vehicle):
 	"""Calculate vehicle cost based on distance"""
+	if not distance or distance <= 0:
+		return 0
+	
 	# Default vehicle cost per km
 	cost_per_km = 0.50  # USD per km
 	
@@ -283,6 +305,9 @@ def calculate_vehicle_cost(distance, vehicle):
 
 def calculate_maintenance_cost(distance, vehicle_type):
 	"""Calculate maintenance cost based on distance and vehicle type"""
+	if not distance or distance <= 0:
+		return 0
+	
 	# Maintenance cost per km by vehicle type
 	maintenance_rates = {
 		"Truck": 0.15,  # USD per km
@@ -291,22 +316,26 @@ def calculate_maintenance_cost(distance, vehicle_type):
 		"Motorcycle": 0.03
 	}
 	
-	rate = maintenance_rates.get(vehicle_type, 0.10)
+	rate = maintenance_rates.get(vehicle_type, 0.10) if vehicle_type else 0.10
 	return distance * rate
 
 def calculate_efficiency_metrics(row):
 	"""Calculate efficiency and profitability metrics"""
 	metrics = {}
 	
+	# Get values with None handling
+	total_distance = flt(row.get("total_distance") or 0)
+	total_cost = flt(row.get("total_cost") or 0)
+	
 	# Revenue calculation (simplified)
 	# In a real implementation, this would come from actual revenue data
 	revenue_per_km = 2.00  # USD per km
-	revenue = row.total_distance * revenue_per_km
+	revenue = total_distance * revenue_per_km
 	metrics["revenue"] = revenue
 	
 	# Profit margin calculation
-	if revenue > 0:
-		profit_margin = ((revenue - row.total_cost) / revenue) * 100
+	if revenue > 0 and total_cost is not None:
+		profit_margin = ((revenue - total_cost) / revenue) * 100
 		metrics["profit_margin"] = profit_margin
 	else:
 		metrics["profit_margin"] = 0
@@ -321,19 +350,24 @@ def calculate_efficiency_score(row):
 	"""Calculate overall efficiency score for a route"""
 	score = 0
 	
+	# Get values with None handling
+	total_distance = flt(row.get("total_distance") or 0)
+	cost_per_km = flt(row.get("cost_per_km") or 0)
+	profit_margin = flt(row.get("profit_margin") or 0)
+	
 	# Distance efficiency (30% weight)
-	if row.total_distance > 0:
-		distance_score = min(row.total_distance / 100, 30)  # Max 30 points
+	if total_distance > 0:
+		distance_score = min(total_distance / 100, 30)  # Max 30 points
 		score += distance_score
 	
 	# Cost efficiency (40% weight)
-	if row.cost_per_km > 0:
-		cost_efficiency = max(0, 40 - (row.cost_per_km * 20))  # Lower cost per km = higher score
+	if cost_per_km > 0:
+		cost_efficiency = max(0, 40 - (cost_per_km * 20))  # Lower cost per km = higher score
 		score += cost_efficiency
 	
 	# Profitability (30% weight)
-	if row.profit_margin > 0:
-		profit_score = min(row.profit_margin * 0.3, 30)  # Max 30 points
+	if profit_margin > 0:
+		profit_score = min(profit_margin * 0.3, 30)  # Max 30 points
 		score += profit_score
 	
 	return min(score, 100)  # Cap at 100
@@ -366,8 +400,8 @@ def get_chart_data(data):
 		return None
 	
 	# Route cost comparison chart
-	routes = [row.route_name for row in data[:10]]  # Top 10 routes
-	total_costs = [row.total_cost for row in data[:10]]
+	routes = [row.get("route_name") or "" for row in data[:10]]  # Top 10 routes
+	total_costs = [flt(row.get("total_cost") or 0) for row in data[:10]]
 	
 	chart = {
 		"data": {
@@ -391,18 +425,20 @@ def get_summary(data, filters):
 		return []
 	
 	total_routes = len(data)
-	total_trips = sum(row.total_trips for row in data)
-	total_distance = sum(row.total_distance for row in data)
-	total_cost = sum(row.total_cost for row in data)
-	total_revenue = sum(row.revenue for row in data)
+	total_trips = sum(flt(row.get("total_trips") or 0) for row in data)
+	total_distance = sum(flt(row.get("total_distance") or 0) for row in data)
+	total_cost = sum(flt(row.get("total_cost") or 0) for row in data)
+	total_revenue = sum(flt(row.get("revenue") or 0) for row in data)
 	
 	avg_cost_per_km = total_cost / total_distance if total_distance > 0 else 0
-	avg_profit_margin = sum(row.profit_margin for row in data) / total_routes if total_routes > 0 else 0
+	profit_margins = [flt(row.get("profit_margin") or 0) for row in data]
+	avg_profit_margin = sum(profit_margins) / total_routes if total_routes > 0 else 0
 	
 	# Count routes by efficiency
-	high_efficiency = len([row for row in data if row.efficiency_score > 80])
-	medium_efficiency = len([row for row in data if 60 <= row.efficiency_score <= 80])
-	low_efficiency = len([row for row in data if row.efficiency_score < 60])
+	efficiency_scores = [flt(row.get("efficiency_score") or 0) for row in data]
+	high_efficiency = len([score for score in efficiency_scores if score > 80])
+	medium_efficiency = len([score for score in efficiency_scores if 60 <= score <= 80])
+	low_efficiency = len([score for score in efficiency_scores if score < 60])
 	
 	return [
 		{

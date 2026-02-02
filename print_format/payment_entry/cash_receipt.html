@@ -1,3 +1,4 @@
+<!-- CASH RECEIPT - Payment Entry only. Do not use for Sales Invoice. -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -27,6 +28,7 @@
             flex-direction: column;
             min-height: 100vh;
             position: relative;
+            overflow-x: hidden;
         }
         
         .top-section {
@@ -74,9 +76,10 @@
         }
         
         .company-name {
-            font-size: 12pt;
-            font-weight: bold;
+            font-size: 16pt;
+            font-weight: 900;
             margin-bottom: 0;
+            text-transform: uppercase;
         }
         
         .company-address {
@@ -86,7 +89,7 @@
         }
         
         .vat-reg {
-            font-size: 7pt;
+            font-size: 8.5pt;
         }
         
         /* Document Title */
@@ -117,34 +120,59 @@
         .left-column {
             flex: 1;
             padding-right: 5mm;
+            min-width: 0;
         }
         
         .right-column {
             flex: 1;
             padding-left: 5mm;
+            min-width: 0;
+        }
+        
+        .remarks-column {
+            display: flex;
+            flex-direction: column;
+            align-self: stretch;
+        }
+        .remarks-label {
+            font-weight: 900;
+            font-size: 8pt;
+            margin-bottom: 1mm;
+            flex-shrink: 0;
+        }
+        .remarks-value {
+            font-size: 8pt;
+            flex: 1;
+            padding: 0.3mm 0.5mm;
+            background: white;
         }
         
         .field-row {
             display: flex;
             margin-bottom: -1mm;
             align-items: flex-start;
-            gap: 0.3mm;
+            gap: 2mm;
         }
         
         .field-label {
             font-weight: 900;
-            min-width: 20mm;
+            width: 36mm;
+            min-width: 36mm;
             font-size: 8pt;
             flex-shrink: 0;
-            text-align: right;
+            text-align: left;
+            white-space: nowrap;
         }
         
         .field-value {
-            flex: 1;
+            width: 38mm;
+            max-width: 38mm;
             font-size: 8pt;
             min-height: 5mm;
             padding: 0.3mm 0.5mm;
             background: white;
+            text-align: left;
+            flex-shrink: 0;
         }
         
         /* Customer Info Section - Aligned with QR */
@@ -160,12 +188,11 @@
             font-weight: bold;
             font-size: 8pt;
             margin-top: 5mm;
-            margin-bottom: 1mm;
+            margin-bottom: 2mm;
             line-height: 1;
         }
         
         .customer-name-box {
-            padding: 0.3mm 0.5mm;
             font-size: 11pt;
             font-weight: bold;
             font-weight: 900;
@@ -176,10 +203,21 @@
         }
         
         .customer-address-box {
-            padding: 0.3mm 0.5mm;
             font-size: 8pt;
             background: white;
             width: 100mm;
+        }
+        
+        .customer-detail-row {
+            font-size: 8pt;
+            margin-top: 0.5mm;
+            line-height: 1.2;
+        }
+        .customer-detail-label {
+            font-weight: bold;
+        }
+        .customer-detail-value {
+            margin-left: 0.5mm;
         }
         
         /* QR Code Section */
@@ -208,7 +246,7 @@
         }
         
         .receipt-title-qr {
-            font-size: 16pt;
+            font-size: 14pt;
             font-weight: bold;
             font-weight: 900;
             margin-top: 0.11mm;
@@ -220,6 +258,7 @@
             font-size: 8pt;
             font-weight: regular;
             margin-top: 0.1mm;
+            text-align: right;
         }
         
         /* Table Section */
@@ -244,9 +283,9 @@
         
         .table-header th {
             padding: 0.3mm 0.5mm;
-            padding-bottom: 50mm;
+            padding-bottom: 1.5mm;
             text-align: left;
-            font-size: 7pt;
+            font-size: 9pt;
             font-weight: bold;
             color: #000;
             border-top: 2px solid #000;
@@ -264,19 +303,19 @@
         }
         
         .table-header th:last-child {
-            text-align: right;
+            text-align: left;
         }
         
         .table-row td {
             padding: 0.3mm 0.5mm;
-            padding-bottom: 50mm;
-            font-size: 7pt;
+            padding-bottom: 1.5mm;
+            font-size: 9pt;
             background: white;
             border: none;
         }
         
         .table-row td:last-child {
-            text-align: right;
+            text-align: left;
         }
         
         /* Summary and Received Container */
@@ -288,82 +327,59 @@
         
         /* Summary Section */
         .summary-section {
-            background: #e0e0e0;
+            background: white;
             padding: 1.5mm;
             margin-top: 0;
-            text-align: right;
+            text-align: left;
         }
         
         .summary-row {
             display: flex;
-            justify-content: flex-end;
+            justify-content: flex-start;
             margin-bottom: 0;
             align-items: center;
             gap: 1.5mm;
         }
         
         .summary-label {
-            font-size: 8pt;
+            font-size: 10pt;
             font-weight: bold;
             min-width: 25mm;
-            text-align: right;
+            text-align: left;
             flex-shrink: 0;
         }
         
         .summary-value {
-            font-size: 8pt;
+            font-size: 10pt;
             padding: 0.3mm 0.5mm;
             background: white;
             width: 35mm;
             min-height: 0;
-            text-align: right;
+            text-align: left;
             flex-shrink: 0;
             box-sizing: border-box;
         }
         
-        .summary-value.net-collected {
-            border: 1px solid #000;
-        }
         
-        /* Received Section */
+        /* Received Section - full-width sentence style */
         .received-section {
-            padding: 1.5mm;
+            width: 100%;
+            padding: 1.5mm 0;
             margin-top: 0;
             page-break-inside: avoid;
-        }
-        
-        .received-row {
-            display: flex;
-            margin-bottom: 0;
-            margin-top: 0;
-            align-items: center;
-            gap: 0.5mm;
-            line-height: 1;
-            page-break-inside: avoid;
-        }
-        
-        .received-label {
             font-size: 8pt;
-            font-weight: bold;
-            min-width: 20mm;
-            flex-shrink: 0;
-            line-height: 1;
+            line-height: 1.5;
+        }
+        
+        .received-sentence {
+            width: 100%;
+            text-align: left;
             margin: 0;
             padding: 0;
         }
         
-        .received-field {
-            flex: 1;
-            padding: 0.3mm 0.5mm;
-            background: white;
-            font-size: 8pt;
-            min-height: 0;
-            line-height: 1;
-            margin: 0;
-        }
-        
-        .received-field-large {
-            min-height: 0;
+        .received-sentence .received-by {
+            margin-top: 0.5mm;
         }
         
         /* Footer Section */
@@ -406,16 +422,32 @@
             size: A4;
             margin: 12mm 12mm 25mm 12mm;
         }
+        @page {
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 8pt;
+                font-family: Arial, Helvetica, sans-serif;
+            }
+        }
         
+        /* PDF/print: prevent scrollbar and gray bar, match HTML preview */
         @media print {
-            body {
+            html, body {
                 margin: 0;
                 padding: 0;
+                overflow: hidden;
+                width: 210mm;
+                min-width: 210mm;
+                max-width: 210mm;
+            }
+            body {
                 padding-bottom: 25mm;
             }
             .receipt-container {
                 padding: 0;
-                max-width: 100%;
+                width: 210mm;
+                max-width: 210mm;
+                overflow: hidden;
                 padding-bottom: 25mm;
             }
             .page-break {
@@ -425,26 +457,27 @@
                 position: fixed;
                 bottom: 0;
                 left: 0;
-                right: 0;
-                width: 100%;
+                width: 210mm;
+                max-width: 210mm;
                 background: white;
                 padding: 1mm 12mm;
                 border-top: 1px solid #000;
                 margin: 0;
                 page-break-before: always;
+                box-sizing: border-box;
             }
-            
             .received-section {
-                page-break-inside: avoid;
-            }
-            
-            .received-row {
                 page-break-inside: avoid;
             }
         }
     </style>
 </head>
 <body>
+    {% if doc.doctype != 'Payment Entry' %}
+    <div style="padding: 20px; font-family: Arial; color: red;">
+        <strong>Wrong print format.</strong> This format is for <strong>Payment Entry (Cash Receipt)</strong> only. Use the Sales Invoice print format for Sales Invoice.
+    </div>
+    {% else %}
     <div class="receipt-container">
         <!-- Header -->
         <div class="header">
@@ -501,9 +534,9 @@
         <div class="top-section">
         <!-- Main Body -->
         <div class="main-body">
-            <!-- Customer Info Section - Aligned with QR Code -->
+            <!-- Party Info Section - Aligned with QR Code (label based on party_type) -->
             <div class="customer-info-section">
-                <div class="customer-label">CUSTOMER</div>
+                <div class="customer-label">{% if doc.party_type %}{{ (doc.party_type or 'PARTY')|upper }}{% else %}PARTY{% endif %}</div>
                 <div class="customer-name-box">
                     {% if doc.party_name %}
                         {{ doc.party_name }}
@@ -538,57 +571,38 @@
                         {% endif %}
                     {% endif %}
                 </div>
+                {% if doc.party %}
+                    {% set party_type = doc.party_type %}
+                    {% if party_type == "Customer" %}
+                        {% set party_doc = frappe.get_doc("Customer", doc.party) %}
+                    {% elif party_type == "Supplier" %}
+                        {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
+                    {% endif %}
+                    {% if party_doc %}
+                    <div class="customer-detail-row"><span class="customer-detail-label">TIN:</span> <span class="customer-detail-value">{{ party_doc.tax_id or party_doc.tin or '-' }}</span></div>
+                    <div class="customer-detail-row"><span class="customer-detail-label">Business Style:</span> <span class="customer-detail-value">{{ party_doc.customer_name or party_doc.supplier_name or '-' }}</span></div>
+                    {% endif %}
+                {% endif %}
             </div>
             
             <!-- QR Code Section - Positioned in top right of main body -->
             <div class="qr-section">
                 {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
                 <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
-                <div class="receipt-title-qr">CASH RECEIPT</div>
+                {% if doc.payment_type == 'Pay' %}
+                    {% set document_title = 'PAYMENT VOUCHER' %}
+                {% elif doc.payment_type == 'Receive' %}
+                    {% set document_title = 'CASH RECEIPT' %}
+                {% elif doc.payment_type == 'Internal Transfer' %}
+                    {% set document_title = 'INTERNAL TRANSFER' %}
+                {% else %}
+                    {% set document_title = 'CASH RECEIPT' %}
+                {% endif %}
+                <div class="receipt-title-qr">{{ document_title }}</div>
                 <div class="reference-number">{{ doc.name }}</div>
             </div>
-            <!-- Left Column - Customer Information -->
+            <!-- Column 1: Receipt Details -->
             <div class="left-column">
-                <div class="field-row">
-                    <div class="field-label">TIN:</div>
-                    <div class="field-value">
-                        {% if doc.party %}
-                            {% set party_type = doc.party_type %}
-                            {% if party_type == "Customer" %}
-                                {% set party_doc = frappe.get_doc("Customer", doc.party) %}
-                            {% elif party_type == "Supplier" %}
-                                {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
-                            {% endif %}
-                            {% if party_doc and party_doc.tax_id %}
-                                {{ party_doc.tax_id }}
-                            {% elif party_doc and party_doc.tin %}
-                                {{ party_doc.tin }}
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-label">BUS. STYLE:</div>
-                    <div class="field-value">
-                        {% if doc.party %}
-                            {% set party_type = doc.party_type %}
-                            {% if party_type == "Customer" %}
-                                {% set party_doc = frappe.get_doc("Customer", doc.party) %}
-                            {% elif party_type == "Supplier" %}
-                                {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
-                            {% endif %}
-                            {% if party_doc and party_doc.customer_name %}
-                                {{ party_doc.customer_name }}
-                            {% elif party_doc and party_doc.supplier_name %}
-                                {{ party_doc.supplier_name }}
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Right Column - Receipt Details -->
-            <div class="right-column">
                 <div class="field-row">
                     <div class="field-label">DATE:</div>
                     <div class="field-value">
@@ -598,26 +612,75 @@
                     </div>
                 </div>
                 <div class="field-row">
-                    <div class="field-label">BANK:</div>
+                    <div class="field-label">REFERENCE DATE:</div>
                     <div class="field-value">
-                        {% if doc.paid_from_account %}
-                            {% set account_doc = frappe.get_doc("Account", doc.paid_from_account) %}
-                            {{ account_doc.account_name or doc.paid_from_account }}
-                        {% elif doc.paid_to_account %}
-                            {% set account_doc = frappe.get_doc("Account", doc.paid_to_account) %}
-                            {{ account_doc.account_name or doc.paid_to_account }}
+                        {% if doc.reference_date %}
+                            {{ frappe.utils.formatdate(doc.reference_date, 'MM-dd-yyyy') }}
+                        {% else %}
+                            -
                         {% endif %}
                     </div>
                 </div>
                 <div class="field-row">
-                    <div class="field-label">REF:</div>
+                    <div class="field-label">BANK / ACCOUNT:</div>
+                    <div class="field-value">
+                        {% if doc.paid_from_account %}
+                            {% set account_doc = frappe.get_doc("Account", doc.paid_from_account) %}
+                            {{ account_doc.account_name if account_doc else doc.paid_from_account }}
+                        {% elif doc.paid_to_account %}
+                            {% set account_doc = frappe.get_doc("Account", doc.paid_to_account) %}
+                            {{ account_doc.account_name if account_doc else doc.paid_to_account }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">MODE OF PAYMENT:</div>
+                    <div class="field-value">
+                        {% if doc.mode_of_payment %}
+                            {{ doc.mode_of_payment }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">REF / CHEQUE NO:</div>
                     <div class="field-value">
                         {% if doc.reference_no %}
                             {{ doc.reference_no }}
                         {% elif doc.cheque_no %}
                             {{ doc.cheque_no }}
+                        {% else %}
+                            -
                         {% endif %}
                     </div>
+                </div>
+                {% if doc.cheque_date %}
+                <div class="field-row">
+                    <div class="field-label">CHEQUE DATE:</div>
+                    <div class="field-value">{{ frappe.utils.formatdate(doc.cheque_date, 'MM-dd-yyyy') }}</div>
+                </div>
+                {% endif %}
+                <div class="field-row">
+                    <div class="field-label">AMOUNT:</div>
+                    <div class="field-value">
+                        {% set amt = doc.paid_amount or doc.received_amount or 0 %}
+                        {{ frappe.utils.fmt_money(amt, precision=2) }} {{ doc.paid_from_account_currency or doc.paid_to_account_currency or doc.company_currency or '' }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Column 2: Remarks -->
+            <div class="right-column remarks-column">
+                <div class="remarks-label">REMARKS:</div>
+                <div class="remarks-value">
+                    {% if doc.remarks %}
+                        {{ doc.remarks }}
+                    {% else %}
+                        —
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -628,22 +691,35 @@
             <table class="invoice-table">
                 <thead class="table-header">
                     <tr>
-                        <th>INVOICE NUMBER</th>
-                        <th>AMMOUNT</th>
+                        <th>TYPE</th>
+                        <th>REFERENCE NO.</th>
+                        <th>DUE DATE</th>
+                        <th>BILL TOTAL</th>
+                        <th>OUTSTANDING</th>
+                        <th>ALLOCATED</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or doc.company_currency or 'PHP' %}
                     {% if doc.references %}
                         {% for ref in doc.references %}
                             <tr class="table-row">
-                                <td>{{ ref.reference_name }}</td>
-                                <td>{{ frappe.utils.fmt_money(ref.allocated_amount, precision=2) }}</td>
+                                <td>{{ ref.reference_doctype or '—' }}</td>
+                                <td>{{ ref.reference_name or '—' }}</td>
+                                <td>{% if ref.due_date %}{{ frappe.utils.formatdate(ref.due_date, 'MM-dd-yyyy') }}{% else %}—{% endif %}</td>
+                                <td>{{ frappe.utils.fmt_money(ref.total_amount|default(0), precision=2) }} {{ currency }}</td>
+                                <td>{{ frappe.utils.fmt_money(ref.outstanding_amount|default(0), precision=2) }} {{ currency }}</td>
+                                <td>{{ frappe.utils.fmt_money(ref.allocated_amount, precision=2) }} {{ currency }}</td>
                             </tr>
                         {% endfor %}
                     {% else %}
                         <tr class="table-row">
-                            <td></td>
-                            <td>{{ frappe.utils.fmt_money(doc.paid_amount, precision=2) }}</td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>{{ frappe.utils.fmt_money(doc.paid_amount, precision=2) }} {{ currency }}</td>
                         </tr>
                     {% endif %}
                 </tbody>
@@ -688,38 +764,20 @@
                     </div>
                 </div>
                 
-                <!-- Received Section -->
+                <!-- Received Section - full-width sentence -->
                 <div class="received-section">
-                    <div class="received-row">
-                        <div class="received-label">Received from</div>
-                        <div class="received-field received-field-large">
-                            {% if doc.party_name %}
-                                {{ doc.party_name }}
-                            {% elif doc.party %}
-                                {{ doc.party }}
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="received-row">
-                        <div class="received-label">the sum of</div>
-                        <div class="received-field">
-                            {% set net_collected = doc.received_amount or doc.paid_amount %}
-                            {% if doc.deducted_tax %}
-                                {% set net_collected = net_collected - doc.deducted_tax %}
-                            {% endif %}
-                            {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
-                            {{ frappe.utils.money_in_words(net_collected, currency) }}
-                        </div>
-                    </div>
-                    <div class="received-row">
-                        <div class="received-label">Received by:</div>
-                        <div class="received-field">
-                            {% if doc.owner %}
-                                {% set user_doc = frappe.get_doc("User", doc.owner) %}
-                                {{ user_doc.full_name or user_doc.name }}
-                            {% endif %}
-                        </div>
-                    </div>
+                    <p class="received-sentence">
+                        Received from
+                        {% if doc.party_name %}{{ doc.party_name }}{% elif doc.party %}{{ doc.party }}{% endif %}
+                        the sum of
+                        {% set net_collected = doc.received_amount or doc.paid_amount %}
+                        {% if doc.deducted_tax %}
+                            {% set net_collected = net_collected - doc.deducted_tax %}
+                        {% endif %}
+                        {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
+                        {{ frappe.utils.money_in_words(net_collected, currency) }}.
+                        <span class="received-by">Received by: {% if doc.owner %}{% set user_doc = frappe.get_doc("User", doc.owner) %}{{ user_doc.full_name or user_doc.name }}{% endif %}</span>
+                    </p>
                 </div>
             </div>
         </div>
@@ -781,9 +839,12 @@
                 {% endif %}
             </div>
             <div class="footer-row">Series: {{ series_start }} to {{ series_end }}</div>
+            {% if doc.payment_type == 'Receive' %}
             <div class="footer-disclaimer">"THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX"</div>
+            {% endif %}
         </div>
         </div>
     </div>
+    {% endif %}
 </body>
 </html>

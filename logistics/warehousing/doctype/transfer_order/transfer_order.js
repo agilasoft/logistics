@@ -64,17 +64,25 @@ frappe.ui.form.on("Transfer Order Charges", {
 
   function set_item_query(frm) {
     if (!frm.fields_dict[CHILD_TABLE]) return;
+    
+    // Only filter by customer if transfer_type is "Customer"
+    const should_filter = frm.doc.transfer_type === "Customer";
+    
     frm.fields_dict[CHILD_TABLE].grid.get_field(ITEM_FIELD).get_query = () => {
+      if (!should_filter) return {}; // No filter for Internal/Others
       const customer = frm.doc.customer || '';
       return { filters: customer ? { customer } : {} };
     };
     frm.set_query(ITEM_FIELD, CHILD_TABLE, () => {
+      if (!should_filter) return {}; // No filter for Internal/Others
       const customer = frm.doc.customer || '';
       return { filters: customer ? { customer } : {} };
     });
   }
 
   function drop_mismatched_rows(frm) {
+    // Only clear items if transfer_type is "Customer" and customer exists
+    if (frm.doc.transfer_type !== "Customer") return;
     const customer = frm.doc.customer;
     if (!customer || !Array.isArray(frm.doc[CHILD_TABLE])) return;
     let changed = false;
@@ -87,6 +95,19 @@ frappe.ui.form.on("Transfer Order Charges", {
   frappe.ui.form.on('Transfer Order', {
     setup: set_item_query,
     refresh: set_item_query,
+    transfer_type: function (frm) {
+      // Re-apply item query setup when transfer_type changes
+      set_item_query(frm);
+      // Clear customer and contract if switching away from "Customer"
+      if (frm.doc.transfer_type !== "Customer") {
+        if (frm.doc.customer) {
+          frm.set_value("customer", "");
+        }
+        if (frm.doc.contract) {
+          frm.set_value("contract", "");
+        }
+      }
+    },
     customer: function (frm) {
       set_item_query(frm);
       drop_mismatched_rows(frm);

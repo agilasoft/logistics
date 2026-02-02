@@ -626,7 +626,7 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 				filters={"transport_job": job_doc.name},
 				fields=["name", "pick_address", "drop_address", "facility_type_from", "facility_from",
 				        "facility_type_to", "facility_to", "pick_mode", "drop_mode", "order"],
-				order_by="`order` asc, creation asc"
+				order_by="order asc, creation asc"
 			)
 			
 			for leg in job_legs:
@@ -721,11 +721,16 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 					"transport_leg": leg.name
 				})
 				
-				# Set both flags for both consolidated
-				leg.pick_consolidated = 1
-				leg.drop_consolidated = 1
-				leg.transport_consolidation = consolidation_name
-				leg.save(ignore_permissions=True)
+				# Set both flags for both consolidated using direct database update
+				# This bypasses "update after submit" validation
+				update_fields = {
+					"pick_consolidated": 1,
+					"drop_consolidated": 1,
+					"transport_consolidation": consolidation_name
+				}
+				for field, value in update_fields.items():
+					if frappe.db.has_column("Transport Leg", field):
+						frappe.db.set_value("Transport Leg", leg.name, field, value, update_modified=False)
 		
 		elif is_pick_consolidated:
 			# Pick Consolidated: One pick, multiple drops
@@ -739,11 +744,16 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 					"transport_leg": leg.name
 				})
 				
-				# Set pick_consolidated checkbox on all legs
-				leg.pick_consolidated = 1
-				leg.drop_consolidated = 0  # Clear drop_consolidated if it was set
-				leg.transport_consolidation = consolidation_name
-				leg.save(ignore_permissions=True)
+				# Set pick_consolidated checkbox on all legs using direct database update
+				# This bypasses "update after submit" validation
+				update_fields = {
+					"pick_consolidated": 1,
+					"drop_consolidated": 0,
+					"transport_consolidation": consolidation_name
+				}
+				for field, value in update_fields.items():
+					if frappe.db.has_column("Transport Leg", field):
+						frappe.db.set_value("Transport Leg", leg.name, field, value, update_modified=False)
 		
 		elif is_drop_consolidated:
 			# Drop Consolidated: Multiple picks, one drop
@@ -757,11 +767,16 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 					"transport_leg": leg.name
 				})
 				
-				# Set drop_consolidated checkbox on all legs
-				leg.drop_consolidated = 1
-				leg.pick_consolidated = 0  # Clear pick_consolidated if it was set
-				leg.transport_consolidation = consolidation_name
-				leg.save(ignore_permissions=True)
+				# Set drop_consolidated checkbox on all legs using direct database update
+				# This bypasses "update after submit" validation
+				update_fields = {
+					"drop_consolidated": 1,
+					"pick_consolidated": 0,
+					"transport_consolidation": consolidation_name
+				}
+				for field, value in update_fields.items():
+					if frappe.db.has_column("Transport Leg", field):
+						frappe.db.set_value("Transport Leg", leg.name, field, value, update_modified=False)
 		
 		else:
 			# Route Consolidated: Multiple picks and drops (milk run)
@@ -774,8 +789,9 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 				})
 				
 				# Route consolidations may have mixed patterns
-				leg.transport_consolidation = consolidation_name
-				leg.save(ignore_permissions=True)
+				# Use direct database update to bypass "update after submit" validation
+				if frappe.db.has_column("Transport Leg", "transport_consolidation"):
+					frappe.db.set_value("Transport Leg", leg.name, "transport_consolidation", consolidation_name, update_modified=False)
 		
 		# Save Run Sheet
 		run_sheet.insert(ignore_permissions=True)
@@ -797,7 +813,11 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 		}
 		
 	except Exception as e:
-		frappe.log_error(f"Error creating Run Sheet from Transport Consolidation: {str(e)}")
+		# Truncate error message if too long for error log
+		error_msg = str(e)
+		if len(error_msg) > 1000:
+			error_msg = error_msg[:1000] + "... (truncated)"
+		frappe.log_error(f"Error creating Run Sheet from Transport Consolidation: {error_msg}", "Create Run Sheet Error")
 		frappe.db.rollback()
 		return {
 			"status": "error",
@@ -1148,7 +1168,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 		
 		# Get all submitted Transport Jobs
 		# Include group_legs_in_one_runsheet field for filtering
-		job_fields = ["name", "customer", "company", "status", "load_type", "vehicle_type"]
+		job_fields = ["name", "customer", "company", "status", "load_type", "vehicle_type", "scheduled_date"]
 		if frappe.db.has_column("Transport Job", "group_legs_in_one_runsheet"):
 			job_fields.append("group_legs_in_one_runsheet")
 		if frappe.db.has_column("Transport Job", "consolidate"):
@@ -1452,6 +1472,8 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 					"customer": job.get("customer"),
 					"company": job.get("company"),
 					"status": job.get("status"),
+					"load_type": job.get("load_type"),
+					"scheduled_date": job.get("scheduled_date"),
 					"pick_address": pick_address_name if is_pick_consolidated else f"{len(pick_addresses)} different",
 					"drop_address": drop_address_name if is_drop_consolidated else f"{len(drop_addresses)} different",
 					"consolidation_type": consolidation_type_str,
@@ -1690,14 +1712,16 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 			elif consolidation_type == "Both":
 				# Both: List jobs with identical Pick/Drop Address
 				# Exclude jobs with multiple legs (Route jobs)
-				# Exclude jobs that don't have identical Pick/Drop address
+				# Include jobs that have the pattern: one pick address and one drop address
 				
 				# First, exclude jobs with multiple legs (Route jobs)
-				# Then filter for jobs that can participate in Both consolidation
+				# Then filter for jobs that have the Both consolidation pattern
+				# (one pick address and one drop address, regardless of whether they're in a group)
 				consolidatable_jobs = [
 					j for j in consolidatable_jobs 
 					if j.get("legs_count", 0) <= 1
-					and j.get("consolidation_type") == "Both"
+					and len(j.get("pick_addresses", [])) == 1
+					and len(j.get("drop_addresses", [])) == 1
 				]
 				# Ensure consolidation_type is set to "Both" for filtered results
 				for job in consolidatable_jobs:
@@ -1933,6 +1957,110 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 			"message": str(e),
 			"jobs": [],
 			"consolidation_groups": []
+		}
+
+
+@frappe.whitelist()
+def get_consolidatable_legs(job_names: list = None):
+	"""
+	Get transport legs for the given job names.
+	Enriches legs with job information and address titles.
+	
+	Args:
+		job_names: List of Transport Job names
+		
+	Returns:
+		Dictionary with status and legs list
+	"""
+	try:
+		if not job_names:
+			return {
+				"status": "success",
+				"legs": []
+			}
+		
+		# Get unique job names
+		unique_job_names = list(set(job_names))
+		
+		# Fetch transport legs
+		leg_fields = [
+			"name", "transport_job", "status", "pick_address", "drop_address",
+			"facility_type_from", "facility_from", "facility_type_to", "facility_to",
+			"date", "run_date", "order", "vehicle_type", "hazardous"
+		]
+		
+		# Add consolidation fields if they exist
+		if frappe.db.has_column("Transport Leg", "pick_consolidated"):
+			leg_fields.append("pick_consolidated")
+		if frappe.db.has_column("Transport Leg", "drop_consolidated"):
+			leg_fields.append("drop_consolidated")
+		if frappe.db.has_column("Transport Leg", "transport_consolidation"):
+			leg_fields.append("transport_consolidation")
+		if frappe.db.has_column("Transport Leg", "run_sheet"):
+			leg_fields.append("run_sheet")
+		
+		legs = frappe.get_all(
+			"Transport Leg",
+			filters={
+				"transport_job": ["in", unique_job_names],
+				"docstatus": ["<", 2]  # Not cancelled
+			},
+			fields=leg_fields,
+			order_by="transport_job, `order` asc"
+		)
+		
+		# Get job details
+		jobs = frappe.get_all(
+			"Transport Job",
+			filters={"name": ["in", unique_job_names]},
+			fields=["name", "customer", "load_type", "scheduled_date", "company"]
+		)
+		
+		# Create job map
+		jobs_map = {job["name"]: job for job in jobs}
+		
+		# Enrich legs with job information and address titles
+		enriched_legs = []
+		for leg in legs:
+			job = jobs_map.get(leg["transport_job"])
+			if job:
+				leg["customer"] = job.get("customer")
+				leg["load_type"] = job.get("load_type")
+				leg["scheduled_date"] = job.get("scheduled_date")
+				leg["company"] = job.get("company")
+			
+			# Get address titles
+			if leg.get("pick_address"):
+				try:
+					pick_title = frappe.db.get_value("Address", leg["pick_address"], "address_title")
+					leg["pick_address_title"] = pick_title or leg["pick_address"]
+				except Exception:
+					leg["pick_address_title"] = leg["pick_address"]
+			else:
+				leg["pick_address_title"] = None
+			
+			if leg.get("drop_address"):
+				try:
+					drop_title = frappe.db.get_value("Address", leg["drop_address"], "address_title")
+					leg["drop_address_title"] = drop_title or leg["drop_address"]
+				except Exception:
+					leg["drop_address_title"] = leg["drop_address"]
+			else:
+				leg["drop_address_title"] = None
+			
+			enriched_legs.append(leg)
+		
+		return {
+			"status": "success",
+			"legs": enriched_legs
+		}
+		
+	except Exception as e:
+		frappe.log_error(f"Error fetching consolidatable legs: {str(e)}")
+		return {
+			"status": "error",
+			"message": str(e),
+			"legs": []
 		}
 
 

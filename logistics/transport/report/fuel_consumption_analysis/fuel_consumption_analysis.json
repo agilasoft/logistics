@@ -9,6 +9,7 @@
  "filters": [],
  "idx": 0,
  "is_standard": "Yes",
+ "json": "{\"filters\": [], \"order_by\": \"creation desc\", \"add_totals_row\": 0, \"page_length\": 20}",
  "letter_head": "CargoNext",
  "letterhead": null,
  "modified": "2025-10-22 19:38:58.663094",

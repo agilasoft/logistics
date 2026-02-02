@@ -141,7 +141,8 @@ def get_columns():
 
 def get_data(filters):
 	conditions = get_conditions(filters)
-	
+	conditions_clause = (" AND " + conditions) if conditions else ""
+
 	# Get transport job data with GL Entry costs
 	query = """
 		SELECT 
@@ -160,17 +161,17 @@ def get_data(filters):
 		LEFT JOIN `tabTransport Job Legs` tjl ON tjl.parent = tj.name
 		LEFT JOIN `tabTransport Leg` tl ON tl.name = tjl.transport_leg
 		WHERE tj.docstatus = 1
-		{conditions}
+		{conditions_clause}
 		GROUP BY tj.name, tj.customer, tj.booking_date, tj.vehicle_type, tj.load_type, tj.status, tj.job_costing_number, tj.company, tj.branch
 		ORDER BY tj.booking_date DESC
-	""".format(conditions=conditions)
+	""".format(conditions_clause=conditions_clause)
 	
-	data = frappe.db.sql(query, as_dict=True)
+	data = frappe.db.sql(query, filters, as_dict=True)
 	
 	# Process data and calculate costs from GL Entry
 	for row in data:
 		# Get costs from GL Entry
-		cost_data = get_gl_entry_costs(row.transport_job, row.job_costing_number, row.company)
+		cost_data = get_gl_entry_costs(row.transport_job, row.job_costing_number, row.company, filters)
 		row.update(cost_data)
 		
 		# Calculate derived metrics
@@ -209,7 +210,7 @@ def get_conditions(filters):
 	
 	return " AND ".join(conditions) if conditions else ""
 
-def get_gl_entry_costs(transport_job, job_costing_number, company):
+def get_gl_entry_costs(transport_job, job_costing_number, company, filters=None):
 	"""Get cost data from GL Entry for a transport job"""
 	costs = {
 		"fuel_cost": 0,
@@ -224,6 +225,9 @@ def get_gl_entry_costs(transport_job, job_costing_number, company):
 	
 	if not job_costing_number:
 		return costs
+	
+	if not filters:
+		filters = {}
 	
 	# Get GL Entry data for the job costing number
 	gl_conditions = [

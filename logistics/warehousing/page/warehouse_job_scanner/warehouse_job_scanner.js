@@ -297,9 +297,9 @@ class WarehouseJobScannerPage {
 
       $tbody.append(tr);
       // initial compute - only if both inputs have values
-      const s = this.from_local_input(tr.find('.op-start').val());
-      const e = this.from_local_input(tr.find('.op-end').val());
-      if (s && e) {
+      const startVal = this.from_local_input(tr.find('.op-start').val());
+      const endVal = this.from_local_input(tr.find('.op-end').val());
+      if (startVal && endVal) {
         this.compute_row_hours(tr);
       }
     });

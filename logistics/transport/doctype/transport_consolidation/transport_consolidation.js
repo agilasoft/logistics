@@ -157,6 +157,34 @@ function fetch_consolidatable_jobs(frm) {
 	});
 }
 
+function fetch_legs_for_jobs(job_names, callback) {
+	// Fetch transport legs for the given job names
+	if (!job_names || job_names.length === 0) {
+		callback([]);
+		return;
+	}
+	
+	// Get unique job names
+	const unique_job_names = [...new Set(job_names)];
+	
+	frappe.call({
+		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_legs",
+		args: {
+			job_names: unique_job_names
+		},
+		callback: function(r) {
+			if (r.message && r.message.status === "success") {
+				callback(r.message.legs || []);
+			} else {
+				callback([]);
+			}
+		},
+		error: function() {
+			callback([]);
+		}
+	});
+}
+
 function reload_jobs_with_filter(frm, dialog, consolidation_type) {
 	// Show loading indicator
 	if (dialog.fields_dict.summary_info) {
@@ -210,6 +238,69 @@ function setup_diagnostics_toggle(dialog) {
 			}
 		});
 	}, 100);
+}
+
+function setup_filter_toggle(dialog) {
+	// Setup toggle functionality for collapsible filter section
+	setTimeout(function() {
+		const $filterContent = dialog.$wrapper.find('#filter_section_content');
+		const $filterHeader = dialog.$wrapper.find('.filter-toggle-header');
+		
+		if (!$filterContent.length || !$filterHeader.length) {
+			return;
+		}
+		
+		// Find and move filter fields into the collapsible container
+		const filterFieldNames = ['filter_customer', 'filter_pick_address', 'filter_drop_address', 
+			'filter_consolidation_type', 'sort_by', 'sort_order'];
+		
+		// Find the section containing the filter header
+		const $headerSection = $filterHeader.closest('.form-section');
+		
+		// Find all form sections between header and footer
+		let $currentSection = $headerSection.next('.form-section');
+		while ($currentSection.length) {
+			// Check if we've reached the footer section
+			if ($currentSection.find('[data-fieldname="filter_section_footer"]').length) {
+				break;
+			}
+			
+			// Move form groups and columns from this section into filter content
+			const $formGroups = $currentSection.find('.form-group');
+			const $formColumns = $currentSection.find('.form-column');
+			
+			if ($formGroups.length || $formColumns.length) {
+				$formGroups.appendTo($filterContent);
+				$formColumns.appendTo($filterContent);
+			}
+			
+			$currentSection = $currentSection.next('.form-section');
+		}
+		
+		// Also ensure all filter fields are in the content (fallback)
+		filterFieldNames.forEach(function(fieldname) {
+			const $fieldWrapper = dialog.$wrapper.find(`[data-fieldname="${fieldname}"]`).closest('.form-group');
+			if ($fieldWrapper.length && !$filterContent.find($fieldWrapper).length) {
+				$fieldWrapper.appendTo($filterContent);
+			}
+		});
+		
+		// Setup toggle click handler
+		$filterHeader.off('click').on('click', function() {
+			const $header = $(this);
+			const targetId = $header.data('target');
+			const $content = $('#' + targetId);
+			const $icon = $header.find('.filter-toggle-icon');
+			
+			if ($content.is(':visible')) {
+				$content.slideUp(200);
+				$icon.css('transform', 'rotate(0deg)');
+			} else {
+				$content.slideDown(200);
+				$icon.css('transform', 'rotate(180deg)');
+			}
+		});
+	}, 300);
 }
 
 function setup_address_tooltips(dialog) {
@@ -362,22 +453,29 @@ function update_dialog_jobs(dialog, jobs, consolidation_groups, debug_info) {
 		
 		// Setup toggle functionality for diagnostics
 		setup_diagnostics_toggle(dialog);
+		
+		// Setup toggle functionality for filters
+		setup_filter_toggle(dialog);
 	}
 	
 	// Update select all checkbox state
+	const total = dialog.$wrapper.find('.job-checkbox').length;
+	const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
+	const all_checked = checked === total && total > 0;
 	if (dialog.fields_dict.select_all) {
-		const total = dialog.$wrapper.find('.job-checkbox').length;
-		const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
-		dialog.fields_dict.select_all.set_value(checked === total && total > 0);
+		dialog.fields_dict.select_all.set_value(all_checked);
 	}
+	dialog.$wrapper.find('.select-all-checkbox').prop('checked', all_checked);
 	
 	// Re-setup event handlers for checkboxes
-	dialog.$wrapper.on('change', '.job-checkbox', function() {
+	dialog.$wrapper.off('change', '.job-checkbox').on('change', '.job-checkbox', function() {
 		const total = dialog.$wrapper.find('.job-checkbox').length;
 		const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
+		const all_checked = checked === total && total > 0;
 		if (dialog.fields_dict.select_all) {
-			dialog.fields_dict.select_all.set_value(checked === total && total > 0);
+			dialog.fields_dict.select_all.set_value(all_checked);
 		}
+		dialog.$wrapper.find('.select-all-checkbox').prop('checked', all_checked);
 	});
 }
 
@@ -387,6 +485,9 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	let all_jobs = jobs || []; // Store original jobs list
 	let filtered_jobs = jobs || []; // Current filtered list
 	let has_jobs = jobs && jobs.length > 0;
+	let current_view = "jobs"; // Track current view: "jobs" or "legs"
+	let all_legs = []; // Store all legs data
+	let filtered_legs = []; // Current filtered legs list
 	
 	// Store jobs data in a way that can be accessed by update_dialog_jobs
 	// This will be attached to the dialog object later
@@ -469,6 +570,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	
 	const dialog = new frappe.ui.Dialog({
 		title: __("Consolidation Suggestions"),
+		size: 'large', // Use large size for wider dialog
 		fields: [
 			{
 				fieldname: "summary_info",
@@ -488,8 +590,19 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				</div>`
 			},
 			{
+				fieldname: "filter_section_header",
+				fieldtype: "HTML",
+				options: `<div style="margin: 15px 0 10px 0; border-radius: 4px; border-left: 3px solid #007bff; background-color: #f8f9fa;">
+					<div class="filter-toggle-header" data-target="filter_section_content" style="padding: 10px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+						<strong>${__("Filters")}</strong>
+						<i class="fa fa-chevron-down filter-toggle-icon" style="transition: transform 0.2s; transform: rotate(180deg);"></i>
+					</div>
+					<div id="filter_section_content" class="filter-content" style="display: block; padding: 0 10px 10px 10px;">
+				</div>`
+			},
+			{
 				fieldtype: "Section Break",
-				label: __("Filters")
+				label: ""
 			},
 			{
 				fieldname: "filter_customer",
@@ -539,8 +652,49 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				description: __("Filter jobs by consolidation type pattern. Changes here will update the form field.")
 			},
 			{
+				fieldtype: "Column Break"
+			},
+			{
+				fieldname: "sort_by",
+				fieldtype: "Select",
+				label: __("Sort By"),
+				options: "Job\nCustomer\nScheduled Date\nLoad Type\nPick Address\nDrop Address\nType",
+				default: "Scheduled Date",
+				description: __("Select field to sort jobs by")
+			},
+			{
+				fieldname: "sort_order",
+				fieldtype: "Select",
+				label: __("Sort Order"),
+				options: "Ascending\nDescending",
+				default: "Ascending",
+				description: __("Select sort order")
+			},
+			{
+				fieldname: "filter_section_footer",
+				fieldtype: "HTML",
+				options: `</div></div>`
+			},
+			{
 				fieldtype: "Section Break",
 				label: __("Available Jobs")
+			},
+			{
+				fieldname: "view_toggle",
+				fieldtype: "HTML",
+				options: `
+					<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+						<label style="margin: 0; font-weight: 500;">${__("View:")}</label>
+						<div style="display: flex; gap: 5px; align-items: center;">
+							<button type="button" class="btn btn-sm view-toggle-btn btn-primary" data-view="jobs" style="min-width: 100px;">
+								${__("Jobs")}
+							</button>
+							<button type="button" class="btn btn-sm view-toggle-btn btn-default" data-view="legs" style="min-width: 100px;">
+								${__("Transport Legs")}
+							</button>
+						</div>
+					</div>
+				`
 			},
 			{
 				fieldname: "jobs_table",
@@ -566,12 +720,19 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				return;
 			}
 			
-			// Get selected jobs from checkboxes
+			// Get selected jobs from checkboxes (works for both jobs and legs view)
 			const checkboxes = dialog.$wrapper.find('.job-checkbox:checked');
 			selected_jobs = [];
+			const selected_job_names = new Set();
+			
 			checkboxes.each(function() {
-				selected_jobs.push($(this).data('job-name'));
+				const job_name = $(this).data('job-name');
+				if (job_name) {
+					selected_job_names.add(job_name);
+				}
 			});
+			
+			selected_jobs = Array.from(selected_job_names);
 			
 			if (selected_jobs.length === 0) {
 				frappe.msgprint({
@@ -598,13 +759,26 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	
 	dialog.show();
 	
+	// Increase dialog width for better table visibility
+	setTimeout(function() {
+		if (dialog.$wrapper && dialog.$wrapper.find('.modal-dialog').length) {
+			dialog.$wrapper.find('.modal-dialog').css({
+				'width': '90%',
+				'max-width': '1400px'
+			});
+		}
+	}, 100);
+	
 	// Setup tooltips after dialog is shown
 	if (has_jobs && dialog.fields_dict.jobs_table) {
 		setup_address_tooltips(dialog);
 	}
 	
-	// Setup toggle functionality for diagnostics
-	setup_diagnostics_toggle(dialog);
+		// Setup toggle functionality for diagnostics
+		setup_diagnostics_toggle(dialog);
+	
+	// Setup toggle functionality for filters
+	setup_filter_toggle(dialog);
 	
 	// Set initial value of filter_consolidation_type to match form field
 	if (dialog.fields_dict.filter_consolidation_type && frm.doc.consolidation_type) {
@@ -623,87 +797,227 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 		original_hide.call(this);
 	};
 	
-	// Function to filter jobs based on filter values
+	// Function to filter jobs or legs based on filter values
 	function filter_jobs() {
-		// Use updated all_jobs from dialog if available
-		const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
-		
-		const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
-		const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
-		const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
-		const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
-		
-		// Note: consolidation_type filtering is done server-side, so we don't filter by it here
-		// The jobs returned from server are already filtered by consolidation_type
-		filtered_jobs = jobs_to_filter.filter(function(job) {
-			// Filter by customer
-			if (filter_customer && job.customer !== filter_customer) {
-				return false;
-			}
+		if (current_view === "legs") {
+			// Filter legs
+			const legs_to_filter = all_legs;
 			
-			// Filter by pick address (check if any pick address ID matches)
-			if (filter_pick_address) {
-				const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
-					job.pick_addresses.some(function(addr) {
-						return addr === filter_pick_address;
-					});
-				if (!pick_matches) {
+			const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
+			const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
+			const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
+			
+			filtered_legs = legs_to_filter.filter(function(leg) {
+				// Filter by customer
+				if (filter_customer && leg.customer !== filter_customer) {
 					return false;
 				}
-			}
-			
-			// Filter by drop address (check if any drop address ID matches)
-			if (filter_drop_address) {
-				const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
-					job.drop_addresses.some(function(addr) {
-						return addr === filter_drop_address;
-					});
-				if (!drop_matches) {
+				
+				// Filter by pick address
+				if (filter_pick_address && leg.pick_address !== filter_pick_address) {
 					return false;
 				}
+				
+				// Filter by drop address
+				if (filter_drop_address && leg.drop_address !== filter_drop_address) {
+					return false;
+				}
+				
+				return true;
+			});
+			
+			// Sort legs
+			const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Date';
+			const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
+			filtered_legs = sort_legs(filtered_legs, sort_by, sort_order);
+			
+			// Update the table
+			const table_html = build_legs_table_html(filtered_legs);
+			if (dialog.fields_dict.jobs_table) {
+				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
 			}
 			
-			// Note: consolidation_type filtering is done server-side when jobs are fetched
-			// So we don't need to filter by it here - the jobs are already filtered
+			// Update select all checkbox state
+			update_select_all_state();
 			
-			return true;
-		});
-		
-		// Update the table
-		const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
-		if (dialog.fields_dict.jobs_table) {
-			dialog.fields_dict.jobs_table.$wrapper.html(table_html);
-			setup_address_tooltips(dialog);
-		}
-		
-		// Update select all checkbox state
-		update_select_all_state();
-		
-		// Update count in summary (preserve diagnostics if it exists)
-		if (dialog.fields_dict.summary_info) {
-			const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
-			const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+			// Update count in summary
+			if (dialog.fields_dict.summary_info) {
+				const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+				const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+				
+				const summary_html = `<div style="margin-bottom: 15px;">
+					<p style="font-size: 13px; color: #6c757d;">
+						Found <strong>${filtered_legs.length}</strong> transport leg(s).
+					</p>
+					${diagnostics_html}
+				</div>`;
+				dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+				
+				setup_diagnostics_toggle(dialog);
+				setup_filter_toggle(dialog);
+			}
+		} else {
+			// Filter jobs (original logic)
+			// Use updated all_jobs from dialog if available
+			const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
 			
-			const summary_html = `<div style="margin-bottom: 15px;">
-				<p style="font-size: 13px; color: #6c757d;">
-					Found <strong>${filtered_jobs.length}</strong> job(s) that can be consolidated.
-					${consolidation_groups && consolidation_groups.length > 0 ? 
-						`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : ''}
-				</p>
-				${diagnostics_html}
-			</div>`;
-			dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+			const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
+			const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
+			const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
+			const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
 			
-			// Re-setup toggle functionality after updating HTML
-			setup_diagnostics_toggle(dialog);
+			// Note: consolidation_type filtering is done server-side, so we don't filter by it here
+			// The jobs returned from server are already filtered by consolidation_type
+			filtered_jobs = jobs_to_filter.filter(function(job) {
+				// Filter by customer
+				if (filter_customer && job.customer !== filter_customer) {
+					return false;
+				}
+				
+				// Filter by pick address (check if any pick address ID matches)
+				if (filter_pick_address) {
+					const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
+						job.pick_addresses.some(function(addr) {
+							return addr === filter_pick_address;
+						});
+					if (!pick_matches) {
+						return false;
+					}
+				}
+				
+				// Filter by drop address (check if any drop address ID matches)
+				if (filter_drop_address) {
+					const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
+						job.drop_addresses.some(function(addr) {
+							return addr === filter_drop_address;
+						});
+					if (!drop_matches) {
+						return false;
+					}
+				}
+				
+				// Note: consolidation_type filtering is done server-side when jobs are fetched
+				// So we don't need to filter by it here - the jobs are already filtered
+				
+				return true;
+			});
+			
+			// Sort jobs
+			const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Scheduled Date';
+			const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
+			filtered_jobs = sort_jobs(filtered_jobs, sort_by, sort_order);
+			
+			// Update the table
+			const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
+			if (dialog.fields_dict.jobs_table) {
+				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+				setup_address_tooltips(dialog);
+			}
+			
+			// Update select all checkbox state
+			update_select_all_state();
+			
+			// Update count in summary (preserve diagnostics if it exists)
+			if (dialog.fields_dict.summary_info) {
+				const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+				const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+				
+				const summary_html = `<div style="margin-bottom: 15px;">
+					<p style="font-size: 13px; color: #6c757d;">
+						Found <strong>${filtered_jobs.length}</strong> job(s) that can be consolidated.
+						${consolidation_groups && consolidation_groups.length > 0 ? 
+							`<br>Grouped into <strong>${consolidation_groups.length}</strong> consolidation group(s).` : ''}
+					</p>
+					${diagnostics_html}
+				</div>`;
+				dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+				
+				// Re-setup toggle functionality after updating HTML
+				setup_diagnostics_toggle(dialog);
+				
+				// Re-setup filter toggle functionality
+				setup_filter_toggle(dialog);
+			}
 		}
 	}
 	
 	// Store filter_jobs function reference in dialog for external access
 	dialog._filter_jobs = filter_jobs;
 	
+	// Function to switch between jobs and legs view
+	function switch_view(view_type) {
+		current_view = view_type;
+		
+		// Update toggle buttons
+		dialog.$wrapper.find('.view-toggle-btn').removeClass('btn-primary').addClass('btn-default');
+		dialog.$wrapper.find(`.view-toggle-btn[data-view="${view_type}"]`).removeClass('btn-default').addClass('btn-primary');
+		
+		// Update section label
+		const section_label = dialog.$wrapper.find('label:contains("Available Jobs"), label:contains("Available Transport Legs")').closest('.form-section').find('label');
+		if (view_type === "legs") {
+			section_label.text(__("Available Transport Legs"));
+		} else {
+			section_label.text(__("Available Jobs"));
+		}
+		
+		// Note: Sort options are kept the same for both views
+		// The sort functions will handle the mapping appropriately
+		
+		if (view_type === "legs") {
+			// Switch to legs view
+			if (all_legs.length === 0) {
+				// Fetch legs for all jobs
+				const job_names = all_jobs.map(function(job) { return job.name; });
+				dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
+				
+				fetch_legs_for_jobs(job_names, function(legs) {
+					all_legs = legs;
+					filtered_legs = legs;
+					
+					// Apply current filters to legs
+					if (dialog._filter_jobs) {
+						dialog._filter_jobs();
+					} else {
+						// Update table directly
+						const table_html = build_legs_table_html(filtered_legs);
+						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+						update_select_all_state();
+					}
+				});
+			} else {
+				// Legs already fetched, just update the table
+				if (dialog._filter_jobs) {
+					dialog._filter_jobs();
+				} else {
+					const table_html = build_legs_table_html(filtered_legs);
+					dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+					update_select_all_state();
+				}
+			}
+		} else {
+			// Switch to jobs view
+			if (dialog._filter_jobs) {
+				dialog._filter_jobs();
+			} else {
+				const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
+				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+				setup_address_tooltips(dialog);
+				update_select_all_state();
+			}
+		}
+	}
+	
+	// Store switch_view function in dialog
+	dialog._switch_view = switch_view;
+	
 	// Wait for dialog to render, then set up event handlers (always set up, even when no jobs)
 	setTimeout(function() {
+		// Set up view toggle buttons
+		dialog.$wrapper.on('click', '.view-toggle-btn', function() {
+			const view_type = $(this).data('view');
+			switch_view(view_type);
+		});
+		
 		// Set up filter change handlers
 		// For Link fields, use a combination of events to catch all changes
 		function setup_link_field_handler(field) {
@@ -752,11 +1066,31 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 			});
 		}
 		
+		// Handle sort fields
+		if (dialog.fields_dict.sort_by) {
+			dialog.fields_dict.sort_by.$input.on('change', filter_jobs);
+		}
+		if (dialog.fields_dict.sort_order) {
+			dialog.fields_dict.sort_order.$input.on('change', filter_jobs);
+		}
+		
+		// Handle select all checkbox in table header
+		dialog.$wrapper.on('change', '.select-all-checkbox', function() {
+			const checked = $(this).is(':checked');
+			dialog.$wrapper.find('.job-checkbox').prop('checked', checked);
+			// Also update the dialog's select_all field if it exists
+			if (dialog.fields_dict.select_all) {
+				dialog.fields_dict.select_all.set_value(checked);
+			}
+		});
+		
 		// Handle select all checkbox (only if it exists)
 		if (dialog.fields_dict.select_all) {
 			dialog.fields_dict.select_all.$input.on('change', function() {
 				const checked = $(this).is(':checked');
 				dialog.$wrapper.find('.job-checkbox').prop('checked', checked);
+				// Also update the table header checkbox
+				dialog.$wrapper.find('.select-all-checkbox').prop('checked', checked);
 			});
 		}
 		
@@ -768,11 +1102,284 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 		function update_select_all_state() {
 			const total = dialog.$wrapper.find('.job-checkbox').length;
 			const checked = dialog.$wrapper.find('.job-checkbox:checked').length;
+			const all_checked = checked === total && total > 0;
+			// Update both checkboxes
 			if (dialog.fields_dict.select_all) {
-				dialog.fields_dict.select_all.set_value(checked === total && total > 0);
+				dialog.fields_dict.select_all.set_value(all_checked);
 			}
+			dialog.$wrapper.find('.select-all-checkbox').prop('checked', all_checked);
 		}
 	}, 100);
+}
+
+function sort_legs(legs, sort_by, sort_order) {
+	if (!legs || legs.length === 0) {
+		return legs;
+	}
+	
+	const is_ascending = sort_order === 'Ascending';
+	const sorted_legs = [...legs];
+	
+	sorted_legs.sort(function(a, b) {
+		let a_value, b_value;
+		
+		// Map job sort options to leg fields
+		switch(sort_by) {
+			case 'Leg':
+			case 'Job':  // For legs view, "Job" means leg name, but we'll use transport_job
+				if (sort_by === 'Leg') {
+					a_value = a.name || '';
+					b_value = b.name || '';
+				} else {
+					a_value = a.transport_job || '';
+					b_value = b.transport_job || '';
+				}
+				break;
+			case 'Customer':
+				a_value = a.customer || '';
+				b_value = b.customer || '';
+				break;
+			case 'Date':
+			case 'Scheduled Date':  // Map "Scheduled Date" to leg date
+				a_value = a.date || a.run_date || a.scheduled_date || '';
+				b_value = b.date || b.run_date || b.scheduled_date || '';
+				if (!a_value && !b_value) return 0;
+				if (!a_value) return is_ascending ? 1 : -1;
+				if (!b_value) return is_ascending ? -1 : 1;
+				const date_compare = a_value.localeCompare(b_value);
+				return is_ascending ? date_compare : -date_compare;
+			case 'Load Type':
+				a_value = a.load_type || '';
+				b_value = b.load_type || '';
+				break;
+			case 'Pick Address':
+				a_value = (a.pick_address_title || a.pick_address || '').toLowerCase();
+				b_value = (b.pick_address_title || b.pick_address || '').toLowerCase();
+				break;
+			case 'Drop Address':
+				a_value = (a.drop_address_title || a.drop_address || '').toLowerCase();
+				b_value = (b.drop_address_title || b.drop_address || '').toLowerCase();
+				break;
+			case 'Status':
+				a_value = a.status || '';
+				b_value = b.status || '';
+				break;
+			case 'Type':  // For legs, type doesn't apply, sort by status instead
+				a_value = a.status || '';
+				b_value = b.status || '';
+				break;
+			default:
+				a_value = '';
+				b_value = '';
+		}
+		
+		if (typeof a_value === 'string' && sort_by !== 'Date' && sort_by !== 'Scheduled Date') {
+			a_value = a_value.toLowerCase();
+		}
+		if (typeof b_value === 'string' && sort_by !== 'Date' && sort_by !== 'Scheduled Date') {
+			b_value = b_value.toLowerCase();
+		}
+		
+		if (a_value < b_value) {
+			return is_ascending ? -1 : 1;
+		}
+		if (a_value > b_value) {
+			return is_ascending ? 1 : -1;
+		}
+		return 0;
+	});
+	
+	return sorted_legs;
+}
+
+function sort_jobs(jobs, sort_by, sort_order) {
+	if (!jobs || jobs.length === 0) {
+		return jobs;
+	}
+	
+	const is_ascending = sort_order === 'Ascending';
+	
+	// Create a copy to avoid mutating the original array
+	const sorted_jobs = [...jobs];
+	
+	sorted_jobs.sort(function(a, b) {
+		let a_value, b_value;
+		
+		// Get values based on sort_by field
+		switch(sort_by) {
+			case 'Job':
+				a_value = a.name || '';
+				b_value = b.name || '';
+				break;
+			case 'Customer':
+				a_value = a.customer || '';
+				b_value = b.customer || '';
+				break;
+			case 'Scheduled Date':
+				// Handle date sorting - convert to comparable format
+				a_value = a.scheduled_date || '';
+				b_value = b.scheduled_date || '';
+				// Handle empty dates - put them at the end
+				if (!a_value && !b_value) return 0;
+				if (!a_value) return is_ascending ? 1 : -1;
+				if (!b_value) return is_ascending ? -1 : 1;
+				// If dates are strings, compare them directly (ISO format YYYY-MM-DD)
+				const date_compare = a_value.localeCompare(b_value);
+				return is_ascending ? date_compare : -date_compare;
+			case 'Load Type':
+				a_value = a.load_type || '';
+				b_value = b.load_type || '';
+				break;
+			case 'Pick Address':
+				a_value = a.pick_address || '';
+				b_value = b.pick_address || '';
+				break;
+			case 'Drop Address':
+				a_value = a.drop_address || '';
+				b_value = b.drop_address || '';
+				break;
+			case 'Type':
+				a_value = a.consolidation_type || '';
+				b_value = b.consolidation_type || '';
+				break;
+			default:
+				a_value = '';
+				b_value = '';
+		}
+		
+		// Convert to strings for comparison
+		a_value = String(a_value || '').toLowerCase();
+		b_value = String(b_value || '').toLowerCase();
+		
+		// Compare values
+		if (a_value < b_value) {
+			return is_ascending ? -1 : 1;
+		}
+		if (a_value > b_value) {
+			return is_ascending ? 1 : -1;
+		}
+		return 0;
+	});
+	
+	return sorted_jobs;
+}
+
+function build_legs_table_html(legs) {
+	if (!legs || legs.length === 0) {
+		return `
+			<div style="padding: 20px; text-align: center; color: #6c757d;">
+				<p>${__("No transport legs available to display.")}</p>
+			</div>
+		`;
+	}
+	
+	// Add custom tooltip CSS styles (reuse from jobs table)
+	const tooltip_css = `
+		<style>
+			.address-tooltip-container {
+				position: relative;
+				max-height: 400px;
+				overflow-y: auto;
+				overflow-x: auto;
+				border: 1px solid #d1d5db;
+				border-radius: 4px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+			.address-tooltip-container table {
+				width: 100%;
+				table-layout: fixed;
+				margin: 0;
+				border-collapse: collapse;
+			}
+			.address-tooltip-container table th,
+			.address-tooltip-container table td {
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.address-tooltip-container table td {
+				max-width: 0;
+			}
+		</style>
+	`;
+	
+	let html = tooltip_css + `
+		<div class="address-tooltip-container">
+			<table class="table table-bordered table-condensed" style="font-size: 12px; margin: 0;">
+				<thead>
+					<tr style="background-color: #f8f9fa;">
+						<th style="width: 40px; text-align: center; padding: 8px;">
+							<input type="checkbox" class="select-all-checkbox">
+						</th>
+						<th style="width: 10%; padding: 8px;">${__("Leg")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Job")}</th>
+						<th style="width: 12%; padding: 8px;">${__("Customer")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Date")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Load Type")}</th>
+						<th style="width: 18%; padding: 8px;">${__("Pick Address")}</th>
+						<th style="width: 18%; padding: 8px;">${__("Drop Address")}</th>
+						<th style="width: 8%; padding: 8px;">${__("Status")}</th>
+					</tr>
+				</thead>
+				<tbody>
+	`;
+	
+	legs.forEach(function(leg) {
+		// Format date
+		let date_display = '-';
+		if (leg.date) {
+			date_display = frappe.datetime.str_to_user(leg.date);
+		} else if (leg.run_date) {
+			date_display = frappe.datetime.str_to_user(leg.run_date);
+		}
+		
+		// Get address display
+		const pick_address_display = leg.pick_address_title || leg.pick_address || '-';
+		const drop_address_display = leg.drop_address_title || leg.drop_address || '-';
+		
+		// Status badge
+		let status_badge = leg.status || 'Open';
+		let status_class = 'badge-secondary';
+		if (status_badge === 'Completed') {
+			status_class = 'badge-success';
+		} else if (status_badge === 'Started') {
+			status_class = 'badge-info';
+		} else if (status_badge === 'Assigned') {
+			status_class = 'badge-primary';
+		}
+		
+		html += `
+			<tr>
+				<td style="text-align: center; padding: 8px;">
+					<input type="checkbox" class="job-checkbox" data-job-name="${leg.transport_job}" data-leg-name="${leg.name}">
+				</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+					<a href="/app/transport-leg/${leg.name}" target="_blank">${leg.name}</a>
+				</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+					<a href="/app/transport-job/${leg.transport_job}" target="_blank">${leg.transport_job || '-'}</a>
+				</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${leg.customer || '-'}">${leg.customer || '-'}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${date_display}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${leg.load_type || '-'}">${leg.load_type || '-'}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pick_address_display}">${pick_address_display}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${drop_address_display}">${drop_address_display}</td>
+				<td style="padding: 8px;">
+					<span class="badge ${status_class}">${status_badge}</span>
+				</td>
+			</tr>
+		`;
+	});
+	
+	html += `
+				</tbody>
+			</table>
+		</div>
+	`;
+	
+	return html;
 }
 
 function build_jobs_table_html(jobs, consolidation_groups) {
@@ -799,7 +1406,7 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 			}
 			.address-tooltip-container table {
 				width: 100%;
-				table-layout: auto;
+				table-layout: fixed;
 				margin: 0;
 				border-collapse: collapse;
 			}
@@ -807,6 +1414,11 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 			.address-tooltip-container table td {
 				word-wrap: break-word;
 				overflow-wrap: break-word;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.address-tooltip-container table td {
+				max-width: 0;
 			}
 			.address-tooltip-wrapper {
 				position: relative;
@@ -864,14 +1476,16 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 			<table class="table table-bordered table-condensed" style="font-size: 12px; margin: 0;">
 				<thead>
 					<tr style="background-color: #f8f9fa;">
-						<th style="width: 30px; text-align: center; padding: 8px;">
+						<th style="width: 40px; text-align: center; padding: 8px;">
 							<input type="checkbox" class="select-all-checkbox">
 						</th>
-						<th style="padding: 8px;">${__("Job")}</th>
-						<th style="padding: 8px;">${__("Customer")}</th>
-						<th style="padding: 8px;">${__("Pick Address")}</th>
-						<th style="padding: 8px;">${__("Drop Address")}</th>
-						<th style="padding: 8px;">${__("Type")}</th>
+						<th style="width: 12%; padding: 8px;">${__("Job")}</th>
+						<th style="width: 15%; padding: 8px;">${__("Customer")}</th>
+						<th style="width: 12%; padding: 8px;">${__("Scheduled Date")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Load Type")}</th>
+						<th style="width: 18%; padding: 8px;">${__("Pick Address")}</th>
+						<th style="width: 18%; padding: 8px;">${__("Drop Address")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Type")}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -945,12 +1559,12 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 		if (pick_address_tooltip_html) {
 			pick_cell_html = `
 				<div class="address-tooltip-wrapper" style="display: inline-block; width: 100%;">
-					<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${pick_address_cell}</div>
+					<div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${pick_address_cell}</div>
 					<div class="address-tooltip">${pick_address_tooltip_html}</div>
 				</div>
 			`;
 		} else {
-			pick_cell_html = `<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pick_address_cell}">${pick_address_cell}</div>`;
+			pick_cell_html = `<div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pick_address_cell}">${pick_address_cell}</div>`;
 		}
 		
 		// Build drop address cell with tooltip if needed
@@ -958,12 +1572,18 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 		if (drop_address_tooltip_html) {
 			drop_cell_html = `
 				<div class="address-tooltip-wrapper" style="display: inline-block; width: 100%;">
-					<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${drop_address_cell}</div>
+					<div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${drop_address_cell}</div>
 					<div class="address-tooltip">${drop_address_tooltip_html}</div>
 				</div>
 			`;
 		} else {
-			drop_cell_html = `<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${drop_address_cell}">${drop_address_cell}</div>`;
+			drop_cell_html = `<div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${drop_address_cell}">${drop_address_cell}</div>`;
+		}
+		
+		// Format scheduled date
+		let scheduled_date_display = '-';
+		if (job.scheduled_date) {
+			scheduled_date_display = frappe.datetime.str_to_user(job.scheduled_date);
 		}
 		
 		html += `
@@ -971,11 +1591,13 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 				<td style="text-align: center; padding: 8px;">
 					<input type="checkbox" class="job-checkbox" data-job-name="${job.name}">
 				</td>
-				<td style="padding: 8px;">
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 					<a href="/app/transport-job/${job.name}" target="_blank">${job.name}</a>
 					${consolidation_status ? '<br>' + consolidation_status : ''}
 				</td>
-				<td style="padding: 8px;">${job.customer || '-'}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.customer || '-'}">${job.customer || '-'}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${scheduled_date_display}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.load_type || '-'}">${job.load_type || '-'}</td>
 				<td style="padding: 8px;">${pick_cell_html}</td>
 				<td style="padding: 8px;">${drop_cell_html}</td>
 				<td style="padding: 8px;">${consolidation_badge}</td>

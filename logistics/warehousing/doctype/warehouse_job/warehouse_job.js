@@ -330,11 +330,18 @@ frappe.ui.form.on('Warehouse Job', {
             }, __('Actions'));
         }
         
-        // Add Calculate Charges button - show for jobs with contract and charges
-        if ((frm.doc.warehouse_contract || frm.doc.customer) && frm.doc.charges && frm.doc.charges.length > 0) {
+        // Add Fetch Charges button - show when contract exists (to fetch charges from contract)
+        if (frm.doc.warehouse_contract || frm.doc.customer) {
+            frm.add_custom_button(__('Fetch Charges'), function() {
+                fetch_charges_from_contract(frm);
+            }, __('Charges'));
+        }
+        
+        // Add Calculate Charges button - show when charges exist (to recalculate quantities/rates)
+        if (frm.doc.charges && frm.doc.charges.length > 0) {
             frm.add_custom_button(__('Calculate Charges'), function() {
                 calculate_charges_from_contract(frm);
-            }, __('Actions'));
+            }, __('Charges'));
         }
         
         // Add Post Standard Costs button - show only when submitted and has charges with standard costs that haven't been posted
@@ -1338,6 +1345,73 @@ function update_uom_fields_for_items(frm) {
             }
         }
     });
+}
+
+// Fetch Charges from Contract function
+function fetch_charges_from_contract(frm) {
+    if (!frm.doc.warehouse_contract && !frm.doc.customer) {
+        frappe.msgprint(__('Please select a warehouse contract or customer first.'));
+        return;
+    }
+    
+    // Check if charges already exist
+    const has_existing_charges = frm.doc.charges && frm.doc.charges.length > 0;
+    const confirm_message = has_existing_charges 
+        ? __('This will add new charges from the contract. Existing charges will be kept. Continue?')
+        : __('This will fetch charges from the warehouse contract. Continue?');
+    
+    frappe.confirm(
+        confirm_message,
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.doctype.warehouse_job.warehouse_job.fetch_charges_from_contract',
+                args: {
+                    warehouse_job: frm.doc.name,
+                    clear_existing: 0  // Don't clear existing, just add new ones
+                },
+                freeze: true,
+                freeze_message: __('Fetching charges from contract...'),
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        // Check if there are warnings
+                        if (r.message.warnings && r.message.warnings.length > 0) {
+                            frappe.msgprint({
+                                title: __('Charges Fetched with Warnings'),
+                                message: `
+                                    <div style="padding: 15px; font-size: 14px;">
+                                        <p style="text-align: center; font-size: 18px; color: #28a745; margin-bottom: 10px;">
+                                            <strong>✅ Charges Fetched!</strong>
+                                        </p>
+                                        <p style="text-align: center; margin-bottom: 15px;">${r.message.message}</p>
+                                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                            <p style="margin: 5px 0; color: #856404;"><strong>⚠️ Standard Cost Warnings:</strong></p>
+                                            <ul style="margin: 5px 0; color: #856404;">
+                                                ${r.message.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                `,
+                                indicator: 'orange'
+                            });
+                        } else {
+                            frappe.msgprint({
+                                title: __('Charges Fetched'),
+                                message: r.message.message,
+                                indicator: 'green'
+                            });
+                        }
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('Error'),
+                            message: r.message ? r.message.message : __('Failed to fetch charges'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
 }
 
 // Calculate Charges from Contract function

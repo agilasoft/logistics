@@ -145,7 +145,7 @@ def get_data(filters):
 		{conditions}
 		GROUP BY rs.driver, rs.driver_name, rs.transport_company
 		ORDER BY total_distance DESC
-	""".format(conditions=conditions)
+	""".format(conditions=" AND " + conditions if conditions else "")
 	
 	data = frappe.db.sql(query, as_dict=True)
 	

@@ -200,6 +200,9 @@ scheduler_events = {
 # }
 
 doc_events = {
+    "Report": {
+        "onload": "logistics.transport.report.fuel_consumption_analysis.fuel_consumption_analysis.onload",
+    },
     "Warehouse Job": {
         # keep your existing validate hook(s) if any
         "before_submit": "logistics.warehousing.api.warehouse_job_before_submit",
@@ -229,5 +232,8 @@ doc_events = {
     "General Job": {
         "on_update": "logistics.job_management.doc_events.on_job_update",
         "on_submit": "logistics.job_management.doc_events.on_job_submit",
+    },
+    "Sales Invoice": {
+        "validate": "logistics.transport.sales_invoice_hooks.validate_transport_job_status",
     },
 }
