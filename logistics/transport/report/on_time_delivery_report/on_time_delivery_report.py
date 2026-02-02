@@ -140,11 +140,11 @@ def get_data(filters):
 		LEFT JOIN `tabTransport Job` tj ON tl.transport_job = tj.name
 		LEFT JOIN `tabRun Sheet` rs ON tl.run_sheet = rs.name
 		WHERE tl.docstatus = 1
-		{conditions_clause}
+		""" + conditions_clause + """
 		ORDER BY tl.end_date DESC
-	""".format(conditions_clause=conditions_clause)
+	"""
 	
-	data = frappe.db.sql(query, as_dict=True)
+	data = frappe.db.sql(query, filters, as_dict=True)
 	
 	# Process data and calculate metrics
 	for row in data:
@@ -223,26 +223,63 @@ def calculate_on_time_metrics(row):
 	if not row.scheduled_delivery or not row.actual_delivery:
 		return metrics
 	
-	scheduled = get_datetime(row.scheduled_delivery)
-	actual = get_datetime(row.actual_delivery)
-	window_start = get_datetime(row.drop_window_start) if row.drop_window_start else scheduled
-	window_end = get_datetime(row.drop_window_end) if row.drop_window_end else scheduled
-	
-	# Calculate time differences
-	if actual <= window_end:
-		if actual >= window_start:
-			metrics["on_time_status"] = "On Time"
-			metrics["service_level"] = 100
+	try:
+		scheduled = get_datetime(row.scheduled_delivery)
+		actual = get_datetime(row.actual_delivery)
+		
+		if not scheduled or not actual:
+			return metrics
+		
+		# Ensure we have datetime objects
+		if not isinstance(scheduled, datetime) or not isinstance(actual, datetime):
+			return metrics
+		
+		# Get window start and end, ensuring they are datetime objects
+		if row.drop_window_start:
+			try:
+				window_start = get_datetime(row.drop_window_start)
+				# If get_datetime returns a timedelta or other non-datetime type, use scheduled
+				if not isinstance(window_start, datetime):
+					window_start = scheduled
+			except (TypeError, ValueError):
+				window_start = scheduled
 		else:
-			# Early delivery
-			metrics["on_time_status"] = "Early"
-			metrics["early_minutes"] = int((window_start - actual).total_seconds() / 60)
-			metrics["service_level"] = 100  # Early is still good
-	else:
-		# Late delivery
-		metrics["on_time_status"] = "Late"
-		metrics["delay_minutes"] = int((actual - window_end).total_seconds() / 60)
-		metrics["service_level"] = max(0, 100 - (metrics["delay_minutes"] / 60 * 10))  # Penalty for delay
+			window_start = scheduled
+		
+		if row.drop_window_end:
+			try:
+				window_end = get_datetime(row.drop_window_end)
+				# If get_datetime returns a timedelta or other non-datetime type, use scheduled
+				if not isinstance(window_end, datetime):
+					window_end = scheduled
+			except (TypeError, ValueError):
+				window_end = scheduled
+		else:
+			window_end = scheduled
+		
+		# Ensure window_start and window_end are datetime objects
+		if not isinstance(window_start, datetime) or not isinstance(window_end, datetime):
+			return metrics
+		
+		# Calculate time differences
+		if actual <= window_end:
+			if actual >= window_start:
+				metrics["on_time_status"] = "On Time"
+				metrics["service_level"] = 100
+			else:
+				# Early delivery
+				metrics["on_time_status"] = "Early"
+				metrics["early_minutes"] = int((window_start - actual).total_seconds() / 60)
+				metrics["service_level"] = 100  # Early is still good
+		else:
+			# Late delivery
+			metrics["on_time_status"] = "Late"
+			metrics["delay_minutes"] = int((actual - window_end).total_seconds() / 60)
+			metrics["service_level"] = max(0, 100 - (metrics["delay_minutes"] / 60 * 10))  # Penalty for delay
+	except (TypeError, ValueError, AttributeError) as e:
+		# If there's any error in datetime conversion, return default metrics
+		frappe.log_error(f"Error calculating on-time metrics: {str(e)}", "On-Time Delivery Report")
+		return metrics
 	
 	return metrics
 

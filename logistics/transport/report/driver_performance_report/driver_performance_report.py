@@ -125,7 +125,8 @@ def get_columns():
 	]
 
 def get_data(filters):
-	conditions = get_conditions(filters)
+	conditions, values = get_conditions(filters)
+	conditions_clause = (" AND " + conditions) if conditions else ""
 	
 	# Get driver performance data
 	query = """
@@ -142,12 +143,12 @@ def get_data(filters):
 		FROM `tabRun Sheet` rs
 		LEFT JOIN `tabTransport Leg` tl ON tl.run_sheet = rs.name
 		WHERE rs.docstatus = 1
-		{conditions}
+		{conditions_clause}
 		GROUP BY rs.driver, rs.driver_name, rs.transport_company
 		ORDER BY total_distance DESC
-	""".format(conditions=" AND " + conditions if conditions else "")
+	""".format(conditions_clause=conditions_clause)
 	
-	data = frappe.db.sql(query, as_dict=True)
+	data = frappe.db.sql(query, values, as_dict=True)
 	
 	# Process data and calculate performance metrics
 	for row in data:
@@ -173,36 +174,45 @@ def get_data(filters):
 
 def get_conditions(filters):
 	conditions = []
+	values = []
 	
 	if filters.get("from_date"):
-		conditions.append("rs.run_date >= %(from_date)s")
+		conditions.append("rs.run_date >= %s")
+		values.append(filters.get("from_date"))
 	
 	if filters.get("to_date"):
-		conditions.append("rs.run_date <= %(to_date)s")
+		conditions.append("rs.run_date <= %s")
+		values.append(filters.get("to_date"))
 	
 	if filters.get("driver"):
-		conditions.append("rs.driver = %(driver)s")
+		conditions.append("rs.driver = %s")
+		values.append(filters.get("driver"))
 	
 	if filters.get("transport_company"):
-		conditions.append("rs.transport_company = %(transport_company)s")
+		conditions.append("rs.transport_company = %s")
+		values.append(filters.get("transport_company"))
 	
 	if filters.get("performance_rating"):
 		# This would need to be implemented based on calculated ratings
 		pass
 	
-	return " AND ".join(conditions) if conditions else ""
+	return (" AND ".join(conditions) if conditions else ""), (values if values else None)
 
 def calculate_on_time_metrics(driver, filters):
 	"""Calculate on-time delivery metrics for a driver"""
 	conditions = []
+	values = []
 	
 	if filters.get("from_date"):
-		conditions.append("tl.end_date >= %(from_date)s")
+		conditions.append("tl.end_date >= %s")
+		values.append(filters.get("from_date"))
 	
 	if filters.get("to_date"):
-		conditions.append("tl.end_date <= %(to_date)s")
+		conditions.append("tl.end_date <= %s")
+		values.append(filters.get("to_date"))
 	
-	conditions.append("rs.driver = %(driver)s")
+	conditions.append("rs.driver = %s")
+	values.append(driver)
 	conditions.append("rs.docstatus = 1")
 	
 	where_clause = " AND ".join(conditions) if conditions else ""
@@ -218,7 +228,7 @@ def calculate_on_time_metrics(driver, filters):
 		WHERE {where_clause}
 	""".format(where_clause=where_clause)
 	
-	result = frappe.db.sql(query, {"driver": driver, **filters}, as_dict=True)
+	result = frappe.db.sql(query, values, as_dict=True)
 	
 	if result and result[0]:
 		row = result[0]
