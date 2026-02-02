@@ -157,6 +157,89 @@ function fetch_consolidatable_jobs(frm) {
 	});
 }
 
+function fetch_legs_for_jobs(job_names, callback) {
+	// Fetch transport legs for the given job names
+	if (!job_names || job_names.length === 0) {
+		callback([]);
+		return;
+	}
+	
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Transport Leg",
+			filters: {
+				transport_job: ["in", job_names],
+				docstatus: ["<", 2] // Not cancelled
+			},
+			fields: [
+				"name", "transport_job", "status", "pick_address", "drop_address",
+				"facility_type_from", "facility_from", "facility_type_to", "facility_to",
+				"date", "run_date", "order", "vehicle_type", "hazardous"
+			],
+			order_by: "transport_job, `order` asc"
+		},
+		callback: function(r) {
+			if (r.message) {
+				// Enrich legs with job information
+				const legs = r.message;
+				// Get job details for each leg
+				const job_names_set = new Set(job_names);
+				const jobs_to_fetch = Array.from(job_names_set);
+				
+				frappe.call({
+					method: "frappe.client.get_list",
+					args: {
+						doctype: "Transport Job",
+						filters: {
+							name: ["in", jobs_to_fetch]
+						},
+						fields: ["name", "customer", "load_type", "scheduled_date", "company"]
+					},
+					callback: function(job_r) {
+						const jobs_map = {};
+						if (job_r.message) {
+							job_r.message.forEach(function(job) {
+								jobs_map[job.name] = job;
+							});
+						}
+						
+						// Enrich legs with job information
+						legs.forEach(function(leg) {
+							const job = jobs_map[leg.transport_job];
+							if (job) {
+								leg.customer = job.customer;
+								leg.load_type = job.load_type;
+								leg.scheduled_date = job.scheduled_date;
+								leg.company = job.company;
+							}
+							
+							// Get address titles
+							if (leg.pick_address) {
+								frappe.db.get_value("Address", leg.pick_address, "address_title", function(addr_r) {
+									leg.pick_address_title = addr_r && addr_r.message ? addr_r.message.address_title : leg.pick_address;
+								});
+							}
+							if (leg.drop_address) {
+								frappe.db.get_value("Address", leg.drop_address, "address_title", function(addr_r) {
+									leg.drop_address_title = addr_r && addr_r.message ? addr_r.message.address_title : leg.drop_address;
+								});
+							}
+						});
+						
+						callback(legs);
+					}
+				});
+			} else {
+				callback([]);
+			}
+		},
+		error: function() {
+			callback([]);
+		}
+	});
+}
+
 function reload_jobs_with_filter(frm, dialog, consolidation_type) {
 	// Show loading indicator
 	if (dialog.fields_dict.summary_info) {
