@@ -191,6 +191,17 @@ function reload_jobs_with_filter(frm, dialog, consolidation_type) {
 		dialog.fields_dict.summary_info.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading jobs...") + '</div>');
 	}
 	
+	// Clear legs cache when jobs are reloaded
+	if (dialog._jobs_data) {
+		dialog._jobs_data.all_legs = [];
+		dialog._jobs_data.filtered_legs = [];
+	}
+	// Also clear legs in dialog scope if they exist
+	if (dialog._all_legs) {
+		dialog._all_legs = [];
+		dialog._filtered_legs = [];
+	}
+	
 	// Re-fetch jobs from server with new consolidation_type filter
 	frappe.call({
 		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_jobs",
@@ -204,6 +215,10 @@ function reload_jobs_with_filter(frm, dialog, consolidation_type) {
 			if (r.message && r.message.status === "success") {
 				// Update the jobs list in the dialog
 				update_dialog_jobs(dialog, r.message.jobs, r.message.consolidation_groups, r.message.debug);
+				// If currently viewing legs, switch back to jobs view
+				if (dialog._switch_view && dialog._current_view === "legs") {
+					dialog._switch_view("jobs");
+				}
 			} else {
 				frappe.show_alert({
 					message: __("Error fetching jobs: {0}", [r.message.message || "Unknown error"]),
@@ -365,6 +380,11 @@ function update_dialog_jobs(dialog, jobs, consolidation_groups, debug_info) {
 		dialog._jobs_data.debug_info = debug_info || {};
 	}
 	
+	// Clear legs cache when jobs are reloaded, so legs will be re-fetched for new job list
+	dialog._all_legs = [];
+	dialog._filtered_legs = [];
+	dialog._legs_job_names = [];
+	
 	// Update the jobs table
 	const table_html = build_jobs_table_html(jobs || [], consolidation_groups || []);
 	if (dialog.fields_dict.jobs_table) {
@@ -486,8 +506,6 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	let filtered_jobs = jobs || []; // Current filtered list
 	let has_jobs = jobs && jobs.length > 0;
 	let current_view = "jobs"; // Track current view: "jobs" or "legs"
-	let all_legs = []; // Store all legs data
-	let filtered_legs = []; // Current filtered legs list
 	
 	// Store jobs data in a way that can be accessed by update_dialog_jobs
 	// This will be attached to the dialog object later
@@ -788,6 +806,19 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	// Store dialog reference and filter function in form for synchronization
 	frm._consolidation_dialog = dialog;
 	
+	// Initialize dialog variables for legs
+	dialog._all_legs = [];
+	dialog._filtered_legs = [];
+	dialog._current_view = "jobs";
+	dialog._legs_job_names = []; // Track which jobs the legs were fetched for
+	
+	// Initialize jobs data in dialog for use when switching views
+	if (!dialog._jobs_data) {
+		dialog._jobs_data = {};
+	}
+	dialog._jobs_data.all_jobs = all_jobs;
+	dialog._jobs_data.filtered_jobs = filtered_jobs; // Initialize with current filtered jobs
+	
 	// Clean up dialog reference when dialog is closed
 	const original_hide = dialog.hide;
 	dialog.hide = function() {
@@ -799,113 +830,142 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	
 	// Function to filter jobs or legs based on filter values
 	function filter_jobs() {
-		if (current_view === "legs") {
-			// Filter legs
-			const legs_to_filter = all_legs;
-			
-			const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
-			const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
-			const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
-			
-			filtered_legs = legs_to_filter.filter(function(leg) {
-				// Filter by customer
-				if (filter_customer && leg.customer !== filter_customer) {
-					return false;
-				}
-				
-				// Filter by pick address
-				if (filter_pick_address && leg.pick_address !== filter_pick_address) {
-					return false;
-				}
-				
-				// Filter by drop address
-				if (filter_drop_address && leg.drop_address !== filter_drop_address) {
-					return false;
-				}
-				
-				return true;
-			});
-			
-			// Sort legs
-			const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Date';
-			const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
-			filtered_legs = sort_legs(filtered_legs, sort_by, sort_order);
-			
-			// Update the table
-			const table_html = build_legs_table_html(filtered_legs);
-			if (dialog.fields_dict.jobs_table) {
-				dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+		// First, filter jobs based on filter criteria (this applies to both views)
+		const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
+		
+		const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
+		const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
+		const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
+		const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
+		
+		// Filter jobs (same logic for both views)
+		let filtered_jobs_result = jobs_to_filter.filter(function(job) {
+			// Filter by customer
+			if (filter_customer && job.customer !== filter_customer) {
+				return false;
 			}
 			
-			// Update select all checkbox state
-			update_select_all_state();
+			// Filter by pick address (check if any pick address ID matches)
+			if (filter_pick_address) {
+				const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
+					job.pick_addresses.some(function(addr) {
+						return addr === filter_pick_address;
+					});
+				if (!pick_matches) {
+					return false;
+				}
+			}
 			
-			// Update count in summary
-			if (dialog.fields_dict.summary_info) {
-				const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
-				const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+			// Filter by drop address (check if any drop address ID matches)
+			if (filter_drop_address) {
+				const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
+					job.drop_addresses.some(function(addr) {
+						return addr === filter_drop_address;
+					});
+				if (!drop_matches) {
+					return false;
+				}
+			}
+			
+			// Note: consolidation_type filtering is done server-side when jobs are fetched
+			// So we don't need to filter by it here - the jobs are already filtered
+			
+			return true;
+		});
+		
+		// Sort jobs (always use 'Scheduled Date' for jobs, 'Date' is only for sorting legs)
+		const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Scheduled Date';
+		const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
+		filtered_jobs_result = sort_jobs(filtered_jobs_result, sort_by, sort_order);
+		
+		// Store filtered jobs in dialog
+		if (!dialog._jobs_data) {
+			dialog._jobs_data = {};
+		}
+		dialog._jobs_data.filtered_jobs = filtered_jobs_result;
+		
+		if (dialog._current_view === "legs") {
+			// In legs view: filter jobs first, then get legs for those filtered jobs
+			const filtered_job_names = filtered_jobs_result.map(function(job) { return job.name; }).sort();
+			const job_names_changed = JSON.stringify(filtered_job_names) !== JSON.stringify(dialog._legs_job_names);
+			
+			// If job list changed, we need to re-fetch legs for the new filtered jobs
+			if (job_names_changed) {
+				// Show loading indicator
+				if (dialog.fields_dict.jobs_table) {
+					dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
+				}
 				
-				const summary_html = `<div style="margin-bottom: 15px;">
-					<p style="font-size: 13px; color: #6c757d;">
-						Found <strong>${filtered_legs.length}</strong> transport leg(s).
-					</p>
-					${diagnostics_html}
-				</div>`;
-				dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+				// Fetch legs for filtered jobs
+				fetch_legs_for_jobs(filtered_job_names, function(legs) {
+					dialog._all_legs = legs;
+					dialog._legs_job_names = filtered_job_names;
+					
+					// Sort legs (map job sort options to leg sort options)
+					const leg_sort_by = (sort_by === 'Scheduled Date' || sort_by === 'Date') ? 'Date' : sort_by;
+					dialog._filtered_legs = sort_legs(legs, leg_sort_by, sort_order);
+					
+					// Update the table
+					const table_html = build_legs_table_html(dialog._filtered_legs);
+					if (dialog.fields_dict.jobs_table) {
+						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+					}
+					
+					// Update select all checkbox state
+					update_select_all_state();
+					
+					// Update count in summary
+					if (dialog.fields_dict.summary_info) {
+						const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+						const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+						
+						const summary_html = `<div style="margin-bottom: 15px;">
+							<p style="font-size: 13px; color: #6c757d;">
+								Found <strong>${dialog._filtered_legs.length}</strong> transport leg(s) from <strong>${filtered_jobs_result.length}</strong> filtered job(s).
+							</p>
+							${diagnostics_html}
+						</div>`;
+						dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+						
+						setup_diagnostics_toggle(dialog);
+						setup_filter_toggle(dialog);
+					}
+				});
+			} else {
+				// Job list hasn't changed, just sort the existing legs
+				// Map job sort options to leg sort options
+				const leg_sort_by = (sort_by === 'Scheduled Date' || sort_by === 'Date') ? 'Date' : sort_by;
+				dialog._filtered_legs = sort_legs(dialog._all_legs || [], leg_sort_by, sort_order);
 				
-				setup_diagnostics_toggle(dialog);
-				setup_filter_toggle(dialog);
+				// Update the table
+				const table_html = build_legs_table_html(dialog._filtered_legs);
+				if (dialog.fields_dict.jobs_table) {
+					dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+				}
+				
+				// Update select all checkbox state
+				update_select_all_state();
+				
+				// Update count in summary
+				if (dialog.fields_dict.summary_info) {
+					const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
+					const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
+					
+					const summary_html = `<div style="margin-bottom: 15px;">
+						<p style="font-size: 13px; color: #6c757d;">
+							Found <strong>${dialog._filtered_legs.length}</strong> transport leg(s) from <strong>${filtered_jobs_result.length}</strong> filtered job(s).
+						</p>
+						${diagnostics_html}
+					</div>`;
+					dialog.fields_dict.summary_info.$wrapper.html(summary_html);
+					
+					setup_diagnostics_toggle(dialog);
+					setup_filter_toggle(dialog);
+				}
 			}
 		} else {
-			// Filter jobs (original logic)
-			// Use updated all_jobs from dialog if available
-			const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
-			
-			const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
-			const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
-			const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
-			const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
-			
-			// Note: consolidation_type filtering is done server-side, so we don't filter by it here
-			// The jobs returned from server are already filtered by consolidation_type
-			filtered_jobs = jobs_to_filter.filter(function(job) {
-				// Filter by customer
-				if (filter_customer && job.customer !== filter_customer) {
-					return false;
-				}
-				
-				// Filter by pick address (check if any pick address ID matches)
-				if (filter_pick_address) {
-					const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
-						job.pick_addresses.some(function(addr) {
-							return addr === filter_pick_address;
-						});
-					if (!pick_matches) {
-						return false;
-					}
-				}
-				
-				// Filter by drop address (check if any drop address ID matches)
-				if (filter_drop_address) {
-					const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
-						job.drop_addresses.some(function(addr) {
-							return addr === filter_drop_address;
-						});
-					if (!drop_matches) {
-						return false;
-					}
-				}
-				
-				// Note: consolidation_type filtering is done server-side when jobs are fetched
-				// So we don't need to filter by it here - the jobs are already filtered
-				
-				return true;
-			});
-			
-			// Sort jobs
-			const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Scheduled Date';
-			const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
-			filtered_jobs = sort_jobs(filtered_jobs, sort_by, sort_order);
+			// In jobs view: use the filtered jobs result
+			filtered_jobs = filtered_jobs_result;
 			
 			// Update the table
 			const table_html = build_jobs_table_html(filtered_jobs, consolidation_groups);
@@ -947,6 +1007,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	// Function to switch between jobs and legs view
 	function switch_view(view_type) {
 		current_view = view_type;
+		dialog._current_view = view_type;
 		
 		// Update toggle buttons
 		dialog.$wrapper.find('.view-toggle-btn').removeClass('btn-primary').addClass('btn-default');
@@ -965,31 +1026,39 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 		
 		if (view_type === "legs") {
 			// Switch to legs view
-			if (all_legs.length === 0) {
-				// Fetch legs for all jobs
-				const job_names = all_jobs.map(function(job) { return job.name; });
+			// Get currently filtered/visible jobs from the Jobs view
+			const jobs_to_use = (dialog._jobs_data && dialog._jobs_data.filtered_jobs) ? 
+				dialog._jobs_data.filtered_jobs : filtered_jobs;
+			const current_job_names = jobs_to_use.map(function(job) { return job.name; }).sort();
+			
+			// Check if we need to fetch legs (either not fetched yet, or job list has changed)
+			const job_names_changed = JSON.stringify(current_job_names) !== JSON.stringify(dialog._legs_job_names);
+			
+			if (!dialog._all_legs || dialog._all_legs.length === 0 || job_names_changed) {
+				// Fetch legs for currently visible/filtered jobs
 				dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
 				
-				fetch_legs_for_jobs(job_names, function(legs) {
-					all_legs = legs;
-					filtered_legs = legs;
+				fetch_legs_for_jobs(current_job_names, function(legs) {
+					dialog._all_legs = legs;
+					dialog._filtered_legs = legs;
+					dialog._legs_job_names = current_job_names; // Store which jobs we fetched legs for
 					
 					// Apply current filters to legs
 					if (dialog._filter_jobs) {
 						dialog._filter_jobs();
 					} else {
 						// Update table directly
-						const table_html = build_legs_table_html(filtered_legs);
+						const table_html = build_legs_table_html(dialog._filtered_legs);
 						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
 						update_select_all_state();
 					}
 				});
 			} else {
-				// Legs already fetched, just update the table
+				// Legs already fetched for current job list, just update the table
 				if (dialog._filter_jobs) {
 					dialog._filter_jobs();
 				} else {
-					const table_html = build_legs_table_html(filtered_legs);
+					const table_html = build_legs_table_html(dialog._filtered_legs);
 					dialog.fields_dict.jobs_table.$wrapper.html(table_html);
 					update_select_all_state();
 				}

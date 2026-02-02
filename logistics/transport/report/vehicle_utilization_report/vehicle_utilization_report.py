@@ -144,7 +144,7 @@ def get_data(filters):
 		ORDER BY total_distance DESC
 	""".format(conditions_clause=conditions_clause)
 	
-	data = frappe.db.sql(query, as_dict=True)
+	data = frappe.db.sql(query, filters, as_dict=True)
 	
 	# Get vehicle details and calculate additional metrics
 	for row in data:
