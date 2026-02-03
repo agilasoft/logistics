@@ -166,7 +166,8 @@ scheduler_events = {
 		"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
 		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
 		"logistics.sea_freight.tasks.check_sea_shipment_delays",
-		"logistics.sea_freight.tasks.check_sea_shipment_penalties"
+		"logistics.sea_freight.tasks.check_sea_shipment_penalties",
+		"logistics.transport.tasks.update_sla_statuses"
 	],
 	"daily": [
 		"logistics.air_freight.flight_schedules.tasks.sync_airport_master",

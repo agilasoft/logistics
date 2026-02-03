@@ -23,6 +23,12 @@
   "release_type",
   "entry_type",
   "service_level",
+  "sla_section",
+  "sla_target_date",
+  "sla_status",
+  "sla_target_source",
+  "column_break_sla",
+  "sla_notes",
   "section_break_bdpp",
   "column_break_bpch",
   "shipper",
@@ -293,7 +299,40 @@
    "fieldname": "service_level",
    "fieldtype": "Link",
    "label": "Service Level",
-   "options": "Service Level Agreement"
+   "options": "Logistics Service Level"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sla_section",
+   "fieldtype": "Section Break",
+   "label": "SLA Monitoring"
+  },
+  {
+   "fieldname": "sla_target_date",
+   "fieldtype": "Datetime",
+   "label": "SLA Target Date"
+  },
+  {
+   "default": "Not Applicable",
+   "fieldname": "sla_status",
+   "fieldtype": "Select",
+   "label": "SLA Status",
+   "options": "On Track\nAt Risk\nBreached\nNot Applicable"
+  },
+  {
+   "fieldname": "sla_target_source",
+   "fieldtype": "Select",
+   "label": "SLA Target Source",
+   "options": "From Service Level\nManual"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sla_notes",
+   "fieldtype": "Text",
+   "label": "SLA Notes"
   },
   {
    "description": "Origin port UNLOCO code",

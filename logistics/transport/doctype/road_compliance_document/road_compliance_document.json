@@ -1,0 +1,92 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2025-02-03 00:00:00.000000",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "document_name",
+    "document_type",
+    "column_break_1",
+    "description",
+    "mandatory",
+    "reference_no"
+  ],
+  "fields": [
+    {
+      "fieldname": "document_name",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Document Name",
+      "reqd": 1
+    },
+    {
+      "fieldname": "document_type",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Document Type",
+      "options": "Certificate\nLicense\nPermit\nInsurance\nRegistration\nInspection Report\nOther"
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Text",
+      "label": "Description"
+    },
+    {
+      "default": "1",
+      "fieldname": "mandatory",
+      "fieldtype": "Check",
+      "in_list_view": 1,
+      "label": "Mandatory"
+    },
+    {
+      "fieldname": "reference_no",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Reference No"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 0,
+  "istable": 1,
+  "links": [],
+  "modified": "2025-02-03 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Transport",
+  "name": "Road Compliance Document",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Transport Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Land Transport Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": []
+}

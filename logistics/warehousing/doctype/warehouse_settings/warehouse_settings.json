@@ -34,6 +34,7 @@
   "default_volume_uom",
   "volume_calculation_precision",
   "default_weight_uom",
+  "default_chargeable_uom",
   "default_dimension_uom",
   "column_break_cwga",
   "default_volume_alert_threshold",
@@ -138,6 +139,13 @@
    "fieldtype": "Link",
    "label": "Default Weight UOM",
    "options": "UOM"
+  },
+  {
+   "fieldname": "default_chargeable_uom",
+   "fieldtype": "Link",
+   "label": "Default Chargeable UOM",
+   "options": "UOM",
+   "description": "Default UOM for chargeable weight in Sales Quote Warehousing tab and warehousing-related doctypes"
   },
   {
    "fieldname": "column_break_2",

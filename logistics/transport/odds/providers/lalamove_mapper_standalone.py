@@ -94,7 +94,7 @@ class LalamoveMapperStandalone(ODDSMapper):
         special_requests = []
         if doc.get("hazardous"):
             special_requests.append("HAZMAT")
-        if doc.get("refrigeration"):
+        if doc.get("reefer"):
             special_requests.append("REEFER")
         if special_requests:
             quotation_request["specialRequests"] = special_requests

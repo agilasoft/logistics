@@ -13,9 +13,38 @@ frappe.ui.form.on("Sales Quote", {
 			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
 		}
 		frm.events.setup_vehicle_type_query(frm);
+		// Default UOMs from Settings per tab when fields are empty (for any visible tab)
+		if (frm.is_new()) {
+			frm.events.apply_default_uoms_per_tab(frm);
+		}
+	},
+
+	is_sea(frm) {
+		if (frm.doc.is_sea) {
+			frm.events.apply_default_uoms_for_tab(frm, "sea", "sea_");
+		}
+	},
+	is_air(frm) {
+		if (frm.doc.is_air) {
+			frm.events.apply_default_uoms_for_tab(frm, "air", "air_");
+		}
+	},
+	is_transport(frm) {
+		if (frm.doc.is_transport) {
+			frm.events.apply_default_uoms_for_tab(frm, "transport", "transport_");
+		}
+	},
+	is_warehousing(frm) {
+		if (frm.doc.is_warehousing) {
+			frm.events.apply_default_uoms_for_tab(frm, "warehousing", "warehouse_");
+		}
 	},
 	
 	refresh(frm) {
+		// Apply default UOMs from Settings when UOM fields are empty (only for new docs)
+		if (frm.is_new()) {
+			frm.events.apply_default_uoms_per_tab(frm);
+		}
 		// Re-apply vehicle_type filter on refresh
 		if (frm.doc.load_type) {
 			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
@@ -235,6 +264,45 @@ frappe.ui.form.on("Sales Quote", {
 				};
 			};
 		}
+	},
+
+	apply_default_uoms_per_tab(frm) {
+		// Set default weight/volume/chargeable UOM from respective Settings for all visible tabs when fields are empty
+		const tabs = [
+			{ domain: "sea", visible: frm.doc.is_sea, prefix: "sea_" },
+			{ domain: "air", visible: frm.doc.is_air, prefix: "air_" },
+			{ domain: "transport", visible: frm.doc.is_transport, prefix: "transport_" },
+			{ domain: "warehousing", visible: frm.doc.is_warehousing, prefix: "warehouse_" }
+		];
+		tabs.forEach(function (tab) {
+			if (tab.visible) {
+				frm.events.apply_default_uoms_for_tab(frm, tab.domain, tab.prefix);
+			}
+		});
+	},
+
+	apply_default_uoms_for_tab(frm, domain, prefix) {
+		// Set default weight/volume/chargeable UOM from Settings for one tab when fields are empty
+		const needWeight = !frm.doc[prefix + "weight_uom"];
+		const needVolume = !frm.doc[prefix + "volume_uom"];
+		const needChargeable = !frm.doc[prefix + "chargeable_uom"];
+		if (!needWeight && !needVolume && !needChargeable) return;
+		frappe.call({
+			method: "logistics.utils.default_uom.get_default_uoms_for_domain_api",
+			args: { domain: domain, company: frm.doc.company || undefined },
+			callback: function (r) {
+				if (!r.message) return;
+				if (needWeight && r.message.weight_uom) {
+					frm.set_value(prefix + "weight_uom", r.message.weight_uom);
+				}
+				if (needVolume && r.message.volume_uom) {
+					frm.set_value(prefix + "volume_uom", r.message.volume_uom);
+				}
+				if (needChargeable && r.message.chargeable_uom) {
+					frm.set_value(prefix + "chargeable_uom", r.message.chargeable_uom);
+				}
+			}
+		});
 	}
 	
 });

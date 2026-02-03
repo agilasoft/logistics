@@ -57,6 +57,7 @@
    "fetch_from": "item_code.item_name",
    "fieldname": "item_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Item Name"
   },
   {
@@ -256,7 +257,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-12-12 11:35:11.221192",
+ "modified": "2026-02-03 10:12:17.022174",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Transport Order Charges",

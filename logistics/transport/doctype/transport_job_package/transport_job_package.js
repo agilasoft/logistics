@@ -1,34 +1,23 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
-// For license information, please see license.txt
+// For license information, see license.txt
 
-frappe.ui.form.on('Transport Job Package', {
-	refresh(frm) {
-		// Add custom button to calculate volume
-		if (frm.doc.length && frm.doc.widht && frm.doc.height) {
-			frm.add_custom_button(__('Calculate Volume'), function() {
-				calculate_volume(frm);
-			});
-		}
+frappe.ui.form.on("Transport Job Package", {
+	form_load: function (frm, cdt, cdn) {
+		var row = locals[cdt][cdn];
+		if (!row || (row.weight_uom && row.volume_uom)) return;
+		frappe.call({
+			method: "logistics.utils.default_uom.get_default_uoms_for_domain_api",
+			args: { domain: "transport" },
+			callback: function (r) {
+				if (r.message) {
+					if (!row.weight_uom && r.message.weight_uom) {
+						frappe.model.set_value(cdt, cdn, "weight_uom", r.message.weight_uom);
+					}
+					if (!row.volume_uom && r.message.volume_uom) {
+						frappe.model.set_value(cdt, cdn, "volume_uom", r.message.volume_uom);
+					}
+				}
+			},
+		});
 	},
-
-	length(frm) {
-		calculate_volume(frm);
-	},
-
-	widht(frm) {
-		calculate_volume(frm);
-	},
-
-	height(frm) {
-		calculate_volume(frm);
-	}
 });
-
-function calculate_volume(frm) {
-	if (frm.doc.length && frm.doc.widht && frm.doc.height) {
-		const volume = frm.doc.length * frm.doc.widht * frm.doc.height;
-		frm.set_value('volume', volume);
-	} else {
-		frm.set_value('volume', 0);
-	}
-}

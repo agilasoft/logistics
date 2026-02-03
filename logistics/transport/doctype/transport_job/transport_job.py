@@ -6,7 +6,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from typing import Dict, Any, List, Optional
-from frappe.utils import nowdate, flt
+from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 
 class TransportJob(Document):
     def validate(self):
@@ -41,6 +41,9 @@ class TransportJob(Document):
         # Prevent duplicate Transport Jobs for the same transport_order
         self._validate_no_duplicate_transport_order()
         
+        # Copy service level from Transport Order when transport_order is set
+        self._copy_service_level_from_order()
+        
         # Capacity validation
         self.validate_vehicle_type_capacity()
         self.validate_capacity()
@@ -66,6 +69,9 @@ class TransportJob(Document):
         
         self.calculate_sustainability_metrics()
         self.create_job_costing_number_if_needed()
+        
+        # Derive SLA target date from Logistics Service Level when applicable
+        self._derive_sla_target_from_service_level()
         
         # Update status - but be careful during submission
         # Check database directly to see if document is actually submitted (more reliable than self.docstatus)
@@ -433,6 +439,53 @@ class TransportJob(Document):
                     self.transport_order
                 )
             )
+
+    def _copy_service_level_from_order(self):
+        """Copy logistics_service_level from Transport Order when transport_order is set."""
+        if not self.transport_order:
+            return
+        order_service_level = frappe.db.get_value("Transport Order", self.transport_order, "service_level")
+        if order_service_level and not self.get("logistics_service_level"):
+            self.logistics_service_level = order_service_level
+
+    def _derive_sla_target_from_service_level(self):
+        """Derive sla_target_date from Logistics Service Level module row (Transport)."""
+        if not self.get("logistics_service_level"):
+            return
+        from logistics.logistics.doctype.logistics_service_level.logistics_service_level import get_sla_settings_for_module
+        settings = get_sla_settings_for_module(self.logistics_service_level, "Transport")
+        if not settings:
+            return
+        base_opt = (settings.get("sla_target_base_date") or "").strip()
+        if base_opt == "Manual on Job":
+            return
+        base_field_map = {
+            "Booking Date": "booking_date",
+            "Scheduled Date": "scheduled_date",
+            "Job Open Date": "creation",
+            "Invoice Date": None,
+        }
+        base_field = base_field_map.get(base_opt)
+        base_value = None
+        if base_field == "creation":
+            base_value = self.creation if self.get("creation") else None
+        elif base_field and self.get(base_field):
+            base_value = self.get(base_field)
+        elif base_opt == "Invoice Date" and self.get("sales_invoice"):
+            base_value = frappe.db.get_value("Sales Invoice", self.sales_invoice, "posting_date")
+        if not base_value:
+            return
+        base_date = getdate(base_value) if base_value else None
+        if not base_date:
+            return
+        days = cint(settings.get("sla_transit_days")) or 0
+        end_hour = cint(settings.get("sla_business_day_end_hour"))
+        if end_hour is None:
+            end_hour = 17
+        target_date = add_days(base_date, days)
+        target_dt = get_datetime(f"{target_date} {end_hour:02d}:00:00")
+        self.sla_target_date = target_dt
+        self.sla_target_source = "From Service Level"
     
     def _validate_transport_job_type(self):
         """Validate transport job type specific business rules - only when transport_job_type IS set."""

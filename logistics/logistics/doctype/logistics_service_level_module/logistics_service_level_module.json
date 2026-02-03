@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "creation": "2026-02-03 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "module",
+  "enabled",
+  "sla_target_base_date",
+  "sla_transit_days",
+  "sla_business_day_end_hour",
+  "column_break_sla",
+  "sla_at_risk_hours_before",
+  "sla_breach_grace_minutes"
+ ],
+ "fields": [
+  {
+   "fieldname": "module",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Module",
+   "options": "Transport\nSea Freight\nAir Freight\nWarehousing\nCustoms",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "sla_target_base_date",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "SLA Target Base Date",
+   "options": "Job Open Date\nRecognition Date\nInvoice Date\nBooking Date\nETD\nETA\nATD\nATA\nScheduled Date\nDue Date\nManual on Job"
+  },
+  {
+   "fieldname": "sla_transit_days",
+   "fieldtype": "Int",
+   "label": "Days to Add"
+  },
+  {
+   "fieldname": "sla_business_day_end_hour",
+   "fieldtype": "Int",
+   "label": "Business Day End Hour",
+   "description": "0-23, e.g. 17 = 5 PM"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "24",
+   "fieldname": "sla_at_risk_hours_before",
+   "fieldtype": "Int",
+   "label": "At Risk (hours before target)"
+  },
+  {
+   "default": "0",
+   "fieldname": "sla_breach_grace_minutes",
+   "fieldtype": "Int",
+   "label": "Breach Grace (minutes after target)"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Logistics Service Level Module",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

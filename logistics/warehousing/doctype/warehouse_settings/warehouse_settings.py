@@ -10,6 +10,35 @@ class WarehouseSettings(Document):
 
 
 @frappe.whitelist()
+def get_default_uoms(company=None):
+	"""
+	Return default UOMs from Warehouse Settings for the given company (or first record).
+	Used by Warehouse Contract Item and other warehousing doctypes when defaulting weight/volume/chargeable UOM.
+	Returns dict with keys: volume, weight, chargeable (and optionally dimension).
+	"""
+	try:
+		if company:
+			settings = frappe.get_doc("Warehouse Settings", company)
+		else:
+			first = frappe.get_all("Warehouse Settings", limit=1)
+			if not first:
+				return None
+			settings = frappe.get_doc("Warehouse Settings", first[0].name)
+		out = {}
+		if getattr(settings, "default_volume_uom", None):
+			out["volume"] = settings.default_volume_uom
+		if getattr(settings, "default_weight_uom", None):
+			out["weight"] = settings.default_weight_uom
+		if getattr(settings, "default_chargeable_uom", None):
+			out["chargeable"] = settings.default_chargeable_uom
+		if getattr(settings, "default_dimension_uom", None):
+			out["dimension"] = settings.default_dimension_uom
+		return out if out else None
+	except Exception:
+		return None
+
+
+@frappe.whitelist()
 def calculate_volume_from_dimensions(length, width, height, dimension_uom=None, volume_uom=None, company=None):
 	"""
 	Calculate volume from dimensions with UOM conversion.

@@ -590,8 +590,8 @@ class TransportOrder(Document):
             factors["surcharge"] += 0.3  # Additional 30% for hazardous
             factors["special_handling"] = True
         
-        if self.refrigeration:
-            factors["surcharge"] += 0.2  # Additional 20% for refrigeration
+        if self.reefer:
+            factors["surcharge"] += 0.2  # Additional 20% for reefer
         
         return factors
 
@@ -620,7 +620,7 @@ class TransportOrder(Document):
             requirements["special_equipment"].extend(["Hazmat Equipment"])
             requirements["driver_qualifications"].extend(["Hazmat License"])
         
-        if self.refrigeration:
+        if self.reefer:
             requirements["special_equipment"].extend(["Refrigerated Unit"])
             requirements["driver_qualifications"].extend(["Temperature Control Training"])
         
@@ -731,7 +731,7 @@ class TransportOrder(Document):
         # Additional factors
         if self.hazardous:
             score += 5
-        if self.refrigeration:
+        if self.reefer:
             score += 3
         
         return score
@@ -1234,7 +1234,7 @@ def action_create_transport_job(docname: str):
             "booking_date": getattr(doc, "booking_date", None),
             "customer_ref_no": getattr(doc, "customer_ref_no", None),
             "hazardous": getattr(doc, "hazardous", None),
-            "refrigeration": getattr(doc, "refrigeration", None),
+            "refrigeration": getattr(doc, "reefer", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
             "load_type": getattr(doc, "load_type", None),
             "container_type": getattr(doc, "container_type", None),
@@ -1411,48 +1411,58 @@ def get_vehicle_compatibility(transport_job_type: str, vehicle_type: str = None)
     return compatibility
 
 
+def _get_vehicle_type_container_field():
+    """Return the Vehicle Type field name for container flag (container or containerized)."""
+    meta = frappe.get_meta("Vehicle Type")
+    if meta.has_field("container"):
+        return "container"
+    if meta.has_field("containerized"):
+        return "containerized"
+    return None
+
+
 @frappe.whitelist()
 def get_allowed_vehicle_types(transport_job_type: str, refrigeration: bool = False) -> Dict[str, Any]:
-    """Get allowed vehicle types for a transport job type based on boolean columns and reefer."""
+    """Get allowed vehicle types for a transport job type based on boolean columns and reefer.
+    Uses ignore_permissions so link-field filtering works for users who cannot read
+    restricted fields (e.g. container) on Vehicle Type."""
     if not transport_job_type:
         return {"vehicle_types": []}
     
+    meta = frappe.get_meta("Vehicle Type")
     filters = {}
     
-    # Filter by container flag
-    if transport_job_type == "Container":
-        # For Container job type, only allow container vehicle types
-        filters["container"] = 1
-    elif transport_job_type == "Non-Container":
-        # For Non-Container job type, exclude container vehicle types
-        filters["container"] = 0
+    # Filter by container flag (support both "container" and "containerized" field names)
+    container_field = _get_vehicle_type_container_field()
+    if container_field:
+        if transport_job_type == "Container":
+            filters[container_field] = 1
+        elif transport_job_type == "Non-Container":
+            filters[container_field] = 0
     
     # Filter by boolean columns for specific transport job types
     if transport_job_type == "Special":
         filters["special"] = 1
-        # Special job type also requires reefer
         filters["reefer"] = 1
     elif transport_job_type == "Oversized":
         filters["oversized"] = 1
     elif transport_job_type == "Heavy Haul":
         filters["heavy_haul"] = 1
     elif transport_job_type == "Multimodal":
-        # Check if multimodal field exists in Vehicle Type doctype
-        meta = frappe.get_meta("Vehicle Type")
         if meta.has_field("multimodal"):
             filters["multimodal"] = 1
     
-    # Filter by reefer if refrigeration is required (for other job types)
-    # Note: Special job type already has reefer=1 filter above
     if refrigeration and transport_job_type != "Special":
         filters["reefer"] = 1
     
-    # Get vehicle types matching the filter
+    # ignore_permissions=True so link dropdown can show allowed types without requiring
+    # read permission on fields like container/containerized
     vehicle_types = frappe.get_all(
         "Vehicle Type",
         filters=filters,
-        fields=["name", "code", "description", "container", "reefer"],
-        order_by="code"
+        fields=["name", "code", "description"],
+        order_by="code",
+        ignore_permissions=True,
     )
     
     return {"vehicle_types": vehicle_types}
@@ -1466,7 +1476,10 @@ def validate_vehicle_job_type_compatibility(transport_job_type: str, vehicle_typ
     
     # Get vehicle type details - fetch boolean fields dynamically
     meta = frappe.get_meta("Vehicle Type")
-    fields_to_fetch = ["container", "code", "reefer"]
+    container_field = _get_vehicle_type_container_field()
+    fields_to_fetch = ["code", "reefer"]
+    if container_field:
+        fields_to_fetch.insert(0, container_field)
     
     # Add boolean fields if they exist
     boolean_fields = ["special", "oversized", "heavy_haul", "multimodal"]
@@ -1487,13 +1500,14 @@ def validate_vehicle_job_type_compatibility(transport_job_type: str, vehicle_typ
     compatible = True
     messages = []
     
-    # Check container compatibility
+    # Check container compatibility (support both container and containerized field names)
+    container_val = container_field and vehicle_details.get(container_field)
     if transport_job_type == "Container":
-        if not vehicle_details.container:
+        if not container_val:
             compatible = False
             messages.append(f"Vehicle Type {vehicle_details.code} is not container. Container job type requires a container vehicle type.")
     elif transport_job_type == "Non-Container":
-        if vehicle_details.container:
+        if container_val:
             compatible = False
             messages.append(f"Vehicle Type {vehicle_details.code} is container. Non-Container job type requires a non-container vehicle type.")
     
@@ -1531,33 +1545,53 @@ def validate_vehicle_job_type_compatibility(transport_job_type: str, vehicle_typ
 
 
 @frappe.whitelist()
-def get_vehicle_types_for_load_type(load_type: str) -> Dict[str, Any]:
+def get_vehicle_types_for_load_type(
+    load_type: str,
+    hazardous: bool = False,
+    reefer: bool = False,
+) -> Dict[str, Any]:
     """
-    Get list of Vehicle Types that have the specified load_type in their allowed_load_types.
-    
-    Args:
-        load_type: The Load Type name to filter by
-        
-    Returns:
-        dict: List of Vehicle Type names that allow the specified load_type
+    Get list of Vehicle Types that:
+    - have the specified load_type in their allowed_load_types, and
+    - if hazardous=True, have hazardous checkbox set, and
+    - if reefer=True, have reefer checkbox set.
+
+    Uses ignore_permissions so link filtering works without field-level read on hazardous/reefer.
     """
     if not load_type:
         return {"vehicle_types": []}
-    
-    # Verify that the load_type exists
+
     if not frappe.db.exists("Load Type", load_type):
         return {"vehicle_types": []}
-    
-    # Get all Vehicle Types that have this load_type in their allowed_load_types child table
+
+    # Vehicle Types that have this load_type in allowed_load_types (child table)
     vehicle_types = frappe.db.sql("""
         SELECT DISTINCT parent
         FROM `tabVehicle Type Load Types`
         WHERE load_type = %s
         AND parent IS NOT NULL
     """, (load_type,), as_dict=True)
-    
     vehicle_type_names = [vt.parent for vt in vehicle_types if vt.parent]
-    
+    if not vehicle_type_names:
+        return {"vehicle_types": []}
+
+    # Optionally restrict by hazardous and/or reefer (ignore_permissions for link-filter use)
+    need_hazardous = hazardous in (True, 1) or (isinstance(hazardous, str) and hazardous == "1")
+    need_reefer = reefer in (True, 1) or (isinstance(reefer, str) and reefer == "1")
+    if need_hazardous or need_reefer:
+        filters = {"name": ["in", vehicle_type_names]}
+        if need_hazardous:
+            filters["hazardous"] = 1
+        if need_reefer:
+            filters["reefer"] = 1
+        filtered = frappe.get_all(
+            "Vehicle Type",
+            filters=filters,
+            pluck="name",
+            ignore_permissions=True,
+        )
+        vehicle_type_names = list(filtered)
+
     return {"vehicle_types": vehicle_type_names}
 
 
