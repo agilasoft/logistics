@@ -52,7 +52,9 @@
   "last_telematics_ts",
   "last_telematics_lat",
   "last_telematics_lon",
-  "last_speed_kph"
+  "last_speed_kph",
+  "ez_accreditations_tab",
+  "accreditations"
  ],
  "fields": [
   {
@@ -119,11 +121,11 @@
   },
   {
    "default": "KG",
+   "description": "Unit of measure for weight capacity",
    "fieldname": "capacity_weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM",
-   "description": "Unit of measure for weight capacity"
+   "options": "UOM"
   },
   {
    "fieldname": "capacity_volume",
@@ -132,11 +134,11 @@
   },
   {
    "default": "CBM",
+   "description": "Unit of measure for volume capacity",
    "fieldname": "capacity_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "description": "Unit of measure for volume capacity"
+   "options": "UOM"
   },
   {
    "fieldname": "capacity_pallets",
@@ -154,11 +156,13 @@
    "label": "Can Carry Container"
   },
   {
+   "depends_on": "eval:doc.can_carry_container",
    "fieldname": "max_container_count",
    "fieldtype": "Float",
    "label": "Max Container Count"
   },
   {
+   "depends_on": "eval:doc.can_carry_container",
    "fieldname": "container_types",
    "fieldtype": "Table MultiSelect",
    "label": "Container Types",
@@ -175,11 +179,13 @@
    "label": "Reefer"
   },
   {
+   "depends_on": "eval:doc.reefer",
    "fieldname": "reefer_min_temp",
    "fieldtype": "Float",
    "label": "Minimum Temp"
   },
   {
+   "depends_on": "eval:doc.reefer",
    "fieldname": "reefer_max_temp",
    "fieldtype": "Float",
    "label": "Maximum Temp"
@@ -217,16 +223,16 @@
    "options": "Transport Vehicle Zones"
   },
   {
+   "description": "Vehicle license plate number for plate coding constraint checks",
    "fieldname": "license_plate_number",
    "fieldtype": "Data",
-   "label": "License Plate Number",
-   "description": "Vehicle license plate number for plate coding constraint checks"
+   "label": "License Plate Number"
   },
   {
+   "description": "Average speed in km/h for travel time calculations",
    "fieldname": "avg_speed",
    "fieldtype": "Float",
-   "label": "Avg Speed",
-   "description": "Average speed in km/h for travel time calculations"
+   "label": "Avg Speed"
   },
   {
    "fieldname": "cost_per_km",
@@ -318,12 +324,23 @@
    "fieldname": "telematics_device_name",
    "fieldtype": "Data",
    "label": "Telematics Device Name"
+  },
+  {
+   "fieldname": "accreditations",
+   "fieldtype": "Table",
+   "label": "accreditations",
+   "options": "Transport Vehicle EZ Accreditation"
+  },
+  {
+   "fieldname": "ez_accreditations_tab",
+   "fieldtype": "Tab Break",
+   "label": "EZ Accreditations"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-04 00:30:14.476865",
+ "modified": "2026-02-03 22:48:22.309315",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle",

@@ -56,35 +56,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Vehicles and Setup",
-   "link_count": 2,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Transport Vehicle",
-   "link_count": 0,
-   "link_to": "Transport Vehicle",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Vehicle Type",
-   "link_count": 0,
-   "link_to": "Vehicle Type",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Operational Monitoring",
    "link_count": 4,
    "link_type": "DocType",
@@ -395,9 +366,48 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Vehicles and Setup",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Vehicle",
+   "link_count": 0,
+   "link_to": "Transport Vehicle",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Vehicle Type",
+   "link_count": 0,
+   "link_to": "Vehicle Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Economic Zone",
+   "link_count": 0,
+   "link_to": "Economic Zone",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-03 21:57:13.261931",
+ "modified": "2026-02-03 23:23:14.030924",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport",

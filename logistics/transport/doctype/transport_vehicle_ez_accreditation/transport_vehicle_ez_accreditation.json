@@ -1,0 +1,56 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-03 22:45:06.879128",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "economic_zone",
+  "accreditation_no",
+  "accreditation_date",
+  "valid_until"
+ ],
+ "fields": [
+  {
+   "fieldname": "economic_zone",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Economic Zone",
+   "options": "Economic Zone"
+  },
+  {
+   "fieldname": "accreditation_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Accreditation No"
+  },
+  {
+   "fieldname": "accreditation_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Accreditation Date"
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid Until"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-03 22:48:53.897145",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Vehicle EZ Accreditation",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

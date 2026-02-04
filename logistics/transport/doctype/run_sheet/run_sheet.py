@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt, get_datetime
+from frappe.utils import flt, get_datetime, getdate
 
 
 class RunSheet(Document):
@@ -17,6 +17,7 @@ class RunSheet(Document):
 		self.validate_vehicle_availability()
 		self.validate_capacity()
 		self.validate_legs_compatibility()
+		self.validate_vehicle_economic_zone_accreditation()
 		self.update_legs_missing_data()
 		self.sync_legs_to_transport_leg()
 	
@@ -399,6 +400,69 @@ class RunSheet(Document):
 					title=_("Vehicle Type Incompatibility")
 				)
 	
+	def validate_vehicle_economic_zone_accreditation(self):
+		"""
+		Validate that when a Transport Leg contains an Economic Zone address
+		(pick or drop address with Economic Zone set), the Run Sheet's vehicle
+		has an accreditation to that Economic Zone.
+		"""
+		if not self.vehicle or not self.legs:
+			return
+		
+		# Collect all addresses used in legs (pick and drop from Transport Leg)
+		address_names = set()
+		for row in self.legs:
+			if not row.transport_leg:
+				continue
+			leg = frappe.db.get_value(
+				"Transport Leg",
+				row.transport_leg,
+				["pick_address", "drop_address"],
+				as_dict=True
+			)
+			if leg:
+				if leg.get("pick_address"):
+					address_names.add(leg.pick_address)
+				if leg.get("drop_address"):
+					address_names.add(leg.drop_address)
+		
+		if not address_names:
+			return
+		
+		# Get Economic Zone for each address (custom_economic_zone on Address)
+		economic_zones_required = set()
+		for address_name in address_names:
+			ez = frappe.db.get_value("Address", address_name, "custom_economic_zone")
+			if ez:
+				economic_zones_required.add(ez)
+		
+		if not economic_zones_required:
+			return
+		
+		# Get vehicle's accredited Economic Zones (from accreditations child table)
+		# Consider accreditation valid if valid_until is empty or >= today
+		today = getdate()
+		vehicle_doc = frappe.get_doc("Transport Vehicle", self.vehicle)
+		accredited_zones = set()
+		for acc in getattr(vehicle_doc, "accreditations", []) or []:
+			if not acc.get("economic_zone"):
+				continue
+			valid_until = acc.get("valid_until")
+			if valid_until is None or (getdate(valid_until) >= today):
+				accredited_zones.add(acc.economic_zone)
+		
+		# Check every required zone is accredited
+		missing = economic_zones_required - accredited_zones
+		if missing:
+			zone_list = ", ".join(sorted(missing))
+			frappe.throw(
+				_("Vehicle {0} is not accredited to Economic Zone(s): {1}. "
+				  "The Run Sheet contains leg(s) with pick or drop at addresses in these zones. "
+				  "Please assign a vehicle that has accreditations for these Economic Zones, "
+				  "or use addresses outside these zones.").format(self.vehicle, zone_list),
+				title=_("Economic Zone Accreditation Required")
+			)
+	
 	def update_legs_missing_data(self):
 		"""Update missing data in legs by fetching from Transport Leg"""
 		if not self.legs:
@@ -630,6 +694,36 @@ class RunSheet(Document):
 
 
 # Whitelisted methods for client-side calls
+
+
+@frappe.whitelist()
+def has_economic_zone_address(run_sheet_name):
+	"""
+	Return whether the Run Sheet has any Transport Leg with a pick or drop
+	address that is tagged with an Economic Zone (Address.custom_economic_zone).
+	Used by the form to show a red reminder when Economic Zone addresses are present.
+	"""
+	if not run_sheet_name:
+		return {"has_ez_address": False}
+	legs = frappe.get_all(
+		"Transport Leg",
+		filters={"run_sheet": run_sheet_name},
+		fields=["pick_address", "drop_address"]
+	)
+	address_names = set()
+	for leg in legs:
+		if leg.get("pick_address"):
+			address_names.add(leg.pick_address)
+		if leg.get("drop_address"):
+			address_names.add(leg.drop_address)
+	if not address_names:
+		return {"has_ez_address": False}
+	for address_name in address_names:
+		ez = frappe.db.get_value("Address", address_name, "custom_economic_zone")
+		if ez:
+			return {"has_ez_address": True}
+	return {"has_ez_address": False}
+
 
 @frappe.whitelist()
 def refresh_legs(run_sheet_name):
