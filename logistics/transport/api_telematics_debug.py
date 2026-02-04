@@ -23,10 +23,12 @@ def get_all_device_ids():
 			return {
 				"error": "No enabled telematics providers found",
 				"devices": [],
-				"total_devices": 0
+				"total_devices": 0,
+				"provider_errors": []
 			}
 		
 		all_devices = []
+		provider_errors = []
 		
 		# Get devices from each provider
 		from logistics.transport.telematics.resolve import _provider_conf
@@ -36,6 +38,10 @@ def get_all_device_ids():
 			try:
 				conf = _provider_conf(provider_doc.name)
 				if not conf:
+					provider_errors.append({
+						"provider": provider_doc.name,
+						"error": "Provider not configured or disabled"
+					})
 					continue
 				
 				# Enable debug mode
@@ -73,16 +79,22 @@ def get_all_device_ids():
 						})
 			
 			except Exception as e:
+				err_msg = str(e)
 				frappe.log_error(
-					f"Error getting devices from provider {provider_doc.name}: {str(e)}",
+					f"Error getting devices from provider {provider_doc.name}: {err_msg}",
 					"Telematics Debug - Get All Devices"
 				)
+				provider_errors.append({
+					"provider": provider_doc.name,
+					"error": err_msg
+				})
 				continue
 		
 		return {
 			"devices": all_devices,
 			"total_devices": len(all_devices),
-			"providers_checked": len(providers)
+			"providers_checked": len(providers),
+			"provider_errors": provider_errors
 		}
 	
 	except Exception as e:
@@ -90,7 +102,8 @@ def get_all_device_ids():
 		return {
 			"error": str(e),
 			"devices": [],
-			"total_devices": 0
+			"total_devices": 0,
+			"provider_errors": []
 		}
 
 

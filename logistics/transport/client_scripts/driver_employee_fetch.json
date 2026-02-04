@@ -1,0 +1,15 @@
+{
+  "name": "Driver Employee Name Fetch",
+  "owner": "Administrator",
+  "creation": "2025-01-27 00:00:00.000000",
+  "modified": "2025-01-27 00:00:00.000000",
+  "modified_by": "Administrator",
+  "docstatus": 0,
+  "idx": 0,
+  "dt": "Driver",
+  "view": "Form",
+  "module": "Transport",
+  "enabled": 1,
+  "script": "frappe.ui.form.on('Driver', {\n\temployee: function(frm) {\n\t\tif (frm.doc.employee) {\n\t\t\t// Fetch employee name from Employee doctype\n\t\t\tfrappe.db.get_value('Employee', frm.doc.employee, 'employee_name', (r) => {\n\t\t\t\tif (r && r.employee_name) {\n\t\t\t\t\tfrm.set_value('full_name', r.employee_name);\n\t\t\t\t}\n\t\t\t});\n\t\t} else {\n\t\t\t// Clear full_name if employee is cleared\n\t\t\tif (!frm.doc.full_name || frm.doc.full_name === '') {\n\t\t\t\t// Only clear if it's empty to avoid overwriting manually entered names\n\t\t\t\tfrm.set_value('full_name', '');\n\t\t\t}\n\t\t}\n\t}\n});",
+  "doctype": "Client Script"
+}
