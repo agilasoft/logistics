@@ -249,11 +249,45 @@ class RemoraProvider:
 
     def GetDevices(self) -> List[Dict[str, Any]]:
         doc = self._call("GetDevices", self._auth_body())
-        # WSDL: GetDevicesResponse / deviceList / Device
+        # WSDL: GetDevicesResponse / deviceList / Device (deviceList may be list of Device when multiple)
         out = _extract_list(doc, ["Envelope", "Body", "GetDevicesResponse", "deviceList", "Device"])
-        if out: return out
+        if out:
+            return out
+        # deviceList as direct list (no Device key)
+        out = _extract_list(doc, ["Envelope", "Body", "GetDevicesResponse", "deviceList"])
+        if out:
+            return out
         # Some tenants flatten: GetDevicesResponse / Device
-        return _extract_list(doc, ["Envelope", "Body", "GetDevicesResponse", "Device"])
+        out = _extract_list(doc, ["Envelope", "Body", "GetDevicesResponse", "Device"])
+        if out:
+            return out
+        # CamelCase / alternate response names
+        out = _extract_list(doc, ["Envelope", "Body", "getDevicesResponse", "deviceList", "Device"])
+        if out:
+            return out
+        out = _extract_list(doc, ["Envelope", "Body", "GetDevicesResult", "deviceList", "Device"])
+        if out:
+            return out
+        out = _extract_list(doc, ["Envelope", "Body", "GetDevicesResult", "Device"])
+        if out:
+            return out
+        # Last resort: recursively find any list of dicts that look like devices (have deviceId-like key)
+        out = _find_device_list_in_doc(doc)
+        if out:
+            _LOG.info("REMORA GetDevices: used fallback device list (response structure differed from WSDL)")
+            return out
+        # Log response structure so we can add the correct path (no devices parsed)
+        try:
+            import json
+            import frappe
+            structure = _structure_summary(doc, max_depth=6)
+            frappe.log_error(
+                "Remora GetDevices returned 0 devices. Response structure (keys only):\n\n" + json.dumps(structure, indent=2),
+                "Remora GetDevices - empty response structure"
+            )
+        except Exception:
+            pass
+        return []
     
     def get_device_id_by_name(self, device_name: str) -> Optional[str]:
         """
@@ -599,13 +633,58 @@ def _xml_escape(s: Any) -> str:
              .replace("'", "&apos;"))
 
 
+def _structure_summary(obj: Any, max_depth: int = 6, depth: int = 0) -> Any:
+    """Build a safe summary of parsed XML (keys, list lengths) for debugging empty responses."""
+    if depth >= max_depth:
+        return "..."
+    if isinstance(obj, dict):
+        return {k: _structure_summary(v, max_depth, depth + 1) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return f"<list len={len(obj)}>" if len(obj) > 5 else [_structure_summary(item, max_depth, depth + 1) for item in obj[:5]]
+    return type(obj).__name__
+
+
+def _looks_like_device(d: Any) -> bool:
+    """True if d is a dict with at least one device-identifying key (deviceId, name, etc.)."""
+    if not isinstance(d, dict):
+        return False
+    device_keys = ("deviceid", "devicename", "name", "externalid", "imei", "description")
+    for k in d.keys():
+        if isinstance(k, str) and k.split(":")[-1].lower() in device_keys:
+            return True
+    return False
+
+
+def _find_device_list_in_doc(doc: Any) -> List[Dict[str, Any]]:
+    """
+    Recursively search parsed SOAP doc for a list of dicts that look like device records.
+    Used as last resort when response structure differs from WSDL.
+    """
+    if isinstance(doc, list):
+        # At least one item must look like a device; return all dict items that do
+        device_like = [item for item in doc if isinstance(item, dict) and _looks_like_device(item)]
+        if device_like:
+            return device_like
+        return []
+    if isinstance(doc, dict):
+        for v in doc.values():
+            out = _find_device_list_in_doc(v)
+            if out:
+                return out
+    return []
+
+
 def _extract_list(doc: Dict[str, Any], path: List[str]) -> List[Dict[str, Any]]:
     """
     Traverse xmltodict map with case-tolerant Envelope/Body and return a list.
     Handles namespaced elements (e.g., a:Device).
+    When the API returns multiple sibling elements (e.g. deviceList = [Device, Device]),
+    xmltodict gives a list at the container; treat that as the final list of items.
     """
     cur: Any = doc
     for key in path:
+        if isinstance(cur, list):
+            return cur  # Already a list of items (e.g. deviceList = [Device, Device, ...])
         if not isinstance(cur, dict):
             return []
         if key in ("Envelope", "Body"):
@@ -616,10 +695,11 @@ def _extract_list(doc: Dict[str, Any], path: List[str]) -> List[Dict[str, Any]]:
             if key in cur:
                 cur = cur.get(key, {})
             else:
-                # Try with namespace prefix (e.g., a:Device for Device)
+                # Try with namespace prefix (e.g., a:Device for Device); match case-insensitively
                 found = False
+                key_lower = key.lower()
                 for dict_key in cur.keys():
-                    if isinstance(dict_key, str) and dict_key.split(":")[-1] == key:
+                    if isinstance(dict_key, str) and dict_key.split(":")[-1].lower() == key_lower:
                         cur = cur[dict_key]
                         found = True
                         break
@@ -634,8 +714,9 @@ def _extract_list(doc: Dict[str, Any], path: List[str]) -> List[Dict[str, Any]]:
 
 
 def _first_key_like(d: Dict[str, Any], short: str) -> str:
+    short_lower = short.lower()
     for k in d.keys():
-        if isinstance(k, str) and k.split(":")[-1] == short:
+        if isinstance(k, str) and k.split(":")[-1].lower() == short_lower:
             return k
     return short
 

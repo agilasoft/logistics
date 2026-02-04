@@ -264,6 +264,31 @@ frappe.ui.form.on("Sales Quote", {
 				};
 			};
 		}
+		
+		// Set up get_query for vehicle_type in child table (transport)
+		if (frm.fields_dict.transport) {
+			const make_vehicle_type_query = function() {
+				if (!frm.doc.load_type) {
+					return { filters: {} };
+				}
+				
+				// Get cached allowed vehicle types
+				const allowed_vehicle_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+				
+				if (allowed_vehicle_types.length === 0) {
+					return { filters: { name: ["in", []] } };
+				}
+				
+				return { filters: { name: ["in", allowed_vehicle_types] } };
+			};
+			
+			// Set query for grid field
+			if (frm.fields_dict.transport.grid && frm.fields_dict.transport.grid.get_field) {
+				frm.fields_dict.transport.grid.get_field('vehicle_type').get_query = make_vehicle_type_query;
+			}
+			// Also use set_query method
+			frm.set_query('vehicle_type', 'transport', make_vehicle_type_query);
+		}
 	},
 
 	apply_default_uoms_per_tab(frm) {

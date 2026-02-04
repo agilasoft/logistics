@@ -182,39 +182,71 @@ function show_all_devices(data, frm) {
 		`;
 	} else if (data.devices && data.devices.length > 0) {
 		devices_html = `
-			<h5>Available Devices (${data.total_devices}):</h5>
-			<div style="max-height: 400px; overflow-y: auto;">
-				<table class="table table-bordered table-striped" id="devices-table">
+			<div class="devices-table-wrap" style="
+				max-height: 380px; overflow-y: auto;
+				border: 1px solid var(--border-color, #d1d8dd);
+				border-radius: 6px;
+				background: var(--bg-color, #fff);
+			">
+				<table class="devices-table" id="devices-table" style="
+					width: 100%; border-collapse: collapse; font-size: 12px;
+				">
 					<thead>
-						<tr>
-							<th style="width: 50px;">Select</th>
-							<th>Device ID</th>
-							<th>Device Name</th>
-							<th>Provider</th>
-							<th>Provider Type</th>
+						<tr style="
+							background: var(--table-head-bg, #f0f2f5);
+							color: var(--text-color, #262626);
+							font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+						">
+							<th style="width: 32px; padding: 8px 10px; text-align: center;">○</th>
+							<th style="padding: 8px 10px; text-align: left;">Device</th>
+							<th style="padding: 8px 10px; text-align: left; max-width: 140px;">ID</th>
+							<th style="padding: 8px 10px; text-align: left; width: 70px;">Provider</th>
 						</tr>
 					</thead>
 					<tbody>
 						${data.devices.map((device, index) => `
-							<tr class="device-row" data-device-id="${device.device_id}" data-device-name="${device.device_name || ''}" style="cursor: pointer;">
-								<td style="text-align: center;">
-									<input type="radio" name="selected_device" value="${index}" id="device_${index}">
+							<tr class="device-row" data-device-id="${device.device_id}" data-device-name="${device.device_name || ''}" style="
+								cursor: pointer;
+								border-bottom: 1px solid var(--border-color, #e8e8e8);
+								transition: background 0.12s ease;
+							" onmouseover="this.style.background='var(--control-bg, #f5f7fa)'" onmouseout="this.style.background='transparent'">
+								<td style="padding: 6px 10px; text-align: center; vertical-align: middle;">
+									<input type="radio" name="selected_device" value="${index}" id="device_${index}" style="margin: 0;">
 								</td>
-								<td><strong>${device.device_id}</strong></td>
-								<td>${device.device_name || 'N/A'}</td>
-								<td>${device.provider}</td>
-								<td>${device.provider_type}</td>
+								<td style="padding: 6px 10px; font-weight: 500;">${device.device_name || 'N/A'}</td>
+								<td style="padding: 6px 10px; font-family: monospace; font-size: 11px; color: var(--text-muted, #6c7680); max-width: 140px; overflow: hidden; text-overflow: ellipsis;" title="${device.device_id}">${device.device_id}</td>
+								<td style="padding: 6px 10px; font-size: 11px; color: var(--text-muted, #6c7680);">${device.provider}</td>
 							</tr>
 						`).join('')}
 					</tbody>
 				</table>
 			</div>
+			<div style="margin-top: 8px; font-size: 11px; color: var(--text-muted, #6c7680);">${data.total_devices} device${data.total_devices !== 1 ? 's' : ''}</div>
 		`;
 	} else {
+		let provider_errors_html = '';
+		if (data.provider_errors && data.provider_errors.length > 0) {
+			provider_errors_html = `
+				<div class="alert alert-danger" style="margin-top: 10px;">
+					<strong>Provider errors:</strong>
+					<ul style="margin-bottom: 0;">
+						${data.provider_errors.map(pe => `<li><strong>${pe.provider}:</strong> ${(pe.error || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
+					</ul>
+					<small>See Error Log for full details.</small>
+				</div>
+			`;
+		} else {
+			provider_errors_html = `
+				<div class="alert alert-secondary" style="margin-top: 10px; font-size: 12px;">
+					<strong>Remora users:</strong> Open <b>Error Log</b> and look for <b>Remora GetDevices - empty response structure</b>. Share that entry with support to fix device listing.
+				</div>
+			`;
+		}
 		devices_html = `
 			<div class="alert alert-warning">
 				<strong>No devices found.</strong> Check your telematics provider configuration.
 			</div>
+			${provider_errors_html}
 		`;
 	}
 	
@@ -225,18 +257,11 @@ function show_all_devices(data, frm) {
 				fieldtype: "HTML",
 				fieldname: "devices_info",
 				options: `
-					<div style="padding: 20px;">
-						<h4>Select a Device</h4>
+					<div style="padding: 16px 20px;">
+						<div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-color, #333);">Select a device</div>
 						${devices_html}
-						
-						<div class="alert alert-info">
-							<strong>Instructions:</strong>
-							<ol>
-								<li>Click on a device row or select the radio button to choose a device</li>
-								<li>Click "Select Device" to update the Transport Vehicle record</li>
-								<li>The Device ID will be set in "Telematics External ID" field</li>
-								<li>The Device Name will be set in "Telematics Device Name" field</li>
-							</ol>
+						<div style="margin-top: 14px; padding: 10px 12px; background: var(--control-bg, #f8f9fa); border-radius: 6px; font-size: 11px; color: var(--text-muted, #6c7680);">
+							Click a row or the radio, then <strong>Select Device</strong> to set Telematics External ID and Device Name on this vehicle.
 						</div>
 					</div>
 				`
