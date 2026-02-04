@@ -157,29 +157,84 @@ function fetch_consolidatable_jobs(frm) {
 	});
 }
 
-function fetch_legs_for_jobs(job_names, callback) {
-	// Fetch transport legs for the given job names
+function fetch_legs_for_jobs(job_names, callback, company, fetch_all) {
+	// Fetch transport legs for the given job names or all consolidatable legs
+	// If fetch_all is true, fetches ALL consolidatable legs (without run_sheet, with valid Load Type)
+	// If fetch_all is false or undefined, fetches legs for the given job names
+	
+	// If fetch_all is true, we don't need job_names
+	if (fetch_all) {
+		frappe.call({
+			method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_legs",
+			args: {
+				fetch_all: true,
+				company: company || null
+			},
+			callback: function(r) {
+				if (r.message && r.message.status === "success") {
+					callback(r.message.legs || []);
+				} else {
+					// Show error message if there's an issue
+					if (r.message && r.message.message) {
+						frappe.show_alert({
+							message: __("Error fetching legs: {0}", [r.message.message]),
+							indicator: "orange"
+						});
+					}
+					callback([]);
+				}
+			},
+			error: function(r) {
+				frappe.show_alert({
+					message: __("Error fetching transport legs"),
+					indicator: "red"
+				});
+				callback([]);
+			}
+		});
+		return;
+	}
+	
+	// Original behavior: fetch legs for given job names
 	if (!job_names || job_names.length === 0) {
 		callback([]);
 		return;
 	}
 	
-	// Get unique job names
-	const unique_job_names = [...new Set(job_names)];
+	// Get unique job names and ensure it's a proper array
+	const unique_job_names = Array.isArray(job_names) ? [...new Set(job_names)] : [job_names];
+	
+	// Ensure all values are strings (not objects)
+	const clean_job_names = unique_job_names.map(function(name) {
+		return typeof name === 'string' ? name : (name && name.name ? name.name : String(name));
+	}).filter(Boolean);
 	
 	frappe.call({
 		method: "logistics.transport.doctype.transport_consolidation.transport_consolidation.get_consolidatable_legs",
 		args: {
-			job_names: unique_job_names
+			job_names: clean_job_names,
+			fetch_all: false,
+			company: company || null
 		},
 		callback: function(r) {
 			if (r.message && r.message.status === "success") {
 				callback(r.message.legs || []);
 			} else {
+				// Show error message if there's an issue
+				if (r.message && r.message.message) {
+					frappe.show_alert({
+						message: __("Error fetching legs: {0}", [r.message.message]),
+						indicator: "orange"
+					});
+				}
 				callback([]);
 			}
 		},
-		error: function() {
+		error: function(r) {
+			frappe.show_alert({
+				message: __("Error fetching transport legs"),
+				indicator: "red"
+			});
 			callback([]);
 		}
 	});
@@ -676,7 +731,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				fieldname: "sort_by",
 				fieldtype: "Select",
 				label: __("Sort By"),
-				options: "Job\nCustomer\nScheduled Date\nLoad Type\nPick Address\nDrop Address\nType",
+				options: "Job\nCustomer\nScheduled Date\nVehicle Type\nLoad Type\nPick Address\nDrop Address\nType",
 				default: "Scheduled Date",
 				description: __("Select field to sort jobs by")
 			},
@@ -708,7 +763,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 								${__("Jobs")}
 							</button>
 							<button type="button" class="btn btn-sm view-toggle-btn btn-default" data-view="legs" style="min-width: 100px;">
-								${__("Transport Legs")}
+								${__("Legs")}
 							</button>
 						</div>
 					</div>
@@ -830,112 +885,66 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	
 	// Function to filter jobs or legs based on filter values
 	function filter_jobs() {
-		// First, filter jobs based on filter criteria (this applies to both views)
-		const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
-		
 		const filter_customer = dialog.fields_dict.filter_customer ? dialog.fields_dict.filter_customer.get_value() : '';
 		const filter_pick_address = dialog.fields_dict.filter_pick_address ? dialog.fields_dict.filter_pick_address.get_value() : '';
 		const filter_drop_address = dialog.fields_dict.filter_drop_address ? dialog.fields_dict.filter_drop_address.get_value() : '';
 		const filter_consolidation_type = dialog.fields_dict.filter_consolidation_type ? dialog.fields_dict.filter_consolidation_type.get_value() : '';
-		
-		// Filter jobs (same logic for both views)
-		let filtered_jobs_result = jobs_to_filter.filter(function(job) {
-			// Filter by customer
-			if (filter_customer && job.customer !== filter_customer) {
-				return false;
-			}
-			
-			// Filter by pick address (check if any pick address ID matches)
-			if (filter_pick_address) {
-				const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
-					job.pick_addresses.some(function(addr) {
-						return addr === filter_pick_address;
-					});
-				if (!pick_matches) {
-					return false;
-				}
-			}
-			
-			// Filter by drop address (check if any drop address ID matches)
-			if (filter_drop_address) {
-				const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
-					job.drop_addresses.some(function(addr) {
-						return addr === filter_drop_address;
-					});
-				if (!drop_matches) {
-					return false;
-				}
-			}
-			
-			// Note: consolidation_type filtering is done server-side when jobs are fetched
-			// So we don't need to filter by it here - the jobs are already filtered
-			
-			return true;
-		});
-		
-		// Sort jobs (always use 'Scheduled Date' for jobs, 'Date' is only for sorting legs)
-		const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : 'Scheduled Date';
+		const sort_by = dialog.fields_dict.sort_by ? dialog.fields_dict.sort_by.get_value() : (dialog._current_view === "legs" ? 'Date' : 'Scheduled Date');
 		const sort_order = dialog.fields_dict.sort_order ? dialog.fields_dict.sort_order.get_value() : 'Ascending';
-		filtered_jobs_result = sort_jobs(filtered_jobs_result, sort_by, sort_order);
-		
-		// Store filtered jobs in dialog
-		if (!dialog._jobs_data) {
-			dialog._jobs_data = {};
-		}
-		dialog._jobs_data.filtered_jobs = filtered_jobs_result;
 		
 		if (dialog._current_view === "legs") {
-			// In legs view: filter jobs first, then get legs for those filtered jobs
-			const filtered_job_names = filtered_jobs_result.map(function(job) { return job.name; }).sort();
-			const job_names_changed = JSON.stringify(filtered_job_names) !== JSON.stringify(dialog._legs_job_names);
-			
-			// If job list changed, we need to re-fetch legs for the new filtered jobs
-			if (job_names_changed) {
+			// In legs view: filter legs directly (not jobs first)
+			// Fetch ALL consolidatable legs (without run_sheet, with valid Load Type)
+			// First, ensure we have fetched all consolidatable legs
+			if (!dialog._all_legs || dialog._all_legs.length === 0) {
 				// Show loading indicator
 				if (dialog.fields_dict.jobs_table) {
 					dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
 				}
 				
-				// Fetch legs for filtered jobs
-				fetch_legs_for_jobs(filtered_job_names, function(legs) {
-					dialog._all_legs = legs;
-					dialog._legs_job_names = filtered_job_names;
+				// Fetch ALL consolidatable legs (without run_sheet, with valid Load Type)
+				fetch_legs_for_jobs(null, function(legs) {
+					dialog._all_legs = legs || [];
+					dialog._legs_job_names = []; // Not tracking specific jobs when fetching all
 					
-					// Sort legs (map job sort options to leg sort options)
-					const leg_sort_by = (sort_by === 'Scheduled Date' || sort_by === 'Date') ? 'Date' : sort_by;
-					dialog._filtered_legs = sort_legs(legs, leg_sort_by, sort_order);
+					// Update filters with leg data
+					update_filters_for_view("legs");
 					
-					// Update the table
-					const table_html = build_legs_table_html(dialog._filtered_legs);
-					if (dialog.fields_dict.jobs_table) {
-						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
-					}
-					
-					// Update select all checkbox state
-					update_select_all_state();
-					
-					// Update count in summary
-					if (dialog.fields_dict.summary_info) {
-						const existing_diagnostics = dialog.$wrapper.find('.diagnostics-toggle-header').closest('div').first();
-						const diagnostics_html = existing_diagnostics.length > 0 ? existing_diagnostics[0].outerHTML : '';
-						
-						const summary_html = `<div style="margin-bottom: 15px;">
-							<p style="font-size: 13px; color: #6c757d;">
-								Found <strong>${dialog._filtered_legs.length}</strong> transport leg(s) from <strong>${filtered_jobs_result.length}</strong> filtered job(s).
-							</p>
-							${diagnostics_html}
-						</div>`;
-						dialog.fields_dict.summary_info.$wrapper.html(summary_html);
-						
-						setup_diagnostics_toggle(dialog);
-						setup_filter_toggle(dialog);
-					}
-				});
+					// Now apply filters to legs
+					apply_legs_filters();
+				}, frm.doc.company || null, true);
 			} else {
-				// Job list hasn't changed, just sort the existing legs
-				// Map job sort options to leg sort options
+				// Legs already fetched, just apply filters
+				apply_legs_filters();
+			}
+			
+			// Function to apply filters directly to legs
+			function apply_legs_filters() {
+				const legs_to_filter = dialog._all_legs || [];
+				
+				// Filter legs directly
+				dialog._filtered_legs = legs_to_filter.filter(function(leg) {
+					// Filter by customer
+					if (filter_customer && leg.customer !== filter_customer) {
+						return false;
+					}
+					
+					// Filter by pick address
+					if (filter_pick_address && leg.pick_address !== filter_pick_address) {
+						return false;
+					}
+					
+					// Filter by drop address
+					if (filter_drop_address && leg.drop_address !== filter_drop_address) {
+						return false;
+					}
+					
+					return true;
+				});
+				
+				// Sort legs (map job sort options to leg sort options)
 				const leg_sort_by = (sort_by === 'Scheduled Date' || sort_by === 'Date') ? 'Date' : sort_by;
-				dialog._filtered_legs = sort_legs(dialog._all_legs || [], leg_sort_by, sort_order);
+				dialog._filtered_legs = sort_legs(dialog._filtered_legs, leg_sort_by, sort_order);
 				
 				// Update the table
 				const table_html = build_legs_table_html(dialog._filtered_legs);
@@ -953,7 +962,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 					
 					const summary_html = `<div style="margin-bottom: 15px;">
 						<p style="font-size: 13px; color: #6c757d;">
-							Found <strong>${dialog._filtered_legs.length}</strong> transport leg(s) from <strong>${filtered_jobs_result.length}</strong> filtered job(s).
+							Found <strong>${dialog._filtered_legs.length}</strong> transport leg(s).
 						</p>
 						${diagnostics_html}
 					</div>`;
@@ -964,6 +973,53 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 				}
 			}
 		} else {
+			// In jobs view: filter jobs
+			const jobs_to_filter = (dialog._jobs_data && dialog._jobs_data.all_jobs) ? dialog._jobs_data.all_jobs : all_jobs;
+			
+			// Filter jobs
+			let filtered_jobs_result = jobs_to_filter.filter(function(job) {
+				// Filter by customer
+				if (filter_customer && job.customer !== filter_customer) {
+					return false;
+				}
+				
+				// Filter by pick address (check if any pick address ID matches)
+				if (filter_pick_address) {
+					const pick_matches = job.pick_addresses && Array.isArray(job.pick_addresses) && 
+						job.pick_addresses.some(function(addr) {
+							return addr === filter_pick_address;
+						});
+					if (!pick_matches) {
+						return false;
+					}
+				}
+				
+				// Filter by drop address (check if any drop address ID matches)
+				if (filter_drop_address) {
+					const drop_matches = job.drop_addresses && Array.isArray(job.drop_addresses) && 
+						job.drop_addresses.some(function(addr) {
+							return addr === filter_drop_address;
+						});
+					if (!drop_matches) {
+						return false;
+					}
+				}
+				
+				// Note: consolidation_type filtering is done server-side when jobs are fetched
+				// So we don't need to filter by it here - the jobs are already filtered
+				
+				return true;
+			});
+			
+			// Sort jobs
+			filtered_jobs_result = sort_jobs(filtered_jobs_result, sort_by, sort_order);
+			
+			// Store filtered jobs in dialog
+			if (!dialog._jobs_data) {
+				dialog._jobs_data = {};
+			}
+			dialog._jobs_data.filtered_jobs = filtered_jobs_result;
+			filtered_jobs = filtered_jobs_result;
 			// In jobs view: use the filtered jobs result
 			filtered_jobs = filtered_jobs_result;
 			
@@ -1004,6 +1060,134 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 	// Store filter_jobs function reference in dialog for external access
 	dialog._filter_jobs = filter_jobs;
 	
+	// Function to update filters based on current view
+	function update_filters_for_view(view_type) {
+		// Update sort_by options based on view
+		if (dialog.fields_dict.sort_by) {
+			if (view_type === "legs") {
+				// Legs-specific sort options
+				dialog.fields_dict.sort_by.df.options = "Leg\nJob\nCustomer\nDate\nVehicle Type\nLoad Type\nPick Address\nDrop Address\nStatus";
+				dialog.fields_dict.sort_by.df.description = __("Select field to sort legs by");
+				dialog.fields_dict.sort_by.set_value("Date");
+			} else {
+				// Jobs-specific sort options
+				dialog.fields_dict.sort_by.df.options = "Job\nCustomer\nScheduled Date\nVehicle Type\nLoad Type\nPick Address\nDrop Address\nType";
+				dialog.fields_dict.sort_by.df.description = __("Select field to sort jobs by");
+				dialog.fields_dict.sort_by.set_value("Scheduled Date");
+			}
+			dialog.fields_dict.sort_by.refresh();
+		}
+		
+		// Hide/show consolidation_type filter (only relevant for jobs)
+		if (dialog.fields_dict.filter_consolidation_type) {
+			if (view_type === "legs") {
+				dialog.fields_dict.filter_consolidation_type.$wrapper.hide();
+			} else {
+				dialog.fields_dict.filter_consolidation_type.$wrapper.show();
+			}
+		}
+		
+		// Update filter descriptions
+		if (dialog.fields_dict.filter_customer) {
+			dialog.fields_dict.filter_customer.df.description = view_type === "legs" 
+				? __("Filter legs by customer") 
+				: __("Filter jobs by customer");
+			dialog.fields_dict.filter_customer.refresh();
+		}
+		
+		if (dialog.fields_dict.filter_pick_address) {
+			dialog.fields_dict.filter_pick_address.df.description = view_type === "legs"
+				? __("Filter legs by pick address")
+				: __("Filter jobs by pick address");
+			dialog.fields_dict.filter_pick_address.refresh();
+		}
+		
+		if (dialog.fields_dict.filter_drop_address) {
+			dialog.fields_dict.filter_drop_address.df.description = view_type === "legs"
+				? __("Filter legs by drop address")
+				: __("Filter jobs by drop address");
+			dialog.fields_dict.filter_drop_address.refresh();
+		}
+		
+		// Update filter queries for legs view
+		if (view_type === "legs" && dialog._all_legs && dialog._all_legs.length > 0) {
+			// Collect unique values from legs for filter dropdowns
+			const leg_customers = [...new Set(dialog._all_legs.map(l => l.customer).filter(Boolean))].sort();
+			const leg_pick_addresses = [...new Set(dialog._all_legs.map(l => l.pick_address).filter(Boolean))];
+			const leg_drop_addresses = [...new Set(dialog._all_legs.map(l => l.drop_address).filter(Boolean))];
+			
+			// Update customer filter query
+			if (dialog.fields_dict.filter_customer) {
+				dialog.fields_dict.filter_customer.df.get_query = function() {
+					return {
+						filters: {
+							name: ["in", leg_customers]
+						}
+					};
+				};
+				dialog.fields_dict.filter_customer.refresh();
+			}
+			
+			// Update pick address filter query
+			if (dialog.fields_dict.filter_pick_address) {
+				dialog.fields_dict.filter_pick_address.df.get_query = function() {
+					return {
+						filters: {
+							name: ["in", leg_pick_addresses]
+						}
+					};
+				};
+				dialog.fields_dict.filter_pick_address.refresh();
+			}
+			
+			// Update drop address filter query
+			if (dialog.fields_dict.filter_drop_address) {
+				dialog.fields_dict.filter_drop_address.df.get_query = function() {
+					return {
+						filters: {
+							name: ["in", leg_drop_addresses]
+						}
+					};
+				};
+				dialog.fields_dict.filter_drop_address.refresh();
+			}
+		} else if (view_type === "jobs") {
+			// Restore original queries for jobs view
+			if (dialog.fields_dict.filter_customer) {
+				dialog.fields_dict.filter_customer.df.get_query = function() {
+					return {
+						filters: {
+							name: ["in", unique_customers]
+						}
+					};
+				};
+				dialog.fields_dict.filter_customer.refresh();
+			}
+			
+			if (dialog.fields_dict.filter_pick_address) {
+				dialog.fields_dict.filter_pick_address.df.get_query = function() {
+					return {
+						filters: {
+							name: ["in", Array.from(all_pick_address_ids)]
+						}
+					};
+				};
+				dialog.fields_dict.filter_pick_address.refresh();
+			}
+			
+			if (dialog.fields_dict.filter_drop_address) {
+				dialog.fields_dict.filter_drop_address.df.get_query = function() {
+					return {
+						filters: {
+							name: ["in", Array.from(all_drop_address_ids)]
+						}
+					};
+				};
+				dialog.fields_dict.filter_drop_address.refresh();
+			}
+		}
+	}
+	
 	// Function to switch between jobs and legs view
 	function switch_view(view_type) {
 		current_view = view_type;
@@ -1014,52 +1198,51 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 		dialog.$wrapper.find(`.view-toggle-btn[data-view="${view_type}"]`).removeClass('btn-default').addClass('btn-primary');
 		
 		// Update section label
-		const section_label = dialog.$wrapper.find('label:contains("Available Jobs"), label:contains("Available Transport Legs")').closest('.form-section').find('label');
+		const section_label = dialog.$wrapper.find('label:contains("Available Jobs"), label:contains("Available Legs")').closest('.form-section').find('label');
 		if (view_type === "legs") {
-			section_label.text(__("Available Transport Legs"));
+			section_label.text(__("Available Legs"));
 		} else {
 			section_label.text(__("Available Jobs"));
 		}
 		
-		// Note: Sort options are kept the same for both views
-		// The sort functions will handle the mapping appropriately
+		// Update filters for the current view
+		update_filters_for_view(view_type);
 		
 		if (view_type === "legs") {
 			// Switch to legs view
-			// Get currently filtered/visible jobs from the Jobs view
-			const jobs_to_use = (dialog._jobs_data && dialog._jobs_data.filtered_jobs) ? 
-				dialog._jobs_data.filtered_jobs : filtered_jobs;
-			const current_job_names = jobs_to_use.map(function(job) { return job.name; }).sort();
-			
-			// Check if we need to fetch legs (either not fetched yet, or job list has changed)
-			const job_names_changed = JSON.stringify(current_job_names) !== JSON.stringify(dialog._legs_job_names);
-			
-			if (!dialog._all_legs || dialog._all_legs.length === 0 || job_names_changed) {
-				// Fetch legs for currently visible/filtered jobs
-				dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
-				
-				fetch_legs_for_jobs(current_job_names, function(legs) {
-					dialog._all_legs = legs;
-					dialog._filtered_legs = legs;
-					dialog._legs_job_names = current_job_names; // Store which jobs we fetched legs for
-					
-					// Apply current filters to legs
-					if (dialog._filter_jobs) {
-						dialog._filter_jobs();
-					} else {
-						// Update table directly
-						const table_html = build_legs_table_html(dialog._filtered_legs);
-						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
-						update_select_all_state();
-					}
-				});
+			// Fetch legs for ALL jobs, then apply filters directly to legs
+			if (dialog._filter_jobs) {
+				// filter_jobs will handle fetching legs for all jobs and applying filters
+				dialog._filter_jobs();
 			} else {
-				// Legs already fetched for current job list, just update the table
-				if (dialog._filter_jobs) {
-					dialog._filter_jobs();
+				// Fallback: fetch all consolidatable legs
+				if (!dialog._all_legs || dialog._all_legs.length === 0) {
+					// Show loading indicator
+					if (dialog.fields_dict.jobs_table) {
+						dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
+					}
+					
+					// Fetch ALL consolidatable legs (without run_sheet, with valid Load Type)
+					fetch_legs_for_jobs(null, function(legs) {
+						dialog._all_legs = legs || [];
+						dialog._legs_job_names = []; // Not tracking specific jobs when fetching all
+						// Show all legs
+						dialog._filtered_legs = legs || [];
+						// Update filters with leg data
+						update_filters_for_view("legs");
+						const table_html = build_legs_table_html(dialog._filtered_legs);
+						if (dialog.fields_dict.jobs_table) {
+							dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+						}
+						update_select_all_state();
+					}, frm.doc.company || null, true);
 				} else {
-					const table_html = build_legs_table_html(dialog._filtered_legs);
-					dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+					// Legs already fetched, update filters and show all legs
+					update_filters_for_view("legs");
+					const table_html = build_legs_table_html(dialog._all_legs || []);
+					if (dialog.fields_dict.jobs_table) {
+						dialog.fields_dict.jobs_table.$wrapper.html(table_html);
+					}
 					update_select_all_state();
 				}
 			}
@@ -1217,6 +1400,10 @@ function sort_legs(legs, sort_by, sort_order) {
 				if (!b_value) return is_ascending ? -1 : 1;
 				const date_compare = a_value.localeCompare(b_value);
 				return is_ascending ? date_compare : -date_compare;
+			case 'Vehicle Type':
+				a_value = a.vehicle_type || '';
+				b_value = b.vehicle_type || '';
+				break;
 			case 'Load Type':
 				a_value = a.load_type || '';
 				b_value = b.load_type || '';
@@ -1379,17 +1566,18 @@ function build_legs_table_html(legs) {
 			<table class="table table-bordered table-condensed" style="font-size: 12px; margin: 0;">
 				<thead>
 					<tr style="background-color: #f8f9fa;">
-						<th style="width: 40px; text-align: center; padding: 8px;">
+						<th style="width: 5%; text-align: center; padding: 8px;">
 							<input type="checkbox" class="select-all-checkbox">
 						</th>
-						<th style="width: 10%; padding: 8px;">${__("Leg")}</th>
-						<th style="width: 10%; padding: 8px;">${__("Job")}</th>
-						<th style="width: 12%; padding: 8px;">${__("Customer")}</th>
-						<th style="width: 10%; padding: 8px;">${__("Date")}</th>
-						<th style="width: 10%; padding: 8px;">${__("Load Type")}</th>
-						<th style="width: 18%; padding: 8px;">${__("Pick Address")}</th>
-						<th style="width: 18%; padding: 8px;">${__("Drop Address")}</th>
-						<th style="width: 8%; padding: 8px;">${__("Status")}</th>
+						<th style="width: 9%; padding: 8px;">${__("Leg")}</th>
+						<th style="width: 9%; padding: 8px;">${__("Job")}</th>
+						<th style="width: 10%; padding: 8px;">${__("Customer")}</th>
+						<th style="width: 9%; padding: 8px;">${__("Date")}</th>
+						<th style="width: 9%; padding: 8px;">${__("Vehicle Type")}</th>
+						<th style="width: 6%; padding: 8px;">${__("Load Type")}</th>
+						<th style="width: 15%; padding: 8px;">${__("Pick Address")}</th>
+						<th style="width: 15%; padding: 8px;">${__("Drop Address")}</th>
+						<th style="width: 6%; padding: 8px;">${__("Status")}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -1419,6 +1607,9 @@ function build_legs_table_html(legs) {
 			status_class = 'badge-primary';
 		}
 		
+		// Get vehicle type display
+		const vehicle_type_display = leg.vehicle_type || '-';
+		
 		html += `
 			<tr>
 				<td style="text-align: center; padding: 8px;">
@@ -1432,6 +1623,7 @@ function build_legs_table_html(legs) {
 				</td>
 				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${leg.customer || '-'}">${leg.customer || '-'}</td>
 				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${date_display}</td>
+				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${vehicle_type_display}">${vehicle_type_display}</td>
 				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${leg.load_type || '-'}">${leg.load_type || '-'}</td>
 				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${pick_address_display}">${pick_address_display}</td>
 				<td style="padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${drop_address_display}">${drop_address_display}</td>
@@ -1545,16 +1737,16 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 			<table class="table table-bordered table-condensed" style="font-size: 12px; margin: 0;">
 				<thead>
 					<tr style="background-color: #f8f9fa;">
-						<th style="width: 40px; text-align: center; padding: 8px;">
+						<th style="width: 5%; text-align: center; padding: 8px;">
 							<input type="checkbox" class="select-all-checkbox">
 						</th>
 						<th style="width: 12%; padding: 8px;">${__("Job")}</th>
 						<th style="width: 15%; padding: 8px;">${__("Customer")}</th>
 						<th style="width: 12%; padding: 8px;">${__("Scheduled Date")}</th>
-						<th style="width: 10%; padding: 8px;">${__("Load Type")}</th>
+						<th style="width: 7%; padding: 8px;">${__("Load Type")}</th>
 						<th style="width: 18%; padding: 8px;">${__("Pick Address")}</th>
 						<th style="width: 18%; padding: 8px;">${__("Drop Address")}</th>
-						<th style="width: 10%; padding: 8px;">${__("Type")}</th>
+						<th style="width: 6%; padding: 8px;">${__("Type")}</th>
 					</tr>
 				</thead>
 				<tbody>

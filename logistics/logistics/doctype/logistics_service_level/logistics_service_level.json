@@ -7,14 +7,14 @@
  "engine": "InnoDB",
  "field_order": [
   "service_code",
-  "column_break_eluz",
   "service_name",
-  "section_break_prns",
-  "transport_mode",
-  "column_break_tivi",
-  "est_transit_time",
+  "column_break_eluz",
+  "sla_escalation_contact",
+  "sla_notes",
   "description_section",
-  "text_uufb"
+  "text_uufb",
+  "sla_section",
+  "module_settings"
  ],
  "fields": [
   {
@@ -26,32 +26,14 @@
    "unique": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "description_section",
    "fieldtype": "Section Break",
    "label": "Description"
   },
   {
    "fieldname": "text_uufb",
-   "fieldtype": "Text"
-  },
-  {
-   "fieldname": "section_break_prns",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "transport_mode",
-   "fieldtype": "Select",
-   "label": "Transport mode",
-   "options": "Sea\nAir\nLand\nMultimodal"
-  },
-  {
-   "fieldname": "column_break_tivi",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "est_transit_time",
-   "fieldtype": "Int",
-   "label": "Est. Transit Time(Days)"
+   "fieldtype": "Text Editor"
   },
   {
    "fieldname": "service_code",
@@ -64,12 +46,36 @@
   {
    "fieldname": "column_break_eluz",
    "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sla_section",
+   "fieldtype": "Section Break",
+   "label": "SLA Monitoring"
+  },
+  {
+   "description": "Set SLA rules per module (Transport, Sea Freight, Air Freight, Warehousing, Customs).",
+   "fieldname": "module_settings",
+   "fieldtype": "Table",
+   "label": "Service Level by Module",
+   "options": "Logistics Service Level Module"
+  },
+  {
+   "fieldname": "sla_escalation_contact",
+   "fieldtype": "Link",
+   "label": "Escalation Contact",
+   "options": "User"
+  },
+  {
+   "fieldname": "sla_notes",
+   "fieldtype": "Small Text",
+   "label": "SLA Notes"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-28 09:46:43.859888",
+ "modified": "2026-02-03 12:18:37.902138",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Logistics Service Level",

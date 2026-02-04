@@ -37,6 +37,9 @@
   "chargeable_weight_calculation",
   "column_break_calculation",
   "default_charge_basis",
+  "default_weight_uom",
+  "default_volume_uom",
+  "default_chargeable_uom",
   "alert_settings_section",
   "enable_delay_alerts",
   "enable_eta_alerts",
@@ -249,6 +252,27 @@
    "fieldtype": "Select",
    "label": "Default Charge Basis",
    "options": "Per kg\nPer m³\nPer package\nPer shipment\nFixed amount"
+  },
+  {
+   "fieldname": "default_weight_uom",
+   "fieldtype": "Link",
+   "label": "Default Weight UOM",
+   "options": "UOM",
+   "description": "Default UOM for weight in Sales Quote Air tab and air-related doctypes"
+  },
+  {
+   "fieldname": "default_volume_uom",
+   "fieldtype": "Link",
+   "label": "Default Volume UOM",
+   "options": "UOM",
+   "description": "Default UOM for volume in Sales Quote Air tab and air-related doctypes"
+  },
+  {
+   "fieldname": "default_chargeable_uom",
+   "fieldtype": "Link",
+   "label": "Default Chargeable UOM",
+   "options": "UOM",
+   "description": "Default UOM for chargeable weight in Sales Quote Air tab and air-related doctypes"
   },
   {
    "fieldname": "alert_settings_section",

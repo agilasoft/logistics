@@ -1,35 +1,53 @@
-// Helper function to load allowed vehicle types for a load_type and cache them
-function load_allowed_vehicle_types(frm, load_type, callback) {
-	// Load allowed vehicle types for the given load_type and cache them
+// Cache key for Vehicle Type list by (load_type, hazardous, reefer) - used for load_type-based filter only
+function vehicle_type_cache_key(load_type, hazardous, reefer) {
+	return (load_type || "") + "|" + (hazardous ? "1" : "0") + "|" + (reefer ? "1" : "0");
+}
+
+// Build filter description for Vehicle Type field (includes Load type so it shows in the dropdown)
+function update_vehicle_type_filter_description(frm) {
+	if (!frm.fields_dict.vehicle_type) return;
+	var parts = [];
+	if (frm.doc.load_type) {
+		parts.push(__("Load type is {0}", [frm.doc.load_type]));
+	}
+	parts.push(frm.doc.hazardous ? __("Hazardous is enabled") : __("Hazardous is disabled"));
+	parts.push(frm.doc.reefer ? __("Reefer is enabled") : __("Reefer is disabled"));
+	if (frm.doc.load_type) {
+		var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.hazardous, frm.doc.reefer);
+		var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
+		if (names && names.length) {
+			var nameList = names.length > 5 ? names.slice(0, 5).join(", ") + "…" : names.join(", ");
+			parts.push(__("Name is one of {0}", [nameList]));
+		}
+	}
+	frm.fields_dict.vehicle_type.df.filter_description = __("Filtered by: {0}.", [frappe.utils.comma_and(parts)]);
+}
+
+// Load Vehicle Type names for load_type + hazardous + reefer (for get_query; load_type filter cannot be done in link_filters)
+function load_vehicle_types_for_load_type(frm, load_type, callback) {
 	if (!load_type) {
 		if (callback) callback();
 		return;
 	}
-	
-	// Check cache first
-	if (frm.allowed_vehicle_types_cache[load_type]) {
+	var hazardous = frm.doc.hazardous ? 1 : 0;
+	var reefer = frm.doc.reefer ? 1 : 0;
+	var key = vehicle_type_cache_key(load_type, hazardous, reefer);
+	if (frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key]) {
 		if (callback) callback();
 		return;
 	}
-	
-	// Load from server
 	frappe.call({
 		method: "logistics.transport.doctype.transport_order.transport_order.get_vehicle_types_for_load_type",
-		args: {
-			load_type: load_type
-		},
+		args: { load_type: load_type, hazardous: hazardous, reefer: reefer },
 		callback: function(r) {
-			if (r.message && r.message.vehicle_types) {
-				frm.allowed_vehicle_types_cache[load_type] = r.message.vehicle_types;
-			} else {
-				frm.allowed_vehicle_types_cache[load_type] = [];
-			}
+			if (!frm._vehicle_types_by_load_type) frm._vehicle_types_by_load_type = {};
+			frm._vehicle_types_by_load_type[key] = (r.message && r.message.vehicle_types) ? r.message.vehicle_types : [];
 			if (callback) callback();
 		}
 	});
 }
 
-// Helper function to apply load_type filters (same pattern as vehicle_type)
+// Helper function to apply load_type filters
 function apply_load_type_filters(frm, preserve_existing_value) {
 	// Filter load types based on transport job type and boolean columns
 	// preserve_existing_value: if true, don't clear load_type even if not in filtered list (used during refresh)
@@ -98,8 +116,7 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 
 frappe.ui.form.on("Transport Order", {
 	setup: function(frm) {
-		// Initialize cache for allowed vehicle types
-		frm.allowed_vehicle_types_cache = {};
+		frm._vehicle_types_by_load_type = {};
 		// Apply load_type filters before field is ever used
 		apply_load_type_filters(frm);
 	},
@@ -128,7 +145,7 @@ frappe.ui.form.on("Transport Order", {
 		
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
-		// Apply transport job type filters on load (preserve existing values for existing documents)
+		// Apply transport job type filters on load (container/reefer field visibility, etc.)
 		if (frm.doc.transport_job_type) {
 			frm.events.apply_transport_job_type_filters(frm, !frm.is_new());
 		}
@@ -136,102 +153,83 @@ frappe.ui.form.on("Transport Order", {
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, !frm.is_new());
 		}
-		
-		// Set vehicle_type query filter based on load_type (main form)
-		if (frm.fields_dict.vehicle_type) {
-			frm.fields_dict.vehicle_type.get_query = function() {
-				if (!frm.doc.load_type) {
-					return {
-						filters: {}
-					};
+
+		// Set get_query for Load Type so filter is applied and "Filtered by" is shown (transport_job_type based)
+		if (frm.fields_dict.load_type) {
+			frm.fields_dict.load_type.get_query = function() {
+				if (!frm.doc.transport_job_type) {
+					return { filters: { transport: 1 } };
 				}
-				
-				// Get cached allowed vehicle types
-				const allowed_vehicle_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
-				
-				if (allowed_vehicle_types.length === 0) {
-					// If no vehicle types are allowed, return empty filter (will show no results)
-					return {
-						filters: {
-							name: ["in", []]
-						}
-					};
-				}
-				
-				return {
-					filters: {
-						name: ["in", allowed_vehicle_types]
-					}
-				};
-			};
-		}
-		
-		// Load allowed vehicle types for current load_type if set
-		if (frm.doc.load_type) {
-			load_allowed_vehicle_types(frm, frm.doc.load_type);
-		}
-		
-		// Set vehicle_type query filter for legs grid (once per form)
-		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
-			frm.fields_dict.legs.grid.get_field('vehicle_type').get_query = function () {
-				// 'this' context is the grid row
-				var leg = this;
-				
-				// Filter by load_type if available (from parent or leg)
-				var leg_load_type = leg.load_type || frm.doc.load_type;
-				if (leg_load_type) {
-					// Get cached allowed vehicle types
-					const allowed_vehicle_types = frm.allowed_vehicle_types_cache[leg_load_type] || [];
-					
-					if (allowed_vehicle_types.length === 0) {
-						// If no vehicle types are allowed, return empty filter (will show no results)
-						return {
-							filters: {
-								name: ["in", []]
-							}
-						};
-					}
-					
-					return {
-						filters: {
-							name: ["in", allowed_vehicle_types]
-						}
-					};
-				}
-				
-				// Fallback to transport_job_type filtering if no load_type
-				var filters = {};
-				if (!leg.transport_job_type) {
-					return { filters: {} };
-				}
-				
-				// Filter by container flag
-				if (leg.transport_job_type === "Container") {
+				var filters = { transport: 1 };
+				if (frm.doc.transport_job_type === "Container") {
 					filters.container = 1;
-				} else if (leg.transport_job_type === "Non-Container") {
-					filters.container = 0;
-				}
-				
-				// Filter by boolean columns for specific transport job types
-				if (leg.transport_job_type === "Special") {
+				} else if (frm.doc.transport_job_type === "Non-Container") {
+					filters.non_container = 1;
+				} else if (frm.doc.transport_job_type === "Special") {
 					filters.special = 1;
-					filters.reefer = 1;
-				} else if (leg.transport_job_type === "Oversized") {
+				} else if (frm.doc.transport_job_type === "Oversized") {
 					filters.oversized = 1;
-				} else if (leg.transport_job_type === "Heavy Haul") {
+				} else if (frm.doc.transport_job_type === "Heavy Haul") {
 					filters.heavy_haul = 1;
-				} else if (leg.transport_job_type === "Multimodal") {
+				} else if (frm.doc.transport_job_type === "Multimodal") {
 					filters.multimodal = 1;
 				}
-				
-				// Filter by reefer if parent refrigeration is required
-				if (frm.doc.refrigeration && leg.transport_job_type !== "Special") {
-					filters.reefer = 1;
-				}
-				
 				return { filters: filters };
 			};
-			
+		}
+
+		// Vehicle Type: filter by load_type + hazardous + reefer (all in get_query; link_filters would overwrite get_query)
+		if (frm.fields_dict.vehicle_type) {
+			frm.fields_dict.vehicle_type.get_query = function() {
+				var filters = {
+					hazardous: frm.doc.hazardous ? 1 : 0,
+					reefer: frm.doc.reefer ? 1 : 0
+				};
+				if (!frm.doc.load_type) {
+					return { filters: filters };
+				}
+				var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.hazardous, frm.doc.reefer);
+				var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
+				if (!names) {
+					load_vehicle_types_for_load_type(frm, frm.doc.load_type);
+					return { filters: Object.assign({ name: ["in", []] }, filters) };
+				}
+				filters.name = ["in", names];
+				return { filters: filters };
+			};
+		}
+		
+		// Pre-load Vehicle Type list when load_type is set so dropdown is filtered when opened
+		update_vehicle_type_filter_description(frm);
+		if (frm.doc.load_type) {
+			load_vehicle_types_for_load_type(frm, frm.doc.load_type, function() {
+				update_vehicle_type_filter_description(frm);
+				frm.refresh_field('vehicle_type');
+			});
+		}
+
+		// Legs grid: vehicle_type filter by parent/leg load_type + hazardous + reefer
+		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
+			var vt_field = frm.fields_dict.legs.grid.get_field('vehicle_type');
+			if (vt_field) {
+				vt_field.get_query = function() {
+					var leg = this;
+					var lt = leg.load_type || frm.doc.load_type;
+					var filters = {
+						hazardous: frm.doc.hazardous ? 1 : 0,
+						reefer: frm.doc.reefer ? 1 : 0
+					};
+					if (!lt) return { filters: filters };
+					var key = vehicle_type_cache_key(lt, frm.doc.hazardous, frm.doc.reefer);
+					var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
+					if (!names) {
+						load_vehicle_types_for_load_type(frm, lt);
+						return { filters: Object.assign({ name: ["in", []] }, filters) };
+					}
+					filters.name = ["in", names];
+					return { filters: filters };
+				};
+			}
 			// Set pick_address query filter for legs grid
 			var pick_address_field = frm.fields_dict.legs.grid.get_field('pick_address');
 			if (pick_address_field) {
@@ -373,12 +371,7 @@ frappe.ui.form.on("Transport Order", {
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
 		
-		// Apply vehicle_type filters based on load_type on refresh (preserve existing values)
-		if (frm.doc.load_type) {
-			frm.events.apply_vehicle_type_filters_for_load_type(frm, true);
-		}
-		// Apply transport job type filters on refresh (preserve existing values)
-		// Note: This is now secondary to load_type filtering
+		// Apply transport job type filters on refresh (container/reefer field visibility, etc.)
 		if (frm.doc.transport_job_type) {
 			frm.events.apply_transport_job_type_filters(frm, true);
 		}
@@ -386,68 +379,84 @@ frappe.ui.form.on("Transport Order", {
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, true);
 		}
-		
-		// Set vehicle_type query filter for legs grid (ensure it's set on refresh)
-		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
-			frm.fields_dict.legs.grid.get_field('vehicle_type').get_query = function () {
-				// 'this' context is the grid row
-				var leg = this;
-				
-				// Filter by load_type if available (from parent or leg)
-				var leg_load_type = leg.load_type || frm.doc.load_type;
-				if (leg_load_type) {
-					// Get cached allowed vehicle types
-					const allowed_vehicle_types = frm.allowed_vehicle_types_cache[leg_load_type] || [];
-					
-					if (allowed_vehicle_types.length === 0) {
-						// If no vehicle types are allowed, return empty filter (will show no results)
-						return {
-							filters: {
-								name: ["in", []]
-							}
-						};
-					}
-					
-					return {
-						filters: {
-							name: ["in", allowed_vehicle_types]
-						}
-					};
+
+		// Set get_query for Load Type on refresh (ensure filter and "Filtered by" work)
+		if (frm.fields_dict.load_type) {
+			frm.fields_dict.load_type.get_query = function() {
+				if (!frm.doc.transport_job_type) {
+					return { filters: { transport: 1 } };
 				}
-				
-				// Fallback to transport_job_type filtering if no load_type
-				var filters = {};
-				if (!leg.transport_job_type) {
-					return { filters: {} };
-				}
-				
-				// Filter by container flag
-				if (leg.transport_job_type === "Container") {
+				var filters = { transport: 1 };
+				if (frm.doc.transport_job_type === "Container") {
 					filters.container = 1;
-				} else if (leg.transport_job_type === "Non-Container") {
-					filters.container = 0;
-				}
-				
-				// Filter by boolean columns for specific transport job types
-				if (leg.transport_job_type === "Special") {
+				} else if (frm.doc.transport_job_type === "Non-Container") {
+					filters.non_container = 1;
+				} else if (frm.doc.transport_job_type === "Special") {
 					filters.special = 1;
-					filters.reefer = 1;
-				} else if (leg.transport_job_type === "Oversized") {
+				} else if (frm.doc.transport_job_type === "Oversized") {
 					filters.oversized = 1;
-				} else if (leg.transport_job_type === "Heavy Haul") {
+				} else if (frm.doc.transport_job_type === "Heavy Haul") {
 					filters.heavy_haul = 1;
-				} else if (leg.transport_job_type === "Multimodal") {
+				} else if (frm.doc.transport_job_type === "Multimodal") {
 					filters.multimodal = 1;
 				}
-				
-				// Filter by reefer if parent refrigeration is required
-				if (frm.doc.refrigeration && leg.transport_job_type !== "Special") {
-					filters.reefer = 1;
-				}
-				
 				return { filters: filters };
 			};
-			
+		}
+
+		// Vehicle Type get_query on refresh (filter by load_type + hazardous + reefer)
+		if (frm.fields_dict.vehicle_type) {
+			frm.fields_dict.vehicle_type.get_query = function() {
+				var filters = {
+					hazardous: frm.doc.hazardous ? 1 : 0,
+					reefer: frm.doc.reefer ? 1 : 0
+				};
+				if (!frm.doc.load_type) {
+					return { filters: filters };
+				}
+				var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.hazardous, frm.doc.reefer);
+				var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
+				if (!names) {
+					load_vehicle_types_for_load_type(frm, frm.doc.load_type);
+					return { filters: Object.assign({ name: ["in", []] }, filters) };
+				}
+				filters.name = ["in", names];
+				return { filters: filters };
+			};
+		}
+		update_vehicle_type_filter_description(frm);
+		if (frm.doc.load_type) {
+			load_vehicle_types_for_load_type(frm, frm.doc.load_type, function() {
+				update_vehicle_type_filter_description(frm);
+			});
+		}
+
+		// Legs grid: vehicle_type filter by parent load_type (and parent hazardous/reefer)
+		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
+			var vt_field = frm.fields_dict.legs.grid.get_field('vehicle_type');
+			if (vt_field) {
+				vt_field.get_query = function() {
+					var leg = this;
+					var lt = leg.load_type || frm.doc.load_type;
+					var filters = {
+						hazardous: frm.doc.hazardous ? 1 : 0,
+						reefer: frm.doc.reefer ? 1 : 0
+					};
+					if (!lt) return { filters: filters };
+					var key = vehicle_type_cache_key(lt, frm.doc.hazardous, frm.doc.reefer);
+					var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
+					if (!names) {
+						load_vehicle_types_for_load_type(frm, lt);
+						return { filters: Object.assign({ name: ["in", []] }, filters) };
+					}
+					filters.name = ["in", names];
+					return { filters: filters };
+				};
+			}
+		}
+		
+		// Set pick_address and drop_address query filters for legs grid on refresh
+		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
 			// Set pick_address query filter for legs grid (ensure it's set on refresh)
 			var pick_address_field = frm.fields_dict.legs.grid.get_field('pick_address');
 			if (pick_address_field) {
@@ -485,11 +494,6 @@ frappe.ui.form.on("Transport Order", {
 			}
 		}
 		
-		// Load allowed vehicle types for current load_type if set
-		if (frm.doc.load_type) {
-			load_allowed_vehicle_types(frm, frm.doc.load_type);
-		}
-		
 		// Render address HTML for all existing legs
 		if (frm.doc.legs && frm.doc.legs.length > 0) {
 			frm.doc.legs.forEach(function(leg) {
@@ -515,78 +519,60 @@ frappe.ui.form.on("Transport Order", {
 	},
 	
 	load_type: function(frm) {
-		// If load_type is cleared, clear vehicle_type and reset filters
+		update_vehicle_type_filter_description(frm);
 		if (!frm.doc.load_type) {
-			if (frm.fields_dict.vehicle_type) {
-				frm.fields_dict.vehicle_type.get_query = function() {
-					return { filters: {} };
-				};
-			}
-			if (frm.doc.vehicle_type) {
-				frm.set_value('vehicle_type', '');
-			}
 			frm.refresh_field('vehicle_type');
+			frm.refresh_field('legs');
 			return;
 		}
-		
-		// Load allowed vehicle types for the selected load_type
-		load_allowed_vehicle_types(frm, frm.doc.load_type, function() {
-			// Clear vehicle_type if it's not compatible with new load_type
-			if (frm.doc.vehicle_type) {
-				const allowed_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
-				if (!allowed_types.includes(frm.doc.vehicle_type)) {
-					frm.set_value('vehicle_type', '');
-					frappe.msgprint({
-						title: __("Incompatible Vehicle Type"),
-						message: __("Selected vehicle type is not compatible with the selected load type."),
-						indicator: 'orange'
-					});
-				}
-			}
-			// Refresh the field to apply filters
+		load_vehicle_types_for_load_type(frm, frm.doc.load_type, function() {
+			update_vehicle_type_filter_description(frm);
 			frm.refresh_field('vehicle_type');
+			frm.refresh_field('legs');
 		});
 	},
 
 	transport_job_type: function(frm) {
-		// Apply filters and field visibility based on transport job type
+		// Apply field visibility based on transport job type (container/reefer fields, etc.)
 		frm.events.apply_transport_job_type_filters(frm);
 		// Update transport_job_type in all legs when parent changes (only on user action)
 		populate_legs_transport_job_type_from_parent(frm);
-		// Clear vehicle_type if it's not compatible with new job type (don't check refrigeration when job type changes)
-		if (frm.doc.vehicle_type) {
-			frm.events.validate_vehicle_compatibility(frm, true, false);
-		}
-		// Apply load_type filters (same pattern as vehicle_type)
+		// Apply load_type filters
 		apply_load_type_filters(frm);
-		// Clear invalid value when job type changes
+		// Clear load_type when job type changes (load_type options depend on job type)
 		frm.set_value('load_type', null);
-		// Clear vehicle_type when load_type is cleared (since vehicle_type depends on load_type)
-		if (frm.doc.vehicle_type) {
-			frm.set_value('vehicle_type', '');
-		}
 	},
 
-	refrigeration: function(frm) {
-		// Reapply filters when refrigeration checkbox changes (user action)
+	hazardous: function(frm) {
+		update_vehicle_type_filter_description(frm);
+		if (frm.doc.load_type) {
+			load_vehicle_types_for_load_type(frm, frm.doc.load_type, function() {
+				update_vehicle_type_filter_description(frm);
+				frm.refresh_field('vehicle_type');
+				frm.refresh_field('legs');
+			});
+		} else {
+			frm.refresh_field('vehicle_type');
+			frm.refresh_field('legs');
+		}
+	},
+	reefer: function(frm) {
 		if (frm.doc.transport_job_type) {
 			frm.events.apply_transport_job_type_filters(frm);
 		}
-		// Validate vehicle type if set (check refrigeration when refrigeration checkbox changes)
+		update_vehicle_type_filter_description(frm);
+		if (frm.doc.load_type) {
+			load_vehicle_types_for_load_type(frm, frm.doc.load_type, function() {
+				update_vehicle_type_filter_description(frm);
+				frm.refresh_field('vehicle_type');
+				frm.refresh_field('legs');
+			});
+		} else {
+			frm.refresh_field('vehicle_type');
+			frm.refresh_field('legs');
+		}
 		if (frm.doc.vehicle_type) {
 			frm.events.validate_vehicle_compatibility(frm, true, true);
-		}
-		// Reapply filters for all legs (user action - can clear vehicle_type if incompatible)
-		if (frm.doc.legs && frm.doc.legs.length > 0) {
-			frm.doc.legs.forEach(function(leg) {
-				if (leg.transport_job_type) {
-					// On user action, apply filters and potentially clear incompatible vehicle_type
-					apply_leg_vehicle_type_filters(frm, leg.doctype, leg.name);
-					if (leg.vehicle_type) {
-						validate_leg_vehicle_compatibility(frm, leg.doctype, leg.name);
-					}
-				}
-			});
 		}
 	},
 
@@ -727,111 +713,11 @@ frappe.ui.form.on("Transport Order", {
 		frm.set_df_property('vehicle_type', 'reqd', is_required);
 	},
 
-	apply_vehicle_type_filters_for_load_type: function(frm, preserve_existing_value) {
-		// Filter vehicle types based on load_type using allowed_load_types
-		// preserve_existing_value: if true, don't clear vehicle_type even if not in filtered list (used during refresh)
-		if (!frm.doc.load_type) {
-			// Clear filters if no load_type selected
-			if (frm.fields_dict.vehicle_type) {
-				frm.fields_dict.vehicle_type.get_query = function() {
-					return { filters: {} };
-				};
-			}
-			frm.refresh_field('vehicle_type');
-			return;
-		}
-
-		// Load allowed vehicle types and then validate
-		load_allowed_vehicle_types(frm, frm.doc.load_type, function() {
-			// Validate current vehicle_type if set
-			if (!preserve_existing_value && frm.doc.vehicle_type) {
-				const allowed_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
-				if (!allowed_types.includes(frm.doc.vehicle_type)) {
-					frm.set_value('vehicle_type', '');
-				}
-			}
-			frm.refresh_field('vehicle_type');
-		});
-	},
-
 	apply_transport_job_type_filters: function(frm, preserve_existing_value) {
-		// Filter vehicle types based on transport job type, refrigeration, and boolean columns
-		// NOTE: This is now secondary to load_type filtering. Vehicle type filtering is primarily based on load_type.
-		// preserve_existing_value: if true, don't clear vehicle_type even if not in filtered list (used during refresh)
+		// Show/hide and require container/reefer fields based on transport job type (Vehicle Type filters are in Edit Doctype)
 		if (!frm.doc.transport_job_type) {
-			// Clear filters if no job type selected
-			// But only if load_type is also not set (since vehicle_type now depends on load_type)
-			if (!frm.doc.load_type) {
-				if (frm.fields_dict.vehicle_type) {
-					frm.fields_dict.vehicle_type.get_query = function() {
-						return { filters: {} };
-					};
-				}
-				frm.refresh_field('vehicle_type');
-			}
 			return;
 		}
-
-		// If load_type is set, vehicle_type filtering is handled by load_type
-		// Only apply transport_job_type filters if load_type is not set
-		if (frm.doc.load_type) {
-			// Vehicle type filtering is handled by load_type, so skip transport_job_type filtering
-			return;
-		}
-
-		// Build filters based on job type and refrigeration
-		var filters = {};
-		
-		// Filter by container flag
-		if (frm.doc.transport_job_type === "Container") {
-			filters.container = 1;
-		} else if (frm.doc.transport_job_type === "Non-Container") {
-			filters.container = 0;
-		}
-		
-		// Filter by boolean columns for specific transport job types
-		if (frm.doc.transport_job_type === "Special") {
-			filters.special = 1;
-			// Special job type also requires reefer
-			filters.reefer = 1;
-		} else if (frm.doc.transport_job_type === "Oversized") {
-			filters.oversized = 1;
-		} else if (frm.doc.transport_job_type === "Heavy Haul") {
-			filters.heavy_haul = 1;
-		} else if (frm.doc.transport_job_type === "Multimodal") {
-			filters.multimodal = 1;
-		}
-		
-		// Filter by reefer if refrigeration is required (for other job types)
-		// Note: Special job type already has reefer=1 filter above
-		if (frm.doc.refrigeration && frm.doc.transport_job_type !== "Special") {
-			filters.reefer = 1;
-		}
-
-		frappe.call({
-			method: "logistics.transport.doctype.transport_order.transport_order.get_allowed_vehicle_types",
-			args: {
-				transport_job_type: frm.doc.transport_job_type,
-				refrigeration: frm.doc.refrigeration || false
-			},
-			callback: function(r) {
-				if (r.message && r.message.vehicle_types) {
-					const allowed_types = r.message.vehicle_types.map(vt => vt.name);
-					
-					// Apply filters to vehicle_type field
-					frm.set_df_property('vehicle_type', 'filters', filters);
-					
-					// Only clear vehicle_type if current selection is not in allowed types
-					// AND we're not preserving existing values (i.e., during refresh after save)
-					if (!preserve_existing_value && frm.doc.vehicle_type && !allowed_types.includes(frm.doc.vehicle_type)) {
-						frm.set_value('vehicle_type', '');
-					}
-					
-					// Refresh the field to apply filters
-					frm.refresh_field('vehicle_type');
-				}
-			}
-		});
 
 		// Show/hide and require container fields based on job type
 		const is_container = frm.doc.transport_job_type === "Container";
@@ -876,7 +762,7 @@ frappe.ui.form.on("Transport Order", {
 			should_check_refrigeration = true;
 		} else if (check_refrigeration !== false) {
 			// Explicitly check if refrigeration is 1 or true (not just truthy)
-			if (frm.doc.refrigeration === 1 || frm.doc.refrigeration === true) {
+			if ((frm.doc.reefer) === 1 || (frm.doc.reefer) === true) {
 				should_check_refrigeration = true;
 			}
 		}
@@ -981,7 +867,7 @@ frappe.ui.form.on("Transport Order", {
 						var check_refrigeration = false;
 						if (frm.doc.transport_job_type === "Special") {
 							check_refrigeration = true;
-						} else if (frm.doc.refrigeration === 1 || frm.doc.refrigeration === true) {
+						} else if ((frm.doc.reefer) === 1 || (frm.doc.reefer) === true) {
 							check_refrigeration = true;
 						}
 						
@@ -1028,7 +914,7 @@ frappe.ui.form.on("Transport Order", {
 								var check_refrigeration = false;
 								if (leg.transport_job_type === "Special") {
 									check_refrigeration = true;
-								} else if (frm.doc.refrigeration === 1 || frm.doc.refrigeration === true) {
+								} else if ((frm.doc.reefer) === 1 || (frm.doc.reefer) === true) {
 									check_refrigeration = true;
 								}
 								
@@ -1236,18 +1122,17 @@ frappe.ui.form.on('Transport Order Legs', {
 		if (frm.doc.transport_job_type && !leg.transport_job_type) {
 			frappe.model.set_value(cdt, cdn, 'transport_job_type', frm.doc.transport_job_type);
 		}
-		// Apply filters for the leg's vehicle_type field
-		apply_leg_vehicle_type_filters(frm, cdt, cdn);
+		// Vehicle Type filters for legs are defined in Edit Doctype (link_filters on Transport Order Legs)
+		frm.refresh_field('legs');
 	},
 
 	transport_job_type: function(frm, cdt, cdn) {
-		// Apply filters when transport_job_type changes in a leg
-		apply_leg_vehicle_type_filters(frm, cdt, cdn);
-		// Validate vehicle type if set
+		// Clear vehicle_type when transport_job_type changes so user picks again (filters are in Edit Doctype)
 		var leg = frappe.get_doc(cdt, cdn);
 		if (leg.vehicle_type) {
-			validate_leg_vehicle_compatibility(frm, cdt, cdn);
+			frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
 		}
+		frm.refresh_field('legs');
 	},
 
 	vehicle_type: function(frm, cdt, cdn) {
@@ -1322,94 +1207,6 @@ frappe.ui.form.on('Transport Order Legs', {
 	}
 });
 
-// Helper function to apply vehicle type filters for legs (used when user changes transport_job_type)
-// This version clears vehicle_type if filters change (only on user action)
-function apply_leg_vehicle_type_filters(frm, cdt, cdn) {
-	var leg = frappe.get_doc(cdt, cdn);
-	if (!leg.transport_job_type) {
-		return;
-	}
-
-	// Build filters based on job type and parent refrigeration
-	var filters = {};
-	
-	// Filter by container flag
-	if (leg.transport_job_type === "Container") {
-		filters.container = 1;
-	} else if (leg.transport_job_type === "Non-Container") {
-		filters.container = 0;
-	}
-	
-	// Filter by boolean columns for specific transport job types
-	if (leg.transport_job_type === "Special") {
-		filters.special = 1;
-		// Special job type also requires reefer
-		filters.reefer = 1;
-	} else if (leg.transport_job_type === "Oversized") {
-		filters.oversized = 1;
-	} else if (leg.transport_job_type === "Heavy Haul") {
-		filters.heavy_haul = 1;
-	} else if (leg.transport_job_type === "Multimodal") {
-		filters.multimodal = 1;
-	}
-	
-	// Filter by reefer if parent refrigeration is required (for other job types)
-	// Note: Special job type already has reefer=1 filter above
-	if (frm.doc.refrigeration && leg.transport_job_type !== "Special") {
-		filters.reefer = 1;
-	}
-
-	// Guard: Only clear vehicle_type if it is non-empty (prevent clearing empty values)
-	if (leg.vehicle_type) {
-		frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
-	}
-	
-	// Refresh the field to apply the get_query filter (set in onload)
-	frm.refresh_field('legs');
-}
-
-
-// Helper function to apply vehicle type filters for legs (used during refresh - no data mutation)
-// This version only updates filters, doesn't clear vehicle_type
-function apply_leg_vehicle_type_filters_only(frm, cdt, cdn) {
-	var leg = frappe.get_doc(cdt, cdn);
-	if (!leg.transport_job_type) {
-		return;
-	}
-
-	// Build filters based on job type and parent refrigeration
-	var filters = {};
-	
-	// Filter by container flag
-	if (leg.transport_job_type === "Container") {
-		filters.container = 1;
-	} else if (leg.transport_job_type === "Non-Container") {
-		filters.container = 0;
-	}
-	
-	// Filter by boolean columns for specific transport job types
-	if (leg.transport_job_type === "Special") {
-		filters.special = 1;
-		// Special job type also requires reefer
-		filters.reefer = 1;
-	} else if (leg.transport_job_type === "Oversized") {
-		filters.oversized = 1;
-	} else if (leg.transport_job_type === "Heavy Haul") {
-		filters.heavy_haul = 1;
-	} else if (leg.transport_job_type === "Multimodal") {
-		filters.multimodal = 1;
-	}
-	
-	// Filter by reefer if parent refrigeration is required (for other job types)
-	// Note: Special job type already has reefer=1 filter above
-	if (frm.doc.refrigeration && leg.transport_job_type !== "Special") {
-		filters.reefer = 1;
-	}
-	
-	// get_query is set in onload and reads from current row dynamically
-	// No need to set it here - just refresh if needed
-}
-
 // Helper function to validate vehicle compatibility for legs
 function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 	var leg = frappe.get_doc(cdt, cdn);
@@ -1422,7 +1219,7 @@ function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 	var check_refrigeration = false;
 	if (leg.transport_job_type === "Special") {
 		check_refrigeration = true;
-	} else if (frm.doc.refrigeration === 1 || frm.doc.refrigeration === true) {
+	} else if ((frm.doc.reefer) === 1 || (frm.doc.reefer) === true) {
 		check_refrigeration = true;
 	}
 

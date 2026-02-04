@@ -7,8 +7,10 @@ Scheduled Tasks for Transport Module
 """
 
 from __future__ import unicode_literals
+from datetime import datetime, timedelta
 import frappe
 from frappe import _
+from frappe.utils import get_datetime, now_datetime, cint
 
 
 def update_transport_job_statuses():
@@ -135,4 +137,104 @@ def fix_stuck_transport_job_statuses():
         frappe.log_error(
             f"Error in fix_stuck_transport_job_statuses scheduled task: {str(e)}",
             "Transport Job Status Fix Task Error"
+        )
+
+
+def _update_sla_status_for_doctype(doctype, module, name_field="name", sl_field="logistics_service_level", status_field="sla_status", target_field="sla_target_date", docstatus_filter=None, status_exclude=None):
+    """Update sla_status for a doctype. Thresholds come from Logistics Service Level Module child table for the given module."""
+    filters = {target_field: ["is", "set"]}
+    if docstatus_filter is not None:
+        filters["docstatus"] = docstatus_filter
+    if status_exclude:
+        filters["status"] = ["not in", status_exclude]
+    jobs = frappe.get_all(
+        doctype,
+        filters=filters,
+        fields=[name_field, sl_field, target_field, status_field],
+        limit=500
+    )
+    if not jobs:
+        return 0
+    try:
+        from logistics.logistics.doctype.logistics_service_level.logistics_service_level import get_sla_settings_for_module
+    except ImportError:
+        get_sla_settings_for_module = None
+    now = get_datetime(now_datetime())
+    updated = 0
+    for j in jobs:
+        try:
+            target = get_datetime(j.get(target_field))
+            if not target:
+                continue
+            sl_name = j.get(sl_field)
+            at_risk_hours = 24
+            breach_minutes = 0
+            if sl_name and get_sla_settings_for_module:
+                settings = get_sla_settings_for_module(sl_name, module)
+                if settings:
+                    at_risk_hours = cint(settings.get("sla_at_risk_hours_before")) or 24
+                    breach_minutes = cint(settings.get("sla_breach_grace_minutes")) or 0
+            if now > target + timedelta(minutes=breach_minutes):
+                new_status = "Breached"
+            elif now >= target - timedelta(hours=at_risk_hours):
+                new_status = "At Risk"
+            else:
+                new_status = "On Track"
+            if j.get(status_field) != new_status:
+                frappe.db.set_value(doctype, j[name_field], status_field, new_status, update_modified=False)
+                updated += 1
+        except Exception as e:
+            frappe.log_error(
+                f"Error updating SLA status for {doctype} {j.get(name_field)}: {str(e)}",
+                "SLA Status Update Error"
+            )
+    return updated
+
+
+def update_sla_statuses():
+    """
+    Update SLA status (On Track / At Risk / Breached) for Transport Job, Sea Shipment,
+    Air Shipment, and Warehouse Job that have sla_target_date set. Uses thresholds from
+    Logistics Service Level. Runs hourly.
+    """
+    try:
+        updated = 0
+        # Transport Job: module Transport
+        updated += _update_sla_status_for_doctype(
+            "Transport Job",
+            "Transport",
+            sl_field="logistics_service_level",
+            docstatus_filter=1,
+            status_exclude=["Completed", "Cancelled"]
+        )
+        # Sea Shipment: module Sea Freight
+        if frappe.db.table_exists("Sea Shipment") and frappe.db.has_column("Sea Shipment", "sla_target_date"):
+            updated += _update_sla_status_for_doctype(
+                "Sea Shipment",
+                "Sea Freight",
+                sl_field="service_level",
+                docstatus_filter=1
+            )
+        # Air Shipment: module Air Freight
+        if frappe.db.table_exists("Air Shipment") and frappe.db.has_column("Air Shipment", "sla_target_date"):
+            updated += _update_sla_status_for_doctype(
+                "Air Shipment",
+                "Air Freight",
+                sl_field="service_level",
+                docstatus_filter=1
+            )
+        # Warehouse Job: module Warehousing
+        if frappe.db.table_exists("Warehouse Job") and frappe.db.has_column("Warehouse Job", "sla_target_date"):
+            updated += _update_sla_status_for_doctype(
+                "Warehouse Job",
+                "Warehousing",
+                sl_field="logistics_service_level",
+                docstatus_filter=1
+            )
+        if updated:
+            frappe.db.commit()
+    except Exception as e:
+        frappe.log_error(
+            f"Error in update_sla_statuses scheduled task: {str(e)}",
+            "SLA Status Task Error"
         )

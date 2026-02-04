@@ -14,38 +14,44 @@ class SalesQuote(Document):
 		self.validate_vehicle_type_capacity()
 	
 	def validate_vehicle_type_capacity(self):
-		"""Validate vehicle type capacity when vehicle_type is assigned"""
+		"""Validate vehicle type capacity when vehicle_type is assigned. Uses Transport tab dimensions."""
 		if not getattr(self, 'vehicle_type', None) or not getattr(self, 'is_transport', None):
 			return
 		
 		try:
 			from logistics.transport.capacity.vehicle_type_capacity import get_vehicle_type_capacity_info
 			from logistics.transport.capacity.uom_conversion import convert_weight, convert_volume, get_default_uoms
-			
+			from logistics.utils.default_uom import get_default_uoms_for_domain
+
+			# Use Transport tab dimensions (fallback to old top-level for backward compat)
+			required_weight = flt(getattr(self, 'transport_weight', None) or getattr(self, 'weight', 0))
+			required_weight_uom = getattr(self, 'transport_weight_uom', None) or getattr(self, 'weight_uom', None)
+			required_volume = flt(getattr(self, 'transport_volume', None) or getattr(self, 'volume', 0))
+			required_volume_uom = getattr(self, 'transport_volume_uom', None) or getattr(self, 'volume_uom', None)
+			if not required_weight_uom or not required_volume_uom:
+				defaults = get_default_uoms_for_domain("transport")
+				required_weight_uom = required_weight_uom or defaults.get("weight_uom")
+				required_volume_uom = required_volume_uom or defaults.get("volume_uom")
 			default_uoms = get_default_uoms(self.company)
-			
-			# Calculate capacity requirements from quote
-			required_weight = flt(getattr(self, 'weight', 0))
-			required_weight_uom = getattr(self, 'weight_uom', None) or default_uoms['weight']
-			required_volume = flt(getattr(self, 'volume', 0))
-			required_volume_uom = getattr(self, 'volume_uom', None) or default_uoms['volume']
-			
+			required_weight_uom = required_weight_uom or default_uoms.get('weight')
+			required_volume_uom = required_volume_uom or default_uoms.get('volume')
+
 			if required_weight == 0 and required_volume == 0:
 				return  # No requirements to validate
-			
+
 			# Convert to standard UOMs for comparison
 			required_weight_std = convert_weight(required_weight, required_weight_uom, default_uoms['weight'], self.company)
 			required_volume_std = convert_volume(required_volume, required_volume_uom, default_uoms['volume'], self.company)
-			
+
 			# Get vehicle type capacity (average or minimum from vehicles of this type)
 			capacity_info = get_vehicle_type_capacity_info(self.vehicle_type, self.company)
-			
+
 			# Check if capacity is sufficient (compare in standard UOMs)
 			if required_weight_std > 0 and capacity_info.get('max_weight', 0) < required_weight_std:
 				frappe.msgprint(_("Warning: Required weight ({0} {1}) may exceed typical capacity for vehicle type {2}").format(
 					required_weight, required_weight_uom, self.vehicle_type
 				), indicator='orange')
-			
+
 			if required_volume_std > 0 and capacity_info.get('max_volume', 0) < required_volume_std:
 				frappe.msgprint(_("Warning: Required volume ({0} {1}) may exceed typical capacity for vehicle type {2}").format(
 					required_volume, required_volume_uom, self.vehicle_type
@@ -411,12 +417,12 @@ class SalesQuote(Document):
 			air_shipment.origin_port = origin_airport
 			air_shipment.destination_port = destination_airport
 			air_shipment.direction = getattr(self, 'direction', None)
-			# Convert 0 or empty values to None to avoid validation errors
-			weight = getattr(self, 'weight', None)
+			# Use Air tab dimensions (fallback to old top-level for backward compat)
+			weight = getattr(self, 'air_weight', None) or getattr(self, 'weight', None)
 			air_shipment.weight = weight if weight and flt(weight) > 0 else None
-			volume = getattr(self, 'volume', None)
+			volume = getattr(self, 'air_volume', None) or getattr(self, 'volume', None)
 			air_shipment.volume = volume if volume and flt(volume) > 0 else None
-			chargeable = getattr(self, 'chargeable', None)
+			chargeable = getattr(self, 'air_chargeable', None) or getattr(self, 'chargeable', None)
 			air_shipment.chargeable = chargeable if chargeable and flt(chargeable) > 0 else None
 			air_shipment.service_level = getattr(self, 'service_level', None)
 			air_shipment.incoterm = getattr(self, 'incoterm', None)
@@ -514,12 +520,12 @@ class SalesQuote(Document):
 			sea_shipment.origin_port = location_from
 			sea_shipment.destination_port = location_to
 			sea_shipment.direction = getattr(self, 'direction', None)
-			# Convert 0 or empty values to None to avoid validation errors
-			weight = getattr(self, 'weight', None)
+			# Use Sea tab dimensions (fallback to old top-level for backward compat)
+			weight = getattr(self, 'sea_weight', None) or getattr(self, 'weight', None)
 			sea_shipment.weight = weight if weight and flt(weight) > 0 else None
-			volume = getattr(self, 'volume', None)
+			volume = getattr(self, 'sea_volume', None) or getattr(self, 'volume', None)
 			sea_shipment.volume = volume if volume and flt(volume) > 0 else None
-			chargeable = getattr(self, 'chargeable', None)
+			chargeable = getattr(self, 'sea_chargeable', None) or getattr(self, 'chargeable', None)
 			sea_shipment.chargeable = chargeable if chargeable and flt(chargeable) > 0 else None
 			sea_shipment.service_level = getattr(self, 'service_level', None)
 			sea_shipment.incoterm = getattr(self, 'incoterm', None)
@@ -715,9 +721,9 @@ class SalesQuote(Document):
 			if not air_booking.destination_port:
 				frappe.throw(_("Destination Port is required. Please set Destination Port in the Air tab of Sales Quote."))
 			air_booking.direction = getattr(self, 'air_direction', None) or getattr(self, 'direction', None)
-			air_booking.weight = getattr(self, 'weight', None)
-			air_booking.volume = getattr(self, 'volume', None)
-			air_booking.chargeable = getattr(self, 'chargeable', None)
+			air_booking.weight = getattr(self, 'air_weight', None) or getattr(self, 'weight', None)
+			air_booking.volume = getattr(self, 'air_volume', None) or getattr(self, 'volume', None)
+			air_booking.chargeable = getattr(self, 'air_chargeable', None) or getattr(self, 'chargeable', None)
 			air_booking.service_level = getattr(self, 'service_level', None)
 			air_booking.incoterm = getattr(self, 'incoterm', None)
 			air_booking.additional_terms = getattr(self, 'additional_terms', None)
@@ -836,9 +842,9 @@ class SalesQuote(Document):
 			sea_booking.origin_port = location_from
 			sea_booking.destination_port = location_to
 			sea_booking.direction = getattr(self, 'direction', None)
-			sea_booking.weight = getattr(self, 'weight', None)
-			sea_booking.volume = getattr(self, 'volume', None)
-			sea_booking.chargeable = getattr(self, 'chargeable', None)
+			sea_booking.weight = getattr(self, 'sea_weight', None) or getattr(self, 'weight', None)
+			sea_booking.volume = getattr(self, 'sea_volume', None) or getattr(self, 'volume', None)
+			sea_booking.chargeable = getattr(self, 'sea_chargeable', None) or getattr(self, 'chargeable', None)
 			sea_booking.service_level = getattr(self, 'service_level', None)
 			sea_booking.incoterm = getattr(self, 'incoterm', None)
 			sea_booking.additional_terms = getattr(self, 'additional_terms', None)
@@ -929,6 +935,7 @@ def create_air_booking_from_sales_quote(sales_quote_name):
 			[
 				"one_off", "customer", "company", "branch", "cost_center", "profit_center",
 				"shipper", "consignee", "service_level", "incoterm", "additional_terms",
+				"air_weight", "air_volume", "air_chargeable",
 				"weight", "volume", "chargeable",
 				"air_direction", "airline", "freight_agent",
 				"air_house_type", "air_release_type", "air_entry_type",
@@ -1025,9 +1032,9 @@ def create_air_booking_from_sales_quote(sales_quote_name):
 			frappe.throw(_("Destination Port is required. Please set Destination Port in the Air tab of Sales Quote."))
 		
 		air_booking.direction = sales_quote_data.get("air_direction") or sales_quote_data.get("direction")
-		air_booking.weight = sales_quote_data.get("weight")
-		air_booking.volume = sales_quote_data.get("volume")
-		air_booking.chargeable = sales_quote_data.get("chargeable")
+		air_booking.weight = sales_quote_data.get("air_weight") or sales_quote_data.get("weight")
+		air_booking.volume = sales_quote_data.get("air_volume") or sales_quote_data.get("volume")
+		air_booking.chargeable = sales_quote_data.get("air_chargeable") or sales_quote_data.get("chargeable")
 		air_booking.service_level = sales_quote_data.get("service_level")
 		air_booking.incoterm = sales_quote_data.get("incoterm")
 		air_booking.additional_terms = sales_quote_data.get("additional_terms")

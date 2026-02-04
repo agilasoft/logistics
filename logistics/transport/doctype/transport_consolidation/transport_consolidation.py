@@ -1139,13 +1139,11 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 	2. Job must belong to specified company (if provided)
 	3. Job must have at least one Transport Leg
 	4. Transport Legs must have pick_address and drop_address
-	5. Load Type must have can_handle_consolidation = 1 (primary requirement)
-	   OR Transport Job must have consolidate = 1 (fallback for backward compatibility)
+	5. Load Type must have can_handle_consolidation = 1 (required - only this field is checked)
 	6. Job must match consolidation_type filter (if provided)
 	
-	Priority: If Load Type has can_handle_consolidation = 1, the job is included
-	regardless of the consolidate flag. If Load Type doesn't have can_handle_consolidation = 1,
-	then the consolidate flag is checked as a fallback.
+	Note: Only can_handle_consolidation field is checked. If can_handle_consolidation = 1, job is included.
+	If can_handle_consolidation = 0, job is excluded. The can_be_consolidated field and consolidate flag are ignored.
 	
 	Args:
 		consolidation_type: Filter by consolidation type (Pick, Drop, Both, Route)
@@ -1334,50 +1332,30 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 				continue
 			
 			# Validate Load Type allows consolidation
-			# If Load Type has can_handle_consolidation = 1, include the job (regardless of consolidate flag)
+			# Only check can_handle_consolidation field - if it's 1, include the job; if 0, exclude
 			load_type = job.get("load_type")
 			if load_type:
 				try:
 					# Check can_handle_consolidation field (required)
 					can_handle_consolidation = frappe.db.get_value("Load Type", load_type, "can_handle_consolidation")
-					# Explicitly check if Load Type allows consolidation (1 or True means allowed)
+					# Only include if can_handle_consolidation = 1 (ignore can_be_consolidated and consolidate flag)
 					if can_handle_consolidation == 1 or can_handle_consolidation == True:
 						# Load Type allows consolidation, continue processing this job
 						pass  # Continue processing this job
 					else:
-						# Load Type doesn't allow consolidation (None, 0, False all mean not consolidatable)
-						# Check if job has consolidate = 1 as a fallback (for backward compatibility)
-						if frappe.db.has_column("Transport Job", "consolidate"):
-							if job.get("consolidate") == 1:
-								# Job has consolidate flag set, allow it even if Load Type doesn't have can_handle_consolidation
-								pass  # Continue processing this job
-							else:
-								# Skip jobs whose Load Type doesn't allow consolidation AND consolidate flag is not set
-								excluded_jobs_reasons[job_name] = "invalid_load_type"
-								continue
-						else:
-							# Skip jobs whose Load Type doesn't allow consolidation (no consolidate field to check)
-							excluded_jobs_reasons[job_name] = "invalid_load_type"
-							continue
+						# Load Type doesn't allow consolidation (can_handle_consolidation = 0, None, or False)
+						# Skip this job regardless of can_be_consolidated or consolidate flag
+						excluded_jobs_reasons[job_name] = "invalid_load_type"
+						continue
 				except Exception:
 					# If Load Type doesn't exist or error, skip this job
 					frappe.log_error(f"Error checking can_handle_consolidation for Load Type {load_type} in job {job_name}")
 					excluded_jobs_reasons[job_name] = "load_type_error"
 					continue
 			else:
-				# If job has no load_type, check if consolidate flag is set (for backward compatibility)
-				if frappe.db.has_column("Transport Job", "consolidate"):
-					if job.get("consolidate") == 1:
-						# Job has consolidate flag set but no load_type, allow it
-						pass  # Continue processing this job
-					else:
-						# Skip jobs without load_type and without consolidate flag
-						excluded_jobs_reasons[job_name] = "no_load_type"
-						continue
-				else:
-					# Skip jobs without load_type (load_type is required for consolidation)
-					excluded_jobs_reasons[job_name] = "no_load_type"
-					continue
+				# Skip jobs without load_type (load_type is required for consolidation)
+				excluded_jobs_reasons[job_name] = "no_load_type"
+				continue
 			
 			# Get unique pick and drop addresses (only from non-consolidated legs)
 			pick_addresses = set()
@@ -1799,39 +1777,18 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 			
 			if load_type:
 				try:
-					# Check can_handle_consolidation field
+					# Check can_handle_consolidation field (only field that matters)
 					can_handle_consolidation = frappe.db.get_value("Load Type", load_type, "can_handle_consolidation")
 					if can_handle_consolidation == 1 or can_handle_consolidation == True:
 						has_valid_load_type = True
 					else:
 						# Load Type doesn't have can_handle_consolidation = 1
-						# Check if job has consolidate flag as fallback
-						if frappe.db.has_column("Transport Job", "consolidate"):
-							if job.get("consolidate") == 1:
-								has_consolidate_flag = True
-								has_valid_load_type = True  # Allow through consolidate flag
-							else:
-								jobs_with_invalid_load_type += 1
-						else:
-							jobs_with_invalid_load_type += 1
+						jobs_with_invalid_load_type += 1
 				except Exception:
 					jobs_with_invalid_load_type += 1
 			else:
-				# No load_type, check consolidate flag
-				if frappe.db.has_column("Transport Job", "consolidate"):
-					if job.get("consolidate") == 1:
-						has_consolidate_flag = True
-						has_valid_load_type = True  # Allow through consolidate flag
-					else:
-						jobs_without_load_type += 1
-				else:
-					jobs_without_load_type += 1
-			
-			# Track jobs without consolidate flag (only if they also don't have valid load type)
-			if not has_valid_load_type:
-				if frappe.db.has_column("Transport Job", "consolidate"):
-					if job.get("consolidate") != 1:
-						jobs_without_consolidate_flag += 1
+				# No load_type - skip (load_type is required)
+				jobs_without_load_type += 1
 			
 			# Check addresses (only from non-consolidated legs without run_sheet)
 			pick_addresses = set()
@@ -1961,27 +1918,27 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 
 
 @frappe.whitelist()
-def get_consolidatable_legs(job_names: list = None):
+def get_consolidatable_legs(job_names: list = None, company: str = None, fetch_all: bool = False):
 	"""
-	Get transport legs for the given job names.
-	Enriches legs with job information and address titles.
+	Get transport legs for consolidation.
+	
+	If fetch_all=True, fetches ALL transport legs that are applicable for consolidation:
+	- Legs without run_sheet
+	- Legs with Load Type that has can_handle_consolidation = 1
+	- Legs with pick_address and drop_address
+	- Legs that are not cancelled
+	
+	If fetch_all=False (default), fetches legs for the given job names only.
 	
 	Args:
-		job_names: List of Transport Job names
+		job_names: List of Transport Job names (can be a list or JSON string). Ignored if fetch_all=True.
+		company: Filter by company (optional)
+		fetch_all: If True, fetch all consolidatable legs. If False, fetch legs for given job_names.
 		
 	Returns:
 		Dictionary with status and legs list
 	"""
 	try:
-		if not job_names:
-			return {
-				"status": "success",
-				"legs": []
-			}
-		
-		# Get unique job names
-		unique_job_names = list(set(job_names))
-		
 		# Fetch transport legs
 		leg_fields = [
 			"name", "transport_job", "status", "pick_address", "drop_address",
@@ -1999,35 +1956,147 @@ def get_consolidatable_legs(job_names: list = None):
 		if frappe.db.has_column("Transport Leg", "run_sheet"):
 			leg_fields.append("run_sheet")
 		
-		legs = frappe.get_all(
-			"Transport Leg",
-			filters={
-				"transport_job": ["in", unique_job_names],
-				"docstatus": ["<", 2]  # Not cancelled
-			},
-			fields=leg_fields,
-			order_by="transport_job, `order` asc"
-		)
+		if fetch_all:
+			# Fetch ALL consolidatable legs
+			# Build filters for legs
+			leg_filters = {
+				"docstatus": ["<", 2],  # Not cancelled
+				"pick_address": ["!=", ""],  # Must have pick address
+				"drop_address": ["!=", ""]  # Must have drop address
+			}
+			
+			# Filter out legs with run_sheet
+			if frappe.db.has_column("Transport Leg", "run_sheet"):
+				leg_filters["run_sheet"] = ["in", ["", None]]
+			
+			# Filter by company if provided (via transport_job)
+			if company:
+				# Get all job names for this company
+				company_jobs = frappe.get_all(
+					"Transport Job",
+					filters={"company": company, "docstatus": 1},
+					pluck="name"
+				)
+				if company_jobs:
+					leg_filters["transport_job"] = ["in", company_jobs]
+				else:
+					# No jobs for this company, return empty
+					return {
+						"status": "success",
+						"legs": []
+					}
+			
+			# Fetch all legs matching filters
+			legs = frappe.get_all(
+				"Transport Leg",
+				filters=leg_filters,
+				fields=leg_fields,
+				order_by="transport_job, order asc"
+			)
+			
+			# Get unique job names from legs
+			unique_job_names = list(set([leg["transport_job"] for leg in legs if leg.get("transport_job")]))
+			
+		else:
+			# Original behavior: fetch legs for given job names
+			if not job_names:
+				return {
+					"status": "success",
+					"legs": []
+				}
+			
+			# Handle case where job_names is a JSON string (Frappe sometimes serializes arrays)
+			if isinstance(job_names, str):
+				import json
+				try:
+					job_names = json.loads(job_names)
+				except (json.JSONDecodeError, ValueError):
+					# If it's not valid JSON, treat it as a single job name
+					job_names = [job_names]
+			
+			# Ensure job_names is a list
+			if not isinstance(job_names, list):
+				job_names = [job_names] if job_names else []
+			
+			# Get unique job names
+			unique_job_names = list(set(job_names))
+			
+			legs = frappe.get_all(
+				"Transport Leg",
+				filters={
+					"transport_job": ["in", unique_job_names],
+					"docstatus": ["<", 2]  # Not cancelled
+				},
+				fields=leg_fields,
+				order_by="transport_job, order asc"
+			)
+		
+		if not legs:
+			return {
+				"status": "success",
+				"legs": []
+			}
 		
 		# Get job details
+		job_fields = ["name", "customer", "load_type", "scheduled_date", "company", "docstatus"]
+		if frappe.db.has_column("Transport Job", "consolidate"):
+			job_fields.append("consolidate")
+		
 		jobs = frappe.get_all(
 			"Transport Job",
 			filters={"name": ["in", unique_job_names]},
-			fields=["name", "customer", "load_type", "scheduled_date", "company"]
+			fields=job_fields
 		)
 		
 		# Create job map
 		jobs_map = {job["name"]: job for job in jobs}
 		
+		# Get Load Types that allow consolidation
+		load_types = list(set([job.get("load_type") for job in jobs if job.get("load_type")]))
+		consolidatable_load_types = set()
+		
+		if load_types:
+			# Check which load types allow consolidation
+			for load_type in load_types:
+				try:
+					can_handle_consolidation = frappe.db.get_value("Load Type", load_type, "can_handle_consolidation")
+					if can_handle_consolidation == 1 or can_handle_consolidation == True:
+						consolidatable_load_types.add(load_type)
+					# If can_handle_consolidation = 0, don't include this load type (ignore consolidate flag)
+				except Exception:
+					# Load type doesn't exist or error, skip
+					pass
+		
 		# Enrich legs with job information and address titles
 		enriched_legs = []
 		for leg in legs:
+			# Filter out legs with run_sheet (if fetch_all is False, we still want to filter)
+			if not fetch_all:
+				if leg.get("run_sheet"):
+					continue
+			
 			job = jobs_map.get(leg["transport_job"])
-			if job:
-				leg["customer"] = job.get("customer")
-				leg["load_type"] = job.get("load_type")
-				leg["scheduled_date"] = job.get("scheduled_date")
-				leg["company"] = job.get("company")
+			if not job:
+				continue
+			
+			# Skip if job is not submitted (only for fetch_all mode)
+			if fetch_all and job.get("docstatus") != 1:
+				continue
+			
+			# Validate Load Type allows consolidation (only when fetch_all=True)
+			if fetch_all:
+				load_type = job.get("load_type")
+				if not load_type:
+					continue
+				
+				if load_type not in consolidatable_load_types:
+					# Skip legs whose Load Type doesn't have can_handle_consolidation = 1
+					continue
+			
+			leg["customer"] = job.get("customer")
+			leg["load_type"] = job.get("load_type")
+			leg["scheduled_date"] = job.get("scheduled_date")
+			leg["company"] = job.get("company")
 			
 			# Get address titles
 			if leg.get("pick_address"):

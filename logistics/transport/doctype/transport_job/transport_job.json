@@ -48,6 +48,8 @@
   "sustainability_notes",
   "sla_tab",
   "sla_section",
+  "logistics_service_level",
+  "sla_target_source",
   "sla_target_date",
   "sla_status",
   "column_break_sla",
@@ -181,6 +183,18 @@
    "fieldname": "sla_section",
    "fieldtype": "Section Break",
    "label": "Service Level Agreement"
+  },
+  {
+   "fieldname": "logistics_service_level",
+   "fieldtype": "Link",
+   "label": "Logistics Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fieldname": "sla_target_source",
+   "fieldtype": "Select",
+   "label": "SLA Target Source",
+   "options": "From Service Level\nManual"
   },
   {
    "fieldname": "sla_target_date",

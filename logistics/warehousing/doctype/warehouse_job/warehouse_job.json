@@ -66,6 +66,14 @@
   "estimated_carbon_footprint",
   "column_break_sustainability",
   "sustainability_notes",
+  "sla_tab",
+  "sla_section",
+  "logistics_service_level",
+  "sla_target_date",
+  "sla_status",
+  "sla_target_source",
+  "column_break_sla",
+  "sla_notes",
   "connections_tab"
  ],
  "fields": [
@@ -356,6 +364,50 @@
    "fieldname": "sustainability_notes",
    "fieldtype": "Text",
    "label": "Sustainability Notes"
+  },
+  {
+   "fieldname": "sla_tab",
+   "fieldtype": "Tab Break",
+   "label": "Service Level"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sla_section",
+   "fieldtype": "Section Break",
+   "label": "SLA Monitoring"
+  },
+  {
+   "fieldname": "logistics_service_level",
+   "fieldtype": "Link",
+   "label": "Logistics Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fieldname": "sla_target_date",
+   "fieldtype": "Datetime",
+   "label": "SLA Target Date"
+  },
+  {
+   "default": "Not Applicable",
+   "fieldname": "sla_status",
+   "fieldtype": "Select",
+   "label": "SLA Status",
+   "options": "On Track\nAt Risk\nBreached\nNot Applicable"
+  },
+  {
+   "fieldname": "sla_target_source",
+   "fieldtype": "Select",
+   "label": "SLA Target Source",
+   "options": "From Service Level\nManual"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sla_notes",
+   "fieldtype": "Text",
+   "label": "SLA Notes"
   },
   {
    "fieldname": "operations",

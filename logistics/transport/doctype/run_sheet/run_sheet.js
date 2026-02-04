@@ -4455,6 +4455,20 @@ frappe.ui.form.on('Run Sheet', {
     }, 300);
     
     if (frm.doc.name) {
+      // Show red form message when any leg has an Economic Zone address
+      frappe.call({
+        method: 'logistics.transport.doctype.run_sheet.run_sheet.has_economic_zone_address',
+        args: { run_sheet_name: frm.doc.name },
+        callback(r) {
+          if (r && r.message && r.message.has_ez_address) {
+            frm.dashboard.add_indicator(
+              __('This run sheet includes leg(s) with Economic Zone addresses. Ensure all required documents and arrangements are in place.'),
+              'red'
+            );
+          }
+        }
+      });
+
       // Fetch and update missing data from Transport Leg
       update_legs_missing_data_rs(frm);
       

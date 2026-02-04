@@ -11,6 +11,7 @@
   "classifications",
   "containerized",
   "reefer",
+  "hazardous",
   "column_break_afzb",
   "typical_cargo",
   "allowed_load_types",
@@ -67,19 +68,25 @@
   },
   {
    "default": "0",
+   "description": "If checked, vehicles of this type are exempt from plate number coding restrictions (e.g., emergency vehicles, government vehicles)",
    "fieldname": "exempt_from_plate_coding",
    "fieldtype": "Check",
-   "label": "Exempt from Plate Number Coding",
-   "description": "If checked, vehicles of this type are exempt from plate number coding restrictions (e.g., emergency vehicles, government vehicles)"
+   "label": "Exempt from Plate Number Coding"
   },
   {
    "fieldname": "capacity_management_tab",
    "fieldtype": "Tab Break",
    "label": "Capacity Management"
+  },
+  {
+   "default": "0",
+   "fieldname": "hazardous",
+   "fieldtype": "Check",
+   "label": "Hazardous"
   }
  ],
  "links": [],
- "modified": "2025-10-21 10:22:58.908789",
+ "modified": "2026-02-03 08:50:09.607785",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Vehicle Type",
