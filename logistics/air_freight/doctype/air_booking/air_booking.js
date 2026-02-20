@@ -145,9 +145,14 @@ frappe.ui.form.on('Air Booking', {
 		if (!frm.doc.quote) {
 			frm.clear_table('charges');
 			frm.refresh_field('charges');
-			// Clear sales_quote when quote is cleared
-			if (frm.doc.sales_quote) {
-				frm.set_value('sales_quote', '');
+			// Only clear sales_quote when quote is cleared if quote_type is set
+			// This prevents clearing sales_quote during document reload when quote_type/quote haven't been set yet
+			// (e.g., after fetch_quotations sets sales_quote but before quote_type/quote are synced)
+			if (frm.doc.sales_quote && frm.doc.quote_type) {
+				// Only clear if quote_type is "Sales Quote" (not "One-Off Quote")
+				if (frm.doc.quote_type === 'Sales Quote') {
+					frm.set_value('sales_quote', '');
+				}
 			}
 			return;
 		}

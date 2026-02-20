@@ -417,9 +417,19 @@ class AirBooking(Document):
 			if not self.profit_center:
 				self.profit_center = sales_quote_data.get("profit_center")
 			
+			# Sync quote_type and quote with sales_quote to prevent them from being cleared on reload
+			# This ensures the quotation fields stay in sync after fetch_quotations
+			if self.sales_quote:
+				self.quote_type = "Sales Quote"
+				self.quote = self.sales_quote
+			
 			# Populate charges from Sales Quote Air Freight
 			# Pass the sales quote name instead of loading the full document to avoid SQL errors
 			self._populate_charges_from_sales_quote(self.sales_quote)
+			
+			# Save so that client reload shows the updated doc and charges (otherwise reload_doc() would refetch old data)
+			if self.docstatus == 0:
+				self.save()
 			
 			frappe.msgprint(
 				_("Quotations fetched successfully from Sales Quote {0}").format(self.sales_quote),
