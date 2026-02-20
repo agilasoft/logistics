@@ -22,7 +22,7 @@ def execute():
     """
     job_types = [
         "Air Shipment", "Sea Shipment", "Transport Job",
-        "Warehouse Job", "Customs Declaration", "General Job"
+        "Warehouse Job", "Declaration", "General Job"
     ]
     
     migrated = 0

@@ -186,9 +186,26 @@ def create_sales_invoice_from_job(
         if "uom" in sif_item_fields and r.get("uom"): row_payload["uom"] = r["uom"]
         if "item_name" in sif_item_fields and r.get("item_name"): row_payload["item_name"] = r["item_name"]
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
+        if "reference_doctype" in sif_item_fields and "reference_name" in sif_item_fields:
+            row_payload["reference_doctype"] = "Warehouse Job"
+            row_payload["reference_name"] = job.name
         si.append("items", row_payload)
 
     si.insert()
+    
+    # Update Warehouse Job with Sales Invoice reference and lifecycle
+    from frappe.utils import today
+    wj_meta = frappe.get_meta("Warehouse Job")
+    for field in ("sales_invoice", "date_sales_invoice_requested"):
+        if wj_meta.get_field(field):
+            frappe.db.set_value(
+                "Warehouse Job",
+                job.name,
+                field,
+                si.name if field == "sales_invoice" else today(),
+                update_modified=False,
+            )
+    
     return {"ok": True, "message": _("Sales Invoice {0} created.").format(si.name), "sales_invoice": si.name}
 
 @frappe.whitelist()

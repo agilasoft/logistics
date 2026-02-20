@@ -102,7 +102,7 @@ def _detect_provider_from_webhook(data: Dict[str, Any]) -> str:
             if order_name:
                 order = frappe.get_doc("ODDS Order", order_name)
                 return order.provider
-        except:
+        except Exception:
             pass
     
     return None

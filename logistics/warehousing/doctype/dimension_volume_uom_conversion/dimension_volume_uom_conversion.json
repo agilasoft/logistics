@@ -7,6 +7,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "measurements_section",
   "dimension_uom",
   "volume_uom",
   "conversion_factor",
@@ -16,6 +17,11 @@
   "enabled"
  ],
  "fields": [
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
   {
    "fieldname": "dimension_uom",
    "fieldtype": "Link",

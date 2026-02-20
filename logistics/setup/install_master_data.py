@@ -3,6 +3,7 @@
 
 import frappe
 from frappe import _
+from logistics.sustainability.setup.setup_sustainability import setup_sustainability
 
 
 def execute():
@@ -32,6 +33,16 @@ def execute():
         # Install Logistics Milestones
         install_logistics_milestones()
         
+        # Install Ad-Hoc Factor Impact Types (for Transport Settings blocking impact types)
+        install_adhoc_factor_impact_types()
+
+        # Setup Sustainability module (emission factors, settings, default goals)
+        try:
+            setup_sustainability()
+        except Exception as e:
+            print(f"⚠️ Sustainability setup skipped or partial: {e}")
+            frappe.log_error(f"Sustainability setup: {e}", "Logistics Install")
+
         frappe.db.commit()
         print("✅ Logistics master data installed successfully!")
         
@@ -1818,6 +1829,32 @@ def install_logistics_milestones():
             print(f"  ❌ Error creating Milestone {milestone_data['code']}: {e}")
     
     print(f"📊 Logistics Milestones: {created_count} created/updated")
+
+
+def install_adhoc_factor_impact_types():
+    """Install Ad-Hoc Factor Impact Type master data (options for Transport Settings blocking impact types)."""
+    print("📋 Installing Ad-Hoc Factor Impact Type data...")
+    if not frappe.db.exists("DocType", "Ad-Hoc Factor Impact Type"):
+        print("  ⏭ Ad-Hoc Factor Impact Type DocType not found, skipping")
+        return
+    impact_types = [
+        "Complete Blockage",
+        "Partial Blockage",
+        "Delays Only",
+        "Access Restricted",
+    ]
+    created_count = 0
+    for impact_type in impact_types:
+        try:
+            if not frappe.db.exists("Ad-Hoc Factor Impact Type", impact_type):
+                doc = frappe.new_doc("Ad-Hoc Factor Impact Type")
+                doc.impact_type = impact_type
+                doc.insert()
+                created_count += 1
+                print(f"  ✅ Created Ad-Hoc Factor Impact Type: {impact_type}")
+        except Exception as e:
+            print(f"  ❌ Error creating Ad-Hoc Factor Impact Type {impact_type}: {e}")
+    print(f"📋 Ad-Hoc Factor Impact Types: {created_count} created")
 
 
 if __name__ == "__main__":

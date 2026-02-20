@@ -92,7 +92,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Loading Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "columns": 1,
@@ -141,7 +141,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Discharge Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "destination_cto",

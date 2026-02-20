@@ -44,7 +44,7 @@ def get_context(context):
         customer_doc = frappe.get_doc("Customer", customer)
         customer_name = customer_doc.customer_name
         customer_email = customer_doc.email_id
-    except:
+    except Exception:
         customer_name = "Unknown Customer"
         customer_email = ""
     
@@ -344,7 +344,7 @@ def get_customer_stock_balance(customer, date_from, date_to, item_code=None, bra
                         last_transaction_date = last_transaction_date.strftime('%Y-%m-%d %H:%M:%S')
                     else:
                         last_transaction_date = str(last_transaction_date)
-                except:
+                except Exception:
                     last_transaction_date = str(last_transaction_date)
             else:
                 last_transaction_date = "N/A"

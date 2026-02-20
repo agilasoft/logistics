@@ -15,8 +15,17 @@
   "column_break_sdrs",
   "no_of_packs",
   "uom",
+  "measurements_section",
   "weight",
   "volume",
+  "weight_uom",
+  "volume_uom",
+  "dimension_uom",
+  "length",
+  "width",
+  "height",
+  "chargeable_weight",
+  "chargeable_weight_uom",
   "section_break_kovs",
   "dangerous_goods_column",
   "dg_substance",
@@ -69,6 +78,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -79,6 +93,50 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Volume"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "goods_description",
@@ -95,6 +153,7 @@
    "fieldtype": "Section Break"
   },
   {
+   "depends_on": "eval:parent.contains_dangerous_goods",
    "fieldname": "dg_substance",
    "fieldtype": "Link",
    "label": "DG Substance",
@@ -113,6 +172,7 @@
    "label": "Temp Controlled"
   },
   {
+   "depends_on": "eval:parent.contains_dangerous_goods",
    "fieldname": "dg_class",
    "fieldtype": "Data",
    "label": "DG Class"

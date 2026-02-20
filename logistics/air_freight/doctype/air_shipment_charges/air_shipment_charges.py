@@ -85,7 +85,7 @@ class AirShipmentCharges(Document):
                         # Use chargeable weight as base for percentage calculation
                         base_value = flt(air_shipment.chargeable) or flt(air_shipment.weight) or 0
                         self.base_amount = rate * (base_value * 0.01)
-                    except:
+                    except Exception:
                         self.base_amount = 0
                 else:
                     self.base_amount = 0
@@ -126,6 +126,6 @@ class AirShipmentCharges(Document):
                 # Trigger recalculation of total charges if needed
                 if hasattr(air_shipment, 'calculate_total_charges'):
                     air_shipment.calculate_total_charges()
-            except:
+            except Exception:
                 pass
 

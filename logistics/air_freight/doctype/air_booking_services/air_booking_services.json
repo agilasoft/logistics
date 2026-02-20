@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-06-02 09:50:31.039560",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "type",
+  "date_booked",
+  "date_completed",
+  "column_break_dntz",
+  "service_provider",
+  "reference",
+  "currency",
+  "rate",
+  "column_break_ppxk",
+  "tax_category",
+  "item"
+ ],
+ "fields": [
+  {
+   "fieldname": "type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "Other Service"
+  },
+  {
+   "fieldname": "date_booked",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date Booked"
+  },
+  {
+   "fieldname": "date_completed",
+   "fieldtype": "Date",
+   "label": "Date Completed"
+  },
+  {
+   "fieldname": "column_break_dntz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_provider",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Service Provider",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "column_break_ppxk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate",
+   "options": "currency"
+  },
+  {
+   "fieldname": "tax_category",
+   "fieldtype": "Link",
+   "label": "Tax Category",
+   "options": "Tax Category"
+  },
+  {
+   "fetch_from": "type.item_link",
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Booking Services",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

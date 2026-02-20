@@ -42,7 +42,7 @@ def get_context(context):
         customer_doc = frappe.get_doc("Customer", customer)
         customer_name = customer_doc.customer_name
         customer_email = customer_doc.email_id
-    except:
+    except Exception:
         customer_name = "Unknown Customer"
         customer_email = ""
     
@@ -64,7 +64,7 @@ def get_context(context):
     try:
         transport_settings = frappe.get_single("Transport Settings")
         map_renderer = getattr(transport_settings, 'map_renderer', 'OpenStreetMap')
-    except:
+    except Exception:
         map_renderer = 'OpenStreetMap'
     
     context.update({

@@ -1,0 +1,52 @@
+{
+ "app": "logistics",
+ "creation": "2026-02-12 07:37:01.785433",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "money-coins-1",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "home",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "Pricing",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "chart-column",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Dashboard",
+   "link_to": "Stock",
+   "link_type": "Dashboard",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "file-pen-line",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Sales Quote",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-02-12 07:37:46.623781",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Pricing",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Pricing"
+}

@@ -77,7 +77,7 @@ def update_portal_settings():
     # Get or create portal settings
     try:
         portal_settings = frappe.get_single("Portal Settings")
-    except:
+    except Exception:
         # Create portal settings if it doesn't exist
         portal_settings = frappe.get_doc({
             "doctype": "Portal Settings",

@@ -13,7 +13,9 @@
   "customer",
   "date",
   "valid_until",
-  "one_off",
+  "additional_charge",
+  "job_type",
+  "job",
   "column_break_abll",
   "shipper",
   "consignee",
@@ -24,95 +26,25 @@
   "is_transport",
   "is_customs",
   "is_warehousing",
+  "is_multimodal",
+  "routing_tab",
+  "routing_section",
+  "billing_mode",
+  "routing_legs",
   "sea_tab",
-  "sea_load_type",
-  "column_break_vouh",
-  "sea_weight",
-  "sea_volume",
-  "sea_chargeable",
-  "column_break_htpq",
-  "sea_weight_uom",
-  "sea_volume_uom",
-  "sea_chargeable_uom",
-  "sea_dimensions_section",
-  "column_break_sea_dims_1",
   "sea_freight",
   "air_tab",
-  "air_load_type",
-  "column_break_ejmb",
-  "air_weight",
-  "air_volume",
-  "air_chargeable",
-  "column_break_pxyb",
-  "air_weight_uom",
-  "air_volume_uom",
-  "air_chargeable_uom",
-  "air_dimensions_section",
-  "column_break_air_dims_1",
   "air_freight",
-  "air_section_break_details",
-  "air_direction",
-  "airline",
-  "freight_agent",
-  "column_break_air_basic",
-  "air_house_type",
-  "air_release_type",
-  "air_entry_type",
-  "air_section_break_routing",
-  "origin_port",
-  "column_break_air_routing",
-  "destination_port",
-  "column_break_air_dates",
-  "air_etd",
-  "column_break_air_dates2",
-  "air_eta",
-  "air_section_break_house",
-  "air_house_bl",
-  "air_packs",
-  "air_inner",
-  "column_break_air_house",
-  "air_gooda_value",
-  "air_insurance",
-  "air_section_break_description",
-  "air_description",
-  "column_break_air_marks",
-  "air_marks_and_nos",
   "transport_tab",
-  "transport_template",
-  "load_type",
-  "vehicle_type",
-  "container_type",
-  "column_break_cxfw",
-  "location_type",
-  "location_from",
-  "pick_mode",
-  "location_to",
-  "drop_mode",
-  "transport_dimensions_section",
-  "column_break_transport_dims_1",
-  "transport_weight",
-  "transport_volume",
-  "transport_chargeable",
-  "column_break_transport_dims_2",
-  "transport_weight_uom",
-  "transport_volume_uom",
-  "transport_chargeable_uom",
-  "column_break_fxxd",
-  "section_break_disr",
   "transport",
   "customs_tab",
+  "customs_section",
+  "customs_authority",
+  "declaration_type",
+  "column_break_customs",
+  "section_break_qqlf",
+  "customs",
   "warehousing_tab",
-  "site",
-  "column_break_jrvy",
-  "warehouse_weight",
-  "warehouse_volume",
-  "warehouse_chargeable",
-  "column_break_jgdj",
-  "warehouse_weight_uom",
-  "warehouse_volume_uom",
-  "warehouse_chargeable_uom",
-  "warehouse_dimensions_section",
-  "column_break_warehouse_dims_1",
   "warehousing",
   "accounts_tab",
   "sales_rep",
@@ -129,15 +61,7 @@
   "terms",
   "service_level_agreement_section",
   "service_code",
-  "service_level_details",
-  "connections_tab",
-  "column_break_nvoa",
-  "weight",
-  "weight_uom",
-  "volume",
-  "volume_uom",
-  "chargeable",
-  "chargeable_uom"
+  "service_level_details"
  ],
  "fields": [
   {
@@ -205,103 +129,10 @@
    "options": "Incoterm"
   },
   {
-   "fieldname": "column_break_nvoa",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "weight",
-   "fieldtype": "Float",
-   "label": "Weight"
-  },
-  {
-   "fieldname": "weight_uom",
-   "fieldtype": "Link",
-   "label": "Weight UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "volume",
-   "fieldtype": "Float",
-   "label": "Volume"
-  },
-  {
-   "fieldname": "volume_uom",
-   "fieldtype": "Link",
-   "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "chargeable",
-   "fieldtype": "Float",
-   "label": "Chargeable"
-  },
-  {
-   "fieldname": "chargeable_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_dimensions_section",
-   "fieldtype": "Section Break",
-   "label": "Dimensions"
-  },
-  {
-   "fieldname": "column_break_sea_dims_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_weight",
-   "fieldtype": "Float",
-   "label": "Weight"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_weight_uom",
-   "fieldtype": "Link",
-   "label": "Weight UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_volume",
-   "fieldtype": "Float",
-   "label": "Volume"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_volume_uom",
-   "fieldtype": "Link",
-   "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_chargeable",
-   "fieldtype": "Float",
-   "label": "Chargeable"
-  },
-  {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_chargeable_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable UOM",
-   "options": "UOM"
-  },
-  {
    "depends_on": "eval:doc.is_sea",
    "fieldname": "sea_tab",
    "fieldtype": "Tab Break",
    "label": "Sea"
-  },
-  {
-   "fieldname": "sea_load_type",
-   "fieldtype": "Link",
-   "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"sea\",\"=\",1]]",
-   "options": "Load Type"
   },
   {
    "fieldname": "sea_freight",
@@ -316,270 +147,16 @@
    "label": "Air"
   },
   {
-   "fieldname": "air_load_type",
-   "fieldtype": "Link",
-   "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"air\",\"=\",1]]",
-   "options": "Load Type"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_dimensions_section",
-   "fieldtype": "Section Break",
-   "label": "Dimensions"
-  },
-  {
-   "fieldname": "column_break_air_dims_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_weight",
-   "fieldtype": "Float",
-   "label": "Weight"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_weight_uom",
-   "fieldtype": "Link",
-   "label": "Weight UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_volume",
-   "fieldtype": "Float",
-   "label": "Volume"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_volume_uom",
-   "fieldtype": "Link",
-   "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_chargeable",
-   "fieldtype": "Float",
-   "label": "Chargeable"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_chargeable_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable UOM",
-   "options": "UOM"
-  },
-  {
    "fieldname": "air_freight",
    "fieldtype": "Table",
    "label": "Air Freight",
    "options": "Sales Quote Air Freight"
   },
   {
-   "fieldname": "air_section_break_details",
-   "fieldtype": "Section Break",
-   "label": "Air Booking Details"
-  },
-  {
-   "fieldname": "air_direction",
-   "fieldtype": "Select",
-   "label": "Direction",
-   "options": "Import\nExport"
-  },
-  {
-   "fieldname": "airline",
-   "fieldtype": "Link",
-   "label": "Airline",
-   "options": "Airline"
-  },
-  {
-   "fieldname": "freight_agent",
-   "fieldtype": "Link",
-   "label": "Freight Agent",
-   "options": "Freight Agent"
-  },
-  {
-   "fieldname": "column_break_air_basic",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "air_house_type",
-   "fieldtype": "Select",
-   "label": "House Type",
-   "options": "Direct\nConsolidation\nBreak Bulk"
-  },
-  {
-   "fieldname": "air_release_type",
-   "fieldtype": "Select",
-   "label": "Release Type",
-   "options": "Prepaid\nCollect"
-  },
-  {
-   "fieldname": "air_entry_type",
-   "fieldtype": "Select",
-   "label": "Entry Type",
-   "options": "Direct\nTransit\nTransshipment"
-  },
-  {
-   "fieldname": "air_section_break_routing",
-   "fieldtype": "Section Break",
-   "label": "Routing & Dates"
-  },
-  {
-   "description": "Origin port for air freight",
-   "fieldname": "origin_port",
-   "fieldtype": "Link",
-   "label": "Origin Port",
-   "options": "Location"
-  },
-  {
-   "fieldname": "column_break_air_routing",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Destination port for air freight",
-   "fieldname": "destination_port",
-   "fieldtype": "Link",
-   "label": "Destination Port",
-   "options": "Location"
-  },
-  {
-   "fieldname": "column_break_air_dates",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "air_etd",
-   "fieldtype": "Date",
-   "label": "ETD"
-  },
-  {
-   "fieldname": "column_break_air_dates2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "air_eta",
-   "fieldtype": "Date",
-   "label": "ETA"
-  },
-  {
-   "fieldname": "air_section_break_house",
-   "fieldtype": "Section Break",
-   "label": "House Details"
-  },
-  {
-   "fieldname": "air_house_bl",
-   "fieldtype": "Data",
-   "label": "House BL"
-  },
-  {
-   "fieldname": "air_packs",
-   "fieldtype": "Int",
-   "label": "Packs"
-  },
-  {
-   "fieldname": "air_inner",
-   "fieldtype": "Int",
-   "label": "Inner"
-  },
-  {
-   "fieldname": "column_break_air_house",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "air_gooda_value",
-   "fieldtype": "Currency",
-   "label": "Goods Value"
-  },
-  {
-   "fieldname": "air_insurance",
-   "fieldtype": "Currency",
-   "label": "Insurance"
-  },
-  {
-   "fieldname": "air_section_break_description",
-   "fieldtype": "Section Break",
-   "label": "Description"
-  },
-  {
-   "fieldname": "air_description",
-   "fieldtype": "Small Text",
-   "label": "Description"
-  },
-  {
-   "fieldname": "column_break_air_marks",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "air_marks_and_nos",
-   "fieldtype": "Small Text",
-   "label": "Marks and Nos"
-  },
-  {
    "depends_on": "eval:doc.is_transport",
    "fieldname": "transport_tab",
    "fieldtype": "Tab Break",
    "label": "Transport"
-  },
-  {
-   "collapsible": 1,
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_dimensions_section",
-   "fieldtype": "Section Break",
-   "label": "Dimensions"
-  },
-  {
-   "fieldname": "column_break_transport_dims_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_weight",
-   "fieldtype": "Float",
-   "label": "Weight"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_weight_uom",
-   "fieldtype": "Link",
-   "label": "Weight UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_volume",
-   "fieldtype": "Float",
-   "label": "Volume"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_volume_uom",
-   "fieldtype": "Link",
-   "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "column_break_transport_dims_2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_chargeable",
-   "fieldtype": "Float",
-   "label": "Chargeable"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_chargeable_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "section_break_disr",
-   "fieldtype": "Section Break",
-   "label": "Charges"
   },
   {
    "fieldname": "transport",
@@ -591,6 +168,38 @@
    "fieldname": "customs_tab",
    "fieldtype": "Tab Break",
    "label": "Customs"
+  },
+  {
+   "depends_on": "eval:doc.is_customs",
+   "fieldname": "customs_section",
+   "fieldtype": "Section Break",
+   "label": "Customs Details"
+  },
+  {
+   "depends_on": "eval:doc.is_customs",
+   "fieldname": "customs_authority",
+   "fieldtype": "Link",
+   "label": "Customs Authority",
+   "options": "Customs Authority"
+  },
+  {
+   "depends_on": "eval:doc.is_customs",
+   "fieldname": "declaration_type",
+   "fieldtype": "Select",
+   "label": "Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded"
+  },
+  {
+   "depends_on": "eval:doc.is_customs",
+   "fieldname": "column_break_customs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.is_customs",
+   "fieldname": "customs",
+   "fieldtype": "Table",
+   "label": "Customs Charges",
+   "options": "Sales Quote Customs"
   },
   {
    "depends_on": "eval:doc.is_warehousing",
@@ -650,132 +259,37 @@
    "reqd": 1
   },
   {
-   "fieldname": "connections_tab",
-   "fieldtype": "Tab Break",
-   "label": "Connections",
-   "show_dashboard": 1
-  },
-  {
-   "fieldname": "load_type",
-   "fieldtype": "Link",
-   "label": "Load Type",
-   "options": "Load Type"
-  },
-  {
-   "fieldname": "vehicle_type",
-   "fieldtype": "Link",
-   "label": "Vehicle Type",
-   "options": "Vehicle Type"
-  },
-  {
-   "fieldname": "column_break_cxfw",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "location_from",
-   "fieldtype": "Dynamic Link",
-   "label": "Location From",
-   "options": "location_type"
-  },
-  {
-   "fieldname": "location_to",
-   "fieldtype": "Dynamic Link",
-   "label": "Location To",
-   "options": "location_type"
-  },
-  {
-   "depends_on": "eval:doc.load_type == \"FCL\"",
-   "fieldname": "container_type",
-   "fieldtype": "Link",
-   "label": "Container Type",
-   "options": "Container Type"
-  },
-  {
    "fieldname": "warehousing",
    "fieldtype": "Table",
    "options": "Sales Quote Warehouse"
   },
   {
-   "fieldname": "site",
-   "fieldtype": "Link",
-   "label": "Site",
-   "link_filters": "[[\"Storage Location Configurator\",\"level\",\"=\",\"Site\"]]",
-   "options": "Storage Location Configurator"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_dimensions_section",
-   "fieldtype": "Section Break",
-   "label": "Dimensions"
-  },
-  {
-   "fieldname": "column_break_warehouse_dims_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_weight",
-   "fieldtype": "Float",
-   "label": "Weight"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_weight_uom",
-   "fieldtype": "Link",
-   "label": "Weight UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_volume",
-   "fieldtype": "Float",
-   "label": "Volume"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_volume_uom",
-   "fieldtype": "Link",
-   "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_chargeable",
-   "fieldtype": "Float",
-   "label": "Chargeable"
-  },
-  {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehouse_chargeable_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable UOM",
-   "options": "UOM"
-  },
-  {
    "default": "0",
-   "fieldname": "one_off",
+   "fieldname": "additional_charge",
    "fieldtype": "Check",
-   "label": "One-Off"
+   "label": "Additional Charge"
+  },
+  {
+   "depends_on": "eval:doc.additional_charge",
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "label": "Job Type",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.additional_charge",
+   "fieldname": "job",
+   "fieldtype": "Dynamic Link",
+   "label": "Job",
+   "options": "job_type"
   },
   {
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
-  },
-  {
-   "fieldname": "location_type",
-   "fieldtype": "Link",
-   "label": "Location Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
-   "options": "DocType"
-  },
-  {
-   "fieldname": "transport_template",
-   "fieldtype": "Link",
-   "label": "Transport Template",
-   "options": "Transport Template"
   },
   {
    "fieldname": "column_break_lfap",
@@ -812,18 +326,37 @@
    "label": "Warehousing"
   },
   {
-   "fieldname": "pick_mode",
-   "fieldtype": "Link",
-   "label": "Pick Mode",
-   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_pick\",\"=\",1]]",
-   "options": "Pick and Drop Mode"
+   "default": "0",
+   "fieldname": "is_multimodal",
+   "fieldtype": "Check",
+   "label": "Multimodal"
   },
   {
-   "fieldname": "drop_mode",
-   "fieldtype": "Link",
-   "label": "Drop Mode",
-   "link_filters": "[[\"Pick and Drop Mode\",\"allow_in_drop\",\"=\",1]]",
-   "options": "Pick and Drop Mode"
+   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
+   "fieldname": "routing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Routing"
+  },
+  {
+   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Multimodal Routing Details"
+  },
+  {
+   "default": "Consolidated",
+   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
+   "fieldname": "billing_mode",
+   "fieldtype": "Select",
+   "label": "Billing Mode",
+   "options": "Consolidated\nPer Product"
+  },
+  {
+   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
+   "fieldname": "routing_legs",
+   "fieldtype": "Table",
+   "label": "Routing Legs",
+   "options": "Sales Quote Routing Leg"
   },
   {
    "fieldname": "additional_information_tab",
@@ -867,32 +400,8 @@
    "label": "Service Level Details"
   },
   {
-   "fieldname": "column_break_vouh",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_htpq",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_ejmb",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_pxyb",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_fxxd",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_jrvy",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_jgdj",
-   "fieldtype": "Column Break"
+   "fieldname": "section_break_qqlf",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -910,7 +419,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-02-03 08:38:08.007360",
+ "modified": "2026-02-11 18:20:26.406084",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

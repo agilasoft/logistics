@@ -1,0 +1,67 @@
+{
+ "app": "logistics",
+ "charts": [
+  {
+   "chart_name": "Special Projects by Status",
+   "label": "Special Projects by Status"
+  }
+ ],
+ "content": "[{\"id\":\"vg4I6XWVa3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Active Projects\",\"col\":4}},{\"id\":\"_lSFiaPdLO\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Projects\",\"col\":4}},{\"id\":\"PFWXl41aCi\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Requests\",\"col\":4}},{\"id\":\"4ECKtGdXw5\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Special Projects by Status\",\"col\":12}},{\"id\":\"Epcgo8syf-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"3UR6TgyJ4n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"M8rSH3agYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Request\",\"col\":3}}]",
+ "creation": "2026-02-12 07:47:18.360199",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "grid",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Special Projects",
+ "link_type": "DocType",
+ "links": [{"label": "Settings", "link_to": "Special Project Settings", "link_type": "DocType", "type": "Link"}],
+ "modified": "2026-02-12 11:37:44.727842",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Projects",
+ "number_cards": [
+  {
+   "label": "Active Projects",
+   "number_card_name": "Active Projects"
+  },
+  {
+   "label": "Total Projects",
+   "number_card_name": "Total Projects"
+  },
+  {
+   "label": "Open Requests",
+   "number_card_name": "Open Requests"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 33.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Project",
+   "link_to": "Special Project",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Request",
+   "link_to": "Special Project Request",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Special Projects",
+ "type": "Workspace"
+}

@@ -31,7 +31,9 @@
   "volume",
   "volume_uom",
   "weight",
-  "weight_uom"
+  "weight_uom",
+  "chargeable_weight",
+  "chargeable_weight_uom"
  ],
  "fields": [
   {
@@ -166,7 +168,7 @@
   {
    "fieldname": "dimensions_section",
    "fieldtype": "Section Break",
-   "label": "Dimensions & Weight"
+   "label": "Measurements"
   },
   {
    "fetch_from": "item.length",
@@ -217,6 +219,17 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "dimension_uom",

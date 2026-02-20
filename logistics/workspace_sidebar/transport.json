@@ -45,11 +45,11 @@
   {
    "child": 0,
    "collapsible": 1,
-   "icon": "file-input",
+   "icon": "circle-arrow-out-up-right",
    "indent": 0,
    "keep_closed": 0,
-   "label": "Transport Order",
-   "link_to": "Transport Order",
+   "label": "One-off",
+   "link_to": "One-Off Quote",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
@@ -320,9 +320,21 @@
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "file-input",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Transport Order",
+   "link_to": "Transport Order",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-04 06:27:14.983650",
+ "modified": "2026-02-12 10:02:44.362533",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport",

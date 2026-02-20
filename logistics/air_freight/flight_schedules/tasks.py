@@ -216,7 +216,7 @@ def sync_route_data():
 					})
 					doc.insert(ignore_permissions=True)
 					created_count += 1
-				except:
+				except Exception:
 					continue
 		
 		frappe.db.commit()

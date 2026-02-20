@@ -36,6 +36,7 @@
   "max_hu_slot",
   "item",
   "capacity_tab",
+  "measurements_section",
   "max_volume",
   "max_weight",
   "max_height",
@@ -200,6 +201,11 @@
    "fieldname": "capacity_tab",
    "fieldtype": "Tab Break",
    "label": "Capacity Management"
+  },
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
   },
   {
    "fieldname": "max_volume",

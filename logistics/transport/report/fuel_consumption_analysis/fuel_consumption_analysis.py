@@ -3,8 +3,33 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date
+from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date, fmt_money
 from datetime import datetime, timedelta
+
+def get_default_currency(company=None):
+	"""Get default currency for company or system default"""
+	try:
+		if company:
+			currency = frappe.db.get_value("Company", company, "default_currency")
+			if currency:
+				return currency
+		
+		# Fallback to system default currency from Global Defaults
+		currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+		if currency:
+			return currency
+			
+		# Final fallback - get first company's currency
+		first_company = frappe.db.get_value("Company", filters={"enabled": 1}, fieldname="name")
+		if first_company:
+			currency = frappe.db.get_value("Company", first_company, "default_currency")
+			if currency:
+				return currency
+				
+		# Ultimate fallback
+		return "USD"
+	except Exception:
+		return "USD"
 
 # Default report json so report_view.js can JSON.parse it (avoids "undefined" is not valid JSON)
 DEFAULT_REPORT_JSON = '{"filters": [], "order_by": "creation desc", "add_totals_row": 0, "page_length": 20}'
@@ -19,14 +44,18 @@ def onload(doc, method=None):
 
 
 def execute(filters=None):
-	columns = get_columns()
+	# Get currency for this report
+	company = filters.get("company") if filters else None
+	currency = get_default_currency(company)
+	
+	columns = get_columns(currency)
 	data = get_data(filters)
 	chart = get_chart_data(data)
-	summary = get_summary(data, filters)
+	summary = get_summary(data, filters, currency)
 	
 	return columns, data, None, chart, summary
 
-def get_columns():
+def get_columns(currency="USD"):
 	return [
 		{
 			"fieldname": "vehicle",
@@ -87,12 +116,14 @@ def get_columns():
 			"fieldname": "fuel_cost_per_km",
 			"label": _("Fuel Cost per KM"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "total_fuel_cost",
 			"label": _("Total Fuel Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
@@ -252,7 +283,10 @@ def calculate_fuel_metrics(row):
 		metrics["fuel_efficiency"] = 0
 	
 	# Calculate fuel costs (assuming average fuel price)
-	fuel_price_per_liter = get_fuel_price()
+	# Get currency from company if available
+	company = row.get("company")
+	currency = get_default_currency(company) if company else "USD"
+	fuel_price_per_liter = get_fuel_price(currency)
 	metrics["fuel_cost_per_km"] = (estimated_fuel * fuel_price_per_liter) / row.total_distance if row.total_distance > 0 else 0
 	metrics["total_fuel_cost"] = estimated_fuel * fuel_price_per_liter
 	
@@ -285,11 +319,19 @@ def estimate_fuel_consumption(distance, vehicle_type, cargo_weight):
 	
 	return total_consumption
 
-def get_fuel_price():
+def get_fuel_price(currency="USD"):
 	"""Get current fuel price per liter"""
 	# This would need to be implemented based on actual fuel price data
-	# For now, return a default price
-	return 1.50  # USD per liter
+	# For now, return a default price based on currency
+	# Default prices in different currencies (simplified)
+	fuel_prices = {
+		"USD": 1.50,
+		"EUR": 1.40,
+		"GBP": 1.20,
+		"PHP": 80.00,
+		"INR": 120.00
+	}
+	return fuel_prices.get(currency, 1.50)
 
 def get_chart_data(data):
 	"""Generate chart data for the report"""
@@ -316,7 +358,7 @@ def get_chart_data(data):
 	
 	return chart
 
-def get_summary(data, filters):
+def get_summary(data, filters, currency="USD"):
 	"""Generate summary statistics"""
 	if not data:
 		return []
@@ -348,7 +390,7 @@ def get_summary(data, filters):
 		},
 		{
 			"label": _("Total Fuel Cost"),
-			"value": f"${total_cost:,.2f}",
+			"value": fmt_money(total_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
@@ -358,7 +400,7 @@ def get_summary(data, filters):
 		},
 		{
 			"label": _("Average Cost per KM"),
-			"value": f"${avg_cost_per_km:.2f}",
+			"value": fmt_money(avg_cost_per_km, currency=currency),
 			"indicator": "red" if avg_cost_per_km > 0.5 else "green"
 		},
 		{
@@ -368,7 +410,7 @@ def get_summary(data, filters):
 		},
 		{
 			"label": _("Fuel Cost per Liter"),
-			"value": f"${get_fuel_price():.2f}",
+			"value": fmt_money(get_fuel_price(currency), currency=currency),
 			"indicator": "blue"
 		}
 	]

@@ -152,7 +152,7 @@ def debug_release_orders():
                 )
                 if portal_users:
                     test_customer = portal_users[0].parent
-            except:
+            except Exception:
                 pass
             test_results[test_user] = test_customer
         

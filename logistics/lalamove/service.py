@@ -293,7 +293,7 @@ class LalamoveService:
                 "expires_at": quotation.expires_at,
                 "valid": quotation.valid
             }
-        except:
+        except Exception:
             return None
     
     def _is_quotation_valid(self, quotation: Dict[str, Any]) -> bool:
@@ -308,7 +308,7 @@ class LalamoveService:
         try:
             expiry_time = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
             return datetime.now(expiry_time.tzinfo) < expiry_time
-        except:
+        except Exception:
             return False
     
     def _store_order(

@@ -131,9 +131,8 @@ function calculate_volume(frm) {
                 }
             },
             error: function(r) {
-                // Fallback to raw calculation on error
-                const volume = length * width * height;
-                frm.set_value('volume', volume);
+                // Do not set raw L×W×H when volume_uom is a volume unit (e.g. Cubic Meter)
+                frm.set_value('volume', 0);
             }
         });
     } else {

@@ -229,7 +229,7 @@ class OpenSkyConnector(BaseFlightConnector):
 		try:
 			airport = frappe.get_doc("Airport Master", iata_code.upper())
 			return airport.icao_code
-		except:
+		except Exception:
 			# If not in our database, return None
 			return None
 	

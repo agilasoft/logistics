@@ -11,6 +11,39 @@ frappe.ui.form.on('Transfer Order', {
         __('Create')
       );
     }
+  },
+
+  contract(frm) {
+    // Populate shipper and consignee from Warehouse Contract (only for Customer transfer type)
+    if (frm.doc.transfer_type === "Customer" && frm.doc.contract) {
+      frappe.db.get_value("Warehouse Contract", frm.doc.contract, ["shipper", "consignee"], function(r) {
+        if (r) {
+          if (r.shipper) {
+            frm.set_value("shipper", r.shipper);
+          }
+          if (r.consignee) {
+            frm.set_value("consignee", r.consignee);
+          }
+        }
+      });
+    } else {
+      // Clear shipper and consignee if contract is cleared or transfer type is not Customer
+      if (frm.doc.transfer_type !== "Customer") {
+        frm.set_value("shipper", "");
+        frm.set_value("consignee", "");
+      } else if (!frm.doc.contract) {
+        frm.set_value("shipper", "");
+        frm.set_value("consignee", "");
+      }
+    }
+  },
+
+  transfer_type(frm) {
+    // Clear shipper and consignee when switching away from Customer type
+    if (frm.doc.transfer_type !== "Customer") {
+      frm.set_value("shipper", "");
+      frm.set_value("consignee", "");
+    }
   }
 });
 
@@ -307,8 +340,7 @@ function calculate_volume(frm, cdt, cdn) {
                 }
             },
             error: function(r) {
-                // Fallback to raw calculation on error
-                const volume = length * width * height;
+                const volume = 0;
                 frappe.model.set_value(cdt, cdn, 'volume', volume);
             }
         });

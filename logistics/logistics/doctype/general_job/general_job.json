@@ -15,10 +15,30 @@
   "accounts_tab",
   "company",
   "branch",
-  "profit_center",
   "cost_center",
+  "profit_center",
   "column_break_zmfn",
   "job_costing_number",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "wip_recognition_date_basis",
+  "accrual_recognition_enabled",
+  "accrual_recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
   "sustainability_tab",
   "sustainability_section",
   "estimated_energy_consumption",
@@ -96,6 +116,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -108,6 +129,124 @@
    "fieldtype": "Link",
    "label": "Job Costing Number",
    "options": "Job Costing Number"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "WIP Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition"
+  },
+  {
+   "fieldname": "accrual_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Accrual Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "description": "Used when date basis is 'User Specified'",
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date"
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
+   "read_only": 1
   },
   {
    "fieldname": "sustainability_tab",

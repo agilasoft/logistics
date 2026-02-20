@@ -26,19 +26,69 @@
   "status",
   "priority",
   "group_legs_in_one_runsheet",
+  "packing_tab",
   "section_break_jozr",
   "packages",
+  "section_break_summary",
+  "total_packages",
+  "total_volume",
+  "total_weight",
+  "column_break_summary",
+  "density_factor_html",
+  "dangerous_goods_tab",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "leg_plan_tab",
   "legs",
   "charges_tab",
   "charges",
-  "entity_tab",
+  "accounts_tab",
   "company",
   "branch",
   "profit_center",
   "cost_center",
   "column_break_xphe",
   "job_costing_number",
+  "project",
+  "invoice_monitoring_section",
+  "sales_invoice",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "wip_recognition_date_basis",
+  "accrual_recognition_enabled",
+  "accrual_recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
   "sustainability_tab",
   "sustainability_section",
   "total_distance",
@@ -60,6 +110,9 @@
   "column_break_16",
   "client_notes",
   "connections_tab",
+  "section_break_freight_connections",
+  "air_shipment",
+  "sea_shipment",
   "amended_from"
  ],
  "fields": [
@@ -116,9 +169,10 @@
   },
   {
    "default": "0",
+   "description": "ADR/RID: Check if contains dangerous goods. Enables Dangerous Goods tab.",
    "fieldname": "hazardous",
    "fieldtype": "Check",
-   "label": "Hazardous"
+   "label": "Contains Dangerous Goods"
   },
   {
    "default": "0",
@@ -218,8 +272,92 @@
    "label": "SLA Notes"
   },
   {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packing"
+  },
+  {
+   "fieldname": "section_break_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Float",
+   "label": "Total Packages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_summary",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "density_factor_html",
+   "fieldtype": "HTML",
+   "label": "Density Factor",
+   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
+  },
+  {
    "fieldname": "section_break_jozr",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Packages"
+  },
+  {
+   "depends_on": "eval:doc.hazardous",
+   "fieldname": "dangerous_goods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration & Emergency Response"
+  },
+  {
+   "default": "0",
+   "description": "ADR/RID: Shipper's Declaration for Dangerous Goods completed",
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "24-hour emergency response contact per ADR/IATA DGR",
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "description": "24-hour emergency response phone number",
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
   },
   {
    "fieldname": "transport_order",
@@ -258,7 +396,7 @@
    "label": "Container No."
   },
   {
-   "fieldname": "entity_tab",
+   "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
   },
@@ -288,6 +426,215 @@
    "options": "Job Costing Number"
   },
   {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "description": "ERPNext Project for Special Projects integration"
+  },
+  {
+   "fieldname": "invoice_monitoring_section",
+   "fieldtype": "Section Break",
+   "label": "Invoice Monitoring",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fully_invoiced",
+   "fieldtype": "Check",
+   "label": "Fully Invoiced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_invoiced",
+   "fieldtype": "Date",
+   "label": "Date Fully Invoiced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fully_paid",
+   "fieldtype": "Check",
+   "label": "Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date_sales_invoice_requested",
+   "fieldtype": "Date",
+   "label": "SI Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "SI Submitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "PI Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "PI Submitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "costs_fully_paid",
+   "fieldtype": "Check",
+   "label": "Costs Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_costs_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Costs Paid",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "WIP Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition"
+  },
+  {
+   "fieldname": "accrual_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Accrual Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "description": "Used when date basis is 'User Specified'",
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date"
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
+   "read_only": 1
+  },
+  {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
@@ -298,7 +645,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -344,6 +691,25 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "section_break_freight_connections",
+   "fieldtype": "Section Break",
+   "label": "Freight Connections"
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment",
+   "description": "Port pickup/delivery for air freight"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment",
+   "description": "Port pickup/delivery for sea freight"
   },
   {
    "fieldname": "amended_from",

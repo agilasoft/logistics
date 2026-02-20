@@ -1246,7 +1246,7 @@ def warehouse_job_fetch_count_sheet(warehouse_job: str, clear_existing: int = 1)
     if stocktake_days_past_zero == 0 and company:
         try:
             stocktake_days_past_zero = int(frappe.db.get_value("Warehouse Settings", company, "stocktake_days_past_zero") or 0)
-        except:
+        except Exception:
             stocktake_days_past_zero = 0
 
     slf = _safe_meta_fieldnames("Storage Location")
@@ -2037,9 +2037,17 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
         frappe.throw(msg)
 
 def warehouse_job_before_submit(doc, method=None):
-    """Hook: called on before_submit of Warehouse Job."""
-    # Skip validation during allocation process
-    if hasattr(doc, '_skip_validation') and doc._skip_validation:
+    """
+    Hook: called on before_submit of Warehouse Job.
+    Validates job completeness and capacity limits before submission.
+
+    _skip_validation: When set on doc (e.g. doc._skip_validation = True), bypasses
+    completeness and capacity validation. Used internally during allocation/putaway
+    flows where the job is submitted in an intermediate state. Should only be set
+    by trusted server-side code (e.g. allocate_putaway, post_putaway). Do not
+    expose this flag to client or allow arbitrary bypass.
+    """
+    if getattr(doc, '_skip_validation', False):
         return
     
     _validate_job_completeness(doc, on_submit=True)

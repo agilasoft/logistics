@@ -301,7 +301,7 @@ def rollback():
         for field in storage_location_fields:
             try:
                 frappe.db.sql(f"ALTER TABLE `tabStorage Location` DROP COLUMN `{field}`")
-            except:
+            except Exception:
                 pass  # Field might not exist
         
         # Remove Handling Unit capacity fields
@@ -315,7 +315,7 @@ def rollback():
         for field in handling_unit_fields:
             try:
                 frappe.db.sql(f"ALTER TABLE `tabHandling Unit` DROP COLUMN `{field}`")
-            except:
+            except Exception:
                 pass  # Field might not exist
         
         frappe.db.commit()

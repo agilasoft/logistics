@@ -92,7 +92,7 @@ class TransportifyClient(ODDSClient):
             # Parse response
             try:
                 response_data = response.json()
-            except:
+            except Exception:
                 response_data = {"raw_response": response.text}
             
             # Handle errors

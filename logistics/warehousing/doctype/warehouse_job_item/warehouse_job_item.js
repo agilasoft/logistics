@@ -82,8 +82,7 @@ function calculate_volume(frm) {
                 }
             },
             error: function(r) {
-                // Fallback to raw calculation on error
-                const volume = length * width * height;
+                const volume = 0;
                 frm.set_value('volume', volume);
             }
         });

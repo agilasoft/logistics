@@ -331,7 +331,7 @@ def _get_customer_contract(customer: str, company: str, branch: str) -> Optional
             fieldname="name"
         )
         return contract
-    except:
+    except Exception:
         return None
 
 
@@ -350,7 +350,7 @@ def _get_customer_handling_units(customer: str, date_to: str, company: str, bran
         )
         
         return [hu.name for hu in hus]
-    except:
+    except Exception:
         return []
 
 

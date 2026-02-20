@@ -25,12 +25,30 @@
   "location_type",
   "location_from",
   "location_to",
+  "packing_tab",
   "section_break_ofjt",
   "packages",
+  "section_break_summary",
+  "total_packages",
+  "total_volume",
+  "total_weight",
+  "column_break_summary",
+  "density_factor_html",
+  "dangerous_goods_tab",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "leg_plan_tab",
   "legs",
   "charges_tab",
   "charges",
+  "section_break_connections",
+  "air_shipment",
+  "sea_shipment",
   "notes_tab",
   "notes_section",
   "internal_notes",
@@ -43,13 +61,18 @@
   "service_level_agreement_section",
   "service_level",
   "service_level_details",
-  "tab_5_tab",
+  "accounts_tab",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_jkpj",
-  "sales_quote"
+  "job_costing_number",
+  "quote_section",
+  "quote_type",
+  "quote",
+  "sales_quote",
+  "project"
  ],
  "fields": [
   {
@@ -66,6 +89,13 @@
    "options": "Customer"
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
+  },
+  {
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_list_view": 1,
@@ -79,9 +109,10 @@
   },
   {
    "default": "0",
+   "description": "ADR/RID: Check if contains dangerous goods. Enables Dangerous Goods tab.",
    "fieldname": "hazardous",
    "fieldtype": "Check",
-   "label": "Hazardous"
+   "label": "Contains Dangerous Goods"
   },
   {
    "fieldname": "column_break_5",
@@ -98,6 +129,26 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "section_break_connections",
+   "fieldtype": "Section Break",
+   "label": "Connected Documents"
+  },
+  {
+   "description": "Port pickup/delivery for air freight",
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment"
+  },
+  {
+   "description": "Port pickup/delivery for sea freight",
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
    "label": "Notes"
@@ -107,6 +158,51 @@
    "fieldtype": "Table",
    "label": "Packages",
    "options": "Transport Order Package"
+  },
+  {
+   "depends_on": "eval:doc.hazardous",
+   "fieldname": "dangerous_goods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration & Emergency Response"
+  },
+  {
+   "default": "0",
+   "description": "ADR/RID: Shipper's Declaration for Dangerous Goods completed",
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "24-hour emergency response contact per ADR/IATA DGR",
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "description": "24-hour emergency response phone number",
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
   },
   {
    "fieldname": "internal_notes",
@@ -157,8 +253,42 @@
    "options": "Transport Order Charges"
   },
   {
+   "fieldname": "section_break_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Float",
+   "label": "Total Packages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_summary",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "density_factor_html",
+   "fieldtype": "HTML",
+   "label": "Density Factor",
+   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
+  },
+  {
    "fieldname": "section_break_ofjt",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Packages"
   },
   {
    "fieldname": "transport_template",
@@ -204,7 +334,7 @@
    "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
   },
   {
-   "fieldname": "tab_5_tab",
+   "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
   },
@@ -242,10 +372,34 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "For revenue/cost recognition",
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
+  },
+  {
+   "fieldname": "quote_section",
+   "fieldtype": "Section Break",
+   "label": "Quote Reference"
+  },
+  {
+   "fieldname": "quote_type",
+   "fieldtype": "Select",
+   "label": "Quote Type",
+   "options": "One-Off Quote\nSales Quote"
+  },
+  {
+   "fieldname": "quote",
+   "fieldtype": "Dynamic Link",
+   "label": "Quote",
+   "options": "quote_type"
+  },
+  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_transport\",\"=\",1],[\"Sales Quote\",\"one_off\",\"!=\",1]]",
    "options": "Sales Quote"
   },
   {
@@ -312,11 +466,16 @@
    "fieldname": "service_level_details",
    "fieldtype": "Text Editor",
    "label": "Service Level Details"
+  },
+  {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packing"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-03 10:28:11.322733",
+ "modified": "2026-02-20 07:40:45.893133",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order",

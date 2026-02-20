@@ -112,13 +112,13 @@
    "fieldname": "default_origin_location",
    "fieldtype": "Link",
    "label": "Default Origin Location",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "default_destination_location",
    "fieldtype": "Link",
    "label": "Default Destination Location",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_location",

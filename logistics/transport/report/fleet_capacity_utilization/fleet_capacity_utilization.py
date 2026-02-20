@@ -103,17 +103,17 @@ def get_data(filters):
 		fields=["name", "vehicle_name", "vehicle_type", "transport_company", "capacity_weight", "capacity_weight_uom", "capacity_volume", "capacity_volume_uom", "capacity_pallets"]
 	)
 
-	# Standardise capacity to kg for weight (for utilization %)
+	# Standardise capacity using Logistics Settings UOMs (no hardcoded UOMs)
 	try:
-		from logistics.transport.capacity.uom_conversion import get_default_uoms, convert_weight, convert_volume
+		from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom, convert_weight, convert_volume
 		default_uoms = get_default_uoms()
-		weight_uom = default_uoms.get("weight", "KG")
-		volume_uom = default_uoms.get("volume", "CBM")
-		do_convert = True
+		weight_uom = default_uoms.get("weight")
+		volume_uom = get_aggregation_volume_uom() or default_uoms.get("volume")
+		do_convert = bool(weight_uom and volume_uom)
 	except Exception:
 		do_convert = False
-		weight_uom = "KG"
-		volume_uom = "CBM"
+		weight_uom = None
+		volume_uom = None
 
 	# Build rows by vehicle or by vehicle type
 	aggregates = {}
@@ -122,14 +122,14 @@ def get_data(filters):
 		cap_w = flt(v.get("capacity_weight"), 0)
 		cap_vol = flt(v.get("capacity_volume"), 0)
 		cap_pal = flt(v.get("capacity_pallets"), 0)
-		if do_convert and cap_w and v.get("capacity_weight_uom"):
+		if do_convert and cap_w and v.get("capacity_weight_uom") and weight_uom:
 			try:
-				cap_w = convert_weight(cap_w, v.get("capacity_weight_uom"), weight_uom)
+				cap_w = convert_weight(cap_w, from_uom=v.get("capacity_weight_uom"), to_uom=weight_uom)
 			except Exception:
 				pass
-		if do_convert and cap_vol and v.get("capacity_volume_uom"):
+		if do_convert and cap_vol and v.get("capacity_volume_uom") and volume_uom:
 			try:
-				cap_vol = convert_volume(cap_vol, v.get("capacity_volume_uom"), volume_uom)
+				cap_vol = convert_volume(cap_vol, from_uom=v.get("capacity_volume_uom"), to_uom=volume_uom)
 			except Exception:
 				pass
 

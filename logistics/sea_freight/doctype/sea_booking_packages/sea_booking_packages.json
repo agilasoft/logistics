@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-01-01 00:00:00.000000",
+ "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -13,10 +13,20 @@
   "column_break_tzoe",
   "goods_description",
   "column_break_sdrs",
-  "no_of_packs",
   "uom",
+  "no_of_packs",
+  "measurements_section",
+  "dimension_uom",
+  "length",
+  "width",
+  "height",
+  "volume_uom",
+  "volume",
+  "column_break_xbsy",
+  "weight_uom",
   "weight",
-  "volume"
+  "chargeable_weight_uom",
+  "chargeable_weight"
  ],
  "fields": [
   {
@@ -27,6 +37,7 @@
    "options": "Commodity"
   },
   {
+   "fetch_from": "commodity.default_hs_code",
    "fieldname": "hs_code",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -60,6 +71,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -72,6 +88,50 @@
    "label": "Volume"
   },
   {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
+  },
+  {
    "fieldname": "goods_description",
    "fieldtype": "Long Text",
    "label": "Goods Description"
@@ -80,13 +140,17 @@
    "fieldname": "reference_no",
    "fieldtype": "Data",
    "label": "Reference No"
+  },
+  {
+   "fieldname": "column_break_xbsy",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-01-01 00:00:00.000000",
+ "modified": "2026-02-19 15:24:54.188258",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking Packages",
@@ -97,4 +161,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

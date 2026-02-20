@@ -1,11 +1,45 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+// Suppress "Sea Shipment X not found" when form is new/unsaved (e.g. child grid triggers API before save)
 frappe.ui.form.on('Sea Shipment', {
     onload: function(frm) {
+        // Suppress "Sea Shipment X not found" when form is new/unsaved
+        if (frm.is_new() || frm.doc.__islocal) {
+            if (!frappe._original_msgprint_ss) {
+                frappe._original_msgprint_ss = frappe.msgprint;
+            }
+            frappe.msgprint = function(options) {
+                const message = typeof options === 'string' ? options : (options && options.message || '');
+                if (message && typeof message === 'string' &&
+                    message.includes('Sea Shipment') &&
+                    message.includes('not found')) {
+                    return;
+                }
+                return frappe._original_msgprint_ss.apply(this, arguments);
+            };
+            frm.$wrapper.one('form-refresh', function() {
+                if (!frm.is_new() && !frm.doc.__islocal && frappe._original_msgprint_ss) {
+                    frappe.msgprint = frappe._original_msgprint_ss;
+                }
+            });
+        }
         // Load default values from settings when creating new document
         if (frm.is_new()) {
             load_defaults_from_settings(frm);
+        }
+    },
+    override_volume_weight: function(frm) {
+        if (!frm.doc.override_volume_weight) {
+            frm.call({
+                method: 'aggregate_volume_from_packages_api',
+                doc: frm.doc,
+                callback: function(r) {
+                    if (r && !r.exc && r.message && r.message.volume !== undefined) {
+                        frm.set_value('volume', r.message.volume);
+                    }
+                }
+            });
         }
     },
     
@@ -37,6 +71,56 @@ frappe.ui.form.on('Sea Shipment', {
         if (frm.doc.sales_quote && !frm.is_new()) {
             frm.add_custom_button(__('Load Charges from Sales Quote'), function() {
                 load_charges_from_sales_quote(frm);
+            }, __('Actions'));
+        }
+
+        // Create Transport Order / Inbound Order from Sea Shipment
+        if (!frm.is_new()) {
+            frm.add_custom_button(__('Transport Order'), function() {
+                frappe.call({
+                    method: 'logistics.utils.module_integration.create_transport_order_from_sea_shipment',
+                    args: { sea_shipment_name: frm.doc.name },
+                    callback: function(r) {
+                        if (r.exc) return;
+                        if (r.message && r.message.transport_order) {
+                            frappe.msgprint(r.message.message);
+                            setTimeout(function() {
+                                frappe.set_route('Form', 'Transport Order', r.message.transport_order);
+                            }, 100);
+                        }
+                    }
+                });
+            }, __('Create'));
+            frm.add_custom_button(__('Inbound Order'), function() {
+                frappe.call({
+                    method: 'logistics.utils.module_integration.create_inbound_order_from_sea_shipment',
+                    args: { sea_shipment_name: frm.doc.name },
+                    callback: function(r) {
+                        if (r.exc) return;
+                        if (r.message && r.message.inbound_order) {
+                            frappe.msgprint(r.message.message);
+                            setTimeout(function() {
+                                frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+                            }, 100);
+                        }
+                    }
+                });
+            }, __('Create'));
+        }
+
+        // Additional Charges: Get Additional Charges and Create Change Request
+        if (!frm.is_new()) {
+            frm.add_custom_button(__('Get Additional Charges'), function() {
+                logistics_additional_charges_show_sales_quote_dialog(frm, 'Sea Shipment');
+            }, __('Actions'));
+            frm.add_custom_button(__('Create Change Request'), function() {
+                frappe.call({
+                    method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
+                    args: { job_type: 'Sea Shipment', job_name: frm.doc.name },
+                    callback: function(r) {
+                        if (r.message) frappe.set_route('Form', 'Change Request', r.message);
+                    }
+                });
             }, __('Actions'));
         }
         
@@ -159,6 +243,43 @@ frappe.ui.form.on('Sea Shipment', {
             });
         }
     }
+});
+
+// Sea Freight Packages: ensure global volume-from-dimensions runs and header aggregates
+frappe.ui.form.on('Sea Freight Packages', {
+    volume: function(frm) {
+        if (frm.doc && !frm.doc.override_volume_weight) {
+            frm.call({
+                method: 'aggregate_volume_from_packages_api',
+                doc: frm.doc,
+                callback: function(r) {
+                    if (r && !r.exc && r.message) {
+                        if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
+                        if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+                    }
+                }
+            });
+        }
+    },
+    weight: function(frm) {
+        if (frm.doc && !frm.doc.override_volume_weight) {
+            frm.call({
+                method: 'aggregate_volume_from_packages_api',
+                doc: frm.doc,
+                callback: function(r) {
+                    if (r && !r.exc && r.message) {
+                        if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
+                        if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+                    }
+                }
+            });
+        }
+    },
+    length: function(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+    width: function(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+    height: function(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+    dimension_uom: function(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+    volume_uom: function(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); }
 });
 
 // Function to refresh milestone view

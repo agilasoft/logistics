@@ -2,16 +2,17 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.utils import getdate
+from frappe import _
+from frappe.utils import getdate, flt
 
 
 def execute(filters=None):
 	f = frappe._dict(filters or {})
-	
 	columns = get_columns()
 	data = get_data(f)
-	
-	return columns, data
+	chart = get_chart_data(data) if data else None
+	summary = get_summary(data) if data else []
+	return columns, data, None, chart, summary
 
 
 def get_columns():
@@ -78,3 +79,25 @@ def get_conditions(filters):
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 
+def get_chart_data(data):
+	if not data:
+		return None
+	from collections import Counter
+	by_status = Counter((r.get("status") or _("Unknown")) for r in data)
+	return {
+		"data": {
+			"labels": list(by_status.keys()),
+			"datasets": [{"name": _("Declarations"), "values": list(by_status.values())}]
+		},
+		"type": "bar",
+		"colors": ["#5e64ff"]
+	}
+def get_summary(data):
+	if not data:
+		return []
+	total = len(data)
+	total_value = sum(flt(r.get("declaration_value")) for r in data)
+	return [
+		{"label": _("Total Declarations"), "value": total, "indicator": "blue"},
+		{"label": _("Total Value"), "value": f"{total_value:,.2f}", "indicator": "green"},
+	]

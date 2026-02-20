@@ -13,38 +13,24 @@ from frappe.utils import flt
 from typing import Dict, Any, Optional
 
 from .uom_conversion import get_default_uoms, convert_weight, convert_volume
+from logistics.utils.measurements import get_aggregation_volume_uom
 
 
 def get_vehicle_type_capacity_info(vehicle_type: str, company: Optional[str] = None) -> Dict[str, Any]:
 	"""
 	Get aggregated capacity information for a vehicle type.
-	
-	Args:
-		vehicle_type: Vehicle Type name
-		company: Optional company for UOM defaults
-	
-	Returns:
-		Dictionary with capacity statistics:
-		{
-			'max_weight': maximum capacity weight,
-			'max_volume': maximum capacity volume,
-			'max_pallets': maximum capacity pallets,
-			'avg_weight': average capacity weight,
-			'min_weight': minimum capacity weight,
-			'vehicle_count': number of vehicles of this type,
-			'weight_uom': standard weight UOM,
-			'volume_uom': standard volume UOM
-		}
+	Uses Logistics Settings: default weight UOM and aggregation volume UOM (base or default).
 	"""
 	default_uoms = get_default_uoms(company)
-	
+	volume_uom_std = get_aggregation_volume_uom(company) or default_uoms.get('volume')
+
 	# Get all vehicles of this type
 	vehicles = frappe.get_all(
 		"Transport Vehicle",
 		filters={'vehicle_type': vehicle_type},
 		fields=['name', 'capacity_weight', 'capacity_weight_uom', 'capacity_volume', 'capacity_volume_uom', 'capacity_pallets']
 	)
-	
+
 	if not vehicles:
 		return {
 			'max_weight': 0,
@@ -54,13 +40,13 @@ def get_vehicle_type_capacity_info(vehicle_type: str, company: Optional[str] = N
 			'min_weight': 0,
 			'vehicle_count': 0,
 			'weight_uom': default_uoms['weight'],
-			'volume_uom': default_uoms['volume']
+			'volume_uom': volume_uom_std
 		}
-	
+
 	weights = []
 	volumes = []
 	pallets = []
-	
+
 	for vehicle in vehicles:
 		# Weight
 		weight = flt(vehicle.get('capacity_weight', 0))
@@ -68,27 +54,27 @@ def get_vehicle_type_capacity_info(vehicle_type: str, company: Optional[str] = N
 			weight_uom = vehicle.get('capacity_weight_uom') or default_uoms['weight']
 			weight_std = convert_weight(weight, weight_uom, default_uoms['weight'], company)
 			weights.append(weight_std)
-		
-		# Volume
+
+		# Volume - convert to aggregation volume UOM
 		volume = flt(vehicle.get('capacity_volume', 0))
-		if volume > 0:
-			volume_uom = vehicle.get('capacity_volume_uom') or default_uoms['volume']
-			volume_std = convert_volume(volume, volume_uom, default_uoms['volume'], company)
+		if volume > 0 and volume_uom_std:
+			v_uom = vehicle.get('capacity_volume_uom') or default_uoms['volume']
+			volume_std = convert_volume(volume, v_uom, volume_uom_std, company)
 			volumes.append(volume_std)
-		
+
 		# Pallets
 		pallet = flt(vehicle.get('capacity_pallets', 0))
 		if pallet > 0:
 			pallets.append(pallet)
-	
+
 	# Calculate statistics
 	max_weight = max(weights) if weights else 0
 	min_weight = min(weights) if weights else 0
 	avg_weight = sum(weights) / len(weights) if weights else 0
-	
+
 	max_volume = max(volumes) if volumes else 0
 	max_pallets = max(pallets) if pallets else 0
-	
+
 	return {
 		'max_weight': max_weight,
 		'max_volume': max_volume,
@@ -97,7 +83,7 @@ def get_vehicle_type_capacity_info(vehicle_type: str, company: Optional[str] = N
 		'min_weight': min_weight,
 		'vehicle_count': len(vehicles),
 		'weight_uom': default_uoms['weight'],
-		'volume_uom': default_uoms['volume']
+		'volume_uom': volume_uom_std
 	}
 
 

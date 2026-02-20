@@ -1,7 +1,7 @@
 // Copyright (c) 2025, logistics.agilasoft.com and contributors
 // For license information, please see license.txt
 
-frappe.query_reports["On-Time Performance Report"] = {
+frappe.query_reports["Sea Freight On-Time Performance Report"] = {
 	"filters": [
 		{
 			"fieldname": "from_date",

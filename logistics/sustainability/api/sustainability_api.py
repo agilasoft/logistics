@@ -105,32 +105,71 @@ class SustainabilityAPI:
 		return doc.name
 	
 	def calculate_carbon_footprint(self, activity_data, activity_type, module):
-		"""Calculate carbon footprint for given activity data"""
-		# Get emission factors
+		"""Calculate carbon footprint for given activity data.
+		Accepts activity_data as:
+		- Dict keyed by factor_name: {"Diesel Truck (per km)": 100}
+		- Dict with activity_value: {"activity_value": 100} - uses first matching factor for activity_type/module
+		- Dict with activity_value and vehicle_type for Transport: picks best matching factor
+		"""
 		emission_factors = self._get_emission_factors(activity_type, module)
-		
+
 		if not emission_factors:
 			frappe.throw(_(f"No emission factors found for {activity_type} in {module} module"))
-		
+
 		total_emissions = 0
 		emission_breakdown = []
-		
+
 		for factor in emission_factors:
-			emission_value = flt(activity_data.get(factor.factor_name, 0)) * flt(factor.factor_value)
+			val = flt(activity_data.get(factor.factor_name, 0))
+			emission_value = val * flt(factor.factor_value)
 			total_emissions += emission_value
-			
 			emission_breakdown.append({
 				"emission_source": factor.factor_name,
 				"emission_value": emission_value,
 				"unit_of_measure": factor.unit_of_measure,
 				"emission_factor": factor.factor_value,
-				"activity_data": flt(activity_data.get(factor.factor_name, 0))
+				"activity_data": val,
 			})
-		
+
+		# Fallback: use activity_value with first matching factor when no factor_name keys matched
+		activity_value = flt(activity_data.get("activity_value", 0))
+		if total_emissions <= 0 and activity_value > 0:
+			vehicle_type = activity_data.get("vehicle_type")
+			factor = self._pick_emission_factor_for_activity(
+				emission_factors, activity_type, module, vehicle_type
+			)
+			if factor:
+				emission_value = activity_value * flt(factor.factor_value)
+				total_emissions = emission_value
+				emission_breakdown = [{
+					"emission_source": factor.factor_name,
+					"emission_value": emission_value,
+					"unit_of_measure": factor.unit_of_measure,
+					"emission_factor": factor.factor_value,
+					"activity_data": activity_value,
+				}]
+
 		return {
 			"total_emissions": total_emissions,
-			"emission_breakdown": emission_breakdown
+			"emission_breakdown": emission_breakdown,
 		}
+
+	def _pick_emission_factor_for_activity(self, factors, activity_type, module, vehicle_type=None):
+		"""Pick the best emission factor for activity_value fallback."""
+		if not factors:
+			return None
+		# For Transport + vehicle_type, prefer factor whose name contains the vehicle type
+		if activity_type == "Transport" and vehicle_type:
+			vt_lower = (vehicle_type or "").lower()
+			for f in factors:
+				if vt_lower in (f.factor_name or "").lower():
+					return f
+		# Prefer per-km for Transport, per-ton-km for Freight
+		unit_prefer = "per km" if activity_type == "Transport" else "per ton-km"
+		for f in factors:
+			if unit_prefer in (f.unit_of_measure or "").lower() or unit_prefer in (f.factor_name or "").lower():
+				return f
+		return factors[0]
 	
 	def calculate_energy_efficiency(self, energy_data, activity_data):
 		"""Calculate energy efficiency metrics"""
@@ -351,6 +390,40 @@ def create_sustainability_metric(module, reference_doctype=None, reference_name=
 	"""Create a sustainability metric record"""
 	api = SustainabilityAPI()
 	return api.create_sustainability_metric(module, reference_doctype, reference_name, **kwargs)
+
+
+def record_sustainability_metric(
+	module: str,
+	reference_doctype: Optional[str] = None,
+	reference_name: Optional[str] = None,
+	metric_type: str = "Waste Reduction",
+	current_value: float = 0,
+	unit_of_measure: str = "kg",
+	company: Optional[str] = None,
+	description: Optional[str] = None,
+	**kwargs
+) -> Optional[str]:
+	"""
+	Record a sustainability metric (alias for create_sustainability_metric with metric-type mapping).
+	Used by _record_waste_metrics and other callers expecting metric_name/metric_type semantics.
+	"""
+	api = SustainabilityAPI(company)
+	# Map metric_type to create_sustainability_metric kwargs
+	metric_kwargs = {"notes": description, **kwargs}
+	if metric_type == "Waste Reduction":
+		metric_kwargs["waste_generated"] = flt(current_value)
+	elif metric_type == "Energy Efficiency":
+		metric_kwargs["energy_consumption"] = flt(current_value)
+	elif metric_type == "Carbon Reduction":
+		metric_kwargs["carbon_footprint"] = flt(current_value)
+	else:
+		metric_kwargs["waste_generated"] = flt(current_value)
+	return api.create_sustainability_metric(
+		module=module,
+		reference_doctype=reference_doctype,
+		reference_name=reference_name,
+		**metric_kwargs
+	)
 
 
 @frappe.whitelist()

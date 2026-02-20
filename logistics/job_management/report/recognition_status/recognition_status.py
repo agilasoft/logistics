@@ -100,7 +100,7 @@ def get_data(filters):
     
     job_types = [
         "Air Shipment", "Sea Shipment", "Transport Job",
-        "Warehouse Job", "Customs Declaration", "General Job"
+        "Warehouse Job", "Declaration", "General Job"
     ]
     
     for job_type in job_types:

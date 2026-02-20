@@ -14,11 +14,11 @@
  "modified": "2025-01-27 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sea Freight",
- "name": "On-Time Performance Report",
+ "name": "Sea Freight On-Time Performance Report",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "Sea Shipment",
- "report_name": "On-Time Performance Report",
+ "report_name": "Sea Freight On-Time Performance Report",
  "report_type": "Script Report",
  "roles": [
   {

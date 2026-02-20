@@ -21,7 +21,7 @@ def get_context(context):
         customer_doc = frappe.get_doc("Customer", customer)
         customer_name = customer_doc.customer_name
         customer_email = customer_doc.email_id
-    except:
+    except Exception:
         customer_name = "Unknown Customer"
         customer_email = ""
     
@@ -43,7 +43,7 @@ def get_context(context):
     try:
         transport_settings = frappe.get_single("Transport Settings")
         map_renderer = getattr(transport_settings, 'map_renderer', 'OpenStreetMap')
-    except:
+    except Exception:
         map_renderer = 'OpenStreetMap'
     
     context.update({
@@ -199,7 +199,7 @@ def get_job_legs(job_name):
                             "lat": float(facility_from_doc.latitude),
                             "lng": float(facility_from_doc.longitude)
                         }
-                except:
+                except Exception:
                     leg["facility_from_name"] = leg["facility_from"]
             else:
                 leg["facility_from_name"] = leg["facility_from"]
@@ -214,7 +214,7 @@ def get_job_legs(job_name):
                             "lat": float(facility_to_doc.latitude),
                             "lng": float(facility_to_doc.longitude)
                         }
-                except:
+                except Exception:
                     leg["facility_to_name"] = leg["facility_to"]
             else:
                 leg["facility_to_name"] = leg["facility_to"]

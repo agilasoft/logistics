@@ -539,12 +539,20 @@ class AirConsolidation(Document):
         if existing_package:
             frappe.throw(_("This Air Shipment is already included in this consolidation"))
         
+        # Validate house type: only consolidation types can be added (not Standard House or Break Bulk)
+        job = frappe.get_doc("Air Shipment", air_freight_job)
+        allowed = ("Co-load Master", "Blind Co-load Master", "Co-load House", "Buyer's Consol Lead", "Shipper's Consol Lead")
+        if job.house_type not in allowed:
+            frappe.throw(_(
+                "Air Shipment with House Type '{0}' cannot be added to consolidation. "
+                "Only Co-load Master, Blind Co-load Master, Co-load House, Buyer's Consol Lead, or Shipper's Consol Lead are allowed."
+            ).format(job.house_type or "Standard House"))
+        
         # Add package to consolidation
         package = self.append("consolidation_packages", {})
         package.air_freight_job = air_freight_job
         
-        # Get job details
-        job = frappe.get_doc("Air Shipment", air_freight_job)
+        # Get job details (job already fetched above for house_type validation)
         package.shipper = job.shipper
         package.consignee = job.consignee
         package.package_type = "Box"  # Default, can be updated

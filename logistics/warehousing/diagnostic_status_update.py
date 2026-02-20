@@ -227,5 +227,5 @@ def _safe_meta_fieldnames(doctype: str) -> list:
     """Safely get field names for a doctype."""
     try:
         return frappe.get_meta(doctype).get_fieldnames()
-    except:
+    except Exception:
         return []

@@ -8,7 +8,12 @@ from frappe.utils import today, flt
 
 
 class VASOrder(Document):
-    pass
+	def validate(self):
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
+		except Exception:
+			pass
 
 
 @frappe.whitelist()
@@ -37,6 +42,8 @@ def make_warehouse_job(source_name, target_doc=None):
         target.branch = source.branch
         target.customer = source.customer
         target.warehouse_contract = source.contract
+        target.shipper = getattr(source, "shipper", None)
+        target.consignee = getattr(source, "consignee", None)
 
         # Type (normalize to match Warehouse Job options)
         target.type = "VAS"

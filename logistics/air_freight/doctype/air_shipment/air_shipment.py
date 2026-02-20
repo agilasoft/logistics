@@ -148,9 +148,9 @@ class AirShipment(Document):
 							addr_line1 = getattr(addr_doc, 'address_line1', None) or ''
 							city = getattr(addr_doc, 'city', None) or ''
 							shipper_address = f"{addr_line1}, {city}".strip(', ')
-						except:
+						except Exception:
 							pass
-				except:
+				except Exception:
 					shipper_name = shipper
 			
 			# Get consignee details
@@ -180,22 +180,45 @@ class AirShipment(Document):
 							addr_line1 = getattr(addr_doc, 'address_line1', None) or ''
 							city = getattr(addr_doc, 'city', None) or ''
 							consignee_address = f"{addr_line1}, {city}".strip(', ')
-						except:
+						except Exception:
 							pass
-				except:
+				except Exception:
 					consignee_name = consignee
 			
 			# Get flight details from Master Airway Bill if linked
+			# First, try to get from Master AWB
 			airline = 'Not specified'
 			flight_number = 'Not specified'
-			mawb = getattr(self, 'master_airway_bill', None)
+			mawb = getattr(self, 'master_awb', None)
 			if mawb:
 				try:
-					mawb_doc = frappe.get_doc('Master Airway Bill', mawb)
-					airline = getattr(mawb_doc, 'airline', None) or 'Not specified'
-					flight_number = getattr(mawb_doc, 'flight_number', None) or 'Not specified'
-				except:
+					mawb_doc = frappe.get_doc('Master Air Waybill', mawb)
+					mawb_airline = getattr(mawb_doc, 'airline', None)
+					if mawb_airline:
+						# Try to get airline name if it's a link field
+						try:
+							if frappe.db.exists('Airline', mawb_airline):
+								airline_name = frappe.db.get_value('Airline', mawb_airline, 'airline_name')
+								airline = airline_name or mawb_airline
+							else:
+								airline = mawb_airline
+						except Exception:
+							airline = mawb_airline
+					flight_number = getattr(mawb_doc, 'flight_no', None) or 'Not specified'
+				except Exception:
 					pass
+			
+			# Fallback to Air Shipment's own airline field if Master AWB doesn't have it
+			if airline == 'Not specified' and getattr(self, 'airline', None):
+				# Try to get airline name if it's a link field
+				try:
+					if frappe.db.exists('Airline', self.airline):
+						airline_name = frappe.db.get_value('Airline', self.airline, 'airline_name')
+						airline = airline_name or self.airline
+					else:
+						airline = self.airline
+				except Exception:
+					airline = self.airline
 			
 			html = f"""
 		<div class="job-header">
@@ -1306,7 +1329,7 @@ class AirShipment(Document):
 		try:
 			from frappe.utils import format_datetime
 			return format_datetime(datetime_value, "dd-MM-yyyy HH:mm")
-		except:
+		except Exception:
 			return str(datetime_value)
 	
 	def get_dg_compliance_badge(self):
@@ -1365,12 +1388,23 @@ class AirShipment(Document):
 		"""Check if dangerous goods fields are available"""
 		try:
 			return hasattr(self, 'contains_dangerous_goods')
-		except:
+		except Exception:
 			return False
 	
 	def validate(self):
 		"""Validate Air Shipment document"""
+		# Normalize legacy house_type values
+		self._normalize_house_type()
 		self.validate_dates()
+		self.validate_air_booking_uniqueness()
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
+		except Exception:
+			pass
+		if not getattr(self, "override_volume_weight", False):
+			self.aggregate_volume_from_packages()
+		self._update_packing_summary()
 		self.validate_weight_volume()
 		self.validate_packages()
 		self.validate_awb()
@@ -1389,6 +1423,56 @@ class AirShipment(Document):
 		# Update DG compliance status automatically
 		self.update_dg_compliance_status()
 		self.validate_accounts()
+	
+	def aggregate_volume_from_packages(self):
+		"""Set header volume from sum of package volumes, converted to base/default volume UOM (used for chargeable weight)."""
+		if getattr(self, "override_volume_weight", False):
+			return
+		packages = getattr(self, "packages", []) or []
+		if not packages:
+			return
+		try:
+			from logistics.utils.measurements import convert_volume, get_aggregation_volume_uom, get_default_uoms
+			target_volume_uom = get_aggregation_volume_uom(company=getattr(self, "company", None))
+			if not target_volume_uom:
+				return
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			target_normalized = str(target_volume_uom).strip().upper()
+			total = 0
+			for pkg in packages:
+				pkg_vol = flt(getattr(pkg, "volume", 0) or 0)
+				if pkg_vol <= 0:
+					continue
+				pkg_volume_uom = getattr(pkg, "volume_uom", None) or defaults.get("volume")
+				if not pkg_volume_uom:
+					continue
+				if str(pkg_volume_uom).strip().upper() == target_normalized:
+					total += pkg_vol
+				else:
+					total += convert_volume(
+						pkg_vol,
+						from_uom=pkg_volume_uom,
+						to_uom=target_volume_uom,
+						company=getattr(self, "company", None),
+					)
+			if total > 0:
+				self.volume = total
+		except Exception:
+			pass
+
+	def _update_packing_summary(self):
+		"""Update total_packages, total_volume, total_weight from packages."""
+		packages = getattr(self, "packages", []) or []
+		self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
+		self.total_volume = flt(self.volume) if self.volume else 0
+		self.total_weight = flt(self.weight) if self.weight else 0
+	
+	@frappe.whitelist()
+	def aggregate_volume_from_packages_api(self):
+		"""Whitelisted API: aggregate volume from packages for client-side refresh when override is unchecked."""
+		if not getattr(self, "override_volume_weight", False):
+			self.aggregate_volume_from_packages()
+		return {"volume": getattr(self, "volume", 0)}
 	
 	def on_update(self):
 		"""Called after document is updated"""
@@ -1894,10 +1978,10 @@ class AirShipment(Document):
 		"""Validate date fields"""
 		from frappe.utils import getdate, today
 		
-		# Validate ETD is before ETA
+		# Validate ETD is not after ETA (allows same-day shipments)
 		if self.etd and self.eta:
-			if getdate(self.etd) >= getdate(self.eta):
-				frappe.throw(_("ETD (Estimated Time of Departure) must be before ETA (Estimated Time of Arrival)"), 
+			if getdate(self.etd) > getdate(self.eta):
+				frappe.throw(_("ETD (Estimated Time of Departure) must be on or before ETA (Estimated Time of Arrival)"), 
 					title=_("Date Validation Error"))
 		
 		# Warn if booking date is in the future
@@ -2030,17 +2114,24 @@ class AirShipment(Document):
 		"""Validate ULD (Unit Load Device) fields"""
 		if self.uld_type:
 			# Fetch ULD capacity if ULD type is set
-			if not self.uld_capacity_kg:
+			# Use getattr to safely access uld_capacity_kg in case the field doesn't exist
+			uld_capacity_kg = getattr(self, 'uld_capacity_kg', None)
+			if not uld_capacity_kg:
 				uld_capacity = frappe.get_cached_value("Unit Load Device", self.uld_type, "capacity_kg")
 				if uld_capacity:
-					self.uld_capacity_kg = uld_capacity
+					# Only set if the field exists in the doctype
+					if 'uld_capacity_kg' in self.meta.get_fieldnames():
+						self.uld_capacity_kg = uld_capacity
+					uld_capacity_kg = uld_capacity
 			
 			# Validate weight doesn't exceed ULD capacity
-			if self.uld_capacity_kg and self.weight:
-				if flt(self.weight) > flt(self.uld_capacity_kg):
+			# Re-fetch in case it was set above
+			uld_capacity_kg = getattr(self, 'uld_capacity_kg', uld_capacity_kg)
+			if uld_capacity_kg and self.weight:
+				if flt(self.weight) > flt(uld_capacity_kg):
 					frappe.msgprint(
 						_("Cargo weight ({0} kg) exceeds ULD capacity ({1} kg). Please verify.").format(
-							self.weight, self.uld_capacity_kg
+							self.weight, uld_capacity_kg
 						),
 						indicator="orange",
 						title=_("ULD Capacity Warning")
@@ -2101,13 +2192,17 @@ class AirShipment(Document):
 					title=_("Validation Error")
 				)
 			
-			# Validate min temperature is less than max temperature
-			if self.min_temperature is not None and self.max_temperature is not None:
-				if flt(self.min_temperature) >= flt(self.max_temperature):
-					frappe.throw(
-						_("Minimum temperature must be less than maximum temperature."),
-						title=_("Validation Error")
-					)
+			# Use global temperature validation utility
+			from logistics.utils.temperature_validation import validate_temperature_range
+			
+			# Validate temperature range against global limits and min < max
+			validate_temperature_range(
+				min_temperature=self.min_temperature,
+				max_temperature=self.max_temperature,
+				min_field_label="Minimum Temperature",
+				max_field_label="Maximum Temperature",
+				raise_exception=True
+			)
 			
 			# Warn if temperature monitoring is not enabled
 			if not self.temperature_monitoring:
@@ -2524,82 +2619,6 @@ class AirShipment(Document):
 			frappe.log_error(f"Sales Invoice creation error: {str(e)}", "Air Shipment - Sales Invoice Creation")
 			frappe.throw(_("Error creating Sales Invoice: {0}").format(str(e)))
 	
-	@frappe.whitelist()
-	def populate_charges_from_sales_quote(self):
-		"""Populate charges from Sales Quote Air Freight"""
-		if not self.sales_quote:
-			frappe.throw(_("Sales Quote is not set for this Air Shipment"))
-		
-		try:
-			# Verify that the sales_quote exists
-			if not frappe.db.exists("Sales Quote", self.sales_quote):
-				frappe.msgprint(
-					f"Sales Quote {self.sales_quote} does not exist",
-					title="Error",
-					indicator="red"
-				)
-				return
-			
-			# Clear existing charges
-			self.set("charges", [])
-			
-			# Get Sales Quote Air Freight records
-			sales_quote_air_freight_records = frappe.get_all(
-				"Sales Quote Air Freight",
-				filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-				fields=[
-					"item_code",
-					"item_name", 
-					"calculation_method",
-					"uom",
-					"currency",
-					"unit_rate",
-					"unit_type",
-					"minimum_quantity",
-					"minimum_charge",
-					"maximum_charge",
-					"base_amount",
-					"estimated_revenue"
-				],
-				order_by="idx"
-			)
-			
-			if not sales_quote_air_freight_records:
-				frappe.msgprint(
-					f"No Air Freight charges found in Sales Quote: {self.sales_quote}",
-					title="No Charges Found",
-					indicator="orange"
-				)
-				return
-			
-			# Map and populate charges
-			charges_added = 0
-			for sqaf_record in sales_quote_air_freight_records:
-				charge_row = self._map_sales_quote_air_freight_to_charge(sqaf_record)
-				if charge_row:
-					self.append("charges", charge_row)
-					charges_added += 1
-			
-			if charges_added > 0:
-				frappe.msgprint(
-					f"Successfully populated {charges_added} charges from Sales Quote",
-					title="Charges Updated",
-					indicator="green"
-				)
-			
-			return {
-				"success": True,
-				"message": f"Successfully populated {charges_added} charges",
-				"charges_added": charges_added
-			}
-			
-		except Exception as e:
-			frappe.log_error(
-				f"Error populating charges from Sales Quote: {str(e)}",
-				"Air Shipment - Populate Charges Error"
-			)
-			frappe.throw(_("Error populating charges: {0}").format(str(e)))
-	
 	def _map_sales_quote_air_freight_to_charge(self, sqaf_record):
 		"""Map sales_quote_air_freight record to air_shipment_charges format"""
 		try:
@@ -2785,6 +2804,8 @@ class AirShipment(Document):
 			self.freight_agent = settings.default_freight_agent
 		if not self.house_type and settings.default_house_type:
 			self.house_type = settings.default_house_type
+		# Normalize legacy house_type values after setting from defaults
+		self._normalize_house_type()
 		if not self.direction and settings.default_direction:
 			self.direction = settings.default_direction
 		if not self.release_type and settings.default_release_type:
@@ -2798,6 +2819,19 @@ class AirShipment(Document):
 		
 		# Mark as applied
 		self._settings_applied = True
+	
+	def _normalize_house_type(self):
+		"""Normalize legacy house_type values to current options.
+		Converts 'Direct' -> 'Standard House' and 'Consolidation' -> 'Co-load Master'.
+		"""
+		if not hasattr(self, 'house_type') or not self.house_type:
+			return
+		normalization_map = {
+			"Direct": "Standard House",
+			"Consolidation": "Co-load Master",
+		}
+		if self.house_type in normalization_map:
+			self.house_type = normalization_map[self.house_type]
 	
 	@frappe.whitelist()
 	def generate_house_awb_number(self):
@@ -2841,6 +2875,29 @@ class AirShipment(Document):
 			frappe.log_error(f"Error generating Master AWB: {str(e)}", "Air Shipment - Generate Master AWB")
 		
 		return reference
+	
+	def validate_air_booking_uniqueness(self):
+		"""
+		Validate that only one Air Shipment exists per Air Booking (1:1 relationship).
+		
+		This ensures that if an air_booking is set, no other Air Shipment
+		can have the same air_booking value.
+		"""
+		if not self.air_booking:
+			return
+		
+		# Check if another Air Shipment already has this air_booking
+		existing_shipment = frappe.db.get_value(
+			"Air Shipment",
+			{"air_booking": self.air_booking, "name": ["!=", self.name]},
+			"name"
+		)
+		
+		if existing_shipment:
+			frappe.throw(_(
+				"Air Shipment {0} already exists for Air Booking {1}. "
+				"One Air Booking can only have one Air Shipment."
+			).format(existing_shipment, self.air_booking))
 	
 	def validate_accounts(self):
 		"""Validate accounting fields"""
@@ -2904,6 +2961,109 @@ class AirShipment(Document):
 
 
 # Whitelisted API methods for client-side calls (module-level functions, same pattern as run sheet)
+
+@frappe.whitelist()
+def populate_charges_from_sales_quote(docname=None):
+	"""Populate charges from Sales Quote Air Freight"""
+	# When called via frm.call(), docname can be passed in args or form_dict
+	# Get document name from parameter, form_dict, or kwargs
+	if not docname:
+		# Try to get from form_dict (when called via frm.call() with args)
+		docname = (
+			frappe.form_dict.get("docname") 
+			or frappe.form_dict.get("name")
+			# Also check if passed as keyword argument
+			or (hasattr(frappe.local, 'form_dict') and frappe.local.form_dict.get("docname"))
+		)
+	
+	if not docname:
+		frappe.throw(_("Air Shipment document not found. Please ensure the document is saved and try again."))
+	
+	# Get the document instance
+	try:
+		self = frappe.get_doc("Air Shipment", docname)
+	except frappe.DoesNotExistError:
+		frappe.throw(_("Air Shipment document '{0}' not found").format(docname))
+	
+	if not self.sales_quote:
+		frappe.throw(_("Sales Quote is not set for this Air Shipment"))
+	
+	try:
+		# Verify that the sales_quote exists
+		if not frappe.db.exists("Sales Quote", self.sales_quote):
+			frappe.msgprint(
+				f"Sales Quote {self.sales_quote} does not exist",
+				title="Error",
+				indicator="red"
+			)
+			return
+		
+		# Clear existing charges
+		self.set("charges", [])
+		
+		# Get Sales Quote Air Freight records
+		sales_quote_air_freight_records = frappe.get_all(
+			"Sales Quote Air Freight",
+			filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+			fields=[
+				"item_code",
+				"item_name", 
+				"calculation_method",
+				"uom",
+				"currency",
+				"unit_rate",
+				"unit_type",
+				"minimum_quantity",
+				"minimum_charge",
+				"maximum_charge",
+				"base_amount",
+				"estimated_revenue"
+			],
+			order_by="idx"
+		)
+		
+		if not sales_quote_air_freight_records:
+			frappe.msgprint(
+				f"No Air Freight charges found in Sales Quote: {self.sales_quote}",
+				title="No Charges Found",
+				indicator="orange"
+			)
+			return
+		
+		# Import the mapping function from Sales Quote
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import _map_sales_quote_air_freight_to_charge
+		
+		# Map and populate charges
+		charges_added = 0
+		for sqaf_record in sales_quote_air_freight_records:
+			charge_row = _map_sales_quote_air_freight_to_charge(sqaf_record, self)
+			if charge_row:
+				self.append("charges", charge_row)
+				charges_added += 1
+		
+		# Save the document
+		self.save(ignore_permissions=True)
+		
+		if charges_added > 0:
+			frappe.msgprint(
+				f"Successfully populated {charges_added} charges from Sales Quote",
+				title="Charges Updated",
+				indicator="green"
+			)
+		
+		return {
+			"success": True,
+			"message": f"Successfully populated {charges_added} charges",
+			"charges_added": charges_added
+		}
+		
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating charges from Sales Quote: {str(e)}",
+			"Air Shipment - Populate Charges Error"
+		)
+		frappe.throw(_("Error populating charges: {0}").format(str(e)))
+
 
 @frappe.whitelist()
 def get_google_maps_api_key():

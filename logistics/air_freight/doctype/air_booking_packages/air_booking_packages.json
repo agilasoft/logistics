@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-01-01 00:00:00.000000",
+ "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -10,12 +10,22 @@
   "hs_code",
   "reference_no",
   "column_break_pjoj",
-  "goods_description",
-  "column_break_dbep",
-  "no_of_packs",
   "uom",
+  "no_of_packs",
+  "column_break_dbep",
+  "goods_description",
+  "measurements_section",
+  "dimension_uom",
+  "length",
+  "width",
+  "height",
+  "volume_uom",
+  "volume",
+  "column_break_hveo",
+  "weight_uom",
   "weight",
-  "volume"
+  "chargeable_weight_uom",
+  "chargeable_weight"
  ],
  "fields": [
   {
@@ -59,6 +69,11 @@
    "options": "UOM"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -71,16 +86,64 @@
    "label": "Volume"
   },
   {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
+  },
+  {
    "fieldname": "reference_no",
    "fieldtype": "Data",
    "label": "Reference No"
+  },
+  {
+   "fieldname": "column_break_hveo",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-01-01 00:00:00.000000",
+ "modified": "2026-02-11 11:17:57.942946",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Packages",
@@ -91,4 +154,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

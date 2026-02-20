@@ -41,7 +41,7 @@
    "fieldname": "port",
    "fieldtype": "Link",
    "label": "Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_uqym",

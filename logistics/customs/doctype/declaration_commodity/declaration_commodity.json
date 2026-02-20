@@ -18,11 +18,14 @@
   "unit_value",
   "total_value",
   "currency",
+  "measurements_section",
   "weight",
   "weight_uom",
   "column_break_3",
   "volume",
   "volume_uom",
+  "chargeable_weight",
+  "chargeable_weight_uom",
   "packages",
   "package_type",
   "additional_details_section",
@@ -105,6 +108,11 @@
    "options": "Currency"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight"
@@ -128,6 +136,17 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
    "options": "UOM"
   },
   {
@@ -200,5 +219,3 @@
  "sort_order": "DESC",
  "states": []
 }
-
-

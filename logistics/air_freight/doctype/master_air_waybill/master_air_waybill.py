@@ -164,7 +164,7 @@ class MasterAirWaybill(Document):
 				self.eta_local = f"{flight.arrival_time_scheduled} {flight.arrival_timezone}"
 			elif flight.arrival_time_scheduled:
 				self.eta_local = str(flight.arrival_time_scheduled)
-		except:
+		except Exception:
 			pass
 
 

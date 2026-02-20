@@ -1,0 +1,40 @@
+{
+ "app": "logistics",
+ "creation": "2026-02-12 10:26:06.847562",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "forklift",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "home",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "Special Projects",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "settings",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Settings",
+   "link_to": "Special Project Settings",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-02-12 10:26:42.003652",
+ "modified_by": "Administrator",
+ "name": "Special Projects",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Special Projects"
+}

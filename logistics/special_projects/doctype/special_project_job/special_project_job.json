@@ -1,0 +1,39 @@
+{
+ "actions": [],
+ "creation": "2025-02-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence",
+  "job_type",
+  "job",
+  "planned_cost",
+  "actual_cost",
+  "planned_revenue",
+  "actual_revenue",
+  "notes"
+ ],
+ "fields": [
+  {"fieldname": "sequence", "fieldtype": "Int", "label": "Sequence", "in_list_view": 1},
+  {"fieldname": "job_type", "fieldtype": "Select", "label": "Job Type", "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "job", "fieldtype": "Dynamic Link", "label": "Job", "options": "job_type", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "planned_cost", "fieldtype": "Currency", "label": "Planned Cost"},
+  {"fieldname": "actual_cost", "fieldtype": "Currency", "label": "Actual Cost", "read_only": 1},
+  {"fieldname": "planned_revenue", "fieldtype": "Currency", "label": "Planned Revenue"},
+  {"fieldname": "actual_revenue", "fieldtype": "Currency", "label": "Actual Revenue", "read_only": 1},
+  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2025-02-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Job",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -3,12 +3,41 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date
+from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date, fmt_money
 from datetime import datetime, timedelta
 import calendar
 
+def get_default_currency(company=None):
+	"""Get default currency for company or system default"""
+	try:
+		if company:
+			currency = frappe.db.get_value("Company", company, "default_currency")
+			if currency:
+				return currency
+		
+		# Fallback to system default currency from Global Defaults
+		currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+		if currency:
+			return currency
+			
+		# Final fallback - get first company's currency
+		first_company = frappe.db.get_value("Company", filters={"enabled": 1}, fieldname="name")
+		if first_company:
+			currency = frappe.db.get_value("Company", first_company, "default_currency")
+			if currency:
+				return currency
+				
+		# Ultimate fallback
+		return "USD"
+	except Exception:
+		return "USD"
+
 def execute(filters=None):
-	columns = get_columns()
+	# Get currency for this report
+	company = filters.get("company") if filters else None
+	currency = get_default_currency(company)
+	
+	columns = get_columns(currency)
 	data = get_data(filters)
 	chart = get_chart_data(data)
 	summary = get_summary(data, filters)
@@ -16,7 +45,7 @@ def execute(filters=None):
 	return columns, data, None, chart, summary
 
 
-def get_columns():
+def get_columns(currency="USD"):
 	return [
 		{
 			"fieldname": "vehicle",
@@ -97,12 +126,14 @@ def get_columns():
 			"fieldname": "cost_per_km",
 			"label": _("Cost per KM"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "total_cost",
 			"label": _("Total Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{

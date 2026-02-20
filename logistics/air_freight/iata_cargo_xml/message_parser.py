@@ -157,7 +157,7 @@ class MessageParser(IATAConnector):
             # Then try to find by job name (if AWB matches job name)
             try:
                 return frappe.get_doc("Air Shipment", awb_number)
-            except:
+            except Exception:
                 pass
             
             # Try to find in master AWB

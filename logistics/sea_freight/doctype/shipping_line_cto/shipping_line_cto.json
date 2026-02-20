@@ -15,7 +15,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "sea_cto",

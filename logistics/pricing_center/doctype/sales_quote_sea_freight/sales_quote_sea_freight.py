@@ -452,7 +452,7 @@ class SalesQuoteSeaFreight(Document):
         if hasattr(self, 'parent') and self.parent:
             try:
                 return frappe.get_doc(self.parenttype, self.parent)
-            except:
+            except Exception:
                 return None
         return None
     

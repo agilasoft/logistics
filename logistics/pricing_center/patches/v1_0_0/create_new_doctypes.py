@@ -50,14 +50,14 @@ def create_transport_lane_doctype():
             "fieldname": "origin",
             "fieldtype": "Link",
             "label": "Origin",
-            "options": "Location",
+            "options": "UNLOCO",
             "reqd": 1
         },
         {
             "fieldname": "destination",
             "fieldtype": "Link",
             "label": "Destination",
-            "options": "Location",
+            "options": "UNLOCO",
             "reqd": 1
         },
         {

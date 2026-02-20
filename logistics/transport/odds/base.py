@@ -195,7 +195,7 @@ class ODDSMapper(ABC):
             coords = get_address_coordinates(address.name)
             if coords:
                 return coords
-        except:
+        except Exception:
             pass
         
         # Fallback: raise error (coordinates are required)
@@ -249,7 +249,7 @@ class ODDSService:
                 try:
                     settings = frappe.get_single("ODDS Settings")
                     self.provider_code = settings.default_provider or "lalamove"
-                except:
+                except Exception:
                     # Fallback if settings don't exist yet
                     self.provider_code = "lalamove"
             
@@ -355,17 +355,17 @@ class ODDSService:
                 quotation_id = quotation_response.get("quotation_id")
                 quotation_data = quotation_response
             
-            # For providers like Deliveree that need quote data for order creation
-            # Get order request from mapper
+            # For providers that need full order request (not just quotation_id)
             order_request = None
             if provider.provider_code == "transportify":
-                # Deliveree needs the full order request, not just quotation_id
                 order_request = mapper.map_to_quotation_request(doctype, docname)
-                # Use quote data if available to preserve pricing
                 if quotation_data and quotation_data.get("quote_data"):
-                    # Merge quote data into order request
                     pass
-            
+            elif provider.provider_code == "grabexpress":
+                map_fn = getattr(mapper, "map_to_order_request", None)
+                if map_fn:
+                    order_request = map_fn(doctype, docname)
+
             # Place order
             if order_request:
                 # For providers like Deliveree that need full order request
@@ -470,7 +470,7 @@ class ODDSService:
                 "expires_at": quotation.expires_at,
                 "valid": quotation.valid
             }
-        except:
+        except Exception:
             return None
     
     def _is_quotation_valid(self, quotation: Dict[str, Any]) -> bool:
@@ -486,7 +486,7 @@ class ODDSService:
             from datetime import datetime
             expiry_time = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
             return datetime.now(expiry_time.tzinfo) < expiry_time
-        except:
+        except Exception:
             return False
     
     def _store_order(

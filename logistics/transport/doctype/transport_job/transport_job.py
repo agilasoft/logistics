@@ -18,7 +18,7 @@ class TransportJob(Document):
                 f"container_type: {repr(self.get('container_type'))}, container_no: {repr(self.get('container_no'))}",
                 "Transport Job Validate Debug"
             )
-        except:
+        except Exception:
             pass
         
         # Reset status and docstatus for new/duplicated documents
@@ -47,6 +47,15 @@ class TransportJob(Document):
         # Capacity validation
         self.validate_vehicle_type_capacity()
         self.validate_capacity()
+
+        # Convert package measurements when UOM was changed (e.g. after import)
+        try:
+            from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+            apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
+        except Exception:
+            pass
+
+        self._update_packing_summary()
         
         # DEBUG: Log after validation
         try:
@@ -54,11 +63,13 @@ class TransportJob(Document):
                 f"Transport Job {self.name} validate() completed successfully",
                 "Transport Job Validate Debug"
             )
-        except:
+        except Exception:
             pass
     
     def before_save(self):
         """Calculate sustainability metrics and create job costing number before saving"""
+        from logistics.utils.module_integration import run_propagate_on_link
+        run_propagate_on_link(self)
         # Clear container fields if transport_job_type is not 'Container'
         transport_job_type = self.get('transport_job_type')
         if not transport_job_type or transport_job_type != 'Container':
@@ -419,9 +430,23 @@ class TransportJob(Document):
             frappe.throw(_("Transport Job Type is required"))
     
     def _validate_no_duplicate_transport_order(self):
-        """Validate that no duplicate Transport Job exists for the same transport_order"""
+        """Validate that no duplicate Transport Job exists for the same transport_order and that Transport Order is submitted"""
         if not self.transport_order:
             return  # No transport_order set, skip validation
+        
+        # Check if Transport Order exists and is submitted
+        order_docstatus = frappe.db.get_value("Transport Order", self.transport_order, "docstatus")
+        if order_docstatus is None:
+            frappe.throw(
+                _("Transport Order {0} does not exist.").format(self.transport_order)
+            )
+        
+        if order_docstatus != 1:
+            frappe.throw(
+                _("Transport Order {0} must be submitted before creating a Transport Job. Please submit the Transport Order first.").format(
+                    self.transport_order
+                )
+            )
         
         # Check for existing Transport Job with the same transport_order
         existing = frappe.db.exists(
@@ -820,32 +845,36 @@ class TransportJob(Document):
             Dictionary with 'weight', 'weight_uom', 'volume', 'volume_uom', 'pallets'
         """
         try:
-            from logistics.transport.capacity.uom_conversion import (
+            from logistics.utils.measurements import (
                 convert_weight, convert_volume, calculate_volume_from_dimensions,
-                get_default_uoms
+                get_default_uoms, get_aggregation_volume_uom,
             )
             default_uoms = get_default_uoms(self.company)
-            
+            weight_uom = default_uoms['weight']
+            volume_uom = get_aggregation_volume_uom(self.company) or default_uoms['volume']
+
             total_weight = 0
             total_volume = 0
             total_pallets = 0
-            weight_uom = default_uoms['weight']
-            volume_uom = default_uoms['volume']
-            
+
             packages = getattr(self, 'packages', []) or []
-            
+
             for pkg in packages:
                 # Weight
                 pkg_weight = flt(getattr(pkg, 'weight', 0))
                 if pkg_weight > 0:
                     pkg_weight_uom = getattr(pkg, 'weight_uom', None) or weight_uom
-                    total_weight += convert_weight(pkg_weight, pkg_weight_uom, weight_uom, self.company)
-                
+                    total_weight += convert_weight(
+                        pkg_weight, from_uom=pkg_weight_uom, to_uom=weight_uom, company=self.company
+                    )
+
                 # Volume - prefer direct volume, calculate from dimensions if not available
                 pkg_volume = flt(getattr(pkg, 'volume', 0))
                 if pkg_volume > 0:
-                    pkg_volume_uom = getattr(pkg, 'volume_uom', None) or volume_uom
-                    total_volume += convert_volume(pkg_volume, pkg_volume_uom, volume_uom, self.company)
+                    pkg_volume_uom = getattr(pkg, 'volume_uom', None) or default_uoms['volume']
+                    total_volume += convert_volume(
+                        pkg_volume, from_uom=pkg_volume_uom, to_uom=volume_uom, company=self.company
+                    )
                 elif hasattr(pkg, 'length') and hasattr(pkg, 'width') and hasattr(pkg, 'height'):
                     # Calculate from dimensions
                     length = flt(getattr(pkg, 'length', 0))
@@ -860,10 +889,10 @@ class TransportJob(Document):
                             company=self.company
                         )
                         total_volume += pkg_volume
-                
+
                 # Pallets
                 total_pallets += flt(getattr(pkg, 'no_of_packs', 0))
-            
+
             return {
                 'weight': total_weight,
                 'weight_uom': weight_uom,
@@ -871,18 +900,24 @@ class TransportJob(Document):
                 'volume_uom': volume_uom,
                 'pallets': total_pallets
             }
-        except Exception as e:
-            frappe.log_error(f"Error calculating capacity requirements: {str(e)}", "Capacity Calculation Error")
-            # Try to get default UOMs from settings, fallback to empty if unavailable
-            try:
-                from logistics.transport.capacity.uom_conversion import get_default_uoms
-                default_uoms = get_default_uoms(self.company)
-                weight_uom = default_uoms.get('weight', '')
-                volume_uom = default_uoms.get('volume', '')
-            except Exception:
-                weight_uom = ''
-                volume_uom = ''
-            return {'weight': 0, 'weight_uom': weight_uom, 'volume': 0, 'volume_uom': volume_uom, 'pallets': 0}
+        except Exception:
+            raise
+
+    def _update_packing_summary(self):
+        """Update total_packages, total_volume, total_weight from packages."""
+        packages = getattr(self, "packages", []) or []
+        self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or getattr(p, "quantity", 0) or 1) for p in packages)
+        try:
+            if self.company:
+                req = self.calculate_capacity_requirements()
+                self.total_volume = flt(req.get("volume", 0))
+                self.total_weight = flt(req.get("weight", 0))
+            else:
+                self.total_volume = sum(flt(getattr(p, "volume", 0)) for p in packages)
+                self.total_weight = sum(flt(getattr(p, "weight", 0)) for p in packages)
+        except Exception:
+            self.total_volume = sum(flt(getattr(p, "volume", 0)) for p in packages)
+            self.total_weight = sum(flt(getattr(p, "weight", 0)) for p in packages)
     
     def validate_vehicle_type_capacity(self):
         """Validate vehicle type capacity when vehicle_type is assigned"""
@@ -1469,6 +1504,10 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
                 item_payload["cost_center"] = job.cost_center
             if getattr(job, "profit_center", None) and "profit_center" in si_item_fields:
                 item_payload["profit_center"] = job.profit_center
+            # Link to job for Recognition Engine and lifecycle tracking
+            if "reference_doctype" in si_item_fields and "reference_name" in si_item_fields:
+                item_payload["reference_doctype"] = job.doctype
+                item_payload["reference_name"] = job.name
             
             si.append("items", item_payload)
             items_created += 1
@@ -1501,6 +1540,9 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             item_payload["cost_center"] = job.cost_center
         if getattr(job, "profit_center", None):
             item_payload["profit_center"] = job.profit_center
+        if "reference_doctype" in si_item_fields and "reference_name" in si_item_fields:
+            item_payload["reference_doctype"] = job.doctype
+            item_payload["reference_name"] = job.name
         
         si.append("items", item_payload)
         items_created += 1
@@ -1513,8 +1555,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     si.set_missing_values()
     si.insert(ignore_permissions=True)
     
-    # Update Transport Job with Sales Invoice reference
-    frappe.db.set_value("Transport Job", job.name, "sales_invoice", si.name, update_modified=False)
+    # Update Transport Job with Sales Invoice reference and lifecycle
+    from frappe.utils import today
+    updates = {"sales_invoice": si.name, "date_sales_invoice_requested": today()}
+    for k, v in updates.items():
+        frappe.db.set_value("Transport Job", job.name, k, v, update_modified=False)
     
     return {
         "ok": True,

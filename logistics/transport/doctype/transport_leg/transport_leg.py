@@ -267,8 +267,17 @@ class TransportLeg(Document):
         """Validate route compatibility"""
         from frappe import _
         
-        if self.facility_from == self.facility_to:
-            frappe.throw(_("Pick Facility and Drop Facility cannot be the same"))
+        # If same facility, require different addresses
+        if self.facility_from and self.facility_to and self.facility_from == self.facility_to:
+            if not (self.pick_address and self.drop_address and self.pick_address != self.drop_address):
+                frappe.throw(_(
+                    "Pick Facility and Drop Facility cannot be the same. "
+                    "If using the same facility, different pick and drop addresses must be specified."
+                ))
+        
+        # If different facilities but same address, that's also invalid
+        elif self.pick_address and self.drop_address and self.pick_address == self.drop_address:
+            frappe.throw(_("Pick address and drop address cannot be the same."))
         
         # Warn if distance seems unreasonable (e.g., negative or extremely large)
         if hasattr(self, "distance_km") and self.distance_km:
@@ -690,26 +699,43 @@ def regenerate_carbon(leg_name: str):
 
 @frappe.whitelist()
 def get_addresses_for_facility(facility_type: str, facility_name: str):
-    """Get all addresses linked to a facility - used for frontend query filters"""
+    """Get all addresses linked to a facility - used for frontend query filters
+    This fetches addresses that appear in the facility's address_html field.
+    Addresses are linked via Dynamic Links where link_doctype=facility_type and link_name=facility_name
+    """
     if not facility_type or not facility_name:
         return []
     
     try:
-        # Get addresses linked to this facility
-        # This runs server-side with proper permissions, avoiding permission errors
-        addresses = frappe.get_all("Address",
+        # Get addresses linked to this facility via Dynamic Links
+        # This is the same way frappe.contacts.render_address_and_contact works
+        # The address_html field shows all addresses linked this way
+        addresses = frappe.get_all("Dynamic Link",
             filters={
                 "link_doctype": facility_type,
-                "link_name": facility_name
+                "link_name": facility_name,
+                "parenttype": "Address"
             },
-            fields=["name"],
-            order_by="is_primary_address DESC, is_shipping_address DESC, creation ASC"
+            fields=["parent"],
+            order_by="creation ASC"
         )
         
-        return [addr.name for addr in addresses]
+        if addresses:
+            # Extract address names
+            address_names = [addr.parent for addr in addresses]
+            
+            # Get full address details with proper ordering
+            address_details = frappe.get_all("Address",
+                filters={"name": ["in", address_names]},
+                fields=["name", "address_title", "is_primary_address", "is_shipping_address"],
+                order_by="is_primary_address DESC, is_shipping_address DESC, creation ASC"
+            )
+            
+            if address_details:
+                return [addr.name for addr in address_details]
         
     except Exception as e:
-        frappe.log_error(f"Error getting addresses for {facility_type} {facility_name}: {str(e)}")
+        frappe.log_error(f"Error getting addresses for {facility_type} {facility_name}: {str(e)}", "get_addresses_for_facility")
     
     return []
 

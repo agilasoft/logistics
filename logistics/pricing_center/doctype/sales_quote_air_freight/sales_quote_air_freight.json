@@ -8,6 +8,17 @@
  "field_order": [
   "item_code",
   "item_name",
+  "parameters_section",
+  "air_load_type",
+  "air_direction",
+  "airline",
+  "freight_agent",
+  "air_house_type",
+  "air_release_type",
+  "air_entry_type",
+  "column_break_air_params",
+  "origin_port",
+  "destination_port",
   "column_break_jbbp",
   "use_tariff_in_revenue",
   "use_tariff_in_cost",
@@ -60,6 +71,69 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name"
+  },
+  {
+   "fieldname": "parameters_section",
+   "fieldtype": "Section Break",
+   "label": "Charge Parameters"
+  },
+  {
+   "fieldname": "air_load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "air_direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic"
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline / Carrier",
+   "options": "Airline"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "fieldname": "air_release_type",
+   "fieldtype": "Link",
+   "label": "Release Type",
+   "options": "Release Type"
+  },
+  {
+   "fieldname": "air_entry_type",
+   "fieldtype": "Select",
+   "label": "Entry Type",
+   "options": "Direct\nTransit\nTransshipment\nATA Carnet"
+  },
+  {
+   "fieldname": "column_break_air_params",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_jbbp",

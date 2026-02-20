@@ -293,7 +293,7 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "entity_tab",
+   "fieldname": "accounts_tab",
    "fieldtype": "Page Break",
    "hidden": 0,
    "label": "Accounts",

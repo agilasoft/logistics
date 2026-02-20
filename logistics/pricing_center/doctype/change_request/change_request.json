@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-02-04 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "job_type",
+  "job",
+  "column_break_cr",
+  "status",
+  "section_break_charges",
+  "charges",
+  "section_break_remarks",
+  "remarks",
+  "sales_quote"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "CR-.#########"
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration",
+   "reqd": 1
+  },
+  {
+   "fieldname": "job",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job",
+   "options": "job_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_cr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nSubmitted\nSales Quote Created"
+  },
+  {
+   "fieldname": "section_break_charges",
+   "fieldtype": "Section Break",
+   "label": "Charge Items"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Change Request Charge"
+  },
+  {
+   "fieldname": "section_break_remarks",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Long Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-02-04 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Change Request",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

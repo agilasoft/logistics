@@ -420,7 +420,7 @@ def get_airline_from_airline_master(airline_master_name: str) -> Optional[str]:
 			airline = sync_airline_master_to_airline(airline_master_name)
 		
 		return airline
-	except:
+	except Exception:
 		return None
 
 
@@ -435,7 +435,7 @@ def get_unloco_from_airport_master(airport_master_name: str) -> Optional[str]:
 			unloco = sync_airport_master_to_unloco(airport_master_name)
 		
 		return unloco
-	except:
+	except Exception:
 		return None
 
 

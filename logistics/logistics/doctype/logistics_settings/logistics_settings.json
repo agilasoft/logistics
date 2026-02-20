@@ -18,7 +18,21 @@
   "maps_enable_external_links",
   "routing_tiles_url",
   "routing_tiles_attr",
-  "routing_timeout_sec"
+  "routing_timeout_sec",
+  "temperature_validation_section",
+  "min_temp",
+  "max_temp",
+  "column_break_temp",
+  "measurements_tab",
+  "measurements_section",
+  "base_dimension_uom",
+  "base_volume_uom",
+  "base_weight_uom",
+  "column_break_measurements",
+  "default_dimension_uom",
+  "default_volume_uom",
+  "default_weight_uom",
+  "default_chargeable_weight_uom"
  ],
  "fields": [
   {
@@ -99,13 +113,100 @@
    "fieldname": "routing_timeout_sec",
    "fieldtype": "Int",
    "label": "Routing Timeout (sec)"
+  },
+  {
+   "fieldname": "temperature_validation_section",
+   "fieldtype": "Section Break",
+   "label": "Temperature Limits"
+  },
+  {
+   "default": "-50",
+   "description": "Minimum allowed temperature in degrees Celsius. Temperatures below this value will be rejected.",
+   "fieldname": "min_temp",
+   "fieldtype": "Float",
+   "label": "Minimum Temperature (\u00b0C)"
+  },
+  {
+   "default": "50",
+   "description": "Maximum allowed temperature in degrees Celsius. Temperatures above this value will be rejected.",
+   "fieldname": "max_temp",
+   "fieldtype": "Float",
+   "label": "Maximum Temperature (\u00b0C)"
+  },
+  {
+   "fieldname": "column_break_temp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "measurements_tab",
+   "fieldtype": "Tab Break",
+   "label": "Measurements"
+  },
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements",
+   "description": "Base UOMs are used for conversion and reporting. Default UOMs are used when creating new lines."
+  },
+  {
+   "fieldname": "base_dimension_uom",
+   "fieldtype": "Link",
+   "label": "Base Dimension UOM",
+   "options": "UOM",
+   "description": "Pivot UOM for length/width/height (e.g. CM)."
+  },
+  {
+   "fieldname": "base_volume_uom",
+   "fieldtype": "Link",
+   "label": "Base Volume UOM",
+   "options": "UOM",
+   "description": "Pivot UOM for volume (e.g. CBM)."
+  },
+  {
+   "fieldname": "base_weight_uom",
+   "fieldtype": "Link",
+   "label": "Base Weight UOM",
+   "options": "UOM",
+   "description": "Pivot UOM for weight and chargeable weight (e.g. KG)."
+  },
+  {
+   "fieldname": "column_break_measurements",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_dimension_uom",
+   "fieldtype": "Link",
+   "label": "Default Dimension UOM",
+   "options": "UOM",
+   "description": "Default for dimension_uom on new lines."
+  },
+  {
+   "fieldname": "default_volume_uom",
+   "fieldtype": "Link",
+   "label": "Default Volume UOM",
+   "options": "UOM",
+   "description": "Default for volume_uom on new lines."
+  },
+  {
+   "fieldname": "default_weight_uom",
+   "fieldtype": "Link",
+   "label": "Default Weight UOM",
+   "options": "UOM",
+   "description": "Default for weight_uom on new lines."
+  },
+  {
+   "fieldname": "default_chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Default Chargeable Weight UOM",
+   "options": "UOM",
+   "description": "Default for chargeable_weight_uom on new lines."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-30 01:03:07.160430",
+ "modified": "2026-02-07 09:44:37.133430",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Logistics Settings",

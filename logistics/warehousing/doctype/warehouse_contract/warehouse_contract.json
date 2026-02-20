@@ -15,6 +15,8 @@
   "valid_until",
   "site",
   "sales_quote",
+  "shipper",
+  "consignee",
   "section_break_cvch",
   "items",
   "connections_tab",
@@ -22,7 +24,9 @@
   "company",
   "branch",
   "profit_center",
-  "cost_center"
+  "cost_center",
+  "column_break_accounts",
+  "job_costing_number"
  ],
  "fields": [
   {
@@ -94,6 +98,18 @@
    "options": "Sales Quote"
   },
   {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
    "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
@@ -121,8 +137,19 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center"
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number",
+   "description": "For revenue/cost recognition"
   }
  ],
  "grid_page_length": 50,

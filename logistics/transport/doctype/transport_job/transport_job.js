@@ -68,6 +68,59 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 	frm.refresh_field('load_type');
 }
 
+// Helper function to update toolbar buttons: Only primary Save and Submit buttons, no dropdown
+// Submit button only appears after document is saved (like Transport Order)
+function update_toolbar_buttons(frm) {
+	// Clear secondary action to prevent dropdown menu
+	if (frm.page && frm.page.clear_secondary_action) {
+		frm.page.clear_secondary_action();
+	}
+	
+	// Clear actions menu to prevent dropdown
+	if (frm.page && frm.page.clear_actions_menu) {
+		frm.page.clear_actions_menu();
+	}
+	
+	// Determine which button to show based on document state
+	if (frm.is_new() || frm.doc.__islocal) {
+		// New/unsaved document: Show Save button only
+		if (frm.page && frm.page.set_primary_action) {
+			frm.page.set_primary_action(__("Save"), function() {
+				frm.save();
+			});
+		}
+	} else if (frm.doc.docstatus === 0) {
+		// Saved draft document: Show Submit button only if no unsaved changes
+		// If there are unsaved changes, show Save button instead
+		if (frm.doc.__unsaved) {
+			// Has unsaved changes: Show Save button
+			if (frm.page && frm.page.set_primary_action) {
+				frm.page.set_primary_action(__("Save"), function() {
+					frm.save();
+				});
+			}
+		} else {
+			// No unsaved changes: Show Submit button (if user has permission)
+			if (frm.perm && frm.perm[0] && frm.perm[0].submit) {
+				if (frm.page && frm.page.set_primary_action) {
+					frm.page.set_primary_action(__("Submit"), function() {
+						frm.savesubmit();
+					});
+				}
+			}
+		}
+	} else if (frm.doc.docstatus === 1 && frm.doc.__unsaved) {
+		// Submitted document with unsaved changes: Show Update button
+		if (frm.perm && frm.perm[0] && frm.perm[0].submit) {
+			if (frm.page && frm.page.set_primary_action) {
+				frm.page.set_primary_action(__("Update"), function() {
+					frm.save("Update");
+				}, "edit");
+			}
+		}
+	}
+}
+
 frappe.ui.form.on('Transport Job', {
 	setup: function(frm) {
 		// Set default transport_job_type for new documents immediately
@@ -110,9 +163,47 @@ frappe.ui.form.on('Transport Job', {
 		if (frm.doc.transport_order && !frm.doc.scheduled_date) {
 			frm.events.fetch_scheduled_date_from_transport_order(frm);
 		}
+		// Ensure title is updated when form loads (especially after creating from Transport Order)
+		// The title is automatically set by Frappe based on document name, but we ensure it's refreshed
+		if (frm.doc.name && frm.page && frm.page.set_title) {
+			frm.page.set_title(frm.doc.name);
+		}
+		
+		// Listen for dirty event to update toolbar buttons when document state changes
+		$(frm.wrapper).on('dirty', function() {
+			setTimeout(function() {
+				update_toolbar_buttons(frm);
+			}, 50);
+		});
 	},
 
 	refresh: function(frm) {
+		// Control toolbar buttons: Only primary Save and Submit buttons, no dropdown
+		// Submit button only appears after document is saved (like Transport Order)
+		// Use setTimeout to run after Frappe's toolbar setup
+		setTimeout(function() {
+			update_toolbar_buttons(frm);
+		}, 100);
+		
+		// Create Inbound Order from Transport Job
+		if (!frm.is_new() && frm.doc.name) {
+			frm.add_custom_button(__('Inbound Order'), function() {
+				frappe.call({
+					method: 'logistics.utils.module_integration.create_inbound_order_from_transport_job',
+					args: { transport_job_name: frm.doc.name },
+					callback: function(r) {
+						if (r.exc) return;
+						if (r.message && r.message.inbound_order) {
+							frappe.msgprint(r.message.message);
+							setTimeout(function() {
+								frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+							}, 100);
+						}
+					}
+				});
+			}, __('Create'));
+		}
+
 		// Ensure transport_job_type is always set
 		if (!frm.doc.transport_job_type) {
 			frm.set_value('transport_job_type', 'Non-Container');
@@ -134,6 +225,12 @@ frappe.ui.form.on('Transport Job', {
 		// Apply load_type filters on refresh (preserve existing values)
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, true);
+		}
+		
+		// Ensure title is updated (especially after creating from Transport Order)
+		// The title is automatically set by Frappe based on document name, but we ensure it's refreshed
+		if (frm.doc.name && frm.page && frm.page.set_title) {
+			frm.page.set_title(frm.doc.name);
 		}
 		
 		// Clean up realtime listener if document is no longer submitted
@@ -231,6 +328,14 @@ frappe.ui.form.on('Transport Job', {
 			// For new documents, just refresh the status field
 			frm.refresh_field('status');
 		}
+
+		// Store current UOMs on package rows for measurement conversion on change
+		(frm.doc.packages || []).forEach(function(row) {
+			row._prev_dimension_uom = row.dimension_uom;
+			row._prev_volume_uom = row.volume_uom;
+			row._prev_weight_uom = row.weight_uom;
+			row._prev_chargeable_weight_uom = row.chargeable_weight_uom;
+		});
 		
 		// Check run sheet statuses and update Transport Job status if needed
 		// Status should be "In Progress" if any run sheet has status "Dispatched", "In-Progress", or "Hold"
@@ -288,16 +393,14 @@ frappe.ui.form.on('Transport Job', {
 			}, __('Actions'));
 		}
 		
-		// Add button to create Run Sheet (only for submitted documents and if no Run Sheet exists)
-		if (!frm.is_new() && frm.doc.docstatus === 1) {
-			// Check if any leg already has a run_sheet assigned
-			const has_existing_run_sheet = frm.doc.legs && frm.doc.legs.some(leg => leg.run_sheet);
-			
-			if (!has_existing_run_sheet) {
-				frm.add_custom_button(__('Run Sheet'), function() {
-					frm.events.create_run_sheet(frm);
-				}, __('Create'));
-			}
+		// Add button to create Run Sheet for submitted Transport Jobs (always show; server skips legs already on a run sheet)
+		if (!frm.is_new() && frm.doc.name && frm.doc.docstatus === 1) {
+			frm.add_custom_button(__('Create Run Sheet'), function() {
+				frm.events.create_run_sheet(frm);
+			}, __('Create'));
+			frm.add_custom_button(__('Create Run Sheet'), function() {
+				frm.events.create_run_sheet(frm);
+			}, __('Actions'));
 		}
 		
 		// Status is automatically updated via trigger-based hooks (document lifecycle and Transport Leg changes)
@@ -336,6 +439,24 @@ frappe.ui.form.on('Transport Job', {
 				frm.events.create_sales_invoice_manual(frm);
 			}, __('Actions'));
 		}
+
+		// Additional Charges: Get Additional Charges and Create Change Request
+		if (!frm.is_new()) {
+			frm.add_custom_button(__('Get Additional Charges'), function() {
+				logistics_additional_charges_show_sales_quote_dialog(frm, 'Transport Job');
+			}, __('Actions'));
+			frm.add_custom_button(__('Create Change Request'), function() {
+				frappe.call({
+					method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
+					args: { job_type: 'Transport Job', job_name: frm.doc.name },
+					callback: function(r) {
+						if (r.message) {
+							frappe.set_route('Form', 'Change Request', r.message);
+						}
+					}
+				});
+			}, __('Actions'));
+		}
 	},
 
 	transport_job_type: function(frm) {
@@ -356,38 +477,77 @@ frappe.ui.form.on('Transport Job', {
 
 	transport_order: function(frm) {
 		// Check for duplicate Transport Jobs when transport_order is set
-		if (frm.doc.transport_order && frm.is_new()) {
-			frappe.call({
-				method: 'frappe.client.get_list',
-				args: {
-					doctype: 'Transport Job',
-					filters: {
-						transport_order: frm.doc.transport_order,
-						name: ['!=', frm.doc.name || '']
-					},
-					fields: ['name'],
-					limit: 1
-				},
-				callback: function(r) {
-					if (r.message && r.message.length > 0) {
-						frappe.msgprint({
-							title: __('Duplicate Transport Job'),
-							message: __('A Transport Job ({0}) already exists for Transport Order {1}. Please select a different Transport Order or use the existing Transport Job.', [
-								r.message[0].name,
-								frm.doc.transport_order
-							]),
-							indicator: 'red'
-						});
-						// Clear the transport_order field to prevent saving
-						frm.set_value('transport_order', '');
-					}
+		// Also verify that the Transport Order is submitted
+		if (frm.doc.transport_order) {
+			// First, check if Transport Order is submitted
+			frappe.db.get_value('Transport Order', frm.doc.transport_order, ['docstatus', 'name'], function(order_r) {
+				if (!order_r || !order_r.name) {
+					frappe.msgprint({
+						title: __('Invalid Transport Order'),
+						message: __('Transport Order {0} does not exist.', [frm.doc.transport_order]),
+						indicator: 'red'
+					});
+					frm.set_value('transport_order', '');
+					return;
 				}
+				
+				// Check if Transport Order is submitted
+				if (order_r.docstatus !== 1) {
+					frappe.msgprint({
+						title: __('Transport Order Not Submitted'),
+						message: __('Transport Order {0} must be submitted before creating a Transport Job. Please submit the Transport Order first.', [frm.doc.transport_order]),
+						indicator: 'orange'
+					});
+					// Clear the transport_order field to prevent saving
+					frm.set_value('transport_order', '');
+					return;
+				}
+				
+				// Check for duplicate Transport Jobs (for both new and existing documents)
+				frappe.call({
+					method: 'frappe.client.get_list',
+					args: {
+						doctype: 'Transport Job',
+						filters: {
+							transport_order: frm.doc.transport_order,
+							name: ['!=', frm.doc.name || '']
+						},
+						fields: ['name'],
+						limit: 1
+					},
+					callback: function(r) {
+						if (r.message && r.message.length > 0) {
+							frappe.msgprint({
+								title: __('Duplicate Transport Job'),
+								message: __('A Transport Job ({0}) already exists for Transport Order {1}. Please select a different Transport Order or use the existing Transport Job.', [
+									r.message[0].name,
+									frm.doc.transport_order
+								]),
+								indicator: 'red'
+							});
+							// Clear the transport_order field to prevent saving
+							frm.set_value('transport_order', '');
+							// If it's an existing job, offer to navigate to it
+							if (r.message[0].name) {
+								frappe.confirm(
+									__('Would you like to open the existing Transport Job?'),
+									function() {
+										frappe.set_route("Form", "Transport Job", r.message[0].name);
+									},
+									function() {
+										// User chose not to navigate
+									}
+								);
+							}
+						} else {
+							// No duplicate found - fetch scheduled_date from Transport Order
+							if (!frm.doc.scheduled_date) {
+								frm.events.fetch_scheduled_date_from_transport_order(frm);
+							}
+						}
+					}
+				});
 			});
-		}
-		
-		// Fetch scheduled_date from Transport Order when transport_order is set
-		if (frm.doc.transport_order && !frm.doc.scheduled_date) {
-			frm.events.fetch_scheduled_date_from_transport_order(frm);
 		}
 	},
 
@@ -627,22 +787,53 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 
-	validate: function(frm) {
-		// Ensure transport_job_type is set before save
+	before_save: function(frm) {
+		// Allow save without blocking - validation will happen on submit
+		// This ensures the submit button appears after saving
+		return Promise.resolve();
+	},
+	
+	before_submit: function(frm) {
+		// Validate required fields before submitting
+		// This validation only runs on submit, not on save
+		// Note: Server-side validation in Python will also check for required fields
+		console.log("before_submit: Starting validation for Transport Job", frm.doc.name);
+		
+		// Ensure transport_job_type is set
 		if (!frm.doc.transport_job_type) {
 			frm.set_value('transport_job_type', 'Non-Container');
 		}
 		if (!frm.doc.transport_job_type) {
-			frappe.throw(__('Transport Job Type is required. Please select a Transport Job Type before saving.'));
+			frappe.msgprint({
+				title: __("Validation Error"),
+				message: __("Transport Job Type is required. Please select a Transport Job Type before submitting."),
+				indicator: 'red'
+			});
+			return Promise.reject(__("Transport Job Type is required. Please select a Transport Job Type before submitting."));
 		}
 		
 		// Validate vehicle_type is required only if consolidate is not checked
 		if (!frm.doc.vehicle_type && !frm.doc.consolidate) {
-			frappe.throw(__('Vehicle Type is required when Consolidate is not checked.'));
+			frappe.msgprint({
+				title: __("Validation Error"),
+				message: __("Vehicle Type is required when Consolidate is not checked."),
+				indicator: 'red'
+			});
+			return Promise.reject(__("Vehicle Type is required when Consolidate is not checked."));
 		}
 		
 		// Note: Duplicate prevention for transport_order is handled server-side in Python
 		// The client-side check in transport_order field change event provides early feedback
+		
+		return Promise.resolve();
+	},
+	
+	validate: function(frm) {
+		// Minimal validation - just ensure transport_job_type is set
+		// Full validation happens in before_submit
+		if (!frm.doc.transport_job_type) {
+			frm.set_value('transport_job_type', 'Non-Container');
+		}
 		
 		// Fetch and update missing data from Transport Leg before save
 		frm.events.update_legs_missing_data(frm);

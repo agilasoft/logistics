@@ -283,7 +283,7 @@ def _get_handling_unit_details(handling_unit: str) -> Dict[str, Any]:
             "customer": hu_doc.customer,
             "handling_unit_type": hu_doc.handling_unit_type
         }
-    except:
+    except Exception:
         return {"error": "Handling unit not found"}
 
 
@@ -300,7 +300,7 @@ def _get_storage_type_details(storage_type: str) -> Dict[str, Any]:
             "max_capacity": st_doc.max_capacity,
             "capacity_uom": st_doc.capacity_uom
         }
-    except:
+    except Exception:
         return {"error": "Storage type not found"}
 
 

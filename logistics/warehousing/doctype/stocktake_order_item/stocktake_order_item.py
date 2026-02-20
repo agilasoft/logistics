@@ -39,7 +39,7 @@ class StocktakeOrderItem(Document):
 							dimension_uom = warehouse_settings.default_dimension_uom
 						if not volume_uom:
 							volume_uom = warehouse_settings.default_volume_uom
-				except:
+				except Exception:
 					pass
 			
 			calculated_volume = calculate_volume_from_dimensions(

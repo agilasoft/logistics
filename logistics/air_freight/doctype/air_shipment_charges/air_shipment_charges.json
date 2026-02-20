@@ -34,7 +34,8 @@
   "section_break_status",
   "billing_status",
   "column_break_4",
-  "invoice_reference"
+  "invoice_reference",
+  "sales_quote_link"
  ],
  "fields": [
   {
@@ -217,6 +218,12 @@
    "fieldname": "invoice_reference",
    "fieldtype": "Data",
    "label": "Invoice Reference"
+  },
+  {
+   "fieldname": "sales_quote_link",
+   "fieldtype": "Link",
+   "label": "Sales Quote Link",
+   "options": "Sales Quote"
   }
  ],
  "hide_toolbar": 1,

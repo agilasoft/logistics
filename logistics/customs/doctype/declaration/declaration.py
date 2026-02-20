@@ -9,8 +9,17 @@ from typing import Dict, Any, Optional
 
 
 class Declaration(Document):
+	def validate(self):
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "commodities", company=getattr(self, "company", None))
+		except Exception:
+			pass
+
 	def before_save(self):
 		"""Calculate values and metrics before saving"""
+		from logistics.utils.module_integration import run_propagate_on_link
+		run_propagate_on_link(self)
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
 		self.calculate_exemptions()
@@ -142,9 +151,27 @@ class Declaration(Document):
 			self.rejection_date = nowdate()
 	
 	def handle_status_changes(self):
-		"""Handle status change logic"""
-		# This can be expanded for workflow automation
-		pass
+		"""Validate status transitions and enforce workflow rules."""
+		if self.is_new():
+			return
+		old_status = frappe.db.get_value(self.doctype, self.name, "status")
+		new_status = self.status
+		if old_status == new_status:
+			return
+		# Define allowed transitions
+		allowed_transitions = {
+			"Draft": ["Submitted", "In Progress", "Cancelled"],
+			"Submitted": ["In Progress", "Approved", "Rejected", "Cancelled"],
+			"In Progress": ["Submitted", "Approved", "Rejected", "Cancelled"],
+			"Approved": ["Cancelled"],
+			"Rejected": ["Draft", "Submitted", "Cancelled"],
+			"Cancelled": [],
+		}
+		if old_status and new_status not in allowed_transitions.get(old_status, []):
+			frappe.throw(
+				_("Cannot change status from {0} to {1}").format(old_status, new_status),
+				title=_("Invalid Status Transition"),
+			)
 	
 	def calculate_sustainability_metrics(self):
 		"""Calculate sustainability metrics for this declaration"""
@@ -199,6 +226,53 @@ class Declaration(Document):
 		# This is a simplified calculation
 		processing_factor = 0.1  # kg CO2e per declaration
 		return processing_factor
+
+
+# -------------------------------------------------------------------
+# ACTION: Create Declaration from Declaration Order
+# -------------------------------------------------------------------
+@frappe.whitelist()
+def create_declaration_from_declaration_order(declaration_order_name: str) -> Dict[str, Any]:
+	"""
+	Create a Declaration from a Declaration Order.
+	Sets declaration_order and sales_quote from the order; copies customer, company, customs_authority, etc.
+	"""
+	if not declaration_order_name:
+		frappe.throw(_("Declaration Order name is required."))
+	try:
+		order = frappe.get_doc("Declaration Order", declaration_order_name)
+		if not order.sales_quote:
+			frappe.throw(_("Declaration Order must have a Sales Quote to create a Declaration."))
+		sq = frappe.get_doc("Sales Quote", order.sales_quote)
+		has_customs = bool(getattr(sq, "customs", None))
+		if not has_customs:
+			frappe.throw(_("No customs details found in the linked Sales Quote."))
+		declaration = frappe.new_doc("Declaration")
+		declaration.declaration_order = order.name
+		declaration.sales_quote = order.sales_quote
+		declaration.customer = order.customer
+		declaration.declaration_date = today()
+		declaration.customs_authority = order.customs_authority
+		declaration.company = order.company
+		declaration.branch = order.branch
+		declaration.cost_center = order.cost_center
+		declaration.profit_center = order.profit_center
+		if hasattr(sq, "currency") and sq.currency:
+			declaration.currency = sq.currency
+		declaration.insert(ignore_permissions=True)
+		_populate_charges_from_sales_quote(declaration, sq)
+		declaration.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {
+			"success": True,
+			"declaration": declaration.name,
+			"message": _("Declaration {0} created successfully.").format(declaration.name),
+		}
+	except frappe.DoesNotExistError:
+		frappe.throw(_("Declaration Order {0} does not exist.").format(declaration_order_name))
+	except Exception as e:
+		frappe.log_error(f"Error creating Declaration from Declaration Order: {str(e)}", "Declaration Creation Error")
+		frappe.throw(_("Error creating Declaration: {0}").format(str(e)))
 
 
 # -------------------------------------------------------------------
@@ -261,6 +335,9 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		
 		# Save the Declaration
 		declaration.save(ignore_permissions=True)
+		
+		# Ensure commit before client navigates (avoids "not found" on form load)
+		frappe.db.commit()
 		
 		return {
 			"success": True,
@@ -389,6 +466,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 				item.cost_center = declaration.cost_center
 			if declaration.profit_center:
 				item.profit_center = declaration.profit_center
+			# Link to declaration for Recognition Engine and lifecycle tracking
+			si_item_meta = frappe.get_meta("Sales Invoice Item")
+			if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
+				item.reference_doctype = "Declaration"
+				item.reference_name = declaration.name
 	
 	# If no charges, create a default item
 	if not charges:
@@ -400,10 +482,26 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 			item.cost_center = declaration.cost_center
 		if declaration.profit_center:
 			item.profit_center = declaration.profit_center
+		si_item_meta = frappe.get_meta("Sales Invoice Item")
+		if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
+			item.reference_doctype = "Declaration"
+			item.reference_name = declaration.name
 	
 	# Insert and save
 	si.insert(ignore_permissions=True)
 	si.save(ignore_permissions=True)
+	
+	# Update Declaration with Sales Invoice reference and lifecycle
+	decl_meta = frappe.get_meta("Declaration")
+	for field in ("sales_invoice", "date_sales_invoice_requested"):
+		if decl_meta.get_field(field):
+			frappe.db.set_value(
+				"Declaration",
+				declaration.name,
+				field,
+				si.name if field == "sales_invoice" else frappe.utils.today(),
+				update_modified=False,
+			)
 	
 	return {
 		"success": True,

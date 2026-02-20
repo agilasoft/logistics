@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+import time
 
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import add_days, cint, getdate
+from frappe.utils import add_days, cint, flt, getdate
 from pymysql.err import ProgrammingError
 
 # keep these exactly as requested
@@ -47,9 +48,53 @@ SALES_QUOTE_CHARGE_FIELDS = [
 ]
 
 
+def _sync_quote_and_sales_quote(doc):
+    """Sync quote_type/quote with sales_quote for backward compatibility."""
+    if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
+        doc.sales_quote = doc.quote
+    elif getattr(doc, "quote_type", None) == "One-Off Quote":
+        doc.sales_quote = None
+    elif not getattr(doc, "quote_type", None) and getattr(doc, "sales_quote", None):
+        doc.quote_type = "Sales Quote"
+        doc.quote = doc.sales_quote
+
+
 class TransportOrder(Document):
     def validate(self):
-        """If the Transport Template changes, clear the Leg Plan table."""
+        # Preserve quote field value before syncing (to prevent it from being cleared)
+        # Get original values from database if document exists
+        original_quote = None
+        original_quote_type = None
+        original_sales_quote = None
+        
+        if not self.is_new():
+            try:
+                original_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
+                original_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
+                original_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+            except Exception:
+                pass
+        
+        # Use current values if not in database yet
+        if not original_quote:
+            original_quote = getattr(self, 'quote', None)
+        if not original_quote_type:
+            original_quote_type = getattr(self, 'quote_type', None)
+        if not original_sales_quote:
+            original_sales_quote = getattr(self, 'sales_quote', None)
+        
+        _sync_quote_and_sales_quote(self)
+        
+        # Ensure quote field is preserved - restore original values if they were cleared
+        # This ensures the quote field remains after submission
+        if original_quote and not getattr(self, 'quote', None):
+            self.quote = original_quote
+        if original_quote_type and not getattr(self, 'quote_type', None):
+            self.quote_type = original_quote_type
+        # Only preserve sales_quote if quote_type is Sales Quote (One-Off Quote clears sales_quote)
+        if original_sales_quote and getattr(self, 'quote_type', None) == 'Sales Quote' and not getattr(self, 'sales_quote', None):
+            self.sales_quote = original_sales_quote
+        # If the Transport Template changes, clear the Leg Plan table.
         try:
             if self.has_value_changed("transport_template"):
                 legs_field = _find_child_table_fieldname(
@@ -73,8 +118,8 @@ class TransportOrder(Document):
         # Validate transport job type specific rules
         self._validate_transport_job_type()
         
-        # Validate vehicle_type is required only if consolidate is not checked
-        self._validate_vehicle_type_required()
+        # Note: vehicle_type validation moved to before_submit() to allow save without vehicle_type
+        # Users can save draft documents and fill vehicle_type later before submitting
         
         # Validate load type is allowed for job type
         self.validate_load_type_allowed_for_job()
@@ -88,18 +133,152 @@ class TransportOrder(Document):
         # Capacity validation
         self.validate_vehicle_type_capacity()
 
+        # Convert package measurements when UOM was changed (e.g. after import)
+        try:
+            from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+            apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
+        except Exception:
+            pass
+        
+        # Aggregate package volumes and weights (with UOM conversion)
+        self.aggregate_volume_from_packages()
+        self.aggregate_weight_from_packages()
+        self._update_packing_summary()
+
+    def before_save(self):
+        from logistics.utils.module_integration import run_propagate_on_link
+        run_propagate_on_link(self)
+
+    def aggregate_volume_from_packages(self):
+        """Set header volume from sum of package volumes, converted to base/default volume UOM."""
+        packages = getattr(self, "packages", []) or []
+        if not packages:
+            return
+        try:
+            from logistics.utils.measurements import convert_volume, get_aggregation_volume_uom, get_default_uoms
+            target_volume_uom = get_aggregation_volume_uom(company=getattr(self, "company", None))
+            if not target_volume_uom:
+                return
+            defaults = get_default_uoms(company=getattr(self, "company", None))
+            target_normalized = str(target_volume_uom).strip().upper()
+            total = 0
+            for pkg in packages:
+                pkg_vol = flt(getattr(pkg, "volume", 0) or 0)
+                if pkg_vol <= 0:
+                    continue
+                pkg_volume_uom = getattr(pkg, "volume_uom", None) or defaults.get("volume")
+                if not pkg_volume_uom:
+                    continue
+                if str(pkg_volume_uom).strip().upper() == target_normalized:
+                    total += pkg_vol
+                else:
+                    total += convert_volume(
+                        pkg_vol,
+                        from_uom=pkg_volume_uom,
+                        to_uom=target_volume_uom,
+                        company=getattr(self, "company", None),
+                    )
+            # Note: Transport Order doesn't have header volume field, but method is available for future use
+            # or for API calls
+        except Exception:
+            pass
+    
+    def aggregate_weight_from_packages(self):
+        """Set header weight from sum of package weights, converted to base/default weight UOM."""
+        packages = getattr(self, "packages", []) or []
+        if not packages:
+            return
+        try:
+            from logistics.utils.measurements import convert_weight, get_default_uoms
+            defaults = get_default_uoms(company=getattr(self, "company", None))
+            target_weight_uom = defaults.get("weight")  # Typically "Kg"
+            if not target_weight_uom:
+                return
+            target_normalized = str(target_weight_uom).strip().upper()
+            total = 0
+            for pkg in packages:
+                pkg_weight = flt(getattr(pkg, "weight", 0) or 0)
+                if pkg_weight <= 0:
+                    continue
+                pkg_weight_uom = getattr(pkg, "weight_uom", None) or defaults.get("weight")
+                if not pkg_weight_uom:
+                    continue
+                if str(pkg_weight_uom).strip().upper() == target_normalized:
+                    total += pkg_weight
+                else:
+                    total += convert_weight(
+                        pkg_weight,
+                        from_uom=pkg_weight_uom,
+                        to_uom=target_weight_uom,
+                        company=getattr(self, "company", None),
+                    )
+            # Note: Transport Order doesn't have header weight field, but method is available for future use
+            # or for API calls
+        except Exception:
+            pass
+
+    def _update_packing_summary(self):
+        """Update total_packages, total_volume, total_weight from packages."""
+        packages = getattr(self, "packages", []) or []
+        self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or getattr(p, "quantity", 0) or 1) for p in packages)
+        self.total_volume = self.get_total_volume()
+        self.total_weight = self.get_total_weight()
+
+    @frappe.whitelist()
+    def aggregate_volume_from_packages_api(self):
+        """Whitelisted API method to aggregate volume and weight from packages for client-side calls."""
+        self.aggregate_volume_from_packages()
+        self.aggregate_weight_from_packages()
+        return {
+            "volume": getattr(self, "volume", 0),
+            "weight": getattr(self, "weight", 0)
+        }
+
     def before_submit(self):
         """Validate transport legs before submitting the Transport Order."""
-        # Validate sales_quote is not empty
-        if not self.sales_quote:
-            frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
+        # Ensure quote field values are preserved - sync quote and sales_quote before submission
+        _sync_quote_and_sales_quote(self)
+        
+        # Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
+        quote_type = getattr(self, "quote_type", None)
+        if quote_type == "Sales Quote":
+            if not self.sales_quote:
+                frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
+        elif quote_type == "One-Off Quote":
+            if not getattr(self, "quote", None):
+                frappe.throw(_("One-Off Quote is required. Please select a One-Off Quote before submitting the Transport Order."))
+        else:
+            # If quote_type is not set, check if sales_quote is set (backward compatibility)
+            if not self.sales_quote:
+                frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
         
         # Validate packages is not empty
         packages = getattr(self, 'packages', []) or []
         if not packages:
             frappe.throw(_("Packages are required. Please add at least one package before submitting the Transport Order."))
         
+        # Validate vehicle_type is required only if consolidate is not checked
+        # This validation is in before_submit (not validate) to allow saving drafts without vehicle_type
+        self._validate_vehicle_type_required()
+        
         self._validate_transport_legs()
+    
+    def after_submit(self):
+        """Ensure quote field values remain after submission."""
+        # Preserve quote field value after submission - ensure it's not cleared
+        # Get the quote value from the database to ensure it's preserved
+        current_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
+        current_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
+        current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+        
+        # If quote was set before submission, ensure it remains set
+        # This prevents any code from clearing the quote field after submission
+        if current_quote and not getattr(self, 'quote', None):
+            self.db_set('quote', current_quote, update_modified=False)
+        if current_quote_type and not getattr(self, 'quote_type', None):
+            self.db_set('quote_type', current_quote_type, update_modified=False)
+        if current_sales_quote and not getattr(self, 'sales_quote', None):
+            self.db_set('sales_quote', current_sales_quote, update_modified=False)
 
     def _validate_transport_legs(self):
         """Validate that transport legs have complete details and scheduled_date if filled."""
@@ -232,44 +411,36 @@ class TransportOrder(Document):
             frappe.log_error(f"Error auto-filling addresses for leg {leg_index}: {str(e)}", "Transport Order Address Auto-fill")
 
     def _validate_sales_quote_duplication(self):
-        """Validate sales_quote duplication rules.
-        
-        If this is a new document (being duplicated) and has a sales_quote
-        with one_off=1, clear the sales_quote field to prevent duplication
-        of one-off quote references.
+        """When quote is One-Off Quote, at most one Transport Order per One-Off Quote.
+        On duplicate (new doc with same One-Off Quote), clear quote reference.
         """
-        # Only check for new documents (duplications are new documents)
-        if not self.is_new() or not self.sales_quote:
+        if not self.is_new() or getattr(self, "quote_type", None) != "One-Off Quote" or not getattr(self, "quote", None):
             return
-        
         try:
-            # Check if the sales_quote has one_off=1
-            one_off = frappe.db.get_value("Sales Quote", self.sales_quote, "one_off")
-            
-            if one_off == 1:
-                # Clear the sales_quote field for duplicated documents
-                original_sales_quote = self.sales_quote
+            existing = frappe.db.exists(
+                "Transport Order",
+                {"quote_type": "One-Off Quote", "quote": self.quote, "name": ["!=", self.name or ""]}
+            )
+            if existing:
+                original_quote = self.quote
+                self.quote_type = None
+                self.quote = None
                 self.sales_quote = None
-                
-                # Also clear charges that were populated from sales_quote
                 if hasattr(self, "charges") and self.charges:
                     self.set("charges", [])
-                
-                # Show message to user
                 frappe.msgprint(
-                    _("Sales Quote '{0}' is a one-off quote and cannot be duplicated. The Sales Quote field has been cleared.").format(original_sales_quote),
-                    title=_("Sales Quote Cleared"),
+                    _("One-Off Quote '{0}' is already linked to another Transport Order. Quote reference cleared.").format(original_quote),
+                    title=_("Quote Cleared"),
                     indicator="orange"
                 )
         except Exception as e:
-            # If sales_quote doesn't exist or other error, log but don't fail validation
             frappe.log_error(
-                f"Error validating sales_quote duplication for Transport Order: {str(e)}",
-                "Transport Order Sales Quote Validation Error"
+                f"Error validating quote duplication for Transport Order: {str(e)}",
+                "Transport Order Quote Validation Error"
             )
 
     def _validate_leg_facilities(self):
-        """Validate that pick and drop facilities are different in each leg."""
+        """Validate that pick and drop facilities are different in each leg, or if same facility, addresses must be different."""
         legs_field = _find_child_table_fieldname(
             "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
         )
@@ -278,8 +449,15 @@ class TransportOrder(Document):
         for i, leg in enumerate(legs, 1):
             facility_from = leg.get("facility_from")
             facility_to = leg.get("facility_to")
+            pick_address = leg.get("pick_address")
+            drop_address = leg.get("drop_address")
+            
+            # If facilities are the same, check that addresses are different
             if facility_from and facility_to and facility_from == facility_to:
-                frappe.throw(_("Row {0}: Pick facility and drop facility cannot be the same.").format(i))
+                # If addresses are the same (or both missing), throw error
+                if pick_address == drop_address:
+                    frappe.throw(_("Row {0}: Pick facility and drop facility cannot be the same.").format(i))
+                # If addresses are different, allow it (no error)
 
     def _validate_transport_job_type(self):
         """Validate transport job type specific business rules."""
@@ -306,8 +484,10 @@ class TransportOrder(Document):
 
     def _validate_container_requirements(self):
         """Validate container-specific requirements."""
-        if not self.container_type:
-            frappe.throw(_("Container Type is required for Container transport jobs."))
+        # Skip container_type validation when creating from One-Off Quote
+        if not getattr(self.flags, 'skip_container_type_validation', False):
+            if not self.container_type:
+                frappe.throw(_("Container Type is required for Container transport jobs."))
         
         # Skip container_no validation when creating from Sales Quote
         if not getattr(self.flags, 'skip_container_no_validation', False):
@@ -419,11 +599,8 @@ class TransportOrder(Document):
         
         try:
             from logistics.transport.capacity.vehicle_type_capacity import get_vehicle_type_capacity_info
-            from logistics.transport.capacity.uom_conversion import convert_weight, convert_volume, get_default_uoms
-            
-            default_uoms = get_default_uoms(self.company)
-            
-            # Calculate capacity requirements from packages
+
+            # Calculate capacity requirements from packages (uses Logistics Settings UOMs)
             requirements = self.calculate_capacity_requirements()
             
             if requirements['weight'] == 0 and requirements['volume'] == 0 and requirements['pallets'] == 0:
@@ -454,34 +631,38 @@ class TransportOrder(Document):
             frappe.log_error(f"Error validating vehicle type capacity in Transport Order: {str(e)}", "Capacity Validation Error")
     
     def calculate_capacity_requirements(self):
-        """Calculate total capacity requirements from packages"""
+        """Calculate total capacity requirements from packages using Logistics Settings UOMs."""
         try:
-            from logistics.transport.capacity.uom_conversion import (
+            from logistics.utils.measurements import (
                 convert_weight, convert_volume, calculate_volume_from_dimensions,
-                get_default_uoms
+                get_default_uoms, get_aggregation_volume_uom,
             )
             default_uoms = get_default_uoms(self.company)
-            
+            weight_uom = default_uoms['weight']
+            volume_uom = get_aggregation_volume_uom(self.company) or default_uoms['volume']
+
             total_weight = 0
             total_volume = 0
             total_pallets = 0
-            weight_uom = default_uoms['weight']
-            volume_uom = default_uoms['volume']
-            
+
             packages = getattr(self, 'packages', []) or []
-            
+
             for pkg in packages:
                 # Weight
                 pkg_weight = flt(getattr(pkg, 'weight', 0))
                 if pkg_weight > 0:
                     pkg_weight_uom = getattr(pkg, 'weight_uom', None) or weight_uom
-                    total_weight += convert_weight(pkg_weight, pkg_weight_uom, weight_uom, self.company)
-                
+                    total_weight += convert_weight(
+                        pkg_weight, from_uom=pkg_weight_uom, to_uom=weight_uom, company=self.company
+                    )
+
                 # Volume - prefer direct volume, calculate from dimensions if not available
                 pkg_volume = flt(getattr(pkg, 'volume', 0))
                 if pkg_volume > 0:
-                    pkg_volume_uom = getattr(pkg, 'volume_uom', None) or volume_uom
-                    total_volume += convert_volume(pkg_volume, pkg_volume_uom, volume_uom, self.company)
+                    pkg_volume_uom = getattr(pkg, 'volume_uom', None) or default_uoms['volume']
+                    total_volume += convert_volume(
+                        pkg_volume, from_uom=pkg_volume_uom, to_uom=volume_uom, company=self.company
+                    )
                 elif hasattr(pkg, 'length') and hasattr(pkg, 'width') and hasattr(pkg, 'height'):
                     # Calculate from dimensions
                     length = flt(getattr(pkg, 'length', 0))
@@ -496,10 +677,10 @@ class TransportOrder(Document):
                             company=self.company
                         )
                         total_volume += pkg_volume
-                
+
                 # Pallets
                 total_pallets += flt(getattr(pkg, 'no_of_packs', 0))
-            
+
             return {
                 'weight': total_weight,
                 'weight_uom': weight_uom,
@@ -507,18 +688,8 @@ class TransportOrder(Document):
                 'volume_uom': volume_uom,
                 'pallets': total_pallets
             }
-        except Exception as e:
-            frappe.log_error(f"Error calculating capacity requirements: {str(e)}", "Capacity Calculation Error")
-            # Try to get default UOMs from settings, fallback to empty if unavailable
-            try:
-                from logistics.transport.capacity.uom_conversion import get_default_uoms
-                default_uoms = get_default_uoms(self.company)
-                weight_uom = default_uoms.get('weight', '')
-                volume_uom = default_uoms.get('volume', '')
-            except Exception:
-                weight_uom = ''
-                volume_uom = ''
-            return {'weight': 0, 'weight_uom': weight_uom, 'volume': 0, 'volume_uom': volume_uom, 'pallets': 0}
+        except Exception:
+            raise
     
     def _validate_vehicle_type_required(self):
         """Validate that vehicle_type is required only if consolidate is not checked."""
@@ -754,6 +925,11 @@ class TransportOrder(Document):
         # Skip if flag is set (e.g., when creating from Sales Quote)
         if getattr(self.flags, 'skip_sales_quote_on_change', False):
             return
+        
+        # Skip if document name is still temporary (starts with "new-")
+        # This prevents errors when the document is being saved for the first time
+        if self.name and self.name.startswith("new-"):
+            return
             
         if self.has_value_changed("sales_quote"):
             if self.sales_quote:
@@ -763,6 +939,19 @@ class TransportOrder(Document):
                 self.set("charges", [])
                 frappe.msgprint(
                     "Charges cleared as Sales Quote was removed",
+                    title="Charges Updated",
+                    indicator="blue"
+                )
+        
+        # Handle One-Off Quote changes
+        if self.has_value_changed("quote") or self.has_value_changed("quote_type"):
+            if getattr(self, "quote_type", None) == "One-Off Quote" and self.quote:
+                self._populate_charges_from_one_off_quote()
+            elif getattr(self, "quote_type", None) == "One-Off Quote" and not self.quote:
+                # Clear charges if One-Off Quote is removed
+                self.set("charges", [])
+                frappe.msgprint(
+                    "Charges cleared as One-Off Quote was removed",
                     title="Charges Updated",
                     indicator="blue"
                 )
@@ -826,6 +1015,73 @@ class TransportOrder(Document):
         except Exception as e:
             frappe.log_error(
                 f"Error populating charges from sales quote {self.sales_quote}: {str(e)}",
+                "Transport Order Charges Population Error"
+            )
+            frappe.msgprint(
+                f"Error populating charges: {str(e)}",
+                title="Error",
+                indicator="red"
+            )
+
+    def _populate_charges_from_one_off_quote(self):
+        """Populate charges based on one_off_quote_transport of the filled one_off_quote."""
+        if not self.quote or getattr(self, "quote_type", None) != "One-Off Quote":
+            return
+
+        try:
+            # Verify that the one_off_quote exists
+            if not frappe.db.exists("One-Off Quote", self.quote):
+                frappe.msgprint(
+                    f"One-Off Quote {self.quote} does not exist",
+                    title="Error",
+                    indicator="red"
+                )
+                return
+
+            # Clear existing charges
+            self.set("charges", [])
+
+            # Fetch one_off_quote_transport records from the selected one_off_quote
+            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+            one_off_quote_transport_records = frappe.get_all(
+                "One-Off Quote Transport",
+                filters={"parent": self.quote, "parenttype": "One-Off Quote"},
+                fields=fields_to_fetch,
+                order_by="idx"
+            )
+
+            if not one_off_quote_transport_records:
+                frappe.msgprint(
+                    f"No transport charges found in One-Off Quote: {self.quote}",
+                    title="No Charges Found",
+                    indicator="orange"
+                )
+                return
+
+            # Map and populate charges (One-Off Quote Transport has same structure as Sales Quote Transport)
+            charges_added = 0
+            for oqt_record in one_off_quote_transport_records:
+                charge_row = self._map_sales_quote_transport_to_charge(oqt_record)
+                if charge_row:
+                    self.append("charges", charge_row)
+                    charges_added += 1
+
+            if charges_added > 0:
+                frappe.msgprint(
+                    f"Successfully populated {charges_added} charges from One-Off Quote: {self.quote}",
+                    title="Charges Updated",
+                    indicator="green"
+                )
+            else:
+                frappe.msgprint(
+                    f"No valid charges could be mapped from One-Off Quote: {self.quote}",
+                    title="No Valid Charges",
+                    indicator="orange"
+                )
+
+        except Exception as e:
+            frappe.log_error(
+                f"Error populating charges from one-off quote {self.quote}: {str(e)}",
                 "Transport Order Charges Population Error"
             )
             frappe.msgprint(
@@ -1053,15 +1309,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
             if charge_row:
                 charges.append(charge_row)
         
-        # If docname is provided and document exists, save the charges and sales_quote
-        if docname and frappe.db.exists("Transport Order", docname):
-            doc = frappe.get_doc("Transport Order", docname)
-            # Also update sales_quote field to ensure it's saved when we reload
-            doc.sales_quote = sales_quote
-            doc.set("charges", [])
-            for charge_row in charges:
-                doc.append("charges", charge_row)
-            doc.save(ignore_permissions=True)
+        # Note: We do NOT save the document here to avoid "document has been modified" errors.
+        # The client-side JavaScript will handle updating the form with the charges data.
+        # For saved documents, the client will update the form and the user can save normally.
         
         return {
             "charges": charges,
@@ -1115,12 +1365,92 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
 
 
 @frappe.whitelist()
+def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str = None):
+    """Populate charges from one_off_quote. Called from frontend when one_off_quote field changes.
+    
+    Returns charge data that can be populated in the frontend.
+    """
+    if not one_off_quote:
+        return {"charges": []}
+    
+    try:
+        # Verify that the one_off_quote exists
+        if not frappe.db.exists("One-Off Quote", one_off_quote):
+            return {
+                "error": f"One-Off Quote {one_off_quote} does not exist",
+                "charges": []
+            }
+        
+        # Fetch one_off_quote_transport records from the selected one_off_quote
+        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+        one_off_quote_transport_records = frappe.get_all(
+            "One-Off Quote Transport",
+            filters={"parent": one_off_quote, "parenttype": "One-Off Quote"},
+            fields=fields_to_fetch,
+            order_by="idx"
+        )
+        
+        if not one_off_quote_transport_records:
+            return {
+                "charges": [],
+                "message": f"No transport charges found in One-Off Quote: {one_off_quote}"
+            }
+        
+        # Map and populate charges (One-Off Quote Transport has same structure as Sales Quote Transport)
+        charges = []
+        for oqt_record in one_off_quote_transport_records:
+            charge_row = _map_sales_quote_transport_to_charge_dict(oqt_record)
+            if charge_row:
+                charges.append(charge_row)
+        
+        # Note: We do NOT save the document here to avoid "document has been modified" errors.
+        # The client-side JavaScript will handle updating the form with the charges data.
+        # For saved documents, the client will update the form and the user can save normally.
+        
+        return {
+            "charges": charges,
+            "charges_count": len(charges)
+        }
+        
+    except Exception as e:
+        frappe.log_error(
+            f"Error populating charges from one-off quote {one_off_quote}: {str(e)}",
+            "Transport Order Charges Population Error"
+        )
+        return {
+            "error": str(e),
+            "charges": []
+        }
+
+
+@frappe.whitelist()
 def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
     """Populate Transport Order legs from the selected Transport Template."""
     if not docname:
         frappe.throw("Missing Transport Order name.")
 
-    doc = frappe.get_doc("Transport Order", docname)
+    # Check if docname is a temporary name (starts with "new-")
+    # This can happen if the function is called before the document is fully saved
+    if docname.startswith("new-"):
+        frappe.throw(_("Cannot create leg plan for unsaved document. Please save the Transport Order first."))
+
+    # Guard: Check if we're in a save transaction and handle accordingly
+    if getattr(frappe.flags, 'in_save', False):
+        frappe.db.commit()
+        time.sleep(0.3)  # Wait for transaction to complete
+
+    # Get the document directly, handling DoesNotExistError
+    try:
+        doc = frappe.get_doc("Transport Order", docname)
+    except frappe.DoesNotExistError:
+        # Retry once after delay if document not found (may have been in save transaction)
+        time.sleep(0.3)
+        try:
+            # Use get_cached_doc to avoid false not-found during post-save calls
+            doc = frappe.get_cached_doc("Transport Order", docname)
+        except frappe.DoesNotExistError:
+            # Return graceful error response for post-save fetch failures
+            return {"error": "doc_not_ready"}
 
     # discover order child table dt/field
     order_child_dt = "Transport Order Legs"
@@ -1173,9 +1503,16 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
         doc.append(order_child_field, row_data)
         created += 1
 
+    # Save the document if requested
+    saved = False
     if cint(save):
-        doc.flags.ignore_permissions = True
-        doc.save()
+        try:
+            doc.flags.ignore_permissions = True
+            doc.save()
+            saved = True
+        except Exception as e:
+            frappe.log_error(f"Error saving Transport Order {docname} after leg plan creation: {str(e)}", "Leg Plan Save Error")
+            # Continue even if save fails - document is still modified in memory
 
     # --- build UI message safely ---
     base_label = frappe.utils.formatdate(base_date) if base_date else "—"
@@ -1202,7 +1539,7 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
         "base_date": str(base_date) if base_date else None,
         "legs_added": created,
         "replaced": bool(cint(replace)),
-        "saved": bool(cint(save)),
+        "saved": saved,
     }
 
 # -------------------------------------------------------------------
@@ -1212,7 +1549,27 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
 def action_create_transport_job(docname: str):
     """Create (or reuse) a Transport Job from a submitted Transport Order."""
     try:
-        doc = frappe.get_doc("Transport Order", docname)
+        # Check if docname is a temporary name (starts with "new-")
+        if docname and docname.startswith("new-"):
+            frappe.throw(_("Cannot create Transport Job for unsaved document. Please save the Transport Order first."))
+        
+        # Guard: Check if we're in a save transaction and handle accordingly
+        if getattr(frappe.flags, 'in_save', False):
+            frappe.db.commit()
+            time.sleep(0.3)  # Wait for transaction to complete
+        
+        # Get the document directly, handling DoesNotExistError
+        try:
+            doc = frappe.get_doc("Transport Order", docname)
+        except frappe.DoesNotExistError:
+            # Retry once after delay if document not found (may have been in save transaction)
+            time.sleep(0.3)
+            try:
+                # Use get_cached_doc to avoid false not-found during post-save calls
+                doc = frappe.get_cached_doc("Transport Order", docname)
+            except frappe.DoesNotExistError:
+                # Return graceful error response for post-save fetch failures
+                return {"error": "doc_not_ready"}
 
         if doc.docstatus != 1:
             frappe.throw(_("Please submit the Transport Order before creating a Transport Job."))
@@ -1288,6 +1645,19 @@ def action_create_transport_job(docname: str):
         frappe.db.commit()
         return {"name": job.name, "created": True, "already_exists": False}
         
+    except frappe.DuplicateEntryError:
+        # Handle race condition: another process may have created the job
+        frappe.db.rollback()
+        # Check again if job was created by another process
+        existing = frappe.db.get_value("Transport Job", {"transport_order": docname}, "name")
+        if existing:
+            return {"name": existing, "created": False, "already_exists": True}
+        # If we still can't find it, log and re-raise
+        frappe.log_error(
+            f"Duplicate Transport Job error for Transport Order {docname}, but could not find existing record",
+            "Transport Job Duplicate Error"
+        )
+        frappe.throw(_("Failed to create Transport Job due to a duplicate entry. This may occur if multiple requests are processed simultaneously. Please try again or check if a Transport Job already exists for this Transport Order."))
     except Exception as e:
         frappe.log_error(f"Error creating transport job: {str(e)}")
         frappe.throw(_("Failed to create Transport Job: {0}").format(str(e)))
@@ -1632,9 +2002,79 @@ def get_cost_estimation(transport_job_type: str, base_cost: float = 1000) -> Dic
 
 
 @frappe.whitelist()
+def get_available_one_off_quotes(transport_order_name: str = None) -> Dict[str, Any]:
+    """Get list of One-Off Quotes that are not yet linked to a Transport Order and not converted.
+    
+    Excludes One-Off Quotes that are:
+    1. Already linked to another Transport Order
+    2. Already converted (status = "Converted" or converted_to_doc is set)
+    
+    This prevents users from selecting quotes that have already been converted or used.
+    """
+    try:
+        # Get all One-Off Quotes already linked to Transport Orders (excluding current order)
+        used_quotes = frappe.get_all(
+            "Transport Order",
+            filters={
+                "quote_type": "One-Off Quote",
+                "quote": ["is", "set"],
+                "name": ["!=", transport_order_name or ""]
+            },
+            pluck="quote"
+        )
+        
+        # Get all converted One-Off Quotes (status = "Converted" or converted_to_doc is set)
+        converted_quotes = frappe.get_all(
+            "One-Off Quote",
+            filters={
+                "status": "Converted"
+            },
+            pluck="name"
+        )
+        
+        # Also get quotes with converted_to_doc set (in case status wasn't updated)
+        quotes_with_conversion = frappe.get_all(
+            "One-Off Quote",
+            filters={
+                "converted_to_doc": ["is", "set"]
+            },
+            pluck="name"
+        )
+        
+        # Combine all excluded quotes
+        excluded_quotes = list(set(used_quotes + converted_quotes + quotes_with_conversion))
+        
+        # Return filter to exclude used and converted quotes
+        filters = {}
+        if excluded_quotes:
+            filters["name"] = ["not in", excluded_quotes]
+        
+        # Also filter to only show One-Off Quotes that have transport enabled
+        # Check if One-Off Quote has is_transport field
+        if _has_field("One-Off Quote", "is_transport"):
+            filters["is_transport"] = 1
+        
+        return {"filters": filters}
+    except Exception as e:
+        frappe.log_error(
+            f"Error getting available One-Off Quotes: {str(e)}",
+            "Transport Order Quote Query Error"
+        )
+        return {"filters": {}}
+
+
+@frappe.whitelist()
 def get_consolidation_opportunities(transport_order_name: str) -> Dict[str, Any]:
     """Get consolidation opportunities for a transport order."""
     try:
+        # Check if transport_order_name is a temporary name (starts with "new-")
+        if transport_order_name and transport_order_name.startswith("new-"):
+            return {"eligible": False}
+        
+        # Check if document exists before trying to get it
+        if not frappe.db.exists("Transport Order", transport_order_name):
+            return {"eligible": False}
+        
         doc = frappe.get_doc("Transport Order", transport_order_name)
         
         if not doc.get_consolidation_eligibility():

@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "creation": "2025-02-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence",
+  "bill_type",
+  "milestone_description",
+  "planned_amount",
+  "currency",
+  "status",
+  "sales_invoice",
+  "invoice_date",
+  "notes"
+ ],
+ "fields": [
+  {"fieldname": "sequence", "fieldtype": "Int", "label": "Sequence", "in_list_view": 1},
+  {"fieldname": "bill_type", "fieldtype": "Select", "label": "Bill Type", "options": "Milestone\nInterim\nFinal\nAd-hoc"},
+  {"fieldname": "milestone_description", "fieldtype": "Small Text", "label": "Description"},
+  {"fieldname": "planned_amount", "fieldtype": "Currency", "label": "Planned Amount"},
+  {"fieldname": "currency", "fieldtype": "Link", "label": "Currency", "options": "Currency"},
+  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Pending\nInvoiced\nPaid", "default": "Pending", "in_list_view": 1},
+  {"fieldname": "sales_invoice", "fieldtype": "Link", "label": "Sales Invoice", "options": "Sales Invoice", "read_only": 1},
+  {"fieldname": "invoice_date", "fieldtype": "Date", "label": "Invoice Date"},
+  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2025-02-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Billing",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

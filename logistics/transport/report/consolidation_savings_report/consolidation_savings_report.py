@@ -3,18 +3,55 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date
+from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date, fmt_money
 from datetime import datetime, timedelta
 
+def get_default_currency(company=None):
+	"""Get default currency for company or system default"""
+	try:
+		if company:
+			currency = frappe.db.get_value("Company", company, "default_currency")
+			if currency:
+				return currency
+		
+		# Fallback to system default currency from Global Defaults
+		currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+		if currency:
+			return currency
+			
+		# Final fallback - get first company's currency
+		first_company = frappe.db.get_value("Company", filters={"enabled": 1}, fieldname="name")
+		if first_company:
+			currency = frappe.db.get_value("Company", first_company, "default_currency")
+			if currency:
+				return currency
+				
+		# Ultimate fallback
+		return "USD"
+	except Exception:
+		return "USD"
+
+def get_currency_symbol(currency):
+	"""Get currency symbol for a currency code"""
+	try:
+		currency_doc = frappe.get_doc("Currency", currency)
+		return currency_doc.symbol or currency
+	except Exception:
+		return currency
+
 def execute(filters=None):
-	columns = get_columns()
+	# Get currency for this report
+	company = filters.get("company") if filters else None
+	currency = get_default_currency(company)
+	
+	columns = get_columns(currency)
 	data = get_data(filters)
 	chart = get_chart_data(data)
-	summary = get_summary(data, filters)
+	summary = get_summary(data, filters, currency)
 	
 	return columns, data, None, chart, summary
 
-def get_columns():
+def get_columns(currency="USD"):
 	return [
 		{
 			"fieldname": "consolidation",
@@ -65,18 +102,21 @@ def get_columns():
 			"fieldname": "individual_cost",
 			"label": _("Individual Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "consolidated_cost",
 			"label": _("Consolidated Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "savings_amount",
 			"label": _("Savings Amount"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
@@ -90,18 +130,21 @@ def get_columns():
 			"fieldname": "fuel_savings",
 			"label": _("Fuel Savings"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "driver_savings",
 			"label": _("Driver Savings"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "vehicle_savings",
 			"label": _("Vehicle Savings"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
@@ -133,12 +176,13 @@ def get_data(filters):
 			tc.total_weight,
 			tc.total_volume,
 			tc.run_sheet,
+			tc.company,
 			COUNT(tcj.transport_job) as jobs_count
 		FROM `tabTransport Consolidation` tc
 		LEFT JOIN `tabTransport Consolidation Job` tcj ON tcj.parent = tc.name
 		WHERE tc.docstatus = 1
 		{conditions}
-		GROUP BY tc.name, tc.consolidation_date, tc.consolidation_type, tc.status, tc.total_weight, tc.total_volume, tc.run_sheet
+		GROUP BY tc.name, tc.consolidation_date, tc.consolidation_type, tc.status, tc.total_weight, tc.total_volume, tc.run_sheet, tc.company
 		ORDER BY tc.consolidation_date DESC
 	""".format(conditions=" AND " + conditions if conditions else "")
 	
@@ -176,6 +220,9 @@ def get_conditions(filters):
 	
 	if filters.get("run_sheet"):
 		conditions.append("tc.run_sheet = %(run_sheet)s")
+	
+	if filters.get("company"):
+		conditions.append("tc.company = %(company)s")
 	
 	return " AND ".join(conditions) if conditions else ""
 
@@ -305,10 +352,12 @@ def get_chart_data(data):
 	
 	return chart
 
-def get_summary(data, filters):
+def get_summary(data, filters, currency="USD"):
 	"""Generate summary statistics"""
 	if not data:
 		return []
+	
+	currency_symbol = get_currency_symbol(currency)
 	
 	total_consolidations = len(data)
 	total_jobs = sum(row.jobs_count for row in data)
@@ -350,17 +399,17 @@ def get_summary(data, filters):
 		},
 		{
 			"label": _("Total Individual Cost"),
-			"value": f"${total_individual_cost:,.2f}",
+			"value": fmt_money(total_individual_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
 			"label": _("Total Consolidated Cost"),
-			"value": f"${total_consolidated_cost:,.2f}",
+			"value": fmt_money(total_consolidated_cost, currency=currency),
 			"indicator": "orange"
 		},
 		{
 			"label": _("Total Savings"),
-			"value": f"${total_savings:,.2f}",
+			"value": fmt_money(total_savings, currency=currency),
 			"indicator": "green"
 		},
 		{

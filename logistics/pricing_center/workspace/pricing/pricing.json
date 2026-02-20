@@ -1,0 +1,105 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\":\"yhMMLkCV_3\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"m7jPdhBILi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"54b-ks4Vyc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"One Off Quote\",\"col\":3}},{\"id\":\"s3vWBzNvOb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tariff\",\"col\":3}},{\"id\":\"Ol2JFAYVbg\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cost Sheet\",\"col\":3}},{\"id\":\"ccLgl3iept\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"C7YJpOaF41\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files and Setup</b></span>\",\"col\":12}},{\"id\":\"jdkPGs-8J0\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport\",\"col\":4}}]",
+ "creation": "2026-02-11 23:39:43.802375",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "money-coins-1",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Pricing",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Zone",
+   "link_count": 0,
+   "link_to": "Transport Zone",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Vehicle Type",
+   "link_count": 0,
+   "link_to": "Vehicle Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Type",
+   "link_count": 0,
+   "link_to": "Container Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-02-12 00:08:23.152440",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Pricing",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 32.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Quote",
+   "link_to": "Sales Quote",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "One Off Quote",
+   "link_to": "One-Off Quote",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Cost Sheet",
+   "link_to": "Cost Sheet",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Tariff",
+   "link_to": "Tariff",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Pricing",
+ "type": "Workspace"
+}

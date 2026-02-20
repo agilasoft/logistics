@@ -36,6 +36,13 @@ frappe.query_reports["Fuel Consumption Analysis"] = {
 			"options": "Transport Company"
 		},
 		{
+			"fieldname": "company",
+			"label": __("Company"),
+			"fieldtype": "Link",
+			"options": "Company",
+			"default": frappe.defaults.get_user_default("Company")
+		},
+		{
 			"fieldname": "fuel_efficiency_range",
 			"label": __("Fuel Efficiency Range"),
 			"fieldtype": "Select",

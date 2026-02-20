@@ -20,6 +20,26 @@ frappe.ui.form.on("VAS Order", {
     // Update UOM fields for child table items
     update_uom_fields_for_items(frm);
   },
+
+  contract(frm) {
+    // Populate shipper and consignee from Warehouse Contract
+    if (frm.doc.contract) {
+      frappe.db.get_value("Warehouse Contract", frm.doc.contract, ["shipper", "consignee"], function(r) {
+        if (r) {
+          if (r.shipper) {
+            frm.set_value("shipper", r.shipper);
+          }
+          if (r.consignee) {
+            frm.set_value("consignee", r.consignee);
+          }
+        }
+      });
+    } else {
+      // Clear shipper and consignee if contract is cleared
+      frm.set_value("shipper", "");
+      frm.set_value("consignee", "");
+    }
+  }
 });
 
 function makeWarehouseJob(frm) {
@@ -359,8 +379,7 @@ function calculate_volume(frm, cdt, cdn) {
                 }
             },
             error: function(r) {
-                // Fallback to raw calculation on error
-                const volume = length * width * height;
+                const volume = 0;
                 frappe.model.set_value(cdt, cdn, 'volume', volume);
             }
         });

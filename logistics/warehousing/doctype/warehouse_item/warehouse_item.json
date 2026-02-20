@@ -21,6 +21,7 @@
   "section_break_uzft",
   "description",
   "dimensions_tab",
+  "measurements_section",
   "length",
   "width",
   "height",
@@ -30,6 +31,8 @@
   "volume_uom",
   "weight",
   "weight_uom",
+  "chargeable_weight",
+  "chargeable_weight_uom",
   "putaway_policy_tab",
   "putaway_policy",
   "lot_consolidation",
@@ -224,6 +227,11 @@
    "label": "Dimensions & Weight"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
@@ -269,6 +277,17 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "dimension_uom",
