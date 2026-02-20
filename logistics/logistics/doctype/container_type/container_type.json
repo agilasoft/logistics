@@ -28,6 +28,7 @@
   "iso_official_container_type",
   "is_commonly_oversized",
   "dimensions_tab",
+  "measurements_section",
   "length",
   "length_uom",
   "column_break_kizv",
@@ -163,6 +164,11 @@
    "fieldname": "dimensions_tab",
    "fieldtype": "Tab Break",
    "label": "Dimensions"
+  },
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
   },
   {
    "fieldname": "length",

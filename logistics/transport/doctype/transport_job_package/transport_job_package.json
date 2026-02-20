@@ -15,6 +15,7 @@
   "no_of_packs",
   "quantity",
   "uom",
+  "measurements_section",
   "weight",
   "weight_uom",
   "column_break_3",
@@ -24,6 +25,8 @@
   "volume",
   "volume_uom",
   "dimension_uom",
+  "chargeable_weight",
+  "chargeable_weight_uom",
   "atl",
   "section_break_dg_identification",
   "dg_identification_section",
@@ -131,6 +134,11 @@
    "options": "UOM"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "columns": 1,
    "fieldname": "weight",
    "fieldtype": "Float",
@@ -186,6 +194,17 @@
    "options": "UOM"
   },
   {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
+  },
+  {
    "default": "0",
    "fieldname": "atl",
    "fieldtype": "Check",
@@ -193,6 +212,7 @@
    "label": "ATL"
   },
   {
+   "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "section_break_dg_identification",
    "fieldtype": "Section Break",
    "label": "Dangerous Goods Identification"

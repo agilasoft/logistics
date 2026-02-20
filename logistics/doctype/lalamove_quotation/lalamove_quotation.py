@@ -67,7 +67,7 @@ class LalamoveQuotation(Document):
                 expiry_time = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
                 if datetime.now(expiry_time.tzinfo) >= expiry_time:
                     self.valid = 0
-            except:
+            except Exception:
                 pass
 
 

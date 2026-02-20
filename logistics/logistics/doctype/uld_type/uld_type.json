@@ -41,7 +41,8 @@
   },
   {
    "fieldname": "section_break_kgxc",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Measurements"
   },
   {
    "fieldname": "length",

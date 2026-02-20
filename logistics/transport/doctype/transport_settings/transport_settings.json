@@ -63,10 +63,12 @@
   "warn_on_missing_vehicle_avg_speed",
   "warn_on_missing_cargo_volume",
   "allow_vehicle_assignment_with_warnings",
+  "block_incompatible_vehicle_types_in_consolidation",
   "default_uom_section",
   "default_weight_uom",
   "default_volume_uom",
   "default_chargeable_uom",
+  "volume_to_weight_divisor",
   "carbon_tab",
   "carbon_autocompute",
   "carbon_default_factor_g_per_km",
@@ -450,12 +452,11 @@
    "description": "Maximum delay from ad-hoc factors before blocking route assignment"
   },
   {
-   "default": "Complete Blockage",
    "depends_on": "eval:doc.enable_adhoc_factors",
    "fieldname": "adhoc_factor_blocking_impact_types",
-   "fieldtype": "MultiSelect",
+   "fieldtype": "Table",
    "label": "Ad-Hoc Factor Impact Types That Block Routes",
-   "options": "Complete Blockage\nPartial Blockage\nDelays Only\nAccess Restricted",
+   "options": "Transport Settings Adhoc Factor Impact",
    "description": "Impact types that will block route assignment (others will only add delays)"
   },
   {
@@ -514,6 +515,13 @@
    "description": "Allow vehicle assignment even if constraint warnings exist (when mode is Warning)"
   },
   {
+   "default": "0",
+   "fieldname": "block_incompatible_vehicle_types_in_consolidation",
+   "fieldtype": "Check",
+   "label": "Block Incompatible Vehicle Types in Consolidation",
+   "description": "When enabled, prevents saving consolidation when jobs have different vehicle types"
+  },
+  {
    "collapsible": 1,
    "fieldname": "default_uom_section",
    "fieldtype": "Section Break",
@@ -539,6 +547,13 @@
    "label": "Default Chargeable UOM",
    "options": "UOM",
    "description": "Default UOM for chargeable weight in Sales Quote Transport tab and transport-related doctypes"
+  },
+  {
+   "default": "3000",
+   "fieldname": "volume_to_weight_divisor",
+   "fieldtype": "Float",
+   "label": "Volume to Weight Divisor",
+   "description": "Divisor for calculating volume weight. Formula: volume_weight = volume (m³) × 1,000,000 / divisor. Default: 3000 (common road transport standard = 333 kg/m³)"
   }
  ],
  "grid_page_length": 50,

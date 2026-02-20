@@ -304,7 +304,7 @@ def get_data(filters):
 					"recommendation": "Error generating forecast - using current data"
 				}
 				forecast_data.append(basic_forecast)
-			except:
+			except Exception:
 				pass
 	
 	if errors:

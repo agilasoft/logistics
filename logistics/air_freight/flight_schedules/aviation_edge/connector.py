@@ -175,7 +175,7 @@ class AviationEdgeConnector(BaseFlightConnector):
 		try:
 			# Aviation Edge uses ISO format
 			return datetime.fromisoformat(dt_string.replace("Z", "+00:00"))
-		except:
+		except Exception:
 			return None
 	
 	def map_flight_status(self, status: Optional[str]) -> str:

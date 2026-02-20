@@ -104,7 +104,7 @@ def get_default_cost_center(company=None):
         warehouse_settings = frappe.get_single("Warehouse Settings")
         if warehouse_settings.default_cost_center:
             return warehouse_settings.default_cost_center
-    except:
+    except Exception:
         pass
     
     # Fallback to company's default cost center
@@ -132,7 +132,7 @@ def get_default_profit_center(company=None, customer=None):
             customer_doc = frappe.get_doc("Customer", customer)
             if hasattr(customer_doc, 'custom_default_warehouse_profit_center') and customer_doc.custom_default_warehouse_profit_center:
                 return customer_doc.custom_default_warehouse_profit_center
-        except:
+        except Exception:
             pass
     
     # Fallback to company's default profit center

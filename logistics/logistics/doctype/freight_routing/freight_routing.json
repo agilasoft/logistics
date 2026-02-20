@@ -51,14 +51,14 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Origin",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "destination",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Destination",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "routing_details_section",

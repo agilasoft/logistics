@@ -10,7 +10,6 @@
   "section_break_main",
   "naming_series",
   "booking_date",
-  "sales_quote",
   "house_type",
   "direction",
   "column_break_basic",
@@ -31,15 +30,11 @@
   "destination_port",
   "eta",
   "column_break_destination",
-  "volume",
-  "weight",
-  "chargeable",
-  "volume_to_weight_factor_type",
-  "custom_volume_to_weight_divisor",
-  "packages_section",
-  "packages",
-  "house_tab",
-  "house_bl",
+  "routing_tab",
+  "routing_section",
+  "routing_legs",
+  "house_details_section",
+  "house_awb",
   "incoterm",
   "additional_terms",
   "column_break_house",
@@ -51,6 +46,49 @@
   "description",
   "column_break_marks",
   "marks_and_nos",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_addr",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_contacts",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_contacts",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_notify",
+  "notify_party",
+  "column_break_notify",
+  "notify_party_address",
+  "services_section",
+  "services",
+  "packing_tab",
+  "packages_section",
+  "packages",
+  "section_break_summary",
+  "total_packages",
+  "total_volume",
+  "total_weight",
+  "override_volume_weight",
+  "volume",
+  "weight",
+  "chargeable",
+  "column_break_summary",
+  "volume_to_weight_factor_type",
+  "custom_volume_to_weight_divisor",
+  "column_break_ibfp",
+  "density_factor_html",
+  "contains_dangerous_goods",
+  "dangerous_goods_tab",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "charges_tab",
   "charges",
   "accounts_tab",
@@ -59,6 +97,12 @@
   "cost_center",
   "profit_center",
   "column_break_accounts",
+  "job_costing_number",
+  "quote_reference_section",
+  "quote_type",
+  "quote",
+  "sales_quote",
+  "project",
   "notes_tab",
   "internal_notes",
   "column_break_notes",
@@ -85,17 +129,36 @@
    "reqd": 1
   },
   {
+   "fieldname": "quote_type",
+   "fieldtype": "Select",
+   "label": "Quote Type",
+   "options": "One-Off Quote\nSales Quote"
+  },
+  {
+   "fieldname": "quote",
+   "fieldtype": "Dynamic Link",
+   "label": "Quote",
+   "options": "quote_type"
+  },
+  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_air\",\"=\",1]]",
    "options": "Sales Quote"
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
   },
   {
    "fieldname": "house_type",
    "fieldtype": "Select",
    "label": "House Type",
-   "options": "Direct\nConsolidation\nBreak Bulk"
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
    "fieldname": "direction",
@@ -142,7 +205,7 @@
    "fieldname": "entry_type",
    "fieldtype": "Select",
    "label": "Entry Type",
-   "options": "Customs Permit\nTransshipment\nATA Carnet"
+   "options": "Direct\nTransit\nTransshipment\nATA Carnet"
   },
   {
    "fieldname": "service_level",
@@ -198,14 +261,55 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packing"
+  },
+  {
+   "fieldname": "section_break_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Float",
+   "label": "Total Packages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_summary",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "fieldname": "override_volume_weight",
+   "fieldtype": "Check",
+   "label": "Override Volume & Weight"
+  },
+  {
    "fieldname": "volume",
    "fieldtype": "Float",
-   "label": "Volume (m\u00b3)"
+   "label": "Volume (m\u00b3)",
+   "read_only": 1
   },
   {
    "fieldname": "weight",
    "fieldtype": "Float",
-   "label": "Weight (kg)"
+   "label": "Weight (kg)",
+   "read_only": 1
   },
   {
    "fieldname": "chargeable",
@@ -226,7 +330,14 @@
    "description": "Override divisor for volume weight calculation (e.g., 3500, 5000). Leave empty to use airline default.",
    "fieldname": "custom_volume_to_weight_divisor",
    "fieldtype": "Float",
-   "label": "Custom Volume to Weight Divisor"
+   "label": "Custom Volume to Weight Divisor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "density_factor_html",
+   "fieldtype": "HTML",
+   "label": "Density Factor",
+   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
   },
   {
    "fieldname": "packages_section",
@@ -240,14 +351,25 @@
    "options": "Air Booking Packages"
   },
   {
-   "fieldname": "house_tab",
+   "fieldname": "routing_tab",
    "fieldtype": "Tab Break",
-   "label": "House Details"
+   "label": "Routing"
   },
   {
-   "fieldname": "house_bl",
-   "fieldtype": "Data",
-   "label": "House AWB No"
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing Legs"
+  },
+  {
+   "fieldname": "routing_legs",
+   "fieldtype": "Table",
+   "label": "Routing Legs",
+   "options": "Air Booking Routing Leg"
+  },
+  {
+   "fieldname": "house_details_section",
+   "fieldtype": "Section Break",
+   "label": "House Details"
   },
   {
    "fieldname": "incoterm",
@@ -303,6 +425,150 @@
    "label": "Marks and Nos"
   },
   {
+   "collapsible": 1,
+   "fieldname": "contacts_and_addresses_section",
+   "fieldtype": "Section Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Address Display"
+  },
+  {
+   "fieldname": "column_break_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Address Display"
+  },
+  {
+   "fieldname": "section_break_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display"
+  },
+  {
+   "fieldname": "column_break_contacts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display"
+  },
+  {
+   "fieldname": "section_break_notify",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notify_party",
+   "fieldtype": "Data",
+   "label": "Notify Party"
+  },
+  {
+   "fieldname": "column_break_notify",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notify_party_address",
+   "fieldtype": "Small Text",
+   "label": "Notify Party Address"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "services_section",
+   "fieldtype": "Section Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "services",
+   "fieldtype": "Table",
+   "label": "Services",
+   "options": "Air Booking Services"
+  },
+  {
+   "default": "0",
+   "description": "IATA DGR: Check if shipment contains dangerous goods. Enables Dangerous Goods tab.",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "dangerous_goods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration & Emergency Response"
+  },
+  {
+   "default": "0",
+   "description": "Shipper's Declaration for Dangerous Goods completed per IATA DGR",
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "24-hour emergency response contact per IATA DGR",
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "description": "24-hour emergency response phone number",
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
+  },
+  {
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
@@ -336,6 +602,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -349,6 +616,13 @@
   {
    "fieldname": "column_break_accounts",
    "fieldtype": "Column Break"
+  },
+  {
+   "description": "For revenue/cost recognition",
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "notes_tab",
@@ -389,12 +663,26 @@
    "fieldtype": "Link",
    "label": "ULD Type",
    "options": "ULD Type"
+  },
+  {
+   "fieldname": "house_awb",
+   "fieldtype": "Data",
+   "label": "House AWB"
+  },
+  {
+   "fieldname": "column_break_ibfp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Quote Reference"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-28 00:00:50.431959",
+ "modified": "2026-02-18 11:15:13.581610",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",
@@ -411,6 +699,7 @@
    "report": 1,
    "role": "Air Freight Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
@@ -423,6 +712,7 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],

@@ -18,10 +18,12 @@
   "bill_to",
   "selling_currency",
   "selling_amount",
+  "estimated_revenue",
   "column_break_lday",
   "pay_to",
   "buying_currency",
   "buying_amount",
+  "estimated_cost",
   "section_break_dakd",
   "revenue_calculator_column",
   "revenue_calc_type",
@@ -30,7 +32,8 @@
   "unit",
   "minimum",
   "cost_calculator_column",
-  "cost_calc_type"
+  "cost_calc_type",
+  "sales_quote_link"
  ],
  "fields": [
   {
@@ -73,6 +76,11 @@
    "label": "Selling Amount"
   },
   {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue"
+  },
+  {
    "fieldname": "column_break_lday",
    "fieldtype": "Column Break",
    "label": "Cost"
@@ -94,6 +102,11 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Buying Amount"
+  },
+  {
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "label": "Estimated Cost"
   },
   {
    "fetch_from": "charge_item.description",
@@ -173,6 +186,12 @@
    "fieldtype": "Select",
    "label": "Type",
    "options": "Fixed\nBase plus per Unit"
+  },
+  {
+   "fieldname": "sales_quote_link",
+   "fieldtype": "Link",
+   "label": "Sales Quote Link",
+   "options": "Sales Quote"
   }
  ],
  "grid_page_length": 50,

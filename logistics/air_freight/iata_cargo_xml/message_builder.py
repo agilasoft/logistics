@@ -4,6 +4,7 @@ Builds XML messages for various IATA message types (FWB, FSU, FMA, etc.)
 """
 
 import frappe
+from frappe import _
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -336,14 +337,27 @@ class MessageBuilder(IATAConnector):
             job_elem.set("Volume", str(job.volume or 0))
     
     def _get_iata_code(self, location_name: str) -> str:
-        """Get IATA code for location"""
-        try:
-            if location_name:
-                location = frappe.get_doc("Location", location_name)
-                return location.custom_iata_code or location_name[:3].upper()
-        except:
-            pass
-        return location_name[:3].upper() if location_name else "XXX"
+        """Get IATA code for location (UNLOCO or Location). Raises if location_name is missing."""
+        if not location_name or not str(location_name).strip():
+            frappe.throw(
+                _("IATA location code is required but origin/destination is empty. Please provide a valid port.")
+            )
+        s = str(location_name).strip().upper()
+        # UNLOCO codes (5 chars) - use first 3 for IATA; or Location.custom_iata_code
+        if len(s) >= 3:
+            try:
+                if frappe.db.exists("Location", location_name):
+                    loc = frappe.get_doc("Location", location_name)
+                    if getattr(loc, "custom_iata_code", None) and len(str(loc.custom_iata_code)) >= 3:
+                        return str(loc.custom_iata_code)[:3].upper()
+                if frappe.db.exists("UNLOCO", location_name):
+                    unloc = frappe.get_doc("UNLOCO", location_name)
+                    if getattr(unloc, "iata_code", None):
+                        return str(unloc.iata_code)[:3].upper()
+            except Exception:
+                    pass
+            return s[:3]
+        frappe.throw(_("Port {0} must have at least 3 characters for IATA code.").format(location_name))
     
     def _queue_message(self, message_type: str, direction: str, reference_name: str, content: str):
         """Queue message for processing"""

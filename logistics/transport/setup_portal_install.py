@@ -14,7 +14,7 @@ def setup_portal_menu_items():
     try:
         portal_settings = frappe.get_single("Portal Settings")
         print("✅ Portal Settings found")
-    except:
+    except Exception:
         # Create portal settings if it doesn't exist
         portal_settings = frappe.get_doc({
             "doctype": "Portal Settings",

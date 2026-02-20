@@ -1,0 +1,52 @@
+// Copyright (c) 2026, www.agilasoft.com and contributors
+// For license information, please see license.txt
+
+frappe.query_reports["Sea Freight Billing Status Report"] = {
+	"filters": [
+		{
+			"fieldname": "from_date",
+			"label": __("From Date"),
+			"fieldtype": "Date",
+			"default": frappe.datetime.add_months(frappe.datetime.get_today(), -1),
+			"reqd": 1
+		},
+		{
+			"fieldname": "to_date",
+			"label": __("To Date"),
+			"fieldtype": "Date",
+			"default": frappe.datetime.get_today(),
+			"reqd": 1
+		},
+		{
+			"fieldname": "company",
+			"label": __("Company"),
+			"fieldtype": "Link",
+			"options": "Company",
+			"default": frappe.defaults.get_user_default("Company")
+		},
+		{
+			"fieldname": "customer",
+			"label": __("Customer"),
+			"fieldtype": "Link",
+			"options": "Customer"
+		},
+		{
+			"fieldname": "billing_status",
+			"label": __("Billing Status"),
+			"fieldtype": "Select",
+			"options": "\nNot Billed\nPending\nBilled\nPartially Billed\nOverdue\nCancelled"
+		},
+		{
+			"fieldname": "unbilled_only",
+			"label": __("Unbilled Only"),
+			"fieldtype": "Check",
+			"default": 0
+		},
+		{
+			"fieldname": "overdue_days",
+			"label": __("Overdue Days"),
+			"fieldtype": "Int",
+			"default": 30
+		}
+	]
+};

@@ -1,0 +1,188 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-09 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "leg_order",
+  "mode",
+  "type",
+  "status",
+  "charter_route",
+  "column_break_leg",
+  "notes",
+  "section_break_sea",
+  "vessel",
+  "voyage_no",
+  "section_break_air",
+  "flight_no",
+  "section_break_carrier",
+  "carrier_type",
+  "carrier",
+  "section_break_origin",
+  "load_port",
+  "etd",
+  "atd",
+  "column_break_dest",
+  "discharge_port",
+  "eta",
+  "ata"
+ ],
+ "fields": [
+  {
+   "fieldname": "leg_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Leg",
+   "reqd": 1
+  },
+  {
+   "default": "AIR",
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Mode",
+   "options": "SEA\nAIR"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Main\nPre-carriage\nOn-forwarding\nOther"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Confirmed\nPlanned\nOn-hold"
+  },
+  {
+   "default": "0",
+   "fieldname": "charter_route",
+   "fieldtype": "Check",
+   "label": "Charter Route"
+  },
+  {
+   "fieldname": "column_break_leg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "depends_on": "eval:doc.mode === 'SEA'",
+   "fieldname": "section_break_sea",
+   "fieldtype": "Section Break",
+   "label": "Vessel & Voyage"
+  },
+  {
+   "depends_on": "eval:doc.mode === 'SEA'",
+   "fieldname": "vessel",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Vessel"
+  },
+  {
+   "depends_on": "eval:doc.mode === 'SEA'",
+   "fieldname": "voyage_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Voyage No"
+  },
+  {
+   "depends_on": "eval:doc.mode === 'AIR'",
+   "fieldname": "section_break_air",
+   "fieldtype": "Section Break",
+   "label": "Flight"
+  },
+  {
+   "depends_on": "eval:doc.mode === 'AIR'",
+   "fieldname": "flight_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Flight No"
+  },
+  {
+   "fieldname": "section_break_carrier",
+   "fieldtype": "Section Break",
+   "label": "Carrier"
+  },
+  {
+   "fieldname": "carrier_type",
+   "fieldtype": "Select",
+   "label": "Carrier Type",
+   "options": "Airline\nShipping Line"
+  },
+  {
+   "fieldname": "carrier",
+   "fieldtype": "Dynamic Link",
+   "label": "Carrier",
+   "options": "carrier_type"
+  },
+  {
+   "fieldname": "section_break_origin",
+   "fieldtype": "Section Break",
+   "label": "Origin"
+  },
+  {
+   "fieldname": "load_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Load Port",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ETD"
+  },
+  {
+   "fieldname": "atd",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ATD"
+  },
+  {
+   "fieldname": "column_break_dest",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "discharge_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Discharge Port",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ETA"
+  },
+  {
+   "fieldname": "ata",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ATA"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Booking Routing Leg",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "leg_order",
+ "sort_order": "ASC",
+ "states": []
+}

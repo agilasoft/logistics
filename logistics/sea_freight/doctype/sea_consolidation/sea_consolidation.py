@@ -384,12 +384,20 @@ class SeaConsolidation(Document):
         if existing_package:
             frappe.throw(_("This Sea Shipment is already included in this consolidation"))
         
+        # Validate house type: only consolidation types can be added (not Standard House or Break Bulk)
+        shipment = frappe.get_doc("Sea Shipment", sea_shipment)
+        allowed = ("Co-load Master", "Blind Co-load Master", "Co-load House", "Buyer's Consol Lead", "Shipper's Consol Lead")
+        if shipment.house_type not in allowed:
+            frappe.throw(_(
+                "Sea Shipment with House Type '{0}' cannot be added to consolidation. "
+                "Only Co-load Master, Blind Co-load Master, Co-load House, Buyer's Consol Lead, or Shipper's Consol Lead are allowed."
+            ).format(shipment.house_type or "Standard House"))
+        
         # Add package to consolidation
         package = self.append("consolidation_packages", {})
         package.sea_shipment = sea_shipment
         
-        # Get shipment details
-        shipment = frappe.get_doc("Sea Shipment", sea_shipment)
+        # Get shipment details (shipment already fetched above for house_type validation)
         package.shipper = shipment.shipper
         package.consignee = shipment.consignee
         package.package_type = "Box"  # Default, can be updated

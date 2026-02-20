@@ -32,7 +32,12 @@ def _get_item_uom(item: Optional[str]) -> Optional[str]:
 # Controller (kept minimal)
 # -----------------------------------------------------------------------------
 class StocktakeOrder(Document):
-    pass
+	def validate(self):
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
+		except Exception:
+			pass
 
 
 # -----------------------------------------------------------------------------
@@ -207,6 +212,8 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target.branch = getattr(src, "branch", None)
         target.customer = src.customer
         target.warehouse_contract = src.contract
+        target.shipper = getattr(src, "shipper", None)
+        target.consignee = getattr(src, "consignee", None)
 
         # Traceability
         target.reference_order_type = "Stocktake Order"

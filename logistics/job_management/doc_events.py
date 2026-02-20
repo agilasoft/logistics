@@ -103,7 +103,7 @@ def get_charges_table_name(doctype):
         "Sea Shipment": "charges",
         "Transport Job": "charges",
         "Warehouse Job": "charges",
-        "Customs Declaration": "charges",
+        "Declaration": "charges",
         "General Job": "charges"
     }
     return charges_tables.get(doctype)

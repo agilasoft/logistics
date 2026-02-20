@@ -1,14 +1,47 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+// Suppress "Air Shipment X not found" when form is new/unsaved (e.g. child grid triggers API before save)
 frappe.ui.form.on("Air Shipment", {
 	onload(frm) {
+		if (frm.is_new() || frm.doc.__islocal) {
+			if (!frappe._original_msgprint_as) {
+				frappe._original_msgprint_as = frappe.msgprint;
+			}
+			frappe.msgprint = function(options) {
+				const message = typeof options === 'string' ? options : (options && options.message || '');
+				if (message && typeof message === 'string' &&
+					message.includes('Air Shipment') &&
+					message.includes('not found')) {
+					return;
+				}
+				return frappe._original_msgprint_as.apply(this, arguments);
+			};
+			frm.$wrapper.one('form-refresh', function() {
+				if (!frm.is_new() && !frm.doc.__islocal && frappe._original_msgprint_as) {
+					frappe.msgprint = frappe._original_msgprint_as;
+				}
+			});
+		}
 		// Apply settings defaults when creating new document
 		if (frm.is_new()) {
 			apply_settings_defaults(frm);
 		}
 	},
-	
+	override_volume_weight: function(frm) {
+		// Only call server when doc is saved to avoid "Air Shipment not found"
+		if (!frm.doc.override_volume_weight && !frm.doc.__islocal) {
+			frm.call({
+				method: 'aggregate_volume_from_packages_api',
+				doc: frm.doc,
+				callback: function(r) {
+					if (r && !r.exc && r.message && r.message.volume !== undefined) {
+						frm.set_value('volume', r.message.volume);
+					}
+				}
+			});
+		}
+	},
 	refresh(frm) {
 		// Add button to load charges from Sales Quote
 		if (frm.doc.sales_quote && !frm.is_new()) {
@@ -30,6 +63,56 @@ frappe.ui.form.on("Air Shipment", {
 				calculate_total_charges(frm);
 			}, __('Pricing'));
 		}
+
+		// Create Transport Order / Inbound Order from Air Shipment
+		if (!frm.is_new()) {
+			frm.add_custom_button(__('Transport Order'), function() {
+				frappe.call({
+					method: 'logistics.utils.module_integration.create_transport_order_from_air_shipment',
+					args: { air_shipment_name: frm.doc.name },
+					callback: function(r) {
+						if (r.exc) return;
+						if (r.message && r.message.transport_order) {
+							frappe.msgprint(r.message.message);
+							setTimeout(function() {
+								frappe.set_route('Form', 'Transport Order', r.message.transport_order);
+							}, 100);
+						}
+					}
+				});
+			}, __('Create'));
+			frm.add_custom_button(__('Inbound Order'), function() {
+				frappe.call({
+					method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+					args: { air_shipment_name: frm.doc.name },
+					callback: function(r) {
+						if (r.exc) return;
+						if (r.message && r.message.inbound_order) {
+							frappe.msgprint(r.message.message);
+							setTimeout(function() {
+								frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+							}, 100);
+						}
+					}
+				});
+			}, __('Create'));
+		}
+
+		// Additional Charges: Get Additional Charges and Create Change Request
+		if (!frm.is_new()) {
+			frm.add_custom_button(__('Get Additional Charges'), function() {
+				logistics_additional_charges_show_sales_quote_dialog(frm, 'Air Shipment');
+			}, __('Actions'));
+			frm.add_custom_button(__('Create Change Request'), function() {
+				frappe.call({
+					method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
+					args: { job_type: 'Air Shipment', job_name: frm.doc.name },
+					callback: function(r) {
+						if (r.message) frappe.set_route('Form', 'Change Request', r.message);
+					}
+				});
+			}, __('Actions'));
+		}
 		console.log("Air Shipment form refreshed");
 		console.log("Origin Port:", frm.doc.origin_port);
 		console.log("Destination Port:", frm.doc.destination_port);
@@ -39,8 +122,8 @@ frappe.ui.form.on("Air Shipment", {
 			apply_settings_defaults(frm);
 		}
 		
-		// Update DG compliance status on form load
-		if (frm.doc.contains_dangerous_goods) {
+		// Update DG compliance status on form load (only when doc is saved to avoid "Air Shipment not found")
+		if (!frm.is_new() && frm.doc.contains_dangerous_goods) {
 			frm.call('refresh_dg_compliance_status').then(r => {
 				if (r.message) {
 					console.log("DG Compliance Status updated:", r.message.status);
@@ -52,14 +135,16 @@ frappe.ui.form.on("Air Shipment", {
 			});
 		}
 		
-		// Check for dangerous goods and show alert only if non-compliant
-		frm.call('get_dg_dashboard_info').then(r => {
-			if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-				show_dg_alert(frm, r.message);
-			}
-		}).catch(err => {
-			console.error("Error getting DG dashboard info:", err);
-		});
+		// Check for dangerous goods and show alert only if non-compliant (only when doc is saved)
+		if (!frm.is_new()) {
+			frm.call('get_dg_dashboard_info').then(r => {
+				if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
+					show_dg_alert(frm, r.message);
+				}
+			}).catch(err => {
+				console.error("Error getting DG dashboard info:", err);
+			});
+		}
 		
 		// Add DG compliance check button
 		let contains_dg = frm.doc.contains_dangerous_goods || false;
@@ -493,36 +578,65 @@ function remove_dg_alert(frm) {
 	delete window.remove_dg_alert;
 }
 
-// Package table field change handlers for dangerous goods
+// Package table field change handlers
 frappe.ui.form.on("Air Shipment Packages", {
+	volume(frm) {
+		// Skip server call when parent is unsaved to avoid "Air Shipment not found"
+		if (frm.doc && !frm.doc.override_volume_weight && !frm.doc.__islocal) {
+			frm.call({
+				method: 'aggregate_volume_from_packages_api',
+				doc: frm.doc,
+				callback: function(r) {
+					if (r && !r.exc && r.message) {
+						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
+						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+					}
+				}
+			});
+		}
+	},
+	weight(frm) {
+		// Skip server call when parent is unsaved to avoid "Air Shipment not found"
+		if (frm.doc && !frm.doc.override_volume_weight && !frm.doc.__islocal) {
+			frm.call({
+				method: 'aggregate_volume_from_packages_api',
+				doc: frm.doc,
+				callback: function(r) {
+					if (r && !r.exc && r.message) {
+						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
+						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+					}
+				}
+			});
+		}
+	},
+	length(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+	width(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+	height(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+	dimension_uom(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+	volume_uom(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
+
 	dg_substance(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	un_number(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	proper_shipping_name(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	dg_class(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	is_radioactive(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	temp_controlled(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	emergency_contact_name(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	},
-	
 	emergency_contact_phone(frm, cdt, cdn) {
 		check_and_update_dg_status(frm);
 	}
@@ -530,6 +644,9 @@ frappe.ui.form.on("Air Shipment Packages", {
 
 // Function to check and update dangerous goods status
 function check_and_update_dg_status(frm) {
+	// Skip server calls when doc is unsaved (avoids "Air Shipment not found" from get_doc on server)
+	const doc_saved = !frm.is_new() && !frm.doc.__islocal;
+
 	// Check if any package has dangerous goods
 	let has_dg = false;
 	if (frm.doc.packages) {
@@ -545,27 +662,29 @@ function check_and_update_dg_status(frm) {
 	let contains_dg = frm.doc.contains_dangerous_goods || false;
 	if (has_dg && !contains_dg) {
 		frm.set_value('contains_dangerous_goods', 1);
-		// Update DG compliance status
-		frm.call('refresh_dg_compliance_status').then(r => {
-			if (r.message) {
-				console.log("DG Compliance Status updated:", r.message.status);
-			}
-		});
-		// Trigger DG alert only if non-compliant
-		setTimeout(() => {
-			frm.call('get_dg_dashboard_info').then(r => {
-				if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-					show_dg_alert(frm, r.message);
-				} else {
-					// Remove alert if compliant
-					remove_dg_alert(frm);
+		if (doc_saved) {
+			// Update DG compliance status
+			frm.call('refresh_dg_compliance_status').then(r => {
+				if (r.message) {
+					console.log("DG Compliance Status updated:", r.message.status);
 				}
 			});
-		}, 500);
+			// Trigger DG alert only if non-compliant
+			setTimeout(() => {
+				frm.call('get_dg_dashboard_info').then(r => {
+					if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
+						show_dg_alert(frm, r.message);
+					} else {
+						// Remove alert if compliant
+						remove_dg_alert(frm);
+					}
+				});
+			}, 500);
+		}
 	} else if (!has_dg && contains_dg) {
 		frm.set_value('contains_dangerous_goods', 0);
 		remove_dg_alert(frm);
-	} else if (has_dg && contains_dg) {
+	} else if (has_dg && contains_dg && doc_saved) {
 		// Update DG compliance status for existing DG packages
 		frm.call('refresh_dg_compliance_status').then(r => {
 			if (r.message) {
@@ -586,8 +705,10 @@ function check_and_update_dg_status(frm) {
 		});
 	}
 	
-	// Refresh milestone view to update DG compliance badge
-	refresh_milestone_view(frm);
+	// Refresh milestone view to update DG compliance badge (only when doc exists on server)
+	if (doc_saved) {
+		refresh_milestone_view(frm);
+	}
 }
 
 // Function to populate display fields if they are missing but link fields have values
@@ -741,6 +862,9 @@ function load_charges_from_sales_quote(frm) {
 			// Call the server method
 			frm.call({
 				method: "populate_charges_from_sales_quote",
+				args: {
+					docname: frm.doc.name
+				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
 					
@@ -788,8 +912,9 @@ function recalculate_all_charges(frm) {
 	// Show loading indicator
 	frm.dashboard.set_headline_alert(__("Recalculating charges..."));
 	
-	// Call the server method
+	// Call the server method (doc required for run_doc_method)
 	frm.call({
+		doc: frm.doc,
 		method: "recalculate_all_charges",
 		callback: function(r) {
 			frm.dashboard.clear_headline();
@@ -833,8 +958,9 @@ function calculate_total_charges(frm) {
 		return;
 	}
 	
-	// Call the server method
+	// Call the server method (doc required for run_doc_method)
 	frm.call({
+		doc: frm.doc,
 		method: "calculate_total_charges",
 		callback: function(r) {
 			if (r.message) {

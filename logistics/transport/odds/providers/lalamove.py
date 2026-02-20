@@ -60,7 +60,7 @@ class LalamoveProvider(ODDSProvider):
                         "environment": settings.lalamove_environment or "sandbox",
                         "market": settings.lalamove_market or "HK_HKG"
                     }
-            except:
+            except Exception:
                 pass
             
             # Fallback to legacy Lalamove Settings (for backward compatibility)
@@ -82,7 +82,7 @@ class LalamoveProvider(ODDSProvider):
                     "environment": settings.environment or "sandbox",
                     "market": settings.market or "HK_HKG"
                 }
-            except:
+            except Exception:
                 pass
             
             raise Exception("Lalamove settings not found")

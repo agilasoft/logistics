@@ -117,13 +117,13 @@
    "fieldname": "origin_airport",
    "fieldtype": "Link",
    "label": "Origin Airport",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "destination_airport",
    "fieldtype": "Link",
    "label": "Destination Airport",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "airline",

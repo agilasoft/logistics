@@ -35,6 +35,13 @@ frappe.query_reports["Route Cost Analysis"] = {
 			"options": "Transport Company"
 		},
 		{
+			"fieldname": "company",
+			"label": __("Company"),
+			"fieldtype": "Link",
+			"options": "Company",
+			"default": frappe.defaults.get_user_default("Company")
+		},
+		{
 			"fieldname": "cost_range",
 			"label": __("Cost Range"),
 			"fieldtype": "Select",

@@ -1,0 +1,131 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-19 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "leg_order",
+  "mode",
+  "type",
+  "is_main_job",
+  "status",
+  "column_break_leg",
+  "origin",
+  "destination",
+  "etd",
+  "eta",
+  "column_break_job",
+  "job_type",
+  "job_no",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "leg_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Leg",
+   "reqd": 1
+  },
+  {
+   "default": "Road",
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Mode",
+   "options": "Air\nSea\nRoad\nRail\nInland Waterway\nOther"
+  },
+  {
+   "default": "Main",
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Main\nPre-carriage\nOn-forwarding\nOther"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_main_job",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Main Job"
+  },
+  {
+   "default": "Planned",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Confirmed\nPlanned\nOn-hold"
+  },
+  {
+   "fieldname": "column_break_leg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ETD"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "ETA"
+  },
+  {
+   "fieldname": "column_break_job",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "\nTransport Job\nAir Shipment\nSea Shipment\nAir Booking\nSea Booking\nTransport Order"
+  },
+  {
+   "fieldname": "job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job No",
+   "options": "job_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Sales Quote Routing Leg",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "leg_order",
+ "sort_order": "ASC",
+ "states": []
+}

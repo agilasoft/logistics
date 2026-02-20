@@ -326,22 +326,40 @@ class TransportConsolidation(Document):
 		"""Validate that all jobs use compatible vehicle types (if specified)"""
 		if not self.transport_jobs:
 			return
-		
+
 		vehicle_types = set()
 		for job in self.transport_jobs:
 			if not job.transport_job:
 				continue
-			
+
 			job_doc = frappe.get_doc("Transport Job", job.transport_job)
 			if job_doc.vehicle_type:
 				vehicle_types.add(job_doc.vehicle_type)
-		
-		# If multiple vehicle types, check compatibility
-		if len(vehicle_types) > 1:
-			# Check if vehicle types are compatible (same base type or compatible)
-			# This is a basic check - can be enhanced with Vehicle Type compatibility rules
-			frappe.msgprint(_("Warning: Multiple vehicle types detected. Ensure they are compatible for consolidation."), 
-				indicator="orange")
+
+		if len(vehicle_types) <= 1:
+			return
+
+		# Multiple vehicle types detected
+		block = False
+		try:
+			settings = frappe.get_single("Transport Settings")
+			block = getattr(settings, "block_incompatible_vehicle_types_in_consolidation", False)
+		except Exception:
+			pass
+
+		if block:
+			frappe.throw(
+				_("Cannot consolidate jobs with different vehicle types ({0}). "
+				  "Disable 'Block Incompatible Vehicle Types in Consolidation' in Transport Settings to allow.").format(
+					", ".join(sorted(vehicle_types))
+				)
+			)
+		frappe.msgprint(
+			_("Warning: Multiple vehicle types detected ({0}). Ensure they are compatible for consolidation.").format(
+				", ".join(sorted(vehicle_types))
+			),
+			indicator="orange"
+		)
 	
 	def validate_status_workflow(self):
 		"""Ensure status transitions are properly validated"""

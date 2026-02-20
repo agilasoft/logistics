@@ -8,11 +8,12 @@ frappe.ui.form.on("Sales Quote", {
 	},
 	
 	onload(frm) {
-		// Set up vehicle_type query filter based on load_type
-		if (frm.doc.load_type) {
-			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
-		}
 		frm.events.setup_vehicle_type_query(frm);
+		// Preload vehicle types cache for load_types present in transport table
+		if (frm.doc.transport && frm.doc.transport.length) {
+			const load_types = [...new Set(frm.doc.transport.map(r => r.load_type).filter(Boolean))];
+			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
+		}
 		// Default UOMs from Settings per tab when fields are empty (for any visible tab)
 		if (frm.is_new()) {
 			frm.events.apply_default_uoms_per_tab(frm);
@@ -39,15 +40,25 @@ frappe.ui.form.on("Sales Quote", {
 			frm.events.apply_default_uoms_for_tab(frm, "warehousing", "warehouse_");
 		}
 	},
+
+	routing_legs_add(frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (!row.leg_order && frm.doc.routing_legs) {
+			const legs = frm.doc.routing_legs;
+			const maxOrder = legs.reduce((max, r) => Math.max(max, r.leg_order || 0), 0);
+			frappe.model.set_value(cdt, cdn, "leg_order", maxOrder + 1);
+		}
+	},
 	
 	refresh(frm) {
 		// Apply default UOMs from Settings when UOM fields are empty (only for new docs)
 		if (frm.is_new()) {
 			frm.events.apply_default_uoms_per_tab(frm);
 		}
-		// Re-apply vehicle_type filter on refresh
-		if (frm.doc.load_type) {
-			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
+		// Preload vehicle types cache for load_types in transport table
+		if (frm.doc.transport && frm.doc.transport.length) {
+			const load_types = [...new Set(frm.doc.transport.map(r => r.load_type).filter(Boolean))];
+			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
 		}
 		frm.events.setup_vehicle_type_query(frm);
 		
@@ -181,27 +192,16 @@ frappe.ui.form.on("Sales Quote", {
 				}
 			});
 		}
-	},
-	
-	load_type(frm) {
-		// When load_type changes, load allowed vehicle types and filter vehicle_type
-		if (frm.doc.load_type) {
-			frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type, function() {
-				// After loading, check if current vehicle_type is still valid
-				if (frm.doc.vehicle_type) {
-					const allowed = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
-					if (allowed.length > 0 && !allowed.includes(frm.doc.vehicle_type)) {
-						// Current vehicle_type is not in the allowed list, clear it
-						frm.set_value('vehicle_type', '');
-					}
-				}
-				// Refresh the vehicle_type field to apply new filter
-				frm.refresh_field('vehicle_type');
-			});
-		} else {
-			// If load_type is cleared, also clear vehicle_type and remove filter
-			frm.set_value('vehicle_type', '');
-			frm.events.setup_vehicle_type_query(frm);
+
+		// Add custom button to create Sales Invoice from multimodal quote (when routing legs exist and Main Job has job_no)
+		if (frm.doc.is_multimodal && frm.doc.routing_legs && frm.doc.routing_legs.length > 0 && !frm.doc.__islocal) {
+			const main_leg = frm.doc.routing_legs.find(r => r.is_main_job);
+			const has_main_job = main_leg && main_leg.job_no;
+			if (has_main_job) {
+				frm.add_custom_button(__("Create Sales Invoice"), function() {
+					create_sales_invoice_from_sales_quote(frm);
+				}, __("Create"));
+			}
 		}
 	},
 	
@@ -210,6 +210,11 @@ frappe.ui.form.on("Sales Quote", {
 		if (!load_type) {
 			if (callback) callback();
 			return;
+		}
+		
+		// Ensure cache is initialized
+		if (!frm.allowed_vehicle_types_cache) {
+			frm.allowed_vehicle_types_cache = {};
 		}
 		
 		// Check cache first
@@ -225,6 +230,10 @@ frappe.ui.form.on("Sales Quote", {
 				load_type: load_type
 			},
 			callback: function(r) {
+				// Ensure cache is still initialized (defensive check)
+				if (!frm.allowed_vehicle_types_cache) {
+					frm.allowed_vehicle_types_cache = {};
+				}
 				if (r.message && r.message.vehicle_types) {
 					frm.allowed_vehicle_types_cache[load_type] = r.message.vehicle_types;
 				} else {
@@ -236,58 +245,47 @@ frappe.ui.form.on("Sales Quote", {
 	},
 	
 	setup_vehicle_type_query(frm) {
-		// Set up get_query for vehicle_type to filter based on load_type
-		if (frm.fields_dict.vehicle_type) {
-			frm.fields_dict.vehicle_type.get_query = function() {
-				if (!frm.doc.load_type) {
-					return {
-						filters: {}
-					};
-				}
-				
-				// Get cached allowed vehicle types
-				const allowed_vehicle_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
-				
-				if (allowed_vehicle_types.length === 0) {
-					// If no vehicle types are allowed, return empty filter (will show no results)
-					return {
-						filters: {
-							name: ["in", []]
-						}
-					};
-				}
-				
-				return {
-					filters: {
-						name: ["in", allowed_vehicle_types]
-					}
-				};
-			};
-		}
-		
-		// Set up get_query for vehicle_type in child table (transport)
+		// Set up get_query for vehicle_type in child table (transport) based on row's load_type
 		if (frm.fields_dict.transport) {
-			const make_vehicle_type_query = function() {
-				if (!frm.doc.load_type) {
-					return { filters: {} };
+			frm.set_query('vehicle_type', 'transport', function(doc, cdt, cdn) {
+				const row = frappe.get_doc(cdt, cdn);
+				const load_type = row.load_type;
+				if (!load_type) return { filters: {} };
+				
+				// Ensure cache is initialized
+				if (!frm.allowed_vehicle_types_cache) {
+					frm.allowed_vehicle_types_cache = {};
 				}
 				
-				// Get cached allowed vehicle types
-				const allowed_vehicle_types = frm.allowed_vehicle_types_cache[frm.doc.load_type] || [];
+				// Check if cache exists and has data
+				const allowed = frm.allowed_vehicle_types_cache[load_type];
 				
-				if (allowed_vehicle_types.length === 0) {
-					return { filters: { name: ["in", []] } };
+				// If cache exists and has data, return filtered list
+				if (allowed && allowed.length > 0) {
+					return { filters: { name: ["in", allowed] } };
 				}
 				
-				return { filters: { name: ["in", allowed_vehicle_types] } };
-			};
-			
-			// Set query for grid field
-			if (frm.fields_dict.transport.grid && frm.fields_dict.transport.grid.get_field) {
-				frm.fields_dict.transport.grid.get_field('vehicle_type').get_query = make_vehicle_type_query;
-			}
-			// Also use set_query method
-			frm.set_query('vehicle_type', 'transport', make_vehicle_type_query);
+				// If cache doesn't exist or is empty, trigger loading
+				if (!frm._loading_vehicle_types) frm._loading_vehicle_types = {};
+				
+				// Trigger async loading if not already loading
+				if (!frm._loading_vehicle_types[load_type]) {
+					frm._loading_vehicle_types[load_type] = true;
+					
+					frm.events.load_allowed_vehicle_types(frm, load_type, function() {
+						// After cache is loaded, refresh the transport child table
+						// This will cause get_query to be called again with the populated cache
+						frm.refresh_field('transport');
+						if (frm._loading_vehicle_types) {
+							delete frm._loading_vehicle_types[load_type];
+						}
+					});
+				}
+				
+				// Return empty filter while loading - user will need to click dropdown again after cache loads
+				// Or we can show a message, but empty filter is cleaner
+				return { filters: { name: ["in", []] } };
+			});
 		}
 	},
 
@@ -307,7 +305,8 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	apply_default_uoms_for_tab(frm, domain, prefix) {
-		// Set default weight/volume/chargeable UOM from Settings for one tab when fields are empty
+		// Set default weight/volume/chargeable UOM from Settings for one tab when fields are empty (header fields removed for Sales Quote; skip if not present)
+		if (!frm.fields_dict[prefix + "weight_uom"]) return;
 		const needWeight = !frm.doc[prefix + "weight_uom"];
 		const needVolume = !frm.doc[prefix + "volume_uom"];
 		const needChargeable = !frm.doc[prefix + "chargeable_uom"];
@@ -334,6 +333,48 @@ frappe.ui.form.on("Sales Quote", {
 
 // Child table events for Sales Quote Transport
 frappe.ui.form.on('Sales Quote Transport', {
+	load_type: function(frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (row.load_type) {
+			// Ensure cache is initialized
+			if (!frm.allowed_vehicle_types_cache) {
+				frm.allowed_vehicle_types_cache = {};
+			}
+			
+			// Store previous vehicle_type to potentially restore it if still valid
+			const previous_vehicle_type = row.vehicle_type;
+			
+			// Clear vehicle_type immediately when load_type changes
+			// This prevents showing invalid options in dropdown
+			if (previous_vehicle_type) {
+				frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
+			}
+			
+			// Load vehicle types and refresh vehicle_type field after loading
+			frm.events.load_allowed_vehicle_types(frm, row.load_type, function() {
+				// Ensure cache is initialized (defensive check)
+				if (!frm.allowed_vehicle_types_cache) {
+					frm.allowed_vehicle_types_cache = {};
+				}
+				// Check if previous vehicle_type is still valid for the new load_type
+				if (previous_vehicle_type) {
+					const allowed = frm.allowed_vehicle_types_cache[row.load_type] || [];
+					if (allowed.length > 0 && allowed.includes(previous_vehicle_type)) {
+						// Restore vehicle_type if it's still valid
+						frappe.model.set_value(cdt, cdn, 'vehicle_type', previous_vehicle_type);
+					}
+				}
+				// Refresh transport child table to update vehicle_type dropdown with new options
+				frm.refresh_field('transport');
+			});
+		} else {
+			// If load_type is cleared, clear vehicle_type and refresh
+			if (row.vehicle_type) {
+				frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
+			}
+			frm.refresh_field('transport');
+		}
+	},
 	quantity: function(frm, cdt, cdn) {
 		trigger_transport_calculation(frm, cdt, cdn);
 	},
@@ -645,29 +686,28 @@ function show_transport_order_confirmation(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
-						// Show success message
+					if (r.message && r.message.success && r.message.transport_order) {
 						frappe.msgprint({
 							title: __("Transport Order Created"),
 							message: __("Transport Order {0} has been created successfully.", [r.message.transport_order]),
 							indicator: "green"
 						});
-						
-						// Open the created Transport Order and clear scheduled_date for user to fill
 						frappe.route_options = { "__clear_scheduled_date": true };
-						frappe.set_route("Form", "Transport Order", r.message.transport_order);
+						setTimeout(function() {
+							frappe.set_route("Form", "Transport Order", r.message.transport_order);
+						}, 100);
 					} else if (r.message && r.message.message) {
-						// Show info message (e.g., Transport Order already exists)
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Transport Order if available
 						if (r.message.transport_order) {
-							frappe.set_route("Form", "Transport Order", r.message.transport_order);
+							setTimeout(function() {
+								frappe.set_route("Form", "Transport Order", r.message.transport_order);
+							}, 100);
 						}
 					}
 				},
@@ -723,28 +763,27 @@ function show_air_shipment_confirmation(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
-						// Show success message
+					if (r.message && r.message.success && r.message.air_shipment) {
 						frappe.msgprint({
 							title: __("Air Shipment Created"),
 							message: __("Air Shipment {0} has been created successfully.", [r.message.air_shipment]),
 							indicator: "green"
 						});
-						
-						// Open the created Air Shipment
-						frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
+						setTimeout(function() {
+							frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
+						}, 100);
 					} else if (r.message && r.message.message) {
-						// Show info message (e.g., Air Shipment already exists)
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Air Shipment if available
 						if (r.message.air_shipment) {
-							frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
+							setTimeout(function() {
+								frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
+							}, 100);
 						}
 					}
 				},
@@ -800,17 +839,19 @@ function show_sea_shipment_confirmation(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
+					if (r.message && r.message.success && r.message.sea_shipment) {
 						// Show success message
 						frappe.msgprint({
 							title: __("Sea Shipment Created"),
 							message: __("Sea Shipment {0} has been created successfully.", [r.message.sea_shipment]),
 							indicator: "green"
 						});
-						
-						// Open the created Sea Shipment
-						frappe.set_route("Form", "Sea Shipment", r.message.sea_shipment);
+						// Brief delay so commit is visible before form fetch
+						setTimeout(function() {
+							frappe.set_route("Form", "Sea Shipment", r.message.sea_shipment);
+						}, 100);
 					} else if (r.message && r.message.message) {
 						// Show info message (e.g., Sea Shipment already exists)
 						frappe.msgprint({
@@ -818,10 +859,10 @@ function show_sea_shipment_confirmation(frm) {
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Sea Shipment if available
 						if (r.message.sea_shipment) {
-							frappe.set_route("Form", "Sea Shipment", r.message.sea_shipment);
+							setTimeout(function() {
+								frappe.set_route("Form", "Sea Shipment", r.message.sea_shipment);
+							}, 100);
 						}
 					}
 				},
@@ -854,28 +895,27 @@ function create_warehouse_contract_from_sales_quote(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
-						// Show success message
+					if (r.message && r.message.success && r.message.warehouse_contract) {
 						frappe.msgprint({
 							title: __("Warehouse Contract Created"),
 							message: __("Warehouse Contract {0} has been created successfully.", [r.message.warehouse_contract]),
 							indicator: "green"
 						});
-						
-						// Open the created Warehouse Contract
-						frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+						setTimeout(function() {
+							frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+						}, 100);
 					} else if (r.message && r.message.message) {
-						// Show info message
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Warehouse Contract if available
 						if (r.message.warehouse_contract) {
-							frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+							setTimeout(function() {
+								frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+							}, 100);
 						}
 					}
 				},
@@ -886,6 +926,38 @@ function create_warehouse_contract_from_sales_quote(frm) {
 						message: __("Failed to create Warehouse Contract. Please try again."),
 						indicator: "red"
 					});
+				}
+			});
+		}
+	);
+}
+
+function create_sales_invoice_from_sales_quote(frm) {
+	frappe.confirm(
+		__("Create Sales Invoice from this multimodal Sales Quote?"),
+		function() {
+			frm.dashboard.set_headline_alert(__("Creating Sales Invoice..."));
+			frappe.call({
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_sales_invoice_from_sales_quote",
+				args: {
+					sales_quote_name: frm.doc.name
+				},
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					if (r.message && r.message.success) {
+						frappe.msgprint({
+							title: __("Sales Invoice Created"),
+							message: r.message.message,
+							indicator: "green"
+						});
+						const inv = r.message.sales_invoice || (r.message.sales_invoices && r.message.sales_invoices[0]);
+						if (inv) {
+							frappe.set_route("Form", "Sales Invoice", inv);
+						}
+					}
+				},
+				error: function() {
+					frm.dashboard.clear_headline();
 				}
 			});
 		}
@@ -931,28 +1003,27 @@ function show_air_booking_confirmation(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
-						// Show success message
+					if (r.message && r.message.success && r.message.air_booking) {
 						frappe.msgprint({
 							title: __("Air Booking Created"),
 							message: __("Air Booking {0} has been created successfully.", [r.message.air_booking]),
 							indicator: "green"
 						});
-						
-						// Open the created Air Booking
-						frappe.set_route("Form", "Air Booking", r.message.air_booking);
+						setTimeout(function() {
+							frappe.set_route("Form", "Air Booking", r.message.air_booking);
+						}, 100);
 					} else if (r.message && r.message.message) {
-						// Show info message
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Air Booking if available
 						if (r.message.air_booking) {
-							frappe.set_route("Form", "Air Booking", r.message.air_booking);
+							setTimeout(function() {
+								frappe.set_route("Form", "Air Booking", r.message.air_booking);
+							}, 100);
 						}
 					}
 				},
@@ -1008,28 +1079,27 @@ function show_sea_booking_confirmation(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
-						// Show success message
+					if (r.message && r.message.success && r.message.sea_booking) {
 						frappe.msgprint({
 							title: __("Sea Booking Created"),
 							message: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking]),
 							indicator: "green"
 						});
-						
-						// Open the created Sea Booking
-						frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+						setTimeout(function() {
+							frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+						}, 100);
 					} else if (r.message && r.message.message) {
-						// Show info message
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Sea Booking if available
 						if (r.message.sea_booking) {
-							frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+							setTimeout(function() {
+								frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+							}, 100);
 						}
 					}
 				},
@@ -1085,28 +1155,27 @@ function show_declaration_confirmation(frm) {
 				},
 				callback: function(r) {
 					frm.dashboard.clear_headline();
+					if (r.exc) return;
 					
-					if (r.message && r.message.success) {
-						// Show success message
+					if (r.message && r.message.success && r.message.declaration) {
 						frappe.msgprint({
 							title: __("Declaration Created"),
 							message: __("Declaration {0} has been created successfully.", [r.message.declaration]),
 							indicator: "green"
 						});
-						
-						// Open the created Declaration
-						frappe.set_route("Form", "Declaration", r.message.declaration);
+						setTimeout(function() {
+							frappe.set_route("Form", "Declaration", r.message.declaration);
+						}, 100);
 					} else if (r.message && r.message.message) {
-						// Show info message (e.g., Declaration already exists)
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						
-						// Open existing Declaration if available
 						if (r.message.declaration) {
-							frappe.set_route("Form", "Declaration", r.message.declaration);
+							setTimeout(function() {
+								frappe.set_route("Form", "Declaration", r.message.declaration);
+							}, 100);
 						}
 					}
 				},

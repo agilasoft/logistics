@@ -409,7 +409,7 @@ class LalamoveMapperStandalone(ODDSMapper):
                 "name": customer_doc.customer_name,
                 "phone": ""
             }
-        except:
+        except Exception:
             return None
     
     def _get_contact_from_contact(self, contact_name: str) -> Optional[Dict[str, str]]:
@@ -423,7 +423,7 @@ class LalamoveMapperStandalone(ODDSMapper):
                     "name": contact.full_name or contact.first_name or "",
                     "phone": phone
                 }
-        except:
+        except Exception:
             pass
         
         return None
@@ -434,7 +434,7 @@ class LalamoveMapperStandalone(ODDSMapper):
             settings = frappe.get_single("Warehouse Settings")
             if hasattr(settings, "warehouse_contract_address") and settings.warehouse_contract_address:
                 return settings.warehouse_contract_address
-        except:
+        except Exception:
             pass
         
         return None

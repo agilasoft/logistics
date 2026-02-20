@@ -14,6 +14,7 @@
   "declaration_date",
   "column_break_1",
   "sales_quote",
+  "declaration_order",
   "customs_authority",
   "status",
   "section_break_customs",
@@ -33,6 +34,10 @@
   "commodities",
   "transport_tab",
   "section_break_transport",
+  "air_shipment",
+  "sea_shipment",
+  "transport_order",
+  "column_break_shipment_links",
   "transport_mode",
   "port_of_loading",
   "port_of_discharge",
@@ -85,6 +90,41 @@
   "profit_center",
   "column_break_accounts",
   "job_costing_number",
+  "project",
+  "invoice_monitoring_section",
+  "sales_invoice",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "wip_recognition_date_basis",
+  "accrual_recognition_enabled",
+  "accrual_recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
   "documents_tab",
   "documents_section",
   "documents",
@@ -147,6 +187,12 @@
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote"
+  },
+  {
+   "fieldname": "declaration_order",
+   "fieldtype": "Link",
+   "label": "Declaration Order",
+   "options": "Declaration Order"
   },
   {
    "fieldname": "customs_authority",
@@ -241,6 +287,31 @@
    "fieldname": "section_break_transport",
    "fieldtype": "Section Break",
    "label": "Transport Information"
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment",
+   "description": "Trace customs to air freight"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment",
+   "description": "Trace customs to sea freight"
+  },
+  {
+   "fieldname": "transport_order",
+   "fieldtype": "Link",
+   "label": "Transport Order",
+   "options": "Transport Order",
+   "description": "Trace customs to domestic transport"
+  },
+  {
+   "fieldname": "column_break_shipment_links",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "transport_mode",
@@ -528,6 +599,215 @@
    "fieldtype": "Link",
    "label": "Job Costing Number",
    "options": "Job Costing Number"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "description": "ERPNext Project for Special Projects integration"
+  },
+  {
+   "fieldname": "invoice_monitoring_section",
+   "fieldtype": "Section Break",
+   "label": "Invoice Monitoring",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fully_invoiced",
+   "fieldtype": "Check",
+   "label": "Fully Invoiced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_invoiced",
+   "fieldtype": "Date",
+   "label": "Date Fully Invoiced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fully_paid",
+   "fieldtype": "Check",
+   "label": "Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date_sales_invoice_requested",
+   "fieldtype": "Date",
+   "label": "SI Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "SI Submitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "PI Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "PI Submitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "costs_fully_paid",
+   "fieldtype": "Check",
+   "label": "Costs Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_costs_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Costs Paid",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "WIP Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition"
+  },
+  {
+   "fieldname": "accrual_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Accrual Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "description": "Used when date basis is 'User Specified'",
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date"
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
+   "read_only": 1
   },
   {
    "fieldname": "documents_tab",

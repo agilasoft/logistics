@@ -7,7 +7,8 @@ def _poll_minutes() -> int:
     try:
         m = int(frappe.db.get_single_value("Transport Settings","telematics_poll_interval_min") or 5)
         return max(1, min(m, 60))
-    except: return 5
+    except Exception:
+        return 5
 
 def tick():
     cache = frappe.cache()

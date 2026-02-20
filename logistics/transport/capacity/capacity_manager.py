@@ -15,7 +15,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, get_datetime
 from typing import Optional, Dict, List, Any
-from datetime import datetime, date
+from datetime import datetime, date, time as dt_time
 
 from .uom_conversion import (
 	convert_weight,
@@ -23,6 +23,7 @@ from .uom_conversion import (
 	standardize_capacity_value,
 	get_default_uoms
 )
+from logistics.utils.measurements import get_aggregation_volume_uom
 
 
 class CapacityManager:
@@ -38,6 +39,8 @@ class CapacityManager:
 		self.company = company
 		self.settings = self._get_settings()
 		self.default_uoms = get_default_uoms(company)
+		# Use aggregation volume UOM (base or default from Logistics Settings) for capacity volume
+		self.volume_uom = get_aggregation_volume_uom(company) or self.default_uoms.get('volume')
 	
 	def _get_settings(self) -> Dict[str, Any]:
 		"""Get Transport Capacity Settings"""
@@ -93,17 +96,17 @@ class CapacityManager:
 			weight_uom = getattr(vehicle_doc, 'capacity_weight_uom', None) or self.default_uoms['weight']
 			volume_uom = getattr(vehicle_doc, 'capacity_volume_uom', None) or self.default_uoms['volume']
 			
-			# Convert to standard UOMs
-			if self.settings.get('uom_conversion_enabled'):
+			# Convert to standard UOMs (Logistics Settings: weight = default, volume = aggregation)
+			if self.settings.get('uom_conversion_enabled') and self.volume_uom:
 				weight = convert_weight(weight, weight_uom, self.default_uoms['weight'], self.company)
-				volume = convert_volume(volume, volume_uom, self.default_uoms['volume'], self.company)
+				volume = convert_volume(volume, volume_uom, self.volume_uom, self.company)
 			
 			return {
 				'weight': weight,
 				'volume': volume,
 				'pallets': pallets,
 				'weight_uom': self.default_uoms['weight'],
-				'volume_uom': self.default_uoms['volume']
+				'volume_uom': self.volume_uom
 			}
 		except Exception as e:
 			frappe.log_error(f"Error getting vehicle capacity: {str(e)}", "Capacity Manager")
@@ -141,7 +144,7 @@ class CapacityManager:
 			'volume': max(0, total_capacity['volume'] - reserved['volume']),
 			'pallets': max(0, total_capacity['pallets'] - reserved['pallets']),
 			'weight_uom': total_capacity.get('weight_uom', self.default_uoms['weight']),
-			'volume_uom': total_capacity.get('volume_uom', self.default_uoms['volume'])
+			'volume_uom': total_capacity.get('volume_uom') or self.volume_uom
 		}
 	
 	def get_reserved_capacity(
@@ -173,21 +176,52 @@ class CapacityManager:
 			'reservation_date': reservation_date,
 			'status': ['in', ['Reserved', 'Active']]
 		}
-		
-		# If time slot provided, check for overlapping reservations
-		# For now, sum all reservations on the date
-		# TODO: Add time slot overlap logic
-		
+
 		reservations = frappe.get_all(
 			"Capacity Reservation",
 			filters=filters,
-			fields=['reserved_weight', 'reserved_weight_uom', 'reserved_volume', 'reserved_volume_uom', 'reserved_pallets']
+			fields=[
+				'reserved_weight', 'reserved_weight_uom', 'reserved_volume', 'reserved_volume_uom',
+				'reserved_pallets', 'reservation_start_time', 'reservation_end_time'
+			]
 		)
-		
+
+		# Time slot overlap: when time_slot is provided, only sum reservations that overlap
+		if time_slot and time_slot.get('start_time') is not None and time_slot.get('end_time') is not None:
+			def _to_time(v):
+				if v is None:
+					return None
+				if isinstance(v, dt_time):
+					return v
+				if isinstance(v, datetime):
+					return v.time()
+				if isinstance(v, str):
+					try:
+						return get_datetime(v).time()
+					except Exception:
+						return None
+				return None
+
+			slot_start = _to_time(time_slot['start_time'])
+			slot_end = _to_time(time_slot['end_time'])
+			if slot_start is not None and slot_end is not None:
+
+				def _overlaps(r_start, r_end):
+					if r_start is None and r_end is None:
+						return True  # All-day reservation overlaps any slot
+					r_s = _to_time(r_start) or dt_time(0, 0)
+					r_e = _to_time(r_end) or dt_time(23, 59, 59)
+					return (r_s < slot_end) and (slot_start < r_e)
+
+				reservations = [
+					r for r in reservations
+					if _overlaps(r.get('reservation_start_time'), r.get('reservation_end_time'))
+				]
+
 		total_weight = 0
 		total_volume = 0
 		total_pallets = 0
-		
+
 		for res in reservations:
 			# Convert to standard UOMs
 			weight = flt(res.get('reserved_weight', 0))
@@ -196,9 +230,9 @@ class CapacityManager:
 				total_weight += convert_weight(weight, weight_uom, self.default_uoms['weight'], self.company)
 			
 			volume = flt(res.get('reserved_volume', 0))
-			if volume > 0:
+			if volume > 0 and self.volume_uom:
 				volume_uom = res.get('reserved_volume_uom') or self.default_uoms['volume']
-				total_volume += convert_volume(volume, volume_uom, self.default_uoms['volume'], self.company)
+				total_volume += convert_volume(volume, volume_uom, self.volume_uom, self.company)
 			
 			total_pallets += flt(res.get('reserved_pallets', 0))
 		

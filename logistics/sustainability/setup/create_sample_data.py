@@ -35,16 +35,16 @@ def create_sample_sustainability_data():
 							if company not in branch_map:
 								branch_map[company] = []
 							branch_map[company].append(branch.name)
-				except:
+				except Exception:
 					# Branch exists but doesn't have company field - get all branches
 					try:
 						branches = frappe.get_all("Branch", fields=["name"])
 						# Assign branches to all companies if no company field
 						for company in companies:
 							branch_map[company.name] = [b.name for b in branches] if branches else []
-					except:
+					except Exception:
 						pass
-		except:
+		except Exception:
 			# Branch doctype doesn't exist or can't be queried - continue without branches
 			pass
 		

@@ -44,7 +44,7 @@ def get_warehouse_job_count_data(warehouse_job: str):
                     item_doc = frappe.get_doc("Warehouse Item", item_code)
                     item_name = item_doc.item_name or ""
                     uom = item_doc.uom or "EA"
-                except:
+                except Exception:
                     # If item not found, use defaults
                     item_name = item_code
                     uom = "EA"

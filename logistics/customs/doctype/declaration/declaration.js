@@ -28,6 +28,12 @@ frappe.ui.form.on("Declaration", {
 			}
 		}
 		
+		// Add button to view Declaration Order if linked
+		if (frm.doc.declaration_order) {
+			frm.add_custom_button(__("View Declaration Order"), function() {
+				frappe.set_route("Form", "Declaration Order", frm.doc.declaration_order);
+			}, __("View"));
+		}
 		// Add button to view Sales Quote if linked
 		if (frm.doc.sales_quote) {
 			frm.add_custom_button(__("View Sales Quote"), function() {

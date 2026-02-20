@@ -82,16 +82,16 @@ class TransportConsolidationJob(Document):
 			if not company and hasattr(job_doc, 'company') and job_doc.company:
 				company = job_doc.company
 			
-			# Import UOM conversion utilities
-			from logistics.transport.capacity.uom_conversion import (
+			# Import UOM conversion from Logistics Settings (measurements)
+			from logistics.utils.measurements import (
 				convert_weight, convert_volume, calculate_volume_from_dimensions,
-				get_default_uoms
+				get_default_uoms, get_aggregation_volume_uom,
 			)
 			
-			# Get default UOMs from settings
+			# UOMs from Logistics Settings: aggregation volume = base or default; weight = default
 			default_uoms = get_default_uoms(company)
 			weight_uom = default_uoms['weight']
-			volume_uom = default_uoms['volume']
+			volume_uom = get_aggregation_volume_uom(company) or default_uoms['volume']
 			
 			total_weight = 0
 			total_volume = 0
@@ -106,13 +106,17 @@ class TransportConsolidationJob(Document):
 				pkg_weight = flt(getattr(pkg, 'weight', 0))
 				if pkg_weight > 0:
 					pkg_weight_uom = getattr(pkg, 'weight_uom', None) or weight_uom
-					total_weight += convert_weight(pkg_weight, pkg_weight_uom, weight_uom, company)
+					total_weight += convert_weight(
+						pkg_weight, from_uom=pkg_weight_uom, to_uom=weight_uom, company=company
+					)
 				
 				# Sum volume from each package - prefer direct volume, calculate from dimensions if not available
 				pkg_volume = flt(getattr(pkg, 'volume', 0))
 				if pkg_volume > 0:
-					pkg_volume_uom = getattr(pkg, 'volume_uom', None) or volume_uom
-					total_volume += convert_volume(pkg_volume, pkg_volume_uom, volume_uom, company)
+					pkg_volume_uom = getattr(pkg, 'volume_uom', None) or default_uoms['volume']
+					total_volume += convert_volume(
+						pkg_volume, from_uom=pkg_volume_uom, to_uom=volume_uom, company=company
+					)
 				elif hasattr(pkg, 'length') and hasattr(pkg, 'width') and hasattr(pkg, 'height'):
 					# Calculate from dimensions if volume is not directly set
 					length = flt(getattr(pkg, 'length', 0))
@@ -131,20 +135,13 @@ class TransportConsolidationJob(Document):
 			# Set calculated values (sum of all packages)
 			self.weight = total_weight
 			self.volume = total_volume
-			
+
 		except frappe.DoesNotExistError:
-			# Transport job doesn't exist
 			self.weight = 0
 			self.volume = 0
-		except Exception as e:
-			# Log error but don't fail validation
-			frappe.log_error(
-				f"Error calculating weight and volume for transport job {self.transport_job}: {str(e)}",
-				"Transport Consolidation Job Calculation Error"
-			)
-			# Set to 0 on error to avoid breaking the form
-			self.weight = 0
-			self.volume = 0
+		except Exception:
+			# Require valid UOM config and dimension-to-volume conversion; do not fallback to zero
+			raise
 
 
 @frappe.whitelist()
@@ -207,16 +204,16 @@ def calculate_weight_volume_from_job(transport_job: str, company: str = None) ->
 		if not company and hasattr(job_doc, 'company') and job_doc.company:
 			company = job_doc.company
 		
-		# Import UOM conversion utilities
-		from logistics.transport.capacity.uom_conversion import (
+		# Import UOM conversion from Logistics Settings (measurements)
+		from logistics.utils.measurements import (
 			convert_weight, convert_volume, calculate_volume_from_dimensions,
-			get_default_uoms
+			get_default_uoms, get_aggregation_volume_uom,
 		)
 		
-		# Get default UOMs from settings
+		# UOMs from Logistics Settings: aggregation volume = base or default; weight = default
 		default_uoms = get_default_uoms(company)
 		weight_uom = default_uoms['weight']
-		volume_uom = default_uoms['volume']
+		volume_uom = get_aggregation_volume_uom(company) or default_uoms['volume']
 		
 		total_weight = 0
 		total_volume = 0
@@ -231,13 +228,17 @@ def calculate_weight_volume_from_job(transport_job: str, company: str = None) ->
 			pkg_weight = flt(getattr(pkg, 'weight', 0))
 			if pkg_weight > 0:
 				pkg_weight_uom = getattr(pkg, 'weight_uom', None) or weight_uom
-				total_weight += convert_weight(pkg_weight, pkg_weight_uom, weight_uom, company)
+				total_weight += convert_weight(
+					pkg_weight, from_uom=pkg_weight_uom, to_uom=weight_uom, company=company
+				)
 			
 			# Sum volume from each package - prefer direct volume, calculate from dimensions if not available
 			pkg_volume = flt(getattr(pkg, 'volume', 0))
 			if pkg_volume > 0:
-				pkg_volume_uom = getattr(pkg, 'volume_uom', None) or volume_uom
-				total_volume += convert_volume(pkg_volume, pkg_volume_uom, volume_uom, company)
+				pkg_volume_uom = getattr(pkg, 'volume_uom', None) or default_uoms['volume']
+				total_volume += convert_volume(
+					pkg_volume, from_uom=pkg_volume_uom, to_uom=volume_uom, company=company
+				)
 			elif hasattr(pkg, 'length') and hasattr(pkg, 'width') and hasattr(pkg, 'height'):
 				# Calculate from dimensions if volume is not directly set
 				length = flt(getattr(pkg, 'length', 0))

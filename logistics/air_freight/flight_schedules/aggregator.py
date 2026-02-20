@@ -285,7 +285,7 @@ class FlightScheduleAggregator:
 				self.cache_manager = FlightCacheManager()
 			
 			return self.cache_manager.get_cached_data(cache_type, key, date)
-		except:
+		except Exception:
 			return None
 	
 	def _save_to_cache(self, cache_type: str, key: str, data: Any, date: Optional[str] = None):

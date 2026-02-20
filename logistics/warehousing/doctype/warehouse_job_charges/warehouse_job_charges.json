@@ -16,11 +16,14 @@
   "total",
   "standard_unit_cost",
   "total_standard_cost",
+  "estimated_revenue",
+  "estimated_cost",
   "section_break_rxdj",
   "calculation_notes",
   "standard_cost_posted",
   "standard_cost_posted_at",
-  "journal_entry_reference"
+  "journal_entry_reference",
+  "sales_quote_link"
  ],
  "fields": [
   {
@@ -94,6 +97,16 @@
    "read_only": 1
   },
   {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue"
+  },
+  {
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "label": "Estimated Cost"
+  },
+  {
    "fieldname": "calculation_notes",
    "fieldtype": "Text",
    "label": "Calculation Notes"
@@ -124,6 +137,12 @@
    "label": "Journal Entry",
    "options": "Journal Entry",
    "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote_link",
+   "fieldtype": "Link",
+   "label": "Sales Quote Link",
+   "options": "Sales Quote"
   }
  ],
  "grid_page_length": 50,

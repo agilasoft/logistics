@@ -2,17 +2,24 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Warehouse Job Order Items', {
-    refresh: function(frm) {
+    refresh: function(frm, cdt, cdn) {
         update_uom_fields(frm);
+        if (cdt && cdn) calculate_volume(frm, cdt, cdn);
     },
-    length: function(frm) {
-        calculate_volume(frm);
+    length: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
     },
-    width: function(frm) {
-        calculate_volume(frm);
+    width: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
     },
-    height: function(frm) {
-        calculate_volume(frm);
+    height: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    dimension_uom: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
+    },
+    volume_uom: function(frm, cdt, cdn) {
+        calculate_volume(frm, cdt, cdn);
     }
 });
 
@@ -52,18 +59,38 @@ function update_uom_fields(frm) {
     });
 }
 
-function calculate_volume(frm) {
-    // Get dimension values
-    const length = flt(frm.get_value('length') || 0);
-    const width = flt(frm.get_value('width') || 0);
-    const height = flt(frm.get_value('height') || 0);
-    
-    // Calculate volume if all dimensions are provided
+function calculate_volume(frm, cdt, cdn) {
+    if (!cdt || !cdn) return;
+    const doc = frappe.get_doc(cdt, cdn);
+    const length = flt(doc.length) || 0;
+    const width = flt(doc.width) || 0;
+    const height = flt(doc.height) || 0;
+
     if (length > 0 && width > 0 && height > 0) {
-        const volume = length * width * height;
-        frm.set_value('volume', volume);
+        const dimension_uom = doc.dimension_uom;
+        const volume_uom = doc.volume_uom;
+        const company = (frm && frm.doc && frm.doc.company) || frappe.defaults.get_user_default("Company");
+
+        frappe.call({
+            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+            args: {
+                length: length,
+                width: width,
+                height: height,
+                dimension_uom: dimension_uom,
+                volume_uom: volume_uom,
+                company: company
+            },
+            callback: function(r) {
+                if (r.message && r.message.volume !== undefined) {
+                    frappe.model.set_value(cdt, cdn, 'volume', r.message.volume);
+                }
+            },
+            error: function() {
+                frappe.model.set_value(cdt, cdn, 'volume', 0);
+            }
+        });
     } else {
-        // Clear volume if dimensions are incomplete
-        frm.set_value('volume', 0);
+        frappe.model.set_value(cdt, cdn, 'volume', 0);
     }
 }

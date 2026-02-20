@@ -8,7 +8,16 @@ from frappe.utils import nowdate
 
 
 class ReleaseOrder(Document):
-    pass
+	def before_save(self):
+		from logistics.utils.module_integration import run_propagate_on_link
+		run_propagate_on_link(self)
+
+	def validate(self):
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
+		except Exception:
+			pass
 
 
 @frappe.whitelist()
@@ -32,6 +41,8 @@ def make_warehouse_job(source_name, target_doc=None):
         target.reference_order = source.name
         target.customer = _get(source, "customer")
         target.warehouse_contract = _get(source, "contract")
+        target.shipper = _get(source, "shipper")
+        target.consignee = _get(source, "consignee")
 
         if hasattr(source, "company"):
             target.company = source.company

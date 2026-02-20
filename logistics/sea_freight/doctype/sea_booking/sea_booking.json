@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2025-01-01 00:00:00.000000",
+ "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -10,7 +10,6 @@
   "section_break_main",
   "naming_series",
   "booking_date",
-  "sales_quote",
   "shipping_status",
   "transport_mode",
   "direction",
@@ -23,6 +22,34 @@
   "release_type",
   "entry_type",
   "service_level",
+  "contains_dangerous_goods",
+  "house_details_section",
+  "house_bl",
+  "incoterm",
+  "additional_terms",
+  "description",
+  "column_break_house",
+  "packs",
+  "inner",
+  "good_value",
+  "insurance",
+  "marks_and_nos",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_addr",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_contacts",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_contacts",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_notify",
+  "notify_to_party",
+  "column_break_notify",
+  "notify_to_address",
   "section_break_parties",
   "shipper",
   "origin_port",
@@ -32,26 +59,37 @@
   "destination_port",
   "eta",
   "column_break_destination",
-  "volume",
-  "weight",
-  "chargeable",
+  "routing_tab",
+  "routing_section",
+  "routing_legs",
+  "services_tab",
+  "services",
+  "packing_tab",
   "containers_section",
   "containers",
   "packages_section",
   "packages",
-  "house_tab",
-  "house_bl",
-  "incoterm",
-  "additional_terms",
-  "column_break_house",
-  "packs",
-  "inner",
-  "good_value",
-  "insurance",
-  "section_break_description",
-  "description",
-  "column_break_marks",
-  "marks_and_nos",
+  "section_break_mene",
+  "total_containers",
+  "total_teus",
+  "column_break_jpbm",
+  "total_packages",
+  "total_volume",
+  "total_weight",
+  "column_break_situ",
+  "override_volume_weight",
+  "volume",
+  "weight",
+  "chargeable",
+  "density_factor_html",
+  "dangerous_goods_tab",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "charges_tab",
   "charges",
   "accounts_tab",
@@ -60,10 +98,16 @@
   "cost_center",
   "profit_center",
   "column_break_accounts",
+  "project",
+  "job_costing_number",
+  "quote_type",
+  "quote",
+  "sales_quote",
   "notes_tab",
   "internal_notes",
   "column_break_notes",
-  "client_notes"
+  "client_notes",
+  "amended_from"
  ],
  "fields": [
   {
@@ -85,10 +129,30 @@
    "reqd": 1
   },
   {
+   "fieldname": "quote_type",
+   "fieldtype": "Select",
+   "label": "Quote Type",
+   "options": "One-Off Quote\nSales Quote"
+  },
+  {
+   "fieldname": "quote",
+   "fieldtype": "Dynamic Link",
+   "label": "Quote",
+   "options": "quote_type"
+  },
+  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Sales Quote",
    "options": "Sales Quote"
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
   },
   {
    "fieldname": "shipping_status",
@@ -141,7 +205,7 @@
    "fieldname": "house_type",
    "fieldtype": "Select",
    "label": "House Type",
-   "options": "Direct\nConsolidation\nBreak Bulk"
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
    "fieldname": "release_type",
@@ -153,7 +217,7 @@
    "fieldname": "entry_type",
    "fieldtype": "Select",
    "label": "Entry Type",
-   "options": "Direct\nTransit\nTransshipment"
+   "options": "Direct\nTransit\nTransshipment\nATA Carnet"
   },
   {
    "fieldname": "service_level",
@@ -162,6 +226,87 @@
    "options": "Service Level Agreement"
   },
   {
+   "collapsible": 1,
+   "fieldname": "contacts_and_addresses_section",
+   "fieldtype": "Section Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Address Display"
+  },
+  {
+   "fieldname": "column_break_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Address Display"
+  },
+  {
+   "fieldname": "section_break_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display"
+  },
+  {
+   "fieldname": "column_break_contacts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display"
+  },
+  {
+   "fieldname": "section_break_notify",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notify_to_party",
+   "fieldtype": "Data",
+   "label": "Notify To Party"
+  },
+  {
+   "fieldname": "column_break_notify",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notify_to_address",
+   "fieldtype": "Small Text",
+   "label": "Notify To Address"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "section_break_parties",
    "fieldtype": "Section Break",
    "label": "Parties & Routing"
@@ -176,7 +321,7 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "etd",
@@ -197,7 +342,7 @@
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "Location"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "eta",
@@ -209,9 +354,16 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "0",
+   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "fieldname": "override_volume_weight",
+   "fieldtype": "Check",
+   "label": "Override Volume & Weight"
+  },
+  {
    "fieldname": "volume",
    "fieldtype": "Float",
-   "label": "Volume (m³)"
+   "label": "Volume (m\u00b3)"
   },
   {
    "fieldname": "weight",
@@ -224,6 +376,13 @@
    "label": "Chargeable Weight (kg)"
   },
   {
+   "fieldname": "density_factor_html",
+   "fieldtype": "HTML",
+   "label": "Density Factor",
+   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -235,6 +394,7 @@
    "options": "Sea Booking Containers"
   },
   {
+   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -246,8 +406,25 @@
    "options": "Sea Booking Packages"
   },
   {
-   "fieldname": "house_tab",
+   "fieldname": "routing_tab",
    "fieldtype": "Tab Break",
+   "label": "Routing"
+  },
+  {
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing Legs"
+  },
+  {
+   "fieldname": "routing_legs",
+   "fieldtype": "Table",
+   "label": "Routing Legs",
+   "options": "Sea Booking Routing Leg"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "house_details_section",
+   "fieldtype": "Section Break",
    "label": "House Details"
   },
   {
@@ -291,22 +468,121 @@
    "label": "Insurance"
   },
   {
-   "fieldname": "section_break_description",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
   },
   {
-   "fieldname": "column_break_marks",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "marks_and_nos",
    "fieldtype": "Small Text",
    "label": "Marks and Nos"
+  },
+  {
+   "default": "0",
+   "description": "IMDG Code: Check if shipment contains dangerous goods. Enables Dangerous Goods tab.",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "services",
+   "fieldtype": "Table",
+   "label": "Services",
+   "options": "Sea Booking Services"
+  },
+  {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packing"
+  },
+  {
+   "fieldname": "section_break_mene",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_containers",
+   "fieldtype": "Float",
+   "label": "Total Containers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_jpbm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_teus",
+   "fieldtype": "Float",
+   "label": "Total TEUs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Float",
+   "label": "Total Packages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "dangerous_goods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration & Emergency Response"
+  },
+  {
+   "default": "0",
+   "description": "Shipper's Declaration for Dangerous Goods completed per IMDG Code",
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "24-hour emergency response contact per IMDG Code",
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "description": "24-hour emergency response phone number",
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
   },
   {
    "fieldname": "charges_tab",
@@ -341,6 +617,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center"
   },
   {
@@ -352,6 +629,13 @@
   {
    "fieldname": "column_break_accounts",
    "fieldtype": "Column Break"
+  },
+  {
+   "description": "For revenue/cost recognition",
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "notes_tab",
@@ -376,14 +660,30 @@
    "fieldname": "details_tab",
    "fieldtype": "Tab Break",
    "label": "Details"
+  },
+  {
+   "fieldname": "column_break_situ",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Sea Booking",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-01-01 00:00:00.000000",
+ "modified": "2026-02-19 23:28:50.017350",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -411,8 +711,9 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
-

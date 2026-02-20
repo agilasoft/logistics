@@ -8,7 +8,16 @@ from frappe.model.mapper import get_mapped_doc
 
 
 class InboundOrder(Document):
-	pass
+	def before_save(self):
+		from logistics.utils.module_integration import run_propagate_on_link
+		run_propagate_on_link(self)
+
+	def validate(self):
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
+		except Exception:
+			pass
 
 
 @frappe.whitelist()
@@ -29,6 +38,8 @@ def make_warehouse_job(source_name, target_doc=None):
             target.company = source.company
             target.branch = source.branch
             target.customer = source.customer
+            target.shipper = source.shipper
+            target.consignee = source.consignee
             # Only set warehouse_contract if contract exists and is not cancelled
             if source.contract:
                 contract_status = frappe.db.get_value("Warehouse Contract", source.contract, "docstatus")

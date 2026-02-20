@@ -192,12 +192,14 @@ def create_default_sustainability_settings():
 			settings.carbon_calculation_method = "Emission Factor"
 			settings.energy_calculation_method = "Direct Measurement"
 			
-			# Add integrated modules
+			# Add integrated modules (includes Customs and Job Management for Declaration, General Job)
 			modules = [
 				{"module_name": "Transport", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 1, "enable_waste_tracking": 0, "auto_calculate": 1, "calculation_frequency": "Daily"},
 				{"module_name": "Warehousing", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 1, "enable_waste_tracking": 1, "auto_calculate": 1, "calculation_frequency": "Daily"},
 				{"module_name": "Air Freight", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 0, "enable_waste_tracking": 0, "auto_calculate": 1, "calculation_frequency": "Daily"},
-				{"module_name": "Sea Freight", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 0, "enable_waste_tracking": 0, "auto_calculate": 1, "calculation_frequency": "Daily"}
+				{"module_name": "Sea Freight", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 0, "enable_waste_tracking": 0, "auto_calculate": 1, "calculation_frequency": "Daily"},
+				{"module_name": "Customs", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 1, "enable_waste_tracking": 0, "auto_calculate": 1, "calculation_frequency": "Daily"},
+				{"module_name": "Job Management", "enable_tracking": 1, "enable_carbon_tracking": 1, "enable_energy_tracking": 1, "enable_waste_tracking": 0, "auto_calculate": 1, "calculation_frequency": "Daily"},
 			]
 			
 			for module_data in modules:

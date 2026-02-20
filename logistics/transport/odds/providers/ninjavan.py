@@ -5,6 +5,7 @@
 NinjaVAN Provider Implementation
 
 ODDS provider for NinjaVAN on-demand delivery service.
+API reference: https://api-docs.ninjavan.co/en
 """
 
 import frappe
@@ -15,25 +16,27 @@ from ..exceptions import ODDSProviderNotSupportedException
 
 class NinjaVANProvider(ODDSProvider):
     """NinjaVAN provider implementation (stub)"""
-    
+
     @property
     def provider_name(self) -> str:
         return "NinjaVAN"
-    
+
     @property
     def provider_code(self) -> str:
         return "ninjavan"
-    
+
     def get_client(self, settings: Dict[str, Any] = None) -> ODDSClient:
-        """Get NinjaVAN API client"""
-        # TODO: Implement NinjaVAN client
-        raise ODDSProviderNotSupportedException("NinjaVAN provider not yet implemented")
-    
+        """Get NinjaVAN API client. Implement per https://api-docs.ninjavan.co/en"""
+        raise ODDSProviderNotSupportedException(
+            "NinjaVAN provider not yet implemented. See https://api-docs.ninjavan.co/en"
+        )
+
     def get_mapper(self) -> ODDSMapper:
-        """Get NinjaVAN mapper"""
-        # TODO: Implement NinjaVAN mapper
-        raise ODDSProviderNotSupportedException("NinjaVAN provider not yet implemented")
-    
+        """Get NinjaVAN mapper. Implement per https://api-docs.ninjavan.co/en"""
+        raise ODDSProviderNotSupportedException(
+            "NinjaVAN provider not yet implemented. See https://api-docs.ninjavan.co/en"
+        )
+
     def get_settings_doctype(self) -> str:
         return "ODDS Settings"
 

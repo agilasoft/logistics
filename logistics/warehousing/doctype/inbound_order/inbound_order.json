@@ -10,14 +10,21 @@
   "amended_from",
   "naming_series",
   "order_date",
+  "shipper",
+  "consignee",
   "column_break_pggc",
   "customer",
+  "project",
   "contract",
   "cust_reference",
   "column_break_pyci",
   "priority",
   "planned_date",
   "due_date",
+  "section_break_connections",
+  "air_shipment",
+  "sea_shipment",
+  "transport_job",
   "section_break_tams",
   "items",
   "carrier_details_tab",
@@ -25,12 +32,13 @@
   "additional_charges_tab",
   "charges",
   "notes_tab",
-  "tab_5_tab",
+  "accounts_tab",
   "company",
   "branch",
   "cost_center",
   "profit_center",
-  "column_break_scjj"
+  "column_break_scjj",
+  "job_costing_number"
  ],
  "fields": [
   {
@@ -66,6 +74,13 @@
    "label": "Customer",
    "options": "Customer",
    "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "description": "ERPNext Project for Special Projects integration"
   },
   {
    "fieldname": "contract",
@@ -132,6 +147,33 @@
    "options": "Inbound Order Dock"
   },
   {
+   "fieldname": "section_break_connections",
+   "fieldtype": "Section Break",
+   "label": "Connected Documents",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment",
+   "description": "Receive goods from air freight"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment",
+   "description": "Receive goods from sea freight"
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "label": "Transport Job",
+   "options": "Transport Job",
+   "description": "Receive goods from domestic transport"
+  },
+  {
    "fieldname": "section_break_tams",
    "fieldtype": "Section Break"
   },
@@ -141,7 +183,7 @@
    "options": "Inbound Order Charges"
   },
   {
-   "fieldname": "tab_5_tab",
+   "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
   },
@@ -177,13 +219,32 @@
   {
    "fieldname": "column_break_scjj",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number",
+   "description": "For revenue/cost recognition"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-26 00:33:37.384480",
+ "modified": "2026-02-06 13:24:37.905637",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order",
@@ -191,6 +252,8 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -201,9 +264,7 @@
    "role": "System Manager",
    "share": 1,
    "submit": 1,
-   "write": 1,
-   "cancel": 1,
-   "amend": 1
+   "write": 1
   },
   {
    "create": 1,
@@ -217,6 +278,8 @@
    "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -226,10 +289,8 @@
    "report": 1,
    "role": "Warehouse Manager",
    "share": 1,
-   "write": 1,
    "submit": 1,
-   "cancel": 1,
-   "amend": 1
+   "write": 1
   },
   {
    "create": 1,
@@ -241,8 +302,8 @@
    "report": 1,
    "role": "Warehouse User",
    "share": 1,
-   "write": 1,
-   "submit": 1
+   "submit": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",

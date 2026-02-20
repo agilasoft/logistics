@@ -91,7 +91,7 @@ def get_current_data_version():
         # Check if we have version info stored
         version_info = frappe.get_single("UNLOCO Settings")
         return version_info.get("current_version", "Unknown")
-    except:
+    except Exception:
         return "Unknown"
 
 def get_last_update_date():
@@ -99,7 +99,7 @@ def get_last_update_date():
     try:
         version_info = frappe.get_single("UNLOCO Settings")
         return version_info.get("last_update_date")
-    except:
+    except Exception:
         return None
 
 def download_latest_data():

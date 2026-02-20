@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-02-06 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_main",
+  "naming_series",
+  "order_date",
+  "sales_quote",
+  "customer",
+  "column_break_1",
+  "customs_authority",
+  "status",
+  "section_break_connections",
+  "air_shipment",
+  "sea_shipment",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "job_costing_number",
+  "notes_section",
+  "internal_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break",
+   "label": "Order Details"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "DCO-.#########"
+  },
+  {
+   "fieldname": "order_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Order Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sales Quote",
+   "link_filters": "[[\"Sales Quote\",\"is_customs\",\"=\",1]]",
+   "options": "Sales Quote"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customs_authority",
+   "fieldtype": "Link",
+   "label": "Customs Authority",
+   "options": "Customs Authority"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nConfirmed\nIn Progress\nCompleted\nCancelled",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_connections",
+   "fieldtype": "Section Break",
+   "label": "Connected Documents",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment",
+   "description": "Trace customs order to air freight"
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment",
+   "description": "Trace customs order to sea freight"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_costing_number",
+   "fieldtype": "Link",
+   "label": "Job Costing Number",
+   "options": "Job Costing Number",
+   "description": "For revenue/cost recognition"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Declaration Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

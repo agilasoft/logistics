@@ -215,7 +215,7 @@ def calculate_days_to_eta(eta, submission_date):
 	
 	try:
 		return date_diff(eta, submission_date)
-	except:
+	except Exception:
 		return None
 
 

@@ -90,7 +90,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-17 11:19:34.125711",
+ "modified": "2026-02-19 13:17:45.895600",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Consignee",
@@ -111,6 +111,8 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "consignee_name",
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

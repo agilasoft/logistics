@@ -7,11 +7,15 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "milestones_tab",
+  "milestone_html",
   "details_tab",
-  "section_break_h1wy",
+  "section_break_main",
   "amended_from",
   "naming_series",
   "booking_date",
+  "sea_booking",
+  "sales_quote",
   "shipping_status",
   "transport_mode",
   "direction",
@@ -30,7 +34,7 @@
   "sla_target_source",
   "column_break_sla",
   "sla_notes",
-  "section_break_akxb",
+  "section_break_parties",
   "shipper",
   "origin_port",
   "etd",
@@ -41,32 +45,55 @@
   "eta",
   "ata",
   "column_break_qyob",
-  "volume",
-  "weight",
-  "chargeable",
-  "house_tab",
-  "shipping_details_section",
+  "master_details_section",
+  "master_bill",
+  "vessel",
+  "voyage_no",
+  "column_break_master",
+  "container_type",
+  "house_details_section",
   "house_bl",
   "incoterm",
   "additional_terms",
-  "column_break_loqt",
+  "column_break_house",
   "packs",
   "inner",
   "good_value",
   "insurance",
-  "section_break_zmkr",
+  "section_break_description",
   "description",
-  "column_break_bycr",
+  "column_break_marks",
   "marks_and_nos",
-  "master_tab",
-  "master_bill",
-  "column_break_etab",
-  "column_break_lfko",
-  "section_break_edxz",
-  "container_type",
-  "vessel",
-  "voyage_no",
-  "column_break_nkwl",
+  "contains_dangerous_goods",
+  "packing_tab",
+  "routing_section",
+  "routing_legs",
+  "packages_section",
+  "packages",
+  "containers_section",
+  "containers",
+  "section_break_mene",
+  "total_containers",
+  "total_teus",
+  "total_packages",
+  "total_volume",
+  "total_weight",
+  "column_break_trhg",
+  "override_volume_weight",
+  "volume",
+  "weight",
+  "chargeable",
+  "column_break_gzkj",
+  "density_factor_html",
+  "excess_weight_volume",
+  "dangerous_goods_tab",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "addresses_tab",
   "bill_of_lading_addresses_section",
   "shipper_address",
@@ -86,25 +113,10 @@
   "notify_to_address",
   "services_tab",
   "services",
-  "packing_tab",
-  "containers_section",
-  "containers",
-  "section_break_mene",
-  "total_containers",
-  "column_break_jpbm",
-  "total_teus",
-  "packages_section",
-  "packages",
-  "section_break_zjbb",
-  "total_packages",
-  "column_break_trhg",
-  "total_volume",
-  "total_weight",
   "charges_tab",
   "handling_branch",
   "handling_department",
   "column_break_vlqo",
-  "recognition_date",
   "job_description",
   "column_break_arzm",
   "quote_no",
@@ -117,8 +129,41 @@
   "profit_center",
   "column_break_accounts",
   "job_costing_number",
-  "milestones_tab",
-  "milestone_html",
+  "project",
+  "invoice_monitoring_section",
+  "sales_invoice",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "wip_recognition_date_basis",
+  "accrual_recognition_enabled",
+  "accrual_recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
   "connections_tab",
   "notes_tab",
   "external_notes",
@@ -149,8 +194,9 @@
  ],
  "fields": [
   {
-   "fieldname": "section_break_h1wy",
-   "fieldtype": "Section Break"
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break",
+   "label": "Shipment Details"
   },
   {
    "fieldname": "amended_from",
@@ -191,6 +237,20 @@
    "reqd": 1
   },
   {
+   "fieldname": "sea_booking",
+   "fieldtype": "Link",
+   "label": "Sea Booking",
+   "options": "Sea Booking",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "read_only": 1
+  },
+  {
    "fieldname": "incoterm",
    "fieldtype": "Link",
    "label": "Incoterm",
@@ -227,15 +287,11 @@
    "reqd": 1
   },
   {
-   "fieldname": "shipping_details_section",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "transport_mode",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Transport Mode",
-   "options": "Sea"
+   "options": "FCL\nLCL\nBreak Bulk"
   },
   {
    "fieldname": "container_type",
@@ -287,8 +343,63 @@
    "label": "Marks and Nos"
   },
   {
-   "fieldname": "column_break_loqt",
+   "default": "0",
+   "description": "IMDG Code: Check if shipment contains dangerous goods. Enables Dangerous Goods tab.",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "dangerous_goods_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Declaration & Emergency Response"
+  },
+  {
+   "default": "0",
+   "description": "Shipper's Declaration for Dangerous Goods completed per IMDG Code",
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg",
    "fieldtype": "Column Break"
+  },
+  {
+   "description": "24-hour emergency response contact per IMDG/IATA DGR",
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "description": "24-hour emergency response phone number",
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
+  },
+  {
+   "default": "0",
+   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "fieldname": "override_volume_weight",
+   "fieldtype": "Check",
+   "label": "Override Volume & Weight"
   },
   {
    "fieldname": "weight",
@@ -304,6 +415,17 @@
    "fieldname": "chargeable",
    "fieldtype": "Float",
    "label": "Chargeable (kg)"
+  },
+  {
+   "fieldname": "density_factor_html",
+   "fieldtype": "HTML",
+   "label": "Density Factor",
+   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
+  },
+  {
+   "fieldname": "excess_weight_volume",
+   "fieldtype": "Float",
+   "label": "Excess Weight Volume (M\u00b3)"
   },
   {
    "fieldname": "packs",
@@ -326,8 +448,9 @@
    "label": "Insurance"
   },
   {
-   "fieldname": "section_break_akxb",
-   "fieldtype": "Section Break"
+   "fieldname": "section_break_parties",
+   "fieldtype": "Section Break",
+   "label": "Parties & Routing"
   },
   {
    "fieldname": "column_break_qyob",
@@ -348,7 +471,7 @@
    "fieldname": "entry_type",
    "fieldtype": "Select",
    "label": "Entry Type",
-   "options": "Customs Permit\nTransshipment\nATA Carnet"
+   "options": "Direct\nTransit\nTransshipment\nATA Carnet"
   },
   {
    "fieldname": "service_level",
@@ -397,7 +520,7 @@
   {
    "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
-   "label": "Packing"
+   "label": "Packing & Routing"
   },
   {
    "fieldname": "handling_branch",
@@ -410,11 +533,6 @@
    "fieldtype": "Link",
    "label": "Handling Department",
    "options": "Department"
-  },
-  {
-   "fieldname": "master_tab",
-   "fieldtype": "Tab Break",
-   "label": "Master"
   },
   {
    "fieldname": "vessel",
@@ -431,12 +549,19 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "House Type",
-   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nBuyer's Consol Lead\nShipper's Consol Lead"
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
-   "fieldname": "house_tab",
-   "fieldtype": "Tab Break",
-   "label": "House"
+   "collapsible": 1,
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing Legs"
+  },
+  {
+   "fieldname": "routing_legs",
+   "fieldtype": "Table",
+   "label": "Routing Legs",
+   "options": "Sea Shipment Routing Leg"
   },
   {
    "fieldname": "master_bill",
@@ -445,31 +570,33 @@
    "options": "Master Bill"
   },
   {
-   "fieldname": "column_break_etab",
-   "fieldtype": "Column Break"
+   "fieldname": "master_details_section",
+   "fieldtype": "Section Break",
+   "label": "Master Details"
   },
   {
-   "fieldname": "column_break_lfko",
-   "fieldtype": "Column Break"
+   "fieldname": "house_details_section",
+   "fieldtype": "Section Break",
+   "label": "House Details"
   },
   {
-   "fieldname": "section_break_edxz",
+   "fieldname": "section_break_description",
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "column_break_nkwl",
+   "fieldname": "column_break_master",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_house",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_marks",
    "fieldtype": "Column Break"
   },
   {
    "fieldname": "column_break_ccsn",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_zmkr",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "column_break_bycr",
    "fieldtype": "Column Break"
   },
   {
@@ -488,6 +615,7 @@
    "label": "Details"
   },
   {
+   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -498,6 +626,7 @@
    "options": "Sea Freight Containers"
   },
   {
+   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -563,7 +692,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -584,6 +713,216 @@
    "fieldtype": "Link",
    "label": "Job Costing Number",
    "options": "Job Costing Number"
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "invoice_monitoring_section",
+   "fieldtype": "Section Break",
+   "label": "Invoice Monitoring"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_invoiced",
+   "fieldtype": "Check",
+   "label": "Fully Invoiced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_invoiced",
+   "fieldtype": "Date",
+   "label": "Date Fully Invoiced",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_paid",
+   "fieldtype": "Check",
+   "label": "Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date_sales_invoice_requested",
+   "fieldtype": "Date",
+   "label": "SI Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "SI Submitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "PI Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "PI Submitted",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "costs_fully_paid",
+   "fieldtype": "Check",
+   "label": "Costs Fully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_costs_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Costs Paid",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition"
+  },
+  {
+   "fieldname": "wip_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "WIP Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition"
+  },
+  {
+   "fieldname": "accrual_recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Accrual Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
+   "read_only": 1
   },
   {
    "fieldname": "milestones_tab",
@@ -679,7 +1018,8 @@
   },
   {
    "fieldname": "section_break_mene",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Summary"
   },
   {
    "fieldname": "total_containers",
@@ -687,17 +1027,9 @@
    "label": "Total Containers"
   },
   {
-   "fieldname": "column_break_jpbm",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "total_teus",
    "fieldtype": "Float",
    "label": "Total TEUs"
-  },
-  {
-   "fieldname": "section_break_zjbb",
-   "fieldtype": "Section Break"
   },
   {
    "fieldname": "total_packages",
@@ -891,13 +1223,17 @@
    "fieldname": "ata",
    "fieldtype": "Date",
    "label": "ATA"
+  },
+  {
+   "fieldname": "column_break_gzkj",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-15 12:01:27.353259",
+ "modified": "2026-02-20 11:00:44.549219",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",

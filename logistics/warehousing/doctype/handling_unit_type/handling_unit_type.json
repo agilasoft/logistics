@@ -15,6 +15,7 @@
   "column_break_cady",
   "notes",
   "configurations_tab",
+  "measurements_section",
   "dimension_uom",
   "external_length",
   "external_width",
@@ -47,6 +48,11 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Description"
+  },
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
   },
   {
    "fieldname": "dimension_uom",

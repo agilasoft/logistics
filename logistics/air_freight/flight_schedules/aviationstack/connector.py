@@ -193,7 +193,7 @@ class AviationStackConnector(BaseFlightConnector):
 			return None
 		try:
 			return datetime.fromisoformat(dt_string.replace("Z", "+00:00"))
-		except:
+		except Exception:
 			return None
 	
 	def map_flight_status(self, status: Optional[str]) -> str:
@@ -232,7 +232,7 @@ class AviationStackConnector(BaseFlightConnector):
 						}
 					)
 					saved_count += 1
-				except:
+				except Exception:
 					continue
 			
 			self.create_sync_log(
@@ -275,7 +275,7 @@ class AviationStackConnector(BaseFlightConnector):
 						}
 					)
 					saved_count += 1
-				except:
+				except Exception:
 					continue
 			
 			self.create_sync_log(

@@ -146,7 +146,7 @@ class BaseCustomsAPI(ABC):
 		try:
 			response_data = response.json()
 			log_data["response_data"] = self._sanitize_data(response_data)
-		except:
+		except Exception:
 			log_data["response_data"] = response.text[:500]  # First 500 chars
 		
 		frappe.logger().info(f"Customs API Request: {json.dumps(log_data)}")

@@ -1,0 +1,29 @@
+{
+ "custom_fields": [
+  {
+   "dt": "Purchase Invoice",
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType",
+   "insert_after": "bill_no",
+   "hidden": 1,
+   "description": "Logistics job/shipment doctype (Transport Job, Air Shipment, etc.)"
+  },
+  {
+   "dt": "Purchase Invoice",
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "options": "reference_doctype",
+   "insert_after": "reference_doctype",
+   "hidden": 1,
+   "description": "Logistics job/shipment name"
+  }
+ ],
+ "custom_perms": [],
+ "doctype": "Purchase Invoice",
+ "links": [],
+ "property_setters": [],
+ "sync_on_migrate": 1
+}

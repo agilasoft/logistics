@@ -2,8 +2,8 @@
 Install custom fields for Revenue and Cost Recognition
 
 This patch adds recognition fields to:
-- Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Customs Declaration, General Job
-- Air Shipment Charges, Sea Shipment Charges, Warehouse Job Charges, Customs Declaration Charges
+- Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration, General Job
+- Air Shipment Charges, Sea Shipment Charges, Warehouse Job Charges, Declaration Charges
 """
 
 import frappe
@@ -39,7 +39,7 @@ def get_job_recognition_fields():
         "Sea Shipment",
         "Transport Job",
         "Warehouse Job",
-        "Customs Declaration",
+        "Declaration",
         "General Job"
     ]
     
@@ -200,7 +200,7 @@ def get_charges_fields():
         "Air Shipment Charges",
         "Sea Shipment Charges",
         "Warehouse Job Charges",
-        "Customs Declaration Charges"
+        "Declaration Charges"
     ]
     
     fields = {}

@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-10-08 17:41:12.974688",
@@ -9,10 +10,10 @@
  "field_order": [
   "code",
   "zone_name",
-  "description",
   "country",
   "state",
-  "city"
+  "city",
+  "description"
  ],
  "fields": [
   {
@@ -60,7 +61,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-02 19:48:50.543634",
+ "modified": "2026-02-12 15:52:59.563152",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Transport Zone",

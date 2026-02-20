@@ -3,18 +3,47 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date
+from frappe.utils import flt, getdate, get_datetime, format_datetime, format_date, fmt_money
 from datetime import datetime, timedelta
 
+def get_default_currency(company=None):
+	"""Get default currency for company or system default"""
+	try:
+		if company:
+			currency = frappe.db.get_value("Company", company, "default_currency")
+			if currency:
+				return currency
+		
+		# Fallback to system default currency from Global Defaults
+		currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+		if currency:
+			return currency
+			
+		# Final fallback - get first company's currency
+		first_company = frappe.db.get_value("Company", filters={"enabled": 1}, fieldname="name")
+		if first_company:
+			currency = frappe.db.get_value("Company", first_company, "default_currency")
+			if currency:
+				return currency
+				
+		# Ultimate fallback
+		return "USD"
+	except Exception:
+		return "USD"
+
 def execute(filters=None):
-	columns = get_columns()
+	# Get currency for this report
+	company = filters.get("company") if filters else None
+	currency = get_default_currency(company)
+	
+	columns = get_columns(currency)
 	data = get_data(filters)
 	chart = get_chart_data(data)
-	summary = get_summary(data, filters)
+	summary = get_summary(data, filters, currency)
 	
 	return columns, data, None, chart, summary
 
-def get_columns():
+def get_columns(currency="USD"):
 	return [
 		{
 			"fieldname": "transport_job",
@@ -68,60 +97,70 @@ def get_columns():
 			"fieldname": "fuel_cost",
 			"label": _("Fuel Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "driver_cost",
 			"label": _("Driver Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "vehicle_cost",
 			"label": _("Vehicle Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "maintenance_cost",
 			"label": _("Maintenance Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "toll_cost",
 			"label": _("Toll Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "other_costs",
 			"label": _("Other Costs"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "total_cost",
 			"label": _("Total Cost"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "cost_per_km",
 			"label": _("Cost per KM"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "revenue",
 			"label": _("Revenue"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
 			"fieldname": "profit_loss",
 			"label": _("Profit/Loss"),
 			"fieldtype": "Currency",
+			"options": currency,
 			"width": 120
 		},
 		{
@@ -365,7 +404,7 @@ def get_chart_data(data):
 	
 	return chart
 
-def get_summary(data, filters):
+def get_summary(data, filters, currency="USD"):
 	"""Generate summary statistics"""
 	if not data:
 		return []
@@ -408,37 +447,37 @@ def get_summary(data, filters):
 		},
 		{
 			"label": _("Total Fuel Cost"),
-			"value": f"${total_fuel_cost:,.2f}",
+			"value": fmt_money(total_fuel_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
 			"label": _("Total Driver Cost"),
-			"value": f"${total_driver_cost:,.2f}",
+			"value": fmt_money(total_driver_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
 			"label": _("Total Vehicle Cost"),
-			"value": f"${total_vehicle_cost:,.2f}",
+			"value": fmt_money(total_vehicle_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
 			"label": _("Total Maintenance Cost"),
-			"value": f"${total_maintenance_cost:,.2f}",
+			"value": fmt_money(total_maintenance_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
 			"label": _("Total Cost"),
-			"value": f"${total_cost:,.2f}",
+			"value": fmt_money(total_cost, currency=currency),
 			"indicator": "red"
 		},
 		{
 			"label": _("Total Revenue"),
-			"value": f"${total_revenue:,.2f}",
+			"value": fmt_money(total_revenue, currency=currency),
 			"indicator": "green"
 		},
 		{
 			"label": _("Average Cost per KM"),
-			"value": f"${avg_cost_per_km:.2f}",
+			"value": fmt_money(avg_cost_per_km, currency=currency),
 			"indicator": "red" if avg_cost_per_km > 2.0 else "green"
 		},
 		{

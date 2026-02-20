@@ -11,22 +11,41 @@ class PricingEngine:
         self.currency = "USD"
     
     def calculate_total_quote_amount(self):
-        """Calculate total amount for the entire sales quote"""
-        
+        """Calculate total amount for the entire sales quote (all modes: Transport, Air, Sea, Customs, Warehousing)"""
         try:
             total_amount = 0
-            
-            # Calculate transport amounts
-            if self.sales_quote.transport_lanes:
+
+            # Transport
+            if getattr(self.sales_quote, "transport_lanes", None):
                 for lane in self.sales_quote.transport_lanes:
                     total_amount += flt(lane.total_amount or 0)
-            
-            # Calculate other service amounts (Air, Sea, Customs)
-            # This can be extended for other services
-            
+            if getattr(self.sales_quote, "transport", None):
+                for row in self.sales_quote.transport:
+                    total_amount += flt(getattr(row, "estimated_revenue", 0) or getattr(row, "total_amount", 0) or 0)
+
+            # Air Freight
+            if getattr(self.sales_quote, "air_freight", None):
+                for row in self.sales_quote.air_freight:
+                    total_amount += flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+
+            # Sea Freight
+            if getattr(self.sales_quote, "sea_freight", None):
+                for row in self.sales_quote.sea_freight:
+                    total_amount += flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+
+            # Customs
+            if getattr(self.sales_quote, "customs", None):
+                for row in self.sales_quote.customs:
+                    total_amount += flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+
+            # Warehousing
+            if getattr(self.sales_quote, "warehousing", None):
+                for row in self.sales_quote.warehousing:
+                    total_amount += flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+
             self.total_amount = total_amount
             return total_amount
-            
+
         except Exception as e:
             frappe.log_error(f"Total quote calculation failed: {str(e)}")
             return 0
@@ -35,11 +54,12 @@ class PricingEngine:
         """Get comprehensive quote summary"""
         
         try:
+            bd = self.get_breakdown()
             summary = {
                 "total_amount": self.calculate_total_quote_amount(),
                 "currency": self.currency,
-                "transport_lanes": len(self.sales_quote.transport_lanes or []),
-                "breakdown": self.get_breakdown()
+                "transport_lanes": len(getattr(self.sales_quote, "transport_lanes", None) or []),
+                "breakdown": bd
             }
             
             return summary
@@ -49,28 +69,63 @@ class PricingEngine:
             return {}
     
     def get_breakdown(self):
-        """Get detailed breakdown of quote amounts"""
-        
+        """Get detailed breakdown of quote amounts by mode"""
         breakdown = {
-            "transport": {
-                "lanes": [],
-                "total": 0
-            }
+            "transport": {"lanes": [], "rows": [], "total": 0},
+            "air_freight": {"rows": [], "total": 0},
+            "sea_freight": {"rows": [], "total": 0},
+            "customs": {"rows": [], "total": 0},
+            "warehousing": {"rows": [], "total": 0},
         }
-        
-        # Transport breakdown
-        if self.sales_quote.transport_lanes:
+
+        # Transport lanes
+        if getattr(self.sales_quote, "transport_lanes", None):
             for lane in self.sales_quote.transport_lanes:
-                lane_data = {
-                    "origin": lane.origin,
-                    "destination": lane.destination,
-                    "vehicle_type": lane.vehicle_type,
-                    "billing_method": lane.billing_method,
-                    "amount": flt(lane.total_amount or 0)
-                }
-                breakdown["transport"]["lanes"].append(lane_data)
-                breakdown["transport"]["total"] += flt(lane.total_amount or 0)
-        
+                amt = flt(lane.total_amount or 0)
+                breakdown["transport"]["lanes"].append({
+                    "origin": getattr(lane, "origin", ""),
+                    "destination": getattr(lane, "destination", ""),
+                    "vehicle_type": getattr(lane, "vehicle_type", ""),
+                    "billing_method": getattr(lane, "billing_method", ""),
+                    "amount": amt
+                })
+                breakdown["transport"]["total"] += amt
+
+        # Transport rows
+        if getattr(self.sales_quote, "transport", None):
+            for row in self.sales_quote.transport:
+                amt = flt(getattr(row, "estimated_revenue", 0) or getattr(row, "total_amount", 0) or 0)
+                breakdown["transport"]["rows"].append({"amount": amt})
+                breakdown["transport"]["total"] += amt
+
+        # Air Freight
+        if getattr(self.sales_quote, "air_freight", None):
+            for row in self.sales_quote.air_freight:
+                amt = flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+                breakdown["air_freight"]["rows"].append({"amount": amt})
+                breakdown["air_freight"]["total"] += amt
+
+        # Sea Freight
+        if getattr(self.sales_quote, "sea_freight", None):
+            for row in self.sales_quote.sea_freight:
+                amt = flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+                breakdown["sea_freight"]["rows"].append({"amount": amt})
+                breakdown["sea_freight"]["total"] += amt
+
+        # Customs
+        if getattr(self.sales_quote, "customs", None):
+            for row in self.sales_quote.customs:
+                amt = flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+                breakdown["customs"]["rows"].append({"amount": amt})
+                breakdown["customs"]["total"] += amt
+
+        # Warehousing
+        if getattr(self.sales_quote, "warehousing", None):
+            for row in self.sales_quote.warehousing:
+                amt = flt(getattr(row, "estimated_revenue", 0) or getattr(row, "base_amount", 0) or 0)
+                breakdown["warehousing"]["rows"].append({"amount": amt})
+                breakdown["warehousing"]["total"] += amt
+
         return breakdown
 
 @frappe.whitelist()

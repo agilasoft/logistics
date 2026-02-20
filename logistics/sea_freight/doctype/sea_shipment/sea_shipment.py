@@ -9,17 +9,81 @@ from frappe import _
 class SeaShipment(Document):
     def validate(self):
         """Validate Sea Shipment data"""
+        # Normalize legacy house_type values
+        self._normalize_house_type()
         self.validate_accounts()
         self.validate_required_fields()
         self.validate_dates()
+        try:
+            from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+            apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
+        except Exception:
+            pass
+        if not getattr(self, "override_volume_weight", False):
+            self.aggregate_volume_from_packages()
         self.validate_weight_volume()
         self.validate_packages()
         self.validate_containers()
         self.validate_master_bill()
     
+    def aggregate_volume_from_packages(self):
+        """Set header volume from sum of package volumes, converted to m³."""
+        if getattr(self, "override_volume_weight", False):
+            return
+        packages = getattr(self, "packages", []) or []
+        if not packages:
+            return
+        try:
+            from logistics.utils.measurements import convert_volume, get_aggregation_volume_uom, get_default_uoms
+            target_volume_uom = get_aggregation_volume_uom(company=getattr(self, "company", None))
+            if not target_volume_uom:
+                return
+            defaults = get_default_uoms(company=getattr(self, "company", None))
+            target_normalized = str(target_volume_uom).strip().upper()
+            total = 0
+            for pkg in packages:
+                pkg_vol = flt(getattr(pkg, "volume", 0) or 0)
+                if pkg_vol <= 0:
+                    continue
+                pkg_volume_uom = getattr(pkg, "volume_uom", None) or defaults.get("volume")
+                if not pkg_volume_uom:
+                    continue
+                if str(pkg_volume_uom).strip().upper() == target_normalized:
+                    total += pkg_vol
+                else:
+                    total += convert_volume(
+                        pkg_vol,
+                        from_uom=pkg_volume_uom,
+                        to_uom=target_volume_uom,
+                        company=getattr(self, "company", None),
+                    )
+            if total > 0:
+                self.volume = total
+        except Exception:
+            pass
+    
+    @frappe.whitelist()
+    def aggregate_volume_from_packages_api(self):
+        """Whitelisted API: aggregate volume from packages for client-side refresh when override is unchecked."""
+        if not getattr(self, "override_volume_weight", False):
+            self.aggregate_volume_from_packages()
+        return {"volume": getattr(self, "volume", 0)}
+    
     def after_insert(self):
-        """Create Job Costing Number when document is first created"""
-        self.create_job_costing_number_if_needed()
+        """Create Job Costing Number when document is first created. Defer to avoid 'not found' during conversion."""
+        settings = frappe.get_single("Sea Freight Settings")
+        if settings and not getattr(settings, "auto_create_job_costing", True):
+            return
+        frappe.enqueue(
+            "logistics.sea_freight.doctype.sea_shipment.sea_shipment.create_job_costing_for_shipment",
+            queue="default",
+            shipment_name=self.name,
+            company=self.company,
+            branch=self.branch,
+            cost_center=self.cost_center,
+            profit_center=self.profit_center,
+            booking_date=self.booking_date,
+        )
     
     def before_save(self):
         """Calculate sustainability metrics before saving"""
@@ -147,6 +211,19 @@ class SeaShipment(Document):
         fuel_rate = 0.15  # L per 100 km per ton
         return (fuel_rate * distance * (weight / 1000)) / 100.0
     
+    def _normalize_house_type(self):
+        """Normalize legacy house_type values to current options.
+        Converts 'Direct' -> 'Standard House' and 'Consolidation' -> 'Co-load Master'.
+        """
+        if not hasattr(self, 'house_type') or not self.house_type:
+            return
+        normalization_map = {
+            "Direct": "Standard House",
+            "Consolidation": "Co-load Master",
+        }
+        if self.house_type in normalization_map:
+            self.house_type = normalization_map[self.house_type]
+    
     def validate_accounts(self):
         """Validate that cost center, profit center, and branch belong to the company"""
         if not self.company:
@@ -160,18 +237,37 @@ class SeaShipment(Document):
                 ))
         
         if self.profit_center:
-            profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
-            if profit_center_company and profit_center_company != self.company:
-                frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
-                    self.profit_center, self.company
-                ))
+            # Check if Profit Center doctype has a company field before validating
+            # Profit Center may not have a company field in this installation (e.g. logistics custom)
+            try:
+                profit_center_meta = frappe.get_meta("Profit Center")
+                if profit_center_meta.has_field("company"):
+                    profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
+                    if profit_center_company and profit_center_company != self.company:
+                        frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
+                            self.profit_center, self.company
+                        ))
+            except Exception as e:
+                if "Unknown column" in str(e) or "1054" in str(e):
+                    pass  # Field doesn't exist in database, skip validation
+                else:
+                    raise
         
         if self.branch:
-            branch_company = frappe.db.get_value("Branch", self.branch, "company")
-            if branch_company and branch_company != self.company:
-                frappe.throw(_("Branch {0} does not belong to Company {1}").format(
-                    self.branch, self.company
-                ))
+            # Check if Branch doctype has a company field before validating
+            try:
+                branch_meta = frappe.get_meta("Branch")
+                if branch_meta.has_field("company"):
+                    branch_company = frappe.db.get_value("Branch", self.branch, "company")
+                    if branch_company and branch_company != self.company:
+                        frappe.throw(_("Branch {0} does not belong to Company {1}").format(
+                            self.branch, self.company
+                        ))
+            except Exception as e:
+                if "Unknown column" in str(e) or "1054" in str(e):
+                    pass  # Field doesn't exist in database, skip validation
+                else:
+                    raise
     
     def create_job_costing_number_if_needed(self):
         """Create Job Costing Number when document is first saved"""
@@ -201,7 +297,7 @@ class SeaShipment(Document):
                 self.job_costing_number = job_ref.name
                 
                 frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
-    
+
     def validate_required_fields(self):
         """Validate required fields for Sea Shipment"""
         if not self.booking_date:
@@ -240,7 +336,7 @@ class SeaShipment(Document):
         
         # Warn if booking date is in the future
         if self.booking_date:
-            if getdate(self.booking_date) > today():
+            if getdate(self.booking_date) > getdate(today()):
                 frappe.msgprint(_("Booking date is in the future"), indicator="orange")
     
     def validate_weight_volume(self):
@@ -406,9 +502,9 @@ class SeaShipment(Document):
                             addr_line1 = getattr(addr_doc, 'address_line1', None) or ''
                             city = getattr(addr_doc, 'city', None) or ''
                             shipper_address = f"{addr_line1}, {city}".strip(', ')
-                        except:
+                        except Exception:
                             pass
-                except:
+                except Exception:
                     shipper_name = shipper
             
             # Get consignee details
@@ -436,9 +532,9 @@ class SeaShipment(Document):
                             addr_line1 = getattr(addr_doc, 'address_line1', None) or ''
                             city = getattr(addr_doc, 'city', None) or ''
                             consignee_address = f"{addr_line1}, {city}".strip(', ')
-                        except:
+                        except Exception:
                             pass
-                except:
+                except Exception:
                     consignee_name = consignee
             
             # Get vessel details
@@ -456,7 +552,7 @@ class SeaShipment(Document):
                 if frappe.db.exists('UNLOCO', self.destination_port):
                     dest_unloco = frappe.get_doc('UNLOCO', self.destination_port)
                     dest_port_name = getattr(dest_unloco, 'location_name', None) or self.destination_port
-            except:
+            except Exception:
                 pass
             
             # Build HTML header
@@ -940,7 +1036,7 @@ class SeaShipment(Document):
         try:
             from frappe.utils import format_datetime
             return format_datetime(dt)
-        except:
+        except Exception:
             return str(dt)
     
     def check_delays(self):
@@ -1320,6 +1416,11 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
                 item_payload['cost_center'] = shipment.cost_center
             if getattr(shipment, "profit_center", None):
                 item_payload['profit_center'] = shipment.profit_center
+            # Link to shipment for Recognition Engine and lifecycle tracking
+            si_item_meta = frappe.get_meta("Sales Invoice Item")
+            if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
+                item_payload["reference_doctype"] = "Sea Shipment"
+                item_payload["reference_name"] = shipment.name
             
             invoice.append('items', item_payload)
 
@@ -1328,6 +1429,14 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
 
     invoice.set_missing_values()
     invoice.insert(ignore_permissions=True)
+    
+    # Update Sea Shipment with Sales Invoice reference and lifecycle
+    from frappe.utils import today
+    updates = {"sales_invoice": invoice.name, "date_sales_invoice_requested": today()}
+    for k, v in updates.items():
+        if frappe.get_meta("Sea Shipment").get_field(k):
+            frappe.db.set_value("Sea Shipment", shipment.name, k, v, update_modified=False)
+    
     return invoice
 
 @frappe.whitelist()
@@ -1421,3 +1530,30 @@ def populate_charges_from_sales_quote(self):
 			"Sea Shipment - Populate Charges Error"
 		)
 		frappe.throw(_("Error populating charges: {0}").format(str(e)))
+
+def create_job_costing_for_shipment(
+	shipment_name,
+	company,
+	branch=None,
+	cost_center=None,
+	profit_center=None,
+	booking_date=None,
+):
+	"""Deferred: create Job Costing Number for Sea Shipment after commit (avoids 'not found' during conversion)."""
+	if not frappe.db.exists("Sea Shipment", shipment_name):
+		return
+	if frappe.db.get_value("Sea Shipment", shipment_name, "job_costing_number"):
+		return
+	if frappe.db.get_value("Job Costing Number", {"job_type": "Sea Shipment", "job_no": shipment_name}):
+		return
+	job_ref = frappe.new_doc("Job Costing Number")
+	job_ref.job_type = "Sea Shipment"
+	job_ref.job_no = shipment_name
+	job_ref.company = company
+	job_ref.branch = branch
+	job_ref.cost_center = cost_center
+	job_ref.profit_center = profit_center
+	job_ref.job_open_date = booking_date
+	job_ref.insert(ignore_permissions=True)
+	frappe.db.set_value("Sea Shipment", shipment_name, "job_costing_number", job_ref.name)
+	frappe.db.commit()

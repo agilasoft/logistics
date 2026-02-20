@@ -73,6 +73,57 @@ class TransportOrderLegs(Document):
 
 
 @frappe.whitelist()
+def get_addresses_for_facility(facility_type: str, facility_name: str):
+	"""Get all addresses linked to a facility - used for frontend query filters
+	This fetches addresses that appear in the facility's address_html field.
+	Addresses are linked via Dynamic Links where link_doctype=facility_type and link_name=facility_name
+	"""
+	if not facility_type or not facility_name:
+		return []
+	
+	try:
+		# Get addresses linked to this facility via Dynamic Links
+		# This is the same way frappe.contacts.render_address_and_contact works
+		# The address_html field shows all addresses linked this way
+		addresses = frappe.get_all("Dynamic Link",
+			filters={
+				"link_doctype": facility_type,
+				"link_name": facility_name,
+				"parenttype": "Address"
+			},
+			fields=["parent"],
+			order_by="creation ASC"
+		)
+		
+		if addresses:
+			# Extract address names
+			address_names = [addr.parent for addr in addresses]
+			
+			# Get full address details with proper ordering
+			address_details = frappe.get_all("Address",
+				filters={"name": ["in", address_names]},
+				fields=["name", "address_title", "is_primary_address", "is_shipping_address"],
+				order_by="is_primary_address DESC, is_shipping_address DESC, creation ASC"
+			)
+			
+			if address_details:
+				address_list = [addr.name for addr in address_details]
+				debug_info = [f"{a.name} ({a.address_title or 'no title'})" for a in address_details]
+				frappe.log_error(f"Found {len(address_list)} addresses for {facility_type} {facility_name}: {debug_info}", "get_addresses_for_facility_debug")
+				return address_list
+		
+		# Log if no addresses found
+		facility_exists = frappe.db.exists(facility_type, facility_name)
+		frappe.log_error(f"No addresses found for {facility_type} {facility_name}. Facility exists: {facility_exists}", "get_addresses_for_facility_debug")
+		
+	except Exception as e:
+		import traceback
+		frappe.log_error(f"Error getting addresses for {facility_type} {facility_name}: {str(e)}\n{traceback.format_exc()}", "get_addresses_for_facility")
+	
+	return []
+
+
+@frappe.whitelist()
 def get_primary_address(facility_type: str, facility_name: str):
 	"""Get the primary address for a facility"""
 	if not facility_type or not facility_name:

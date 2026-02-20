@@ -405,7 +405,7 @@ def get_equipment_count(energy_consumption_id):
 			fields=["name"]
 		)
 		return len(equipment_data)
-	except:
+	except Exception:
 		return 0
 
 

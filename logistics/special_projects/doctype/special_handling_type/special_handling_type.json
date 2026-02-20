@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "creation": "2025-02-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "handling_type",
+  "column_break_1",
+  "description",
+  "section_break_2",
+  "requires_equipment",
+  "requires_certification",
+  "column_break_3",
+  "default_instructions"
+ ],
+ "fields": [
+  {
+   "fieldname": "handling_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Handling Type",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_equipment",
+   "fieldtype": "Check",
+   "label": "Requires Equipment"
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_certification",
+   "fieldtype": "Check",
+   "label": "Requires Certification"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_instructions",
+   "fieldtype": "Long Text",
+   "label": "Default Instructions"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-02-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Handling Type",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

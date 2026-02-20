@@ -18,7 +18,9 @@ app_license = "MIT"
 # app_include_css = "/assets/logistics/css/logistics.css"
 app_include_js = [
     "/assets/logistics/js/desktop_icon_cache_bust.js",
-    "/assets/logistics/js/create_from_sales_quote.js"
+    "/assets/logistics/js/create_from_sales_quote.js",
+    "/assets/logistics/js/additional_charges.js",
+    "/assets/logistics/js/measurements_uom_conversion.js",
 ]
 # Lalamove JS files are loaded on-demand in form scripts to avoid loading for all pages
 
@@ -62,18 +64,13 @@ get_portal_page_context = "logistics.transport.portal_config.get_portal_page_con
 
 # Website Routes
 # --------------
+# Debug routes (/simple-test, /customer-debug, etc.) removed for production safety.
+# Re-add locally for development if needed.
 website_route_rules = [
-    {"from_route": "/simple-test", "to_route": "simple_test"},
-    {"from_route": "/customer-debug", "to_route": "customer_debug"},
-    {"from_route": "/transport-debug", "to_route": "transport_debug"},
-    {"from_route": "/warehousing-test", "to_route": "warehousing_test"},
-    {"from_route": "/warehousing-debug", "to_route": "warehousing_debug"},
-    {"from_route": "/test-transport", "to_route": "test_portal"},
     {"from_route": "/transport-jobs", "to_route": "transport_jobs"},
     {"from_route": "/stock-balance", "to_route": "stock_balance"},
     {"from_route": "/warehouse-jobs", "to_route": "warehouse_jobs"},
     {"from_route": "/warehousing-portal", "to_route": "warehousing_portal"},
-    {"from_route": "/customer-debug-portal", "to_route": "customer_debug_portal"},
     # Order Views
     {"from_route": "/release-orders", "to_route": "release_orders"},
     {"from_route": "/inbound-orders", "to_route": "inbound_orders"},
@@ -226,7 +223,7 @@ doc_events = {
         "on_update": "logistics.job_management.doc_events.on_job_update",
         "on_submit": "logistics.job_management.doc_events.on_job_submit",
     },
-    "Customs Declaration": {
+    "Declaration": {
         "on_update": "logistics.job_management.doc_events.on_job_update",
         "on_submit": "logistics.job_management.doc_events.on_job_submit",
     },
@@ -236,5 +233,11 @@ doc_events = {
     },
     "Sales Invoice": {
         "validate": "logistics.transport.sales_invoice_hooks.validate_transport_job_status",
+        "on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
+        "on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
+    },
+    "Purchase Invoice": {
+        "on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
+        "on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
     },
 }

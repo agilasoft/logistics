@@ -212,7 +212,7 @@ def get_chart_data(data):
 				value = float(value_str)
 				metrics_to_chart.append(metric)
 				values_to_chart.append(value)
-		except:
+		except Exception:
 			pass
 	
 	if not metrics_to_chart:

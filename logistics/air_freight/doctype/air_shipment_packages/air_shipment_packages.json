@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "commodity",
   "hs_code",
   "reference_no",
@@ -14,8 +14,17 @@
   "column_break_dbep",
   "no_of_packs",
   "uom",
+  "measurements_section",
   "weight",
   "volume",
+  "weight_uom",
+  "volume_uom",
+  "dimension_uom",
+  "length",
+  "width",
+  "height",
+  "chargeable_weight",
+  "chargeable_weight_uom",
   "section_break_dg_identification",
   "dg_identification_section",
   "dg_substance",
@@ -104,6 +113,11 @@
    "options": "UOM"
   },
   {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -116,11 +130,56 @@
    "label": "Volume"
   },
   {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
+  },
+  {
    "fieldname": "reference_no",
    "fieldtype": "Data",
    "label": "Reference No"
   },
   {
+   "depends_on": "eval:parent.contains_dangerous_goods",
    "fieldname": "section_break_dg_identification",
    "fieldtype": "Section Break",
    "label": "Dangerous Goods Identification"

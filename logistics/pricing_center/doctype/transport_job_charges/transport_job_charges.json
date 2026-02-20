@@ -40,7 +40,8 @@
   "calculation_notes_section",
   "revenue_calc_notes",
   "column_break_crci",
-  "cost_calc_notes"
+  "cost_calc_notes",
+  "sales_quote_link"
  ],
  "fields": [
   {
@@ -249,6 +250,12 @@
    "fieldtype": "Long Text",
    "label": "Cost",
    "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote_link",
+   "fieldtype": "Link",
+   "label": "Sales Quote Link",
+   "options": "Sales Quote"
   }
  ],
  "grid_page_length": 50,

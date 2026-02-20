@@ -1,0 +1,53 @@
+{
+ "actions": [],
+ "creation": "2026-02-12 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "erpnext_project_section",
+  "default_project_type",
+  "column_break_sp"
+ ],
+ "fields": [
+  {
+   "fieldname": "erpnext_project_section",
+   "fieldtype": "Section Break",
+   "label": "ERPNext Project"
+  },
+  {
+   "description": "Default Project Type to use when auto-creating ERPNext Project from Special Project.",
+   "fieldname": "default_project_type",
+   "fieldtype": "Link",
+   "label": "Default Project Type",
+   "options": "Project Type"
+  },
+  {
+   "fieldname": "column_break_sp",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-02-12 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -204,7 +204,7 @@
    "fieldname": "default_house_type",
    "fieldtype": "Select",
    "label": "Default House Type",
-   "options": "Direct\nConsolidation\nBreak-Bulk"
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
    "fieldname": "default_direction",
@@ -222,7 +222,7 @@
    "fieldname": "default_entry_type",
    "fieldtype": "Select",
    "label": "Default Entry Type",
-   "options": "Direct\nTransit\nBreak-Bulk"
+   "options": "Direct\nTransit\nTransshipment\nATA Carnet"
   },
   {
    "fieldname": "calculation_settings_section",

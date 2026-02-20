@@ -78,14 +78,14 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Customer",
+   "options": "Shipper",
    "reqd": 1
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Customer",
+   "options": "Consignee",
    "reqd": 1
   },
   {

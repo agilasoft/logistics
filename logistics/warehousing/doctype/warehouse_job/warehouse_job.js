@@ -41,6 +41,24 @@ frappe.ui.form.on('Warehouse Job', {
                 indicator: 'green'
             });
         }
+        
+        // Populate shipper and consignee from Warehouse Contract
+        if (frm.doc.warehouse_contract) {
+            frappe.db.get_value("Warehouse Contract", frm.doc.warehouse_contract, ["shipper", "consignee"], function(r) {
+                if (r) {
+                    if (r.shipper) {
+                        frm.set_value("shipper", r.shipper);
+                    }
+                    if (r.consignee) {
+                        frm.set_value("consignee", r.consignee);
+                    }
+                }
+            });
+        } else {
+            // Clear shipper and consignee if contract is cleared
+            frm.set_value("shipper", "");
+            frm.set_value("consignee", "");
+        }
     },
     
     onload: function(frm) {
@@ -343,6 +361,21 @@ frappe.ui.form.on('Warehouse Job', {
                 calculate_charges_from_contract(frm);
             }, __('Charges'));
         }
+
+        if (!frm.is_new()) {
+            frm.add_custom_button(__('Get Additional Charges'), function() {
+                logistics_additional_charges_show_sales_quote_dialog(frm, 'Warehouse Job');
+            }, __('Actions'));
+            frm.add_custom_button(__('Create Change Request'), function() {
+                frappe.call({
+                    method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
+                    args: { job_type: 'Warehouse Job', job_name: frm.doc.name },
+                    callback: function(r) {
+                        if (r.message) frappe.set_route('Form', 'Change Request', r.message);
+                    }
+                });
+            }, __('Actions'));
+        }
         
         // Add Post Standard Costs button - show only when submitted and has charges with standard costs that haven't been posted
         if (frm.doc.docstatus === 1 && frm.doc.charges && frm.doc.charges.length > 0) {
@@ -597,8 +630,7 @@ function calculate_item_volume(frm, cdt, cdn) {
                 }
             },
             error: function(r) {
-                // Fallback to raw calculation on error
-                const volume = length * width * height;
+                const volume = 0;
                 frappe.model.set_value(cdt, cdn, "volume", volume);
             }
         });

@@ -14,7 +14,7 @@ def setup_portal_manually():
     try:
         portal_settings = frappe.get_single("Portal Settings")
         print("✅ Portal Settings found")
-    except:
+    except Exception:
         print("❌ Portal Settings not found. Please create it first.")
         return
     

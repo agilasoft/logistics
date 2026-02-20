@@ -3,6 +3,40 @@ function vehicle_type_cache_key(load_type, hazardous, reefer) {
 	return (load_type || "") + "|" + (hazardous ? "1" : "0") + "|" + (reefer ? "1" : "0");
 }
 
+// Build Address link filter for a leg row - used by pick_address and drop_address get_query.
+// Uses (doc, cdt, cdn) so the correct row is used when opening the link from the grid.
+function get_address_query_for_leg(frm, doc, cdt, cdn, kind) {
+	var leg = null;
+	if (locals[cdt] && locals[cdt][cdn]) {
+		leg = locals[cdt][cdn];
+	} else if (cdt && cdn) {
+		leg = frappe.get_doc(cdt, cdn);
+	}
+	if (!leg) {
+		return { filters: { name: '__none__' } };
+	}
+	var facility_type = kind === 'pick' ? leg.facility_type_from : leg.facility_type_to;
+	var facility_name = kind === 'pick' ? leg.facility_from : leg.facility_to;
+	if (!facility_type || !facility_name) {
+		return { filters: { name: '__none__' } };
+	}
+	var address_names = [];
+	frappe.call({
+		method: 'logistics.transport.doctype.transport_order_legs.transport_order_legs.get_addresses_for_facility',
+		args: { facility_type: facility_type, facility_name: facility_name },
+		async: false,
+		callback: function(r) {
+			if (r.message && Array.isArray(r.message)) {
+				address_names = r.message;
+			}
+		}
+	});
+	if (address_names.length > 0) {
+		return { filters: { name: ['in', address_names] } };
+	}
+	return { filters: { name: '__none__' } };
+}
+
 // Build filter description for Vehicle Type field (includes Load type so it shows in the dropdown)
 function update_vehicle_type_filter_description(frm) {
 	if (!frm.fields_dict.vehicle_type) return;
@@ -122,26 +156,29 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	onload: function(frm) {
-		// Check if this is a duplicated document with a one-off sales_quote
-		// Clear sales_quote field if it's a one-off quote (server-side validation will also handle this)
-		if (frm.is_new() && frm.doc.sales_quote) {
-			var sales_quote_name = frm.doc.sales_quote;
-			frappe.db.get_value('Sales Quote', sales_quote_name, ['one_off'], function(r) {
-				if (r && r.one_off === 1) {
-					// Clear the sales_quote field and charges
-					frm.set_value('sales_quote', '');
-					if (frm.doc.charges && frm.doc.charges.length > 0) {
-						frm.clear_table('charges');
-						frm.refresh_field('charges');
-					}
-					frappe.msgprint({
-						title: __("Sales Quote Cleared"),
-						message: __("Sales Quote '{0}' is a one-off quote and cannot be duplicated. The Sales Quote field has been cleared.").format(sales_quote_name),
-						indicator: 'orange'
-					});
+		// Suppress "Transport Order X not found" when form is new/unsaved (package grid triggers API before save)
+		if (frm.is_new() || frm.doc.__islocal) {
+			if (!frappe._original_msgprint) {
+				frappe._original_msgprint = frappe.msgprint;
+			}
+			frappe.msgprint = function(options) {
+				const message = typeof options === 'string' ? options : (options && options.message || '');
+				if (message && typeof message === 'string' &&
+					message.includes('Transport Order') &&
+					message.includes('not found')) {
+					return;
+				}
+				return frappe._original_msgprint.apply(this, arguments);
+			};
+			frm.$wrapper.one('form-refresh', function() {
+				if (!frm.is_new() && !frm.doc.__islocal && frappe._original_msgprint) {
+					frappe.msgprint = frappe._original_msgprint;
 				}
 			});
 		}
+		// Note: one_off field has been removed from Sales Quote doctype
+		// One-off quotes are now handled by the separate "One-Off Quote" doctype
+		// This check is no longer needed as Sales Quote no longer has the one_off field
 		
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
@@ -230,45 +267,27 @@ frappe.ui.form.on("Transport Order", {
 					return { filters: filters };
 				};
 			}
-			// Set pick_address query filter for legs grid
-			var pick_address_field = frm.fields_dict.legs.grid.get_field('pick_address');
-			if (pick_address_field) {
-				pick_address_field.get_query = function () {
-					// 'this' context is the grid row
-					var leg = this;
-					if (leg.facility_type_from && leg.facility_from) {
-						return { 
-							filters: { 
-								link_doctype: leg.facility_type_from, 
-								link_name: leg.facility_from 
-							} 
-						};
-					}
-					return { filters: { name: '__none__' } };
-				};
-			}
-			
-			// Set drop_address query filter for legs grid
-			var drop_address_field = frm.fields_dict.legs.grid.get_field('drop_address');
-			if (drop_address_field) {
-				drop_address_field.get_query = function () {
-					// 'this' context is the grid row
-					var leg = this;
-					if (leg.facility_type_to && leg.facility_to) {
-						return { 
-							filters: { 
-								link_doctype: leg.facility_type_to, 
-								link_name: leg.facility_to 
-							} 
-						};
-					}
-					return { filters: { name: '__none__' } };
-				};
-			}
+			// Set pick_address and drop_address query filters for legs grid using frm.set_query
+			// so the callback receives (doc, cdt, cdn) and we filter by that row's Facility From/To
+			frm.set_query('pick_address', 'legs', function(doc, cdt, cdn) {
+				return get_address_query_for_leg(frm, doc, cdt, cdn, 'pick');
+			});
+			frm.set_query('drop_address', 'legs', function(doc, cdt, cdn) {
+				return get_address_query_for_leg(frm, doc, cdt, cdn, 'drop');
+			});
 		}
+		
+		// Set query for quote field to filter out already-used One-Off Quotes
+		_setup_quote_query(frm);
 	},
 
 	refresh: function(frm) {
+		// Helper function to execute refresh operations
+		var do_refresh_ops = function() {
+		// Guard: Skip database queries if document name is temporary (just saved, not committed yet)
+		// This prevents "not found" errors when refresh runs immediately after save
+		var skip_db_queries = frm.is_new() || (frm.doc.name && frm.doc.name.startsWith('new-'));
+		
 		// Clear scheduled_date if coming from Sales Quote creation
 		if (frappe.route_options && frappe.route_options.__clear_scheduled_date) {
 			frm.set_value('scheduled_date', '');
@@ -291,34 +310,27 @@ frappe.ui.form.on("Transport Order", {
 		// Ensure submit button is available for saved documents (docstatus = 0)
 		// Frappe should show submit button automatically, but we ensure form is ready
 		if (!frm.is_new() && frm.doc.docstatus === 0) {
-			// Form is saved and in draft state - submit button should be visible
-			// If it's not showing, it might be a permission or form state issue
 			console.log("refresh: Document is saved and ready for submission", frm.doc.name);
 		}
 		
 		// Add Create Leg Plan button if transport template is set and document is not submitted
-		if (!frm.is_new() && frm.doc.transport_template && frm.doc.docstatus !== 1) {
+		// Only show if document exists and has a valid name (not temporary)
+		if (!frm.is_new() && frm.doc.transport_template && frm.doc.docstatus !== 1 && 
+		    frm.doc.name && !frm.doc.name.startsWith('new-')) {
 			frm.add_custom_button(__("Leg Plan"), function() {
-				frappe.call({
-					method: "logistics.transport.doctype.transport_order.transport_order.action_get_leg_plan",
-					args: {
-						docname: frm.doc.name,
-						replace: 1,
-						save: 1
-					},
-					freeze: true,
-					freeze_message: __("Creating leg plan..."),
-					callback: function(r) {
-						if (r.message && r.message.ok) {
-							frm.reload_doc();
-						}
-					}
-				});
+				// Ensure document is saved before creating leg plan
+				if (frm.is_dirty()) {
+					frm.save().then(function() {
+						_create_leg_plan(frm);
+					});
+				} else {
+					_create_leg_plan(frm);
+				}
 			}, __("Create"));
 		}
 		
 		// Lalamove Integration
-		if (frm.doc.use_lalamove && !frm.is_new()) {
+		if (frm.doc.use_lalamove && !frm.is_new() && !skip_db_queries) {
 			frm.add_custom_button(__('Lalamove'), function() {
 				// Load Lalamove utilities if not already loaded
 				if (typeof logistics === 'undefined' || !logistics.lalamove) {
@@ -333,39 +345,94 @@ frappe.ui.form.on("Transport Order", {
 			}, __('Actions'));
 			
 			// Show order status indicator if order exists
+			// Delay query to avoid "not found" errors immediately after save
 			if (frm.doc.lalamove_order) {
-				frappe.db.get_value('Lalamove Order', frm.doc.lalamove_order, ['status', 'lalamove_order_id'], (r) => {
-					if (r && r.status) {
-						const status_color = r.status === 'COMPLETED' ? 'green' : (r.status === 'CANCELLED' ? 'red' : 'blue');
-						frm.dashboard.add_indicator(__('Lalamove: {0}', [r.status]), status_color);
-					}
-				});
+				setTimeout(function() {
+					frappe.db.get_value('Lalamove Order', frm.doc.lalamove_order, ['status', 'lalamove_order_id'], (r) => {
+						if (r && r.status) {
+							const status_color = r.status === 'COMPLETED' ? 'green' : (r.status === 'CANCELLED' ? 'red' : 'blue');
+							frm.dashboard.add_indicator(__('Lalamove: {0}', [r.status]), status_color);
+						}
+					});
+				}, 300);
 			}
 		}
 		
 		// Add Create Transport Job button if document is submitted
-		if (frm.doc.docstatus === 1) {
-			frm.add_custom_button(__("Transport Job"), function() {
-				frappe.call({
-					method: "logistics.transport.doctype.transport_order.transport_order.action_create_transport_job",
-					args: {
-						docname: frm.doc.name
-					},
-					freeze: true,
-					freeze_message: __("Creating transport job..."),
-					callback: function(r) {
-						if (r.message) {
-							if (r.message.already_exists) {
-								frappe.msgprint(__("Transport Job {0} already exists for this Transport Order.", [r.message.name]));
-								frappe.set_route("Form", "Transport Job", r.message.name);
-							} else if (r.message.created) {
-								frappe.msgprint(__("Transport Job {0} created successfully.", [r.message.name]));
-								frappe.set_route("Form", "Transport Job", r.message.name);
+		// Check if Transport Job already exists first
+		// Only check if document is saved (not new) and has a real name (not temporary)
+		if (frm.doc.docstatus === 1 && !frm.is_new() && frm.doc.name && !frm.doc.name.startsWith('new-') && !skip_db_queries) {
+			// Delay query to avoid "not found" errors immediately after save
+			setTimeout(function() {
+				// Check if a Transport Job already exists for this Transport Order
+				frappe.db.get_value('Transport Job', { transport_order: frm.doc.name }, 'name', function(r) {
+				if (r && r.name) {
+					// Transport Job already exists - show link to existing job
+					frm.add_custom_button(__("Transport Job"), function() {
+						frappe.set_route("Form", "Transport Job", r.name);
+					}, __("View"));
+					// Show indicator that Transport Job exists
+					frm.dashboard.add_indicator(__('Transport Job: {0}', [r.name]), 'blue');
+				} else {
+					// No Transport Job exists - show create button
+					frm.add_custom_button(__("Transport Job"), function() {
+						frappe.call({
+							method: "logistics.transport.doctype.transport_order.transport_order.action_create_transport_job",
+							args: {
+								docname: frm.doc.name
+							},
+							freeze: true,
+							freeze_message: __("Creating transport job..."),
+							callback: function(response) {
+								if (response.message) {
+									if (response.message.already_exists) {
+										frappe.msgprint({
+											title: __("Transport Job Already Exists"),
+											message: __("Transport Job {0} already exists for this Transport Order.", [response.message.name]),
+											indicator: 'blue'
+										});
+										frappe.set_route("Form", "Transport Job", response.message.name);
+										// Wait for form to load, then refresh title
+										setTimeout(function() {
+											var job_frm = frappe.get_cur_form();
+											if (job_frm && job_frm.doctype === "Transport Job" && job_frm.doc.name === response.message.name) {
+												job_frm.refresh();
+												// Force title update
+												if (job_frm.page && job_frm.page.set_title) {
+													job_frm.page.set_title(job_frm.doc.name);
+												}
+											}
+										}, 500);
+										// Refresh to update button (use refresh instead of reload_doc to avoid "not found" errors)
+										frm.refresh();
+									} else if (response.message.created) {
+										frappe.msgprint({
+											title: __("Transport Job Created"),
+											message: __("Transport Job {0} created successfully.", [response.message.name]),
+											indicator: 'green'
+										});
+										frappe.set_route("Form", "Transport Job", response.message.name);
+										// Wait for form to load, then refresh title
+										setTimeout(function() {
+											var job_frm = frappe.get_cur_form();
+											if (job_frm && job_frm.doctype === "Transport Job" && job_frm.doc.name === response.message.name) {
+												job_frm.refresh();
+												// Force title update
+												if (job_frm.page && job_frm.page.set_title) {
+													job_frm.page.set_title(job_frm.doc.name);
+												}
+											}
+										}, 500);
+										// Refresh to update button (use refresh instead of reload_doc to avoid "not found" errors)
+										frm.refresh();
+									}
+								}
 							}
-						}
-					}
-				});
-			}, __("Create"));
+						});
+					}, __("Create"));
+				}
+			});
+			}, 300);
 		}
 		
 		// Update vehicle_type required state based on consolidate checkbox
@@ -456,43 +523,18 @@ frappe.ui.form.on("Transport Order", {
 		}
 		
 		// Set pick_address and drop_address query filters for legs grid on refresh
+		// (same as onload: use frm.set_query so callback receives doc, cdt, cdn for correct row)
 		if (frm.fields_dict.legs && frm.fields_dict.legs.grid) {
-			// Set pick_address query filter for legs grid (ensure it's set on refresh)
-			var pick_address_field = frm.fields_dict.legs.grid.get_field('pick_address');
-			if (pick_address_field) {
-				pick_address_field.get_query = function () {
-					// 'this' context is the grid row
-					var leg = this;
-					if (leg.facility_type_from && leg.facility_from) {
-						return { 
-							filters: { 
-								link_doctype: leg.facility_type_from, 
-								link_name: leg.facility_from 
-							} 
-						};
-					}
-					return { filters: { name: '__none__' } };
-				};
-			}
-			
-			// Set drop_address query filter for legs grid (ensure it's set on refresh)
-			var drop_address_field = frm.fields_dict.legs.grid.get_field('drop_address');
-			if (drop_address_field) {
-				drop_address_field.get_query = function () {
-					// 'this' context is the grid row
-					var leg = this;
-					if (leg.facility_type_to && leg.facility_to) {
-						return { 
-							filters: { 
-								link_doctype: leg.facility_type_to, 
-								link_name: leg.facility_to 
-							} 
-						};
-					}
-					return { filters: { name: '__none__' } };
-				};
-			}
+			frm.set_query('pick_address', 'legs', function(doc, cdt, cdn) {
+				return get_address_query_for_leg(frm, doc, cdt, cdn, 'pick');
+			});
+			frm.set_query('drop_address', 'legs', function(doc, cdt, cdn) {
+				return get_address_query_for_leg(frm, doc, cdt, cdn, 'drop');
+			});
 		}
+		
+		// Refresh quote query setup
+		_setup_quote_query(frm);
 		
 		// Render address HTML for all existing legs
 		if (frm.doc.legs && frm.doc.legs.length > 0) {
@@ -505,6 +547,18 @@ frappe.ui.form.on("Transport Order", {
 				}
 			});
 		}
+
+		// Store current UOMs on package rows for measurement conversion on change
+		(frm.doc.packages || []).forEach(function(row) {
+			row._prev_dimension_uom = row.dimension_uom;
+			row._prev_volume_uom = row.volume_uom;
+			row._prev_weight_uom = row.weight_uom;
+			row._prev_chargeable_weight_uom = row.chargeable_weight_uom;
+		});
+		}; // End of do_refresh_ops function
+		
+		// Always call refresh operations directly (removed existence check to avoid race conditions)
+		do_refresh_ops();
 	},
 	
 	vehicle_type: function(frm) {
@@ -577,134 +631,222 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	sales_quote: function(frm) {
-		// If sales_quote is cleared, clear charges
-		if (!frm.doc.sales_quote) {
-			// Clear charges table
-			frm.clear_table('charges');
-			frm.refresh_field('charges');
+		_populate_charges_from_quote(frm);
+	},
+	quote_type: function(frm) {
+		// Don't clear quote fields if document is already submitted
+		if (frm.doc.docstatus === 1) {
 			return;
 		}
-
-		// Get the Sales Quote to check if it's one-off
-		frappe.db.get_value('Sales Quote', frm.doc.sales_quote, ['one_off'], function(r) {
-			if (r && r.one_off === 1) {
-				// Check if a Transport Order already exists for this Sales Quote
-				// Build filters to exclude the current document if it's being edited
-				var filters = {
-					sales_quote: frm.doc.sales_quote
-				};
-				
-				// If this is an existing document, exclude it from the check
-				if (!frm.is_new() && frm.doc.name) {
-					filters.name = ['!=', frm.doc.name];
-				}
-
-				// Use get_list to check if any Transport Order exists with this sales_quote
-				frappe.db.get_list('Transport Order', {
-					filters: filters,
-					limit: 1,
-					fields: ['name']
-				}).then(function(existing_orders) {
-					if (existing_orders && existing_orders.length > 0) {
-						frappe.msgprint({
-							title: __("Error"),
-							message: __("A Transport Order has already been created from this Sales Quote."),
-							indicator: 'red'
-						});
-						// Clear the sales_quote field
-						frm.set_value('sales_quote', '');
-					}
-				});
-			}
-		});
-
-		// Populate charges from sales_quote
-		var docname = frm.is_new() ? null : frm.doc.name;
-		var was_saved = !frm.is_new() && docname; // Track if document was saved on server
 		
+		// If changing quote type and there's an existing quote, clear it
+		// This ensures users select a new quote of the correct type
+		if (frm.doc.quote) {
+			frm.set_value('quote', '');
+		}
+		
+		// Setup query filter for quote field based on quote_type
+		_setup_quote_query(frm);
+		
+		if (!frm.doc.quote) {
+			frm.clear_table('charges');
+			frm.refresh_field('charges');
+		} else {
+			_populate_charges_from_quote(frm);
+		}
+	},
+	quote: function(frm) {
+		// Don't clear quote fields if document is already submitted
+		if (frm.doc.docstatus === 1) {
+			return;
+		}
+		if (!frm.doc.quote) {
+			frm.clear_table('charges');
+			frm.refresh_field('charges');
+			// Clear sales_quote when quote is cleared
+			if (frm.doc.sales_quote) {
+				frm.set_value('sales_quote', '');
+			}
+			return;
+		}
+		// Sync sales_quote field when quote_type is "Sales Quote"
+		if (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote) {
+			frm.set_value('sales_quote', frm.doc.quote);
+		} else if (frm.doc.quote_type === 'One-Off Quote') {
+			// Clear sales_quote for One-Off Quote
+			frm.set_value('sales_quote', '');
+		}
+		_populate_charges_from_quote(frm);
+	}
+});
+
+// Setup query filter for quote field to exclude already-used One-Off Quotes
+function _setup_quote_query(frm) {
+	if (frm.doc.quote_type === 'One-Off Quote') {
+		// Load available One-Off Quotes filters
 		frappe.call({
-			method: "logistics.transport.doctype.transport_order.transport_order.populate_charges_from_sales_quote",
-			args: {
-				docname: docname,
-				sales_quote: frm.doc.sales_quote
-			},
-			freeze: true,
-			freeze_message: __("Fetching charges from Sales Quote..."),
+			method: 'logistics.transport.doctype.transport_order.transport_order.get_available_one_off_quotes',
+			args: { transport_order_name: frm.doc.name || null },
 			callback: function(r) {
-				if (r.message) {
-					if (r.message.error) {
-						frappe.msgprint({
-							title: __("Error"),
-							message: r.message.error,
-							indicator: 'red'
-						});
-						return;
-					}
-					
-					if (r.message.message) {
-						frappe.msgprint({
-							title: __("No Charges Found"),
-							message: r.message.message,
-							indicator: 'orange'
-						});
-					}
-					
-					// If document was saved on server, reload to sync timestamp
-					// This prevents "Document has been modified" error
-					// The server-side method now saves the sales_quote field, so it will be preserved on reload
-					if (was_saved) {
-						// Store message info in route_options to show after reload
-						if (r.message.charges_count > 0) {
-							frappe.route_options = frappe.route_options || {};
-							frappe.route_options.__show_charges_message = {
-								count: r.message.charges_count,
-								sales_quote: frm.doc.sales_quote
-							};
-						}
-						frm.reload_doc();
-					} else {
-						// Populate charges in the frontend (only if document wasn't saved on server)
-						if (r.message.charges && r.message.charges.length > 0) {
-							frm.clear_table('charges');
-							r.message.charges.forEach(function(charge) {
-								var row = frm.add_child('charges');
-								// Set values directly on the row object
-								Object.keys(charge).forEach(function(key) {
-									if (charge[key] !== null && charge[key] !== undefined) {
-										row[key] = charge[key];
-									}
-								});
-							});
-							frm.refresh_field('charges');
-							
-							if (r.message.charges_count > 0) {
-								frappe.msgprint({
-									title: __("Charges Updated"),
-									message: __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, frm.doc.sales_quote]),
-									indicator: 'green'
-								});
-							}
-						} else {
-							// Clear charges if none found
-							frm.clear_table('charges');
-							frm.refresh_field('charges');
-						}
-					}
+				if (r.message && r.message.filters) {
+					frm._available_one_off_quotes_filters = r.message.filters;
 				}
-			},
-			error: function(r) {
-				frappe.msgprint({
-					title: __("Error"),
-					message: __("Failed to populate charges from Sales Quote."),
-					indicator: 'red'
-				});
 			}
 		});
-	},
+		
+		// Set query filter for quote field
+		frm.set_query('quote', function() {
+			// Return cached filters or empty filters
+			// If filters not loaded yet, they'll be empty but that's okay
+			// The user can still type and select, validation will catch duplicates
+			return { 
+				filters: frm._available_one_off_quotes_filters || {} 
+			};
+		});
+	} else if (frm.doc.quote_type === 'Sales Quote') {
+		// For Sales Quote, clear any special filters
+		frm.set_query('quote', function() {
+			return { filters: {} };
+		});
+	}
+}
 
+function _populate_charges_from_quote(frm) {
+	var docname = frm.is_new() ? null : frm.doc.name;
+	var quote_type = frm.doc.quote_type;
+	var quote = frm.doc.quote;
+	var sales_quote = frm.doc.sales_quote;
+	
+	// Determine which quote to use
+	var target_quote = null;
+	var method_name = null;
+	var freeze_message = null;
+	var success_message_template = null;
+	
+	if (quote_type === 'Sales Quote' && quote) {
+		target_quote = quote;
+		method_name = "logistics.transport.doctype.transport_order.transport_order.populate_charges_from_sales_quote";
+		freeze_message = __("Fetching charges from Sales Quote...");
+		success_message_template = __("Successfully populated {0} charges from Sales Quote: {1}");
+	} else if (quote_type === 'One-Off Quote' && quote) {
+		target_quote = quote;
+		method_name = "logistics.transport.doctype.transport_order.transport_order.populate_charges_from_one_off_quote";
+		freeze_message = __("Fetching charges from One-Off Quote...");
+		success_message_template = __("Successfully populated {0} charges from One-Off Quote: {1}");
+	} else if (sales_quote) {
+		// Fallback to sales_quote field for backward compatibility
+		target_quote = sales_quote;
+		method_name = "logistics.transport.doctype.transport_order.transport_order.populate_charges_from_sales_quote";
+		freeze_message = __("Fetching charges from Sales Quote...");
+		success_message_template = __("Successfully populated {0} charges from Sales Quote: {1}");
+	}
+	
+	if (!target_quote || !method_name) {
+		frm.clear_table('charges');
+		frm.refresh_field('charges');
+		return;
+	}
+	
+	frappe.call({
+		method: method_name,
+		args: {
+			docname: docname,
+			sales_quote: quote_type === 'Sales Quote' ? target_quote : null,
+			one_off_quote: quote_type === 'One-Off Quote' ? target_quote : null
+		},
+		freeze: true,
+		freeze_message: freeze_message,
+		callback: function(r) {
+			if (r.message) {
+				if (r.message.error) {
+					frappe.msgprint({
+						title: __("Error"),
+						message: r.message.error,
+						indicator: 'red'
+					});
+					return;
+				}
+				if (r.message.message) {
+					frappe.msgprint({
+						title: __("No Charges Found"),
+						message: r.message.message,
+						indicator: 'orange'
+					});
+				}
+				// Update charges on the form (works for both new and saved documents)
+				// This avoids "document has been modified" errors by not saving on server
+				if (r.message.charges && r.message.charges.length > 0) {
+					frm.clear_table('charges');
+					r.message.charges.forEach(function(charge) {
+						var row = frm.add_child('charges');
+						Object.keys(charge).forEach(function(key) {
+							if (charge[key] !== null && charge[key] !== undefined) {
+								row[key] = charge[key];
+							}
+						});
+					});
+					frm.refresh_field('charges');
+					if (r.message.charges_count > 0) {
+						var message = success_message_template;
+						if (quote_type === 'One-Off Quote') {
+							message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
+						} else {
+							message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+						}
+						frappe.msgprint({
+							title: __("Charges Updated"),
+							message: message,
+							indicator: 'green'
+						});
+					}
+				} else {
+					frm.clear_table('charges');
+					frm.refresh_field('charges');
+				}
+			}
+		},
+		error: function(r) {
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to populate charges from quote."),
+				indicator: 'red'
+			});
+		}
+	});
+}
+
+frappe.ui.form.on("Transport Order", {
 	consolidate: function(frm) {
 		// Update vehicle_type required state when consolidate checkbox changes
 		frm.events.toggle_vehicle_type_required(frm);
+	},
+	
+	aggregate_volume_from_packages: function(frm) {
+		// Aggregate volume and weight from all packages and update header
+		// This is called when package volumes or weights change
+		if (frm.is_new() || frm.doc.__islocal) return;
+		if (!frm.doc.packages || frm.doc.packages.length === 0) {
+			return;
+		}
+		
+		// Call server-side method to aggregate volumes and weights with proper UOM conversion
+		frm.call({
+			method: 'aggregate_volume_from_packages_api',
+			doc: frm.doc,
+			callback: function(r) {
+				// After aggregation, update form values if header fields exist
+				if (r && !r.exc && r.message) {
+					// Note: Transport Order doesn't have header volume/weight fields currently,
+					// but this method is available for future use or API calls
+					if (r.message.volume !== undefined && frm.fields_dict.volume) {
+						frm.set_value('volume', r.message.volume);
+					}
+					if (r.message.weight !== undefined && frm.fields_dict.weight) {
+						frm.set_value('weight', r.message.weight);
+					}
+				}
+			}
+		});
 	},
 
 	toggle_vehicle_type_required: function(frm) {
@@ -745,7 +887,6 @@ frappe.ui.form.on("Transport Order", {
 		if (is_container && frm.doc.consolidate) {
 			frm.set_value('consolidate', 0);
 		}
-		
 	},
 
 	validate_vehicle_compatibility: function(frm, clear_if_incompatible, check_refrigeration) {
@@ -799,13 +940,6 @@ frappe.ui.form.on("Transport Order", {
 		// Allow save without blocking - validation will happen on submit
 		// This ensures the submit button appears after saving
 		return Promise.resolve();
-	},
-	
-	on_save: function(frm) {
-		// After save, ensure form is in correct state for submission
-		// The submit button should appear automatically when docstatus = 0
-		// Don't refresh here - it can cause issues with submit button visibility
-		console.log("on_save: Document saved", frm.doc.name, "docstatus:", frm.doc.docstatus);
 	},
 	
 	before_submit: function(frm) {
@@ -1012,6 +1146,63 @@ function populate_legs_transport_job_type_from_parent(frm) {
 	if (updated) {
 		frm.refresh_field('legs');
 	}
+}
+
+// Helper function to create leg plan
+function _create_leg_plan(frm) {
+	frappe.call({
+		method: "logistics.transport.doctype.transport_order.transport_order.action_get_leg_plan",
+		args: {
+			docname: frm.doc.name,
+			replace: 1,
+			save: 1
+		},
+		freeze: true,
+		freeze_message: __("Creating leg plan..."),
+		callback: function(r) {
+			if (r.exc) {
+				frappe.msgprint({
+					title: __("Error"),
+					message: r.exc || __("Failed to create leg plan. Please try again."),
+					indicator: 'red'
+				});
+				return;
+			}
+			if (r.message) {
+				if (r.message.error) {
+					if (r.message.error === "doc_not_ready") {
+						frappe.msgprint({
+							title: __("Document Not Ready"),
+							message: __("The document is not ready yet. Please wait a moment and try again."),
+							indicator: 'orange'
+						});
+					} else {
+						frappe.msgprint({
+							title: __("Error"),
+							message: r.message.error,
+							indicator: 'red'
+						});
+					}
+					return;
+				}
+				if (r.message.ok) {
+					// Reload document to show the new legs
+					if (r.message.saved) {
+						frm.reload_doc();
+					} else {
+						frm.refresh();
+					}
+				}
+			}
+		},
+		error: function(r) {
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to create leg plan. Please try again."),
+				indicator: 'red'
+			});
+		}
+	});
 }
 
 // ---------- Auto-fill Address Functions for Transport Order Legs ----------
@@ -1247,30 +1438,80 @@ function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 	});
 }
 
-// ---------- Package Volume Calculation Functions ----------
-// Helper function to calculate volume for a package row
-function calculate_package_volume(frm, cdt, cdn) {
-	var package_row = frappe.get_doc(cdt, cdn);
-	if (package_row.length && package_row.width && package_row.height) {
-		// Calculate volume: length × width × height
-		const volume = package_row.length * package_row.width * package_row.height;
-		frappe.model.set_value(cdt, cdn, 'volume', volume);
-	} else {
-		frappe.model.set_value(cdt, cdn, 'volume', 0);
-	}
-}
-
-// Child table events for Transport Order Package
+// Child table events for Transport Order Package (UOM conversion is in measurements_uom_conversion.js)
 frappe.ui.form.on('Transport Order Package', {
+	commodity: function(frm, cdt, cdn) {
+		// Populate HS code from commodity's default_hs_code
+		let row = locals[cdt][cdn];
+		if (row.commodity) {
+			frappe.db.get_value('Commodity', row.commodity, 'default_hs_code', (r) => {
+				if (r && r.default_hs_code) {
+					frappe.model.set_value(cdt, cdn, 'hs_code', r.default_hs_code);
+				} else {
+					// Clear HS code if commodity doesn't have a default HS code
+					frappe.model.set_value(cdt, cdn, 'hs_code', '');
+				}
+			});
+		} else {
+			// Clear HS code if commodity is cleared
+			frappe.model.set_value(cdt, cdn, 'hs_code', '');
+		}
+	},
+	
+	// Trigger aggregation when package volume changes
+	volume: function(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		frm.trigger('aggregate_volume_from_packages');
+	},
+	
+	// Trigger aggregation when package weight changes
+	weight: function(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		frm.trigger('aggregate_volume_from_packages');
+	},
+	
+	// Trigger recalculation when weight UOM changes
+	weight_uom: function(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function() {
+			frm.trigger('aggregate_volume_from_packages');
+		}, 100);
+	},
+	
+	// Trigger volume calculation and aggregation when dimensions change
 	length: function(frm, cdt, cdn) {
-		calculate_package_volume(frm, cdt, cdn);
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function() {
+			frm.trigger('aggregate_volume_from_packages');
+		}, 100);
 	},
-
+	
 	width: function(frm, cdt, cdn) {
-		calculate_package_volume(frm, cdt, cdn);
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function() {
+			frm.trigger('aggregate_volume_from_packages');
+		}, 100);
 	},
-
+	
 	height: function(frm, cdt, cdn) {
-		calculate_package_volume(frm, cdt, cdn);
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function() {
+			frm.trigger('aggregate_volume_from_packages');
+		}, 100);
+	},
+	
+	// Trigger recalculation when UOMs change (volume will be recalculated by global handler)
+	dimension_uom: function(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function() {
+			frm.trigger('aggregate_volume_from_packages');
+		}, 100);
+	},
+	
+	volume_uom: function(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function() {
+			frm.trigger('aggregate_volume_from_packages');
+		}, 100);
 	}
 });

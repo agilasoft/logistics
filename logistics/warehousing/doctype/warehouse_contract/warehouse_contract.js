@@ -25,4 +25,24 @@ frappe.ui.form.on("Warehouse Contract", {
 			}, __("Actions"));
 		}
 	},
+	
+	sales_quote(frm) {
+		// Populate shipper and consignee from Sales Quote
+		if (frm.doc.sales_quote) {
+			frappe.db.get_value("Sales Quote", frm.doc.sales_quote, ["shipper", "consignee"], function(r) {
+				if (r) {
+					if (r.shipper) {
+						frm.set_value("shipper", r.shipper);
+					}
+					if (r.consignee) {
+						frm.set_value("consignee", r.consignee);
+					}
+				}
+			});
+		} else {
+			// Clear shipper and consignee if sales_quote is cleared
+			frm.set_value("shipper", "");
+			frm.set_value("consignee", "");
+		}
+	}
 });

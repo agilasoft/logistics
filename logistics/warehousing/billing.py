@@ -844,7 +844,7 @@ def populate_storage_details_from_inventory(pb, customer: str, date_from: str, d
                                 "weight": hu_weight,
                                 "hu_count": 1.0
                             }
-                    except:
+                    except Exception:
                         continue
             
             # Add entries for this date (sorted by handling_unit)

@@ -319,6 +319,26 @@
    "translatable": 0,
    "unique": 0,
    "width": null
+  },
+  {
+   "dt": "Sales Invoice Item",
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType",
+   "insert_after": "project",
+   "hidden": 1,
+   "description": "Logistics job/shipment doctype (Transport Job, Air Shipment, etc.)"
+  },
+  {
+   "dt": "Sales Invoice Item",
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "options": "reference_doctype",
+   "insert_after": "reference_doctype",
+   "hidden": 1,
+   "description": "Logistics job/shipment name"
   }
  ],
  "custom_perms": [],

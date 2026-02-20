@@ -389,7 +389,7 @@ class TransportifyMapper(ODDSMapper):
             settings = frappe.get_single("Warehouse Settings")
             if hasattr(settings, "warehouse_contract_address") and settings.warehouse_contract_address:
                 return settings.warehouse_contract_address
-        except:
+        except Exception:
             pass
         return None
     

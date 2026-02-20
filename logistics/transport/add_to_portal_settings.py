@@ -14,7 +14,7 @@ def add_portal_menu_items():
     try:
         portal_settings = frappe.get_single("Portal Settings")
         print("✅ Portal Settings found")
-    except:
+    except Exception:
         print("❌ Portal Settings not found")
         return
     

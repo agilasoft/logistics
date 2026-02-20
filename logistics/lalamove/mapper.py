@@ -379,7 +379,7 @@ class LalamoveMapper:
             coords = get_address_coordinates(address.name)
             if coords:
                 return coords
-        except:
+        except Exception:
             pass
         
         # Fallback: raise error (coordinates are required)
@@ -509,7 +509,7 @@ class LalamoveMapper:
                 "name": customer_doc.customer_name,
                 "phone": ""  # Phone required by Lalamove
             }
-        except:
+        except Exception:
             return None
     
     def _get_contact_from_contact(self, contact_name: str) -> Optional[Dict[str, str]]:
@@ -523,7 +523,7 @@ class LalamoveMapper:
                     "name": contact.full_name or contact.first_name or "",
                     "phone": phone
                 }
-        except:
+        except Exception:
             pass
         
         return None
@@ -534,7 +534,7 @@ class LalamoveMapper:
             settings = frappe.get_single("Warehouse Settings")
             if hasattr(settings, "warehouse_contract_address") and settings.warehouse_contract_address:
                 return settings.warehouse_contract_address
-        except:
+        except Exception:
             pass
         
         return None
