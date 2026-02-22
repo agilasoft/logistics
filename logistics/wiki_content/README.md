@@ -51,14 +51,40 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 
 | File | Title | Sidebar Group |
 |------|-------|---------------|
+| getting_started.md | Getting Started | Introduction |
+| document_management.md | Document Management | Introduction |
+| milestone_tracking.md | Milestone Tracking | Introduction |
+| document_list_template.md | Document List Template | Introduction |
+| logistics_document_type.md | Logistics Document Type | Introduction |
+| customer_portal.md | Customer Portal | Introduction |
+| logistics_settings.md | Logistics Settings | Setup |
+| sea_freight_settings.md | Sea Freight Settings | Setup |
+| air_freight_settings.md | Air Freight Settings | Setup |
+| transport_settings.md | Transport Settings | Setup |
+| warehouse_settings.md | Warehouse Settings | Setup |
+| customs_settings.md | Customs Settings | Setup |
 | sea_booking.md | Sea Booking | Sea Freight |
+| sea_shipment.md | Sea Shipment | Sea Freight |
 | air_booking.md | Air Booking | Air Freight |
+| air_shipment.md | Air Shipment | Air Freight |
+| transport_order.md | Transport Order | Transport |
+| transport_job.md | Transport Job | Transport |
 | declaration_order.md | Declaration Order | Customs |
+| declaration.md | Declaration | Customs |
 | inbound_order.md | Inbound Order | Warehousing |
 | release_order.md | Release Order | Warehousing |
 | transfer_order.md | Transfer Order | Warehousing |
-| document_management.md | Document Management | Introduction |
-| milestone_tracking.md | Milestone Tracking | Introduction |
+| warehouse_job.md | Warehouse Job | Warehousing |
+| sales_quote.md | Sales Quote | Pricing Center |
+| one_off_quote.md | One Off Quote | Pricing Center |
+| container_type.md | Container Type | Sea Freight |
+| uld_type.md | ULD Type | Air Freight |
+| load_type.md | Load Type | Transport |
+| transport_template.md | Transport Template | Transport |
+| storage_location.md | Storage Location | Warehousing |
+| handling_unit_type.md | Handling Unit Type | Warehousing |
+| logistics_milestone.md | Logistics Milestone | Logistics |
+| reports_overview.md | Reports Overview | Reports |
 
 ## Adding New Pages
 

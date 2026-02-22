@@ -20,15 +20,56 @@ from frappe import _
 
 
 # Map of content file name (without .md) to (title, parent_label for sidebar)
+# Organized by ERPNext structure: Getting Started, Settings, Transactions, Masters, Reports
 WIKI_PAGES_CONFIG = {
+    # Introduction
+    "getting_started": ("Getting Started", "Introduction"),
+    "document_management": ("Document Management", "Introduction"),
+    "milestone_tracking": ("Milestone Tracking", "Introduction"),
+    "document_list_template": ("Document List Template", "Introduction"),
+    "logistics_document_type": ("Logistics Document Type", "Introduction"),
+    "customer_portal": ("Customer Portal", "Introduction"),
+    # Settings
+    "logistics_settings": ("Logistics Settings", "Setup"),
+    "sea_freight_settings": ("Sea Freight Settings", "Setup"),
+    "air_freight_settings": ("Air Freight Settings", "Setup"),
+    "transport_settings": ("Transport Settings", "Setup"),
+    "warehouse_settings": ("Warehouse Settings", "Setup"),
+    "customs_settings": ("Customs Settings", "Setup"),
+    # Sea Freight
     "sea_booking": ("Sea Booking", "Sea Freight"),
+    "sea_shipment": ("Sea Shipment", "Sea Freight"),
+    "container_type": ("Container Type", "Sea Freight"),
+    # Air Freight
     "air_booking": ("Air Booking", "Air Freight"),
+    "air_shipment": ("Air Shipment", "Air Freight"),
+    "uld_type": ("ULD Type", "Air Freight"),
+    # Transport
+    "transport_order": ("Transport Order", "Transport"),
+    "transport_job": ("Transport Job", "Transport"),
+    "transport_template": ("Transport Template", "Transport"),
+    "load_type": ("Load Type", "Transport"),
+    # Customs
     "declaration_order": ("Declaration Order", "Customs"),
+    "declaration": ("Declaration", "Customs"),
+    # Warehousing
     "inbound_order": ("Inbound Order", "Warehousing"),
     "release_order": ("Release Order", "Warehousing"),
     "transfer_order": ("Transfer Order", "Warehousing"),
-    "document_management": ("Document Management", "Introduction"),
-    "milestone_tracking": ("Milestone Tracking", "Introduction"),
+    "vas_order": ("VAS Order", "Warehousing"),
+    "stocktake_order": ("Stocktake Order", "Warehousing"),
+    "warehouse_job": ("Warehouse Job", "Warehousing"),
+    "warehouse_contract": ("Warehouse Contract", "Warehousing"),
+    "storage_location": ("Storage Location", "Warehousing"),
+    "handling_unit_type": ("Handling Unit Type", "Warehousing"),
+    # Pricing Center
+    "sales_quote": ("Sales Quote", "Pricing Center"),
+    "one_off_quote": ("One Off Quote", "Pricing Center"),
+    # Logistics (shared)
+    "general_job": ("General Job", "Logistics"),
+    "logistics_milestone": ("Logistics Milestone", "Logistics"),
+    # Reports
+    "reports_overview": ("Reports Overview", "Reports"),
 }
 
 
