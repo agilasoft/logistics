@@ -84,6 +84,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | storage_location.md | Storage Location | Warehousing |
 | handling_unit_type.md | Handling Unit Type | Warehousing |
 | logistics_milestone.md | Logistics Milestone | Logistics |
+| special_projects_module.md | Special Projects Module | Special Projects |
 | reports_overview.md | Reports Overview | Reports |
 
 ## Adding New Pages

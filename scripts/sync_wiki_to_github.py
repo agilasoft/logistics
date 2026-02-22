@@ -78,6 +78,8 @@ PAGE_MAP = {
     # Logistics (shared masters)
     "general_job": "General-Job",
     "container_type": "Container-Type",
+    # Special Projects
+    "special_projects_module": "Special-Projects-Module",
     "uld_type": "ULD-Type",
     "logistics_milestone": "Logistics-Milestone",
     # Pages
@@ -176,6 +178,10 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 - [Sales Quote](Sales-Quote)
 - [One Off Quote](One-Off-Quote)
+
+## Special Projects
+
+- [Special Projects Module](Special-Projects-Module) – Complex multi-mode projects, scoping, resources, and milestone billing
 
 ## Pages (Mobile & Field)
 
@@ -276,6 +282,9 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 **Pricing Center**
 - [Sales Quote](Sales-Quote)
 - [One Off Quote](One-Off-Quote)
+
+**Special Projects**
+- [Special Projects Module](Special-Projects-Module)
 
 **Pages**
 - [Pages Overview](Pages-Overview)

@@ -89,6 +89,8 @@ WIKI_PAGES_CONFIG = {
     # Logistics (shared)
     "general_job": ("General Job", "Logistics"),
     "logistics_milestone": ("Logistics Milestone", "Logistics"),
+    # Special Projects
+    "special_projects_module": ("Special Projects Module", "Special Projects"),
     # Pages
     "pages_overview": ("Pages Overview", "Pages"),
     # Reports
