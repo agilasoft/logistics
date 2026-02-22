@@ -20,7 +20,7 @@ from frappe import _
 
 
 # Map of content file name (without .md) to (title, parent_label for sidebar)
-# Organized by ERPNext structure: Getting Started, Settings, Transactions, Masters, Reports
+# Organized by ERPNext structure: Getting Started, Settings, Modules, Transactions, Masters, Pages, Reports, Glossary
 WIKI_PAGES_CONFIG = {
     # Introduction
     "getting_started": ("Getting Started", "Introduction"),
@@ -36,22 +36,41 @@ WIKI_PAGES_CONFIG = {
     "transport_settings": ("Transport Settings", "Setup"),
     "warehouse_settings": ("Warehouse Settings", "Setup"),
     "customs_settings": ("Customs Settings", "Setup"),
+    # Module Intros
+    "sea_freight_module": ("Sea Freight Module", "Sea Freight"),
+    "air_freight_module": ("Air Freight Module", "Air Freight"),
+    "transport_module": ("Transport Module", "Transport"),
+    "customs_module": ("Customs Module", "Customs"),
+    "warehousing_module": ("Warehousing Module", "Warehousing"),
     # Sea Freight
     "sea_booking": ("Sea Booking", "Sea Freight"),
     "sea_shipment": ("Sea Shipment", "Sea Freight"),
+    "sea_consolidation": ("Sea Consolidation", "Sea Freight"),
+    "master_bill": ("Master Bill", "Sea Freight"),
+    "shipper": ("Shipper", "Sea Freight"),
+    "consignee": ("Consignee", "Sea Freight"),
     "container_type": ("Container Type", "Sea Freight"),
     # Air Freight
     "air_booking": ("Air Booking", "Air Freight"),
     "air_shipment": ("Air Shipment", "Air Freight"),
+    "air_consolidation": ("Air Consolidation", "Air Freight"),
+    "master_air_waybill": ("Master Air Waybill", "Air Freight"),
     "uld_type": ("ULD Type", "Air Freight"),
     # Transport
     "transport_order": ("Transport Order", "Transport"),
     "transport_job": ("Transport Job", "Transport"),
+    "transport_consolidation": ("Transport Consolidation", "Transport"),
+    "transport_leg": ("Transport Leg", "Transport"),
+    "transport_plan": ("Transport Plan", "Transport"),
+    "run_sheet": ("Run Sheet", "Transport"),
+    "proof_of_delivery": ("Proof of Delivery", "Transport"),
     "transport_template": ("Transport Template", "Transport"),
     "load_type": ("Load Type", "Transport"),
     # Customs
     "declaration_order": ("Declaration Order", "Customs"),
     "declaration": ("Declaration", "Customs"),
+    "commodity": ("Commodity", "Customs"),
+    "customs_authority": ("Customs Authority", "Customs"),
     # Warehousing
     "inbound_order": ("Inbound Order", "Warehousing"),
     "release_order": ("Release Order", "Warehousing"),
@@ -60,6 +79,8 @@ WIKI_PAGES_CONFIG = {
     "stocktake_order": ("Stocktake Order", "Warehousing"),
     "warehouse_job": ("Warehouse Job", "Warehousing"),
     "warehouse_contract": ("Warehouse Contract", "Warehousing"),
+    "gate_pass": ("Gate Pass", "Warehousing"),
+    "periodic_billing": ("Periodic Billing", "Warehousing"),
     "storage_location": ("Storage Location", "Warehousing"),
     "handling_unit_type": ("Handling Unit Type", "Warehousing"),
     # Pricing Center
@@ -68,8 +89,12 @@ WIKI_PAGES_CONFIG = {
     # Logistics (shared)
     "general_job": ("General Job", "Logistics"),
     "logistics_milestone": ("Logistics Milestone", "Logistics"),
+    # Pages
+    "pages_overview": ("Pages Overview", "Pages"),
     # Reports
     "reports_overview": ("Reports Overview", "Reports"),
+    # Glossary
+    "glossary": ("Glossary", "Glossary"),
 }
 
 

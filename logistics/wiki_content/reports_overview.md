@@ -83,7 +83,7 @@ To access reports, go to:
 - **Trend Analysis Report** – Trends over time
 - **Cross Module Summary Report** – Cross-module summary
 
-## 4. Related Topics
+## 7. Related Topics
 
 - [Sea Freight Settings](welcome/sea-freight-settings)
 - [Air Freight Settings](welcome/air-freight-settings)
