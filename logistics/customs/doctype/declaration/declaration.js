@@ -3,6 +3,19 @@
 
 frappe.ui.form.on("Declaration", {
 	refresh(frm) {
+		// Load dashboard HTML in Dashboard tab
+		if (frm.fields_dict.dashboard_html) {
+			if (!frm._dashboard_html_called) {
+				frm._dashboard_html_called = true;
+				frm.call("get_dashboard_html").then((r) => {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+					}
+				}).catch(() => {}).finally(() => {
+					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+				});
+			}
+		}
 		// Load milestone HTML in Milestones tab
 		if (frm.fields_dict.milestone_html) {
 			if (!frm._milestone_html_called) {

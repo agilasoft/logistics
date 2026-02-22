@@ -7,6 +7,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
   "section_break_basic",
   "amended_from",
   "naming_series",
@@ -144,6 +146,17 @@
   "sustainability_notes"
  ],
  "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "label": "Dashboard",
+   "is_virtual": 1
+  },
   {
    "fieldname": "section_break_basic",
    "fieldtype": "Section Break",

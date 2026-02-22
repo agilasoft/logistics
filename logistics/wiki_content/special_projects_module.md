@@ -67,69 +67,82 @@ Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, D
 
 ## 4. Features
 
-### 4.1 ERPNext Project Integration
+### 4.1 Dashboard Tab
+
+The Dashboard tab provides a compact overview of project status, resources, jobs, billings, and costs:
+
+- **Status** – Current status (Draft, Scoping, Booked, Planning, Approved, In Progress, On Hold, Completed, Cancelled) with color-coded badge
+- **Resources** – Count, planned vs actual hours
+- **Jobs** – Count, planned/actual cost and revenue
+- **Billings** – Items count, planned amount, pending vs invoiced/paid
+- **Deliveries** – Total, pending, completed
+- **Summary** – Budget (cost), actual cost, budget (revenue), actual revenue
+
+Use the Dashboard to monitor project health, resource utilization, and cost vs budget at a glance.
+
+### 4.2 ERPNext Project Integration
 
 - **Auto-creation** – ERPNext Project is created on first save of Special Project
 - **Project Type** – Set in [Special Project Settings](welcome/special-project-settings)
 - **Status sync** – Special Project status maps to ERPNext Project (Draft/Scoping/Booked/etc. → Open; Completed → Completed; Cancelled → Cancelled)
 - **Task management** – Use ERPNext Project for tasks, timesheets, and project billing
 
-### 4.2 Scoping Activities
+### 4.3 Scoping Activities
 
 - **Types** – Ocular Inspection, Road Inspection, Technical Consultation
 - **Cost tracking** – Record cost per activity; mark **Charged to Project** when booked
 - **Auto-charge** – When status changes to Booked/Approved/Planning/In Progress, completed scoping activities are auto-marked as charged
 
-### 4.3 Activity Planning
+### 4.4 Activity Planning
 
 - **Activity types** – Transport, Warehousing, Air Freight, Sea Freight, Customs, Special Handling, Documentation, Other
 - **Job linking** – Link activities to Transport Job, Warehouse Job, Air Shipment, Sea Shipment, or Declaration
 - **Planned vs actual** – Track planned and actual start/end dates per activity
 
-### 4.4 Resource Management
+### 4.5 Resource Management
 
 - **Resource types** – Personnel, Equipment, Third Party, Other
 - **In-house vs supplier** – Mark in-house or link Supplier
 - **Planned/actual hours** – Track hours and cost per unit
 
-### 4.5 Product and Equipment
+### 4.6 Product and Equipment
 
 - **Products** – Item, quantity, UOM, weight, volume, special handling, temperature range, hazmat class
 - **Equipment** – Link to Special Handling Equipment Type; track planned/actual usage and cost
 
-### 4.6 Jobs Tab
+### 4.7 Jobs Tab
 
 - Link Transport Job, Warehouse Job, Air Shipment, Sea Shipment, Declaration
 - Track planned cost, actual cost, planned revenue, actual revenue per job
 - **Cost & Revenue Summary** – Collapsible section showing totals (planned/actual cost, revenue, margin) and breakdown by job type
 
-### 4.7 Documents Tab
+### 4.8 Documents Tab
 
 - **Document Checklist** – Project-level documents (permits, DG certs, customs docs, contracts)
 - **Document Template** – Override default [Document List Template](welcome/document-list-template); leave empty to use product default
 - Uses **Job Document** child table; supports document status and attachments
 - See [Document Management](welcome/document-management) for document types and templates
 
-### 4.8 Deliveries Tab
+### 4.9 Deliveries Tab
 
 - **Delivery types** – Full, Partial, Milestone, Proof of Delivery
 - **Status** – Pending, Scheduled, Completed, Delayed
 - **Items delivered** – Free-text or structured description of delivered items
 
-### 4.9 Billings Tab
+### 4.10 Billings Tab
 
 - **Bill types** – Milestone, Interim, Final, Ad-hoc
 - **Status** – Pending, Invoiced, Paid
 - **Sales Invoice** – Link when invoiced; invoice date tracked
 
-### 4.10 More Info Tab
+### 4.11 More Info Tab
 
 - **Client Notes** – Notes visible to customer
 - **Internal Notes** – Internal-only notes
 - **Terms and Conditions** – Link to Terms and Conditions master
 - **Service Level Agreement** – Link to Logistics Service Level for project-level commitments
 
-### 4.11 Create Order from Request
+### 4.12 Create Order from Request
 
 From a Special Project Request, create logistics orders from **Product Requests** based on **Fulfillment Type**:
 

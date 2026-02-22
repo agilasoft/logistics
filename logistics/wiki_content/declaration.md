@@ -43,19 +43,30 @@ The recommended way is to create a Declaration from a Declaration Order. Use **C
 
 ## 3. Features
 
-### 3.1 Milestones Tab
+### 3.1 Dashboard Tab
+
+The Dashboard tab provides a compact overview of declaration status, alerts, and key metrics:
+
+- **Status** – Current status (Draft, Submitted, In Progress, Approved, Rejected, Cancelled) with color-coded badge
+- **Alerts** – Document alerts (expired/rejected, pending, expiring soon), missing permits, and compliance exceptions
+- **Key Metrics** – Declaration type, number, payment status, expected/actual clearance dates
+- **Summary** – Commodities count, declaration value, total payable
+
+Use the Dashboard to monitor status, spot missing documents or permits, and track compliance at a glance.
+
+### 3.2 Milestones Tab
 
 Track declaration milestones (Submitted, Under Review, Cleared, Released) with status and actual dates.
 
-### 3.2 Documents Tab
+### 3.3 Documents Tab
 
 Declaration has a Documents tab (Declaration Document child table) for tracking required customs documents with status and attachments.
 
-### 3.3 Duty and Tax
+### 3.4 Duty and Tax
 
 Calculate duty and tax based on [Customs Rate](welcome/customs-rate) and commodity values.
 
-### 3.4 Integration
+### 3.5 Integration
 
 Link Declaration to Sea Shipment, Air Shipment, or Transport Job for end-to-end visibility.
 

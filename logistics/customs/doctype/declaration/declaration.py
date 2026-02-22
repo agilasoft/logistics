@@ -191,6 +191,113 @@ class Declaration(Document):
 			frappe.log_error(f"Error calculating sustainability metrics for Declaration {self.name}: {e}", "Declaration Sustainability Error")
 	
 	@frappe.whitelist()
+	def get_dashboard_html(self):
+		"""Generate HTML for Dashboard tab: status, alerts, missing, exceptions, compliance."""
+		try:
+			from frappe.utils import getdate, today, date_diff
+
+			status = self.status or "Draft"
+			status_class = status.lower().replace(" ", "-").replace("/", "-")
+
+			# Status & key metrics row
+			metrics = []
+			metrics.append(("Status", status))
+			if self.declaration_type:
+				metrics.append(("Type", self.declaration_type))
+			if self.declaration_number:
+				metrics.append(("Declaration #", self.declaration_number))
+			if self.payment_status:
+				metrics.append(("Payment", self.payment_status))
+			if self.expected_clearance_date:
+				metrics.append(("Expected Clearance", str(self.expected_clearance_date)))
+			if self.actual_clearance_date:
+				metrics.append(("Actual Clearance", str(self.actual_clearance_date)))
+
+			metric_cards = "".join(
+				f'<div class="dash-card"><span class="dash-label">{m[0]}</span><span class="dash-value">{m[1]}</span></div>'
+				for m in metrics
+			)
+
+			# Document alerts (Declaration Document structure)
+			doc_alerts = []
+			today_date = getdate(today())
+			for d in (self.get("documents") or []):
+				if not getattr(d, "is_required", 0):
+					continue
+				st = (getattr(d, "status", None) or "").strip()
+				exp = getattr(d, "expiry_date", None)
+				att = getattr(d, "attachment", None)
+				doc_type = getattr(d, "document_type", None) or "Document"
+				if st in ("Expired", "Rejected") or (exp and getdate(exp) < today_date):
+					doc_alerts.append(("danger", f"{doc_type} – expired or rejected"))
+				elif not att and st in ("Pending", "Attached"):
+					doc_alerts.append(("warning", f"{doc_type} – pending"))
+				elif exp and date_diff(getdate(exp), today_date) <= 7 and date_diff(getdate(exp), today_date) >= 0:
+					doc_alerts.append(("info", f"{doc_type} – expires {exp}"))
+
+			# Missing permits
+			permits_alerts = []
+			for p in (self.get("permit_requirements") or []):
+				if getattr(p, "is_required", 0) and not getattr(p, "is_obtained", 0):
+					permits_alerts.append(getattr(p, "permit_type", None) or "Permit")
+
+			# Compliance / exceptions
+			exceptions = []
+			if self.status == "Rejected" and getattr(self, "rejection_reason", None):
+				exceptions.append(("Rejection", self.rejection_reason[:200]))
+			if self.payment_status == "Overdue":
+				exceptions.append(("Payment", "Payment overdue"))
+
+			# Build alerts HTML
+			alerts_html = ""
+			for level, msg in doc_alerts[:5]:
+				alerts_html += f'<div class="alert alert-{level} dash-alert">{msg}</div>'
+			if permits_alerts:
+				alerts_html += f'<div class="alert alert-warning dash-alert"><strong>Missing Permits:</strong> {", ".join(permits_alerts)}</div>'
+			for title, msg in exceptions[:3]:
+				alerts_html += f'<div class="alert alert-danger dash-alert"><strong>{title}:</strong> {msg}</div>'
+
+			html = f"""
+			<div class="decl-dashboard">
+				<div class="dash-header">
+					<div class="dash-status-badge {status_class}">{status}</div>
+					<div class="dash-metrics">{metric_cards}</div>
+				</div>
+				{f'<div class="dash-alerts">{alerts_html}</div>' if alerts_html else ''}
+				<div class="dash-summary">
+					<div class="dash-summary-item"><span class="dash-num">{len(self.commodities or [])}</span><span class="dash-desc">Commodities</span></div>
+					<div class="dash-summary-item"><span class="dash-num">{frappe.format_value(self.declaration_value or 0, df=dict(fieldtype="Currency"))}</span><span class="dash-desc">Value</span></div>
+					<div class="dash-summary-item"><span class="dash-num">{frappe.format_value(self.total_payable or 0, df=dict(fieldtype="Currency"))}</span><span class="dash-desc">Total Payable</span></div>
+				</div>
+			</div>
+			<style>
+			.decl-dashboard {{ font-family: inherit; font-size: 13px; }}
+			.dash-header {{ display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0; }}
+			.dash-status-badge {{ padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 12px; text-transform: uppercase; }}
+			.dash-status-badge.draft {{ background: #e2e3e5; color: #383d41; }}
+			.dash-status-badge.submitted {{ background: #cce5ff; color: #004085; }}
+			.dash-status-badge.in-progress {{ background: #fff3cd; color: #856404; }}
+			.dash-status-badge.approved {{ background: #d4edda; color: #155724; }}
+			.dash-status-badge.rejected {{ background: #f8d7da; color: #721c24; }}
+			.dash-status-badge.cancelled {{ background: #e2e3e5; color: #6c757d; }}
+			.dash-metrics {{ display: flex; gap: 12px; flex-wrap: wrap; }}
+			.dash-card {{ background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 6px 10px; min-width: 100px; }}
+			.dash-label {{ font-size: 10px; color: #6c757d; display: block; }}
+			.dash-value {{ font-size: 12px; font-weight: 600; color: #333; }}
+			.dash-alerts {{ margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }}
+			.dash-alert {{ margin: 0; padding: 8px 12px; font-size: 12px; border-radius: 4px; }}
+			.dash-summary {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+			.dash-summary-item {{ background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px 16px; min-width: 120px; text-align: center; }}
+			.dash-num {{ display: block; font-size: 16px; font-weight: 700; color: #007bff; }}
+			.dash-desc {{ font-size: 11px; color: #6c757d; }}
+			</style>
+			"""
+			return html
+		except Exception as e:
+			frappe.log_error(f"Declaration get_dashboard_html: {str(e)}", "Declaration Dashboard")
+			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
+	@frappe.whitelist()
 	def get_milestone_html(self):
 		"""Generate HTML for milestone visualization in Milestones tab."""
 		try:
