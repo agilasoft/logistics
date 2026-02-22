@@ -40,6 +40,10 @@
   "counts",
   "charges_tab",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "document_list_template",
+  "documents",
   "operations_tab",
   "operations",
   "job_totals_tab",
@@ -470,6 +474,30 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Warehouse Job Charges"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template",
+   "description": "Override default template. Leave empty to use product default."
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
   },
   {
    "fieldname": "dashboard_tab",

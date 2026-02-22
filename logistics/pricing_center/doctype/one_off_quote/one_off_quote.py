@@ -8,8 +8,36 @@ from frappe.utils import today, getdate
 
 
 class OneOffQuote(Document):
+	def before_validate(self):
+		"""Normalize legacy house_type values before validation"""
+		# Normalize legacy house_type values BEFORE validation runs
+		if hasattr(self, 'sea_house_type') and self.sea_house_type:
+			if self.sea_house_type == "Direct":
+				self.sea_house_type = "Standard House"
+			elif self.sea_house_type == "Consolidation":
+				self.sea_house_type = "Co-load Master"
+		
+		if hasattr(self, 'air_house_type') and self.air_house_type:
+			if self.air_house_type == "Direct":
+				self.air_house_type = "Standard House"
+			elif self.air_house_type == "Consolidation":
+				self.air_house_type = "Co-load Master"
+	
 	def validate(self):
 		"""One-Off Quote: one conversion per quote; when Converted, converted_to_doc must be set."""
+		# Normalize legacy house_type values (backup, in case before_validate didn't run)
+		if hasattr(self, 'sea_house_type') and self.sea_house_type:
+			if self.sea_house_type == "Direct":
+				self.sea_house_type = "Standard House"
+			elif self.sea_house_type == "Consolidation":
+				self.sea_house_type = "Co-load Master"
+		
+		if hasattr(self, 'air_house_type') and self.air_house_type:
+			if self.air_house_type == "Direct":
+				self.air_house_type = "Standard House"
+			elif self.air_house_type == "Consolidation":
+				self.air_house_type = "Co-load Master"
+		
 		if self.status == "Converted" and not self.converted_to_doc:
 			frappe.throw(_("Status is Converted but Converted To is not set."))
 
@@ -196,6 +224,16 @@ class OneOffQuote(Document):
 				),
 				"One-Off Quote: Invalid Freight Agent"
 			)
+		
+		# Set house_type from One-Off Quote if available
+		sea_house_type = getattr(self, "sea_house_type", None)
+		if sea_house_type:
+			# Normalize legacy values before setting
+			if sea_house_type == "Direct":
+				sea_house_type = "Standard House"
+			elif sea_house_type == "Consolidation":
+				sea_house_type = "Co-load Master"
+			sea_booking.house_type = sea_house_type
 		
 		sea_booking.company = self.company
 		sea_booking.branch = self.branch

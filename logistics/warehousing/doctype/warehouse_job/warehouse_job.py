@@ -4147,7 +4147,10 @@ def get_warehouse_dashboard_html(job_name):
 				"""
 		
 		job = frappe.get_doc("Warehouse Job", job_name)
-		return job.get_warehouse_dashboard_html(job_name)
+		html = job.get_warehouse_dashboard_html(job_name)
+		from logistics.document_management.api import get_document_alerts_html
+		doc_alerts = get_document_alerts_html("Warehouse Job", job_name)
+		return (doc_alerts + html) if doc_alerts else html
 		
 	except frappe.DoesNotExistError:
 		frappe.logger().error(f"Warehouse Job {job_name} does not exist")

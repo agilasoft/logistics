@@ -45,8 +45,14 @@
   "dg_emergency_email",
   "leg_plan_tab",
   "legs",
+  "milestones_tab",
+  "milestone_html",
   "charges_tab",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "document_list_template",
+  "documents",
   "accounts_tab",
   "company",
   "branch",
@@ -228,6 +234,30 @@
    "options": "Transport Job Charges"
   },
   {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template",
+   "description": "Override default template. Leave empty to use product default."
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
    "fieldname": "sla_tab",
    "fieldtype": "Tab Break",
    "label": "Service Level"
@@ -381,6 +411,16 @@
    "fieldname": "legs",
    "fieldtype": "Table",
    "options": "Transport Job Legs"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1
   },
   {
    "fieldname": "container_type",

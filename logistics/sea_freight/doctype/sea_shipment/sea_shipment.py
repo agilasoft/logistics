@@ -448,8 +448,12 @@ class SeaShipment(Document):
     def get_milestone_html(self):
         """Generate HTML for milestone visualization with map and cards"""
         try:
+            from logistics.document_management.api import get_document_alerts_html
+            doc_alerts = get_document_alerts_html("Sea Shipment", self.name or "new")
+
             if not self.origin_port or not self.destination_port:
-                return "<div class='alert alert-info'>Origin and Destination ports are required to display the milestone view.</div>"
+                base = "<div class='alert alert-info'>Origin and Destination ports are required to display the milestone view.</div>"
+                return doc_alerts + base if doc_alerts else base
             
             # Get milestone data
             milestones = frappe.get_all(
@@ -1022,8 +1026,7 @@ class SeaShipment(Document):
 		}}
 		</script>
 		"""
-            
-            return html
+            return (doc_alerts + html) if doc_alerts else html
             
         except Exception as e:
             frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Sea Shipment - Milestone HTML")

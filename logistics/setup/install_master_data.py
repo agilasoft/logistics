@@ -1827,6 +1827,41 @@ def install_logistics_milestones():
                     print(f"  ✓ Updated Milestone: {milestone_data['code']}")
         except Exception as e:
             print(f"  ❌ Error creating Milestone {milestone_data['code']}: {e}")
+
+    # Transport milestones
+    transport_milestones = [
+        {"code": "TR-PICKUP", "description": "Pick-Up", "sea_freight": 0, "air_freight": 0, "transport": 1, "customs": 0},
+        {"code": "TR-IN-TRANSIT", "description": "In-Transit", "sea_freight": 0, "air_freight": 0, "transport": 1, "customs": 0},
+        {"code": "TR-DELIVERED", "description": "Delivered", "sea_freight": 0, "air_freight": 0, "transport": 1, "customs": 0},
+    ]
+    for milestone_data in transport_milestones:
+        try:
+            if not frappe.db.exists("Logistics Milestone", milestone_data["code"]):
+                doc = frappe.new_doc("Logistics Milestone")
+                doc.update(milestone_data)
+                doc.insert()
+                created_count += 1
+                print(f"  ✅ Created Milestone: {milestone_data['code']} - {milestone_data['description']}")
+        except Exception as e:
+            print(f"  ❌ Error creating Milestone {milestone_data['code']}: {e}")
+
+    # Customs / Declaration milestones
+    customs_milestones = [
+        {"code": "DEC-SUBMITTED", "description": "Submitted", "sea_freight": 0, "air_freight": 0, "transport": 0, "customs": 1},
+        {"code": "DEC-UNDER-REVIEW", "description": "Under Review", "sea_freight": 0, "air_freight": 0, "transport": 0, "customs": 1},
+        {"code": "DEC-CLEARED", "description": "Customs Cleared", "sea_freight": 0, "air_freight": 0, "transport": 0, "customs": 1},
+        {"code": "DEC-REJECTED", "description": "Rejected", "sea_freight": 0, "air_freight": 0, "transport": 0, "customs": 1},
+    ]
+    for milestone_data in customs_milestones:
+        try:
+            if not frappe.db.exists("Logistics Milestone", milestone_data["code"]):
+                doc = frappe.new_doc("Logistics Milestone")
+                doc.update(milestone_data)
+                doc.insert()
+                created_count += 1
+                print(f"  ✅ Created Milestone: {milestone_data['code']} - {milestone_data['description']}")
+        except Exception as e:
+            print(f"  ❌ Error creating Milestone {milestone_data['code']}: {e}")
     
     print(f"📊 Logistics Milestones: {created_count} created/updated")
 

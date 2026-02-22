@@ -140,6 +140,10 @@
   "charges_tab",
   "sales_quote",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "document_list_template",
+  "documents",
   "billing_automation_section",
   "auto_billing_enabled",
   "billing_status",
@@ -197,6 +201,13 @@
   "accrual_adjustment_journal_entry",
   "accrual_closed",
   "more_info_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
   "sustainability_section",
   "estimated_carbon_footprint",
   "estimated_fuel_consumption",
@@ -920,6 +931,30 @@
    "options": "Air Shipment Charges"
   },
   {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template",
+   "description": "Override default template. Leave empty to use product default."
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
    "collapsible": 1,
    "fieldname": "casslink_section",
    "fieldtype": "Section Break",
@@ -1258,6 +1293,44 @@
    "options": "Air Shipment Services"
   },
   {
+   "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
+  },
+  {
    "fieldname": "connections_tab",
    "fieldtype": "Tab Break",
    "label": "Connections",
@@ -1441,7 +1514,7 @@
   {
    "fieldname": "milestones_tab",
    "fieldtype": "Tab Break",
-   "label": "Dashboard"
+   "label": "Milestones"
   },
   {
    "fieldname": "milestone_html",
@@ -1558,7 +1631,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-20 14:55:43.028961",
+ "modified": "2026-02-21 22:27:55.799246",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

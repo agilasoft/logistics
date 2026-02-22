@@ -282,6 +282,22 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	refresh: function(frm) {
+		// Populate Documents from Template
+		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+			frm.add_custom_button(__('Populate from Template'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_documents_from_template',
+					args: { doctype: 'Transport Order', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Documents'));
+		}
+
 		// Helper function to execute refresh operations
 		var do_refresh_ops = function() {
 		// Guard: Skip database queries if document name is temporary (just saved, not committed yet)

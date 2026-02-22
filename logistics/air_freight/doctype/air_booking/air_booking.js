@@ -26,6 +26,22 @@ frappe.ui.form.on('Air Booking', {
 	},
 	
 	refresh: function(frm) {
+		// Populate Documents from Template
+		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+			frm.add_custom_button(__('Populate from Template'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_documents_from_template',
+					args: { doctype: 'Air Booking', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Documents'));
+		}
+
 		// Add button to fetch quotations (only when doc is saved to avoid "Air Booking not found")
 		if (frm.doc.sales_quote && !frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__('Fetch Quotations'), function() {
@@ -108,6 +124,155 @@ frappe.ui.form.on('Air Booking', {
 		
 		// Setup query filter for quote field based on quote_type
 		_setup_quote_query(frm);
+		
+		// Populate address/contact display fields when missing (e.g. loading older docs)
+		_populate_address_contact_displays_if_missing(frm);
+	},
+	
+	setup: function(frm) {
+		// Filter address/contact by selected shipper/consignee (via Dynamic Link)
+		frm.set_query('shipper_address', function() {
+			if (frm.doc.shipper) {
+				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Shipper'], ['Dynamic Link', 'link_name', '=', frm.doc.shipper]] };
+			}
+			return {};
+		});
+		frm.set_query('shipper_contact', function() {
+			if (frm.doc.shipper) {
+				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Shipper'], ['Dynamic Link', 'link_name', '=', frm.doc.shipper]] };
+			}
+			return {};
+		});
+		frm.set_query('consignee_address', function() {
+			if (frm.doc.consignee) {
+				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', frm.doc.consignee]] };
+			}
+			return {};
+		});
+		frm.set_query('consignee_contact', function() {
+			if (frm.doc.consignee) {
+				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', frm.doc.consignee]] };
+			}
+			return {};
+		});
+	},
+	
+	shipper: function(frm) {
+		// Clear address/contact when shipper changes; optionally populate from primary
+		if (!frm.doc.shipper) {
+			frm.set_value('shipper_address', '');
+			frm.set_value('shipper_address_display', '');
+			frm.set_value('shipper_contact', '');
+			frm.set_value('shipper_contact_display', '');
+			return;
+		}
+		frappe.db.get_value('Shipper', frm.doc.shipper, ['shipper_primary_address', 'shipper_primary_contact'], function(r) {
+			if (r && r.shipper_primary_address) {
+				frm.set_value('shipper_address', r.shipper_primary_address);
+				frm.trigger('shipper_address');
+			}
+			if (r && r.shipper_primary_contact) {
+				frm.set_value('shipper_contact', r.shipper_primary_contact);
+				frm.trigger('shipper_contact');
+			}
+		});
+	},
+	
+	consignee: function(frm) {
+		// Clear address/contact when consignee changes; optionally populate from primary
+		if (!frm.doc.consignee) {
+			frm.set_value('consignee_address', '');
+			frm.set_value('consignee_address_display', '');
+			frm.set_value('consignee_contact', '');
+			frm.set_value('consignee_contact_display', '');
+			return;
+		}
+		frappe.db.get_value('Consignee', frm.doc.consignee, ['consignee_primary_address', 'consignee_primary_contact'], function(r) {
+			if (r && r.consignee_primary_address) {
+				frm.set_value('consignee_address', r.consignee_primary_address);
+				frm.trigger('consignee_address');
+			}
+			if (r && r.consignee_primary_contact) {
+				frm.set_value('consignee_contact', r.consignee_primary_contact);
+				frm.trigger('consignee_contact');
+			}
+		});
+	},
+	
+	shipper_address: function(frm) {
+		if (frm.doc.shipper_address) {
+			frappe.call({
+				method: 'frappe.contacts.doctype.address.address.get_address_display',
+				args: { address_dict: frm.doc.shipper_address },
+				callback: function(r) {
+					frm.set_value('shipper_address_display', r.message || '');
+				}
+			});
+		} else {
+			frm.set_value('shipper_address_display', '');
+		}
+	},
+	
+	consignee_address: function(frm) {
+		if (frm.doc.consignee_address) {
+			frappe.call({
+				method: 'frappe.contacts.doctype.address.address.get_address_display',
+				args: { address_dict: frm.doc.consignee_address },
+				callback: function(r) {
+					frm.set_value('consignee_address_display', r.message || '');
+				}
+			});
+		} else {
+			frm.set_value('consignee_address_display', '');
+		}
+	},
+	
+	shipper_contact: function(frm) {
+		if (frm.doc.shipper_contact) {
+			frappe.call({
+				method: 'frappe.client.get',
+				args: { doctype: 'Contact', name: frm.doc.shipper_contact },
+				callback: function(r) {
+					if (r.message) {
+						const c = r.message;
+						let txt = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.name;
+						if (c.designation) txt += '\n' + c.designation;
+						if (c.phone) txt += '\n' + c.phone;
+						if (c.mobile_no) txt += '\n' + c.mobile_no;
+						if (c.email_id) txt += '\n' + c.email_id;
+						frm.set_value('shipper_contact_display', txt);
+					} else {
+						frm.set_value('shipper_contact_display', '');
+					}
+				}
+			});
+		} else {
+			frm.set_value('shipper_contact_display', '');
+		}
+	},
+	
+	consignee_contact: function(frm) {
+		if (frm.doc.consignee_contact) {
+			frappe.call({
+				method: 'frappe.client.get',
+				args: { doctype: 'Contact', name: frm.doc.consignee_contact },
+				callback: function(r) {
+					if (r.message) {
+						const c = r.message;
+						let txt = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.name;
+						if (c.designation) txt += '\n' + c.designation;
+						if (c.phone) txt += '\n' + c.phone;
+						if (c.mobile_no) txt += '\n' + c.mobile_no;
+						if (c.email_id) txt += '\n' + c.email_id;
+						frm.set_value('consignee_contact_display', txt);
+					} else {
+						frm.set_value('consignee_contact_display', '');
+					}
+				}
+			});
+		} else {
+			frm.set_value('consignee_contact_display', '');
+		}
 	},
 	
 	sales_quote: function(frm) {
@@ -464,6 +629,21 @@ function _calculate_and_set_package_chargeable_weight(frm, cdt, cdn, divisor) {
 }
 
 // Setup query filter for quote field to exclude already-used One-Off Quotes and filter by is_air
+function _populate_address_contact_displays_if_missing(frm) {
+	if (frm.doc.shipper_address && !frm.doc.shipper_address_display) {
+		frm.trigger('shipper_address');
+	}
+	if (frm.doc.consignee_address && !frm.doc.consignee_address_display) {
+		frm.trigger('consignee_address');
+	}
+	if (frm.doc.shipper_contact && !frm.doc.shipper_contact_display) {
+		frm.trigger('shipper_contact');
+	}
+	if (frm.doc.consignee_contact && !frm.doc.consignee_contact_display) {
+		frm.trigger('consignee_contact');
+	}
+}
+
 function _setup_quote_query(frm) {
 	if (frm.doc.quote_type === 'One-Off Quote') {
 		// Load available One-Off Quotes filters

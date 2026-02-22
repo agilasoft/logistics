@@ -22,7 +22,7 @@
    "fieldname": "job_type",
    "fieldtype": "Link",
    "label": "Job Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Air Shipment\",\"Sea Shipment\",\"Transport Job\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Air Shipment\",\"Sea Shipment\",\"Transport Job\",\"Declaration\"]]]",
    "options": "DocType"
   },
   {

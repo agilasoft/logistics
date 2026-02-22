@@ -32,6 +32,7 @@
   "sea_transport_mode",
   "shipping_line",
   "freight_agent_sea",
+  "sea_house_type",
   "column_break_oo_sea",
   "sea_weight",
   "sea_volume",
@@ -217,6 +218,13 @@
    "fieldtype": "Link",
    "label": "Freight Agent",
    "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:doc.is_sea",
+   "fieldname": "sea_house_type",
+   "fieldtype": "Select",
+   "label": "House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
    "depends_on": "eval:doc.is_sea",

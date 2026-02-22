@@ -798,6 +798,53 @@ class TransportJob(Document):
                     # Fallback to Submitted if we can't determine
                     self.status = "Submitted"
     
+    @frappe.whitelist()
+    def get_milestone_html(self):
+        """Generate HTML for milestone visualization in Milestones tab."""
+        try:
+            from logistics.document_management.milestone_html import build_milestone_html
+
+            legs = self.get("legs") or []
+            origin_name = "Pickup"
+            destination_name = "Delivery"
+            if legs:
+                first = legs[0]
+                last = legs[-1]
+                origin_name = first.get("facility_from") or first.get("pick_address") or "Pickup"
+                destination_name = last.get("facility_to") or last.get("drop_address") or "Delivery"
+
+            milestones = frappe.get_all(
+                "Job Milestone",
+                filters={"job_type": "Transport Job", "job_number": self.name},
+                fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+                order_by="planned_start",
+            )
+
+            customer_name = self.customer or ""
+            detail_items = [
+                ("Customer", customer_name),
+                ("Status", self.status),
+                ("Scheduled", str(self.scheduled_date) if self.scheduled_date else ""),
+            ]
+
+            def format_dt(dt):
+                return frappe.utils.format_datetime(dt) if dt else None
+
+            return build_milestone_html(
+                doctype="Transport Job",
+                docname=self.name or "new",
+                origin_name=origin_name,
+                destination_name=destination_name,
+                detail_items=detail_items,
+                milestones=milestones,
+                format_datetime_fn=format_dt,
+                origin_party_name=customer_name,
+                destination_party_name="",
+            )
+        except Exception as e:
+            frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Transport Job - Milestone HTML")
+            return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
+
     def _trigger_auto_billing(self):
         """Trigger auto-billing if enabled"""
         try:

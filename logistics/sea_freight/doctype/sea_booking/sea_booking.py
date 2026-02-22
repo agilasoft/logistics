@@ -21,9 +21,18 @@ def _sync_quote_and_sales_quote(doc):
 
 
 class SeaBooking(Document):
+	def before_validate(self):
+		"""Normalize legacy house_type values before validation"""
+		# Normalize legacy house_type values BEFORE _validate_selects() runs
+		if hasattr(self, 'house_type') and self.house_type:
+			if self.house_type == "Direct":
+				self.house_type = "Standard House"
+			elif self.house_type == "Consolidation":
+				self.house_type = "Co-load Master"
+	
 	def validate(self):
 		"""Validate Sea Booking data"""
-		# Normalize legacy house_type values
+		# Normalize legacy house_type values (backup, in case before_validate didn't run)
 		if hasattr(self, 'house_type') and self.house_type:
 			if self.house_type == "Direct":
 				self.house_type = "Standard House"
@@ -75,6 +84,7 @@ class SeaBooking(Document):
 			self.aggregate_volume_from_packages()
 			self.aggregate_weight_from_packages()
 		self.calculate_chargeable_weight()
+		self._update_packing_summary()
 		
 		# Warn if accounting fields are missing (needed for conversion to shipment)
 		if self.docstatus == 1:  # Only warn if submitted
@@ -213,6 +223,23 @@ class SeaBooking(Document):
 		# Default to 1000 (equivalent to 1000 kg/m³ factor, common sea freight standard)
 		return 1000.0
 	
+	def _update_packing_summary(self):
+		"""Update total_containers, total_teus, total_packages from child tables. (volume/weight are the main fields.)"""
+		containers = getattr(self, "containers", []) or []
+		packages = getattr(self, "packages", []) or []
+		
+		self.total_containers = len(containers)
+		
+		total_teus = 0
+		for c in containers:
+			ct = getattr(c, "type", None)
+			if ct:
+				teu = frappe.db.get_value("Container Type", ct, "teu_count")
+				total_teus += flt(teu) or 0
+		self.total_teus = total_teus
+		
+		self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
+	
 	@frappe.whitelist()
 	def aggregate_volume_from_packages_api(self):
 		"""Whitelisted API method to aggregate volume and weight from packages for client-side calls."""
@@ -220,10 +247,14 @@ class SeaBooking(Document):
 			self.aggregate_volume_from_packages()
 			self.aggregate_weight_from_packages()
 		self.calculate_chargeable_weight()
+		self._update_packing_summary()
 		return {
 			"volume": getattr(self, "volume", 0),
 			"weight": getattr(self, "weight", 0),
-			"chargeable": getattr(self, "chargeable", 0)
+			"chargeable": getattr(self, "chargeable", 0),
+			"total_containers": getattr(self, "total_containers", 0),
+			"total_teus": getattr(self, "total_teus", 0),
+			"total_packages": getattr(self, "total_packages", 0),
 		}
 	
 	def before_submit(self):
@@ -442,6 +473,10 @@ class SeaBooking(Document):
 				self.cost_center = sales_quote.cost_center
 			if not self.profit_center:
 				self.profit_center = sales_quote.profit_center
+			if not self.tc_name:
+				self.tc_name = getattr(sales_quote, 'tc_name', None)
+			if not self.terms:
+				self.terms = getattr(sales_quote, 'terms', None)
 			
 			# Populate charges from Sales Quote Sea Freight (if child table exists)
 			sea_freight_exists = frappe.db.exists("Sales Quote Sea Freight", {
@@ -1019,6 +1054,15 @@ class SeaBooking(Document):
 				sea_shipment.dg_emergency_phone = self.dg_emergency_phone
 			if hasattr(self, "dg_emergency_email"):
 				sea_shipment.dg_emergency_email = self.dg_emergency_email
+			# Copy notes and terms
+			if hasattr(self, "tc_name") and self.tc_name:
+				sea_shipment.tc_name = self.tc_name
+			if hasattr(self, "terms") and self.terms:
+				sea_shipment.terms = self.terms
+			if hasattr(self, "internal_notes") and self.internal_notes:
+				sea_shipment.internal_notes = self.internal_notes
+			if hasattr(self, "client_notes") and self.client_notes:
+				sea_shipment.client_notes = self.client_notes
 			
 			# Copy address and contact from Booking if set
 			if hasattr(self, "shipper_address") and self.shipper_address:

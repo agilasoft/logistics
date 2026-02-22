@@ -128,6 +128,8 @@
   "documents_tab",
   "documents_section",
   "documents",
+  "milestones_tab",
+  "milestone_html",
   "permits_tab",
   "permits_section",
   "permit_requirements",
@@ -824,6 +826,16 @@
    "fieldtype": "Table",
    "label": "Documents",
    "options": "Declaration Document"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1
   },
   {
    "fieldname": "permits_tab",

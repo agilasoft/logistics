@@ -156,8 +156,8 @@ function apply_settings_defaults(frm) {
 					frm.set_value("consolidation_type", settings.default_consolidation_type);
 				}
 				
-				// Mark as applied
-				frm.set_value("_settings_applied", 1);
+				// Mark as applied (virtual field - set directly on doc)
+				frm.doc._settings_applied = 1;
 					}
 				}
 			});

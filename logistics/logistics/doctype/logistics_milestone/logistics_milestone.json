@@ -11,7 +11,8 @@
   "column_break_rydr",
   "air_freight",
   "sea_freight",
-  "transport"
+  "transport",
+  "customs"
  ],
  "fields": [
   {
@@ -46,6 +47,12 @@
    "fieldname": "transport",
    "fieldtype": "Check",
    "label": "Transport"
+  },
+  {
+   "fieldname": "customs",
+   "fieldtype": "Check",
+   "label": "Customs",
+   "default": "0"
   }
  ],
  "grid_page_length": 50,

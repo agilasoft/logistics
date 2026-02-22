@@ -30,41 +30,20 @@
   "destination_port",
   "eta",
   "column_break_destination",
-  "routing_tab",
-  "routing_section",
-  "routing_legs",
   "house_details_section",
   "house_awb",
   "incoterm",
   "additional_terms",
+  "description",
   "column_break_house",
   "packs",
   "inner",
   "goods_value",
   "insurance",
-  "section_break_description",
-  "description",
-  "column_break_marks",
   "marks_and_nos",
-  "contacts_and_addresses_section",
-  "shipper_address",
-  "shipper_address_display",
-  "column_break_addr",
-  "consignee_address",
-  "consignee_address_display",
-  "section_break_contacts",
-  "shipper_contact",
-  "shipper_contact_display",
-  "column_break_contacts",
-  "consignee_contact",
-  "consignee_contact_display",
-  "section_break_notify",
-  "notify_party",
-  "column_break_notify",
-  "notify_party_address",
-  "services_section",
-  "services",
   "packing_tab",
+  "routing_section",
+  "routing_legs",
   "packages_section",
   "packages",
   "section_break_summary",
@@ -81,16 +60,32 @@
   "column_break_ibfp",
   "density_factor_html",
   "contains_dangerous_goods",
-  "dangerous_goods_tab",
-  "dangerous_goods_section",
-  "dg_declaration_complete",
-  "dg_compliance_status",
-  "column_break_dg",
-  "dg_emergency_contact",
-  "dg_emergency_phone",
-  "dg_emergency_email",
+  "contacts_addresses",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_addr",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_contacts",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_contacts",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_notify",
+  "notify_party",
+  "column_break_notify",
+  "notify_party_address",
+  "services_tab",
+  "services_section",
+  "services",
   "charges_tab",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "document_list_template",
+  "documents",
   "accounts_tab",
   "company",
   "branch",
@@ -103,11 +98,22 @@
   "quote",
   "sales_quote",
   "project",
-  "notes_tab",
+  "more_info_tab",
+  "notes_section",
   "internal_notes",
   "column_break_notes",
   "client_notes",
-  "amended_from"
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
+  "amended_from",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email"
  ],
  "fields": [
   {
@@ -263,7 +269,7 @@
   {
    "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
-   "label": "Packing"
+   "label": "Packing & Routing"
   },
   {
    "fieldname": "section_break_summary",
@@ -340,6 +346,7 @@
    "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
   },
   {
+   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -351,11 +358,7 @@
    "options": "Air Booking Packages"
   },
   {
-   "fieldname": "routing_tab",
-   "fieldtype": "Tab Break",
-   "label": "Routing"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -367,6 +370,7 @@
    "options": "Air Booking Routing Leg"
   },
   {
+   "collapsible": 1,
    "fieldname": "house_details_section",
    "fieldtype": "Section Break",
    "label": "House Details"
@@ -407,17 +411,9 @@
    "label": "Insurance"
   },
   {
-   "fieldname": "section_break_description",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "description",
    "fieldtype": "Long Text",
    "label": "Description"
-  },
-  {
-   "fieldname": "column_break_marks",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "marks_and_nos",
@@ -524,15 +520,10 @@
    "label": "Contains Dangerous Goods"
   },
   {
-   "depends_on": "eval:doc.contains_dangerous_goods",
-   "fieldname": "dangerous_goods_tab",
-   "fieldtype": "Tab Break",
-   "label": "Dangerous Goods"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
-   "label": "Declaration & Emergency Response"
+   "label": "Dangerous Goods"
   },
   {
    "default": "0",
@@ -580,6 +571,29 @@
    "options": "Air Booking Charges"
   },
   {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
    "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
@@ -625,11 +639,6 @@
    "options": "Job Costing Number"
   },
   {
-   "fieldname": "notes_tab",
-   "fieldtype": "Tab Break",
-   "label": "Notes"
-  },
-  {
    "fieldname": "internal_notes",
    "fieldtype": "Text Editor",
    "label": "Internal Notes"
@@ -642,6 +651,24 @@
    "fieldname": "client_notes",
    "fieldtype": "Text Editor",
    "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
   },
   {
    "fieldname": "details_tab",
@@ -677,12 +704,33 @@
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Quote Reference"
+  },
+  {
+   "fieldname": "contacts_addresses",
+   "fieldtype": "Tab Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 11:15:13.581610",
+ "modified": "2026-02-22 00:30:46.285193",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",

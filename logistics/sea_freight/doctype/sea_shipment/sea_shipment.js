@@ -44,6 +44,22 @@ frappe.ui.form.on('Sea Shipment', {
     },
     
     refresh: function(frm) {
+        // Populate Documents from Template
+        if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+            frm.add_custom_button(__('Populate from Template'), function() {
+                frappe.call({
+                    method: 'logistics.document_management.api.populate_documents_from_template',
+                    args: { doctype: 'Sea Shipment', docname: frm.doc.name },
+                    callback: function(r) {
+                        if (r.message && r.message.added !== undefined) {
+                            frm.reload_doc();
+                            frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+                        }
+                    }
+                });
+            }, __('Documents'));
+        }
+
         // Load milestone HTML if milestone_html field exists
         if (frm.fields_dict.milestone_html) {
             if (!frm._milestone_html_called) {

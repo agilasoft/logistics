@@ -3,6 +3,21 @@
 
 frappe.ui.form.on("Declaration", {
 	refresh(frm) {
+		// Load milestone HTML in Milestones tab
+		if (frm.fields_dict.milestone_html) {
+			if (!frm._milestone_html_called) {
+				frm._milestone_html_called = true;
+				frm.call('get_milestone_html').then(r => {
+					if (r.message) {
+						const $wrapper = frm.get_field('milestone_html').$wrapper;
+						if ($wrapper) $wrapper.html(r.message);
+					}
+				}).catch(() => {}).finally(() => {
+					setTimeout(() => { frm._milestone_html_called = false; }, 2000);
+				});
+			}
+		}
+
 		// Add custom button to create Sales Invoice if declaration is submitted
 		if (frm.doc.docstatus === 1 && !frm.doc.__islocal) {
 			// Check if Sales Invoice already exists

@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-02-21 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "document_type",
+  "sequence",
+  "is_mandatory",
+  "column_break_1",
+  "date_required_basis",
+  "days_offset",
+  "allow_early_upload",
+  "section_break_desc",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Document Type",
+   "options": "Logistics Document Type",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_mandatory",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Mandatory"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date_required_basis",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Date Required Basis",
+   "options": "\nETD\nETA\nBooking Date\nJob Date\nManual\nNone"
+  },
+  {
+   "default": "0",
+   "fieldname": "days_offset",
+   "fieldtype": "Int",
+   "label": "Days Offset",
+   "description": "Negative = before basis date, Positive = after"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_early_upload",
+   "fieldtype": "Check",
+   "label": "Allow Early Upload"
+  },
+  {
+   "fieldname": "section_break_desc",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-02-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Document List Template Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "sequence",
+ "sort_order": "ASC",
+ "states": []
+}

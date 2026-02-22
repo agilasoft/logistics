@@ -1,3 +1,4 @@
+[pre_model_sync]
 logistics.warehousing.patches.add_wsl_indexes
 logistics.warehousing.patches.add_putaway_indexes
 logistics.warehousing.patches.setup_warehouse_roles
@@ -26,3 +27,7 @@ logistics.special_projects.patches.add_project_field_to_warehouse_job
 logistics.special_projects.patches.fix_special_projects_by_status_chart_type
 logistics.special_projects.patches.remove_project_custom_fields_for_doctype_json
 logistics.patches.v1_0_add_invoice_integration_fields
+
+[post_model_sync]
+logistics.patches.v1_0_install_document_types
+logistics.patches.v1_0_install_warehousing_document_template

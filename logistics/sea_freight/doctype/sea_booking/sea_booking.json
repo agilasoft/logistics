@@ -92,6 +92,10 @@
   "dg_emergency_email",
   "charges_tab",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "document_list_template",
+  "documents",
   "accounts_tab",
   "company",
   "branch",
@@ -107,6 +111,9 @@
   "internal_notes",
   "column_break_notes",
   "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
   "amended_from"
  ],
  "fields": [
@@ -596,6 +603,30 @@
    "options": "Sea Booking Charges"
   },
   {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template",
+   "description": "Override default template. Leave empty to use product default."
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
    "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
@@ -655,6 +686,24 @@
    "fieldname": "client_notes",
    "fieldtype": "Text Editor",
    "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
   },
   {
    "fieldname": "details_tab",

@@ -190,6 +190,49 @@ class Declaration(Document):
 		except Exception as e:
 			frappe.log_error(f"Error calculating sustainability metrics for Declaration {self.name}: {e}", "Declaration Sustainability Error")
 	
+	@frappe.whitelist()
+	def get_milestone_html(self):
+		"""Generate HTML for milestone visualization in Milestones tab."""
+		try:
+			from logistics.document_management.milestone_html import build_milestone_html
+
+			origin_name = getattr(self, "port_of_loading", None) or "Port of Loading"
+			destination_name = getattr(self, "port_of_discharge", None) or "Port of Discharge"
+
+			milestones = frappe.get_all(
+				"Job Milestone",
+				filters={"job_type": "Declaration", "job_number": self.name},
+				fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+				order_by="planned_start",
+			)
+
+			detail_items = [
+				("Status", self.status or ""),
+				("Declaration Type", getattr(self, "declaration_type", None) or ""),
+				("Submission Date", str(self.submission_date) if getattr(self, "submission_date", None) else ""),
+				("Approval Date", str(self.approval_date) if getattr(self, "approval_date", None) else ""),
+				("Actual Clearance", str(self.actual_clearance_date) if getattr(self, "actual_clearance_date", None) else ""),
+			]
+			detail_items = [(l, v) for l, v in detail_items if v]
+
+			def format_dt(dt):
+				return frappe.utils.format_datetime(dt) if dt else None
+
+			return build_milestone_html(
+				doctype="Declaration",
+				docname=self.name or "new",
+				origin_name=origin_name,
+				destination_name=destination_name,
+				detail_items=detail_items,
+				milestones=milestones,
+				format_datetime_fn=format_dt,
+				origin_party_name=getattr(self, "exporter_shipper", None) or "",
+				destination_party_name=getattr(self, "importer_consignee", None) or "",
+			)
+		except Exception as e:
+			frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Declaration - Milestone HTML")
+			return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
+
 	def record_sustainability_metrics(self):
 		"""Record sustainability metrics in the centralized system"""
 		try:

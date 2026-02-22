@@ -178,6 +178,37 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	refresh: function(frm) {
+		// Populate Documents from Template
+		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+			frm.add_custom_button(__('Populate from Template'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_documents_from_template',
+					args: { doctype: 'Transport Job', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Documents'));
+		}
+
+		// Load milestone HTML in Milestones tab
+		if (frm.fields_dict.milestone_html) {
+			if (!frm._milestone_html_called) {
+				frm._milestone_html_called = true;
+				frm.call('get_milestone_html').then(r => {
+					if (r.message) {
+						const $wrapper = frm.get_field('milestone_html').$wrapper;
+						if ($wrapper) $wrapper.html(r.message);
+					}
+				}).catch(() => {}).finally(() => {
+					setTimeout(() => { frm._milestone_html_called = false; }, 2000);
+				});
+			}
+		}
+
 		// Control toolbar buttons: Only primary Save and Submit buttons, no dropdown
 		// Submit button only appears after document is saved (like Transport Order)
 		// Use setTimeout to run after Frappe's toolbar setup

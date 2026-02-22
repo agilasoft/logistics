@@ -43,6 +43,22 @@ frappe.ui.form.on("Air Shipment", {
 		}
 	},
 	refresh(frm) {
+		// Populate Documents from Template
+		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+			frm.add_custom_button(__('Populate from Template'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_documents_from_template',
+					args: { doctype: 'Air Shipment', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Documents'));
+		}
+
 		// Add button to load charges from Sales Quote
 		if (frm.doc.sales_quote && !frm.is_new()) {
 			frm.add_custom_button(__('Load Charges from Sales Quote'), function() {
@@ -1134,8 +1150,8 @@ function apply_settings_defaults(frm) {
 								frm.set_value("uld_type", settings.default_uld_type);
 							}
 							
-							// Mark as applied
-							frm.set_value("_settings_applied", 1);
+							// Mark as applied (virtual field - set directly on doc)
+							frm.doc._settings_applied = 1;
 						}
 					}
 				});

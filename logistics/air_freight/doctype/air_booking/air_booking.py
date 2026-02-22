@@ -335,6 +335,7 @@ class AirBooking(Document):
 				"customer", "shipper", "consignee", "location_from", "location_to",
 				"air_direction", "weight", "volume", "chargeable",
 				"service_level", "incoterm", "additional_terms", "airline",
+				"tc_name", "terms",
 				"freight_agent", "air_house_type", "air_release_type", "air_entry_type",
 				"air_etd", "air_eta", "air_house_bl", "air_packs", "air_inner",
 				"air_gooda_value", "air_insurance", "air_description", "air_marks_and_nos",
@@ -416,6 +417,10 @@ class AirBooking(Document):
 				self.cost_center = sales_quote_data.get("cost_center")
 			if not self.profit_center:
 				self.profit_center = sales_quote_data.get("profit_center")
+			if not self.tc_name:
+				self.tc_name = sales_quote_data.get("tc_name")
+			if not self.terms:
+				self.terms = sales_quote_data.get("terms")
 			
 			# Sync quote_type and quote with sales_quote to prevent them from being cleared on reload
 			# This ensures the quotation fields stay in sync after fetch_quotations
@@ -1042,6 +1047,15 @@ class AirBooking(Document):
 				air_shipment.dg_emergency_phone = self.dg_emergency_phone
 			if hasattr(self, "dg_emergency_email"):
 				air_shipment.dg_emergency_email = self.dg_emergency_email
+			# Copy notes and terms
+			if hasattr(self, "tc_name") and self.tc_name:
+				air_shipment.tc_name = self.tc_name
+			if hasattr(self, "terms") and self.terms:
+				air_shipment.terms = self.terms
+			if hasattr(self, "internal_notes") and self.internal_notes:
+				air_shipment.internal_notes = self.internal_notes
+			if hasattr(self, "client_notes") and self.client_notes:
+				air_shipment.client_notes = self.client_notes
 			
 			# Copy services if they exist (from Air Booking Services to Air Shipment Services)
 			if hasattr(self, 'services') and self.services:
@@ -1193,4 +1207,71 @@ class AirBooking(Document):
 				"Air Booking - Convert to Shipment Error"
 			)
 			frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]:
+	"""Get list of One-Off Quotes that are not yet linked to an Air Booking and not converted.
+
+	Excludes One-Off Quotes that are:
+	1. Already linked to another Air Booking
+	2. Already converted (status = "Converted" or converted_to_doc is set)
+
+	This prevents users from selecting quotes that have already been converted or used.
+	"""
+	try:
+		# Get all One-Off Quotes already linked to Air Bookings (excluding current booking)
+		used_quotes = frappe.get_all(
+			"Air Booking",
+			filters={
+				"quote_type": "One-Off Quote",
+				"quote": ["is", "set"],
+				"name": ["!=", air_booking_name or ""]
+			},
+			pluck="quote"
+		)
+
+		# Get all converted One-Off Quotes (status = "Converted" or converted_to_doc is set)
+		converted_quotes = frappe.get_all(
+			"One-Off Quote",
+			filters={
+				"status": "Converted"
+			},
+			pluck="name"
+		)
+
+		# Also get quotes with converted_to_doc set (in case status wasn't updated)
+		quotes_with_conversion = frappe.get_all(
+			"One-Off Quote",
+			filters={
+				"converted_to_doc": ["is", "set"]
+			},
+			pluck="name"
+		)
+
+		# Combine all excluded quotes
+		excluded_quotes = list(set(used_quotes + converted_quotes + quotes_with_conversion))
+
+		# Return filter to exclude used and converted quotes
+		filters = {}
+		if excluded_quotes:
+			filters["name"] = ["not in", excluded_quotes]
+
+		# Also filter to only show One-Off Quotes that have air enabled
+		def _has_field(doctype: str, fieldname: str) -> bool:
+			try:
+				return frappe.get_meta(doctype).has_field(fieldname)
+			except Exception:
+				return False
+
+		if _has_field("One-Off Quote", "is_air"):
+			filters["is_air"] = 1
+
+		return {"filters": filters}
+	except Exception as e:
+		frappe.log_error(
+			f"Error getting available One-Off Quotes: {str(e)}",
+			"Air Booking Quote Query Error"
+		)
+		return {"filters": {}}
 
