@@ -30,7 +30,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Product Type",
-   "options": "Air Freight\nSea Freight\nTransport\nCustoms\nWarehousing\nGeneral",
+   "options": "Air Freight\nSea Freight\nTransport\nCustoms\nWarehousing\nSpecial Projects\nGeneral",
    "reqd": 1
   },
   {

@@ -103,3 +103,33 @@ def charge_scoping_costs(special_project):
 	if changed:
 		doc.save()
 	return "Scoping costs charged."
+
+
+@frappe.whitelist()
+def get_cost_revenue_summary(special_project):
+	"""Return HTML for Cost & Revenue Summary from jobs table."""
+	if not special_project:
+		return ""
+	doc = frappe.get_doc("Special Project", special_project)
+	jobs = doc.get("jobs") or []
+
+	planned_cost = sum((j.planned_cost or 0) for j in jobs)
+	actual_cost = sum((j.actual_cost or 0) for j in jobs)
+	planned_revenue = sum((j.planned_revenue or 0) for j in jobs)
+	actual_revenue = sum((j.actual_revenue or 0) for j in jobs)
+	planned_margin = planned_revenue - planned_cost if planned_revenue or planned_cost else None
+	actual_margin = actual_revenue - actual_cost if actual_revenue or actual_cost else None
+
+	def fmt(v):
+		return frappe.format_value(v, df={"fieldtype": "Currency"}) if v is not None else "—"
+
+	rows = [
+		f"<tr><td>{_('Planned Cost')}</td><td class='text-right'>{fmt(planned_cost)}</td>"
+		f"<td>{_('Planned Revenue')}</td><td class='text-right'>{fmt(planned_revenue)}</td></tr>",
+		f"<tr><td>{_('Actual Cost')}</td><td class='text-right'>{fmt(actual_cost)}</td>"
+		f"<td>{_('Actual Revenue')}</td><td class='text-right'>{fmt(actual_revenue)}</td></tr>",
+		f"<tr><td>{_('Planned Margin')}</td><td class='text-right'>{fmt(planned_margin)}</td>"
+		f"<td>{_('Actual Margin')}</td><td class='text-right'>{fmt(actual_margin)}</td></tr>",
+	]
+	html = f'<table class="table table-bordered table-sm" style="max-width: 500px;"><tbody>{"".join(rows)}</tbody></table>'
+	return html

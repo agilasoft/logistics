@@ -31,3 +31,4 @@ logistics.patches.v1_0_add_invoice_integration_fields
 [post_model_sync]
 logistics.patches.v1_0_install_document_types
 logistics.patches.v1_0_install_warehousing_document_template
+logistics.special_projects.patches.add_special_projects_document_template

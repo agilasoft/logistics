@@ -3,6 +3,9 @@
 
 frappe.ui.form.on("Special Project Request", {
 	refresh: function (frm) {
+		if (frm.doc.special_project) {
+			frm.add_custom_button(__("Link Existing Order"), () => link_existing_order(frm));
+		}
 		if (frm.doc.special_project && frm.doc.product_requests && frm.doc.product_requests.length) {
 			const has_inbound = frm.doc.product_requests.some((r) => r.fulfillment_type === "Inbound");
 			const has_release = frm.doc.product_requests.some((r) => r.fulfillment_type === "Release");
@@ -29,7 +32,6 @@ frappe.ui.form.on("Special Project Request", {
 			if (has_transfer) {
 				frm.add_custom_button(__("Create Transfer Order"), () => create_order(frm, "create_transfer_order_from_request"));
 			}
-			frm.add_custom_button(__("Link Existing Order"), () => link_existing_order(frm));
 		}
 	},
 });

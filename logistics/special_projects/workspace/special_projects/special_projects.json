@@ -6,7 +6,7 @@
    "label": "Special Projects by Status"
   }
  ],
- "content": "[{\"id\":\"vg4I6XWVa3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Active Projects\",\"col\":4}},{\"id\":\"_lSFiaPdLO\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Projects\",\"col\":4}},{\"id\":\"PFWXl41aCi\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Requests\",\"col\":4}},{\"id\":\"4ECKtGdXw5\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Special Projects by Status\",\"col\":12}},{\"id\":\"Epcgo8syf-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"3UR6TgyJ4n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"M8rSH3agYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Request\",\"col\":3}}]",
+ "content": "[{\"id\": \"nc1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active Projects\", \"col\": 4}}, {\"id\": \"nc2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Projects\", \"col\": 4}}, {\"id\": \"nc3\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Requests\", \"col\": 4}}, {\"id\": \"chart1\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Special Projects by Status\", \"col\": 12}}, {\"id\": \"spacer1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"qaHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"qa1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Project\", \"col\": 3}}, {\"id\": \"qa2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Request\", \"col\": 3}}, {\"id\": \"qa3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Active Projects\", \"col\": 3}}, {\"id\": \"spacer2\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"rOpHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5 text-muted\\\">Operational</span>\", \"col\": 12}}, {\"id\": \"rOp1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Projects Report\", \"col\": 3}}, {\"id\": \"rOp2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Request Fulfillment\", \"col\": 3}}, {\"id\": \"rOp3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Delivery Status\", \"col\": 3}}, {\"id\": \"rOp4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Billing Status\", \"col\": 3}}, {\"id\": \"rCostHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5 text-muted\\\">Cost Analysis</span>\", \"col\": 12}}, {\"id\": \"rCost1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Cost vs Revenue\", \"col\": 4}}, {\"id\": \"rCost2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Profitability\", \"col\": 4}}, {\"id\": \"rStratHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5 text-muted\\\">Strategic Planning</span>\", \"col\": 12}}, {\"id\": \"rStrat1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"By Customer\", \"col\": 4}}, {\"id\": \"rStrat2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Pipeline\", \"col\": 4}}, {\"id\": \"spacer3\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"mastersHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Masters</span>\", \"col\": 12}}, {\"id\": \"m1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Handling Type\", \"col\": 4}}, {\"id\": \"m2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Equipment Type\", \"col\": 4}}]",
  "creation": "2026-02-12 07:47:18.360199",
  "custom_blocks": [],
  "docstatus": 0,
@@ -19,7 +19,14 @@
  "is_hidden": 0,
  "label": "Special Projects",
  "link_type": "DocType",
- "links": [{"label": "Settings", "link_to": "Special Project Settings", "link_type": "DocType", "type": "Link"}],
+ "links": [
+  {
+   "label": "Settings",
+   "link_to": "Special Project Settings",
+   "link_type": "DocType",
+   "type": "Link"
+  }
+ ],
  "modified": "2026-02-12 11:37:44.727842",
  "modified_by": "Administrator",
  "module": "Special Projects",
@@ -60,6 +67,94 @@
    "link_to": "Special Project Request",
    "stats_filter": "[]",
    "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Active Projects",
+   "link_to": "Special Project",
+   "stats_filter": "[[\"Special Project\",\"status\",\"in\",[\"In Progress\",\"Planning\",\"Approved\",\"Booked\",\"Scoping\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Handling Type",
+   "link_to": "Special Handling Type",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Equipment Type",
+   "link_to": "Special Handling Equipment Type",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Projects Report",
+   "link_to": "Special Projects Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Request Fulfillment",
+   "link_to": "Special Project Request Fulfillment Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Delivery Status",
+   "link_to": "Special Project Delivery Status Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Billing Status",
+   "link_to": "Special Project Billing Status Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Cost vs Revenue",
+   "link_to": "Special Project Cost vs Revenue Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Profitability",
+   "link_to": "Special Project Profitability Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "By Customer",
+   "link_to": "Special Projects by Customer Report",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Pipeline",
+   "link_to": "Special Project Pipeline Report",
+   "stats_filter": "[]",
+   "type": "Report"
   }
  ],
  "title": "Special Projects",

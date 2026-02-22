@@ -24,6 +24,7 @@ DOCTYPE_CONTEXT = {
 	"Warehouse Job": ("Warehousing", "Shipment/Job"),
 	"General Job": ("General", "Shipment/Job"),
 	"Declaration": ("Customs", "Shipment/Job"),
+	"Special Project": ("Special Projects", "Shipment/Job"),
 }
 
 
@@ -135,7 +136,13 @@ def _compute_date_required(doc, template_item):
 	elif basis == "Booking Date":
 		base_date = getattr(doc, "booking_date", None) or getattr(doc, "order_date", None)
 	elif basis == "Job Date":
-		base_date = getattr(doc, "booking_date", None) or doc.creation
+		base_date = (
+			getattr(doc, "booking_date", None)
+			or getattr(doc, "order_date", None)
+			or getattr(doc, "start_date", None)
+			or getattr(doc, "planned_start", None)
+			or doc.creation
+		)
 	if not base_date:
 		return None
 	base_date = getdate(base_date)

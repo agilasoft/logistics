@@ -19,5 +19,47 @@ frappe.ui.form.on("Special Project", {
 				});
 			});
 		}
+		_refresh_cost_revenue_summary(frm);
+		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+			frm.add_custom_button(__("Populate from Template"), function () {
+				frappe.call({
+					method: "logistics.document_management.api.populate_documents_from_template",
+					args: { doctype: "Special Project", docname: frm.doc.name },
+					callback: function (r) {
+						if (r.message && r.message.added !== undefined) {
+							frappe.show_alert({
+								message: __("Added {0} document(s) from template.", [r.message.added]),
+								indicator: "green",
+							});
+							frm.reload_doc();
+						} else if (r.message && r.message.message) {
+							frappe.msgprint(r.message.message);
+						}
+					},
+				});
+			});
+		}
+	},
+});
+
+function _refresh_cost_revenue_summary(frm) {
+	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.cost_revenue_html) return;
+	frappe.call({
+		method: "logistics.special_projects.doctype.special_project.special_project.get_cost_revenue_summary",
+		args: { special_project: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.cost_revenue_html) {
+				frm.fields_dict.cost_revenue_html.$wrapper.html(r.message);
+			}
+		},
+	});
+}
+
+frappe.ui.form.on("Special Project Job", {
+	jobs_add: function (frm) {
+		_refresh_cost_revenue_summary(frm);
+	},
+	jobs_remove: function (frm) {
+		_refresh_cost_revenue_summary(frm);
 	},
 });

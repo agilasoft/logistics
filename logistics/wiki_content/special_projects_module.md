@@ -52,12 +52,13 @@ Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, D
 1. In **Jobs** tab – Add Transport Job, Warehouse Job, Air Shipment, Sea Shipment, or Declaration with planned/actual cost and revenue
 2. Or set the **Project** field on the job document directly – jobs with the same project appear under the Special Project
 
-### 3.4 Manage Requests
+### 3.4 Manage Requests and Create Orders
 
 1. Create **Special Project Request** from the project
 2. Add **Resource Requests**, **Product Requests**, **Equipment Requests**
-3. Submit and approve; track fulfillment status
-4. Use **Create Order** (or similar) to create bookings/orders from requests and link them to the project
+3. For **Product Requests**, set **Fulfillment Type** (Inbound, Release, Transport, Air Freight, Sea Freight, Transfer, VAS)
+4. Use **Create Order** actions to create Inbound Order, Release Order, Transfer Order, Transport Order, Air Booking, or Sea Booking from product requests – orders are linked to the project
+5. Use **Link Existing Order** to attach an order created outside the request flow to the request and set its project
 
 ### 3.5 Track Deliveries and Billing
 
@@ -100,37 +101,99 @@ Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, D
 
 - Link Transport Job, Warehouse Job, Air Shipment, Sea Shipment, Declaration
 - Track planned cost, actual cost, planned revenue, actual revenue per job
+- **Cost & Revenue Summary** – Collapsible section showing totals (planned/actual cost, revenue, margin) and breakdown by job type
 
-### 4.7 Deliveries Tab
+### 4.7 Documents Tab
+
+- **Document Checklist** – Project-level documents (permits, DG certs, customs docs, contracts)
+- **Document Template** – Override default [Document List Template](welcome/document-list-template); leave empty to use product default
+- Uses **Job Document** child table; supports document status and attachments
+- See [Document Management](welcome/document-management) for document types and templates
+
+### 4.8 Deliveries Tab
 
 - **Delivery types** – Full, Partial, Milestone, Proof of Delivery
 - **Status** – Pending, Scheduled, Completed, Delayed
 - **Items delivered** – Free-text or structured description of delivered items
 
-### 4.8 Billings Tab
+### 4.9 Billings Tab
 
 - **Bill types** – Milestone, Interim, Final, Ad-hoc
 - **Status** – Pending, Invoiced, Paid
 - **Sales Invoice** – Link when invoiced; invoice date tracked
 
-### 4.9 Dashboard and Reports
+### 4.10 More Info Tab
 
-- **Number cards** – Active Projects, Total Projects, Open Requests
-- **Chart** – Special Projects by Status
-- **Quick access** – Project list, Request list, Settings
+- **Client Notes** – Notes visible to customer
+- **Internal Notes** – Internal-only notes
+- **Terms and Conditions** – Link to Terms and Conditions master
+- **Service Level Agreement** – Link to Logistics Service Level for project-level commitments
+
+### 4.11 Create Order from Request
+
+From a Special Project Request, create logistics orders from **Product Requests** based on **Fulfillment Type**:
+
+| Fulfillment Type | Creates |
+|------------------|---------|
+| Inbound | Inbound Order |
+| Release | Release Order |
+| Transfer | Transfer Order |
+| Transport | Transport Order |
+| Air Freight | Air Booking |
+| Sea Freight | Sea Booking |
+
+Orders are linked to the Special Project’s ERPNext Project. Use **Link Existing Order** to attach an order created outside the request flow.
 
 ## 5. Workspace Structure
 
-### 5.1 Quick Access
+### 5.1 Number Cards and Chart
+
+- **Active Projects** – Projects in progress
+- **Total Projects** – All projects
+- **Open Requests** – Unfulfilled requests
+- **Chart** – Special Projects by Status
+
+### 5.2 Quick Access
 
 - **Project** – Special Project list
 - **Request** – Special Project Request list
+- **Active Projects** – Filtered list (status: In Progress, Planning, Approved, Booked, Scoping)
+
+### 5.3 Reports
+
+**Operational**
+
+- **Projects Report** – Project list with filters
+- **Request Fulfillment** – Open requests, status, fulfillment %
+- **Delivery Status** – Delivery status by project
+- **Billing Status** – Billing status by project
+
+**Cost Analysis**
+
+- **Cost vs Revenue** – Planned vs actual cost and revenue
+- **Profitability** – Group by Customer, Status, or none
+
+**Strategic Planning**
+
+- **By Customer** – Projects grouped by customer
+- **Pipeline** – Projects by stage
+
+### 5.4 Masters
+
+- **Handling Type** – [Special Handling Type](welcome/special-handling-type) (e.g. DG, temperature-controlled)
+- **Equipment Type** – [Special Handling Equipment Type](welcome/special-handling-equipment-type)
+
+### 5.5 Sidebar
+
+The sidebar is organized into sections:
+
+- **Home** – Special Projects workspace
+- **Special Project**, **Request** – Main doctypes
+- **Operational** – Projects Report, Request Fulfillment, Delivery Status, Billing Status
+- **Cost Analysis** – Cost vs Revenue, Profitability
+- **Strategic Planning** – By Customer, Pipeline
+- **Setup** – Handling Type, Equipment Type
 - **Settings** – Special Project Settings
-
-### 5.2 Masters
-
-- [Special Handling Type](welcome/special-handling-type) – Handling types (e.g. DG, temperature-controlled)
-- [Special Handling Equipment Type](welcome/special-handling-equipment-type) – Equipment types for project equipment
 
 ## 6. Related Topics
 
@@ -142,4 +205,5 @@ Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, D
 - [Sea Shipment](welcome/sea-shipment)
 - [Declaration](welcome/declaration)
 - [Document Management](welcome/document-management)
+- [Document List Template](welcome/document-list-template)
 - [Milestone Tracking](welcome/milestone-tracking)
