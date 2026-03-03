@@ -6,8 +6,13 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
   "milestones_tab",
+  "section_break_milestones",
   "milestone_html",
+  "milestone_template",
+  "milestones",
   "details_tab",
   "section_break_main",
   "transport_mode_column",
@@ -26,6 +31,10 @@
   "release_type",
   "entry_type",
   "service_level",
+  "section_break_booking_control",
+  "booking_party",
+  "controlling_party",
+  "column_break_booking_control",
   "section_break_parties",
   "column_break_origin",
   "shipper",
@@ -37,7 +46,11 @@
   "destination_port",
   "eta",
   "ata",
-  "column_break_ohdu",
+  "column_break_entities_agents",
+  "sending_agent",
+  "receiving_agent",
+  "column_break_entities_broker",
+  "broker",
   "master_details_section",
   "master_awb",
   "house_details_section",
@@ -53,8 +66,6 @@
   "description",
   "column_break_marks",
   "marks_and_nos",
-  "services_section",
-  "services",
   "packing_tab",
   "routing_section",
   "routing_legs",
@@ -72,55 +83,6 @@
   "density_factor_html",
   "excess_weight_volume",
   "contains_dangerous_goods",
-  "dangerous_goods_tab",
-  "dangerous_goods_section",
-  "dg_declaration_complete",
-  "dg_compliance_status",
-  "column_break_dg_main",
-  "dg_emergency_contact",
-  "dg_emergency_phone",
-  "dg_emergency_email",
-  "temperature_section",
-  "requires_temperature_control",
-  "min_temperature",
-  "max_temperature",
-  "column_break_temperature",
-  "temperature_monitoring",
-  "cold_chain_compliance",
-  "temperature_log",
-  "insurance_section",
-  "insurance_provider",
-  "insurance_policy_number",
-  "insurance_value",
-  "column_break_insurance",
-  "insurance_claim_number",
-  "insurance_claim_status",
-  "insurance_claim_date",
-  "tracking_section",
-  "tracking_provider",
-  "tracking_number",
-  "tracking_url",
-  "column_break_tracking",
-  "real_time_tracking_enabled",
-  "last_tracking_update",
-  "tracking_status",
-  "documents_section",
-  "commercial_invoice_number",
-  "packing_list_number",
-  "certificate_of_origin",
-  "column_break_documents",
-  "export_license",
-  "import_permit",
-  "other_documents",
-  "customs_section",
-  "customs_declaration_number",
-  "customs_status",
-  "customs_broker",
-  "column_break_customs",
-  "duty_amount",
-  "tax_amount",
-  "customs_clearance_date",
-  "customs_notes",
   "contacts_and_addresses_tab",
   "shipper_address",
   "shipper_address_display",
@@ -137,11 +99,15 @@
   "notify_party",
   "column_break_mzhi",
   "notify_party_address",
+  "other_services_tab",
+  "services_section",
+  "services",
   "charges_tab",
   "sales_quote",
   "charges",
   "documents_tab",
-  "documents_section",
+  "document_management_section",
+  "documents_html",
   "document_list_template",
   "documents",
   "billing_automation_section",
@@ -208,6 +174,49 @@
   "terms_and_conditions_section",
   "tc_name",
   "terms",
+  "customs_section",
+  "customs_declaration_number",
+  "export_license",
+  "import_permit",
+  "commercial_invoice_number",
+  "customs_status",
+  "customs_broker",
+  "column_break_customs",
+  "duty_amount",
+  "tax_amount",
+  "customs_clearance_date",
+  "customs_notes",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg_main",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
+  "temperature_section",
+  "requires_temperature_control",
+  "min_temperature",
+  "max_temperature",
+  "column_break_temperature",
+  "temperature_monitoring",
+  "cold_chain_compliance",
+  "temperature_log",
+  "insurance_section",
+  "insurance_provider",
+  "insurance_policy_number",
+  "insurance_value",
+  "column_break_insurance",
+  "insurance_claim_number",
+  "insurance_claim_status",
+  "insurance_claim_date",
+  "tracking_section",
+  "tracking_provider",
+  "tracking_number",
+  "tracking_url",
+  "column_break_tracking",
+  "real_time_tracking_enabled",
+  "last_tracking_update",
+  "tracking_status",
   "sustainability_section",
   "estimated_carbon_footprint",
   "estimated_fuel_consumption",
@@ -362,6 +371,28 @@
    "fieldtype": "Link",
    "label": "Service Level",
    "options": "Logistics Service Level"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_booking_control",
+   "fieldtype": "Section Break",
+   "label": "Booking & Control"
+  },
+  {
+   "fieldname": "booking_party",
+   "fieldtype": "Link",
+   "label": "Booking Party",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "controlling_party",
+   "fieldtype": "Select",
+   "label": "Controlling Party",
+   "options": "Customer Controlled\nAgent Controlled"
+  },
+  {
+   "fieldname": "column_break_booking_control",
+   "fieldtype": "Column Break"
   },
   {
    "collapsible": 1,
@@ -748,6 +779,21 @@
    "label": "Customs Declaration Number"
   },
   {
+   "fieldname": "export_license",
+   "fieldtype": "Data",
+   "label": "Export License"
+  },
+  {
+   "fieldname": "import_permit",
+   "fieldtype": "Data",
+   "label": "Import Permit"
+  },
+  {
+   "fieldname": "commercial_invoice_number",
+   "fieldtype": "Data",
+   "label": "Commercial Invoice Number"
+  },
+  {
    "fieldname": "customs_status",
    "fieldtype": "Select",
    "label": "Customs Status",
@@ -878,47 +924,6 @@
    "label": "Temperature Log"
   },
   {
-   "collapsible": 1,
-   "fieldname": "documents_section",
-   "fieldtype": "Section Break",
-   "label": "Document Management"
-  },
-  {
-   "fieldname": "commercial_invoice_number",
-   "fieldtype": "Data",
-   "label": "Commercial Invoice Number"
-  },
-  {
-   "fieldname": "packing_list_number",
-   "fieldtype": "Data",
-   "label": "Packing List Number"
-  },
-  {
-   "fieldname": "certificate_of_origin",
-   "fieldtype": "Data",
-   "label": "Certificate of Origin"
-  },
-  {
-   "fieldname": "column_break_documents",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "export_license",
-   "fieldtype": "Data",
-   "label": "Export License"
-  },
-  {
-   "fieldname": "import_permit",
-   "fieldtype": "Data",
-   "label": "Import Permit"
-  },
-  {
-   "description": "List of other required documents (e.g., health certificates, phytosanitary certificates)",
-   "fieldname": "other_documents",
-   "fieldtype": "Long Text",
-   "label": "Other Documents"
-  },
-  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
@@ -936,17 +941,17 @@
    "label": "Documents"
   },
   {
-   "collapsible": 1,
-   "fieldname": "documents_section",
-   "fieldtype": "Section Break",
-   "label": "Document Checklist"
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
   },
   {
+   "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
-   "options": "Document List Template",
-   "description": "Override default template. Leave empty to use product default."
+   "options": "Document List Template"
   },
   {
    "fieldname": "documents",
@@ -1512,14 +1517,43 @@
    "options": "Air Shipment Packages"
   },
   {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
    "fieldname": "milestones_tab",
    "fieldtype": "Tab Break",
    "label": "Milestones"
   },
   {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break"
+  },
+  {
    "fieldname": "milestone_html",
    "fieldtype": "HTML",
-   "is_virtual": 1
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Air Shipment Milestone"
   },
   {
    "fieldname": "details_tab",
@@ -1539,12 +1573,6 @@
    "label": "Billing Automation"
   },
   {
-   "depends_on": "eval:doc.contains_dangerous_goods",
-   "fieldname": "dangerous_goods_tab",
-   "fieldtype": "Tab Break",
-   "label": "Dangerous Goods"
-  },
-  {
    "collapsible": 1,
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
@@ -1557,11 +1585,7 @@
   {
    "fieldname": "section_break_parties",
    "fieldtype": "Section Break",
-   "label": "Parties & Routing"
-  },
-  {
-   "fieldname": "column_break_ohdu",
-   "fieldtype": "Column Break"
+   "label": "Entities and Parties"
   },
   {
    "fieldname": "goods_value",
@@ -1569,7 +1593,6 @@
    "label": "Goods Value"
   },
   {
-   "collapsible": 1,
    "fieldname": "services_section",
    "fieldtype": "Section Break",
    "label": "Services"
@@ -1613,6 +1636,32 @@
    "label": "ATA"
   },
   {
+   "fieldname": "column_break_entities_agents",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sending_agent",
+   "fieldtype": "Link",
+   "label": "Sending Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "receiving_agent",
+   "fieldtype": "Link",
+   "label": "Receiving Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_entities_broker",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "broker",
+   "fieldtype": "Link",
+   "label": "Broker",
+   "options": "Freight Agent"
+  },
+  {
    "fieldname": "house_awb",
    "fieldtype": "Data",
    "label": "House AWB"
@@ -1625,13 +1674,23 @@
    "fieldname": "more_info_tab",
    "fieldtype": "Tab Break",
    "label": "More Info"
+  },
+  {
+   "fieldname": "document_management_section",
+   "fieldtype": "Section Break",
+   "label": "Document Management"
+  },
+  {
+   "fieldname": "other_services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Other Services"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-21 22:27:55.799246",
+ "modified": "2026-02-28 12:33:11.845841",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

@@ -1,0 +1,20 @@
+{
+ "aggregate_function_based_on": "",
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "Number Card",
+ "document_type": "Container",
+ "docstatus": 0,
+ "filters_json": "[[\"Container\",\"has_penalties\",\"=\",1]]",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Containers with Penalties",
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Containers with Penalties",
+ "owner": "Administrator",
+ "show_percentage_stats": 0,
+ "stats_time_interval": "Daily"
+}

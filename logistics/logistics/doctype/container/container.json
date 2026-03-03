@@ -1,0 +1,255 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:container_number",
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "container_number",
+  "container_type",
+  "seal_number",
+  "status",
+  "current_location_type",
+  "current_location",
+  "current_location_name",
+  "owner_carrier",
+  "column_break_1",
+  "free_time_days",
+  "free_time_until",
+  "demurrage_days",
+  "detention_days",
+  "estimated_penalty_amount",
+  "has_penalties",
+  "penalty_alert_sent",
+  "last_penalty_check",
+  "section_deposit",
+  "deposit_amount",
+  "deposit_currency",
+  "deposit_paid_date",
+  "deposit_reference",
+  "return_status",
+  "returned_date",
+  "return_location_type",
+  "return_location",
+  "section_deposits",
+  "deposits",
+  "section_links",
+  "linked_shipments",
+  "linked_transport_jobs"
+ ],
+ "fields": [
+  {
+   "fieldname": "container_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Container Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Container Type",
+   "options": "Container Type"
+  },
+  {
+   "fieldname": "seal_number",
+   "fieldtype": "Data",
+   "label": "Seal Number"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "In Transit\nAt Port (Origin)\nGate-In\nLoaded\nAt Sea\nDischarged\nAt Port (Destination)\nCustoms Hold\nAvailable for Pick-Up\nOut for Delivery\nDelivered\nEmpty Returned\nAt Depot\nDamaged\nLost\nClosed"
+  },
+  {
+   "fieldname": "current_location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "current_location",
+   "fieldtype": "Dynamic Link",
+   "label": "Current Location",
+   "options": "current_location_type"
+  },
+  {
+   "fieldname": "current_location_name",
+   "fieldtype": "Data",
+   "label": "Current Location Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "owner_carrier",
+   "fieldtype": "Link",
+   "label": "Owner Carrier",
+   "options": "Shipping Line"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "free_time_days",
+   "fieldtype": "Float",
+   "label": "Free Time (Days)"
+  },
+  {
+   "fieldname": "free_time_until",
+   "fieldtype": "Datetime",
+   "label": "Free Time Until",
+   "read_only": 1
+  },
+  {
+   "fieldname": "demurrage_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Demurrage Days",
+   "read_only": 1
+  },
+  {
+   "fieldname": "detention_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Detention Days",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_penalty_amount",
+   "fieldtype": "Currency",
+   "label": "Estimated Penalty Amount",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "has_penalties",
+   "fieldtype": "Check",
+   "label": "Has Penalties",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "penalty_alert_sent",
+   "fieldtype": "Check",
+   "label": "Penalty Alert Sent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_penalty_check",
+   "fieldtype": "Datetime",
+   "label": "Last Penalty Check",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_deposit",
+   "fieldtype": "Section Break",
+   "label": "Deposit & Return"
+  },
+  {
+   "fieldname": "deposit_amount",
+   "fieldtype": "Currency",
+   "label": "Deposit Amount"
+  },
+  {
+   "fieldname": "deposit_currency",
+   "fieldtype": "Link",
+   "label": "Deposit Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "deposit_paid_date",
+   "fieldtype": "Date",
+   "label": "Deposit Paid Date"
+  },
+  {
+   "fieldname": "deposit_reference",
+   "fieldtype": "Data",
+   "label": "Deposit Reference"
+  },
+  {
+   "fieldname": "return_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Return Status",
+   "options": "Not Returned\nReturned\nOverdue"
+  },
+  {
+   "fieldname": "returned_date",
+   "fieldtype": "Date",
+   "label": "Returned Date"
+  },
+  {
+   "fieldname": "return_location_type",
+   "fieldtype": "Link",
+   "label": "Return Location Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "return_location",
+   "fieldtype": "Dynamic Link",
+   "label": "Return Location",
+   "options": "return_location_type"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_deposits",
+   "fieldtype": "Section Break",
+   "label": "Deposit History"
+  },
+  {
+   "fieldname": "deposits",
+   "fieldtype": "Table",
+   "label": "Deposits",
+   "options": "Container Deposit"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_links",
+   "fieldtype": "Section Break",
+   "label": "Linked Documents"
+  },
+  {
+   "fieldname": "linked_shipments",
+   "fieldtype": "HTML",
+   "label": "Linked Shipments",
+   "read_only": 1
+  },
+  {
+   "fieldname": "linked_transport_jobs",
+   "fieldtype": "HTML",
+   "label": "Linked Transport Jobs",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Container",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

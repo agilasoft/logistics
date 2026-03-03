@@ -77,6 +77,16 @@ class TransportJob(Document):
                 self.set('container_type', None)
             if self.get('container_no'):
                 self.set('container_no', None)
+            if self.get('container'):
+                self.set('container', None)
+        else:
+            # Container Management: create/link container
+            try:
+                from logistics.container_management.api import sync_transport_job_container
+                sync_transport_job_container(self)
+            except Exception as e:
+                if not getattr(frappe.flags, "skip_container_sync", False):
+                    frappe.log_error("Transport Job container sync error: {0}".format(str(e)), "Container Management")
         
         self.calculate_sustainability_metrics()
         self.create_job_costing_number_if_needed()
@@ -524,8 +534,16 @@ class TransportJob(Document):
         if transport_job_type == "Container":
             if not self.container_type:
                 frappe.throw(_("Container Type is required for Container transport jobs."))
-            if not self.container_no:
+            # Check if container_no exists and is not empty/whitespace
+            container_no = self.get('container_no')
+            if not container_no or (isinstance(container_no, str) and not container_no.strip()):
                 frappe.throw(_("Container Number is required for Container transport jobs."))
+            # ISO 6346 validation
+            from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+            strict = get_strict_validation_setting()
+            valid, err = validate_container_number(container_no, strict=strict)
+            if not valid:
+                frappe.throw(_("Container Number: {0}").format(err), title=_("Invalid Container Number"))
     
     def _validate_load_type_compatibility(self):
         """Validate load type compatibility with transport job type using boolean flags."""
@@ -799,51 +817,109 @@ class TransportJob(Document):
                     self.status = "Submitted"
     
     @frappe.whitelist()
-    def get_milestone_html(self):
-        """Generate HTML for milestone visualization in Milestones tab."""
+    def get_dashboard_html(self):
+        """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
         try:
-            from logistics.document_management.milestone_html import build_milestone_html
-
-            legs = self.get("legs") or []
-            origin_name = "Pickup"
-            destination_name = "Delivery"
-            if legs:
-                first = legs[0]
-                last = legs[-1]
-                origin_name = first.get("facility_from") or first.get("pick_address") or "Pickup"
-                destination_name = last.get("facility_to") or last.get("drop_address") or "Delivery"
-
-            milestones = frappe.get_all(
-                "Job Milestone",
-                filters={"job_type": "Transport Job", "job_number": self.name},
-                fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
-                order_by="planned_start",
+            from logistics.document_management.api import get_document_alerts_html
+            from logistics.document_management.dashboard_layout import (
+                build_run_sheet_style_dashboard,
+                get_dg_dashboard_html,
             )
+            from logistics.transport.api_optimized import get_address_coordinates_batch
 
-            customer_name = self.customer or ""
-            detail_items = [
-                ("Customer", customer_name),
-                ("Status", self.status),
-                ("Scheduled", str(self.scheduled_date) if self.scheduled_date else ""),
+            status = self.status or "Draft"
+            legs = self.get("legs") or []
+            header_items = [
+                ("Status", status),
+                ("Booking Date", str(self.booking_date) if self.booking_date else "—"),
+                ("Customer", self.customer or "—"),
+                ("Scheduled", str(self.scheduled_date) if self.scheduled_date else "—"),
+                ("Legs", str(len(legs))),
+                ("Packages", str(len(self.packages or []))),
+                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
             ]
+            if self.transport_job_type:
+                header_items.append(("Job Type", self.transport_job_type))
 
-            def format_dt(dt):
-                return frappe.utils.format_datetime(dt) if dt else None
+            doc_alerts = get_document_alerts_html("Transport Job", self.name or "new")
 
-            return build_milestone_html(
-                doctype="Transport Job",
-                docname=self.name or "new",
-                origin_name=origin_name,
-                destination_name=destination_name,
-                detail_items=detail_items,
-                milestones=milestones,
-                format_datetime_fn=format_dt,
-                origin_party_name=customer_name,
-                destination_party_name="",
+            dg_route_below_html = get_dg_dashboard_html(self)
+
+            # Milestone cards from child table
+            milestone_rows = list(self.get("milestones") or [])
+            milestone_details = {}
+            if milestone_rows:
+                names = [m.milestone for m in milestone_rows if m.milestone]
+                if names:
+                    for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
+                        milestone_details[lm.name] = lm.description or lm.name
+
+            cards_html = ""
+            for i, m in enumerate(milestone_rows, 1):
+                st = (m.status or "Planned").lower().replace(" ", "-")
+                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
+                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
+                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
+                cards_html += f"""
+                <div class="dash-card {st}">
+                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
+                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
+                    <span class="card-badge {st}">{m.status or "Planned"}</span>
+                </div>"""
+
+            # Map points and origin/destination from legs
+            addr_names = []
+            for leg in legs:
+                if leg.get("pick_address"):
+                    addr_names.append(leg.pick_address)
+                if leg.get("drop_address"):
+                    addr_names.append(leg.drop_address)
+            addr_coords = get_address_coordinates_batch(list(set(addr_names))) or {} if addr_names else {}
+            map_points = []
+            for leg in legs:
+                for addr_field in ["pick_address", "drop_address"]:
+                    addr = leg.get(addr_field)
+                    if addr:
+                        c = addr_coords.get(addr) if addr_coords else None
+                        if c and c.get("lat") is not None and c.get("lon") is not None:
+                            map_points.append({"lat": float(c["lat"]), "lon": float(c["lon"]), "label": addr})
+
+            # Origin/destination from first leg pick, last leg drop
+            origin_label = None
+            destination_label = None
+            if legs:
+                first_pick = legs[0].get("pick_address")
+                last_drop = legs[-1].get("drop_address")
+                if first_pick:
+                    origin_label = frappe.db.get_value("Address", first_pick, "address_title") or first_pick
+                if last_drop:
+                    destination_label = frappe.db.get_value("Address", last_drop, "address_title") or last_drop
+
+            return build_run_sheet_style_dashboard(
+                header_title=self.name or "Transport Job",
+                header_subtitle="Transport Job",
+                header_items=header_items,
+                cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Generate from template in Milestones tab.</div>",
+                map_points=map_points,
+                map_id_prefix="tj-dash-map",
+                doc_alerts_html=doc_alerts,
+                origin_label=origin_label,
+                destination_label=destination_label,
+                route_below_html=dg_route_below_html,
             )
         except Exception as e:
-            frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Transport Job - Milestone HTML")
-            return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
+            frappe.log_error(f"Transport Job get_dashboard_html: {str(e)}", "Transport Job Dashboard")
+            return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
+    def format_datetime(self, datetime_value):
+        """Format datetime for display (same as Air Shipment, Sea Shipment)."""
+        if not datetime_value:
+            return None
+        try:
+            from frappe.utils import format_datetime
+            return format_datetime(datetime_value, "dd-MM-yyyy HH:mm")
+        except Exception:
+            return str(datetime_value)
 
     def _trigger_auto_billing(self):
         """Trigger auto-billing if enabled"""

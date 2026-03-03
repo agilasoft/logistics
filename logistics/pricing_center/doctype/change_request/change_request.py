@@ -16,6 +16,137 @@ class ChangeRequest(Document):
 			for row in self.charges:
 				if row.quantity is not None and row.unit_cost is not None:
 					row.amount = flt(row.quantity, 2) * flt(row.unit_cost, 2)
+		# Store previous status so on_update can detect transition to Approved
+		if self.get("__islocal") or not self.name:
+			self._prev_status = None
+		else:
+			self._prev_status = frappe.db.get_value("Change Request", self.name, "status")
+
+	def on_update(self):
+		"""When status is set to Approved, push charges to the linked job/shipment."""
+		if self.status != "Approved" or not self.charges:
+			return
+		prev = getattr(self, "_prev_status", None)
+		if prev == "Approved":
+			return
+		apply_charges_to_job(self)
+
+
+def _charge_row_for_air_shipment(row, _job_doc):
+	"""Map Change Request Charge to Air Shipment Charges row."""
+	return {
+		"item_code": row.item_code,
+		"charge_type": "Revenue",
+		"charge_category": "Other",
+		"charge_basis": "Fixed Amount",
+		"quantity": flt(row.quantity, 2) or 1,
+		"uom": row.uom,
+		"currency": row.currency,
+		"rate": flt(row.unit_cost, 2),
+		"estimated_revenue": flt(row.amount, 2),
+		"description": row.description or "",
+	}
+
+
+def _charge_row_for_transport_job(row, _job_doc):
+	"""Map Change Request Charge to Transport Job Charges row."""
+	return {
+		"item_code": row.item_code,
+		"charge_type": "Revenue",
+		"charge_category": "Other",
+		"charge_basis": "Fixed Amount",
+		"quantity": flt(row.quantity, 2) or 1,
+		"uom": row.uom,
+		"currency": row.currency,
+		"rate": flt(row.unit_cost, 2),
+		"estimated_revenue": flt(row.amount, 2),
+		"description": getattr(row, "description", None) or "",
+	}
+
+
+def _charge_row_for_warehouse_job(row, _job_doc):
+	"""Map Change Request Charge to Warehouse Job Charges row."""
+	return {
+		"item_code": row.item_code,
+		"charge_type": "Revenue",
+		"charge_category": "Other",
+		"quantity": flt(row.quantity, 2) or 1,
+		"uom": row.uom,
+		"currency": row.currency,
+		"rate": flt(row.unit_cost, 2),
+		"estimated_revenue": flt(row.amount, 2),
+	}
+
+
+def _charge_row_for_sea_shipment(row, job_doc):
+	"""Map Change Request Charge to Sea Freight Charges row (Sea Shipment)."""
+	# Sea Freight Charges may use charge_item/selling_amount or item_code/rate; try common names
+	item_name = ""
+	if row.item_code:
+		item_name = frappe.db.get_value("Item", row.item_code, "item_name") or ""
+	return {
+		"item_code": row.item_code,
+		"charge_type": "Revenue",
+		"charge_category": "Other",
+		"charge_basis": "Fixed Amount",
+		"quantity": flt(row.quantity, 2) or 1,
+		"uom": row.uom,
+		"currency": row.currency,
+		"rate": flt(row.unit_cost, 2),
+		"estimated_revenue": flt(row.amount, 2),
+		"description": getattr(row, "description", None) or item_name,
+	}
+
+
+def _charge_row_for_declaration(row, _job_doc):
+	"""Map Change Request Charge to Declaration Charges row."""
+	return {
+		"item_code": row.item_code,
+		"calculation_method": "Fixed Amount",
+		"quantity": flt(row.quantity, 2) or 1,
+		"uom": row.uom,
+		"currency": row.currency,
+		"unit_rate": flt(row.unit_cost, 2),
+		"estimated_revenue": flt(row.amount, 2),
+	}
+
+
+def apply_charges_to_job(cr):
+	"""Append Change Request charges to the linked job/shipment. Called when CR is approved."""
+	if not cr.job_type or not cr.job or not cr.charges:
+		return
+	if not frappe.db.exists(cr.job_type, cr.job):
+		frappe.throw(_("Job {0} does not exist").format(cr.job))
+	job_doc = frappe.get_doc(cr.job_type, cr.job)
+	mappers = {
+		"Air Shipment": _charge_row_for_air_shipment,
+		"Transport Job": _charge_row_for_transport_job,
+		"Warehouse Job": _charge_row_for_warehouse_job,
+		"Sea Shipment": _charge_row_for_sea_shipment,
+		"Declaration": _charge_row_for_declaration,
+	}
+	mapper = mappers.get(cr.job_type)
+	if not mapper:
+		frappe.msgprint(
+			_("Apply charges to job is not implemented for job type {0}. Charges were not applied.").format(cr.job_type),
+			indicator="orange",
+		)
+		return
+	added = 0
+	for row in cr.charges:
+		if not getattr(row, "item_code", None):
+			continue
+		charge_data = mapper(row, job_doc)
+		if charge_data:
+			job_doc.append("charges", charge_data)
+			added += 1
+	if added > 0:
+		job_doc.flags.ignore_validate_update_after_submit = True
+		job_doc.save(ignore_permissions=True)
+		frappe.msgprint(
+			_("Applied {0} charge(s) from Change Request to {1}.").format(added, cr.job),
+			indicator="green",
+		)
 
 
 @frappe.whitelist()

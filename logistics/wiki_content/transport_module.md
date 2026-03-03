@@ -39,11 +39,13 @@ A Run Sheet groups multiple legs (from one or more jobs) for a driver/vehicle. U
 
 - Sales Quote, Transport Order, Transport Job, Transport Consolidation, Transport Leg, Transport Plan, Run Sheet, Scan Run Sheet, Sales Invoice
 
-### 3.2 Masters
+### 3.2 Masters and Facilities
 
-- [Transport Template](welcome/transport-template), [Load Type](welcome/load-type), [Transport Zone](welcome/transport-zone)
-- [Transport Vehicle](welcome/transport-vehicle), [Vehicle Type](welcome/vehicle-type)
-- [Transport Company](welcome/transport-company), [Shipper](welcome/shipper), [Consignee](welcome/consignee)
+- **Reference:** [Transport Template](welcome/transport-template), [Load Type](welcome/load-type), Transport Zone, [Container Type](welcome/container-type), Driver, Scheduling Constraint
+- **Facilities:** Container Yard, Container Depot, Container Freight Station, Storage Facility, Terminal
+- **Vehicles:** Transport Vehicle, Vehicle Type, Economic Zone
+- **Organizations:** [Shipper](welcome/shipper), [Consignee](welcome/consignee), Transport Company
+- **Settings:** [Transport Settings](welcome/transport-settings), Transport Capacity Settings, ODDS Settings
 
 ### 3.3 Reports
 

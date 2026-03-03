@@ -36,6 +36,7 @@ WIKI_PAGES_CONFIG = {
     "transport_settings": ("Transport Settings", "Setup"),
     "warehouse_settings": ("Warehouse Settings", "Setup"),
     "customs_settings": ("Customs Settings", "Setup"),
+    "default_details_and_relationships": ("Default Details and Relationships", "Setup"),
     # Module Intros
     "sea_freight_module": ("Sea Freight Module", "Sea Freight"),
     "air_freight_module": ("Air Freight Module", "Air Freight"),
@@ -69,6 +70,7 @@ WIKI_PAGES_CONFIG = {
     # Customs
     "declaration_order": ("Declaration Order", "Customs"),
     "declaration": ("Declaration", "Customs"),
+    "customs_workflow_guide": ("Customs Workflow Guide", "Customs"),
     "commodity": ("Commodity", "Customs"),
     "customs_authority": ("Customs Authority", "Customs"),
     # Warehousing
@@ -85,10 +87,18 @@ WIKI_PAGES_CONFIG = {
     "handling_unit_type": ("Handling Unit Type", "Warehousing"),
     # Pricing Center
     "sales_quote": ("Sales Quote", "Pricing Center"),
-    "one_off_quote": ("One Off Quote", "Pricing Center"),
+    "change_request": ("Change Request", "Pricing Center"),
+    "sales_quote_calculation_method": ("Sales Quote – Calculation Method", "Pricing Center"),
+    "charges_tariff_revenue_cost_pattern": ("Charges, Tariff, Revenue & Cost Pattern", "Pricing Center"),
     # Logistics (shared)
     "general_job": ("General Job", "Logistics"),
     "logistics_milestone": ("Logistics Milestone", "Logistics"),
+    # Job Management
+    "job_management_module": ("Job Management Module", "Job Management"),
+    # Sustainability
+    "sustainability_module": ("Sustainability Module", "Sustainability"),
+    # Intercompany
+    "intercompany_module": ("Intercompany Module", "Intercompany"),
     # Special Projects
     "special_projects_module": ("Special Projects Module", "Special Projects"),
     # Pages

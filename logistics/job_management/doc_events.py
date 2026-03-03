@@ -27,15 +27,37 @@ def on_job_submit(doc, method):
     """
     Handle job submission.
     
-    Optionally auto-recognize WIP and accruals based on settings.
+    Auto-recognize WIP and accruals based on Recognition Policy Settings.
+    Runs when enable_wip_recognition or enable_accrual_recognition is enabled.
     """
-    from logistics.job_management.recognition_engine import get_recognition_settings
-    
+    from logistics.job_management.recognition_engine import RecognitionEngine, get_recognition_settings
+
     settings = get_recognition_settings(doc)
-    
-    # Auto-recognition is optional and controlled by settings
-    # By default, recognition is manual
-    pass
+    if not settings.get("enable_wip_recognition") and not settings.get("enable_accrual_recognition"):
+        return
+
+    engine = RecognitionEngine(doc)
+    recognition_date = None
+
+    if settings.get("enable_wip_recognition"):
+        if not doc.get("wip_journal_entry") and not doc.get("wip_closed"):
+            try:
+                wip_je = engine.recognize_wip(recognition_date)
+                if wip_je:
+                    frappe.msgprint(_("WIP recognized: {0}").format(wip_je), indicator="green")
+            except Exception as e:
+                frappe.log_error(str(e), "Recognition - WIP on Submit")
+                frappe.throw(_("WIP recognition failed: {0}").format(str(e)))
+
+    if settings.get("enable_accrual_recognition"):
+        if not doc.get("accrual_journal_entry") and not doc.get("accrual_closed"):
+            try:
+                accrual_je = engine.recognize_accruals(recognition_date)
+                if accrual_je:
+                    frappe.msgprint(_("Accruals recognized: {0}").format(accrual_je), indicator="green")
+            except Exception as e:
+                frappe.log_error(str(e), "Recognition - Accrual on Submit")
+                frappe.throw(_("Accrual recognition failed: {0}").format(str(e)))
 
 
 def update_estimates_from_charges(doc):

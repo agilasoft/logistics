@@ -4,7 +4,7 @@
 
 To access CargoNext, go to:
 
-**Home > [Module]** (Sea Freight, Air Freight, Transport, Customs, Warehousing, Pricing Center)
+**Home > [Module]** (Sea Freight, Air Freight, Transport, Customs, Warehousing, Job Management, Pricing Center, Special Projects)
 
 ## 1. Prerequisites
 
@@ -25,46 +25,43 @@ To access CargoNext, go to:
 ### 2.2 Sea Freight Setup
 
 1. **[Sea Freight Settings](welcome/sea-freight-settings)** – Defaults, calculation, penalties, integration
-2. **[Container Type](welcome/container-type)** – 20ft, 40ft, 40ft HC, etc.
-3. **[Freight Routing](welcome/freight-routing)** – Route masters (if used)
-4. Port masters (from ERPNext or custom)
-5. Shipping Line, Freight Agent (if applicable)
+2. **[Default Details and Relationships](welcome/default-details-and-relationships)** – Shipper, Consignee, Freight Agent, Shipping Line defaults
+3. **[Container Type](welcome/container-type)** – 20ft, 40ft, 40ft HC, etc.
+4. **[Sea Freight Module](welcome/sea-freight-module)** – Route masters, freight routing (if used)
+5. Port masters (from ERPNext or custom)
+6. Shipping Line, Freight Agent (if applicable)
 
 ### 2.3 Air Freight Setup
 
-1. **[Air Freight Settings](welcome/air-freight-settings)** – Defaults, calculation, document generation
+1. **[Air Freight Settings](welcome/air-freight-settings)** – Defaults, calculation, document generation, IATA integration
 2. **[ULD Type](welcome/uld-type)** – AKE, AKN, PMC, etc.
-3. **[IATA Settings](welcome/iata-settings)** – IATA integration (if used)
+3. **[Air Freight Module](welcome/air-freight-module)** – Module overview and workflow
 4. Airport masters (from ERPNext or custom)
 5. Airline masters
 
 ### 2.4 Transport Setup
 
-1. **[Transport Settings](welcome/transport-settings)** – Routing, constraints, carbon, automation
-2. **[Transport Capacity Settings](welcome/transport-capacity-settings)** – Capacity management
-3. **[Load Type](welcome/load-type)** – FCL, LCL, Palletized, etc.
-4. **[Vehicle Type](welcome/vehicle-type)** – Truck, Van, etc.
-5. **[Transport Zone](welcome/transport-zone)** – For pricing (Pricing Center)
-6. **[Transport Template](welcome/transport-template)** – Predefined configurations (optional)
+1. **[Transport Settings](welcome/transport-settings)** – Routing, constraints, carbon, automation, capacity
+2. **[Load Type](welcome/load-type)** – FCL, LCL, Palletized, etc.
+3. **[Transport Template](welcome/transport-template)** – Predefined configurations, vehicle types, transport zones (Pricing Center)
 
 ### 2.5 Customs Setup
 
-1. **[Customs Settings](welcome/customs-settings)** – Defaults, compliance
+1. **[Customs Settings](welcome/customs-settings)** – Defaults, compliance, duty and tax rates
 2. **[Customs Authority](welcome/customs-authority)** – Customs authorities
 3. **[Commodity](welcome/commodity)** – HS codes and commodity masters
-4. **[Customs Rate](welcome/customs-rate)** – Duty and tax rates (if used)
 
 ### 2.6 Warehousing Setup
 
 1. **[Warehouse Settings](welcome/warehouse-settings)** – Defaults, billing, capacity
 2. **[Storage Location](welcome/storage-location)** – Warehouse location hierarchy
 3. **[Handling Unit Type](welcome/handling-unit-type)** – Pallet, Box, etc.
-4. **[VAS Order Type](welcome/vas-order-type)** – Value-added service types
+4. **[VAS Order](welcome/vas-order)** – Value-added service types
 5. Warehouse (from ERPNext Stock)
 
 ## 3. Typical Workflow
 
-1. **Quote** – Create [Sales Quote](welcome/sales-quote) or [One Off Quote](welcome/one-off-quote)
+1. **Quote** – Create [Sales Quote](welcome/sales-quote) (Regular, One-off, or Project type)
 2. **Order** – Create [Sea Booking](welcome/sea-booking), [Air Booking](welcome/air-booking), [Transport Order](welcome/transport-order), [Declaration Order](welcome/declaration-order), [Inbound Order](welcome/inbound-order), or [Release Order](welcome/release-order)
 3. **Job** – Create [Sea Shipment](welcome/sea-shipment), [Air Shipment](welcome/air-shipment), [Transport Job](welcome/transport-job), [Declaration](welcome/declaration), or [Warehouse Job](welcome/warehouse-job)
 4. **Documents** – Track documents in the Documents tab

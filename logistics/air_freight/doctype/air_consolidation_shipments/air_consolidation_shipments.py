@@ -55,8 +55,12 @@ class AirConsolidationShipments(Document):
             self.weight = job.weight
             self.volume = job.volume
             self.packs = job.packs
-            self.value = job.gooda_value
-            self.currency = job.currency
+            # Fix: Use correct field name 'goods_value' instead of 'gooda_value'
+            self.value = job.goods_value or 0
+            # Fix: Use 'billing_currency' instead of non-existent 'currency' field
+            # Fallback to company currency or system default if billing_currency is not set
+            company = job.company or frappe.defaults.get_user_default("Company")
+            self.currency = job.billing_currency or (frappe.get_cached_value("Company", company, "default_currency") if company else None) or frappe.get_system_settings("currency") or "USD"
             self.incoterm = job.incoterm
             
             # Update dangerous goods information

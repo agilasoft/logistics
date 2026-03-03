@@ -34,20 +34,22 @@ def create_test_customer(customer_name="Test Customer"):
 
 
 def create_test_airport(iata_code, airport_name=None, city=None, country=None):
-	"""Create a test airport master record"""
+	"""Create a test airport master record. Skips if Airport Master doctype does not exist."""
 	if not airport_name:
 		airport_name = f"{iata_code} Airport"
-	
-	if not frappe.db.exists("Airport Master", iata_code):
-		airport = frappe.get_doc({
-			"doctype": "Airport Master",
-			"iata_code": iata_code,
-			"airport_name": airport_name,
-			"city": city or f"City {iata_code}",
-			"country": country or "United States",
-			"is_active": 1
-		})
-		airport.insert()
+	try:
+		if frappe.db.exists("DocType", "Airport Master") and not frappe.db.exists("Airport Master", iata_code):
+			airport = frappe.get_doc({
+				"doctype": "Airport Master",
+				"iata_code": iata_code,
+				"airport_name": airport_name,
+				"city": city or f"City {iata_code}",
+				"country": country or "United States",
+				"is_active": 1
+			})
+			airport.insert()
+	except Exception:
+		pass  # Airport Master may not exist in this installation
 	return iata_code
 
 
@@ -281,11 +283,11 @@ def setup_basic_master_data():
 	customer = create_test_customer()
 	create_test_currency("USD")
 	
-	# Create airports (Airport Master - for reference)
+	# Create airports (Airport Master - optional, may not exist in all installations)
 	create_test_airport("LAX", "Los Angeles International Airport", "Los Angeles", "United States")
 	create_test_airport("JFK", "John F. Kennedy International Airport", "New York", "United States")
-	
-	# Create UNLOCO records (required for Air Shipment origin_port and destination_port)
+
+	# Create UNLOCO records (required for Air/Sea Shipment and Air Consolidation origin/destination)
 	# UNLOCO codes: USLAX for Los Angeles, USJFK for JFK (standard format: CountryCode + LocationCode)
 	create_test_unloco("USLAX", "Los Angeles International Airport", "LAX", "US", "Airport")
 	create_test_unloco("USJFK", "John F. Kennedy International Airport", "JFK", "US", "Airport")

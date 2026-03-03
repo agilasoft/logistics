@@ -36,18 +36,21 @@
    "fieldname": "rate_type",
    "fieldtype": "Select",
    "label": "Rate Type",
-   "options": "Normal\nMinimum\nWeight Break"
+   "options": "Normal\nMinimum\nWeight Break",
+   "in_list_view": 1
   },
   {
    "fieldname": "weight_break",
    "fieldtype": "Float",
-   "label": "Weight Break"
+   "label": "Weight Break",
+   "in_list_view": 1
   },
   {
    "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
-   "options": "currency"
+   "options": "currency",
+   "in_list_view": 1
   },
   {
    "fieldname": "currency",

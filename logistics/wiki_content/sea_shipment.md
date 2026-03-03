@@ -1,68 +1,38 @@
 # Sea Shipment
 
-**Sea Shipment** is a transaction that represents the execution of ocean freight. It is the job document that tracks the actual cargo movement from origin to destination, linked to one or more Sea Bookings.
+**Sea Shipment** is the operational shipment document for sea freight. It is created from a [Sea Booking](welcome/sea-booking) and tracks execution, milestones, charges, containers, and documents. Supports Dashboard and Milestones tabs.
 
-A Sea Shipment records vessel details, container assignments, routing legs, packages, charges, documents, and milestones. It flows from Sea Booking and supports consolidation, customs integration, and billing.
-
-To access Sea Shipment, go to:
-
-**Home > Sea Freight > Sea Shipment**
+To access: **Home > Sea Freight > Sea Shipment**
 
 ## 1. Prerequisites
 
-Before creating a Sea Shipment, it is advised to set up the following:
+- [Sea Booking](welcome/sea-booking)
+- [Logistics Milestone](welcome/logistics-milestone) (for milestone tracking)
+- [Document List Template](welcome/document-list-template) (for documents)
 
-- [Sea Freight Settings](welcome/sea-freight-settings)
-- [Sea Booking](welcome/sea-booking) – Typically create from booking
-- [Sea Freight Master Data](welcome/sea-freight-master-data) – Container types, services, charge types
-- [Logistics Milestone](welcome/logistics-milestone) – For milestone tracking
+## 2. Key Features
 
-## 2. How to Create a Sea Shipment
+- **Dashboard Tab** – Document alerts (missing, overdue, expiring), status summary
+- **Milestones Tab** – Visual timeline of operational stages (Gate-In, Loaded, Departed, etc.)
+- **Charges** – Selling and cost charges; supports weight and quantity breaks
+- **Containers** – Container assignments for FCL
+- **Documents** – Job Document child table; Populate from Template
+- **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
 
-1. Go to the Sea Shipment list, click **New**.
-2. Select **Sea Booking** (or enter details manually).
-3. Enter **Vessel**, **Voyage**, **ETD**, **ETA**.
-4. Add **Containers** or **Packages** with weights and dimensions.
-5. Add **Routing Legs** for multi-port routing.
-6. Add **Services** and **Charges**.
-7. **Save** the document.
+## 3. Workflow
 
-### 2.1 Creating from Sea Booking
-
-The recommended way is to create a Sea Shipment from a Sea Booking. Use **Create Sea Shipment** from the Sea Booking, or create new and link the booking. The shipment inherits routing, cargo, and party details.
-
-### 2.2 Statuses
-
-- **Draft** – Shipment is being prepared
-- **Submitted** – Shipment is confirmed and in execution
-- **Cancelled** – Shipment has been cancelled
-
-## 3. Features
-
-### 3.1 Dashboard Tab
-
-The Dashboard tab shows Document Alerts, Milestone Flow, and Key Metrics.
-
-### 3.2 Milestones Tab
-
-Track operational milestones (Gate-In, Loaded, Departed, Arrived, etc.) with status (Planned, Started, Completed) and actual dates.
-
-### 3.3 Documents Tab
-
-Track required documents with status, date required, and attachments. Use **Populate from Template**.
-
-### 3.4 Consolidation
-
-Link a Sea Shipment to a [Sea Freight Consolidation](welcome/sea-freight-consolidation) for LCL/groupage shipments.
-
-### 3.5 Billing
-
-Create Sales Invoice from the Sea Shipment. Track invoice status in the Accounts tab.
+1. Create Sea Shipment from Sea Booking.
+2. Track milestones (Gate-In at Port, Loaded on Vessel, Departed, etc.).
+3. Upload documents in Documents tab.
+4. Create [Sea Consolidation](welcome/sea-consolidation) if House Type = Consolidation.
+5. Create [Master Bill](welcome/master-bill) for consolidation.
+6. Create Sales Invoice for billing.
 
 ## 4. Related Topics
 
 - [Sea Booking](welcome/sea-booking)
-- [Sea Freight Consolidation](welcome/sea-freight-consolidation)
+- [Sea Consolidation](welcome/sea-consolidation)
 - [Master Bill](welcome/master-bill)
-- [Document Management](welcome/document-management)
 - [Milestone Tracking](welcome/milestone-tracking)
+- [Document Management](welcome/document-management)
+- [Change Request](welcome/change-request)

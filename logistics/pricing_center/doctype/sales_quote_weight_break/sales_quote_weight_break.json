@@ -18,42 +18,49 @@
    "fieldname": "reference_doctype",
    "fieldtype": "Link",
    "label": "Reference Doctype",
-   "options": "DocType"
+   "options": "DocType",
+   "in_list_view": 0
   },
   {
    "fieldname": "reference_no",
    "fieldtype": "Dynamic Link",
    "label": "Reference No",
-   "options": "reference_doctype"
+   "options": "reference_doctype",
+   "in_list_view": 0
   },
   {
    "fieldname": "type",
    "fieldtype": "Select",
    "label": "Type",
-   "options": "Selling\nCost"
+   "options": "Selling\nCost",
+   "in_list_view": 0
   },
   {
    "fieldname": "rate_type",
    "fieldtype": "Select",
-   "label": "Rate Type",
-   "options": "Normal\nMinimum\nWeight Break"
+   "label": "Break Type",
+   "options": "M (Minimum)\nN (Normal)\nQ (Quantity Break)",
+   "in_list_view": 1
   },
   {
    "fieldname": "weight_break",
    "fieldtype": "Float",
-   "label": "Weight Break"
+   "label": "Weight Break",
+   "in_list_view": 1
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "in_list_view": 1
   },
   {
    "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
-   "options": "currency"
+   "options": "currency",
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

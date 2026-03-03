@@ -2,7 +2,7 @@
 
 **Document Management** is a unified feature across Booking/Order and Shipment/Job doctypes that provides centralized document tracking, compliance monitoring, and overdue alerts. Documents are managed via the **Documents** tab on each supported doctype.
 
-The Documents tab shows a checklist of required documents (Commercial Invoice, Packing List, Bill of Lading, Air Waybill, etc.) with status, date required, date received, and attachments. Document requirements are driven by **Document List Templates** configured per product type and context.
+The Documents tab shows a checklist of required documents (Commercial Invoice, Packing List, Bill of Lading, Air Waybill, etc.) with status, date required, date received, and attachments. Document requirements are driven by **Document List Templates** configured per product type and context. Document rows are stored in the **Job Document** child table; each row links to a Logistics Document Type and tracks status, dates, attachments, and verification.
 
 To access document configuration, go to:
 
@@ -59,12 +59,12 @@ For doctypes with a Dashboard tab (Air Shipment, Sea Shipment, Warehouse Job, Tr
 
 **Bookings/Orders:** Air Booking, Sea Booking, Transport Order, Declaration Order, Inbound Order, Release Order, Transfer Order
 
-**Shipments/Jobs:** Air Shipment, Sea Shipment, Transport Job, Warehouse Job, General Job, Declaration
+**Shipments/Jobs:** Air Shipment, Sea Shipment, Sea Consolidation, Transport Job, Warehouse Job, General Job, Declaration, Special Project
 
 ## 4. Related Topics
 
 - [Sea Shipment](welcome/sea-shipment)
 - [Air Shipment](welcome/air-shipment)
 - [Transport Job](welcome/transport-job)
-- [Warehouse Job](welcome/warehouse-jobs-operations)
+- [Warehouse Job](welcome/warehouse-job)
 - [Milestone Tracking](welcome/milestone-tracking)

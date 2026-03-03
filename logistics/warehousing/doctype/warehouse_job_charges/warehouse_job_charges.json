@@ -7,7 +7,10 @@
  "engine": "InnoDB",
  "field_order": [
   "item_code",
+  "charge_type",
+  "charge_category",
   "item_name",
+  "sales_quote_link",
   "uom",
   "quantity",
   "column_break_ghkh",
@@ -22,8 +25,7 @@
   "calculation_notes",
   "standard_cost_posted",
   "standard_cost_posted_at",
-  "journal_entry_reference",
-  "sales_quote_link"
+  "journal_entry_reference"
  ],
  "fields": [
   {
@@ -82,6 +84,20 @@
    "label": "Item Name"
   },
   {
+   "default": "Margin",
+   "fieldname": "charge_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Margin\nDisbursement\nRevenue\nCost"
+  },
+  {
+   "fieldname": "charge_category",
+   "fieldtype": "Select",
+   "label": "Charge Category",
+   "options": "Freight\nFuel Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
+  },
+  {
    "description": "Standard unit cost from item master",
    "fetch_from": "item_code.custom_standard_unit_cost",
    "fieldname": "standard_unit_cost",
@@ -99,12 +115,14 @@
   {
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
-   "label": "Estimated Revenue"
+   "label": "Estimated Revenue",
+   "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
-   "label": "Estimated Cost"
+   "label": "Estimated Cost",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "calculation_notes",

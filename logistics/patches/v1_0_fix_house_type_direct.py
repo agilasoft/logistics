@@ -26,14 +26,6 @@ def execute():
 	for doctype, fieldname in doctype_fields:
 		_migrate_doctype(doctype, fieldname, revert_map)
 	
-	# Update One-Off Quote if it has sea_house_type field
-	if frappe.db.table_exists("One-Off Quote"):
-		meta = frappe.get_meta("One-Off Quote")
-		if meta.has_field("sea_house_type"):
-			_migrate_doctype("One-Off Quote", "sea_house_type", revert_map)
-		if meta.has_field("air_house_type"):
-			_migrate_doctype("One-Off Quote", "air_house_type", revert_map)
-	
 	# Update Sales Quote Sea Freight if it exists
 	if frappe.db.table_exists("Sales Quote Sea Freight"):
 		meta = frappe.get_meta("Sales Quote Sea Freight")

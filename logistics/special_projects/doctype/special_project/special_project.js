@@ -19,6 +19,22 @@ frappe.ui.form.on("Special Project", {
 				setTimeout(function () { frm._dashboard_html_called = false; }, 2000);
 			}
 		}
+		// Load milestone HTML in Milestones tab (only when doc is saved)
+		if (frm.fields_dict.milestone_html && frm.doc.name && !frm.doc.__islocal) {
+			if (!frm._milestone_html_called) {
+				frm._milestone_html_called = true;
+				frappe.call({
+					method: "logistics.special_projects.doctype.special_project.special_project.get_milestone_html",
+					args: { special_project: frm.doc.name },
+					callback: function (r) {
+						if (r.message && frm.fields_dict.milestone_html) {
+							frm.fields_dict.milestone_html.$wrapper.html(r.message);
+						}
+					}
+				});
+				setTimeout(function () { frm._milestone_html_called = false; }, 2000);
+			}
+		}
 		if (frm.doc.project && frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Open Project"), function () {
 				frappe.set_route("Form", "Project", frm.doc.project);
@@ -74,8 +90,40 @@ function _refresh_cost_revenue_summary(frm) {
 frappe.ui.form.on("Special Project Job", {
 	jobs_add: function (frm) {
 		_refresh_cost_revenue_summary(frm);
+		_refresh_dashboard_html(frm);
+		_refresh_milestone_html(frm);
 	},
 	jobs_remove: function (frm) {
 		_refresh_cost_revenue_summary(frm);
+		_refresh_dashboard_html(frm);
+		_refresh_milestone_html(frm);
 	},
 });
+
+function _refresh_dashboard_html(frm) {
+	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.dashboard_html) return;
+	frm._dashboard_html_called = false;
+	frappe.call({
+		method: "logistics.special_projects.doctype.special_project.special_project.get_dashboard_html",
+		args: { special_project: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.dashboard_html) {
+				frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+			}
+		}
+	});
+}
+
+function _refresh_milestone_html(frm) {
+	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.milestone_html) return;
+	frm._milestone_html_called = false;
+	frappe.call({
+		method: "logistics.special_projects.doctype.special_project.special_project.get_milestone_html",
+		args: { special_project: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			}
+		}
+	});
+}

@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-02-24 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_range",
+  "naming_series",
+  "airline",
+  "prefix",
+  "from_serial",
+  "to_serial",
+  "next_serial",
+  "column_break_stock",
+  "is_default",
+  "company",
+  "available_count",
+  "column_break_status",
+  "stock_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_range",
+   "fieldtype": "Section Break",
+   "label": "MAWB Stock Range"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "MAWB-STOCK-.####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline",
+   "reqd": 1
+  },
+  {
+   "description": "IATA 3-digit AWB prefix (e.g. 176)",
+   "fieldname": "prefix",
+   "fieldtype": "Data",
+   "label": "Prefix (3 digits)",
+   "length": 3,
+   "reqd": 1
+  },
+  {
+   "description": "Start of serial number range",
+   "fieldname": "from_serial",
+   "fieldtype": "Int",
+   "label": "From Serial",
+   "reqd": 1
+  },
+  {
+   "description": "End of serial number range",
+   "fieldname": "to_serial",
+   "fieldtype": "Int",
+   "label": "To Serial",
+   "reqd": 1
+  },
+  {
+   "description": "Next serial to issue (updated when issuing). Defaults to From Serial on new doc.",
+   "fieldname": "next_serial",
+   "fieldtype": "Int",
+   "label": "Next Serial"
+  },
+  {
+   "fieldname": "column_break_stock",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Use as default when issuing from stock",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Is Default"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "available_count",
+   "fieldtype": "Int",
+   "label": "Available Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "stock_status",
+   "fieldtype": "Data",
+   "label": "Stock Status",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-02-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "MAWB Stock Range",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Air Freight Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

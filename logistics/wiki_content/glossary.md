@@ -14,6 +14,8 @@ Common terms used in CargoNext and the logistics industry.
 
 ## C
 
+**Change Request** – Request to add additional charges to an existing job (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration); approved charges are applied to the job.
+
 **Chargeable Weight** – Weight used for freight pricing; max of gross and volumetric weight.
 
 **Consignee** – Party to whom cargo is delivered.

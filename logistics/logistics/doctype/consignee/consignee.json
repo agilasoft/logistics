@@ -1,120 +1,142 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:code",
- "creation": "2025-05-22 19:50:32.404879",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "code",
-  "consignee_name",
-  "addresses_tab",
-  "addresses_and_contacts",
-  "address_html",
-  "column_break_nivp",
-  "contact_html",
-  "section_break_vizq",
-  "consignee_primary_address",
-  "primary_address",
-  "column_break_umfc",
-  "consignee_primary_contact",
-  "connections_tab"
- ],
- "fields": [
-  {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "label": "Code",
-   "unique": 1
-  },
-  {
-   "fieldname": "consignee_name",
-   "fieldtype": "Data",
-   "label": "Consignee Name"
-  },
-  {
-   "fieldname": "connections_tab",
-   "fieldtype": "Tab Break",
-   "label": "Connections",
-   "show_dashboard": 1
-  },
-  {
-   "fieldname": "addresses_tab",
-   "fieldtype": "Tab Break",
-   "label": "Addresses and Contacts"
-  },
-  {
-   "fieldname": "address_html",
-   "fieldtype": "HTML",
-   "label": "Addresses"
-  },
-  {
-   "fieldname": "consignee_primary_address",
-   "fieldtype": "Link",
-   "label": "Primary Address",
-   "options": "Address"
-  },
-  {
-   "fieldname": "addresses_and_contacts",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "column_break_nivp",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "contact_html",
-   "fieldtype": "HTML",
-   "label": "Contacts"
-  },
-  {
-   "fieldname": "section_break_vizq",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "column_break_umfc",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "consignee_primary_contact",
-   "fieldtype": "Link",
-   "label": "Primary Contact",
-   "options": "Contact"
-  },
-  {
-   "fieldname": "primary_address",
-   "fieldtype": "Text",
-   "label": "Primary Address"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-02-19 13:17:45.895600",
- "modified_by": "Administrator",
- "module": "Logistics",
- "name": "Consignee",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "row_format": "Dynamic",
- "search_fields": "consignee_name",
- "show_title_field_in_link": 1,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "title_field": "consignee_name"
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "field:code",
+  "creation": "2025-05-22 19:50:32.404879",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "code",
+    "consignee_name",
+    "section_break_customs",
+    "customs_importer_classification",
+    "addresses_tab",
+    "addresses_and_contacts",
+    "address_html",
+    "column_break_nivp",
+    "contact_html",
+    "section_break_vizq",
+    "consignee_primary_address",
+    "delivery_address",
+    "primary_address",
+    "column_break_umfc",
+    "consignee_primary_contact",
+    "connections_tab"
+  ],
+  "fields": [
+    {
+      "fieldname": "code",
+      "fieldtype": "Data",
+      "label": "Code",
+      "unique": 1
+    },
+    {
+      "fieldname": "consignee_name",
+      "fieldtype": "Data",
+      "label": "Consignee Name"
+    },
+    {
+      "fieldname": "section_break_customs",
+      "fieldtype": "Section Break",
+      "label": "Customs"
+    },
+    {
+      "fieldname": "customs_importer_classification",
+      "fieldtype": "Select",
+      "label": "Customs Importer Classification",
+      "options": "\nSGL\nGL\nYellow Lane\nRed Lane\nNot Classified",
+      "description": "Customs lane classification (SGL=Super Green Lane, GL=Green Lane)"
+    },
+    {
+      "fieldname": "connections_tab",
+      "fieldtype": "Tab Break",
+      "label": "Connections",
+      "show_dashboard": 1
+    },
+    {
+      "fieldname": "addresses_tab",
+      "fieldtype": "Tab Break",
+      "label": "Addresses and Contacts"
+    },
+    {
+      "fieldname": "address_html",
+      "fieldtype": "HTML",
+      "label": "Addresses"
+    },
+    {
+      "fieldname": "consignee_primary_address",
+      "fieldtype": "Link",
+      "label": "Primary Address",
+      "options": "Address"
+    },
+    {
+      "fieldname": "delivery_address",
+      "fieldtype": "Link",
+      "label": "Delivery Address",
+      "options": "Address",
+      "description": "Default address for transport deliveries"
+    },
+    {
+      "fieldname": "addresses_and_contacts",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "column_break_nivp",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "contact_html",
+      "fieldtype": "HTML",
+      "label": "Contacts"
+    },
+    {
+      "fieldname": "section_break_vizq",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "column_break_umfc",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "consignee_primary_contact",
+      "fieldtype": "Link",
+      "label": "Primary Contact",
+      "options": "Contact"
+    },
+    {
+      "fieldname": "primary_address",
+      "fieldtype": "Text",
+      "label": "Primary Address"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-02-24 10:03:56.368111",
+  "modified_by": "Administrator",
+  "module": "Logistics",
+  "name": "Consignee",
+  "naming_rule": "By fieldname",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "row_format": "Dynamic",
+  "search_fields": "consignee_name",
+  "show_title_field_in_link": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "title_field": "consignee_name"
 }

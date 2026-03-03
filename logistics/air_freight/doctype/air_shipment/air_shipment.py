@@ -1324,7 +1324,88 @@ class AirShipment(Document):
 		except Exception as e:
 			frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Air Shipment - Milestone HTML")
 			return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
-	
+
+	@frappe.whitelist()
+	def get_dashboard_html(self):
+		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+		try:
+			from logistics.document_management.api import get_document_alerts_html
+			from logistics.document_management.dashboard_layout import (
+				build_run_sheet_style_dashboard,
+				build_map_segments_from_routing_legs,
+				get_dg_dashboard_html,
+				get_unloco_coords,
+			)
+
+			status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
+			header_items = [
+				("Status", status),
+				("ETD", str(self.etd) if self.etd else "—"),
+				("ETA", str(self.eta) if self.eta else "—"),
+				("Packages", str(len(self.packages or []))),
+				("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+			]
+			if getattr(self, "airline", None):
+				header_items.append(("Airline", self.airline))
+
+			try:
+				doc_alerts = get_document_alerts_html("Air Shipment", self.name or "new")
+			except Exception:
+				doc_alerts = ""
+
+			dg_route_below_html = get_dg_dashboard_html(self, get_compliance_fn=self.check_dg_compliance)
+
+			milestone_rows = list(self.get("milestones") or [])
+			milestone_details = {}
+			if milestone_rows:
+				names = [m.milestone for m in milestone_rows if m.milestone]
+				if names:
+					for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
+						milestone_details[lm.name] = lm.description or lm.name
+
+			cards_html = ""
+			for i, m in enumerate(milestone_rows, 1):
+				st = (m.status or "Planned").lower().replace(" ", "-")
+				desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
+				planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
+				actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
+				cards_html += f"""
+				<div class="dash-card {st}">
+					<div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
+					<div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
+					<span class="card-badge {st}">{m.status or "Planned"}</span>
+				</div>"""
+
+			map_segments = build_map_segments_from_routing_legs(
+				getattr(self, "routing_legs", None) or []
+			)
+			map_points = []
+			if not map_segments:
+				o = get_unloco_coords(self.origin_port)
+				d = get_unloco_coords(self.destination_port)
+				if o:
+					map_points.append(o)
+				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
+					map_points.append(d)
+
+			return build_run_sheet_style_dashboard(
+				header_title=self.name or "Air Shipment",
+				header_subtitle="Air Shipment",
+				header_items=header_items,
+				cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Generate from template in Milestones tab.</div>",
+				map_points=map_points,
+				map_segments=map_segments,
+				map_id_prefix="air-dash-map",
+				doc_alerts_html=doc_alerts,
+				straight_line=True,
+				origin_label=self.origin_port or None,
+				destination_label=self.destination_port or None,
+				route_below_html=dg_route_below_html,
+			)
+		except Exception as e:
+			frappe.log_error(f"Air Shipment get_dashboard_html: {str(e)}", "Air Shipment Dashboard")
+			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
 	def format_datetime(self, datetime_value):
 		"""Format datetime for display"""
 		if not datetime_value:
@@ -1513,7 +1594,7 @@ class AirShipment(Document):
 		# Validate and clear invalid link fields before saving
 		# This prevents LinkValidationError during save
 		if hasattr(self, 'service_level') and self.service_level:
-			if not frappe.db.exists("Service Level Agreement", self.service_level):
+			if not frappe.db.exists("Logistics Service Level", self.service_level):
 				self.service_level = None
 		if hasattr(self, 'release_type') and self.release_type:
 			if not frappe.db.exists("Release Type", self.release_type):
@@ -1527,7 +1608,7 @@ class AirShipment(Document):
 				# If save fails due to invalid links, clear them and try again
 				if "Could not find" in str(e):
 					if hasattr(self, 'service_level') and self.service_level:
-						if not frappe.db.exists("Service Level Agreement", self.service_level):
+						if not frappe.db.exists("Logistics Service Level", self.service_level):
 							self.service_level = None
 					if hasattr(self, 'release_type') and self.release_type:
 						if not frappe.db.exists("Release Type", self.release_type):
@@ -2698,9 +2779,9 @@ class AirShipment(Document):
 		
 		if hasattr(self, 'charges') and self.charges:
 			for charge in self.charges:
-				# Recalculate charge amount
-				charge.calculate_charge_amount()
-				total_charges += flt(charge.total_amount) or 0
+				if hasattr(charge, "calculate_charge_amount"):
+					charge.calculate_charge_amount(parent_doc=self)
+				total_charges += flt(getattr(charge, "total_amount", None) or getattr(charge, "estimated_revenue", 0)) or 0
 		
 		return {
 			"total_charges": total_charges,
@@ -2709,7 +2790,7 @@ class AirShipment(Document):
 	
 	@frappe.whitelist()
 	def recalculate_all_charges(self):
-		"""Recalculate all charges based on current Air Shipment data"""
+		"""Recalculate all charges based on current Air Shipment data using centralized charge calculation."""
 		if not hasattr(self, 'charges') or not self.charges:
 			return {
 				"success": False,
@@ -2719,22 +2800,9 @@ class AirShipment(Document):
 		try:
 			charges_recalculated = 0
 			for charge in self.charges:
-				# Update quantity based on charge basis
-				if charge.charge_basis == "Per kg":
-					charge.quantity = flt(self.weight) or 0
-				elif charge.charge_basis == "Per m³":
-					charge.quantity = flt(self.volume) or 0
-				elif charge.charge_basis == "Per package":
-					if hasattr(self, 'packages') and self.packages:
-						charge.quantity = len(self.packages)
-					else:
-						charge.quantity = 1
-				elif charge.charge_basis == "Per shipment":
-					charge.quantity = 1
-				
-				# Recalculate charge amount
-				charge.calculate_charge_amount()
-				charges_recalculated += 1
+				if hasattr(charge, "calculate_charge_amount"):
+					charge.calculate_charge_amount(parent_doc=self)
+					charges_recalculated += 1
 			
 			self.save()
 			
@@ -2787,11 +2855,11 @@ class AirShipment(Document):
 			self.profit_center = settings.default_profit_center
 		if not self.incoterm and settings.default_incoterm:
 			self.incoterm = settings.default_incoterm
-		# Only set service_level if default_service_level exists as a valid Service Level Agreement record
+		# Only set service_level if default_service_level exists as a valid Logistics Service Level record
 		# Note: default_service_level is a Select field (text), but service_level is a Link field
 		if not self.service_level and settings.default_service_level:
-			# Check if the default_service_level value exists as a Service Level Agreement record
-			if frappe.db.exists("Service Level Agreement", settings.default_service_level):
+			# Check if the default_service_level value exists as a Logistics Service Level record
+			if frappe.db.exists("Logistics Service Level", settings.default_service_level):
 				self.service_level = settings.default_service_level
 			# Otherwise, don't set it (leave it empty)
 		
@@ -3067,6 +3135,68 @@ def populate_charges_from_sales_quote(docname=None):
 			"Air Shipment - Populate Charges Error"
 		)
 		frappe.throw(_("Error populating charges: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer):
+	"""Create Sales Invoice from Air Shipment charges."""
+	from frappe.utils import flt, today
+	if not shipment_name:
+		frappe.throw(_("Air Shipment name is required."))
+	shipment = frappe.get_doc("Air Shipment", shipment_name)
+	if shipment.docstatus != 1:
+		frappe.throw(_("Air Shipment must be submitted to create Sales Invoice."))
+	customer = customer or shipment.local_customer
+	if not customer:
+		frappe.throw(_("Local Customer is required to create Sales Invoice."))
+	if not shipment.charges:
+		frappe.throw(_("No charges found on Air Shipment."))
+	invoice = frappe.new_doc("Sales Invoice")
+	invoice.customer = customer
+	invoice.company = shipment.company
+	invoice.posting_date = posting_date or today()
+	if getattr(shipment, "branch", None):
+		invoice.branch = shipment.branch
+	if getattr(shipment, "cost_center", None):
+		invoice.cost_center = shipment.cost_center
+	if getattr(shipment, "profit_center", None):
+		invoice.profit_center = shipment.profit_center
+	base_remarks = invoice.remarks or ""
+	note = _("Auto-created from Air Shipment {0}").format(shipment.name)
+	invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+	for ch in shipment.charges:
+		rev = flt(getattr(ch, "estimated_revenue", 0) or getattr(ch, "rate", 0) * flt(getattr(ch, "quantity", 1) or 1))
+		if rev <= 0:
+			continue
+		item_code = getattr(ch, "item_code", None)
+		if not item_code:
+			continue
+		invoice.append("items", {"item_code": item_code, "qty": 1, "rate": rev})
+	if not invoice.items:
+		frappe.throw(_("No charge items with revenue found."))
+	invoice.set_missing_values()
+	invoice.insert(ignore_permissions=True)
+	if frappe.get_meta("Air Shipment").get_field("sales_invoice"):
+		frappe.db.set_value("Air Shipment", shipment_name, "sales_invoice", invoice.name, update_modified=False)
+	return {"sales_invoice": invoice.name}
+
+
+@frappe.whitelist()
+def post_standard_costs(docname):
+	"""Post standard costs for Air Shipment charges. No-op if charges do not support standard costs."""
+	# Air Shipment Charges may not have standard_cost_posted; return message if nothing to post
+	shipment = frappe.get_doc("Air Shipment", docname)
+	posted = 0
+	for ch in (shipment.charges or []):
+		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):
+			# If the charge has the field, post it (same pattern as Warehouse Job)
+			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
+				ch.standard_cost_posted = 1
+				ch.standard_cost_posted_at = frappe.utils.now()
+				posted += 1
+	if posted > 0:
+		shipment.save()
+	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
 
 
 @frappe.whitelist()

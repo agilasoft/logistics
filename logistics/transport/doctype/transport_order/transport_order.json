@@ -16,6 +16,7 @@
   "transport_job_type",
   "container_type",
   "container_no",
+  "container",
   "load_type",
   "vehicle_type",
   "hazardous",
@@ -73,8 +74,6 @@
   "column_break_jkpj",
   "job_costing_number",
   "quote_section",
-  "quote_type",
-  "quote",
   "sales_quote",
   "project"
  ],
@@ -262,7 +261,7 @@
    "label": "Documents"
   },
   {
-   "collapsible": 1,
+   "collapsible": 0,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
@@ -362,6 +361,14 @@
    "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
   },
   {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "read_only": 1
+  },
+  {
    "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
@@ -412,22 +419,10 @@
    "label": "Quote Reference"
   },
   {
-   "fieldname": "quote_type",
-   "fieldtype": "Select",
-   "label": "Quote Type",
-   "options": "One-Off Quote\nSales Quote"
-  },
-  {
-   "fieldname": "quote",
-   "fieldtype": "Dynamic Link",
-   "label": "Quote",
-   "options": "quote_type"
-  },
-  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
-   "hidden": 1,
    "label": "Sales Quote",
+   "link_filters": "[[\"Sales Quote\",\"is_transport\",\"=\",1]]",
    "options": "Sales Quote"
   },
   {

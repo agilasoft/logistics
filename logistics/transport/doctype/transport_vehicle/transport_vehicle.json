@@ -9,6 +9,7 @@
   "code",
   "vehicle_name",
   "company_owned",
+  "company",
   "column_break_gmed",
   "make",
   "model",
@@ -335,12 +336,20 @@
    "fieldname": "ez_accreditations_tab",
    "fieldtype": "Tab Break",
    "label": "EZ Accreditations"
+  },
+  {
+   "depends_on": "eval:doc.company_owned",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "mandatory_depends_on": "eval:doc.company_owned",
+   "options": "Company"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-03 22:48:22.309315",
+ "modified": "2026-02-23 19:03:14.514674",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle",

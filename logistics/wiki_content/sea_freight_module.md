@@ -11,7 +11,7 @@ To access: **Home > Sea Freight**
 1. **Quote** – [Sales Quote](welcome/sales-quote)
 2. **Booking** – [Sea Booking](welcome/sea-booking)
 3. **Shipment** – [Sea Shipment](welcome/sea-shipment)
-4. **Consolidation** (LCL) – [Sea Freight Consolidation](welcome/sea-freight-consolidation)
+4. **Consolidation** (LCL) – [Sea Consolidation](welcome/sea-consolidation)
 5. **Master Bill** – [Master Bill](welcome/master-bill)
 6. **Billing** – Sales Invoice
 
@@ -27,9 +27,11 @@ To access: **Home > Sea Freight**
 
 **Organizations:** [Shipper](welcome/shipper), [Consignee](welcome/consignee)
 
-**Masters:** [Freight Agent](welcome/freight-agent), [Shipping Line](welcome/shipping-line), [Container Type](welcome/container-type), [Freight Routing](welcome/freight-routing), [Container Yard](welcome/container-yard), [Container Freight Station](welcome/container-freight-station), [Cargo Terminal Operator](welcome/cargo-terminal-operator)
+**Reference Files:** Freight Agent, Shipping Line, Cargo Terminal Operator, Container Freight Station, Incoterm, [Container Type](welcome/container-type), Other Service, Freight Routing, Container Yard
 
-**Reports:** Sea Shipment Status Report, Sea Consolidation Report, Container Utilization Report, On-Time Performance Report, Sea Freight Revenue/Cost Analysis, Sea Freight Performance Dashboard, Shipping Line Performance Report
+**Settings:** [Sea Freight Settings](welcome/sea-freight-settings), Invoice Type, Release Type, Tax Category, Exporter Category
+
+**Reports:** Sea Shipment Status Report, Sea Consolidation Report, Container Utilization Report, Sea Freight On-Time Performance Report, Sea Freight Revenue Analysis, Sea Freight Cost Analysis, Sea Freight Billing Status Report, Sea Freight Performance Dashboard, Sea Freight Route Analysis, Shipping Line Performance Report
 
 ## 4. Related Topics
 

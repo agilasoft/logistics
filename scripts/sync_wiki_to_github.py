@@ -27,6 +27,7 @@ PAGE_MAP = {
     "transport_settings": "Transport-Settings",
     "warehouse_settings": "Warehouse-Settings",
     "customs_settings": "Customs-Settings",
+    "default_details_and_relationships": "Default-Details-And-Relationships",
     # Module Intros
     "sea_freight_module": "Sea-Freight-Module",
     "air_freight_module": "Air-Freight-Module",
@@ -58,6 +59,7 @@ PAGE_MAP = {
     # Customs
     "declaration_order": "Declaration-Order",
     "declaration": "Declaration",
+    "customs_workflow_guide": "Customs-Workflow-Guide",
     "commodity": "Commodity",
     "customs_authority": "Customs-Authority",
     # Warehousing
@@ -74,10 +76,18 @@ PAGE_MAP = {
     "periodic_billing": "Periodic-Billing",
     # Pricing Center
     "sales_quote": "Sales-Quote",
-    "one_off_quote": "One-Off-Quote",
+    "change_request": "Change-Request",
+    "sales_quote_calculation_method": "Sales-Quote-Calculation-Method",
+    "charges_tariff_revenue_cost_pattern": "Charges-Tariff-Revenue-Cost-Pattern",
     # Logistics (shared masters)
     "general_job": "General-Job",
     "container_type": "Container-Type",
+    # Job Management
+    "job_management_module": "Job-Management-Module",
+    # Sustainability
+    "sustainability_module": "Sustainability-Module",
+    # Intercompany
+    "intercompany_module": "Intercompany-Module",
     # Special Projects
     "special_projects_module": "Special-Projects-Module",
     "uld_type": "ULD-Type",
@@ -133,6 +143,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Setup and Settings
 
 - [Logistics Settings](Logistics-Settings)
+- [Default Details and Relationships](Default-Details-And-Relationships) – Shipper, Consignee, Freight Agent, Carrier defaults
 - [Sea Freight Settings](Sea-Freight-Settings)
 - [Air Freight Settings](Air-Freight-Settings)
 - [Transport Settings](Transport-Settings)
@@ -177,7 +188,20 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Pricing Center
 
 - [Sales Quote](Sales-Quote)
-- [One Off Quote](One-Off-Quote)
+- [Change Request](Change-Request)
+- [Sales Quote – Calculation Method](Sales-Quote-Calculation-Method)
+
+## Job Management
+
+- [Job Management Module](Job-Management-Module) – Job costing, recognition policies, cost centers
+
+## Sustainability
+
+- [Sustainability Module](Sustainability-Module) – Carbon footprint, energy consumption, environmental metrics
+
+## Intercompany
+
+- [Intercompany Module](Intercompany-Module) – Intercompany invoicing and reconciliation
 
 ## Special Projects
 
@@ -222,6 +246,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Setup and Settings**
 - [Logistics Settings](Logistics-Settings)
+- [Default Details and Relationships](Default-Details-And-Relationships)
 - [Sea Freight Settings](Sea-Freight-Settings)
 - [Air Freight Settings](Air-Freight-Settings)
 - [Transport Settings](Transport-Settings)
@@ -281,7 +306,17 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Pricing Center**
 - [Sales Quote](Sales-Quote)
-- [One Off Quote](One-Off-Quote)
+- [Change Request](Change-Request)
+- [Sales Quote – Calculation Method](Sales-Quote-Calculation-Method)
+
+**Job Management**
+- [Job Management Module](Job-Management-Module)
+
+**Sustainability**
+- [Sustainability Module](Sustainability-Module)
+
+**Intercompany**
+- [Intercompany Module](Intercompany-Module)
 
 **Special Projects**
 - [Special Projects Module](Special-Projects-Module)

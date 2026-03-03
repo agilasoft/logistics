@@ -154,29 +154,32 @@ class TransportRateCalculationEngine:
         """Calculate rate using Base Plus Additional method"""
         base_amount = flt(rate_data.get('base_amount', 0))
         rate = flt(rate_data.get('rate', 0))
+        base_quantity = flt(rate_data.get('base_quantity', 1))
         unit_type = rate_data.get('unit_type', 'Weight')
         
-        # Get additional quantity
+        # Get total quantity
         if unit_type == 'Weight':
-            additional_quantity = kwargs.get('actual_weight', 0)
+            total_quantity = kwargs.get('actual_weight', 0)
         elif unit_type == 'Volume':
-            additional_quantity = kwargs.get('actual_volume', 0)
+            total_quantity = kwargs.get('actual_volume', 0)
         elif unit_type == 'Distance':
-            additional_quantity = kwargs.get('actual_distance', 0)
+            total_quantity = kwargs.get('actual_distance', 0)
         elif unit_type in ['Package', 'Piece']:
-            additional_quantity = kwargs.get('actual_pieces', 0)
+            total_quantity = kwargs.get('actual_pieces', 0)
         else:
-            additional_quantity = kwargs.get('actual_quantity', 0)
+            total_quantity = kwargs.get('actual_quantity', 0)
         
+        additional_quantity = max(0, total_quantity - base_quantity)
         additional_amount = rate * additional_quantity
         return base_amount + additional_amount
     
     def _calculate_first_plus_additional(self, rate_data: Dict, **kwargs) -> float:
         """Calculate rate using First Plus Additional method"""
+        minimum_unit_rate = flt(rate_data.get('minimum_unit_rate', 0))
         rate = flt(rate_data.get('rate', 0))
         minimum_quantity = flt(rate_data.get('minimum_quantity', 0))
         unit_type = rate_data.get('unit_type', 'Weight')
-        
+
         # Get actual quantity
         if unit_type == 'Weight':
             actual_quantity = kwargs.get('actual_weight', 0)
@@ -188,12 +191,15 @@ class TransportRateCalculationEngine:
             actual_quantity = kwargs.get('actual_pieces', 0)
         else:
             actual_quantity = kwargs.get('actual_quantity', 0)
-        
+
         if actual_quantity <= minimum_quantity:
-            return rate
+            if minimum_unit_rate:
+                return minimum_unit_rate * actual_quantity
+            return rate  # Backward compat: flat block when minimum_unit_rate not set
         else:
+            first_block = (minimum_unit_rate * minimum_quantity) if minimum_unit_rate else rate
             additional_quantity = actual_quantity - minimum_quantity
-            return rate + (rate * additional_quantity)  # Full rate for each additional unit
+            return first_block + (rate * additional_quantity)
     
     def _calculate_percentage(self, rate_data: Dict, **kwargs) -> float:
         """Calculate rate using Percentage method"""

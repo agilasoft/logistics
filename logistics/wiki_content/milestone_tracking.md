@@ -1,6 +1,6 @@
 # Milestone Tracking
 
-**Milestone Tracking** provides a visual timeline of key operational stages for Jobs, Shipments, and Declarations. It complements the Documents tab by surfacing execution progress in the **Milestones** (or Dashboard) tab, with document alerts rendered alongside the milestone flow.
+**Milestone Tracking** provides a visual timeline of key operational stages for Jobs, Shipments, and Declarations. It complements the Documents tab by surfacing execution progress in the **Milestones** tab. Dashboard and Milestones are separate tabs; document alerts are shown in the Dashboard tab.
 
 Milestones are tracked via **Job Milestone** records linked to the parent document. Each milestone has a status (Planned, Started, Completed) and optional planned/actual start and end dates. The **Logistics Milestone** master defines which milestones apply to each product type (Sea Freight, Air Freight, Transport, Customs).
 
@@ -18,7 +18,7 @@ Before using Milestone Tracking, it is advised to set up the following:
 ## 2. How to Use the Milestones Tab
 
 1. Open a supported document (e.g., Air Shipment, Sea Shipment, Transport Job, Declaration).
-2. Go to the **Milestones** tab (or Dashboard tab where milestones are shown).
+2. Go to the **Milestones** tab (Dashboard tab shows status and alerts; Milestones tab shows the milestone flow).
 3. The milestone flow is displayed with status indicators (Planned / Started / Completed).
 4. Use **Capture Actual Start** or **Capture Actual End** on Job Milestone rows to record actual dates.
 5. Document alerts (missing, overdue, expiring) are shown at the top of the milestone view when applicable.
@@ -47,10 +47,12 @@ Before using Milestone Tracking, it is advised to set up the following:
 ### 3.2 Supported Doctypes
 
 - Air Shipment
+- Sea Booking
 - Sea Shipment
+- Sea Consolidation
 - Transport Job
 - Declaration
-- General Job (optional)
+- Declaration Order
 
 ## 4. Related Topics
 

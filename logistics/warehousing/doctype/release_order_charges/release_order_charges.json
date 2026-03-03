@@ -7,6 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "item_code",
+  "charge_type",
+  "charge_category",
   "item_name",
   "uom",
   "column_break_xccw",
@@ -30,6 +32,20 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Item Name"
+  },
+  {
+   "default": "Margin",
+   "fieldname": "charge_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Margin\nDisbursement\nRevenue\nCost"
+  },
+  {
+   "fieldname": "charge_category",
+   "fieldtype": "Select",
+   "label": "Charge Category",
+   "options": "Freight\nFuel Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
   },
   {
    "fieldname": "uom",

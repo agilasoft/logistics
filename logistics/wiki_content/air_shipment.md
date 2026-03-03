@@ -1,68 +1,36 @@
 # Air Shipment
 
-**Air Shipment** is a transaction that represents the execution of air freight. It is the job document that tracks the actual cargo movement from origin to destination, linked to one or more Air Bookings.
+**Air Shipment** is the operational shipment document for air freight. It is created from an [Air Booking](welcome/air-booking) and tracks execution, milestones, charges, and documents. Supports Dashboard and Milestones tabs.
 
-An Air Shipment records flight details, ULD assignments, routing legs, packages, charges, documents, and milestones. It flows from Air Booking and supports consolidation, customs integration, and billing.
-
-To access Air Shipment, go to:
-
-**Home > Air Freight > Air Shipment**
+To access: **Home > Air Freight > Air Shipment**
 
 ## 1. Prerequisites
 
-Before creating an Air Shipment, it is advised to set up the following:
+- [Air Booking](welcome/air-booking)
+- [Logistics Milestone](welcome/logistics-milestone) (for milestone tracking)
+- [Document List Template](welcome/document-list-template) (for documents)
 
-- [Air Freight Settings](welcome/air-freight-settings)
-- [Air Booking](welcome/air-booking) – Typically create from booking
-- [Air Freight Master Data](welcome/air-freight-master-data) – ULD types, services, charge types
-- [Logistics Milestone](welcome/logistics-milestone) – For milestone tracking
+## 2. Key Features
 
-## 2. How to Create an Air Shipment
+- **Dashboard Tab** – Document alerts (missing, overdue, expiring), status summary
+- **Milestones Tab** – Visual timeline of operational stages (Planned, Started, Completed)
+- **Charges** – Selling and cost charges; supports weight and quantity breaks
+- **Documents** – Job Document child table; Populate from Template
+- **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
 
-1. Go to the Air Shipment list, click **New**.
-2. Select **Air Booking** (or enter details manually).
-3. Enter **Flight**, **Flight Date**, **ETD**, **ETA**.
-4. Add **Packages** with weights, dimensions, and ULD types.
-5. Add **Routing Legs** for multi-leg routing.
-6. Add **Services** and **Charges**.
-7. **Save** the document.
+## 3. Workflow
 
-### 2.1 Creating from Air Booking
-
-The recommended way is to create an Air Shipment from an Air Booking. Use **Create Air Shipment** from the Air Booking, or create new and link the booking.
-
-### 2.2 Statuses
-
-- **Draft** – Shipment is being prepared
-- **Submitted** – Shipment is confirmed and in execution
-- **Cancelled** – Shipment has been cancelled
-
-## 3. Features
-
-### 3.1 Dashboard Tab
-
-The Dashboard tab shows Document Alerts, Milestone Flow, and Key Metrics.
-
-### 3.2 Milestones Tab
-
-Track operational milestones with status (Planned, Started, Completed) and actual dates.
-
-### 3.3 Documents Tab
-
-Track required documents with status and attachments. Use **Populate from Template**.
-
-### 3.4 Consolidation
-
-Link an Air Shipment to an [Air Consolidation](welcome/air-consolidation) for consolidated shipments.
-
-### 3.5 Billing
-
-Create Sales Invoice from the Air Shipment. Track invoice status in the Accounts tab.
+1. Create Air Shipment from Air Booking.
+2. Track milestones (Gate-In, Loaded, Departed, Arrived, etc.).
+3. Upload documents in Documents tab.
+4. Create [Air Consolidation](welcome/air-consolidation) if House Type = Consolidation.
+5. Create Sales Invoice for billing.
 
 ## 4. Related Topics
 
 - [Air Booking](welcome/air-booking)
 - [Air Consolidation](welcome/air-consolidation)
 - [Master Air Waybill](welcome/master-air-waybill)
-- [Document Management](welcome/document-management)
 - [Milestone Tracking](welcome/milestone-tracking)
+- [Document Management](welcome/document-management)
+- [Change Request](welcome/change-request)

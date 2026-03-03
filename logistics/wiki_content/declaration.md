@@ -1,80 +1,41 @@
 # Declaration
 
-**Declaration** is a transaction that represents a customs declaration submitted to customs authorities. It is the execution document for customs clearance, linked to a Declaration Order.
+**Declaration** is the customs clearance document. It is created from a [Declaration Order](welcome/declaration-order) and tracks commodities, values, documents, submission, and clearance status. Supports Dashboard and Milestones tabs.
 
-A Declaration records commodities, parties, duty/tax, documents, and clearance status. It supports import, export, and transit declarations with HS code classification and document tracking.
-
-To access Declaration, go to:
-
-**Home > Customs > Declaration**
+To access: **Home > Customs > Declaration**
 
 ## 1. Prerequisites
 
-Before creating a Declaration, it is advised to set up the following:
+- [Declaration Order](welcome/declaration-order)
+- [Commodity](welcome/commodity) (HS codes)
+- [Customs Authority](welcome/customs-authority)
+- [Logistics Milestone](welcome/logistics-milestone) (for milestone tracking)
+- [Document List Template](welcome/document-list-template) (for documents)
 
-- [Customs Settings](welcome/customs-settings)
-- [Declaration Order](welcome/declaration-order) – Typically create from order
-- [Customs Master Data](welcome/customs-master-data) – Commodity, Customs Authority, HS codes
-- [Document List Template](welcome/document-list-template) – For document requirements
+## 2. Key Features
 
-## 2. How to Create a Declaration
+- **Dashboard Tab** – Document alerts, status summary
+- **Milestones Tab** – Visual timeline (Submitted, Under Review, Customs Clearance, Released)
+- **Commodities** – HS codes, values, duty
+- **Charges** – Declaration charges; supports quantity breaks
+- **Documents** – Job Document child table; Populate from Template
+- **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
 
-1. Go to the Declaration list, click **New**.
-2. Select **Declaration Order** (or enter details manually).
-3. Select **Customs Authority** and **Declaration Type** (Import, Export, Transit).
-4. Add **Commodities** with HS codes, descriptions, quantities, values.
-5. Add **Parties** (Importer, Exporter, Declarant).
-6. Add **Documents** (Commercial Invoice, Packing List, Bill of Lading, etc.).
-7. **Save** the document.
+## 3. Workflow
 
-### 2.1 Creating from Declaration Order
-
-The recommended way is to create a Declaration from a Declaration Order. Use **Create Declaration** from the order, or create new and link the order.
-
-### 2.2 Statuses
-
-- **Draft** – Declaration is being prepared
-- **Submitted** – Declaration submitted to customs
-- **Under Review** – Customs is reviewing
-- **Cleared** – Customs clearance approved
-- **Released** – Cargo released
-- **Rejected** – Declaration rejected
-- **Cancelled** – Declaration cancelled
-
-## 3. Features
-
-### 3.1 Dashboard Tab
-
-The Dashboard tab provides a compact overview of declaration status, alerts, and key metrics:
-
-- **Status** – Current status (Draft, Submitted, In Progress, Approved, Rejected, Cancelled) with color-coded badge
-- **Alerts** – Document alerts (expired/rejected, pending, expiring soon), missing permits, and compliance exceptions
-- **Key Metrics** – Declaration type, number, payment status, expected/actual clearance dates
-- **Summary** – Commodities count, declaration value, total payable
-
-Use the Dashboard to monitor status, spot missing documents or permits, and track compliance at a glance.
-
-### 3.2 Milestones Tab
-
-Track declaration milestones (Submitted, Under Review, Cleared, Released) with status and actual dates.
-
-### 3.3 Documents Tab
-
-Declaration has a Documents tab (Declaration Document child table) for tracking required customs documents with status and attachments.
-
-### 3.4 Duty and Tax
-
-Calculate duty and tax based on [Customs Rate](welcome/customs-rate) and commodity values.
-
-### 3.5 Integration
-
-Link Declaration to Sea Shipment, Air Shipment, or Transport Job for end-to-end visibility.
+1. Create Declaration from Declaration Order.
+2. Add commodity lines with HS codes.
+3. Attach documents (Commercial Invoice, Packing List, BL, etc.).
+4. Submit to Customs Authority.
+5. Track milestones (Submitted → Under Review → Released).
+6. Create Sales Invoice for billing.
 
 ## 4. Related Topics
 
 - [Declaration Order](welcome/declaration-order)
+- [Customs Workflow Guide](welcome/customs-workflow-guide)
 - [Commodity](welcome/commodity)
 - [Customs Authority](welcome/customs-authority)
-- [Customs Rate](welcome/customs-rate)
-- [Document Management](welcome/document-management)
 - [Milestone Tracking](welcome/milestone-tracking)
+- [Document Management](welcome/document-management)
+- [Change Request](welcome/change-request)

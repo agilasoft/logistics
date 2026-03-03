@@ -2,7 +2,7 @@
 
 **Document List Template** is a master that defines which documents are required for each product type and context. It is used by the Documents tab to auto-populate document requirements on Bookings, Orders, Shipments, and Jobs.
 
-Each template has a name (e.g., "Air Export Standard", "Sea Import FCL") and applies to a product type (Air Freight, Sea Freight, Transport, Customs, Warehousing, General), applies to (Booking, Shipment/Job, Both), and optionally direction and entry type.
+Each template has a name (e.g., "Air Export Standard", "Sea Import FCL") and applies to a product type (Air Freight, Sea Freight, Transport, Customs, Warehousing, General, Special Projects), applies to (Booking, Shipment/Job, Both), and optionally direction and entry type.
 
 To access Document List Template, go to:
 
@@ -18,7 +18,7 @@ Before creating a Document List Template, it is advised to set up the following:
 
 1. Go to the Document List Template list, click **New**.
 2. Enter **Template Name** (e.g., "Air Export Standard").
-3. Select **Product Type** (Air Freight, Sea Freight, Transport, Customs, Warehousing, General).
+3. Select **Product Type** (Air Freight, Sea Freight, Transport, Customs, Warehousing, General, Special Projects).
 4. Select **Applies To** (Booking, Shipment/Job, Both).
 5. Select **Direction** (Import, Export, Domestic, All) if applicable.
 6. Select **Entry Type** (Direct, Transit, Transshipment, All) if applicable.

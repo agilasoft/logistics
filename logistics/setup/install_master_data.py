@@ -15,6 +15,9 @@ def execute():
         # Note: UOMs are user-defined and should be created manually
         # Users must configure default UOMs in Transport Capacity Settings
         
+        # Install Transport Mode data (Air, Sea, Road, Rail)
+        install_transport_modes()
+
         # Install Load Type data
         install_load_types()
         
@@ -60,6 +63,38 @@ def execute():
         }
 
 
+
+
+def install_transport_modes():
+    """Install Transport Mode master data for routing legs."""
+    if not frappe.db.exists("DocType", "Transport Mode"):
+        print("  ⏭ Transport Mode DocType not found, skipping")
+        return
+    print("🚢 Installing Transport Mode data...")
+    modes = [
+        {"mode_code": "Air", "mode_name": "Air", "primary_document": "Air Shipment", "description": "Air freight"},
+        {"mode_code": "Sea", "mode_name": "Sea", "primary_document": "Sea Shipment", "description": "Sea freight"},
+        {"mode_code": "Road", "mode_name": "Road", "primary_document": "Transport Job", "description": "Road transport"},
+        {"mode_code": "Rail", "mode_name": "Rail", "primary_document": "Transport Job - Rail", "description": "Rail transport"},
+        {"mode_code": "Inland Water", "mode_name": "Inland Water", "primary_document": "Transport Job - Inland Water", "description": "Inland waterway transport"},
+        {"mode_code": "Cable", "mode_name": "Cable", "primary_document": "Transport Job - Cable", "description": "Cable transport"},
+        {"mode_code": "Pipeline", "mode_name": "Pipeline", "primary_document": "Transport Job - Pipeline", "description": "Pipeline transport"},
+        {"mode_code": "Space", "mode_name": "Space", "primary_document": "Transport Job - Space", "description": "Space transport"},
+    ]
+    created_count = 0
+    for mode_data in modes:
+        try:
+            if not frappe.db.exists("Transport Mode", mode_data["mode_code"]):
+                doc = frappe.new_doc("Transport Mode")
+                doc.update(mode_data)
+                doc.insert()
+                created_count += 1
+                print(f"  ✅ Created Transport Mode: {mode_data['mode_code']}")
+            else:
+                print(f"  ✓ Transport Mode already exists: {mode_data['mode_code']}")
+        except Exception as e:
+            print(f"  ❌ Error creating Transport Mode {mode_data['mode_code']}: {e}")
+    print(f"🚢 Transport Modes: {created_count} created")
 
 
 def install_load_types():

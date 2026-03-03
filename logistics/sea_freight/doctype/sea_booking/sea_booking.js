@@ -1,6 +1,23 @@
 // Copyright (c) 2025, logistics.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _load_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
+	frappe.call({
+		method: 'logistics.document_management.api.get_milestone_html',
+		args: { doctype: 'Sea Booking', docname: frm.doc.name },
+		callback: function(r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			}
+		}
+	}).always(function() {
+		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
+	});
+}
+
 // Suppress "Sea Booking X not found" when form is new/unsaved (e.g. package grid triggers API before save)
 frappe.ui.form.on('Sea Booking', {
 	onload: function(frm) {
@@ -61,9 +78,9 @@ frappe.ui.form.on('Sea Booking', {
 			frm.set_value('shipper_contact_display', '');
 			return;
 		}
-		frappe.db.get_value('Shipper', frm.doc.shipper, ['shipper_primary_address', 'shipper_primary_contact'], function(r) {
-			if (r && r.shipper_primary_address) {
-				frm.set_value('shipper_address', r.shipper_primary_address);
+		frappe.db.get_value('Shipper', frm.doc.shipper, ['pick_address', 'shipper_primary_address', 'shipper_primary_contact'], function(r) {
+			if (r && (r.pick_address || r.shipper_primary_address)) {
+				frm.set_value('shipper_address', r.pick_address || r.shipper_primary_address);
 				frm.trigger('shipper_address');
 			}
 			if (r && r.shipper_primary_contact) {
@@ -82,9 +99,9 @@ frappe.ui.form.on('Sea Booking', {
 			frm.set_value('consignee_contact_display', '');
 			return;
 		}
-		frappe.db.get_value('Consignee', frm.doc.consignee, ['consignee_primary_address', 'consignee_primary_contact'], function(r) {
-			if (r && r.consignee_primary_address) {
-				frm.set_value('consignee_address', r.consignee_primary_address);
+		frappe.db.get_value('Consignee', frm.doc.consignee, ['delivery_address', 'consignee_primary_address', 'consignee_primary_contact'], function(r) {
+			if (r && (r.delivery_address || r.consignee_primary_address)) {
+				frm.set_value('consignee_address', r.delivery_address || r.consignee_primary_address);
 				frm.trigger('consignee_address');
 			}
 			if (r && r.consignee_primary_contact) {
@@ -230,8 +247,8 @@ frappe.ui.form.on('Sea Booking', {
 				doc: frm.doc,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
-						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
-						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+						if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
+						if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
 						if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
 						_set_packing_summary_from_response(frm, r.message);
 					}
@@ -241,9 +258,44 @@ frappe.ui.form.on('Sea Booking', {
 	},
 	
 	refresh: function(frm) {
-		// Populate Documents from Template
-		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__('Populate from Template'), function() {
+		// Load dashboard HTML in Dashboard tab (only when doc is saved)
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+			if (!frm._dashboard_html_called) {
+				frm._dashboard_html_called = true;
+				frm.call('get_dashboard_html').then(r => {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+						}
+					}
+				});
+				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+			}
+		}
+
+		_load_milestone_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+				_load_milestone_html(frm);
+			});
+		}
+
+		// --- Actions menu ---
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			frm.add_custom_button(__('Get Milestones'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_milestones_from_template',
+					args: { doctype: 'Sea Booking', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Actions'));
+			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
 					args: { doctype: 'Sea Booking', docname: frm.doc.name },
@@ -254,7 +306,21 @@ frappe.ui.form.on('Sea Booking', {
 						}
 					}
 				});
-			}, __('Documents'));
+			}, __('Actions'));
+			if (frm.doc.charges && frm.doc.charges.length > 0) {
+				frm.add_custom_button(__('Calculate Charges'), function() {
+					frappe.call({
+						method: 'logistics.sea_freight.doctype.sea_booking.sea_booking.recalculate_all_charges',
+						args: { docname: frm.doc.name },
+						callback: function(r) {
+							if (r.message && r.message.success) {
+								frm.reload_doc();
+								frappe.show_alert({ message: __(r.message.message), indicator: 'green' }, 3);
+							}
+						}
+					});
+				}, __('Actions'));
+			}
 		}
 
 		// Add button to fetch quotations
@@ -271,31 +337,33 @@ frappe.ui.form.on('Sea Booking', {
 				});
 			}, __('Actions'));
 		}
-		
-		// Add button to convert to shipment
-		if (frm.doc.docstatus === 1) {
-			frm.add_custom_button(__('Convert to Shipment'), function() {
-				frappe.confirm(
-					__('Are you sure you want to convert this Sea Booking to a Sea Shipment?'),
-					function() {
-						frm.call({
-							method: 'convert_to_shipment',
-							doc: frm.doc,
-							callback: function(r) {
-								if (r.exc) return;
-								if (r.message && r.message.success && r.message.sea_shipment) {
-									// Reload form and show link - avoid "not found" by not auto-navigating
-									frm.reload_doc();
-									frappe.show_alert({
-										message: __('Sea Shipment {0} created. <a href="#Form/Sea Shipment/{1}">Open</a>', [r.message.sea_shipment, r.message.sea_shipment]),
-										indicator: 'green'
-									}, 10);
+
+		// --- Create menu ---
+		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1) {
+			setTimeout(function() {
+				frm.add_custom_button(__('Shipment'), function() {
+					frappe.confirm(
+						__('Are you sure you want to convert this Sea Booking to a Sea Shipment?'),
+						function() {
+							frm.call({
+								method: 'convert_to_shipment',
+								doc: frm.doc,
+								callback: function(r) {
+									if (r.exc) return;
+									if (r.message && r.message.success && r.message.sea_shipment) {
+										frm.reload_doc();
+										frappe.show_alert({
+											message: __('Sea Shipment {0} created', [r.message.sea_shipment]),
+											indicator: 'green'
+										}, 3);
+										frappe.set_route('Form', 'Sea Shipment', r.message.sea_shipment);
+									}
 								}
-							}
-						});
-					}
-				);
-			}, __('Actions'));
+							});
+						}
+					);
+				}, __('Create'));
+			}, 100);
 		}
 		
 		// Setup query filter for quote field based on quote_type
@@ -475,8 +543,8 @@ frappe.ui.form.on('Sea Booking Packages', {
 				doc: frm.doc,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
-						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
-						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+						if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
+						if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
 						if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
 						_set_packing_summary_from_response(frm, r.message);
 					}
@@ -492,8 +560,8 @@ frappe.ui.form.on('Sea Booking Packages', {
 				doc: frm.doc,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
-						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
-						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+						if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
+						if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
 						if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
 						_set_packing_summary_from_response(frm, r.message);
 					}
@@ -515,8 +583,8 @@ function _refresh_packing_summary_api(frm) {
 		doc: frm.doc,
 		callback: function(r) {
 			if (r && !r.exc && r.message) {
-				if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
-				if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
+				if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
+				if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
 				if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
 				_set_packing_summary_from_response(frm, r.message);
 			}
@@ -541,7 +609,7 @@ frappe.ui.form.on('Sea Booking Containers', {
 // Set packing summary fields (total_containers, total_teus, total_packages) from API response
 function _set_packing_summary_from_response(frm, message) {
 	if (!message) return;
-	var keys = ['total_containers', 'total_teus', 'total_packages'];
+	var keys = ['total_containers', 'total_teus', 'total_packages', 'total_volume', 'total_weight'];
 	keys.forEach(function(key) {
 		if (message[key] !== undefined) frm.set_value(key, message[key]);
 	});
@@ -550,7 +618,7 @@ function _set_packing_summary_from_response(frm, message) {
 // Update read-only status of measurement fields based on override_volume_weight
 function _update_measurement_fields_readonly(frm) {
 	var readonly = !frm.doc.override_volume_weight;
-	frm.set_df_property('volume', 'read_only', readonly);
-	frm.set_df_property('weight', 'read_only', readonly);
+	frm.set_df_property('total_volume', 'read_only', readonly);
+	frm.set_df_property('total_weight', 'read_only', readonly);
 	frm.set_df_property('chargeable', 'read_only', readonly);
 }

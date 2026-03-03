@@ -6,6 +6,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
   "consolidation_info_section",
   "amended_from",
   "naming_series",
@@ -24,15 +26,6 @@
   "shipping_line",
   "vessel_name",
   "voyage_number",
-  "section_break_cargo",
-  "total_containers",
-  "total_packages",
-  "total_weight",
-  "total_volume",
-  "column_break_3",
-  "chargeable_weight",
-  "consolidation_ratio",
-  "cost_per_kg",
   "section_break_documents",
   "master_bill",
   "house_bill_prefix",
@@ -45,12 +38,32 @@
   "column_break_5",
   "quality_control_notes",
   "handling_requirements",
-  "tab_containers",
-  "consolidation_containers",
-  "tab_packages",
-  "consolidation_packages",
-  "tab_routes",
+  "packing_tab",
+  "routing_section",
   "consolidation_routes",
+  "packages_section",
+  "consolidation_packages",
+  "containers_section",
+  "consolidation_containers",
+  "section_break_summary",
+  "total_containers",
+  "total_packages",
+  "total_weight",
+  "total_volume",
+  "column_break_3",
+  "chargeable_weight",
+  "consolidation_ratio",
+  "cost_per_kg",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
   "tab_charges",
   "consolidation_charges",
   "tab_attached_jobs",
@@ -63,6 +76,17 @@
   "job_costing_number"
  ],
  "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
   {
    "fieldname": "consolidation_info_section",
    "fieldtype": "Section Break",
@@ -185,11 +209,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "section_break_cargo",
-   "fieldtype": "Section Break",
-   "label": "Cargo Summary"
-  },
-  {
    "fieldname": "total_containers",
    "fieldtype": "Int",
    "label": "Total Containers",
@@ -300,19 +319,27 @@
    "label": "Handling Requirements"
   },
   {
-   "fieldname": "tab_containers",
+   "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
-   "label": "Containers"
+   "label": "Packing & Routing"
   },
   {
-   "fieldname": "consolidation_containers",
+   "collapsible": 1,
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing Legs"
+  },
+  {
+   "fieldname": "consolidation_routes",
    "fieldtype": "Table",
-   "label": "Consolidation Containers",
-   "options": "Sea Consolidation Containers"
+   "label": "Routing Legs",
+   "options": "Sea Consolidation Routes",
+   "search_index": 1
   },
   {
-   "fieldname": "tab_packages",
-   "fieldtype": "Tab Break",
+   "collapsible": 1,
+   "fieldname": "packages_section",
+   "fieldtype": "Section Break",
    "label": "Packages"
   },
   {
@@ -322,15 +349,79 @@
    "options": "Sea Consolidation Packages"
   },
   {
-   "fieldname": "tab_routes",
-   "fieldtype": "Tab Break",
-   "label": "Routes"
+   "collapsible": 1,
+   "fieldname": "containers_section",
+   "fieldtype": "Section Break",
+   "label": "Containers"
   },
   {
-   "fieldname": "consolidation_routes",
+   "fieldname": "consolidation_containers",
    "fieldtype": "Table",
-   "label": "Consolidation Routes",
-   "options": "Sea Consolidation Routes"
+   "label": "Consolidation Containers",
+   "options": "Sea Consolidation Containers"
+  },
+  {
+   "fieldname": "section_break_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Sea Consolidation Milestone"
   },
   {
    "fieldname": "tab_charges",
@@ -397,7 +488,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-01 21:19:44.245621",
+ "modified": "2026-02-26 22:01:53.206427",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",

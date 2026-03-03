@@ -1,6 +1,6 @@
 # Reports Overview
 
-**CargoNext** provides comprehensive reports across Sea Freight, Air Freight, Transport, Customs, Warehousing, Job Management, and Sustainability modules. Reports help you analyze performance, billing status, compliance, and operational metrics.
+**CargoNext** provides comprehensive reports across Sea Freight, Air Freight, Transport, Customs, Warehousing, Job Management, Sustainability, and Special Projects modules. Reports help you analyze performance, billing status, compliance, and operational metrics.
 
 To access reports, go to:
 
@@ -70,7 +70,7 @@ To access reports, go to:
 
 ## 6. Job Management Reports
 
-- **Recognition Status** – WIP and revenue recognition status
+- **Recognition Status** – WIP and revenue recognition status across jobs
 
 ## 7. Sustainability Reports
 
@@ -83,7 +83,7 @@ To access reports, go to:
 - **Trend Analysis Report** – Trends over time
 - **Cross Module Summary Report** – Cross-module summary
 
-## 7. Related Topics
+## 8. Related Topics
 
 - [Sea Freight Settings](welcome/sea-freight-settings)
 - [Air Freight Settings](welcome/air-freight-settings)

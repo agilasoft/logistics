@@ -37,10 +37,10 @@
   {
    "columns": 1,
    "fieldname": "mode",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Mode",
-   "options": "Air\nSea\nRoad\nRail\nInland Waterway\nOther"
+   "options": "Transport Mode"
   },
   {
    "columns": 1,

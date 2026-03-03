@@ -58,6 +58,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | logistics_document_type.md | Logistics Document Type | Introduction |
 | customer_portal.md | Customer Portal | Introduction |
 | logistics_settings.md | Logistics Settings | Setup |
+| default_details_and_relationships.md | Default Details and Relationships | Setup |
 | sea_freight_settings.md | Sea Freight Settings | Setup |
 | air_freight_settings.md | Air Freight Settings | Setup |
 | transport_settings.md | Transport Settings | Setup |
@@ -65,27 +66,50 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | customs_settings.md | Customs Settings | Setup |
 | sea_booking.md | Sea Booking | Sea Freight |
 | sea_shipment.md | Sea Shipment | Sea Freight |
+| sea_consolidation.md | Sea Consolidation | Sea Freight |
 | air_booking.md | Air Booking | Air Freight |
 | air_shipment.md | Air Shipment | Air Freight |
+| air_consolidation.md | Air Consolidation | Air Freight |
+| master_bill.md | Master Bill | Sea Freight |
+| master_air_waybill.md | Master Air Waybill | Air Freight |
+| shipper.md | Shipper | Sea Freight |
+| consignee.md | Consignee | Sea Freight |
+| container_type.md | Container Type | Sea Freight |
+| uld_type.md | ULD Type | Air Freight |
 | transport_order.md | Transport Order | Transport |
 | transport_job.md | Transport Job | Transport |
+| transport_consolidation.md | Transport Consolidation | Transport |
+| transport_leg.md | Transport Leg | Transport |
+| transport_plan.md | Transport Plan | Transport |
+| run_sheet.md | Run Sheet | Transport |
+| proof_of_delivery.md | Proof of Delivery | Transport |
+| transport_template.md | Transport Template | Transport |
+| load_type.md | Load Type | Transport |
 | declaration_order.md | Declaration Order | Customs |
 | declaration.md | Declaration | Customs |
+| customs_workflow_guide.md | Customs Workflow Guide | Customs |
+| commodity.md | Commodity | Customs |
+| customs_authority.md | Customs Authority | Customs |
 | inbound_order.md | Inbound Order | Warehousing |
 | release_order.md | Release Order | Warehousing |
 | transfer_order.md | Transfer Order | Warehousing |
+| vas_order.md | VAS Order | Warehousing |
+| stocktake_order.md | Stocktake Order | Warehousing |
 | warehouse_job.md | Warehouse Job | Warehousing |
-| sales_quote.md | Sales Quote | Pricing Center |
-| one_off_quote.md | One Off Quote | Pricing Center |
-| container_type.md | Container Type | Sea Freight |
-| uld_type.md | ULD Type | Air Freight |
-| load_type.md | Load Type | Transport |
-| transport_template.md | Transport Template | Transport |
+| warehouse_contract.md | Warehouse Contract | Warehousing |
+| gate_pass.md | Gate Pass | Warehousing |
+| periodic_billing.md | Periodic Billing | Warehousing |
 | storage_location.md | Storage Location | Warehousing |
 | handling_unit_type.md | Handling Unit Type | Warehousing |
+| sales_quote.md | Sales Quote | Pricing Center |
+| sales_quote_calculation_method.md | Sales Quote – Calculation Method | Pricing Center |
+| charges_tariff_revenue_cost_pattern.md | Charges, Tariff, Revenue & Cost Pattern | Pricing Center |
+| general_job.md | General Job | Logistics |
 | logistics_milestone.md | Logistics Milestone | Logistics |
 | special_projects_module.md | Special Projects Module | Special Projects |
+| pages_overview.md | Pages Overview | Pages |
 | reports_overview.md | Reports Overview | Reports |
+| glossary.md | Glossary | Glossary |
 
 ## Adding New Pages
 

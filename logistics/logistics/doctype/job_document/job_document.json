@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-02-21 00:00:00.000000",
+ "creation": "2025-02-21 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -36,10 +36,12 @@
    "reqd": 1
   },
   {
+   "fetch_from": "document_type.document_name",
    "fieldname": "document_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Document Name"
+   "label": "Document Name",
+   "options": "Logistics Document Type"
   },
   {
    "fieldname": "document_number",
@@ -139,7 +141,7 @@
  "grid_page_length": 50,
  "istable": 1,
  "links": [],
- "modified": "2025-02-21 00:00:00.000000",
+ "modified": "2026-02-22 13:47:54.540541",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Job Document",

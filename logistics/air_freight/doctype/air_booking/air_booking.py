@@ -35,6 +35,7 @@ class AirBooking(Document):
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
 			self.aggregate_weight_from_packages()
+		# Always calculate chargeable weight (even if volume/weight are 0)
 		self.calculate_chargeable_weight()
 		self._update_packing_summary()
 	
@@ -126,7 +127,18 @@ class AirBooking(Document):
 	def before_submit(self):
 		"""Validate packages and required dates before submitting the Air Booking."""
 		# Validate quote is not empty
-		if not self.quote:
+		quote_type = getattr(self, "quote_type", None)
+		has_quote = False
+		
+		if quote_type == "Sales Quote":
+			has_quote = bool(self.sales_quote)
+		elif quote_type == "One-Off Quote":
+			has_quote = bool(getattr(self, "quote", None))
+		else:
+			# If quote_type is not set, check sales_quote (backward compatibility)
+			has_quote = bool(self.sales_quote)
+		
+		if not has_quote:
 			frappe.throw(_("Quote is required. Please select a quote before submitting the Air Booking."))
 		
 		# Validate charges is not empty
@@ -180,12 +192,15 @@ class AirBooking(Document):
 						to_uom=target_volume_uom,
 						company=getattr(self, "company", None),
 					)
-			if total > 0:
-				self.volume = total
-			else:
-				self.volume = 0
-		except Exception:
-			pass
+			# Always set volume, even if 0
+			self.volume = total if total > 0 else 0
+		except Exception as e:
+			# Log error but still set volume to 0 to ensure field is set
+			frappe.log_error(
+				f"Error aggregating volume from packages for Air Booking {self.name}: {str(e)}",
+				"Air Booking - Volume Aggregation Error"
+			)
+			self.volume = 0
 	
 	def aggregate_weight_from_packages(self):
 		"""Set header weight from sum of package weights, converted to base/default weight UOM."""
@@ -220,12 +235,15 @@ class AirBooking(Document):
 						to_uom=target_weight_uom,
 						company=getattr(self, "company", None),
 					)
-			if total > 0:
-				self.weight = total
-			else:
-				self.weight = 0
-		except Exception:
-			pass
+			# Always set weight, even if 0
+			self.weight = total if total > 0 else 0
+		except Exception as e:
+			# Log error but still set weight to 0 to ensure field is set
+			frappe.log_error(
+				f"Error aggregating weight from packages for Air Booking {self.name}: {str(e)}",
+				"Air Booking - Weight Aggregation Error"
+			)
+			self.weight = 0
 	
 	@frappe.whitelist()
 	def aggregate_volume_from_packages_api(self):
@@ -241,25 +259,59 @@ class AirBooking(Document):
 
 	def calculate_chargeable_weight(self):
 		"""Calculate chargeable weight based on volume and weight"""
-		if not self.volume and not self.weight:
+		# Check if both volume and weight are None/not set (not just 0)
+		# We need to calculate even if one is 0, as long as the other has a value
+		volume_is_none = getattr(self, "volume", None) is None
+		weight_is_none = getattr(self, "weight", None) is None
+		if volume_is_none and weight_is_none:
+			# Both are None - nothing to calculate
+			if hasattr(self, "chargeable"):
+				self.chargeable = 0
 			return
 		
 		# Get volume to weight divisor
 		divisor = self.get_volume_to_weight_divisor()
 		
+		# Validate divisor is positive
+		if divisor <= 0:
+			frappe.log_error(
+				f"Invalid divisor ({divisor}) for Air Booking {self.name}. Using default 6000.",
+				"Air Booking - Invalid Divisor"
+			)
+			divisor = 6000  # Default to IATA standard
+		
+		# Get and validate volume and weight
+		volume = flt(self.volume or 0)
+		weight = flt(self.weight or 0)
+		
+		# Validate non-negative values
+		if volume < 0:
+			frappe.log_error(
+				f"Negative volume ({volume}) for Air Booking {self.name}. Setting to 0.",
+				"Air Booking - Negative Volume"
+			)
+			volume = 0
+		
+		if weight < 0:
+			frappe.log_error(
+				f"Negative weight ({weight}) for Air Booking {self.name}. Setting to 0.",
+				"Air Booking - Negative Weight"
+			)
+			weight = 0
+		
 		# Calculate volume weight
 		volume_weight = 0
-		if self.volume and divisor:
+		if volume > 0 and divisor > 0:
 			# Convert volume from m³ to cm³, then divide by divisor
 			# Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
-			volume_weight = flt(self.volume) * (1000000.0 / divisor)
+			volume_weight = volume * (1000000.0 / divisor)
 		
 		# Calculate chargeable weight (higher of actual weight or volume weight)
-		if self.weight and volume_weight:
-			self.chargeable = max(flt(self.weight), volume_weight)
-		elif self.weight:
-			self.chargeable = flt(self.weight)
-		elif volume_weight:
+		if weight > 0 and volume_weight > 0:
+			self.chargeable = max(weight, volume_weight)
+		elif weight > 0:
+			self.chargeable = weight
+		elif volume_weight > 0:
 			self.chargeable = volume_weight
 		else:
 			self.chargeable = 0
@@ -286,11 +338,25 @@ class AirBooking(Document):
 			# Check if custom divisor is overridden on Air Booking
 			if self.custom_volume_to_weight_divisor:
 				divisor = flt(self.custom_volume_to_weight_divisor)
+				# Validate divisor is positive
+				if divisor <= 0:
+					frappe.log_error(
+						f"Invalid custom divisor ({divisor}) on Air Booking {self.name}. Using default 6000.",
+						"Air Booking - Invalid Custom Divisor"
+					)
+					divisor = 6000
 			# Otherwise, get from Airline
 			elif self.airline:
 				airline_divisor = frappe.db.get_value("Airline", self.airline, "volume_to_weight_divisor")
 				if airline_divisor:
 					divisor = flt(airline_divisor)
+					# Validate divisor is positive
+					if divisor <= 0:
+						frappe.log_error(
+							f"Invalid airline divisor ({divisor}) for Airline {self.airline}. Using default 6000.",
+							"Air Booking - Invalid Airline Divisor"
+						)
+						divisor = 6000
 				else:
 					# Default to IATA if airline doesn't have a divisor set
 					divisor = 6000
@@ -663,7 +729,8 @@ class AirBooking(Document):
 				"quantity": quantity,
 				"unit_of_measure": normalized_uom,
 				"calculation_method": "Automatic",  # Set to "Automatic" since charge is auto-populated from Sales Quote
-				"billing_status": "Pending"
+				"billing_status": "Pending",
+				"bill_to": getattr(sqaf_record, "bill_to", None),
 			}
 			
 			# Add minimum/maximum charge if available
@@ -894,7 +961,13 @@ class AirBooking(Document):
 			air_shipment.sales_quote = self.sales_quote
 			air_shipment.shipper = self.shipper
 			air_shipment.consignee = self.consignee
-			
+			if hasattr(self, "sending_agent") and self.sending_agent:
+				air_shipment.sending_agent = self.sending_agent
+			if hasattr(self, "receiving_agent") and self.receiving_agent:
+				air_shipment.receiving_agent = self.receiving_agent
+			if hasattr(self, "broker") and self.broker:
+				air_shipment.broker = self.broker
+
 			# Copy address and contact from Booking if set, otherwise populate from Shipper/Consignee
 			if hasattr(self, "shipper_address") and self.shipper_address:
 				air_shipment.shipper_address = self.shipper_address
@@ -920,11 +993,11 @@ class AirBooking(Document):
 			if self.shipper and (not air_shipment.shipper_address or not air_shipment.shipper_contact):
 				try:
 					shipper_doc = frappe.get_doc("Shipper", self.shipper)
-					# Populate shipper address if not already set from Booking
-					if not air_shipment.shipper_address and hasattr(shipper_doc, 'shipper_primary_address') and shipper_doc.shipper_primary_address:
-						air_shipment.shipper_address = shipper_doc.shipper_primary_address
-						# Populate display field
-						air_shipment.shipper_address_display = get_address_display(shipper_doc.shipper_primary_address)
+					# Populate shipper address if not already set from Booking (pick_address preferred for transport)
+					shipper_addr = getattr(shipper_doc, 'pick_address', None) or getattr(shipper_doc, 'shipper_primary_address', None)
+					if not air_shipment.shipper_address and shipper_addr:
+						air_shipment.shipper_address = shipper_addr
+						air_shipment.shipper_address_display = get_address_display(shipper_addr)
 					# Populate shipper contact if not already set from Booking
 					if not air_shipment.shipper_contact and hasattr(shipper_doc, 'shipper_primary_contact') and shipper_doc.shipper_primary_contact:
 						air_shipment.shipper_contact = shipper_doc.shipper_primary_contact
@@ -951,11 +1024,11 @@ class AirBooking(Document):
 			if self.consignee and (not air_shipment.consignee_address or not air_shipment.consignee_contact):
 				try:
 					consignee_doc = frappe.get_doc("Consignee", self.consignee)
-					# Populate consignee address if not already set from Booking
-					if not air_shipment.consignee_address and hasattr(consignee_doc, 'consignee_primary_address') and consignee_doc.consignee_primary_address:
-						air_shipment.consignee_address = consignee_doc.consignee_primary_address
-						# Populate display field
-						air_shipment.consignee_address_display = get_address_display(consignee_doc.consignee_primary_address)
+					# Populate consignee address if not already set from Booking (delivery_address preferred for transport)
+					consignee_addr = getattr(consignee_doc, 'delivery_address', None) or getattr(consignee_doc, 'consignee_primary_address', None)
+					if not air_shipment.consignee_address and consignee_addr:
+						air_shipment.consignee_address = consignee_addr
+						air_shipment.consignee_address_display = get_address_display(consignee_addr)
 					# Populate consignee contact if not already set from Booking
 					if not air_shipment.consignee_contact and hasattr(consignee_doc, 'consignee_primary_contact') and consignee_doc.consignee_primary_contact:
 						air_shipment.consignee_contact = consignee_doc.consignee_primary_contact
@@ -985,8 +1058,14 @@ class AirBooking(Document):
 			air_shipment.weight = self.weight
 			air_shipment.volume = self.volume
 			air_shipment.chargeable = self.chargeable
+			air_shipment.etd = self.etd
+			air_shipment.eta = self.eta
+			if hasattr(self, "atd") and self.atd:
+				air_shipment.atd = self.atd
+			if hasattr(self, "ata") and self.ata:
+				air_shipment.ata = self.ata
 			# Only copy service_level if it exists as a valid record
-			if self.service_level and frappe.db.exists("Service Level Agreement", self.service_level):
+			if self.service_level and frappe.db.exists("Logistics Service Level", self.service_level):
 				air_shipment.service_level = self.service_level
 			else:
 				# Explicitly clear the field if the record doesn't exist
@@ -1021,8 +1100,6 @@ class AirBooking(Document):
 			air_shipment.insurance = self.insurance
 			air_shipment.description = self.description
 			air_shipment.marks_and_nos = self.marks_and_nos
-			air_shipment.etd = self.etd
-			air_shipment.eta = self.eta
 			air_shipment.company = self.company
 			air_shipment.branch = self.branch
 			air_shipment.cost_center = self.cost_center
@@ -1061,28 +1138,28 @@ class AirBooking(Document):
 			if hasattr(self, 'services') and self.services:
 				for svc in self.services:
 					air_shipment.append("services", {
-						"type": svc.type,
-						"date_booked": svc.date_booked,
-						"date_completed": svc.date_completed,
-						"service_provider": svc.service_provider,
-						"reference": svc.reference,
-						"currency": svc.currency,
-						"rate": svc.rate,
-						"tax_category": svc.tax_category,
+						"type": getattr(svc, 'type', None),
+						"date_booked": getattr(svc, 'date_booked', None),
+						"date_completed": getattr(svc, 'date_completed', None),
+						"service_provider": getattr(svc, 'service_provider', None),
+						"reference": getattr(svc, 'reference', None),
+						"currency": getattr(svc, 'currency', None),
+						"rate": getattr(svc, 'rate', None),
+						"tax_category": getattr(svc, 'tax_category', None),
 					})
 			
 			# Copy packages if they exist (from Air Booking Packages to Air Shipment Packages)
 			if hasattr(self, 'packages') and self.packages:
 				for package in self.packages:
 					air_shipment.append("packages", {
-						"commodity": package.commodity,
-						"hs_code": package.hs_code,
-						"reference_no": package.reference_no,
-						"goods_description": package.goods_description,
-						"no_of_packs": package.no_of_packs,
-						"uom": package.uom,
-						"weight": package.weight,
-						"volume": package.volume,
+						"commodity": getattr(package, "commodity", None),
+						"hs_code": getattr(package, "hs_code", None),
+						"reference_no": getattr(package, "reference_no", None),
+						"goods_description": getattr(package, "goods_description", None),
+						"no_of_packs": getattr(package, "no_of_packs", None),
+						"uom": getattr(package, "uom", None),
+						"weight": getattr(package, "weight", None),
+						"volume": getattr(package, "volume", None),
 						"dimension_uom": getattr(package, "dimension_uom", None),
 						"length": getattr(package, "length", None),
 						"width": getattr(package, "width", None),
@@ -1096,49 +1173,55 @@ class AirBooking(Document):
 			# Copy charges (from Air Booking Charges to Air Shipment Charges)
 			if hasattr(self, 'charges') and self.charges:
 				for charge in self.charges:
+					# Safely get UOM - AirBookingCharges may use 'unit_of_measure' but AirShipmentCharges uses 'uom'
+					# Use getattr to safely access attributes that may not exist in the schema
+					uom_value = getattr(charge, 'unit_of_measure', None) or getattr(charge, 'uom', None)
+					
 					air_shipment.append("charges", {
-						"item_code": charge.item_code,
-						"item_name": charge.item_name,
-						"charge_type": charge.charge_type,
-						"charge_category": charge.charge_category,
-						"description": charge.description,
-						"charge_basis": charge.charge_basis,
-						"rate": charge.rate,
-						"currency": charge.currency,
-						"quantity": charge.quantity,
-						"unit_of_measure": charge.unit_of_measure,
-						"calculation_method": charge.calculation_method,
-						"discount_percentage": charge.discount_percentage,
-						"base_amount": charge.base_amount,
-						"discount_amount": charge.discount_amount,
-						"tax_amount": charge.tax_amount,
-						"surcharge_amount": charge.surcharge_amount,
-						"total_amount": charge.total_amount,
-						"billing_status": charge.billing_status,
-						"invoice_reference": charge.invoice_reference
+						"item_code": getattr(charge, 'item_code', None),
+						"item_name": getattr(charge, 'item_name', None),
+						"charge_type": getattr(charge, 'charge_type', None),
+						"charge_category": getattr(charge, 'charge_category', None),
+						"description": getattr(charge, 'description', None),
+						"charge_basis": getattr(charge, 'charge_basis', None),
+						"rate": getattr(charge, 'rate', None),
+						"currency": getattr(charge, 'currency', None),
+						"quantity": getattr(charge, 'quantity', None),
+						"uom": uom_value,  # AirShipmentCharges uses 'uom', not 'unit_of_measure'
+						"calculation_method": getattr(charge, 'calculation_method', None),
+						"discount_percentage": getattr(charge, 'discount_percentage', None),
+						"base_amount": getattr(charge, 'base_amount', None),
+						"discount_amount": getattr(charge, 'discount_amount', None),
+						"tax_amount": getattr(charge, 'tax_amount', None),
+						"surcharge_amount": getattr(charge, 'surcharge_amount', None),
+						"total_amount": getattr(charge, 'total_amount', None),
+						"billing_status": getattr(charge, 'billing_status', None),
+						"invoice_reference": getattr(charge, 'invoice_reference', None),
+						"bill_to": getattr(charge, 'bill_to', None),
+						"pay_to": getattr(charge, 'pay_to', None),
 					})
 			
 			# Copy routing legs (from Air Booking Routing Leg to Air Shipment Routing Leg)
+			# Note: Order is determined by idx (automatically set by Frappe), not leg_order
 			if hasattr(self, 'routing_legs') and self.routing_legs:
 				for leg in self.routing_legs:
 					air_shipment.append("routing_legs", {
-						"leg_order": leg.leg_order,
-						"mode": leg.mode,
-						"type": leg.type,
-						"status": leg.status,
-						"charter_route": leg.charter_route,
-						"notes": leg.notes,
-						"vessel": leg.vessel,
-						"voyage_no": leg.voyage_no,
-						"flight_no": leg.flight_no,
-						"carrier_type": leg.carrier_type,
-						"carrier": leg.carrier,
-						"load_port": leg.load_port,
-						"etd": leg.etd,
-						"atd": leg.atd,
-						"discharge_port": leg.discharge_port,
-						"eta": leg.eta,
-						"ata": leg.ata
+						"mode": getattr(leg, 'mode', None),
+						"type": getattr(leg, 'type', None),
+						"status": getattr(leg, 'status', None),
+						"charter_route": getattr(leg, 'charter_route', None),
+						"notes": getattr(leg, 'notes', None),
+						"vessel": getattr(leg, 'vessel', None),
+						"voyage_no": getattr(leg, 'voyage_no', None),
+						"flight_no": getattr(leg, 'flight_no', None),
+						"carrier_type": getattr(leg, 'carrier_type', None),
+						"carrier": getattr(leg, 'carrier', None),
+						"load_port": getattr(leg, 'load_port', None),
+						"etd": getattr(leg, 'etd', None),
+						"atd": getattr(leg, 'atd', None),
+						"discharge_port": getattr(leg, 'discharge_port', None),
+						"eta": getattr(leg, 'eta', None),
+						"ata": getattr(leg, 'ata', None)
 					})
 			
 			# Final validation check before insert - ensure all link fields are valid
@@ -1207,6 +1290,29 @@ class AirBooking(Document):
 				"Air Booking - Convert to Shipment Error"
 			)
 			frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+	"""Recalculate all charges based on current Air Booking data."""
+	booking = frappe.get_doc("Air Booking", docname)
+	if not booking.charges:
+		return {"success": False, "message": _("No charges found to recalculate")}
+	try:
+		charges_recalculated = 0
+		for charge in booking.charges:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=booking)
+				charges_recalculated += 1
+		booking.save()
+		return {
+			"success": True,
+			"message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+			"charges_recalculated": charges_recalculated,
+		}
+	except Exception as e:
+		frappe.log_error(str(e), "Air Booking - Recalculate Charges Error")
+		frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 
 @frappe.whitelist()

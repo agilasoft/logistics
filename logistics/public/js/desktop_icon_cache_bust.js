@@ -1,7 +1,9 @@
 // Force logistics desktop icons and workspace sidebars to use SVGs from
 // public/icons/desktop_icons/ (same location as other logistics modules).
+// Does NOT use frappe.ready (not available in desk app context).
 (function () {
-	frappe.ready(function () {
+	function run() {
+		if (typeof frappe === "undefined" || !frappe.utils) return;
 		const _get_desktop_icon = frappe.utils.get_desktop_icon;
 		if (_get_desktop_icon) {
 			frappe.utils.get_desktop_icon = function (icon_name, variant) {
@@ -10,11 +12,11 @@
 					const scrubbed = frappe.scrub(icon_name);
 					const url =
 						"assets/logistics/icons/desktop_icons/" + variant + "/" + scrubbed + ".svg";
-					const urls = frappe.boot.desktop_icon_urls?.logistics?.[variant];
+					const urls = frappe.boot?.desktop_icon_urls?.logistics?.[variant];
 					if (urls && urls.includes(url)) {
 						return "/" + url;
 					}
-					const icon_data = frappe.utils.get_desktop_icon_by_label(icon_name);
+					const icon_data = frappe.utils.get_desktop_icon_by_label?.(icon_name);
 					if (icon_data && icon_data.app === "logistics") {
 						return "/" + url;
 					}
@@ -24,7 +26,7 @@
 		}
 
 		// Sidebar header: use logistics SVG for workspace icon even when not on desktop
-		if (frappe.ui.SidebarHeader && frappe.ui.SidebarHeader.prototype.set_header_icon) {
+		if (frappe.ui?.SidebarHeader?.prototype?.set_header_icon) {
 			const _set_header_icon = frappe.ui.SidebarHeader.prototype.set_header_icon;
 			frappe.ui.SidebarHeader.prototype.set_header_icon = function () {
 				const sidebar_data = this.sidebar?.sidebar_data;
@@ -39,5 +41,19 @@
 				return _set_header_icon.apply(this, arguments);
 			};
 		}
-	});
+	}
+
+	// Defer until frappe is available; never call frappe.ready (not in desk app)
+	function tryRun() {
+		if (typeof frappe !== "undefined" && frappe.utils) {
+			run();
+		} else {
+			setTimeout(tryRun, 50);
+		}
+	}
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", tryRun);
+	} else {
+		tryRun();
+	}
 })();

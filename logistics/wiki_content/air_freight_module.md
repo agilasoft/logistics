@@ -25,9 +25,13 @@ To access: **Home > Air Freight**
 
 **Quick Access:** Sales Quote, Air Booking, Air Shipment, Air Consolidation, Master Air Waybill, Sales Invoice
 
-**Masters:** [Airline](welcome/airline), [ULD Type](welcome/uld-type)
+**Master Data:** [Airline](welcome/airline), Airline Membership, UNLOCO, Unit Load Device
 
-**Reports:** Air Shipment Status Report, Air Consolidation Report, On-Time Performance Report, Dangerous Goods Compliance Report, Air Freight Revenue/Cost Analysis, Billing Status Report, Air Freight Performance Dashboard, Airline Performance Report
+**Flight Monitoring:** [Master Air Waybill](welcome/master-air-waybill), Flight Schedule, Flight Route, Dangerous Goods Declaration, Job Milestone
+
+**Settings:** [Air Freight Settings](welcome/air-freight-settings), IATA Settings, Flight Schedule Settings
+
+**Reports:** Air Shipment Status Report, Air Consolidation Report, On-Time Performance Report, Dangerous Goods Compliance Report, Air Freight Revenue Analysis, Air Freight Cost Analysis, Billing Status Report
 
 ## 4. Related Topics
 

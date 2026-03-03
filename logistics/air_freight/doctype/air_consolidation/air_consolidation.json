@@ -312,7 +312,8 @@
   {
    "fieldname": "tab_routes",
    "fieldtype": "Tab Break",
-   "label": "Routes"
+   "label": "Routes",
+   "search_index": 1
   },
   {
    "fieldname": "tab_charges",
@@ -368,7 +369,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-06 08:26:48.490975",
+ "modified": "2026-02-26 22:07:09.609882",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",

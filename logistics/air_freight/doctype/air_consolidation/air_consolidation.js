@@ -172,6 +172,25 @@ function add_consolidation_buttons(frm) {
         frm.add_custom_button(__('Add Air Shipment'), function() {
             add_air_freight_job(frm);
         }, __('Actions'));
+
+        if (!frm.doc.master_awb) {
+            frm.add_custom_button(__('Assign MAWB from Stock'), function() {
+                frm.call({
+                    method: 'assign_mawb_from_stock',
+                    doc: frm.doc,
+                    callback: function(r) {
+                        if (r.exc) return;
+                        if (r.message && r.message.mawb_name) {
+                            frappe.show_alert({
+                                message: __('MAWB {0} assigned', [r.message.master_awb_no || r.message.mawb_name]),
+                                indicator: 'green'
+                            }, 5);
+                            frm.reload_doc();
+                        }
+                    }
+                });
+            }, __('Actions'));
+        }
         
         frm.add_custom_button(__('Optimize Routes'), function() {
             optimize_routes(frm);
@@ -185,16 +204,16 @@ function add_consolidation_buttons(frm) {
     if (frm.doc.status === 'Planning' || frm.doc.status === 'Ready for Departure') {
         frm.add_custom_button(__('Generate Report'), function() {
             generate_consolidation_report(frm);
-        }, __('Reports'));
+        }, __('Actions'));
         
         frm.add_custom_button(__('Cost Breakdown'), function() {
             show_cost_breakdown(frm);
-        }, __('Reports'));
+        }, __('Actions'));
     }
     
     frm.add_custom_button(__('Consolidation Summary'), function() {
         show_consolidation_summary(frm);
-    }, __('View'));
+    }, __('Actions'));
 }
 
 function add_air_freight_job(frm) {
@@ -627,7 +646,14 @@ function load_job_details(frm, cdt, cdn) {
             callback: function(r) {
                 if (r.message) {
                     let job = r.message;
-                    row.job_status = job.status;
+                    // Derive status from docstatus (Air Shipment doesn't have a status field)
+                    if (job.docstatus === 1) {
+                        row.job_status = "Submitted";
+                    } else if (job.docstatus === 2) {
+                        row.job_status = "Cancelled";
+                    } else {
+                        row.job_status = "Draft";
+                    }
                     row.booking_date = job.booking_date;
                     row.shipper = job.shipper;
                     row.consignee = job.consignee;
@@ -636,8 +662,10 @@ function load_job_details(frm, cdt, cdn) {
                     row.weight = job.weight;
                     row.volume = job.volume;
                     row.packs = job.packs;
-                    row.value = job.gooda_value;
-                    row.currency = job.currency;
+                    // Fix: Use correct field name 'goods_value' instead of 'gooda_value'
+                    row.value = job.goods_value || 0;
+                    // Fix: Use 'billing_currency' instead of non-existent 'currency' field
+                    row.currency = job.billing_currency || '';
                     row.incoterm = job.incoterm;
                     row.contains_dangerous_goods = job.contains_dangerous_goods;
                     row.dg_compliance_status = job.dg_compliance_status;

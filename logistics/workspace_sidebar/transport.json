@@ -45,18 +45,6 @@
   {
    "child": 0,
    "collapsible": 1,
-   "icon": "circle-arrow-out-up-right",
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "One-off",
-   "link_to": "One-Off Quote",
-   "link_type": "DocType",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
-   "child": 0,
-   "collapsible": 1,
    "icon": "truck",
    "indent": 1,
    "keep_closed": 1,

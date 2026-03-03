@@ -14,6 +14,7 @@ class SeaShipment(Document):
         self.validate_accounts()
         self.validate_required_fields()
         self.validate_dates()
+        self.validate_duplicates()
         try:
             from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
             apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
@@ -90,6 +91,18 @@ class SeaShipment(Document):
         self.calculate_sustainability_metrics()
         self.check_delays()
         self.calculate_penalties()
+        # Auto-populate routing from origin/destination when routing legs are empty
+        self._auto_populate_routing_from_ports()
+        # Container Management: create/link containers and sync penalties
+        try:
+            from logistics.container_management.api import sync_shipment_containers_and_penalties
+            sync_shipment_containers_and_penalties(self)
+        except Exception as e:
+            if not getattr(frappe.flags, "skip_container_sync", False):
+                frappe.log_error(
+                    "Sea Shipment container sync error: {0}".format(str(e)),
+                    "Container Management"
+                )
     
     def after_submit(self):
         """Record sustainability metrics after shipment submission"""
@@ -334,10 +347,13 @@ class SeaShipment(Document):
             if getdate(self.etd) >= getdate(self.eta):
                 frappe.throw(_("ETD (Estimated Time of Departure) must be before ETA (Estimated Time of Arrival)"))
         
-        # Warn if booking date is in the future
+        # Warn if booking date is in the future (only once per document lifecycle)
         if self.booking_date:
             if getdate(self.booking_date) > getdate(today()):
-                frappe.msgprint(_("Booking date is in the future"), indicator="orange")
+                # Use a flag to prevent duplicate messages during insert/save
+                if not hasattr(self, '_booking_date_warning_shown'):
+                    frappe.msgprint(_("Booking date is in the future"), indicator="orange")
+                    self._booking_date_warning_shown = True
     
     def validate_weight_volume(self):
         """Validate weight and volume for Sea Shipment"""
@@ -394,16 +410,130 @@ class SeaShipment(Document):
                     container_count, self.total_containers
                 ), indicator="orange")
             
-            # Validate each container has required fields
+            # Validate each container has required fields and ISO 6346 format
+            from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+            strict = get_strict_validation_setting()
             for i, container in enumerate(self.containers, 1):
                 if not container.type:
                     frappe.msgprint(_("Container {0}: Container Type is required").format(i), indicator="orange")
                 
-                # Validate container number format (basic check - should be alphanumeric)
                 if container.container_no:
-                    if len(container.container_no) < 4:
-                        frappe.msgprint(_("Container {0}: Container Number should be at least 4 characters").format(i), 
-                                     indicator="orange")
+                    valid, err = validate_container_number(
+                        container.container_no, strict=strict
+                    )
+                    if not valid:
+                        frappe.throw(
+                            _("Container {0}: {1}").format(i, err),
+                            title=_("Invalid Container Number")
+                        )
+    
+    def validate_duplicates(self):
+        """Check for duplicate Sea Shipments based on identifying fields"""
+        # Build filter to exclude current document (works for both new and existing)
+        name_filter = {}
+        if self.name:
+            name_filter = {"name": ["!=", self.name]}
+        
+        # Check for duplicate House BL number
+        if getattr(self, "house_bl", None):
+            filters = {
+                "house_bl": self.house_bl,
+                "docstatus": ["!=", 2]  # Exclude cancelled documents
+            }
+            filters.update(name_filter)
+            existing = frappe.db.exists("Sea Shipment", filters)
+            if existing:
+                frappe.throw(
+                    _("A Sea Shipment with House BL '{0}' already exists: {1}").format(
+                        self.house_bl, existing
+                    ),
+                    title=_("Duplicate House BL")
+                )
+        
+        # Check for duplicate Sea Booking reference
+        if getattr(self, "sea_booking", None):
+            filters = {
+                "sea_booking": self.sea_booking,
+                "docstatus": ["!=", 2]
+            }
+            filters.update(name_filter)
+            existing = frappe.db.get_value("Sea Shipment", filters, "name")
+            if existing:
+                frappe.throw(
+                    _("Sea Booking '{0}' is already linked to another Sea Shipment: {1}").format(
+                        self.sea_booking, existing
+                    ),
+                    title=_("Duplicate Sea Booking Reference")
+                )
+        
+        # Check for duplicate container numbers
+        if hasattr(self, "containers") and self.containers:
+            container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None)]
+            if container_numbers:
+                # Check if any container number is already used in another shipment
+                if self.name:
+                    existing_containers = frappe.db.sql("""
+                        SELECT DISTINCT ss.name, sfc.container_no
+                        FROM `tabSea Shipment` ss
+                        INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
+                        WHERE sfc.container_no IN %(container_numbers)s
+                        AND ss.name != %(shipment_name)s
+                        AND ss.docstatus != 2
+                        LIMIT 10
+                    """, {
+                        "container_numbers": container_numbers,
+                        "shipment_name": self.name
+                    }, as_dict=True)
+                else:
+                    existing_containers = frappe.db.sql("""
+                        SELECT DISTINCT ss.name, sfc.container_no
+                        FROM `tabSea Shipment` ss
+                        INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
+                        WHERE sfc.container_no IN %(container_numbers)s
+                        AND ss.docstatus != 2
+                        LIMIT 10
+                    """, {
+                        "container_numbers": container_numbers
+                    }, as_dict=True)
+                
+                if existing_containers:
+                    container_list = ", ".join(set([c.container_no for c in existing_containers]))
+                    shipment_list = ", ".join(set([c.name for c in existing_containers]))
+                    frappe.throw(
+                        _("Container number(s) {0} are already used in Sea Shipment(s): {1}").format(
+                            container_list, shipment_list
+                        ),
+                        title=_("Duplicate Container Numbers")
+                    )
+        
+        # Check for duplicate based on key identifying fields combination
+        # This is a softer check - it warns but doesn't block
+        if (getattr(self, "shipper", None) and 
+            getattr(self, "consignee", None) and 
+            getattr(self, "origin_port", None) and 
+            getattr(self, "destination_port", None) and 
+            getattr(self, "booking_date", None)):
+            
+            filters = {
+                "shipper": self.shipper,
+                "consignee": self.consignee,
+                "origin_port": self.origin_port,
+                "destination_port": self.destination_port,
+                "booking_date": self.booking_date,
+                "docstatus": ["!=", 2]
+            }
+            filters.update(name_filter)
+            existing = frappe.db.get_value("Sea Shipment", filters, "name")
+            
+            if existing:
+                # Show warning but allow save (user can override if needed)
+                frappe.msgprint(
+                    _("Warning: A similar Sea Shipment already exists ({0}) with the same Shipper, Consignee, Ports, and Booking Date. Please verify this is not a duplicate.").format(
+                        existing
+                    ),
+                    indicator="orange",
+                    title=_("Possible Duplicate")
+                )
     
     def validate_master_bill(self):
         """Validate Master Bill if linked"""
@@ -445,600 +575,133 @@ class SeaShipment(Document):
                     ), indicator="orange")
 
     @frappe.whitelist()
-    def get_milestone_html(self):
-        """Generate HTML for milestone visualization with map and cards"""
+    def get_dashboard_html(self):
+        """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
         try:
             from logistics.document_management.api import get_document_alerts_html
-            doc_alerts = get_document_alerts_html("Sea Shipment", self.name or "new")
-
-            if not self.origin_port or not self.destination_port:
-                base = "<div class='alert alert-info'>Origin and Destination ports are required to display the milestone view.</div>"
-                return doc_alerts + base if doc_alerts else base
-            
-            # Get milestone data
-            milestones = frappe.get_all(
-                "Job Milestone",
-                filters={
-                    "job_type": "Sea Shipment",
-                    "job_number": self.name
-                },
-                fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
-                order_by="planned_start"
+            from logistics.document_management.dashboard_layout import (
+                build_run_sheet_style_dashboard,
+                build_map_segments_from_routing_legs,
+                get_dg_dashboard_html,
+                get_unloco_coords,
             )
-            
-            # Get milestone details
-            milestone_details = {}
-            if milestones:
-                milestone_names = [m.milestone for m in milestones if m.milestone]
-                if milestone_names:
-                    milestone_data = frappe.get_all(
-                        "Logistics Milestone",
-                        filters={"name": ["in", milestone_names]},
-                        fields=["name", "description", "code"]
-                    )
-                    milestone_details = {m.name: m for m in milestone_data}
-            
-            # Build header with job details
-            incoterm = getattr(self, 'incoterm', None) or 'Not specified'
-            
-            # Get shipper details
-            shipper_code = ''
-            shipper_name = 'Not specified'
-            shipper_address = ''
-            shipper = getattr(self, 'shipper', None)
-            if shipper:
-                try:
-                    if frappe.db.exists('Shipper', shipper):
-                        shipper_doc = frappe.get_doc('Shipper', shipper)
-                        shipper_code = getattr(shipper_doc, 'shipper_code', None) or getattr(shipper_doc, 'code', None) or ''
-                        shipper_name = getattr(shipper_doc, 'shipper_name', None) or getattr(shipper_doc, 'name', None) or shipper
-                        shipper_addr = getattr(shipper_doc, 'address', None)
-                        if shipper_addr:
-                            shipper_address = shipper_addr
-                    else:
-                        shipper_name = shipper
-                    
-                    # Get address if linked separately
-                    shipper_addr_field = getattr(self, 'shipper_address', None)
-                    if shipper_addr_field:
-                        try:
-                            addr_doc = frappe.get_doc('Address', shipper_addr_field)
-                            addr_line1 = getattr(addr_doc, 'address_line1', None) or ''
-                            city = getattr(addr_doc, 'city', None) or ''
-                            shipper_address = f"{addr_line1}, {city}".strip(', ')
-                        except Exception:
-                            pass
-                except Exception:
-                    shipper_name = shipper
-            
-            # Get consignee details
-            consignee_code = ''
-            consignee_name = 'Not specified'
-            consignee_address = ''
-            consignee = getattr(self, 'consignee', None)
-            if consignee:
-                try:
-                    if frappe.db.exists('Consignee', consignee):
-                        consignee_doc = frappe.get_doc('Consignee', consignee)
-                        consignee_code = getattr(consignee_doc, 'consignee_code', None) or getattr(consignee_doc, 'code', None) or ''
-                        consignee_name = getattr(consignee_doc, 'consignee_name', None) or getattr(consignee_doc, 'name', None) or consignee
-                        consignee_addr = getattr(consignee_doc, 'address', None)
-                        if consignee_addr:
-                            consignee_address = consignee_addr
-                    else:
-                        consignee_name = consignee
-                    
-                    # Get address if linked separately
-                    consignee_addr_field = getattr(self, 'consignee_address', None)
-                    if consignee_addr_field:
-                        try:
-                            addr_doc = frappe.get_doc('Address', consignee_addr_field)
-                            addr_line1 = getattr(addr_doc, 'address_line1', None) or ''
-                            city = getattr(addr_doc, 'city', None) or ''
-                            consignee_address = f"{addr_line1}, {city}".strip(', ')
-                        except Exception:
-                            pass
-                except Exception:
-                    consignee_name = consignee
-            
-            # Get vessel details
-            vessel = getattr(self, 'vessel', None) or 'Not specified'
-            voyage_no = getattr(self, 'voyage_no', None) or 'Not specified'
-            shipping_line = getattr(self, 'shipping_line', None) or 'Not specified'
-            
-            # Get port names from UNLOCO
-            origin_port_name = self.origin_port
-            dest_port_name = self.destination_port
+
+            status = self.get("status")
+            if not status:
+                status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
+            header_items = [
+                ("Status", status),
+                ("ETD", str(self.etd) if self.etd else "—"),
+                ("ETA", str(self.eta) if self.eta else "—"),
+                ("Packages", str(len(self.packages or []))),
+                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+            ]
+            if self.shipping_line:
+                header_items.append(("Shipping Line", self.shipping_line))
+
+            # Wrap in try-except to handle race condition when document is just created
             try:
-                if frappe.db.exists('UNLOCO', self.origin_port):
-                    origin_unloco = frappe.get_doc('UNLOCO', self.origin_port)
-                    origin_port_name = getattr(origin_unloco, 'location_name', None) or self.origin_port
-                if frappe.db.exists('UNLOCO', self.destination_port):
-                    dest_unloco = frappe.get_doc('UNLOCO', self.destination_port)
-                    dest_port_name = getattr(dest_unloco, 'location_name', None) or self.destination_port
+                doc_alerts = get_document_alerts_html("Sea Shipment", self.name or "new")
             except Exception:
-                pass
-            
-            # Build HTML header
-            html = f"""
-		<div class="job-header">
-			<div class="header-main">
-				<div class="header-column">
-					<div class="header-section">
-						<label class="section-label">ORIGIN</label>
-						<div class="location-name">{origin_port_name or 'Origin'}</div>
-					</div>
-					<div class="party-info">
-						<div class="party-label">Shipper:</div>
-						{'<div class="party-code">' + shipper_code + '</div>' if shipper_code else ''}
-						<div class="party-name">{shipper_name}</div>
-						{'<div class="party-address">' + shipper_address + '</div>' if shipper_address else ''}
-					</div>
-				</div>
-				
-				<div class="header-column">
-					<div class="header-section">
-						<label class="section-label">DESTINATION</label>
-						<div class="location-name">{dest_port_name or 'Destination'}</div>
-					</div>
-					<div class="party-info">
-						<div class="party-label">Consignee:</div>
-						{'<div class="party-code">' + consignee_code + '</div>' if consignee_code else ''}
-						<div class="party-name">{consignee_name}</div>
-						{'<div class="party-address">' + consignee_address + '</div>' if consignee_address else ''}
-					</div>
-				</div>
-			</div>
-			
-			<div class="header-details">
-				<div class="detail-item">
-					<label>Shipping Line:</label>
-					<span>{shipping_line}</span>
-				</div>
-				<div class="detail-item">
-					<label>Vessel:</label>
-					<span>{vessel}</span>
-				</div>
-				<div class="detail-item">
-					<label>Voyage:</label>
-					<span>{voyage_no}</span>
-				</div>
-				<div class="detail-item">
-					<label>Incoterm:</label>
-					<span>{incoterm}</span>
-				</div>
-			</div>
-		</div>
-		
-		<div class="milestone-container">
-			<div class="milestone-cards">
-				<div class="milestone-list">
-		"""
-            
-            # Build milestone cards
-            for milestone in milestones:
-                milestone_info = milestone_details.get(milestone.milestone, {})
-                
-                # Get base status
-                status = milestone.status or 'Planned'
-                status_class = status.lower().replace(' ', '-')
-                
-                # Check if milestone is delayed
-                if (milestone.planned_end and 
-                    ((not milestone.actual_end and milestone.planned_end < frappe.utils.now_datetime()) or
-                     (milestone.actual_end and milestone.actual_end > milestone.planned_end))):
-                    
-                    if not milestone.actual_end or milestone.actual_end <= milestone.planned_end:
-                        status = 'Delayed'
-                        status_class = 'delayed'
-                
-                # Determine status badges
-                status_badges = []
-                original_status = milestone.status or 'Planned'
-                
-                if (milestone.actual_end and milestone.actual_end > milestone.planned_end and 
-                    original_status.lower() in ['completed', 'finished', 'done']):
-                    status_badges = [
-                        '<span class="status-badge completed">Completed</span>',
-                        '<span class="status-badge delayed">Delayed</span>'
-                    ]
-                else:
-                    status_badges = [f'<span class="status-badge {status_class}">{status}</span>']
-                
-                # Build action icons
-                action_icons = []
-                if not milestone.actual_start:
-                    action_icons.append(f'''<i class="fa fa-play-circle action-icon start-icon" 
-					   title="Capture Actual Start" 
-					   onclick="captureActualStart('{milestone.name}')"
-					   style="color: #28a745; cursor: pointer;"></i>''')
-                if not milestone.actual_end:
-                    action_icons.append(f'''<i class="fa fa-stop-circle action-icon end-icon" 
-					   title="Capture Actual End" 
-					   onclick="captureActualEnd('{milestone.name}')"
-					   style="color: #dc3545; cursor: pointer;"></i>''')
-                action_icons.append(f'''<i class="fa fa-eye action-icon view-icon" 
-				   title="View Milestone" 
-				   onclick="viewMilestone('{milestone.name}')"
-				   style="color: #007bff; cursor: pointer;"></i>''')
-                
-                html += f"""
-						<div class="milestone-card {status_class}">
-							<div class="milestone-header">
-								<h5>{milestone_info.get('description', milestone.milestone or 'Unknown')}</h5>
-								<div class="milestone-actions">
-									<div class="status-badges">
-										{''.join(status_badges)}
-									</div>
-									<div class="action-icons">
-										{''.join(action_icons)}
-									</div>
-								</div>
-							</div>
-							<div class="milestone-dates">
-								<div class="date-row">
-									<label>Planned:</label>
-									<span>{self.format_datetime(milestone.planned_end) or 'Not set'}</span>
-								</div>
-								<div class="date-row">
-									<label>Actual:</label>
-									<span>{self.format_datetime(milestone.actual_end) or 'Not completed'}</span>
-								</div>
-							</div>
-						</div>
-				"""
-            
-            # Build map container and closing HTML
-            html += f"""
-				</div>
-			</div>
-			<div class="map-container">
-				<div style="width: 100%; height: 450px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
-					<div id="route-map" style="width: 100%; height: 100%;"></div>
-					<div id="route-map-fallback" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); display: flex; align-items: center; justify-content: center; flex-direction: column;">
-						<div style="text-align: center; color: #6c757d;">
-							<i class="fa fa-map" style="font-size: 32px; margin-bottom: 15px;"></i>
-							<div style="font-size: 18px; font-weight: 500; margin-bottom: 10px;">Route Map</div>
-							<div style="font-size: 14px; margin-bottom: 15px; line-height: 1.4;">
-								<strong>Origin:</strong> {origin_port_name}<br>
-								<strong>Destination:</strong> {dest_port_name}
-							</div>
-							<div style="font-size: 12px; color: #999;">
-								Loading map...
-							</div>
-						</div>
-					</div>
-				</div>
-				<div class="text-muted small" style="margin-top: 10px; display: flex; gap: 20px; align-items: center; justify-content: center;">
-					<a href="#" id="route-google-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
-						<i class="fa fa-external-link"></i> Google Maps
-					</a>
-					<a href="#" id="route-osm-link" target="_blank" rel="noopener" style="text-decoration: none; color: #6c757d; font-size: 12px;">
-						<i class="fa fa-external-link"></i> OpenStreetMap
-					</a>
-				</div>
-			</div>
-		</div>
-		
-		<style>
-		.job-header {{
-			background: #ffffff;
-			border: 1px solid #e0e0e0;
-			border-radius: 6px;
-			margin-bottom: 20px;
-			padding: 12px 16px;
-		}}
-		
-		.header-main {{
-			display: flex;
-			justify-content: space-between;
-			padding-bottom: 10px;
-			border-bottom: 1px solid #e0e0e0;
-			gap: 40px;
-		}}
-		
-		.header-column {{
-			flex: 1;
-			display: flex;
-			flex-direction: column;
-			gap: 5px;
-		}}
-		
-		.header-section {{
-			display: flex;
-			flex-direction: column;
-			gap: 0px;
-		}}
-		
-		.party-info {{
-			margin-top: 5px;
-		}}
-		
-		.party-label {{
-			font-size: 11px;
-			color: #6c757d;
-			font-weight: 600;
-			margin-bottom: 2px;
-		}}
-		
-		.party-code {{
-			font-size: 10px;
-			color: #999;
-			margin-bottom: 2px;
-		}}
-		
-		.party-name {{
-			font-size: 13px;
-			font-weight: 500;
-			color: #333;
-		}}
-		
-		.party-address {{
-			font-size: 11px;
-			color: #666;
-			margin-top: 2px;
-		}}
-		
-		.section-label {{
-			font-size: 10px;
-			color: #6c757d;
-			font-weight: 600;
-			text-transform: uppercase;
-			letter-spacing: 0.5px;
-			margin-bottom: 4px;
-		}}
-		
-		.location-name {{
-			font-size: 16px;
-			font-weight: 600;
-			color: #007bff;
-		}}
-		
-		.header-details {{
-			display: flex;
-			gap: 20px;
-			margin-top: 10px;
-			padding-top: 10px;
-			border-top: 1px solid #f0f0f0;
-		}}
-		
-		.detail-item {{
-			display: flex;
-			flex-direction: column;
-			gap: 2px;
-		}}
-		
-		.detail-item label {{
-			font-size: 10px;
-			color: #6c757d;
-			font-weight: 600;
-		}}
-		
-		.detail-item span {{
-			font-size: 12px;
-			color: #333;
-		}}
-		
-		.milestone-container {{
-			display: flex;
-			flex-direction: column;
-			gap: 20px;
-		}}
-		
-		.milestone-cards {{
-			background: #ffffff;
-			border: 1px solid #e0e0e0;
-			border-radius: 6px;
-			padding: 16px;
-		}}
-		
-		.milestone-list {{
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
-		}}
-		
-		.milestone-card {{
-			background: #f8f9fa;
-			border: 1px solid #e0e0e0;
-			border-radius: 4px;
-			padding: 12px;
-			transition: all 0.2s;
-		}}
-		
-		.milestone-card:hover {{
-			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-		}}
-		
-		.milestone-card.completed {{
-			border-left: 4px solid #28a745;
-		}}
-		
-		.milestone-card.delayed {{
-			border-left: 4px solid #dc3545;
-		}}
-		
-		.milestone-card.planned {{
-			border-left: 4px solid #6c757d;
-		}}
-		
-		.milestone-card.started {{
-			border-left: 4px solid #007bff;
-		}}
-		
-		.milestone-header {{
-			display: flex;
-			justify-content: space-between;
-			align-items: flex-start;
-			margin-bottom: 8px;
-		}}
-		
-		.milestone-header h5 {{
-			margin: 0;
-			font-size: 14px;
-			font-weight: 600;
-			color: #333;
-		}}
-		
-		.milestone-actions {{
-			display: flex;
-			gap: 8px;
-			align-items: center;
-		}}
-		
-		.status-badges {{
-			display: flex;
-			gap: 4px;
-		}}
-		
-		.status-badge {{
-			padding: 2px 8px;
-			border-radius: 3px;
-			font-size: 10px;
-			font-weight: 600;
-			text-transform: uppercase;
-		}}
-		
-		.status-badge.completed {{
-			background: #d4edda;
-			color: #155724;
-		}}
-		
-		.status-badge.delayed {{
-			background: #f8d7da;
-			color: #721c24;
-		}}
-		
-		.status-badge.planned {{
-			background: #e2e3e5;
-			color: #383d41;
-		}}
-		
-		.status-badge.started {{
-			background: #cce5ff;
-			color: #004085;
-		}}
-		
-		.action-icons {{
-			display: flex;
-			gap: 8px;
-		}}
-		
-		.action-icon {{
-			font-size: 16px;
-			cursor: pointer;
-			transition: transform 0.2s;
-		}}
-		
-		.action-icon:hover {{
-			transform: scale(1.2);
-		}}
-		
-		.milestone-dates {{
-			display: flex;
-			flex-direction: column;
-			gap: 4px;
-		}}
-		
-		.date-row {{
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-		}}
-		
-		.date-row label {{
-			font-size: 11px;
-			color: #6c757d;
-			font-weight: 600;
-		}}
-		
-		.date-row span {{
-			font-size: 12px;
-			color: #333;
-		}}
-		
-		@media (max-width: 768px) {{
-			.milestone-container {{
-				flex-direction: column;
-			}}
-			
-			.milestone-cards {{
-				width: 100%;
-			}}
-		}}
-		</style>
-		
-		<script>
-		// Milestone action functions
-		function captureActualStart(milestoneId) {{
-			console.log('Capture Actual Start for milestone:', milestoneId);
-			frappe.prompt([
-				{{fieldname: 'actual_start', fieldtype: 'Datetime', label: 'Actual Start', reqd: 1, default: frappe.datetime.now_datetime()}}
-			], function(values) {{
-				frappe.call({{
-					method: 'frappe.client.set_value',
-					args: {{
-						doctype: 'Job Milestone',
-						name: milestoneId,
-						fieldname: 'actual_start',
-						value: values.actual_start
-					}},
-					callback: function(r) {{
-						// Refresh the milestone HTML
-						frappe.ui.form.get_cur_frm().call('get_milestone_html').then(function(result) {{
-							if (result.message) {{
-								frappe.ui.form.get_cur_frm().get_field('milestone_html').$wrapper.html(result.message);
-							}}
-						}});
-					}}
-				}});
-			}});
-		}}
-		
-		function captureActualEnd(milestoneId) {{
-			console.log('Capture Actual End for milestone:', milestoneId);
-			frappe.prompt([
-				{{fieldname: 'actual_end', fieldtype: 'Datetime', label: 'Actual End', reqd: 1, default: frappe.datetime.now_datetime()}}
-			], function(values) {{
-				frappe.call({{
-					method: 'frappe.client.set_value',
-					args: {{
-						doctype: 'Job Milestone',
-						name: milestoneId,
-						fieldname: 'actual_end',
-						value: values.actual_end
-					}},
-					callback: function(r) {{
-						// Refresh the milestone HTML
-						frappe.ui.form.get_cur_frm().call('get_milestone_html').then(function(result) {{
-							if (result.message) {{
-								frappe.ui.form.get_cur_frm().get_field('milestone_html').$wrapper.html(result.message);
-							}}
-						}});
-					}}
-				}});
-			}});
-		}}
-		
-		function viewMilestone(milestoneId) {{
-			console.log('View Milestone for milestone:', milestoneId);
-			frappe.set_route('Form', 'Job Milestone', milestoneId);
-		}}
-		</script>
-		"""
-            return (doc_alerts + html) if doc_alerts else html
-            
+                # Document may not be fully committed yet - return empty alerts
+                doc_alerts = ""
+
+            dg_route_below_html = get_dg_dashboard_html(self)
+
+            milestone_rows = list(self.get("milestones") or [])
+            milestone_details = {}
+            if milestone_rows:
+                names = [m.milestone for m in milestone_rows if m.milestone]
+                if names:
+                    for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
+                        milestone_details[lm.name] = lm.description or lm.name
+
+            cards_html = ""
+            for i, m in enumerate(milestone_rows, 1):
+                st = (m.status or "Planned").lower().replace(" ", "-")
+                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
+                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
+                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
+                cards_html += f"""
+                <div class="dash-card {st}">
+                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
+                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
+                    <span class="card-badge {st}">{m.status or "Planned"}</span>
+                </div>"""
+
+            # Map from routing legs (Pre-carriage, Main, On-forwarding, Other) with distinct colors
+            map_segments = build_map_segments_from_routing_legs(
+                getattr(self, "routing_legs", None) or []
+            )
+            map_points = []
+            if not map_segments:
+                # Fallback: origin/destination ports
+                o = get_unloco_coords(self.origin_port)
+                d = get_unloco_coords(self.destination_port)
+                if o:
+                    map_points.append(o)
+                if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
+                    map_points.append(d)
+
+            return build_run_sheet_style_dashboard(
+                header_title=self.name or "Sea Shipment",
+                header_subtitle="Sea Shipment",
+                header_items=header_items,
+                cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Generate from template in Milestones tab.</div>",
+                map_points=map_points,
+                map_segments=map_segments,
+                map_id_prefix="sea-dash-map",
+                doc_alerts_html=doc_alerts,
+                straight_line=True,
+                origin_label=self.origin_port or None,
+                destination_label=self.destination_port or None,
+                route_below_html=dg_route_below_html,
+            )
         except Exception as e:
-            frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Sea Shipment - Milestone HTML")
-            return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
-    
+            frappe.log_error(f"Sea Shipment get_dashboard_html: {str(e)}", "Sea Shipment Dashboard")
+            return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
+    def _auto_populate_routing_from_ports(self):
+        """Auto-populate routing legs from origin/destination ports when empty."""
+        routing_legs = getattr(self, "routing_legs", None) or []
+        if routing_legs or not self.origin_port or not self.destination_port:
+            return
+        self._append_main_routing_leg()
+
+    def _append_main_routing_leg(self):
+        """Append a single Main leg from origin_port to destination_port."""
+        if not self.origin_port or not self.destination_port:
+            return
+        leg = {
+            "leg_order": 1,
+            "mode": "Sea",
+            "type": "Main",
+            "status": "Planned",
+            "load_port": self.origin_port,
+            "discharge_port": self.destination_port,
+            "etd": self.etd,
+            "eta": self.eta,
+        }
+        self.append("routing_legs", leg)
+
+    @frappe.whitelist()
+    def populate_routing_from_ports(self):
+        """Manually populate routing legs from origin/destination ports. Replaces existing legs with a single Main leg."""
+        if not self.origin_port or not self.destination_port:
+            return {"message": _("Set Origin Port and Destination Port first.")}
+        # Clear existing legs and add single Main leg
+        self.set("routing_legs", [])
+        self._append_main_routing_leg()
+        self.save()
+        return {"message": _("Routing leg created from origin to destination.")}
+
     def format_datetime(self, dt):
         """Format datetime for display"""
         if not dt:
             return None
         try:
             from frappe.utils import format_datetime
-            return format_datetime(dt)
+            return format_datetime(dt, "dd-MM-yyyy HH:mm")
         except Exception:
             return str(dt)
     
@@ -1047,15 +710,8 @@ class SeaShipment(Document):
         try:
             from frappe.utils import now_datetime
             
-            # Get all milestones for this shipment
-            milestones = frappe.get_all(
-                "Job Milestone",
-                filters={
-                    "job_type": "Sea Shipment",
-                    "job_number": self.name
-                },
-                fields=["name", "milestone", "status", "planned_end", "actual_end"]
-            )
+            # Get milestones from child table
+            milestones = list(self.get("milestones") or [])
             
             delay_count = 0
             has_delays = False
@@ -1108,20 +764,10 @@ class SeaShipment(Document):
             
             # Try to get discharge date from milestone or status
             if self.shipping_status == "Discharged from Vessel":
-                # Get discharge milestone
-                discharge_milestone = frappe.get_all(
-                    "Job Milestone",
-                    filters={
-                        "job_type": "Sea Shipment",
-                        "job_number": self.name,
-                        "milestone": "SF-DISCHARGED"
-                    },
-                    fields=["actual_end"],
-                    limit=1
-                )
-                
-                if discharge_milestone and discharge_milestone[0].actual_end:
-                    discharge_date = getdate(discharge_milestone[0].actual_end)
+                for row in (self.get("milestones") or []):
+                    if getattr(row, "milestone", None) == "SF-DISCHARGED" and getattr(row, "actual_end", None):
+                        discharge_date = getdate(row.actual_end)
+                        break
             
             if not discharge_date:
                 # Fallback: use ETA if available
@@ -1147,19 +793,10 @@ class SeaShipment(Document):
             # Calculate demurrage (container at port beyond free time)
             # For sea freight, demurrage is typically calculated from gate-in date
             gate_in_date = None
-            gate_in_milestone = frappe.get_all(
-                "Job Milestone",
-                filters={
-                    "job_type": "Sea Shipment",
-                    "job_number": self.name,
-                    "milestone": "SF-GATE-IN"
-                },
-                fields=["actual_end"],
-                limit=1
-            )
-            
-            if gate_in_milestone and gate_in_milestone[0].actual_end:
-                gate_in_date = getdate(gate_in_milestone[0].actual_end)
+            for row in (self.get("milestones") or []):
+                if getattr(row, "milestone", None) == "SF-GATE-IN" and getattr(row, "actual_end", None):
+                    gate_in_date = getdate(row.actual_end)
+                    break
             
             if gate_in_date:
                 days_at_port = (today - gate_in_date).days
@@ -1359,6 +996,127 @@ class SeaShipment(Document):
         except Exception as e:
             frappe.log_error(f"Error sending impending penalty alert: {str(e)}", "Sea Shipment Impending Penalty Alert")
 
+    @frappe.whitelist()
+    def populate_charges_from_sales_quote(self):
+        """Populate charges from Sales Quote Sea Freight"""
+        if not self.sales_quote:
+            frappe.throw(_("Sales Quote is not set for this Sea Shipment"))
+        
+        try:
+            # Verify that the sales_quote exists
+            if not frappe.db.exists("Sales Quote", self.sales_quote):
+                frappe.msgprint(
+                    f"Sales Quote {self.sales_quote} does not exist",
+                    title="Error",
+                    indicator="red"
+                )
+                return
+            
+            # Clear existing charges
+            self.set("charges", [])
+            
+            # Get Sales Quote Sea Freight records
+            sales_quote_sea_freight_records = frappe.get_all(
+                "Sales Quote Sea Freight",
+                filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+                fields=[
+                    "item_code",
+                    "item_name", 
+                    "calculation_method",
+                    "uom",
+                    "currency",
+                    "unit_rate",
+                    "unit_type",
+                    "minimum_quantity",
+                    "minimum_unit_rate",
+                    "minimum_charge",
+                    "maximum_charge",
+                    "base_amount",
+                    "base_quantity",
+                    "estimated_revenue"
+                ],
+                order_by="idx"
+            )
+            
+            if not sales_quote_sea_freight_records:
+                frappe.msgprint(
+                    f"No Sea Freight charges found in Sales Quote: {self.sales_quote}",
+                    title="No Charges Found",
+                    indicator="orange"
+                )
+                return
+            
+            # Import the mapping function from Sales Quote
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import _map_sales_quote_sea_freight_to_charge
+            
+            # Map and populate charges
+            charges_added = 0
+            for sqsf_record in sales_quote_sea_freight_records:
+                charge_row = _map_sales_quote_sea_freight_to_charge(sqsf_record, self)
+                if charge_row:
+                    self.append("charges", charge_row)
+                    charges_added += 1
+            
+            if charges_added > 0:
+                frappe.msgprint(
+                    f"Successfully populated {charges_added} charges from Sales Quote",
+                    title="Charges Updated",
+                    indicator="green"
+                )
+            
+            return {
+                "success": True,
+                "message": f"Successfully populated {charges_added} charges",
+                "charges_added": charges_added
+            }
+            
+        except Exception as e:
+            frappe.log_error(
+                f"Error populating charges from Sales Quote: {str(e)}",
+                "Sea Shipment - Populate Charges Error"
+            )
+            frappe.throw(_("Error populating charges: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+	"""Recalculate all charges based on current Sea Shipment data."""
+	shipment = frappe.get_doc("Sea Shipment", docname)
+	if not shipment.charges:
+		return {"success": False, "message": _("No charges found to recalculate")}
+	try:
+		charges_recalculated = 0
+		for charge in shipment.charges:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=shipment)
+				charges_recalculated += 1
+		shipment.save()
+		return {
+			"success": True,
+			"message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+			"charges_recalculated": charges_recalculated,
+		}
+	except Exception as e:
+		frappe.log_error(str(e), "Sea Shipment - Recalculate Charges Error")
+		frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def post_standard_costs(docname):
+	"""Post standard costs for Sea Shipment charges. No-op if charges do not support standard costs."""
+	shipment = frappe.get_doc("Sea Shipment", docname)
+	posted = 0
+	for ch in (shipment.charges or []):
+		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):
+			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
+				ch.standard_cost_posted = 1
+				ch.standard_cost_posted_at = frappe.utils.now()
+				posted += 1
+	if posted > 0:
+		shipment.save()
+	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
+
+
 @frappe.whitelist()
 def create_sales_invoice(shipment_name, posting_date, customer, tax_category=None, invoice_type=None):
     """Create Sales Invoice from Sea Shipment"""
@@ -1401,9 +1159,13 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
     note = _("Auto-created from Sea Shipment {0}").format(shipment.name)
     invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
 
-    # Add items from charges
+    # Add items from charges (support multiple bill-to via bill_tos)
+    from logistics.utils.charges_calculation import get_charge_bill_to_customers
     for charge in shipment.charges:
-        if charge.bill_to == customer and charge.invoice_type == invoice_type:
+        if customer not in get_charge_bill_to_customers(charge):
+            continue
+        if getattr(charge, "invoice_type", None) != invoice_type:
+            continue
             item_payload = {
                 'item_code': charge.charge_item,
                 'item_name': charge.charge_name or charge.charge_item,
@@ -1444,95 +1206,75 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
 
 @frappe.whitelist()
 def compute_chargeable(self):
-    weight = self.weight or 0
-    volume = self.volume or 0
+    """Calculate chargeable weight based on volume and weight using Sea Freight Settings.
+    Respects chargeable_weight_calculation setting: 'Actual Weight', 'Volume Weight', or 'Higher of Both'.
+    """
+    if not self.volume and not self.weight:
+        self.chargeable = 0
+        return
+    
+    # Get volume to weight divisor and calculation method from Sea Freight Settings
+    divisor = _get_volume_to_weight_divisor()
+    calculation_method = _get_chargeable_weight_calculation_method()
+    
+    # Calculate volume weight
+    volume_weight = 0
+    if self.volume and divisor:
+        # Convert volume from m³ to cm³, then divide by divisor
+        # Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
+        volume_weight = flt(self.volume) * (1000000.0 / divisor)
+    
+    # Get actual weight
+    actual_weight = flt(self.weight) or 0
+    
+    # Calculate chargeable weight based on calculation method
+    if calculation_method == "Actual Weight":
+        # Use only actual weight
+        self.chargeable = actual_weight
+    elif calculation_method == "Volume Weight":
+        # Use only volume weight
+        self.chargeable = volume_weight
+    else:  # "Higher of Both" (default)
+        # Use the higher of actual weight or volume weight
+        if actual_weight > 0 and volume_weight > 0:
+            self.chargeable = max(actual_weight, volume_weight)
+        elif actual_weight > 0:
+            self.chargeable = actual_weight
+        elif volume_weight > 0:
+            self.chargeable = volume_weight
+        else:
+            self.chargeable = 0
 
-    # Use direction to determine conversion factor
-    if self.direction == "Domestic":
-        volume_weight = volume * 333  # Philippine domestic standard
-    else:
-        volume_weight = volume * 1000  # International standard
+def _get_volume_to_weight_divisor():
+    """Get the volume to weight divisor from Sea Freight Settings.
+    Converts volume_to_weight_factor (kg/m³) to divisor format.
+    Formula: divisor = 1,000,000 / factor
+    Example: factor = 1000 kg/m³ → divisor = 1000
+    """
+    try:
+        settings = frappe.get_single("Sea Freight Settings")
+        factor = getattr(settings, "volume_to_weight_factor", None)
+        if factor:
+            # Convert factor (kg/m³) to divisor: divisor = 1,000,000 / factor
+            return flt(1000000.0 / flt(factor))
+    except Exception:
+        pass
+    # Default to 1000 (equivalent to 1000 kg/m³ factor, common sea freight standard)
+    return 1000.0
 
-    self.chargeable = max(weight, volume_weight)
-
-@frappe.whitelist()
-def populate_charges_from_sales_quote(self):
-	"""Populate charges from Sales Quote Sea Freight"""
-	if not self.sales_quote:
-		frappe.throw(_("Sales Quote is not set for this Sea Shipment"))
-	
-	try:
-		# Verify that the sales_quote exists
-		if not frappe.db.exists("Sales Quote", self.sales_quote):
-			frappe.msgprint(
-				f"Sales Quote {self.sales_quote} does not exist",
-				title="Error",
-				indicator="red"
-			)
-			return
-		
-		# Clear existing charges
-		self.set("charges", [])
-		
-		# Get Sales Quote Sea Freight records
-		sales_quote_sea_freight_records = frappe.get_all(
-			"Sales Quote Sea Freight",
-			filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-			fields=[
-				"item_code",
-				"item_name", 
-				"calculation_method",
-				"uom",
-				"currency",
-				"unit_rate",
-				"unit_type",
-				"minimum_quantity",
-				"minimum_charge",
-				"maximum_charge",
-				"base_amount",
-				"estimated_revenue"
-			],
-			order_by="idx"
-		)
-		
-		if not sales_quote_sea_freight_records:
-			frappe.msgprint(
-				f"No Sea Freight charges found in Sales Quote: {self.sales_quote}",
-				title="No Charges Found",
-				indicator="orange"
-			)
-			return
-		
-		# Import the mapping function from Sales Quote
-		from logistics.pricing_center.doctype.sales_quote.sales_quote import _map_sales_quote_sea_freight_to_charge
-		
-		# Map and populate charges
-		charges_added = 0
-		for sqsf_record in sales_quote_sea_freight_records:
-			charge_row = _map_sales_quote_sea_freight_to_charge(sqsf_record, self)
-			if charge_row:
-				self.append("charges", charge_row)
-				charges_added += 1
-		
-		if charges_added > 0:
-			frappe.msgprint(
-				f"Successfully populated {charges_added} charges from Sales Quote",
-				title="Charges Updated",
-				indicator="green"
-			)
-		
-		return {
-			"success": True,
-			"message": f"Successfully populated {charges_added} charges",
-			"charges_added": charges_added
-		}
-		
-	except Exception as e:
-		frappe.log_error(
-			f"Error populating charges from Sales Quote: {str(e)}",
-			"Sea Shipment - Populate Charges Error"
-		)
-		frappe.throw(_("Error populating charges: {0}").format(str(e)))
+def _get_chargeable_weight_calculation_method():
+    """Get the chargeable weight calculation method from Sea Freight Settings.
+    Returns: 'Actual Weight', 'Volume Weight', or 'Higher of Both' (default)
+    """
+    try:
+        settings = frappe.get_single("Sea Freight Settings")
+        method = getattr(settings, "chargeable_weight_calculation", None)
+        if method in ["Actual Weight", "Volume Weight", "Higher of Both"]:
+            return method
+    except Exception:
+        pass
+    # Default to "Higher of Both" (common sea freight standard)
+    return "Higher of Both"
 
 def create_job_costing_for_shipment(
 	shipment_name,

@@ -25,7 +25,18 @@
   "weight_uom",
   "weight",
   "chargeable_weight_uom",
-  "chargeable_weight"
+  "chargeable_weight",
+  "section_break_dg_identification",
+  "dg_identification_section",
+  "dg_substance",
+  "un_number",
+  "proper_shipping_name",
+  "dg_class",
+  "packing_group",
+  "section_break_dg_emergency",
+  "emergency_contact_section",
+  "emergency_contact_name",
+  "emergency_contact_phone"
  ],
  "fields": [
   {
@@ -137,13 +148,68 @@
   {
    "fieldname": "column_break_hveo",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_dg_identification",
+   "fieldtype": "Section Break",
+   "label": "DG Identification"
+  },
+  {
+   "fieldname": "dg_identification_section",
+   "fieldtype": "Section Break",
+   "label": "DG Identification Section"
+  },
+  {
+   "fieldname": "dg_substance",
+   "fieldtype": "Data",
+   "label": "DG Substance"
+  },
+  {
+   "fieldname": "un_number",
+   "fieldtype": "Data",
+   "label": "UN Number"
+  },
+  {
+   "fieldname": "proper_shipping_name",
+   "fieldtype": "Data",
+   "label": "Proper Shipping Name"
+  },
+  {
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "fieldname": "packing_group",
+   "fieldtype": "Data",
+   "label": "Packing Group"
+  },
+  {
+   "fieldname": "section_break_dg_emergency",
+   "fieldtype": "Section Break",
+   "label": "DG Emergency"
+  },
+  {
+   "fieldname": "emergency_contact_section",
+   "fieldtype": "Section Break",
+   "label": "Emergency Contact Section"
+  },
+  {
+   "fieldname": "emergency_contact_name",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Name"
+  },
+  {
+   "fieldname": "emergency_contact_phone",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Phone"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-11 11:17:57.942946",
+ "modified": "2026-02-27 14:43:27.667933",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Packages",

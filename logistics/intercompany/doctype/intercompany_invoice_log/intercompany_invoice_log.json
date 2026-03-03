@@ -1,0 +1,143 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-02-25 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "sales_quote",
+  "customer_sales_invoice",
+  "leg_order",
+  "job_type",
+  "job_no",
+  "column_break_log",
+  "billing_company",
+  "operating_company",
+  "status",
+  "section_invoices",
+  "intercompany_sales_invoice",
+  "intercompany_purchase_invoice"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "ICL-.YYYY.-",
+   "hidden": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer_sales_invoice",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "leg_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Leg Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job No",
+   "options": "job_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_log",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "operating_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Operating Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "default": "Created",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Created\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_invoices",
+   "fieldtype": "Section Break",
+   "label": "Intercompany Invoices"
+  },
+  {
+   "fieldname": "intercompany_sales_invoice",
+   "fieldtype": "Link",
+   "label": "Intercompany Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "intercompany_purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Intercompany Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-25 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Intercompany",
+ "name": "Intercompany Invoice Log",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

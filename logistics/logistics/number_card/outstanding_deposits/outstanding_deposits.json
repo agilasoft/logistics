@@ -1,0 +1,20 @@
+{
+ "aggregate_function_based_on": "deposit_amount",
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "Number Card",
+ "document_type": "Container",
+ "docstatus": 0,
+ "filters_json": "[[\"Container\",\"deposit_amount\",\">\",0],[\"Container\",\"return_status\",\"!=\",\"Returned\"]]",
+ "function": "Sum",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Outstanding Deposits",
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Outstanding Deposits",
+ "owner": "Administrator",
+ "show_percentage_stats": 0,
+ "stats_time_interval": "Daily"
+}

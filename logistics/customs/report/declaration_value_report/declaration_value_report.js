@@ -40,7 +40,7 @@ frappe.query_reports["Declaration Value Report"] = {
 			"fieldname": "status",
 			"label": __("Status"),
 			"fieldtype": "Select",
-			"options": "Draft\nSubmitted\nIn Progress\nApproved\nRejected\nCancelled"
+			"options": "Draft\nLodged\nAssessment on Hold\nPAN Issued\nFAN Issued\nPaid\nReleased\nRejected\nCancelled"
 		},
 		{
 			"fieldname": "customs_authority",

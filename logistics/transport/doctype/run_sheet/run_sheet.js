@@ -130,17 +130,27 @@ async function render_run_sheet_route_map(frm) {
   }
 
   try {
-    // Get map renderer setting
+    // Get map renderer from Logistics Settings, fallback to Transport Settings
     let mapRenderer = 'openstreetmap'; // default
     try {
-      const settings = await frappe.call({
+      let settings = await frappe.call({
         method: 'frappe.client.get_value',
         args: {
-          doctype: 'Transport Settings',
+          doctype: 'Logistics Settings',
           fieldname: 'map_renderer'
         }
       });
-      mapRenderer = settings.message?.map_renderer || 'openstreetmap';
+      mapRenderer = settings.message?.map_renderer || mapRenderer;
+      if (!mapRenderer || !String(mapRenderer).trim()) {
+        settings = await frappe.call({
+          method: 'frappe.client.get_value',
+          args: {
+            doctype: 'Transport Settings',
+            fieldname: 'map_renderer'
+          }
+        });
+        mapRenderer = settings.message?.map_renderer || 'openstreetmap';
+      }
     } catch (e) {
       // Use default
     }

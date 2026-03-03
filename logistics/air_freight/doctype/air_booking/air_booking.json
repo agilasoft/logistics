@@ -21,25 +21,39 @@
   "release_type",
   "entry_type",
   "service_level",
+  "section_break_booking_control",
+  "booking_party",
+  "controlling_party",
+  "column_break_booking_control",
+  "contains_dangerous_goods",
   "section_break_parties",
   "shipper",
   "origin_port",
   "etd",
+  "atd",
   "column_break_origin",
   "consignee",
   "destination_port",
   "eta",
-  "column_break_destination",
+  "ata",
+  "column_break_entities_agents",
+  "sending_agent",
+  "receiving_agent",
+  "column_break_entities_broker",
+  "broker",
   "house_details_section",
   "house_awb",
   "incoterm",
   "additional_terms",
-  "description",
-  "column_break_house",
+  "column_break_tpqy",
   "packs",
   "inner",
   "goods_value",
   "insurance",
+  "section_break_dbnj",
+  "column_break_house",
+  "description",
+  "column_break_fzuq",
   "marks_and_nos",
   "packing_tab",
   "routing_section",
@@ -47,19 +61,17 @@
   "packages_section",
   "packages",
   "section_break_summary",
+  "column_break_summary",
+  "override_volume_weight",
+  "volume_to_weight_factor_type",
+  "custom_volume_to_weight_divisor",
+  "column_break_mhaa",
   "total_packages",
   "total_volume",
   "total_weight",
-  "override_volume_weight",
-  "volume",
-  "weight",
   "chargeable",
-  "column_break_summary",
-  "volume_to_weight_factor_type",
-  "custom_volume_to_weight_divisor",
   "column_break_ibfp",
   "density_factor_html",
-  "contains_dangerous_goods",
   "contacts_addresses",
   "contacts_and_addresses_section",
   "shipper_address",
@@ -93,11 +105,9 @@
   "profit_center",
   "column_break_accounts",
   "job_costing_number",
-  "quote_reference_section",
-  "quote_type",
-  "quote",
-  "sales_quote",
   "project",
+  "quote_reference_section",
+  "sales_quote",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -113,7 +123,9 @@
   "column_break_dg",
   "dg_emergency_contact",
   "dg_emergency_phone",
-  "dg_emergency_email"
+  "dg_emergency_email",
+  "volume",
+  "weight"
  ],
  "fields": [
   {
@@ -135,22 +147,10 @@
    "reqd": 1
   },
   {
-   "fieldname": "quote_type",
-   "fieldtype": "Select",
-   "label": "Quote Type",
-   "options": "One-Off Quote\nSales Quote"
-  },
-  {
-   "fieldname": "quote",
-   "fieldtype": "Dynamic Link",
-   "label": "Quote",
-   "options": "quote_type"
-  },
-  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
-   "hidden": 1,
    "label": "Sales Quote",
+   "link_filters": "[[\"Sales Quote\",\"is_air\",\"=\",1]]",
    "options": "Sales Quote"
   },
   {
@@ -217,12 +217,34 @@
    "fieldname": "service_level",
    "fieldtype": "Link",
    "label": "Service Level",
-   "options": "Service Level Agreement"
+   "options": "Logistics Service Level"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_booking_control",
+   "fieldtype": "Section Break",
+   "label": "Booking & Control"
+  },
+  {
+   "fieldname": "booking_party",
+   "fieldtype": "Link",
+   "label": "Booking Party",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "controlling_party",
+   "fieldtype": "Select",
+   "label": "Controlling Party",
+   "options": "Customer Controlled\nAgent Controlled"
+  },
+  {
+   "fieldname": "column_break_booking_control",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "section_break_parties",
    "fieldtype": "Section Break",
-   "label": "Parties & Routing"
+   "label": "Entities and Parties"
   },
   {
    "fieldname": "shipper",
@@ -263,8 +285,40 @@
    "label": "ETA"
   },
   {
-   "fieldname": "column_break_destination",
+   "fieldname": "atd",
+   "fieldtype": "Date",
+   "label": "ATD"
+  },
+  {
+   "fieldname": "ata",
+   "fieldtype": "Date",
+   "label": "ATA"
+  },
+  {
+   "fieldname": "column_break_entities_agents",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sending_agent",
+   "fieldtype": "Link",
+   "label": "Sending Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "receiving_agent",
+   "fieldtype": "Link",
+   "label": "Receiving Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_entities_broker",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "broker",
+   "fieldtype": "Link",
+   "label": "Broker",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "packing_tab",
@@ -274,7 +328,7 @@
   {
    "fieldname": "section_break_summary",
    "fieldtype": "Section Break",
-   "label": "Summary"
+   "label": "Summary of Measurements"
   },
   {
    "fieldname": "total_packages",
@@ -300,27 +354,29 @@
   },
   {
    "default": "0",
-   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "description": "When checked, Total Volume and Total Weight are manual and will not be updated from package totals.",
    "fieldname": "override_volume_weight",
    "fieldtype": "Check",
    "label": "Override Volume & Weight"
   },
   {
+   "fieldname": "chargeable",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight (kg)",
+   "read_only": 1
+  },
+  {
    "fieldname": "volume",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Volume (m\u00b3)",
    "read_only": 1
   },
   {
    "fieldname": "weight",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Weight (kg)",
-   "read_only": 1
-  },
-  {
-   "fieldname": "chargeable",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight (kg)",
    "read_only": 1
   },
   {
@@ -370,7 +426,6 @@
    "options": "Air Booking Routing Leg"
   },
   {
-   "collapsible": 1,
    "fieldname": "house_details_section",
    "fieldtype": "Section Break",
    "label": "House Details"
@@ -421,7 +476,6 @@
    "label": "Marks and Nos"
   },
   {
-   "collapsible": 1,
    "fieldname": "contacts_and_addresses_section",
    "fieldtype": "Section Break",
    "label": "Contacts & Addresses"
@@ -501,7 +555,6 @@
    "label": "Notify Party Address"
   },
   {
-   "collapsible": 1,
    "fieldname": "services_section",
    "fieldtype": "Section Break",
    "label": "Services"
@@ -713,7 +766,7 @@
   {
    "fieldname": "services_tab",
    "fieldtype": "Tab Break",
-   "label": "Services"
+   "label": "Other Services"
   },
   {
    "fieldname": "more_info_tab",
@@ -725,12 +778,28 @@
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
    "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_fzuq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_mhaa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_tpqy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_dbnj",
+   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-22 00:30:46.285193",
+ "modified": "2026-02-27 18:06:41.566262",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",

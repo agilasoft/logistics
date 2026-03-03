@@ -345,8 +345,8 @@ class SalesQuoteSeaFreight(Document):
     
     def _calculate_base_plus_additional_quantity(self, parent_doc):
         """Calculate quantity for Base Plus Additional method"""
-        # For base plus additional, we need the additional quantity
-        base_quantity = flt(self.minimum_quantity or 0)
+        # For base plus additional, we need the additional quantity beyond base_quantity
+        base_quantity = flt(getattr(self, 'base_quantity', None) or 1)
         total_quantity = self._calculate_per_unit_quantity(parent_doc)
         return max(0, total_quantity - base_quantity)
     
@@ -364,9 +364,11 @@ class SalesQuoteSeaFreight(Document):
             'rate': flt(self.unit_rate or 0),
             'unit_type': self.unit_type,
             'minimum_quantity': flt(self.minimum_quantity or 0),
+            'minimum_unit_rate': flt(getattr(self, 'minimum_unit_rate', None) or 0),
             'minimum_charge': flt(self.minimum_charge or 0),
             'maximum_charge': flt(self.maximum_charge or 0),
             'base_amount': flt(self.base_amount or 0),
+            'base_quantity': flt(getattr(self, 'base_quantity', None) or 1),
             'currency': self.currency or 'USD',
             'item_code': self.item_code,
             'item_name': self.item_name
@@ -379,9 +381,11 @@ class SalesQuoteSeaFreight(Document):
             'rate': flt(self.unit_cost or 0),
             'unit_type': self.cost_unit_type,
             'minimum_quantity': flt(self.cost_minimum_quantity or 0),
+            'minimum_unit_rate': flt(getattr(self, 'cost_minimum_unit_rate', None) or 0),
             'minimum_charge': flt(self.cost_minimum_charge or 0),
             'maximum_charge': flt(self.cost_maximum_charge or 0),
             'base_amount': flt(self.cost_base_amount or 0),
+            'base_quantity': flt(getattr(self, 'cost_base_quantity', None) or 1),
             'currency': self.cost_currency or 'USD',
             'item_code': self.item_code,
             'item_name': self.item_name

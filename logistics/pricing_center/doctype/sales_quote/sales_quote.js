@@ -17,9 +17,83 @@ frappe.ui.form.on("Sales Quote", {
 		// Default UOMs from Settings per tab when fields are empty (for any visible tab)
 		if (frm.is_new()) {
 			frm.events.apply_default_uoms_per_tab(frm);
+			// Clear converted_to and status when duplicating
+			if (frm.doc.converted_to) {
+				frm.set_value("converted_to", "");
+			}
+			if (frm.doc.status) {
+				frm.set_value("status", "");
+			}
+		}
+		
+		// Listen to form dirty state changes to update primary button
+		$(frm.wrapper).on("dirty", function() {
+			frm.events.update_primary_button(frm);
+		});
+		
+		// Listen to form clean state (when form becomes not dirty) to update primary button
+		$(frm.wrapper).on("clean", function() {
+			frm.events.update_primary_button(frm);
+		});
+	},
+
+	quotation_type(frm) {
+		if (frm.doc.quotation_type === "One-off" && frm.is_new()) {
+			frm.set_value("naming_series", "OOQ-.#####");
+		} else if (frm.doc.quotation_type === "Project" && frm.is_new()) {
+			frm.set_value("naming_series", "PQ-.#####");
+			frm.set_value("is_multimodal", 1);
+		} else if (frm.doc.quotation_type === "Regular" && frm.is_new()) {
+			frm.set_value("naming_series", "SQU.#########");
+		}
+		frm.refresh_field("naming_series");
+		frm.refresh_field("status_section");
+		frm.refresh_field("status");
+		frm.refresh_field("converted_to_doc");
+		frm.refresh_field("projects_tab");
+		frm.events._set_child_param_readonly(frm);
+		frm.refresh_field("sea_freight");
+		frm.refresh_field("air_freight");
+		frm.refresh_field("transport");
+	},
+
+	_set_child_param_readonly(frm) {
+		const isOneOff = frm.doc.quotation_type === "One-off";
+		const seaParams = ["sea_load_type", "sea_direction", "shipping_line", "freight_agent", "sea_transport_mode", "sea_house_type", "sea_release_type", "sea_entry_type", "origin_port", "destination_port"];
+		const airParams = ["air_load_type", "air_direction", "airline", "freight_agent", "air_house_type", "air_release_type", "air_entry_type", "origin_port", "destination_port"];
+		const transportParams = ["load_type", "transport_template", "vehicle_type", "container_type", "location_type", "location_from", "location_to", "pick_mode", "drop_mode"];
+		if (frm.fields_dict.sea_freight) {
+			seaParams.forEach(function(f) {
+				frm.set_df_property("sea_freight", f, "read_only", isOneOff);
+			});
+		}
+		if (frm.fields_dict.air_freight) {
+			airParams.forEach(function(f) {
+				frm.set_df_property("air_freight", f, "read_only", isOneOff);
+			});
+		}
+		if (frm.fields_dict.transport) {
+			transportParams.forEach(function(f) {
+				frm.set_df_property("transport", f, "read_only", isOneOff);
+			});
 		}
 	},
 
+	sea_freight_add(frm) {
+		if (frm.doc.quotation_type === "One-off" && frm.doc.is_sea) {
+			frm.events._default_sea_row_from_header(frm);
+		}
+	},
+	air_freight_add(frm) {
+		if (frm.doc.quotation_type === "One-off" && frm.doc.is_air) {
+			frm.events._default_air_row_from_header(frm);
+		}
+	},
+	transport_add(frm) {
+		if (frm.doc.quotation_type === "One-off" && frm.doc.is_transport) {
+			frm.events._default_transport_row_from_header(frm);
+		}
+	},
 	is_sea(frm) {
 		if (frm.doc.is_sea) {
 			frm.events.apply_default_uoms_for_tab(frm, "sea", "sea_");
@@ -42,15 +116,122 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	routing_legs_add(frm, cdt, cdn) {
-		const row = frappe.get_doc(cdt, cdn);
-		if (!row.leg_order && frm.doc.routing_legs) {
-			const legs = frm.doc.routing_legs;
-			const maxOrder = legs.reduce((max, r) => Math.max(max, r.leg_order || 0), 0);
-			frappe.model.set_value(cdt, cdn, "leg_order", maxOrder + 1);
-		}
+		// Leg order is determined by child table idx (no separate Leg field).
+	},
+
+	_default_sea_row_from_header(frm) {
+		const rows = frm.doc.sea_freight || [];
+		if (rows.length === 0) return;
+		const row = rows[rows.length - 1];
+		const map = {
+			sea_load_type: frm.doc.sea_load_type,
+			sea_direction: frm.doc.sea_direction,
+			sea_transport_mode: frm.doc.sea_transport_mode,
+			shipping_line: frm.doc.shipping_line,
+			freight_agent: frm.doc.freight_agent_sea,
+			sea_house_type: frm.doc.sea_house_type,
+			origin_port: frm.doc.origin_port_sea,
+			destination_port: frm.doc.destination_port_sea
+		};
+		Object.keys(map).forEach(function(k) {
+			if (map[k] != null && map[k] !== "") {
+				row[k] = map[k];
+			}
+		});
+		frm.refresh_field("sea_freight");
+	},
+	_default_air_row_from_header(frm) {
+		const rows = frm.doc.air_freight || [];
+		if (rows.length === 0) return;
+		const row = rows[rows.length - 1];
+		const map = {
+			air_load_type: frm.doc.air_load_type,
+			air_direction: frm.doc.air_direction,
+			airline: frm.doc.airline,
+			freight_agent: frm.doc.freight_agent,
+			air_house_type: frm.doc.air_house_type,
+			origin_port: frm.doc.origin_port,
+			destination_port: frm.doc.destination_port
+		};
+		Object.keys(map).forEach(function(k) {
+			if (map[k] != null && map[k] !== "") {
+				row[k] = map[k];
+			}
+		});
+		frm.refresh_field("air_freight");
+	},
+	_default_transport_row_from_header(frm) {
+		const rows = frm.doc.transport || [];
+		if (rows.length === 0) return;
+		const row = rows[rows.length - 1];
+		const map = {
+			transport_template: frm.doc.transport_template,
+			load_type: frm.doc.load_type,
+			vehicle_type: frm.doc.vehicle_type,
+			container_type: frm.doc.container_type,
+			location_type: frm.doc.location_type,
+			location_from: frm.doc.location_from,
+			location_to: frm.doc.location_to,
+			pick_mode: frm.doc.pick_mode,
+			drop_mode: frm.doc.drop_mode
+		};
+		Object.keys(map).forEach(function(k) {
+			if (map[k] != null && map[k] !== "") {
+				row[k] = map[k];
+			}
+		});
+		frm.refresh_field("transport");
 	},
 	
 	refresh(frm) {
+		// Delegated click handler for Weight/Qty Break buttons (bypasses form event system if needed)
+		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
+			const $ctrl = $(e.target).closest(
+				'[data-fieldname="selling_weight_break"], [data-fieldname="cost_weight_break"], ' +
+				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"]'
+			);
+			if (!$ctrl.length) return;
+			const fieldname = $ctrl.attr("data-fieldname");
+			const $row = $ctrl.closest(".grid-row");
+			if (!$row.length) return;
+			let row_doc = $row.data("doc");
+			const grid_row = $row.data("grid_row");
+			if (grid_row && grid_row.doc) row_doc = grid_row.doc;
+			// Fallback: resolve row from grid by docname (data can be stale on wrapper)
+			if (!row_doc || !row_doc.doctype) {
+				const docname = $row.attr("data-name");
+				if (docname && frm.fields_dict) {
+					for (const fn of Object.keys(frm.fields_dict)) {
+						const grid = frm.fields_dict[fn]?.grid;
+						if (grid?.grid_rows_by_docname?.[docname]) {
+							row_doc = grid.grid_rows_by_docname[docname].doc;
+							break;
+						}
+					}
+				}
+			}
+			if (!row_doc || !row_doc.doctype) {
+				row_doc = frm.selected_doc;
+			}
+			if (!row_doc || !row_doc.doctype) return;
+			e.preventDefault();
+			e.stopPropagation();
+			const record_type = fieldname.indexOf("cost_") === 0 ? "Cost" : "Selling";
+			if (fieldname.indexOf("weight_break") !== -1 && typeof window.open_weight_break_rate_dialog === "function") {
+				window.open_weight_break_rate_dialog(frm, row_doc, record_type);
+			} else if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
+				window.open_qty_break_rate_dialog(frm, row_doc, record_type);
+			} else {
+				frappe.msgprint({ title: __("Error"), message: __("Dialog not loaded. Please refresh the page."), indicator: "red" });
+			}
+		});
+		frm.events._set_child_param_readonly(frm);
+		// Update primary button state
+		// Use setTimeout to ensure form state is fully updated after refresh
+		setTimeout(function() {
+			frm.events.update_primary_button(frm);
+		}, 50);
+		
 		// Apply default UOMs from Settings when UOM fields are empty (only for new docs)
 		if (frm.is_new()) {
 			frm.events.apply_default_uoms_per_tab(frm);
@@ -62,24 +243,14 @@ frappe.ui.form.on("Sales Quote", {
 		}
 		frm.events.setup_vehicle_type_query(frm);
 		
-		// Add custom button to create Transport Order if quote is One-Off and submitted
-		if (frm.doc.one_off && frm.doc.transport && frm.doc.transport.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
-			// Check if Transport Order already exists - restrict multiple orders for one-off quotes
-			frappe.db.get_value("Transport Order", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (!r || !r.name) {
-					// No existing Transport Order - show create button
-					frm.add_custom_button(__("Create Transport Order"), function() {
-						create_transport_order_from_sales_quote(frm);
-					}, __("Create"));
-				} else {
-					// Transport Order exists - only show view button
-					frm.add_custom_button(__("View Transport Orders"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Transport Order");
-					}, __("View"));
-				}
-			});
-		}
+		// Add custom button to create Transport Order if is_transport = 1
+		add_create_button(frm, {
+			doctype: "Transport Order",
+			flag_field: "is_transport",
+			create_label: "Create Transport Order",
+			view_label: "View Transport Orders",
+			create_function: create_transport_order_from_sales_quote
+		});
 		
 		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items
 		if (frm.doc.docstatus === 1 && frm.doc.warehousing && frm.doc.warehousing.length > 0 && !frm.doc.__islocal) {
@@ -93,13 +264,13 @@ frappe.ui.form.on("Sales Quote", {
 					frm.add_custom_button(__("View Warehouse Contracts"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Warehouse Contract");
-					}, __("View"));
+					}, __("Actions"));
 				}
 			});
 		}
 		
 		// Add custom button to create Declaration if quote is One-Off and submitted
-		if (frm.doc.one_off && frm.doc.customs && frm.doc.customs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
+		if (frm.doc.quotation_type === "One-off" && frm.doc.customs && frm.doc.customs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
 			// Check if Declaration already exists - restrict multiple orders for one-off quotes
 			frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
 				if (!r || !r.name) {
@@ -112,97 +283,64 @@ frappe.ui.form.on("Sales Quote", {
 					frm.add_custom_button(__("View Declarations"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Declaration");
-					}, __("View"));
+					}, __("Actions"));
 				}
 			});
 		}
 		
-		// Add custom button to create Air Shipment if quote is One-Off and has air freight
-		if (frm.doc.one_off && frm.doc.air_freight && frm.doc.air_freight.length > 0 && !frm.doc.__islocal) {
-			// Check if Air Shipment already exists - restrict multiple orders for one-off quotes
-			frappe.db.get_value("Air Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (!r || !r.name) {
-					// No existing Air Shipment - show create button
-					frm.add_custom_button(__("Create Air Shipment"), function() {
-						create_air_shipment_from_sales_quote(frm);
-					}, __("Create"));
-				} else {
-					// Air Shipment exists - only show view button
-					frm.add_custom_button(__("View Air Shipments"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Air Shipment");
-					}, __("View"));
-				}
-			});
-		}
+		// Add custom button to create Air Booking if is_air = 1
+		add_create_button(frm, {
+			doctype: "Air Booking",
+			flag_field: "is_air",
+			create_label: "Create Air Booking",
+			view_label: "View Air Bookings",
+			create_function: create_air_booking_from_sales_quote
+		});
 		
-		// Add custom button to create Sea Shipment if quote is One-Off and has sea freight
-		if (frm.doc.one_off && frm.doc.sea_freight && frm.doc.sea_freight.length > 0 && !frm.doc.__islocal) {
-			// Check if Sea Shipment already exists - restrict multiple orders for one-off quotes
-			frappe.db.get_value("Sea Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (!r || !r.name) {
-					// No existing Sea Shipment - show create button
-					frm.add_custom_button(__("Create Sea Shipment"), function() {
-						create_sea_shipment_from_sales_quote(frm);
-					}, __("Create"));
-				} else {
-					// Sea Shipment exists - only show view button
-					frm.add_custom_button(__("View Sea Shipments"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Sea Shipment");
-					}, __("View"));
-				}
-			});
-		}
-		
-		// Add custom button to create Air Booking from current Sales Quote (only when air_freight has data and is One-Off)
-		if (frm.doc.one_off && frm.doc.air_freight && frm.doc.air_freight.length > 0 && !frm.doc.__islocal) {
-			// Check if Air Booking already exists - restrict multiple orders for one-off quotes
-			frappe.db.get_value("Air Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (!r || !r.name) {
-					// No existing Air Booking - show create button
-					frm.add_custom_button(__("Create Air Booking"), function() {
-						create_air_booking_from_sales_quote(frm);
-					}, __("Create"));
-				} else {
-					// Air Booking exists - only show view button
-					frm.add_custom_button(__("View Air Bookings"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Air Booking");
-					}, __("View"));
-				}
-			});
-		}
-		
-		// Add custom button to create Sea Booking from current Sales Quote (only when sea_freight has data and is One-Off)
-		if (frm.doc.one_off && frm.doc.sea_freight && frm.doc.sea_freight.length > 0 && !frm.doc.__islocal) {
-			// Check if Sea Booking already exists - restrict multiple orders for one-off quotes
-			frappe.db.get_value("Sea Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (!r || !r.name) {
-					// No existing Sea Booking - show create button
-					frm.add_custom_button(__("Sea Booking"), function() {
-						create_sea_booking_from_sales_quote(frm);
-					}, __("Create"));
-				} else {
-					// Sea Booking exists - only show view button
-					frm.add_custom_button(__("View Sea Bookings"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Sea Booking");
-					}, __("View"));
-				}
-			});
-		}
+		// Add custom button to create Sea Booking if is_sea = 1
+		add_create_button(frm, {
+			doctype: "Sea Booking",
+			flag_field: "is_sea",
+			create_label: "Create Sea Booking",
+			view_label: "View Sea Bookings",
+			create_function: create_sea_booking_from_sales_quote
+		});
 
 		// Add custom button to create Sales Invoice from multimodal quote (when routing legs exist and Main Job has job_no)
-		if (frm.doc.is_multimodal && frm.doc.routing_legs && frm.doc.routing_legs.length > 0 && !frm.doc.__islocal) {
+		if (frm.doc.is_multimodal && frm.doc.routing_legs && frm.doc.routing_legs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
 			const main_leg = frm.doc.routing_legs.find(r => r.is_main_job);
 			const has_main_job = main_leg && main_leg.job_no;
 			if (has_main_job) {
 				frm.add_custom_button(__("Create Sales Invoice"), function() {
 					create_sales_invoice_from_sales_quote(frm);
-				}, __("Create"));
+				}, __("Post"));
 			}
 		}
+	},
+	
+	after_save(frm) {
+		// Update primary button after save to show Submit button if document is saved and not dirty
+		// Clear the __unsaved flag immediately to ensure form is considered clean
+		if (frm.doc) {
+			frm.doc.__unsaved = 0;
+		}
+		
+		// Use multiple timeouts to ensure form state is fully updated after save and refresh
+		// First update after a short delay
+		setTimeout(function() {
+			if (frm.doc) {
+				frm.doc.__unsaved = 0;
+			}
+			frm.events.update_primary_button(frm);
+		}, 100);
+		
+		// Also update after refresh completes (longer delay)
+		setTimeout(function() {
+			if (frm.doc) {
+				frm.doc.__unsaved = 0;
+			}
+			frm.events.update_primary_button(frm);
+		}, 500);
 	},
 	
 	load_allowed_vehicle_types(frm, load_type, callback) {
@@ -327,9 +465,135 @@ frappe.ui.form.on("Sales Quote", {
 				}
 			}
 		});
+	},
+	
+	update_primary_button(frm) {
+		// Update primary button based on document state
+		if (!frm.page || !frm.page.set_primary_action) {
+			return;
+		}
+		
+		// Helper function to check submit permission
+		const has_submit_permission = function() {
+			// Try multiple ways to check submit permission
+			if (frm.has_perm && typeof frm.has_perm === 'function') {
+				return frm.has_perm("submit");
+			}
+			if (frm.perm && frm.perm[0] && frm.perm[0].submit) {
+				return true;
+			}
+			// Check if document is submittable (from meta)
+			if (frm.meta && frm.meta.is_submittable) {
+				// If document is submittable, show submit button
+				// Frappe will handle permission check on actual submit
+				return true;
+			}
+			return false;
+		};
+		
+		// New/unsaved document: Show Save button
+		if (frm.is_new() || frm.doc.__islocal) {
+			frm.page.set_primary_action(__("Save"), function() {
+				frm.save();
+			});
+		} else if (frm.doc.docstatus === 0) {
+			// Saved draft document: Show Submit button if no unsaved changes, otherwise Show Save
+			// Check if document is actually saved (not local) and not dirty
+			const is_saved = !frm.doc.__islocal && frm.doc.name;
+			
+			// Check dirty state - be more lenient: if document is saved, assume it's clean unless explicitly dirty
+			let is_dirty = false;
+			if (frm.is_dirty && typeof frm.is_dirty === 'function') {
+				is_dirty = frm.is_dirty();
+			}
+			// Only consider __unsaved if it's explicitly set to 1 (not 0 or undefined)
+			if (frm.doc.__unsaved === 1) {
+				is_dirty = true;
+			}
+			
+			// For saved documents that are not dirty, show Submit button
+			if (is_saved && !is_dirty) {
+				// Document is saved and has no unsaved changes: Show Submit button
+				if (has_submit_permission()) {
+					frm.page.set_primary_action(__("Submit"), function() {
+						frm.savesubmit();
+					});
+					return; // Exit early to prevent showing Save button
+				}
+			}
+			
+			// Has unsaved changes or not yet saved: Show Save button
+			frm.page.set_primary_action(__("Save"), function() {
+				frm.save();
+			});
+		} else if (frm.doc.docstatus === 1) {
+			// Submitted document: Handle Update button if there are unsaved changes
+			// For cancel, let Frappe handle it with default behavior (no primary cancel button)
+			let is_dirty = false;
+			if (frm.is_dirty && typeof frm.is_dirty === 'function') {
+				is_dirty = frm.is_dirty();
+			}
+			if (frm.doc.__unsaved === 1) {
+				is_dirty = true;
+			}
+			
+			// If document has unsaved changes, show Update button
+			if (is_dirty) {
+				if (has_submit_permission()) {
+					frm.page.set_primary_action(__("Update"), function() {
+						frm.save("Update");
+					});
+					return;
+				}
+			}
+			
+			// No unsaved changes: Clear primary action to let Frappe handle cancel via default behavior
+			// This removes the black primary cancel button
+			if (frm.page.clear_primary_action && typeof frm.page.clear_primary_action === 'function') {
+				frm.page.clear_primary_action();
+			} else if (frm.page.btn_primary) {
+				frm.page.btn_primary.addClass("hide");
+			}
+		}
 	}
 	
 });
+
+// Helper function to add create/view buttons for related documents
+function add_create_button(frm, config) {
+	const {
+		doctype,           // e.g., "Transport Order"
+		flag_field,        // e.g., "is_transport"
+		create_label,      // e.g., "Create Transport Order"
+		view_label,        // e.g., "View Transport Orders"
+		create_function    // e.g., create_transport_order_from_sales_quote
+	} = config;
+	
+	// Check if flag is set to 1
+	if (frm.doc[flag_field] !== 1) return;
+	
+	// Common conditions
+	const isSubmitted = !frm.doc.__islocal && frm.doc.docstatus === 1;
+	const isOneOff = frm.doc.quotation_type === "One-off";
+	
+	if (!isOneOff || !isSubmitted) return;
+	
+	// Check if document exists
+	frappe.db.get_value(doctype, {"sales_quote": frm.doc.name}, "name", function(r) {
+		if (!r || !r.name) {
+			// Show create button
+			frm.add_custom_button(__(create_label), function() {
+				create_function(frm);
+			}, __("Create"));
+		} else {
+			// Show view button
+			frm.add_custom_button(__(view_label), function() {
+				frappe.route_options = {"sales_quote": frm.doc.name};
+				frappe.set_route("List", doctype);
+			}, __("Actions"));
+		}
+	});
+}
 
 // Child table events for Sales Quote Transport
 frappe.ui.form.on('Sales Quote Transport', {
@@ -649,7 +913,7 @@ function trigger_air_freight_calculation(frm, cdt, cdn) {
 
 function create_transport_order_from_sales_quote(frm) {
 	// Check if one-off and order already exists
-	if (frm.doc.one_off) {
+	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Transport Order", {"sales_quote": frm.doc.name}, "name", function(r) {
 			if (r && r.name) {
 				frappe.msgprint({
@@ -716,161 +980,6 @@ function show_transport_order_confirmation(frm) {
 					frappe.msgprint({
 						title: __("Error"),
 						message: __("Failed to create Transport Order. Please try again."),
-						indicator: "red"
-					});
-				}
-			});
-		}
-	);
-}
-
-function create_air_shipment_from_sales_quote(frm) {
-	// Check if one-off and shipment already exists
-	if (frm.doc.one_off) {
-		frappe.db.get_value("Air Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
-			if (r && r.name) {
-				frappe.msgprint({
-					title: __("Cannot Create Multiple Orders"),
-					message: __("This is a One-Off Sales Quote and an Air Shipment already exists. Only one shipment can be created from a One-Off quote."),
-					indicator: "orange"
-				});
-				// Show existing shipment
-				frappe.set_route("Form", "Air Shipment", r.name);
-				return;
-			}
-			// No existing shipment - proceed with creation
-			show_air_shipment_confirmation(frm);
-		});
-	} else {
-		// Not one-off - allow multiple shipments
-		show_air_shipment_confirmation(frm);
-	}
-}
-
-function show_air_shipment_confirmation(frm) {
-	// Show confirmation dialog
-	frappe.confirm(
-		__("Are you sure you want to create an Air Shipment from this Sales Quote?"),
-		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Air Shipment..."));
-			
-			// Call the server method
-			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_shipment_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.air_shipment) {
-						frappe.msgprint({
-							title: __("Air Shipment Created"),
-							message: __("Air Shipment {0} has been created successfully.", [r.message.air_shipment]),
-							indicator: "green"
-						});
-						setTimeout(function() {
-							frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
-						}, 100);
-					} else if (r.message && r.message.message) {
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-						if (r.message.air_shipment) {
-							setTimeout(function() {
-								frappe.set_route("Form", "Air Shipment", r.message.air_shipment);
-							}, 100);
-						}
-					}
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to create Air Shipment. Please try again."),
-						indicator: "red"
-					});
-				}
-			});
-		}
-	);
-}
-
-function create_sea_shipment_from_sales_quote(frm) {
-	// Check if one-off and shipment already exists
-	if (frm.doc.one_off) {
-		frappe.db.get_value("Sea Shipment", {"sales_quote": frm.doc.name}, "name", function(r) {
-			if (r && r.name) {
-				frappe.msgprint({
-					title: __("Cannot Create Multiple Orders"),
-					message: __("This is a One-Off Sales Quote and a Sea Shipment already exists. Only one shipment can be created from a One-Off quote."),
-					indicator: "orange"
-				});
-				// Show existing shipment
-				frappe.set_route("Form", "Sea Shipment", r.name);
-				return;
-			}
-			// No existing shipment - proceed with creation
-			show_sea_shipment_confirmation(frm);
-		});
-	} else {
-		// Not one-off - allow multiple shipments
-		show_sea_shipment_confirmation(frm);
-	}
-}
-
-function show_sea_shipment_confirmation(frm) {
-	// Show confirmation dialog
-	frappe.confirm(
-		__("Are you sure you want to create a Sea Shipment from this Sales Quote?"),
-		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Sea Shipment..."));
-			
-			// Call the server method
-			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_sea_shipment_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.sea_shipment) {
-						// Show success message
-						frappe.msgprint({
-							title: __("Sea Shipment Created"),
-							message: __("Sea Shipment {0} has been created successfully.", [r.message.sea_shipment]),
-							indicator: "green"
-						});
-						// Brief delay so commit is visible before form fetch
-						setTimeout(function() {
-							frappe.set_route("Form", "Sea Shipment", r.message.sea_shipment);
-						}, 100);
-					} else if (r.message && r.message.message) {
-						// Show info message (e.g., Sea Shipment already exists)
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-						if (r.message.sea_shipment) {
-							setTimeout(function() {
-								frappe.set_route("Form", "Sea Shipment", r.message.sea_shipment);
-							}, 100);
-						}
-					}
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to create Sea Shipment. Please try again."),
 						indicator: "red"
 					});
 				}
@@ -966,7 +1075,7 @@ function create_sales_invoice_from_sales_quote(frm) {
 
 function create_air_booking_from_sales_quote(frm) {
 	// Check if one-off and booking already exists
-	if (frm.doc.one_off) {
+	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Air Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
 			if (r && r.name) {
 				frappe.msgprint({
@@ -1042,7 +1151,7 @@ function show_air_booking_confirmation(frm) {
 
 function create_sea_booking_from_sales_quote(frm) {
 	// Check if one-off and booking already exists
-	if (frm.doc.one_off) {
+	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Sea Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
 			if (r && r.name) {
 				frappe.msgprint({
@@ -1118,7 +1227,7 @@ function show_sea_booking_confirmation(frm) {
 
 function create_declaration_from_sales_quote(frm) {
 	// Check if one-off and declaration already exists
-	if (frm.doc.one_off) {
+	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
 			if (r && r.name) {
 				frappe.msgprint({

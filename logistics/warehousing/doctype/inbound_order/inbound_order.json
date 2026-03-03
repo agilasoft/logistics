@@ -21,12 +21,12 @@
   "priority",
   "planned_date",
   "due_date",
+  "section_break_tams",
+  "items",
   "section_break_connections",
   "air_shipment",
   "sea_shipment",
   "transport_job",
-  "section_break_tams",
-  "items",
   "carrier_details_tab",
   "docks",
   "additional_charges_tab",
@@ -80,11 +80,11 @@
    "reqd": 1
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
-   "options": "Project",
-   "description": "ERPNext Project for Special Projects integration"
+   "options": "Project"
   },
   {
    "fieldname": "contract",
@@ -151,31 +151,31 @@
    "options": "Inbound Order Dock"
   },
   {
+   "collapsible": 1,
    "fieldname": "section_break_connections",
    "fieldtype": "Section Break",
-   "label": "Connected Documents",
-   "collapsible": 1
+   "label": "Connected Documents"
   },
   {
+   "description": "Receive goods from air freight",
    "fieldname": "air_shipment",
    "fieldtype": "Link",
    "label": "Air Shipment",
-   "options": "Air Shipment",
-   "description": "Receive goods from air freight"
+   "options": "Air Shipment"
   },
   {
+   "description": "Receive goods from sea freight",
    "fieldname": "sea_shipment",
    "fieldtype": "Link",
    "label": "Sea Shipment",
-   "options": "Sea Shipment",
-   "description": "Receive goods from sea freight"
+   "options": "Sea Shipment"
   },
   {
+   "description": "Receive goods from domestic transport",
    "fieldname": "transport_job",
    "fieldtype": "Link",
    "label": "Transport Job",
-   "options": "Transport Job",
-   "description": "Receive goods from domestic transport"
+   "options": "Transport Job"
   },
   {
    "fieldname": "section_break_tams",
@@ -192,17 +192,17 @@
    "label": "Documents"
   },
   {
-   "collapsible": 1,
+   "collapsible": 0,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
   },
   {
+   "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
-   "options": "Document List Template",
-   "description": "Override default template. Leave empty to use product default."
+   "options": "Document List Template"
   },
   {
    "fieldname": "documents",
@@ -249,11 +249,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "For revenue/cost recognition",
    "fieldname": "job_costing_number",
    "fieldtype": "Link",
    "label": "Job Costing Number",
-   "options": "Job Costing Number",
-   "description": "For revenue/cost recognition"
+   "options": "Job Costing Number"
   },
   {
    "fieldname": "shipper",
@@ -272,7 +272,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-06 13:24:37.905637",
+ "modified": "2026-02-22 13:37:43.342925",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order",

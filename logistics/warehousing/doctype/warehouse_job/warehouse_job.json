@@ -481,7 +481,7 @@
    "label": "Documents"
   },
   {
-   "collapsible": 1,
+   "collapsible": 0,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"

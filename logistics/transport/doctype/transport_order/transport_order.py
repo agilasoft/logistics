@@ -148,6 +148,14 @@ class TransportOrder(Document):
     def before_save(self):
         from logistics.utils.module_integration import run_propagate_on_link
         run_propagate_on_link(self)
+        # Container Management: create/link container for Container orders
+        if getattr(self, "transport_job_type", None) == "Container" and getattr(self, "container_no", None):
+            try:
+                from logistics.container_management.api import sync_transport_order_container
+                sync_transport_order_container(self)
+            except Exception as e:
+                if not getattr(frappe.flags, "skip_container_sync", False):
+                    frappe.log_error("Transport Order container sync error: {0}".format(str(e)), "Container Management")
 
     def aggregate_volume_from_packages(self):
         """Set header volume from sum of package volumes, converted to base/default volume UOM."""
@@ -494,9 +502,13 @@ class TransportOrder(Document):
             if not self.container_no:
                 frappe.throw(_("Container Number is required for Container transport jobs."))
         
-        # Validate container number format if needed
-        if self.container_no and len(self.container_no) < 4:
-            frappe.throw(_("Container Number must be at least 4 characters long."))
+        # ISO 6346 validation
+        if self.container_no:
+            from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+            strict = get_strict_validation_setting()
+            valid, err = validate_container_number(self.container_no, strict=strict)
+            if not valid:
+                frappe.throw(_("Container Number: {0}").format(err), title=_("Invalid Container Number"))
 
     def _validate_heavy_haul_requirements(self):
         """Validate heavy haul specific requirements."""

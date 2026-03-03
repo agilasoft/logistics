@@ -135,7 +135,7 @@ class SeaBooking(Document):
 						company=getattr(self, "company", None),
 					)
 			if total > 0:
-				self.volume = total
+				self.total_volume = total
 		except Exception:
 			pass
 	
@@ -145,8 +145,8 @@ class SeaBooking(Document):
 			return
 		packages = getattr(self, "packages", []) or []
 		if not packages:
-			if hasattr(self, "weight"):
-				self.weight = 0
+			if hasattr(self, "total_weight"):
+				self.total_weight = 0
 			return
 		try:
 			from logistics.utils.measurements import convert_weight, get_default_uoms
@@ -173,15 +173,15 @@ class SeaBooking(Document):
 						company=getattr(self, "company", None),
 					)
 			if total > 0:
-				self.weight = total
+				self.total_weight = total
 			else:
-				self.weight = 0
+				self.total_weight = 0
 		except Exception:
 			pass
 	
 	def calculate_chargeable_weight(self):
-		"""Calculate chargeable weight based on volume and weight using Sea Freight Settings divisor."""
-		if not self.volume and not self.weight:
+		"""Calculate chargeable weight based on total_volume and total_weight using Sea Freight Settings divisor."""
+		if not self.total_volume and not self.total_weight:
 			if hasattr(self, "chargeable"):
 				self.chargeable = 0
 			return
@@ -191,16 +191,16 @@ class SeaBooking(Document):
 		
 		# Calculate volume weight
 		volume_weight = 0
-		if self.volume and divisor:
+		if self.total_volume and divisor:
 			# Convert volume from m³ to cm³, then divide by divisor
 			# Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
-			volume_weight = flt(self.volume) * (1000000.0 / divisor)
+			volume_weight = flt(self.total_volume) * (1000000.0 / divisor)
 		
 		# Calculate chargeable weight (higher of actual weight or volume weight)
-		if self.weight and volume_weight:
-			self.chargeable = max(flt(self.weight), volume_weight)
-		elif self.weight:
-			self.chargeable = flt(self.weight)
+		if self.total_weight and volume_weight:
+			self.chargeable = max(flt(self.total_weight), volume_weight)
+		elif self.total_weight:
+			self.chargeable = flt(self.total_weight)
 		elif volume_weight:
 			self.chargeable = volume_weight
 		else:
@@ -249,13 +249,93 @@ class SeaBooking(Document):
 		self.calculate_chargeable_weight()
 		self._update_packing_summary()
 		return {
-			"volume": getattr(self, "volume", 0),
-			"weight": getattr(self, "weight", 0),
+			"total_volume": getattr(self, "total_volume", 0),
+			"total_weight": getattr(self, "total_weight", 0),
 			"chargeable": getattr(self, "chargeable", 0),
 			"total_containers": getattr(self, "total_containers", 0),
 			"total_teus": getattr(self, "total_teus", 0),
 			"total_packages": getattr(self, "total_packages", 0),
 		}
+	
+	def validate_container_numbers(self):
+		"""Check for duplicate container numbers in submitted Sea Bookings and Sea Shipments."""
+		if not hasattr(self, "containers") or not self.containers:
+			return
+		
+		# ISO 6346 validation for each container
+		from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+		strict = get_strict_validation_setting()
+		for i, c in enumerate(self.containers, 1):
+			container_no = getattr(c, "container_no", None)
+			if container_no and str(container_no).strip():
+				valid, err = validate_container_number(container_no, strict=strict)
+				if not valid:
+					frappe.throw(_("Container {0}: {1}").format(i, err), title=_("Invalid Container Number"))
+		
+		# Get container numbers from current booking (filter out empty values)
+		container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None) and str(c.container_no).strip()]
+		if not container_numbers:
+			return
+		
+		# Check for duplicates in other submitted Sea Bookings
+		if self.name:
+			existing_bookings = frappe.db.sql("""
+				SELECT DISTINCT sb.name, sbc.container_no
+				FROM `tabSea Booking` sb
+				INNER JOIN `tabSea Booking Containers` sbc ON sbc.parent = sb.name
+				WHERE sbc.container_no IN %(container_numbers)s
+				AND sb.name != %(booking_name)s
+				AND sb.docstatus = 1
+				LIMIT 10
+			""", {
+				"container_numbers": container_numbers,
+				"booking_name": self.name
+			}, as_dict=True)
+		else:
+			existing_bookings = frappe.db.sql("""
+				SELECT DISTINCT sb.name, sbc.container_no
+				FROM `tabSea Booking` sb
+				INNER JOIN `tabSea Booking Containers` sbc ON sbc.parent = sb.name
+				WHERE sbc.container_no IN %(container_numbers)s
+				AND sb.docstatus = 1
+				LIMIT 10
+			""", {
+				"container_numbers": container_numbers
+			}, as_dict=True)
+		
+		# Check for duplicates in submitted Sea Shipments
+		existing_shipments = frappe.db.sql("""
+			SELECT DISTINCT ss.name, sfc.container_no
+			FROM `tabSea Shipment` ss
+			INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
+			WHERE sfc.container_no IN %(container_numbers)s
+			AND ss.docstatus = 1
+			LIMIT 10
+		""", {
+			"container_numbers": container_numbers
+		}, as_dict=True)
+		
+		# Build error message if duplicates found
+		errors = []
+		if existing_bookings:
+			container_list = ", ".join(set([c.container_no for c in existing_bookings]))
+			booking_list = ", ".join(set([c.name for c in existing_bookings]))
+			errors.append(_("Container number(s) {0} are already used in Sea Booking(s): {1}").format(
+				container_list, booking_list
+			))
+		
+		if existing_shipments:
+			container_list = ", ".join(set([c.container_no for c in existing_shipments]))
+			shipment_list = ", ".join(set([c.name for c in existing_shipments]))
+			errors.append(_("Container number(s) {0} are already used in Sea Shipment(s): {1}").format(
+				container_list, shipment_list
+			))
+		
+		if errors:
+			frappe.throw(
+				"\n".join(errors),
+				title=_("Duplicate Container Numbers")
+			)
 	
 	def before_submit(self):
 		"""Validate quote reference before submitting the Sea Booking."""
@@ -274,6 +354,9 @@ class SeaBooking(Document):
 			# If quote_type is not set, check if sales_quote is set (backward compatibility)
 			if not self.sales_quote:
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
+		
+		# Validate container numbers for duplicates
+		self.validate_container_numbers()
 	
 	def after_submit(self):
 		"""Ensure quote field values remain after submission."""
@@ -447,16 +530,22 @@ class SeaBooking(Document):
 				self.shipper = getattr(sales_quote, 'shipper', None)
 			if not self.consignee:
 				self.consignee = getattr(sales_quote, 'consignee', None)
+			if not getattr(self, "sending_agent", None):
+				self.sending_agent = getattr(sales_quote, "sending_agent", None)
+			if not getattr(self, "receiving_agent", None):
+				self.receiving_agent = getattr(sales_quote, "receiving_agent", None)
+			if not getattr(self, "broker", None):
+				self.broker = getattr(sales_quote, "broker", None)
 			if not self.origin_port:
 				self.origin_port = getattr(sales_quote, 'location_from', None)
 			if not self.destination_port:
 				self.destination_port = getattr(sales_quote, 'location_to', None)
 			if not self.direction:
 				self.direction = getattr(sales_quote, 'direction', None)
-			if not self.weight:
-				self.weight = getattr(sales_quote, 'weight', None)
-			if not self.volume:
-				self.volume = getattr(sales_quote, 'volume', None)
+			if not self.total_weight:
+				self.total_weight = getattr(sales_quote, 'total_weight', None) or getattr(sales_quote, 'weight', None)
+			if not self.total_volume:
+				self.total_volume = getattr(sales_quote, 'total_volume', None) or getattr(sales_quote, 'volume', None)
 			if not self.chargeable:
 				self.chargeable = getattr(sales_quote, 'chargeable', None)
 			if not self.service_level:
@@ -749,9 +838,9 @@ class SeaBooking(Document):
 			# Get quantity based on unit type
 			quantity = 0
 			if sqsf_record.unit_type == "Weight":
-				quantity = flt(self.weight) or 0
+				quantity = flt(self.total_weight) or 0
 			elif sqsf_record.unit_type == "Volume":
-				quantity = flt(self.volume) or 0
+				quantity = flt(self.total_volume) or 0
 			elif sqsf_record.unit_type == "Package" or sqsf_record.unit_type == "Piece":
 				if hasattr(self, 'packages') and self.packages:
 					quantity = len(self.packages)
@@ -812,7 +901,8 @@ class SeaBooking(Document):
 				"charge_name": sqsf_record.item_name or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_description": sqsf_record.item_name or item_doc.item_name,
-				"bill_to": self.local_customer if hasattr(self, 'local_customer') else None,
+				"bill_to": getattr(sqsf_record, "bill_to", None) or (self.local_customer if hasattr(self, 'local_customer') else None),
+				"pay_to": getattr(sqsf_record, "pay_to", None),
 				"selling_currency": sqsf_record.currency or default_currency,
 				"selling_amount": selling_amount,
 				"per_unit_rate": sqsf_record.unit_rate or 0,
@@ -926,6 +1016,89 @@ class SeaBooking(Document):
 			"missing_fields": missing_fields
 		}
 	
+	@frappe.whitelist()
+	def get_dashboard_html(self):
+		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+		try:
+			from logistics.document_management.api import get_document_alerts_html
+			from logistics.document_management.dashboard_layout import (
+				build_run_sheet_style_dashboard,
+				build_map_segments_from_routing_legs,
+				get_dg_dashboard_html,
+				get_unloco_coords,
+			)
+
+			status = self.get("shipping_status")
+			if not status:
+				status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
+			header_items = [
+				("Status", status),
+				("ETD", str(self.etd) if self.etd else "—"),
+				("ETA", str(self.eta) if self.eta else "—"),
+				("Packages", str(len(self.packages or []))),
+				("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+			]
+			if self.shipping_line:
+				header_items.append(("Shipping Line", self.shipping_line))
+
+			try:
+				doc_alerts = get_document_alerts_html("Sea Booking", self.name or "new")
+			except Exception:
+				doc_alerts = ""
+
+			dg_route_below_html = get_dg_dashboard_html(self)
+
+			milestone_rows = list(self.get("milestones") or [])
+			milestone_details = {}
+			if milestone_rows:
+				names = [m.milestone for m in milestone_rows if m.milestone]
+				if names:
+					for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
+						milestone_details[lm.name] = lm.description or lm.name
+
+			cards_html = ""
+			for i, m in enumerate(milestone_rows, 1):
+				st = (m.status or "Planned").lower().replace(" ", "-")
+				desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
+				planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
+				actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
+				cards_html += f"""
+				<div class="dash-card {st}">
+					<div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
+					<div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
+					<span class="card-badge {st}">{m.status or "Planned"}</span>
+				</div>"""
+
+			map_segments = build_map_segments_from_routing_legs(
+				getattr(self, "routing_legs", None) or []
+			)
+			map_points = []
+			if not map_segments:
+				o = get_unloco_coords(self.origin_port)
+				d = get_unloco_coords(self.destination_port)
+				if o:
+					map_points.append(o)
+				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
+					map_points.append(d)
+
+			return build_run_sheet_style_dashboard(
+				header_title=self.name or "Sea Booking",
+				header_subtitle="Sea Booking",
+				header_items=header_items,
+				cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Get Milestones in Actions to generate from template.</div>",
+				map_points=map_points,
+				map_segments=map_segments,
+				map_id_prefix="sea-booking-dash-map",
+				doc_alerts_html=doc_alerts,
+				straight_line=True,
+				origin_label=self.origin_port or None,
+				destination_label=self.destination_port or None,
+				route_below_html=dg_route_below_html,
+			)
+		except Exception as e:
+			frappe.log_error(f"Sea Booking get_dashboard_html: {str(e)}", "Sea Booking Dashboard")
+			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
 	def validate_before_conversion(self):
 		"""
 		Validate that all required fields are present before conversion to Sea Shipment.
@@ -993,12 +1166,18 @@ class SeaBooking(Document):
 			sea_shipment.consignee = self.consignee
 			sea_shipment.origin_port = self.origin_port
 			sea_shipment.destination_port = self.destination_port
+			if hasattr(self, "sending_agent") and self.sending_agent:
+				sea_shipment.sending_agent = self.sending_agent
+			if hasattr(self, "receiving_agent") and self.receiving_agent:
+				sea_shipment.receiving_agent = self.receiving_agent
+			if hasattr(self, "broker") and self.broker:
+				sea_shipment.broker = self.broker
 			sea_shipment.direction = self.direction
-			sea_shipment.weight = self.weight
-			sea_shipment.volume = self.volume
+			sea_shipment.weight = self.total_weight
+			sea_shipment.volume = self.total_volume
 			sea_shipment.chargeable = self.chargeable
 			# Only copy service_level if it exists as a valid record
-			if self.service_level and frappe.db.exists("Service Level Agreement", self.service_level):
+			if self.service_level and frappe.db.exists("Logistics Service Level", self.service_level):
 				sea_shipment.service_level = self.service_level
 			else:
 				# Explicitly clear the field if the record doesn't exist
@@ -1023,12 +1202,16 @@ class SeaBooking(Document):
 			sea_shipment.house_bl = self.house_bl
 			sea_shipment.packs = self.packs
 			sea_shipment.inner = self.inner
-			sea_shipment.good_value = self.good_value
+			sea_shipment.goods_value = self.goods_value
 			sea_shipment.insurance = self.insurance
 			sea_shipment.description = self.description
 			sea_shipment.marks_and_nos = self.marks_and_nos
 			sea_shipment.etd = self.etd
 			sea_shipment.eta = self.eta
+			if hasattr(self, "atd") and self.atd:
+				sea_shipment.atd = self.atd
+			if hasattr(self, "ata") and self.ata:
+				sea_shipment.ata = self.ata
 			sea_shipment.transport_mode = self.transport_mode
 			sea_shipment.company = self.company
 			sea_shipment.branch = self.branch
@@ -1081,10 +1264,10 @@ class SeaBooking(Document):
 				sea_shipment.consignee_contact = self.consignee_contact
 			if hasattr(self, "consignee_contact_display") and self.consignee_contact_display:
 				sea_shipment.consignee_contact_display = self.consignee_contact_display
-			if hasattr(self, "notify_to_party") and self.notify_to_party:
-				sea_shipment.notify_to_party = self.notify_to_party
-			if hasattr(self, "notify_to_address") and self.notify_to_address:
-				sea_shipment.notify_to_address = self.notify_to_address
+			if hasattr(self, "notify_party") and self.notify_party:
+				sea_shipment.notify_party = self.notify_party
+			if hasattr(self, "notify_party_address") and self.notify_party_address:
+				sea_shipment.notify_party_address = self.notify_party_address
 			# Populate addresses and contacts from Shipper/Consignee primary if not set on Booking
 			if self.shipper and (not sea_shipment.shipper_address or not sea_shipment.shipper_contact):
 				try:
@@ -1201,7 +1384,32 @@ class SeaBooking(Document):
 			
 			# Copy charges (from Sea Booking Charges to Sea Freight Charges)
 			if hasattr(self, 'charges') and self.charges:
+				# Map calculation methods to calc types
+				calc_method_to_revenue_calc_type = {
+					"Per Unit": "Base plus per Unit",
+					"Fixed Amount": "Fixed",
+					"Flat Rate": "Fixed",
+					"Base Plus Additional": "Base plus per Unit",
+					"First Plus Additional": "Base plus per Unit",
+					"Percentage": "Fixed",
+					"Location-based": "Fixed",
+					"Weight Break": "Base plus per Unit",
+					"Qty Break": "Base plus per Unit"
+				}
+				
 				for charge in self.charges:
+					# Map charge_basis to revenue_calc_type
+					revenue_calc_type = calc_method_to_revenue_calc_type.get(
+						getattr(charge, 'charge_basis', None), 
+						"Fixed"
+					)
+					
+					# Map cost_calculation_method to cost_calc_type
+					cost_calc_type = calc_method_to_revenue_calc_type.get(
+						getattr(charge, 'cost_calculation_method', None),
+						"Fixed"
+					)
+					
 					sea_shipment.append("charges", {
 						"charge_item": charge.charge_item,
 						"charge_name": charge.charge_name,
@@ -1215,19 +1423,19 @@ class SeaBooking(Document):
 						"pay_to": charge.pay_to,
 						"buying_currency": charge.buying_currency,
 						"buying_amount": charge.buying_amount,
-						"revenue_calc_type": charge.revenue_calc_type,
-						"base_amount": charge.base_amount,
-						"per_unit_rate": charge.per_unit_rate,
-						"unit": charge.unit,
-						"minimum": charge.minimum,
-						"cost_calc_type": charge.cost_calc_type
+						"revenue_calc_type": revenue_calc_type,
+						"base_amount": getattr(charge, 'base_amount', 0),
+						"per_unit_rate": getattr(charge, 'rate', 0),
+						"unit": getattr(charge, 'uom', None),
+						"minimum": getattr(charge, 'minimum_charge', 0),
+						"cost_calc_type": cost_calc_type
 					})
 			
 			# Copy routing legs (from Sea Booking Routing Leg to Sea Shipment Routing Leg)
+			# Note: Order is determined by idx (automatically set by Frappe), not leg_order
 			if hasattr(self, 'routing_legs') and self.routing_legs:
 				for leg in self.routing_legs:
 					sea_shipment.append("routing_legs", {
-						"leg_order": leg.leg_order,
 						"mode": leg.mode,
 						"type": leg.type,
 						"status": leg.status,
@@ -1312,6 +1520,30 @@ class SeaBooking(Document):
 				"Sea Booking - Convert to Shipment Error"
 			)
 			frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+	"""Recalculate all charges based on current Sea Booking data."""
+	booking = frappe.get_doc("Sea Booking", docname)
+	if not booking.charges:
+		return {"success": False, "message": _("No charges found to recalculate")}
+	try:
+		charges_recalculated = 0
+		for charge in booking.charges:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=booking)
+				charges_recalculated += 1
+		booking.save()
+		return {
+			"success": True,
+			"message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+			"charges_recalculated": charges_recalculated,
+		}
+	except Exception as e:
+		frappe.log_error(str(e), "Sea Booking - Recalculate Charges Error")
+		frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
+
 
 @frappe.whitelist()
 def get_available_one_off_quotes(sea_booking_name: str = None) -> Dict[str, Any]:
@@ -1441,8 +1673,8 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 			temp_doc = doc if doc else frappe.new_doc("Sea Booking")
 			if doc:
 				# Copy relevant fields from the document
-				temp_doc.weight = doc.weight
-				temp_doc.volume = doc.volume
+				temp_doc.total_weight = doc.total_weight
+				temp_doc.total_volume = doc.total_volume
 				temp_doc.local_customer = doc.local_customer
 				if hasattr(doc, 'packages'):
 					temp_doc.packages = doc.packages
@@ -1532,8 +1764,8 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			temp_doc = doc if doc else frappe.new_doc("Sea Booking")
 			if doc:
 				# Copy relevant fields from the document
-				temp_doc.weight = doc.weight
-				temp_doc.volume = doc.volume
+				temp_doc.total_weight = doc.total_weight
+				temp_doc.total_volume = doc.total_volume
 				temp_doc.local_customer = doc.local_customer
 				if hasattr(doc, 'packages'):
 					temp_doc.packages = doc.packages

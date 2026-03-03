@@ -1,34 +1,78 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _load_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
+	frappe.call({
+		method: 'logistics.document_management.api.get_milestone_html',
+		args: { doctype: 'Declaration', docname: frm.doc.name },
+		callback: function(r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			}
+		}
+	}).always(function() {
+		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
+	});
+}
+
 frappe.ui.form.on("Declaration", {
 	refresh(frm) {
-		// Load dashboard HTML in Dashboard tab
-		if (frm.fields_dict.dashboard_html) {
+		// Load dashboard HTML in Dashboard tab (only when doc is saved)
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
 				frm.call("get_dashboard_html").then((r) => {
 					if (r.message && frm.fields_dict.dashboard_html) {
 						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+						}
 					}
-				}).catch(() => {}).finally(() => {
+				}).catch(() => {}).always(() => {
 					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
 				});
 			}
 		}
-		// Load milestone HTML in Milestones tab
-		if (frm.fields_dict.milestone_html) {
-			if (!frm._milestone_html_called) {
-				frm._milestone_html_called = true;
-				frm.call('get_milestone_html').then(r => {
-					if (r.message) {
-						const $wrapper = frm.get_field('milestone_html').$wrapper;
-						if ($wrapper) $wrapper.html(r.message);
+		_load_milestone_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+				_load_milestone_html(frm);
+			});
+		}
+
+		// Populate Documents from Template
+		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+			frm.add_custom_button(__("Populate from Template"), function() {
+				frappe.call({
+					method: "logistics.document_management.api.populate_documents_from_template",
+					args: { doctype: "Declaration", docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
+						}
 					}
-				}).catch(() => {}).finally(() => {
-					setTimeout(() => { frm._milestone_html_called = false; }, 2000);
 				});
-			}
+			}, __("Documents"));
+		}
+
+		// Generate from template button in Milestones section
+		if (!frm.doc.__islocal && frm.fields_dict.milestones) {
+			frm.add_custom_button(__('Generate from Template'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_milestones_from_template',
+					args: { doctype: 'Declaration', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Milestones'));
 		}
 
 		// Add custom button to create Sales Invoice if declaration is submitted
@@ -40,19 +84,19 @@ frappe.ui.form.on("Declaration", {
 						// Show view button if invoice exists
 						frm.add_custom_button(__("View Sales Invoice"), function() {
 							frappe.set_route("Form", "Sales Invoice", r.name);
-						}, __("Create"));
+						}, __("Actions"));
 					} else {
 						// Show create button if no invoice exists
 						frm.add_custom_button(__("Create Sales Invoice"), function() {
 							create_sales_invoice_from_declaration(frm);
-						}, __("Create"));
+						}, __("Post"));
 					}
 				});
 			} else {
 				// Show create button if no job costing number
 				frm.add_custom_button(__("Create Sales Invoice"), function() {
 					create_sales_invoice_from_declaration(frm);
-				}, __("Create"));
+				}, __("Post"));
 			}
 		}
 		
@@ -60,13 +104,13 @@ frappe.ui.form.on("Declaration", {
 		if (frm.doc.declaration_order) {
 			frm.add_custom_button(__("View Declaration Order"), function() {
 				frappe.set_route("Form", "Declaration Order", frm.doc.declaration_order);
-			}, __("View"));
+			}, __("Actions"));
 		}
 		// Add button to view Sales Quote if linked
 		if (frm.doc.sales_quote) {
 			frm.add_custom_button(__("View Sales Quote"), function() {
 				frappe.set_route("Form", "Sales Quote", frm.doc.sales_quote);
-			}, __("View"));
+			}, __("Actions"));
 		}
 	},
 });

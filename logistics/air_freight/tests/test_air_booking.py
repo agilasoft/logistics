@@ -37,8 +37,8 @@ class TestAirBooking(FrappeTestCase):
 			"direction": "Export",
 			"shipper": self.shipper,
 			"consignee": self.consignee,
-			"origin_port": "LAX",
-			"destination_port": "JFK"
+			"origin_port": "USLAX",
+			"destination_port": "USJFK"
 		})
 		booking.insert()
 		
@@ -66,8 +66,8 @@ class TestAirBooking(FrappeTestCase):
 			"direction": "Export",
 			"shipper": self.shipper,
 			"consignee": self.consignee,
-			"origin_port": "LAX",
-			"destination_port": "JFK",
+			"origin_port": "USLAX",
+			"destination_port": "USJFK",
 			"etd": add_days(today(), 5),
 			"eta": add_days(today(), 3)  # ETA before ETD
 		})
@@ -85,8 +85,8 @@ class TestAirBooking(FrappeTestCase):
 			"direction": "Export",
 			"shipper": self.shipper,
 			"consignee": self.consignee,
-			"origin_port": "LAX",
-			"destination_port": "JFK"
+			"origin_port": "USLAX",
+			"destination_port": "USJFK"
 		})
 		
 		# Should insert successfully with valid company
@@ -103,8 +103,8 @@ class TestAirBooking(FrappeTestCase):
 			"direction": "Export",
 			"shipper": self.shipper,
 			"consignee": self.consignee,
-			"origin_port": "LAX",
-			"destination_port": "JFK"
+			"origin_port": "USLAX",
+			"destination_port": "USJFK"
 		})
 		
 		# Add packages

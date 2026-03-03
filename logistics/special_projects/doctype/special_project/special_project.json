@@ -1,13 +1,16 @@
 {
  "actions": [],
  "autoname": "naming_series:",
- "creation": "2025-02-11 00:00:00.000000",
+ "creation": "2025-02-11 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "dashboard_tab",
   "dashboard_html",
+  "milestones_tab",
+  "milestone_html",
+  "details_tab",
   "section_break_basic",
   "naming_series",
   "project",
@@ -67,8 +70,19 @@
   {
    "fieldname": "dashboard_html",
    "fieldtype": "HTML",
-   "label": "Dashboard",
-   "is_virtual": 1
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestones"
   },
   {
    "fieldname": "section_break_basic",
@@ -76,29 +90,29 @@
    "label": "Basic Information"
   },
   {
+   "default": "PROJ-.####",
+   "description": "Uses PROJ-.#### when ERPNext Project is auto-created; SP-.##### as fallback.",
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Series",
    "options": "PROJ-.####\nSP-.#####",
-   "default": "PROJ-.####",
-   "reqd": 1,
-   "description": "Uses PROJ-.#### when ERPNext Project is auto-created; SP-.##### as fallback."
+   "reqd": 1
   },
   {
+   "description": "Linked ERPNext Project (auto-created on save). Use for task management and billing.",
    "fieldname": "project",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Project",
    "options": "Project",
-   "read_only": 1,
-   "in_list_view": 1,
-   "description": "Linked ERPNext Project (auto-created on save). Use for task management and billing."
+   "read_only": 1
   },
   {
    "fieldname": "project_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Project Name",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
    "fieldname": "customer",
@@ -117,13 +131,13 @@
    "options": "Sales Quote"
   },
   {
+   "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
-   "label": "Status",
-   "options": "Draft\nScoping\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled",
-   "default": "Draft",
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nScoping\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled"
   },
   {
    "fieldname": "priority",
@@ -232,10 +246,10 @@
    "label": "Jobs"
   },
   {
+   "collapsible": 1,
    "fieldname": "cost_revenue_section",
    "fieldtype": "Section Break",
-   "label": "Cost & Revenue Summary",
-   "collapsible": 1
+   "label": "Cost & Revenue Summary"
   },
   {
    "fieldname": "cost_revenue_html",
@@ -276,17 +290,17 @@
    "label": "Documents"
   },
   {
+   "collapsible": 0,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
-   "label": "Document Checklist",
-   "collapsible": 1
+   "label": "Document Checklist"
   },
   {
+   "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
-   "options": "Document List Template",
-   "description": "Override default template. Leave empty to use product default."
+   "options": "Document List Template"
   },
   {
    "fieldname": "documents",
@@ -300,10 +314,10 @@
    "label": "More Info"
   },
   {
+   "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
-   "label": "Notes",
-   "collapsible": 1
+   "label": "Notes"
   },
   {
    "fieldname": "column_break_notes",
@@ -315,10 +329,10 @@
    "label": "Client Notes"
   },
   {
+   "collapsible": 1,
    "fieldname": "terms_and_conditions_section",
    "fieldtype": "Section Break",
-   "label": "Terms and Conditions",
-   "collapsible": 1
+   "label": "Terms and Conditions"
   },
   {
    "fieldname": "tc_name",
@@ -327,37 +341,43 @@
    "options": "Terms and Conditions"
   },
   {
+   "fetch_from": "tc_name.terms",
    "fieldname": "terms",
    "fieldtype": "Text Editor",
-   "label": "Terms and Conditions Details",
-   "fetch_from": "tc_name.terms"
+   "label": "Terms and Conditions Details"
   },
   {
+   "collapsible": 1,
    "fieldname": "service_level_agreement_section",
    "fieldtype": "Section Break",
-   "label": "Service Level Agreement",
-   "collapsible": 1
+   "label": "Service Level Agreement"
   },
   {
+   "description": "Reference SLA for project-level commitments. Linked jobs may inherit or override.",
    "fieldname": "logistics_service_level",
    "fieldtype": "Link",
    "label": "Logistics Service Level",
-   "options": "Logistics Service Level",
-   "description": "Reference SLA for project-level commitments. Linked jobs may inherit or override."
+   "options": "Logistics Service Level"
   },
   {
+   "fetch_from": "logistics_service_level.text_uufb",
    "fieldname": "service_level_details",
    "fieldtype": "Text Editor",
-   "label": "Service Level Details",
-   "fetch_from": "logistics_service_level.text_uufb"
+   "label": "Service Level Details"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-02-11 00:00:00.000000",
+ "modified": "2026-02-22 12:02:59.160104",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -385,6 +405,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

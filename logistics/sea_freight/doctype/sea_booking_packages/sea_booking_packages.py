@@ -85,22 +85,40 @@ class SeaBookingPackages(Document):
 			pass
 		# Default to 1000 (equivalent to 1000 kg/m³ factor, common sea freight standard)
 		return 1000.0
+	
+	def _get_chargeable_weight_calculation_method(self):
+		"""Get the chargeable weight calculation method from Sea Freight Settings.
+		Returns: 'Actual Weight', 'Volume Weight', or 'Higher of Both' (default)
+		"""
+		try:
+			settings = frappe.get_single("Sea Freight Settings")
+			method = getattr(settings, "chargeable_weight_calculation", None)
+			if method in ["Actual Weight", "Volume Weight", "Higher of Both"]:
+				return method
+		except Exception:
+			pass
+		# Default to "Higher of Both" (common sea freight standard)
+		return "Higher of Both"
 
 	def calculate_chargeable_weight(self):
-		"""Calculate chargeable weight based on package volume and weight using Sea Freight Settings divisor."""
+		"""Calculate chargeable weight based on package volume and weight using Sea Freight Settings divisor.
+		Respects chargeable_weight_calculation setting: 'Actual Weight', 'Volume Weight', or 'Higher of Both'.
+		"""
 		from frappe import flt
 		
-		if not getattr(self, "volume", None) and not getattr(self, "weight", None):
+		# Get package volume and weight first
+		package_volume = flt(getattr(self, "volume", 0) or 0)
+		package_weight = flt(getattr(self, "weight", 0) or 0)
+		
+		# If both volume and weight are zero or missing, set chargeable weight to 0
+		if not package_volume and not package_weight:
 			if hasattr(self, "chargeable_weight"):
 				self.chargeable_weight = 0
 			return
 		
-		# Get divisor from Sea Freight Settings
+		# Get divisor and calculation method from Sea Freight Settings
 		divisor = self._get_volume_to_weight_divisor()
-		
-		# Get package volume and weight
-		package_volume = flt(getattr(self, "volume", 0) or 0)
-		package_weight = flt(getattr(self, "weight", 0) or 0)
+		calculation_method = self._get_chargeable_weight_calculation_method()
 		
 		# Convert volume to m³ if needed
 		volume_in_m3 = package_volume
@@ -113,31 +131,73 @@ class SeaBookingPackages(Document):
 			
 			if volume_uom and target_volume_uom and str(volume_uom).strip().upper() != str(target_volume_uom).strip().upper():
 				try:
-					volume_in_m3 = convert_volume(
+					converted_volume = convert_volume(
 						package_volume,
 						from_uom=volume_uom,
 						to_uom=target_volume_uom,
 						company=company,
 					)
+					# Only use converted volume if it's valid and positive
+					if converted_volume and converted_volume > 0:
+						volume_in_m3 = converted_volume
+					# Otherwise fall back to original volume
 				except Exception:
-					volume_in_m3 = package_volume
+					# Fall back to original volume if conversion fails
+					pass
 		
-		# Calculate volume weight
+		# Convert weight to base weight unit (kg) if needed
+		# Volume weight is calculated in kg, so package weight must also be in kg for correct comparison
+		package_weight_in_kg = package_weight
+		if package_weight > 0:
+			from logistics.utils.measurements import convert_weight, get_default_uoms
+			weight_uom = getattr(self, "weight_uom", None)
+			company = self._get_parent_company()
+			defaults = get_default_uoms(company=company)
+			target_weight_uom = defaults.get("weight")  # Typically "Kg"
+			
+			if weight_uom and target_weight_uom and str(weight_uom).strip().upper() != str(target_weight_uom).strip().upper():
+				try:
+					converted_weight = convert_weight(
+						package_weight,
+						from_uom=weight_uom,
+						to_uom=target_weight_uom,
+						company=company,
+					)
+					# Only use converted weight if it's valid and positive
+					if converted_weight and converted_weight > 0:
+						package_weight_in_kg = converted_weight
+					# Otherwise fall back to original weight
+				except Exception:
+					# Fall back to original weight if conversion fails
+					pass
+		
+		# Calculate volume weight (result is in kg)
 		volume_weight = 0
-		if volume_in_m3 > 0 and divisor:
+		if volume_in_m3 > 0 and divisor and divisor > 0:
 			# Convert volume from m³ to cm³, then divide by divisor
 			# Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
 			volume_weight = volume_in_m3 * (1000000.0 / divisor)
 		
-		# Calculate chargeable weight (higher of actual weight or volume weight)
-		if package_weight > 0 and volume_weight > 0:
-			self.chargeable_weight = max(package_weight, volume_weight)
-		elif package_weight > 0:
-			self.chargeable_weight = package_weight
-		elif volume_weight > 0:
-			self.chargeable_weight = volume_weight
-		else:
-			self.chargeable_weight = 0
+		# Calculate chargeable weight based on calculation method
+		if calculation_method == "Actual Weight":
+			# Use only actual weight
+			chargeable = package_weight_in_kg
+		elif calculation_method == "Volume Weight":
+			# Use only volume weight
+			chargeable = volume_weight
+		else:  # "Higher of Both" (default)
+			# Use the higher of actual weight or volume weight
+			if package_weight_in_kg > 0 and volume_weight > 0:
+				chargeable = max(package_weight_in_kg, volume_weight)
+			elif package_weight_in_kg > 0:
+				chargeable = package_weight_in_kg
+			elif volume_weight > 0:
+				chargeable = volume_weight
+			else:
+				chargeable = 0
+		
+		# Always set chargeable_weight, even if it's 0
+		self.chargeable_weight = chargeable
 		
 		# Set chargeable_weight_uom to match weight_uom if not set
 		if not getattr(self, "chargeable_weight_uom", None):

@@ -3,6 +3,18 @@
 
 frappe.ui.form.on("Change Request", {
 	refresh(frm) {
+		// Approve: set status to Approved and save (server will apply charges to job)
+		if (!frm.doc.__islocal && frm.doc.status !== "Approved" && frm.doc.status !== "Sales Quote Created" && frm.doc.charges && frm.doc.charges.length > 0) {
+			frm.add_custom_button(__("Approve"), function () {
+				frappe.confirm(
+					__("Approve this Change Request and apply {0} charge(s) to the linked job?").format(frm.doc.charges.length),
+					function () {
+						frm.set_value("status", "Approved");
+						frm.save();
+					}
+				);
+			});
+		}
 		if (!frm.doc.__islocal && frm.doc.status !== "Sales Quote Created" && frm.doc.charges && frm.doc.charges.length > 0) {
 			frm.add_custom_button(__("Create Sales Quote"), function () {
 				frappe.confirm(

@@ -86,16 +86,18 @@
   },
   {
    "fieldname": "origin_port",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Origin Port",
+   "options": "UNLOCO",
    "read_only": 1
   },
   {
    "fieldname": "destination_port",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Destination Port",
+   "options": "UNLOCO",
    "read_only": 1
   },
   {

@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:cto_name",
  "creation": "2025-05-24 18:47:42.479721",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -17,12 +18,14 @@
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "cto_name",
    "fieldtype": "Data",
-   "label": "CTO Name"
+   "label": "CTO Name",
+   "unique": 1
   },
   {
    "fieldname": "avaiable_for_column",
@@ -57,10 +60,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-01 14:33:54.664270",
+ "modified": "2026-03-03 09:29:35.771304",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Cargo Terminal Operator",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

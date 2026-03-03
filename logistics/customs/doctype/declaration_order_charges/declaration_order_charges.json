@@ -1,0 +1,283 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "calculation_method",
+  "quantity",
+  "unit_rate",
+  "unit_type",
+  "column_break_breaks",
+  "selling_weight_break",
+  "cost_weight_break",
+  "selling_qty_break",
+  "cost_qty_break",
+  "column_break_revenue",
+  "minimum_charge",
+  "maximum_charge",
+  "base_amount",
+  "minimum_quantity",
+  "base_quantity",
+  "estimated_revenue",
+  "revenue_calc_notes",
+  "section_break_cost",
+  "cost_calculation_method",
+  "cost_quantity",
+  "unit_cost",
+  "cost_unit_type",
+  "column_break_cost",
+  "cost_minimum_charge",
+  "cost_maximum_charge",
+  "cost_base_amount",
+  "cost_minimum_quantity",
+  "cost_base_quantity",
+  "estimated_cost",
+  "cost_calc_notes",
+  "section_break_other",
+  "currency",
+  "uom",
+  "cost_uom",
+  "cost_currency"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage\nWeight Break\nQty Break"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity",
+   "precision": 2
+  },
+  {
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unit Rate",
+   "precision": 2
+  },
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Weight\nVolume\nDistance\nPackage\nPiece\nTEU\nOperation Time"
+  },
+  {
+   "fieldname": "column_break_breaks",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == 'Weight Break'",
+   "fieldname": "selling_weight_break",
+   "fieldtype": "Button",
+   "label": "Weight Break"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == 'Weight Break'",
+   "fieldname": "cost_weight_break",
+   "fieldtype": "Button",
+   "label": "Weight Break"
+  },
+  {
+   "depends_on": "eval:doc.calculation_method == 'Qty Break'",
+   "fieldname": "selling_qty_break",
+   "fieldtype": "Button",
+   "label": "Qty Break"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method == 'Qty Break'",
+   "fieldname": "cost_qty_break",
+   "fieldtype": "Button",
+   "label": "Qty Break"
+  },
+  {
+   "fieldname": "column_break_revenue",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge",
+   "precision": 2
+  },
+  {
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge",
+   "precision": 2
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount",
+   "precision": 2
+  },
+  {
+   "fieldname": "minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity",
+   "precision": 2
+  },
+  {
+   "fieldname": "base_quantity",
+   "fieldtype": "Float",
+   "label": "Base Quantity",
+   "precision": 2
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Revenue",
+   "precision": 2,
+   "read_only": 1
+  },
+  {
+   "fieldname": "revenue_calc_notes",
+   "fieldtype": "Small Text",
+   "label": "Revenue Calc Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_cost",
+   "fieldtype": "Section Break",
+   "label": "Cost"
+  },
+  {
+   "fieldname": "cost_calculation_method",
+   "fieldtype": "Select",
+   "label": "Cost Calculation Method",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nWeight Break\nQty Break"
+  },
+  {
+   "fieldname": "cost_quantity",
+   "fieldtype": "Float",
+   "label": "Cost Quantity",
+   "precision": 2
+  },
+  {
+   "fieldname": "unit_cost",
+   "fieldtype": "Currency",
+   "label": "Unit Cost",
+   "precision": 2
+  },
+  {
+   "fieldname": "cost_unit_type",
+   "fieldtype": "Select",
+   "label": "Cost Unit Type",
+   "options": "Weight\nVolume\nDistance\nPackage\nPiece\nTEU\nOperation Time"
+  },
+  {
+   "fieldname": "column_break_cost",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Cost Minimum Charge",
+   "precision": 2
+  },
+  {
+   "fieldname": "cost_maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Cost Maximum Charge",
+   "precision": 2
+  },
+  {
+   "fieldname": "cost_base_amount",
+   "fieldtype": "Currency",
+   "label": "Cost Base Amount",
+   "precision": 2
+  },
+  {
+   "fieldname": "cost_minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Cost Minimum Quantity",
+   "precision": 2
+  },
+  {
+   "fieldname": "cost_base_quantity",
+   "fieldtype": "Float",
+   "label": "Cost Base Quantity",
+   "precision": 2
+  },
+  {
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Cost",
+   "precision": 2,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_calc_notes",
+   "fieldtype": "Small Text",
+   "label": "Cost Calc Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_other",
+   "fieldtype": "Section Break",
+   "label": "Other"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "cost_uom",
+   "fieldtype": "Link",
+   "label": "Cost UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "cost_currency",
+   "fieldtype": "Link",
+   "label": "Cost Currency",
+   "options": "Currency"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Declaration Order Charges",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

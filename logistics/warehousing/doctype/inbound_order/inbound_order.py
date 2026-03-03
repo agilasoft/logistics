@@ -23,9 +23,33 @@ class InboundOrder(Document):
 @frappe.whitelist()
 def make_warehouse_job(source_name, target_doc=None):
     try:
-        # Validate that contract is not cancelled before proceeding
+        import time
+        
+        # Check if source_name is a temporary name (starts with "new-")
+        # This can happen if the function is called before the document is fully saved
+        if source_name and source_name.startswith("new-"):
+            frappe.throw(_("Cannot create Warehouse Job for unsaved document. Please save the Inbound Order first."))
+        
+        # Guard: Check if we're in a save transaction and handle accordingly
+        if getattr(frappe.flags, 'in_save', False):
+            frappe.db.commit()
+            time.sleep(0.3)  # Wait for transaction to complete
+        
+        # Get the document directly, handling DoesNotExistError
         if source_name:
-            source_doc = frappe.get_doc("Inbound Order", source_name)
+            try:
+                source_doc = frappe.get_doc("Inbound Order", source_name)
+            except frappe.DoesNotExistError:
+                # Retry once after delay if document not found (may have been in save transaction)
+                time.sleep(0.3)
+                try:
+                    # Use get_cached_doc to avoid false not-found during post-save calls
+                    source_doc = frappe.get_cached_doc("Inbound Order", source_name)
+                except frappe.DoesNotExistError:
+                    # Return graceful error response for post-save fetch failures
+                    frappe.throw(_("Inbound Order {0} is not ready yet. Please try again in a moment.").format(source_name))
+            
+            # Validate that contract is not cancelled before proceeding
             if source_doc.contract:
                 contract_status = frappe.db.get_value("Warehouse Contract", source_doc.contract, "docstatus")
                 if contract_status == 2:  # Cancelled

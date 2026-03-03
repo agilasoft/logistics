@@ -759,9 +759,10 @@ def _get_invoice_items_from_job(job_type, job_name, customer):
 				"uom": getattr(ch, "uom", None),
 			})
 	elif job_type == "Sea Shipment":
+		from logistics.utils.charges_calculation import get_charge_bill_to_customers
 		charges = doc.get("charges") or []
 		for ch in charges:
-			if getattr(ch, "bill_to", None) != customer:
+			if customer not in get_charge_bill_to_customers(ch):
 				continue
 			items.append({
 				"item_code": getattr(ch, "charge_item", None),
@@ -1250,7 +1251,9 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"quantity": quantity,
 			"unit_of_measure": normalized_uom,
 			"calculation_method": "Automatic",  # Set to "Automatic" since charge is auto-populated from Sales Quote
-			"billing_status": "Pending"
+			"billing_status": "Pending",
+			"bill_to": getattr(sqaf_record, "bill_to", None),
+			"pay_to": getattr(sqaf_record, "pay_to", None),
 		}
 		
 		# Add minimum/maximum charge if available
@@ -1413,7 +1416,8 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"charge_name": sqsf_record.item_name or item_doc.item_name,
 			"charge_type": charge_type,
 			"charge_description": sqsf_record.item_name or item_doc.item_name,
-			"bill_to": sea_shipment.local_customer if hasattr(sea_shipment, 'local_customer') else None,
+			"bill_to": getattr(sqsf_record, "bill_to", None) or (sea_shipment.local_customer if hasattr(sea_shipment, 'local_customer') else None),
+			"pay_to": getattr(sqsf_record, "pay_to", None),
 			"selling_currency": sqsf_record.currency or default_currency,
 			"selling_amount": selling_amount,
 			"per_unit_rate": sqsf_record.unit_rate or 0,

@@ -804,6 +804,47 @@ def adjust_accruals(doctype, docname, adjustment_amount, adjustment_date=None):
 
 
 @frappe.whitelist()
+def recognize(doctype, docname, recognition_date=None):
+    """
+    API to recognize WIP and accruals for a job (manual action).
+    Runs both WIP and accrual recognition based on Recognition Policy Settings.
+    
+    Args:
+        doctype: The job document type
+        docname: The job document name
+        recognition_date: Optional recognition date
+    
+    Returns:
+        dict: Names of created Journal Entries and status
+    """
+    job = frappe.get_doc(doctype, docname)
+    if job.docstatus != 1:
+        frappe.throw(_("Document must be submitted to recognize WIP and accruals."))
+    
+    engine = RecognitionEngine(job)
+    result = {"wip_journal_entry": None, "accrual_journal_entry": None}
+    
+    try:
+        wip_je = engine.recognize_wip(recognition_date)
+        if wip_je:
+            result["wip_journal_entry"] = wip_je
+    except Exception as e:
+        if "already been recognized" not in str(e).lower():
+            raise
+        # Already recognized - skip
+    try:
+        accrual_je = engine.recognize_accruals(recognition_date)
+        if accrual_je:
+            result["accrual_journal_entry"] = accrual_je
+    except Exception as e:
+        if "already been recognized" not in str(e).lower():
+            raise
+        # Already recognized - skip
+    
+    return result
+
+
+@frappe.whitelist()
 def close_job_recognition(doctype, docname, closure_date=None):
     """
     API to close all WIP and accruals for a job.

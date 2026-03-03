@@ -10,6 +10,8 @@
   "amended_from",
   "master_awb_no",
   "airline",
+  "mawb_stock_range",
+  "issued_from_stock",
   "column_break_puld",
   "aircraft_type",
   "flight_no",
@@ -110,6 +112,20 @@
    "fieldtype": "Link",
    "label": "Airline",
    "options": "Airline"
+  },
+  {
+   "fieldname": "mawb_stock_range",
+   "fieldtype": "Link",
+   "label": "MAWB Stock Range",
+   "options": "MAWB Stock Range",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "issued_from_stock",
+   "fieldtype": "Check",
+   "label": "Issued From Stock",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_puld",
@@ -449,11 +465,6 @@
    "label": "Agent Reference"
   },
   {
-   "fieldname": "ground_handling_tab",
-   "fieldtype": "Tab Break",
-   "label": "Ground Handling"
-  },
-  {
    "fieldname": "ground_works_agreement_section",
    "fieldtype": "Section Break",
    "label": "Ground Works Agreement"
@@ -525,6 +536,11 @@
    "fieldname": "destination_dispatch_requested",
    "fieldtype": "Date",
    "label": "Dispatch Requested"
+  },
+  {
+   "fieldname": "ground_handling_tab",
+   "fieldtype": "Tab Break",
+   "label": "Ground Handling"
   }
  ],
  "grid_page_length": 50,
@@ -537,7 +553,7 @@
    "link_fieldname": "master_awb"
   }
  ],
- "modified": "2026-01-05 16:34:20.673651",
+ "modified": "2026-03-02 23:27:02.592097",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Master Air Waybill",

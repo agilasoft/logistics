@@ -5,6 +5,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "transport_order_tab",
+  "transport_order_section",
+  "allowed_transport_order_legs",
   "routing_tab",
   "routing_provider",
   "osrm_base_url",
@@ -23,6 +26,12 @@
   "min_temp",
   "max_temp",
   "column_break_temp",
+  "container_management_tab",
+  "container_management_section",
+  "enable_container_management",
+  "auto_create_container",
+  "strict_container_validation",
+  "enable_container_penalty_alerts",
   "measurements_tab",
   "measurements_section",
   "base_dimension_uom",
@@ -35,6 +44,23 @@
   "default_chargeable_weight_uom"
  ],
  "fields": [
+  {
+   "fieldname": "transport_order_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transport Order"
+  },
+  {
+   "fieldname": "transport_order_section",
+   "fieldtype": "Section Break",
+   "label": "Allowed Routing Legs",
+   "description": "Define which routing leg types can create Transport Orders from Air/Sea Shipment. E.g. Import + On-forwarding (company controls delivery), Export + Pre-carriage (company controls pickup)."
+  },
+  {
+   "fieldname": "allowed_transport_order_legs",
+   "fieldtype": "Table",
+   "label": "Allowed Legs",
+   "options": "Logistics Settings Transport Order Leg"
+  },
   {
    "fieldname": "routing_tab",
    "fieldtype": "Tab Break",
@@ -86,6 +112,7 @@
    "label": "Routing Show Map"
   },
   {
+   "default": "OpenStreetMap",
    "fieldname": "map_renderer",
    "fieldtype": "Select",
    "label": "Map Renderer",
@@ -136,6 +163,40 @@
   {
    "fieldname": "column_break_temp",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "container_management_tab",
+   "fieldtype": "Tab Break",
+   "label": "Container Management"
+  },
+  {
+   "fieldname": "container_management_section",
+   "fieldtype": "Section Break",
+   "label": "Container Management"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_container_management",
+   "fieldtype": "Check",
+   "label": "Enable Container Management"
+  },
+  {
+   "default": "1",
+   "fieldname": "auto_create_container",
+   "fieldtype": "Check",
+   "label": "Auto Create Container"
+  },
+  {
+   "default": "1",
+   "fieldname": "strict_container_validation",
+   "fieldtype": "Check",
+   "label": "Strict Container Validation (ISO 6346)"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_container_penalty_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Container Penalty Alerts"
   },
   {
    "fieldname": "measurements_tab",
