@@ -233,8 +233,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nConfirmed\nIn Progress\nCompleted\nCancelled",
-   "reqd": 1
+   "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled",
+   "reqd": 1,
+   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released"
   },
   {
    "fieldname": "exporter_shipper",

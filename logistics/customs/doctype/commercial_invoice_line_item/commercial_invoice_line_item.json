@@ -6,6 +6,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "declaration_product_code",
+  "item",
   "product_code",
   "procedure_code",
   "tariff",
@@ -43,11 +45,29 @@
  ],
  "fields": [
   {
-   "fieldname": "product_code",
+   "fieldname": "declaration_product_code",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "label": "Declaration Product Code",
+   "options": "Declaration Product Code",
+   "description": "Select from Declaration Product Code (filtered by importer/exporter)"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1,
+   "description": "Fetched from Declaration Product Code"
+  },
+  {
+   "fieldname": "product_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Product Code",
-   "options": "Item"
+   "read_only": 1,
+   "description": "Fetched from Declaration Product Code"
   },
   {
    "fieldname": "procedure_code",

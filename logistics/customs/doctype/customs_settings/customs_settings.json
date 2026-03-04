@@ -154,7 +154,7 @@
    "fieldname": "default_declaration_status",
    "fieldtype": "Select",
    "label": "Default Declaration Status",
-   "options": "Draft\nLodged\nAssessment on Hold\nPAN Issued\nFAN Issued\nPaid\nReleased\nRejected\nCancelled"
+   "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled"
   },
   {
    "default": "0",

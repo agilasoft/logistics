@@ -238,7 +238,7 @@ def update_sla_statuses():
                 "Customs",
                 sl_field="service_level",
                 docstatus_filter=1,
-                status_exclude=["Released", "Rejected", "Cancelled"]
+                status_exclude=["Cleared", "Released", "Rejected", "Cancelled"]
             )
         # Declaration Order: module Customs (no docstatus)
         if frappe.db.table_exists("Declaration Order") and frappe.db.has_column("Declaration Order", "sla_target_date"):
@@ -246,7 +246,7 @@ def update_sla_statuses():
                 "Declaration Order",
                 "Customs",
                 sl_field="service_level",
-                status_exclude=["Completed", "Cancelled"]
+                status_exclude=["Cleared", "Released", "Rejected", "Cancelled"]
             )
         if updated:
             frappe.db.commit()

@@ -61,7 +61,7 @@ def get_data(filters):
 
 def get_pending_approvals(filters):
 	conditions = get_base_conditions(filters)
-	conditions.append("d.status IN ('Draft', 'Lodged', 'Assessment on Hold', 'PAN Issued', 'FAN Issued', 'Paid')")
+	conditions.append("d.status IN ('Draft', 'Submitted', 'Under Review', 'Cleared')")
 	
 	declarations = frappe.db.sql("""
 		SELECT
@@ -139,7 +139,7 @@ def get_expired_documents(filters):
 
 def get_overdue_declarations(filters):
 	conditions = get_base_conditions(filters)
-	conditions.append("d.status NOT IN ('Released', 'Rejected', 'Cancelled')")
+	conditions.append("d.status NOT IN ('Cleared', 'Released', 'Rejected', 'Cancelled')")
 	
 	# Get declarations that are past their expected processing date
 	# This is a simplified version - in production, you'd check against SLA from Customs Authority

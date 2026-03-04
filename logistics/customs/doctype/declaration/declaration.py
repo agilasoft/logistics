@@ -57,9 +57,9 @@ class Declaration(Document):
 		self.validate_permits()
 		self.validate_permit_expiry()
 		self.validate_exemption_certificates()
-		# Auto-set status to Lodged when submitting from Draft
+		# Auto-set status to Submitted when submitting from Draft
 		if self.status == "Draft":
-			self.status = "Lodged"
+			self.status = "Submitted"
 	
 	def after_submit(self):
 		"""Record sustainability metrics after declaration submission"""
@@ -250,7 +250,7 @@ class Declaration(Document):
 
 		# 3. Expected clearance date passed but not released
 		expected = getattr(self, "expected_clearance_date", None)
-		if expected and self.status not in ("Released", "Cancelled", "Rejected"):
+		if expected and self.status not in ("Cleared", "Released", "Cancelled", "Rejected"):
 			exp_dt = getdate(expected)
 			if exp_dt < today_date:
 				days = date_diff(today_date, exp_dt)
@@ -278,13 +278,9 @@ class Declaration(Document):
 			if exp >= today_date and date_diff(exp, today_date) <= 7:
 				alerts.append({"level": "info", "msg": _("Document {0} expires on {1}.").format(doc.get("document_type") or "—", exp_date)})
 
-		# 6. FAN Issued but not paid - payment delay risk
-		if self.status == "FAN Issued":
-			alerts.append({"level": "info", "msg": _("FAN issued. Pay duty/tax promptly to avoid storage and penalty charges.")})
-
-		# 7. Assessment on Hold - follow up reminder
-		if self.status == "Assessment on Hold":
-			alerts.append({"level": "info", "msg": _("Assessment on hold. Follow up with customs to avoid prolonged delays.")})
+		# 6. Under Review - follow up reminder
+		if self.status == "Under Review":
+			alerts.append({"level": "info", "msg": _("Under review. Follow up with customs to avoid prolonged delays.")})
 
 		return alerts
 	
@@ -305,11 +301,11 @@ class Declaration(Document):
 		"""Update processing dates based on status"""
 		from frappe.utils import now, nowdate, get_datetime
 		
-		if self.status == "Lodged" and not self.submission_date:
+		if self.status == "Submitted" and not self.submission_date:
 			self.submission_date = nowdate()
 			if not self.submission_time:
 				self.submission_time = get_datetime(now()).strftime("%H:%M:%S")
-		elif self.status == "Released" and not self.approval_date:
+		elif self.status in ("Cleared", "Released") and not self.approval_date:
 			self.approval_date = nowdate()
 		elif self.status == "Rejected" and not self.rejection_date:
 			self.rejection_date = nowdate()
@@ -322,16 +318,14 @@ class Declaration(Document):
 		new_status = self.status
 		if old_status == new_status:
 			return
-		# Customs declaration workflow: Draft -> Lodged -> PAN -> FAN -> Paid -> Released
+		# Customs declaration workflow: Draft -> Submitted -> Under Review -> Cleared -> Released
 		allowed_transitions = {
-			"Draft": ["Lodged", "Assessment on Hold", "Cancelled"],
-			"Lodged": ["Assessment on Hold", "PAN Issued", "Released", "Rejected", "Cancelled"],
-			"Assessment on Hold": ["Lodged", "PAN Issued", "FAN Issued", "Rejected", "Cancelled"],
-			"PAN Issued": ["FAN Issued", "Assessment on Hold", "Rejected", "Cancelled"],
-			"FAN Issued": ["Paid", "Assessment on Hold", "Rejected", "Cancelled"],
-			"Paid": ["Released", "Assessment on Hold", "Cancelled"],
+			"Draft": ["Submitted", "Under Review", "Cancelled"],
+			"Submitted": ["Under Review", "Cleared", "Released", "Rejected", "Cancelled"],
+			"Under Review": ["Submitted", "Cleared", "Rejected", "Cancelled"],
+			"Cleared": ["Released", "Cancelled"],
 			"Released": ["Cancelled"],
-			"Rejected": ["Draft", "Lodged", "Cancelled"],
+			"Rejected": ["Draft", "Submitted", "Cancelled"],
 			"Cancelled": [],
 		}
 		if old_status and new_status not in allowed_transitions.get(old_status, []):

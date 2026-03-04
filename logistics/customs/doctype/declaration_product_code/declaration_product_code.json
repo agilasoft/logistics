@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:item_code",
+ "creation": "2026-03-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "importer",
+  "exporter",
+  "product_code",
+  "column_break_1",
+  "hs_code",
+  "tariff_number",
+  "procedure_code",
+  "goods_description",
+  "commodity_code",
+  "goods_origin",
+  "preference",
+  "active"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "importer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Importer",
+   "options": "Consignee",
+   "description": "Leave blank for all importers"
+  },
+  {
+   "fieldname": "exporter",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exporter",
+   "options": "Shipper",
+   "description": "Leave blank for all exporters"
+  },
+  {
+   "fieldname": "product_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Product Code",
+   "description": "Product code for customs declaration"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Link",
+   "label": "HS Code",
+   "options": "Customs Tariff Number"
+  },
+  {
+   "fieldname": "tariff_number",
+   "fieldtype": "Link",
+   "label": "Tariff Number",
+   "options": "Customs Tariff Number"
+  },
+  {
+   "fieldname": "procedure_code",
+   "fieldtype": "Data",
+   "label": "Procedure Code"
+  },
+  {
+   "fieldname": "goods_description",
+   "fieldtype": "Long Text",
+   "label": "Goods Description"
+  },
+  {
+   "fieldname": "commodity_code",
+   "fieldtype": "Link",
+   "label": "Commodity Code",
+   "options": "Commodity"
+  },
+  {
+   "fieldname": "goods_origin",
+   "fieldtype": "Link",
+   "label": "Goods Origin",
+   "options": "Country"
+  },
+  {
+   "fieldname": "preference",
+   "fieldtype": "Data",
+   "label": "Preference"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Declaration Product Code",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customs Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

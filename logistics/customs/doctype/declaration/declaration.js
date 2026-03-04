@@ -20,6 +20,17 @@ function _load_milestone_html(frm) {
 
 frappe.ui.form.on("Declaration", {
 	refresh(frm) {
+		// Filter Declaration Product Code by importer/exporter for line items
+		frm.set_query("declaration_product_code", "commercial_invoice_line_items", function() {
+			const filters = [["Declaration Product Code", "active", "=", 1]];
+			if (frm.doc.importer_consignee) {
+				filters.push(["Declaration Product Code", "importer", "in", ["", frm.doc.importer_consignee]]);
+			}
+			if (frm.doc.exporter_shipper) {
+				filters.push(["Declaration Product Code", "exporter", "in", ["", frm.doc.exporter_shipper]]);
+			}
+			return { filters };
+		});
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {

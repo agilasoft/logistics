@@ -124,17 +124,12 @@ RUN_SHEET_LAYOUT_CSS = """
 /* Status badge in dashboard header */
 .dash-status-badge { display: inline-block; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-left: 12px; }
 .dash-status-badge.draft { background: #e2e3e5; color: #383d41; }
-.dash-status-badge.lodged { background: #cfe2ff; color: #084298; }
-.dash-status-badge.assessment_on_hold { background: #fff3cd; color: #856404; }
-.dash-status-badge.pan_issued { background: #cce5ff; color: #004085; }
-.dash-status-badge.fan_issued { background: #b8daff; color: #004085; }
-.dash-status-badge.paid { background: #d4edda; color: #155724; }
+.dash-status-badge.submitted { background: #cfe2ff; color: #084298; }
+.dash-status-badge.under_review { background: #fff3cd; color: #856404; }
+.dash-status-badge.cleared { background: #d4edda; color: #155724; }
 .dash-status-badge.released { background: #d4edda; color: #155724; }
 .dash-status-badge.rejected { background: #f8d7da; color: #721c24; }
 .dash-status-badge.cancelled { background: #e2e3e5; color: #6c757d; }
-.dash-status-badge.confirmed { background: #cfe2ff; color: #084298; }
-.dash-status-badge.in_progress { background: #fff3cd; color: #856404; }
-.dash-status-badge.completed { background: #d4edda; color: #155724; }
 /* Delay/penalty alerts section */
 .dash-alerts-section { margin-bottom: 16px; }
 .dash-alert-item { padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; display: flex; align-items: flex-start; gap: 8px; }
@@ -531,7 +526,7 @@ def build_run_sheet_style_dashboard(
 
 	alerts_section = (alerts_html or "").strip()
 	if alerts_section:
-		alerts_section = f'<div class="dash-alerts-section"><label class="section-label">Delay & Penalty Alerts</label>{alerts_section}</div>'
+		alerts_section = f'<div class="dash-alerts-section">{alerts_section}</div>'
 
 	doc_management_section = ""
 	if doc_alerts_html:
@@ -572,19 +567,17 @@ def build_run_sheet_style_dashboard(
 			{map_section}
 		</div>
 	"""
-	# doc_management_position: "before" = doc alerts then cards+map (default); "after" = cards+map then doc alerts
-	# Alerts section appears first when present
+	# Alerts at top (no label), header + cards, Document Management at bottom
+	top_alerts = (alerts_section or "").strip()
 	if merge_header_with_cards:
-		body_content = alerts_section + "\n\t\t" + (doc_management_section if doc_management_section else "")
+		body_content = ""
 	else:
-		if doc_management_position == "after":
-			body_content = alerts_section + "\n\t\t" + route_container + "\n\t\t" + (doc_management_section if doc_management_section else "")
-		else:
-			body_content = alerts_section + "\n\t\t" + (doc_management_section if doc_management_section else "") + "\n\t\t" + route_container
+		body_content = route_container
 	status_badge = (status_badge_html or "").strip()
 	html = f"""
 	<div class="run-sheet-dash">
 		<style>{RUN_SHEET_LAYOUT_CSS}</style>
+		{top_alerts}
 		<div class="run-sheet-header">
 			<div class="header-main">
 				<div class="header-primary">
@@ -597,6 +590,7 @@ def build_run_sheet_style_dashboard(
 			{merged_cards_content}
 		</div>
 		{body_content}
+		{doc_management_section if doc_management_section else ""}
 	</div>
 	"""
 	return html

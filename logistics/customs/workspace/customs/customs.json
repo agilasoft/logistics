@@ -18,7 +18,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Master Data",
-   "link_count": 6,
+   "link_count": 8,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -29,6 +29,26 @@
    "label": "Commodity",
    "link_count": 0,
    "link_to": "Commodity",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "CI Charge Code",
+   "link_count": 0,
+   "link_to": "CI Charge Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Product Code",
+   "link_count": 0,
+   "link_to": "Declaration Product Code",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"

@@ -298,9 +298,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nLodged\nAssessment on Hold\nPAN Issued\nFAN Issued\nPaid\nReleased\nRejected\nCancelled",
+   "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled",
    "reqd": 1,
-   "description": "Customs declaration workflow: Lodged=submitted, PAN=Provisional Assessment, FAN=Final Assessment"
+   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released"
   },
   {
    "fieldname": "section_break_customs",
