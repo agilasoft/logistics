@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt, today
 
 
 class DeclarationOrder(Document):
@@ -145,7 +146,7 @@ class DeclarationOrder(Document):
 			if date_req:
 				dr = getdate(date_req)
 				if dr < today_date:
-					alerts.append({"level": "warning", "msg": _("Document {0} was required on {1} and is overdue.").format(doc.get("document_type") or "—", date_req)})
+					alerts.append({"level": "danger", "msg": _("Document {0} was required on {1} and is overdue.").format(doc.get("document_type") or "—", date_req)})
 
 		# 4. Documents expiring within 7 days
 		for doc in (self.get("documents") or []):
@@ -158,9 +159,98 @@ class DeclarationOrder(Document):
 
 		return alerts
 
+	def validate(self):
+		"""Validate and handle Sales Quote link (One-off conversion and link-cleared reset)."""
+		original_sales_quote = None
+		if not self.is_new():
+			try:
+				original_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
+			except Exception:
+				pass
+		if not original_sales_quote:
+			original_sales_quote = getattr(self, "sales_quote", None)
+
+		if self.sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
+			validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
+
+		# Handle sales_quote field clearing - reset One-off quote if cleared
+		if not self.is_new() and original_sales_quote and not self.sales_quote:
+			try:
+				if frappe.db.exists("Sales Quote", original_sales_quote):
+					sq = frappe.get_doc("Sales Quote", original_sales_quote)
+					if sq.quotation_type == "One-off":
+						from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+						reset_one_off_quote_on_cancel(original_sales_quote)
+			except Exception:
+				pass
+
 	def before_save(self):
-		from logistics.utils.module_integration import run_propagate_on_link
+		from logistics.utils.module_integration import run_propagate_on_link, set_billing_company_from_sales_quote
 		run_propagate_on_link(self)
+		set_billing_company_from_sales_quote(self)
+
+	def on_submit(self):
+		if self.sales_quote:
+			try:
+				from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
+				update_one_off_quote_on_submit(self.sales_quote, self.name, self.doctype)
+			except Exception as e:
+				frappe.log_error(f"Update Sales Quote on Declaration Order submit: {e}", "Declaration Order Submit")
+
+	def on_cancel(self):
+		"""Reset One-off Sales Quote status when Declaration Order is cancelled."""
+		if self.sales_quote:
+			try:
+				from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+				reset_one_off_quote_on_cancel(self.sales_quote)
+			except Exception as e:
+				frappe.log_error(f"Reset Sales Quote on Declaration Order cancel: {e}", "Declaration Order Cancel")
+
+	@frappe.whitelist()
+	def calculate_total_charges(self):
+		"""Calculate total charges for this Declaration Order."""
+		total_charges = 0
+		if hasattr(self, "charges") and self.charges:
+			for charge in self.charges:
+				if hasattr(charge, "calculate_charge_amount"):
+					charge.calculate_charge_amount(parent_doc=self)
+				total_charges += flt(
+					getattr(charge, "total_amount", None) or getattr(charge, "estimated_revenue", 0)
+				) or 0
+		return {
+			"total_charges": total_charges,
+			"currency": self.get("charges")[0].currency if self.get("charges") else None,
+		}
+
+	@frappe.whitelist()
+	def recalculate_all_charges(self):
+		"""Recalculate all charges using centralized charge calculation."""
+		if not hasattr(self, "charges") or not self.charges:
+			return {"success": False, "message": "No charges found to recalculate"}
+		try:
+			charges_recalculated = 0
+			for charge in self.charges:
+				if hasattr(charge, "calculate_charge_amount"):
+					charge.calculate_charge_amount(parent_doc=self)
+					charges_recalculated += 1
+			self.save()
+			frappe.msgprint(
+				_("Successfully recalculated {0} charges").format(charges_recalculated),
+				title=_("Charges Recalculated"),
+				indicator="green",
+			)
+			return {
+				"success": True,
+				"message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+				"charges_recalculated": charges_recalculated,
+			}
+		except Exception as e:
+			frappe.log_error(
+				"Error recalculating Declaration Order charges: {0}".format(str(e)),
+				"Declaration Order - Recalculate Charges Error",
+			)
+			frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 	def _populate_charges_from_sales_quote(self):
 		"""Populate charges from Sales Quote Customs when sales_quote is set."""
@@ -175,12 +265,13 @@ class DeclarationOrder(Document):
 			meta = frappe.get_meta("Declaration Order Charges")
 			charge_fields = [f.fieldname for f in meta.fields]
 			common_fields = [
-				"item_code", "item_name", "calculation_method", "quantity", "uom",
-				"currency", "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-				"maximum_charge", "base_amount", "estimated_revenue", "cost_calculation_method",
-				"cost_quantity", "cost_uom", "cost_currency", "unit_cost", "cost_unit_type",
-				"cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
-				"cost_base_amount", "estimated_cost", "revenue_calc_notes", "cost_calc_notes",
+				"item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
+				"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
+				"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
+				"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
+				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
+				"revenue_calc_notes", "cost_calc_notes", "charge_basis", "rate",
 			]
 			self.set("charges", [])
 			for sq_charge in sq.customs:
@@ -190,6 +281,13 @@ class DeclarationOrder(Document):
 						val = getattr(sq_charge, field, None)
 						if val is not None:
 							row.set(field, val)
+				# Map Sales Quote field names to charge table (charge_basis/rate)
+				if "charge_basis" in charge_fields and hasattr(sq_charge, "calculation_method") and sq_charge.calculation_method:
+					row.set("charge_basis", sq_charge.calculation_method)
+				if "rate" in charge_fields and hasattr(sq_charge, "unit_rate") and sq_charge.unit_rate is not None:
+					row.set("rate", sq_charge.unit_rate)
+				if "charge_type" in charge_fields and not row.get("charge_type"):
+					row.set("charge_type", "Revenue")
 		except Exception as e:
 			frappe.log_error(f"Error populating Declaration Order charges from Sales Quote: {str(e)}")
 
@@ -221,12 +319,13 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 		meta = frappe.get_meta("Declaration Order Charges")
 		charge_fields = [f.fieldname for f in meta.fields]
 		common_fields = [
-			"item_code", "item_name", "calculation_method", "quantity", "uom",
-			"currency", "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-			"maximum_charge", "base_amount", "estimated_revenue", "cost_calculation_method",
-			"cost_quantity", "cost_uom", "cost_currency", "unit_cost", "cost_unit_type",
-			"cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
-			"cost_base_amount", "estimated_cost", "revenue_calc_notes", "cost_calc_notes",
+			"item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+			"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
+			"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
+			"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
+			"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
+			"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
+			"revenue_calc_notes", "cost_calc_notes", "charge_basis", "rate",
 		]
 		charges = []
 		for sq_charge in sq.customs:
@@ -236,9 +335,58 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 					val = getattr(sq_charge, field, None)
 					if val is not None:
 						row[field] = val
+			# Map Sales Quote field names to charge table
+			if "charge_basis" in charge_fields and getattr(sq_charge, "calculation_method", None):
+				row["charge_basis"] = sq_charge.calculation_method
+			if "rate" in charge_fields and getattr(sq_charge, "unit_rate", None) is not None:
+				row["rate"] = sq_charge.unit_rate
+			if "charge_type" not in row or not row.get("charge_type"):
+				row["charge_type"] = "Revenue"
 			if row:
 				charges.append(row)
 		return {"charges": charges, "charges_count": len(charges)}
 	except Exception as e:
 		frappe.log_error(f"Error populating Declaration Order charges: {str(e)}")
 		return {"charges": [], "error": str(e)}
+
+
+@frappe.whitelist()
+def create_declaration_order_from_sales_quote(sales_quote_name: str):
+	"""
+	Create a Declaration Order from a Sales Quote (One-off, with customs).
+	Updates the Sales Quote status and converted_to_doc to the new Declaration Order.
+	"""
+	if not sales_quote_name:
+		frappe.throw(_("Sales Quote is required."))
+	sq = frappe.get_doc("Sales Quote", sales_quote_name)
+	if sq.quotation_type != "One-off":
+		frappe.throw(_("Only One-off Sales Quotes can create a Declaration Order."))
+	if not getattr(sq, "customs", None) or not sq.customs:
+		frappe.throw(_("No customs details in this Sales Quote."))
+	existing = frappe.db.get_value("Declaration Order", {"sales_quote": sales_quote_name}, "name")
+	if existing:
+		frappe.throw(
+			_("Declaration Order {0} already exists for this Sales Quote.").format(existing),
+			title=_("Already Created"),
+		)
+	details = get_sales_quote_details(sales_quote_name) or {}
+	order = frappe.new_doc("Declaration Order")
+	order.sales_quote = sales_quote_name
+	order.order_date = today()
+	for key in ("customer", "company", "customs_authority", "branch", "cost_center", "profit_center", "declaration_type", "incoterm"):
+		if details.get(key) is not None:
+			order.set(key, details[key])
+	order.insert(ignore_permissions=True)
+	order._populate_charges_from_sales_quote()
+	order.save(ignore_permissions=True)
+	try:
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
+		update_one_off_quote_on_submit(sales_quote_name, order.name, "Declaration Order")
+	except Exception as e:
+		frappe.log_error(f"Update Sales Quote on Declaration Order create: {e}", "Declaration Order Create")
+	frappe.db.commit()
+	return {
+		"success": True,
+		"declaration_order": order.name,
+		"message": _("Declaration Order {0} created.").format(order.name),
+	}
