@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026, www.agilasoft.com and contributors
-"""Add Weight Break and Qty Break options to charge_basis for charge doctypes that use it."""
+"""Add Weight Break and Qty Break options to calculation_method for charge doctypes that use it."""
 
 import frappe
 
@@ -8,7 +8,7 @@ CHARGE_DOCTYPES = [
 	"Air Booking Charges",
 	"Air Shipment Charges",
 	"Sea Booking Charges",
-	"Sea Freight Charges",
+	"Sea Shipment Charges",
 	"Transport Order Charges",
 	"Transport Job Charges",
 	"Declaration Charges",
@@ -23,7 +23,7 @@ def execute():
 		if not frappe.db.exists("DocType", dt):
 			continue
 		meta = frappe.get_meta(dt)
-		field = meta.get_field("charge_basis")
+		field = meta.get_field("revenue_calculation_method")
 		if not field or not field.options:
 			continue
 		opts = field.options or ""
@@ -37,7 +37,7 @@ def execute():
 		if new_opts != opts:
 			frappe.db.set_value(
 				"DocField",
-				{"parent": dt, "fieldname": "charge_basis"},
+				{"parent": dt, "fieldname": "revenue_calculation_method"},
 				"options",
 				new_opts,
 			)

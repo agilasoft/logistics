@@ -113,6 +113,7 @@ def get_dashboard_html(special_project):
 		return "<div class='alert alert-info'>Save the project to view the dashboard.</div>"
 	try:
 		from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
+		from logistics.document_management.api import get_dashboard_alerts_html
 
 		doc = frappe.get_doc("Special Project", special_project)
 		status = doc.status or "Draft"
@@ -191,6 +192,7 @@ def get_dashboard_html(special_project):
 						seen.add(tup)
 						map_points.append({"lat": float(c["lat"]), "lon": float(c["lon"]), "label": label})
 
+		alerts_html = get_dashboard_alerts_html("Special Project", special_project)
 		return build_run_sheet_style_dashboard(
 			header_title=doc.project_name or doc.name or "Special Project",
 			header_subtitle="Special Project",
@@ -199,6 +201,7 @@ def get_dashboard_html(special_project):
 			map_points=map_points,
 			map_id_prefix="sp-dash-map",
 			doc_alerts_html="",
+			alerts_html=alerts_html,
 		)
 	except Exception as e:
 		frappe.log_error(f"Special Project get_dashboard_html: {str(e)}", "Special Project Dashboard")

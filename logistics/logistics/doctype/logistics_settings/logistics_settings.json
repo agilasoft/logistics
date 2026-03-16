@@ -41,7 +41,20 @@
   "default_dimension_uom",
   "default_volume_uom",
   "default_weight_uom",
-  "default_chargeable_weight_uom"
+  "default_chargeable_weight_uom",
+  "alerts_and_delays_tab",
+  "status_updates_section",
+  "enable_auto_status_updates",
+  "documents_section",
+  "document_expiring_soon_days",
+  "document_informational_days",
+  "milestones_section",
+  "milestone_impending_days",
+  "milestone_informational_days",
+  "penalties_section",
+  "penalty_impending_days",
+  "delays_section",
+  "delay_impending_days"
  ],
  "fields": [
   {
@@ -261,6 +274,89 @@
    "label": "Default Chargeable Weight UOM",
    "options": "UOM",
    "description": "Default for chargeable_weight_uom on new lines."
+  },
+  {
+   "fieldname": "alerts_and_delays_tab",
+   "fieldtype": "Tab Break",
+   "label": "Alerts and Delays Notification"
+  },
+  {
+   "fieldname": "status_updates_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Status Updates"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_auto_status_updates",
+   "fieldtype": "Check",
+   "label": "Enable Auto Status Updates",
+   "description": "When enabled, scheduled tasks will update milestone (Delayed), document (Overdue/Expired), permit, and exemption statuses automatically."
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Documents",
+   "description": "Alert levels: Critical = required date or expiry date past. Warning and Information = days before required date or expiry date."
+  },
+  {
+   "fieldname": "document_expiring_soon_days",
+   "fieldtype": "Int",
+   "label": "Warning (Days)",
+   "default": 7,
+   "description": "Documents required or expiring within this many days show as Warning (yellow)."
+  },
+  {
+   "fieldname": "document_informational_days",
+   "fieldtype": "Int",
+   "label": "Information (Days)",
+   "default": 30,
+   "description": "Documents required or expiring within this many days (beyond Warning window) show as Information (blue). Must be greater than Warning (Days) for Information alerts to appear."
+  },
+  {
+   "fieldname": "milestones_section",
+   "fieldtype": "Section Break",
+   "label": "Milestones",
+   "description": "Alert levels: Critical = delayed (past planned end). Warning and Information = days before planned end."
+  },
+  {
+   "fieldname": "milestone_impending_days",
+   "fieldtype": "Int",
+   "label": "Warning (Days)",
+   "default": 2,
+   "description": "Milestones due within this many days show as Warning (yellow)."
+  },
+  {
+   "fieldname": "milestone_informational_days",
+   "fieldtype": "Int",
+   "label": "Information (Days)",
+   "default": 14,
+   "description": "Milestones due within this many days show as Information (blue). Must be greater than Warning (Days) for Information alerts to appear."
+  },
+  {
+   "fieldname": "penalties_section",
+   "fieldtype": "Section Break",
+   "label": "Penalties",
+   "description": "Alert levels: Critical = free time exceeded. Warning = days before free time expires."
+  },
+  {
+   "fieldname": "penalty_impending_days",
+   "fieldtype": "Int",
+   "label": "Warning (Days)",
+   "default": 2,
+   "description": "Days before free time expires to show Warning (yellow)."
+  },
+  {
+   "fieldname": "delays_section",
+   "fieldtype": "Section Break",
+   "label": "Delays",
+   "description": "Alert levels: Critical = delayed. Warning = days before expected delay."
+  },
+  {
+   "fieldname": "delay_impending_days",
+   "fieldtype": "Int",
+   "label": "Warning (Days)",
+   "default": 1,
+   "description": "Days before expected delay to show Warning (yellow)."
   }
  ],
  "grid_page_length": 50,

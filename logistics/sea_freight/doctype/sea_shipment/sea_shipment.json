@@ -27,6 +27,7 @@
   "release_type",
   "entry_type",
   "sales_quote",
+  "billing_company",
   "house_details_section",
   "house_bl",
   "incoterm",
@@ -59,19 +60,6 @@
   "sending_agent",
   "receiving_agent",
   "broker",
-  "contacts_and_addresses_section",
-  "shipper_address",
-  "shipper_address_display",
-  "shipper_contact",
-  "shipper_contact_display",
-  "column_break_dzim",
-  "consignee_address",
-  "consignee_address_display",
-  "consignee_contact",
-  "consignee_contact_display",
-  "column_break_wcpn",
-  "notify_party",
-  "notify_party_address",
   "section_break_cutoffs",
   "cargo_cut_off",
   "document_cut_off",
@@ -97,21 +85,38 @@
   "total_containers",
   "total_teus",
   "total_packages",
+  "override_volume_weight",
+  "column_break_gzkj",
   "total_volume",
   "total_weight",
-  "column_break_trhg",
-  "override_volume_weight",
-  "volume",
-  "weight",
   "chargeable",
-  "column_break_gzkj",
+  "column_break_trhg",
+  "total_volume_uom",
+  "total_weight_uom",
+  "chargeable_weight_uom",
+  "column_break_rras",
   "density_factor_html",
   "excess_weight_volume",
-  "services_tab",
-  "services",
+  "contacts_addresses",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_dzim",
+  "consignee_address",
+  "consignee_address_display",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_owlh",
+  "notify_party",
+  "column_break_wcpn",
+  "notify_party_address",
   "charges_tab",
   "section_break_elec",
   "charges",
+  "profitability_section_break",
+  "profitability_section_html",
   "recognition_section",
   "wip_recognition_enabled",
   "wip_recognition_date_basis",
@@ -132,16 +137,16 @@
   "accrual_journal_entry",
   "accrual_adjustment_journal_entry",
   "accrual_closed",
-  "documents_tab",
-  "documents_section",
-  "documents_html",
-  "document_list_template",
-  "documents",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
   "milestone_template",
   "milestones",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
   "accounts_tab",
   "company",
   "branch",
@@ -164,7 +169,6 @@
   "date_purchase_invoice_submitted",
   "costs_fully_paid",
   "date_costs_fully_paid",
-  "connections_tab",
   "notes_tab",
   "notes_section",
   "external_notes",
@@ -209,7 +213,8 @@
   "last_penalty_check",
   "estimated_penalty_amount",
   "column_break_iklg",
-  "amended_from"
+  "amended_from",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -270,7 +275,8 @@
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Naming Series"
+   "label": "Naming Series",
+   "options": "SSP.#########"
   },
   {
    "fieldname": "shipper",
@@ -307,6 +313,15 @@
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote",
+   "read_only": 1
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
    "read_only": 1
   },
   {
@@ -444,25 +459,34 @@
   },
   {
    "default": "0",
-   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "description": "When checked, Total Volume and Total Weight are manual and will not be updated from package totals.",
    "fieldname": "override_volume_weight",
    "fieldtype": "Check",
    "label": "Override Volume & Weight"
   },
   {
-   "fieldname": "weight",
-   "fieldtype": "Float",
-   "label": "Weight (kg)"
-  },
-  {
-   "fieldname": "volume",
-   "fieldtype": "Float",
-   "label": "Volume (cbm)"
-  },
-  {
    "fieldname": "chargeable",
    "fieldtype": "Float",
-   "label": "Chargeable (kg)"
+   "label": "Chargeable Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Wt. UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "density_factor_html",
@@ -650,11 +674,6 @@
    "label": "SLA Notes"
   },
   {
-   "fieldname": "services_tab",
-   "fieldtype": "Tab Break",
-   "label": "Services"
-  },
-  {
    "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
    "label": "Packing & Routing"
@@ -667,7 +686,6 @@
    "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
-   "collapsible": 1,
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -699,11 +717,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "services",
-   "fieldtype": "Table",
-   "options": "Sea Freight Services"
-  },
-  {
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
@@ -714,7 +727,6 @@
    "label": "Details"
   },
   {
-   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -725,7 +737,6 @@
    "options": "Sea Freight Containers"
   },
   {
-   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -747,7 +758,7 @@
   {
    "fieldname": "charges",
    "fieldtype": "Table",
-   "options": "Sea Freight Charges"
+   "options": "Sea Shipment Charges"
   },
   {
    "fieldname": "documents_tab",
@@ -918,6 +929,7 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "recognition_section",
    "fieldtype": "Section Break",
    "label": "Revenue & Cost Recognition"
@@ -1370,13 +1382,45 @@
   {
    "fieldname": "column_break_gmkt",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_rras",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "contacts_addresses",
+   "fieldtype": "Tab Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "section_break_owlh",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2026-03-03 09:06:13.536522",
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  }
+ ],
+ "modified": "2026-03-16 15:44:20.289565",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",
@@ -1401,5 +1445,8 @@
  "search_fields": "origin_port, destination_port",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
 }

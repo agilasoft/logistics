@@ -57,11 +57,11 @@ def check_air_booking_calculations(air_booking_name):
         print("PACKAGES:")
         print("=" * 80)
         
-        # Get packages
+        # Get packages (chargeable weight is computed on parent only)
         packages = frappe.get_all("Air Booking Packages", 
             filters={"parent": air_booking_name, "parenttype": "Air Booking"},
             fields=["name", "length", "width", "height", "dimension_uom", "volume", "volume_uom", 
-                    "weight", "weight_uom", "chargeable_weight", "chargeable_weight_uom", "no_of_packs"],
+                    "weight", "weight_uom", "no_of_packs"],
             order_by="idx")
         
         if not packages:
@@ -77,11 +77,6 @@ def check_air_booking_calculations(air_booking_name):
             print(f"  Dimensions: {pkg.length} x {pkg.width} x {pkg.height} {pkg.dimension_uom}")
             print(f"  Volume: {pkg.volume} {pkg.volume_uom}")
             print(f"  Weight: {pkg.weight} {pkg.weight_uom}")
-            print(f"  Chargeable Weight: {pkg.chargeable_weight} {pkg.chargeable_weight_uom}")
-            
-            # Verify calculations
-            pkg_divisor = pkg._get_parent_divisor()
-            print(f"  Divisor used: {pkg_divisor}")
             
             # Verify volume calculation from dimensions
             if pkg.length and pkg.width and pkg.height:
@@ -108,51 +103,6 @@ def check_air_booking_calculations(air_booking_name):
                 if not volume_match:
                     print(f"    ⚠️  VOLUME MISMATCH: Expected {expected_volume}, got {pkg.volume}")
                     total_issues += 1
-            
-            # Convert volume to m³ for chargeable weight calculation
-            package_volume = flt(pkg.volume or 0)
-            volume_in_m3 = package_volume
-            if package_volume > 0 and pkg.volume_uom:
-                from logistics.utils.measurements import convert_volume, get_default_uoms
-                defaults = get_default_uoms(company=abk.company)
-                target_volume_uom = defaults.get("volume")
-                if pkg.volume_uom != target_volume_uom:
-                    try:
-                        volume_in_m3 = convert_volume(
-                            package_volume,
-                            from_uom=pkg.volume_uom,
-                            to_uom=target_volume_uom,
-                            company=abk.company,
-                        )
-                    except Exception as e:
-                        print(f"    ⚠️  Volume conversion error: {e}")
-                        volume_in_m3 = package_volume
-            
-            # Calculate volume weight
-            volume_weight = 0
-            if volume_in_m3 > 0 and pkg_divisor:
-                volume_weight = volume_in_m3 * (1000000.0 / pkg_divisor)
-            
-            # Calculate expected chargeable weight
-            package_weight = flt(pkg.weight or 0)
-            if package_weight > 0 and volume_weight > 0:
-                expected_chargeable = max(package_weight, volume_weight)
-            elif package_weight > 0:
-                expected_chargeable = package_weight
-            elif volume_weight > 0:
-                expected_chargeable = volume_weight
-            else:
-                expected_chargeable = 0
-            
-            print(f"  Volume in m³: {volume_in_m3}")
-            print(f"  Volume Weight: {volume_weight}")
-            print(f"  Expected Chargeable: {expected_chargeable}")
-            print(f"  Actual Chargeable: {pkg.chargeable_weight}")
-            chargeable_match = abs(flt(pkg.chargeable_weight or 0) - expected_chargeable) < 0.01
-            print(f"  Chargeable Match: {chargeable_match}")
-            if not chargeable_match:
-                print(f"    ⚠️  CHARGEABLE WEIGHT MISMATCH: Expected {expected_chargeable}, got {pkg.chargeable_weight}")
-                total_issues += 1
         
         print("\n" + "=" * 80)
         print("SUMMARY:")

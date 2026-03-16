@@ -12,8 +12,7 @@ logistics.recognition = {
      * @param {Object} frm - The form object
      */
     setup_form: function(frm) {
-        if (frm.doc.docstatus !== 1) return;
-        
+        // Show recognition buttons for both draft and submitted documents
         // Add Recognize button under Post (runs both WIP and accruals)
         var needs_recognition = (!frm.doc.wip_journal_entry && !frm.doc.wip_closed) ||
             (!frm.doc.accrual_journal_entry && !frm.doc.accrual_closed);

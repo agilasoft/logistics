@@ -43,6 +43,42 @@ function _load_documents_html(frm) {
 }
 
 frappe.ui.form.on("Sea Consolidation", {
+	document_list_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+		milestone_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_milestones_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	setup: function(frm) {
+		frm.set_query('milestone_template', function() {
+			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
+				.then(function(r) { return r.message || { filters: [] }; });
+		});
+	},
 	refresh: function (frm) {
 		// Dashboard tab
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
@@ -51,6 +87,11 @@ frappe.ui.form.on("Sea Consolidation", {
 				frm.call("get_dashboard_html").then(function (r) {
 					if (r.message && frm.fields_dict.dashboard_html) {
 						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_group_and_collapse_dash_alerts) {
+							setTimeout(function() {
+								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							}, 100);
+						}
 						if (window.logistics_bind_document_alert_cards) {
 							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
 						}

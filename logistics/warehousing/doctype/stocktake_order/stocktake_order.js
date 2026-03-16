@@ -149,7 +149,7 @@ frappe.ui.form.on("Stocktake Order Charges", {
       // --- Action menu buttons ---
       if (!frm.doc.__islocal) {
         // 1) Get Count Items (always available once saved)
-        frm.add_custom_button(__("Get Count Items"), () => openGetItemsDialog(frm), __("Action"));
+        frm.add_custom_button(__("Get Count Items"), () => openGetItemsDialog(frm), __("Actions"));
 
         // 2) Create Warehouse Job — allowed ONLY when submitted
         if ((frm.doc.docstatus || 0) === 1) {
@@ -158,7 +158,7 @@ frappe.ui.form.on("Stocktake Order Charges", {
               method: "logistics.warehousing.doctype.stocktake_order.stocktake_order.make_warehouse_job",
               frm,
             });
-          }, __("Action"));
+          }, __("Create"));
         }
       }
     },

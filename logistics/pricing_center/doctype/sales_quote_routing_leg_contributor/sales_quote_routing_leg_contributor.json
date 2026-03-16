@@ -1,0 +1,43 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-03-06 00:00:00.000000",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "contributor_job_type",
+    "contributor_job_no"
+  ],
+  "fields": [
+    {
+      "fieldname": "contributor_job_type",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Contributor Job Type",
+      "options": "\nTransport Job\nAir Shipment\nSea Shipment\nWarehouse Job\nDeclaration\nDeclaration Order",
+      "reqd": 1
+    },
+    {
+      "fieldname": "contributor_job_no",
+      "fieldtype": "Dynamic Link",
+      "in_list_view": 1,
+      "label": "Contributor Job No",
+      "options": "contributor_job_type",
+      "reqd": 1
+    }
+  ],
+  "index_web_pages_for_search": 0,
+  "istable": 1,
+  "links": [],
+  "modified": "2026-03-06 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Pricing Center",
+  "name": "Sales Quote Routing Leg Contributor",
+  "owner": "Administrator",
+  "permissions": [],
+  "row_format": "Dynamic",
+  "sort_field": "idx",
+  "sort_order": "ASC",
+  "states": []
+}

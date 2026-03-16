@@ -49,8 +49,14 @@
   "charges",
   "documents_tab",
   "documents_section",
+  "documents_html",
   "document_list_template",
   "documents",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
   "section_break_connections",
   "air_shipment",
   "sea_shipment",
@@ -75,6 +81,7 @@
   "job_costing_number",
   "quote_section",
   "sales_quote",
+  "billing_company",
   "project"
  ],
  "fields": [
@@ -267,6 +274,12 @@
    "label": "Document Checklist"
   },
   {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
@@ -278,6 +291,35 @@
    "fieldtype": "Table",
    "label": "Documents",
    "options": "Job Document"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Transport Order Milestone"
   },
   {
    "fieldname": "section_break_summary",
@@ -422,8 +464,18 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_transport\",\"=\",1]]",
+   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Transport\"]]",
+   "no_copy": 1,
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_xzix",

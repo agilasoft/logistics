@@ -44,6 +44,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_air_forwarding_charge\",\"=\",1]]",
    "options": "Item",
    "reqd": 1
   },
@@ -185,7 +186,7 @@
    "fieldname": "item",
    "fieldtype": "Link",
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_air_freight_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_air_forwarding_charge\",\"=\",1]]",
    "options": "Item"
   },
   {

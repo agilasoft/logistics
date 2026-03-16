@@ -4,7 +4,7 @@
 frappe.ui.form.on("Special Project Request", {
 	refresh: function (frm) {
 		if (frm.doc.special_project) {
-			frm.add_custom_button(__("Link Existing Order"), () => link_existing_order(frm));
+			frm.add_custom_button(__("Link Existing Order"), () => link_existing_order(frm), __("Actions"));
 		}
 		if (frm.doc.special_project && frm.doc.product_requests && frm.doc.product_requests.length) {
 			const has_inbound = frm.doc.product_requests.some((r) => r.fulfillment_type === "Inbound");
@@ -15,22 +15,22 @@ frappe.ui.form.on("Special Project Request", {
 			const has_transfer = frm.doc.product_requests.some((r) => r.fulfillment_type === "Transfer");
 
 			if (has_inbound) {
-				frm.add_custom_button(__("Create Inbound Order"), () => create_order(frm, "create_inbound_order_from_request"));
+				frm.add_custom_button(__("Create Inbound Order"), () => create_order(frm, "create_inbound_order_from_request"), __("Create"));
 			}
 			if (has_release) {
-				frm.add_custom_button(__("Create Release Order"), () => create_order(frm, "create_release_order_from_request"));
+				frm.add_custom_button(__("Create Release Order"), () => create_order(frm, "create_release_order_from_request"), __("Create"));
 			}
 			if (has_transport) {
-				frm.add_custom_button(__("Create Transport Order"), () => create_order(frm, "create_transport_order_from_request"));
+				frm.add_custom_button(__("Create Transport Order"), () => create_order(frm, "create_transport_order_from_request"), __("Create"));
 			}
 			if (has_air) {
-				frm.add_custom_button(__("Create Air Booking"), () => create_order(frm, "create_air_booking_from_request"));
+				frm.add_custom_button(__("Create Air Booking"), () => create_order(frm, "create_air_booking_from_request"), __("Create"));
 			}
 			if (has_sea) {
-				frm.add_custom_button(__("Create Sea Booking"), () => create_order(frm, "create_sea_booking_from_request"));
+				frm.add_custom_button(__("Create Sea Booking"), () => create_order(frm, "create_sea_booking_from_request"), __("Create"));
 			}
 			if (has_transfer) {
-				frm.add_custom_button(__("Create Transfer Order"), () => create_order(frm, "create_transfer_order_from_request"));
+				frm.add_custom_button(__("Create Transfer Order"), () => create_order(frm, "create_transfer_order_from_request"), __("Create"));
 			}
 		}
 	},

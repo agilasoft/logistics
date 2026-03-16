@@ -11,6 +11,8 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
+        from logistics.utils.module_integration import set_billing_company_from_sales_quote
+        set_billing_company_from_sales_quote(self)
         # DEBUG: Log all validation calls
         try:
             frappe.log_error(
@@ -820,7 +822,7 @@ class TransportJob(Document):
     def get_dashboard_html(self):
         """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
         try:
-            from logistics.document_management.api import get_document_alerts_html
+            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
             from logistics.document_management.dashboard_layout import (
                 build_run_sheet_style_dashboard,
                 get_dg_dashboard_html,
@@ -895,6 +897,7 @@ class TransportJob(Document):
                 if last_drop:
                     destination_label = frappe.db.get_value("Address", last_drop, "address_title") or last_drop
 
+            alerts_html = get_dashboard_alerts_html("Transport Job", self.name or "new")
             return build_run_sheet_style_dashboard(
                 header_title=self.name or "Transport Job",
                 header_subtitle="Transport Job",
@@ -903,6 +906,7 @@ class TransportJob(Document):
                 map_points=map_points,
                 map_id_prefix="tj-dash-map",
                 doc_alerts_html=doc_alerts,
+                alerts_html=alerts_html,
                 origin_label=origin_label,
                 destination_label=destination_label,
                 route_below_html=dg_route_below_html,
@@ -1158,6 +1162,33 @@ class TransportJob(Document):
             frappe.log_error(f"Error releasing capacity: {str(e)}", "Capacity Release Error")
 
 ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider these "active"
+
+
+# --------------------------------------------------------------------
+# Recalculate Charges
+# --------------------------------------------------------------------
+
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+    """Recalculate all charges based on current Transport Job data using RateCalculationEngine."""
+    doc = frappe.get_doc("Transport Job", docname)
+    if not doc.charges:
+        return {"success": False, "message": _("No charges found to recalculate")}
+    try:
+        charges_recalculated = 0
+        for charge in doc.charges:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=doc)
+                charges_recalculated += 1
+        doc.save()
+        return {
+            "success": True,
+            "message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+            "charges_recalculated": charges_recalculated,
+        }
+    except Exception as e:
+        frappe.log_error(str(e), "Transport Job - Recalculate Charges Error")
+        frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 
 # --------------------------------------------------------------------

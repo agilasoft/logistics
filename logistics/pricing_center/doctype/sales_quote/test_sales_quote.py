@@ -29,7 +29,7 @@ class TestSalesQuote(FrappeTestCase):
 		frappe.db.rollback()
 
 	def test_sales_quote_creation(self):
-		"""Test creating a basic Sales Quote with Air Freight"""
+		"""Test creating a basic Sales Quote with Air charges"""
 		sq = frappe.get_doc({
 			"doctype": "Sales Quote",
 			"company": self.company,
@@ -38,18 +38,19 @@ class TestSalesQuote(FrappeTestCase):
 			"valid_until": today(),
 			"shipper": self.shipper,
 			"consignee": self.consignee,
-			"is_air": 1,
+			"main_service": "Air",
 		})
-		sq.append("air_freight", {
+		sq.append("charges", {
+			"service_type": "Air",
 			"origin_port": "USLAX",
 			"destination_port": "USJFK",
-			"air_direction": "Export",
+			"direction": "Export",
 		})
 		sq.insert()
 
 		self.assertIsNotNone(sq.name)
 		self.assertEqual(sq.customer, self.customer)
-		self.assertEqual(len(sq.air_freight), 1)
+		self.assertEqual(len(sq.charges), 1)
 
 	def test_sales_quote_required_fields(self):
 		"""Test that required fields are enforced"""
@@ -67,12 +68,13 @@ class TestSalesQuote(FrappeTestCase):
 			"valid_until": today(),
 			"shipper": self.shipper,
 			"consignee": self.consignee,
-			"is_air": 1,
+			"main_service": "Air",
 		})
-		sq.append("air_freight", {
+		sq.append("charges", {
+			"service_type": "Air",
 			"origin_port": "USLAX",
 			"destination_port": "USJFK",
-			"air_direction": "Export",
+			"direction": "Export",
 		})
 		self.assertTrue(hasattr(sq, "validate"))
 		sq.insert()

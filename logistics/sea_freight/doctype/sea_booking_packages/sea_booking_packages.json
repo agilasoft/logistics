@@ -24,9 +24,7 @@
   "volume",
   "column_break_xbsy",
   "weight_uom",
-  "weight",
-  "chargeable_weight_uom",
-  "chargeable_weight"
+  "weight"
  ],
  "fields": [
   {
@@ -121,12 +119,6 @@
    "label": "Height"
   },
   {
-   "fieldname": "chargeable_weight_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable Weight UOM",
-   "options": "UOM"
-  },
-  {
    "fieldname": "goods_description",
    "fieldtype": "Long Text",
    "label": "Goods Description"
@@ -139,11 +131,6 @@
   {
    "fieldname": "column_break_xbsy",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "chargeable_weight",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight"
   }
  ],
  "grid_page_length": 50,

@@ -159,8 +159,52 @@ function update_toolbar_buttons(frm) {
 	}
 }
 
+function _transport_job_volume_fallback(frm, cdt, cdn, grid_row) {
+	var fn = window.logistics_volume_from_dimensions_fallback;
+	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
+}
+
 frappe.ui.form.on('Transport Job', {
+	packages_on_form_rendered: function(frm) {
+		if (window.logistics_attach_packages_change_listener) {
+			window.logistics_attach_packages_change_listener(frm, 'Transport Job Package', 'packages', 'transport_job_volume');
+		}
+	},
+	document_list_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	milestone_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_milestones_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
 	setup: function(frm) {
+		frm.set_query('milestone_template', function() {
+			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
+				.then(function(r) { return r.message || { filters: [] }; });
+		});
 		// Set default transport_job_type for new documents immediately
 		// This must happen in setup (before onload) to prevent validation errors
 		if (frm.is_new() && !frm.doc.transport_job_type) {
@@ -174,6 +218,14 @@ frappe.ui.form.on('Transport Job', {
 		apply_load_type_filters(frm);
 		// Update consolidate checkbox visibility
 		frm.events.toggle_consolidate_visibility(frm);
+		// Set query filter for item field in packages child table to filter Warehouse Items by customer
+		frm.set_query('item', 'packages', function(doc) {
+			var filters = {};
+			if (doc.customer) {
+				filters.customer = doc.customer;
+			}
+			return { filters: filters };
+		});
 	},
 
 	onload: function(frm) {
@@ -220,7 +272,7 @@ frappe.ui.form.on('Transport Job', {
 		// is reserved for workflow transitions and remains visible when the doctype has a workflow.
 		// Populate Documents from Template
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__('Populate from Template'), function() {
+			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
 					args: { doctype: 'Transport Job', docname: frm.doc.name },
@@ -231,7 +283,23 @@ frappe.ui.form.on('Transport Job', {
 						}
 					}
 				});
-			}, __('Document'));
+			}, __('Actions'));
+		}
+
+		// Recalculate Charges
+		if (!frm.is_new() && frm.doc.charges && frm.doc.charges.length > 0) {
+			frm.add_custom_button(__('Calculate Charges'), function() {
+				frappe.call({
+					method: 'logistics.transport.doctype.transport_job.transport_job.recalculate_all_charges',
+					args: { docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'green' }, 3);
+						}
+					}
+				});
+			}, __('Actions'));
 		}
 
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
@@ -241,6 +309,11 @@ frappe.ui.form.on('Transport Job', {
 				frm.call('get_dashboard_html').then(r => {
 					if (r.message && frm.fields_dict.dashboard_html) {
 						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_group_and_collapse_dash_alerts) {
+							setTimeout(function() {
+								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							}, 100);
+						}
 						if (window.logistics_bind_document_alert_cards) {
 							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
 						}
@@ -466,7 +539,6 @@ frappe.ui.form.on('Transport Job', {
 			row._prev_dimension_uom = row.dimension_uom;
 			row._prev_volume_uom = row.volume_uom;
 			row._prev_weight_uom = row.weight_uom;
-			row._prev_chargeable_weight_uom = row.chargeable_weight_uom;
 		});
 		
 		// Check run sheet statuses and update Transport Job status if needed
@@ -522,7 +594,7 @@ frappe.ui.form.on('Transport Job', {
 		if (frm.doc.legs && frm.doc.legs.length > 0) {
 			frm.add_custom_button(__('Fetch Missing Leg Data'), function() {
 				frm.events.fetch_missing_leg_data_server(frm);
-			}, __('Document'));
+			}, __('Actions'));
 		}
 		
 		// Add button to create Run Sheet for submitted Transport Jobs (always show; server skips legs already on a run sheet)
@@ -561,19 +633,28 @@ frappe.ui.form.on('Transport Job', {
 			}
 		}
 		
-		// Add Create Sales Invoice button under Actions menu
-		// Only show for submitted documents with "Completed" status without existing sales invoice
-		if (!frm.is_new() && frm.doc.docstatus === 1 && frm.doc.status === 'Completed' && !frm.doc.sales_invoice) {
-			frm.add_custom_button(__('Create Sales Invoice'), function() {
-				frm.events.create_sales_invoice_manual(frm);
-			}, __('Post'));
+		// Create > Sales Invoice: always show when doc is saved to allow multiple invoices (dialog filters by customer/charges not yet invoiced)
+		if (!frm.is_new()) {
+			frm.add_custom_button(__('Sales Invoice'), function() {
+				if (typeof show_create_sales_invoice_dialog === 'function') {
+					show_create_sales_invoice_dialog(frm);
+				} else {
+					frm.events.create_sales_invoice_manual(frm);
+				}
+			}, __('Create'));
+		}
+		// Create Purchase Invoice (dialog: select charges, header details)
+		if (!frm.is_new() && frm.doc.docstatus === 1 && typeof show_create_purchase_invoice_dialog === 'function') {
+			frm.add_custom_button(__('Purchase Invoice'), function() {
+				show_create_purchase_invoice_dialog(frm);
+			}, __('Create'));
 		}
 
 		// Additional Charges: Get Additional Charges and Create Change Request
 		if (!frm.is_new()) {
 			frm.add_custom_button(__('Get Additional Charges'), function() {
 				logistics_additional_charges_show_sales_quote_dialog(frm, 'Transport Job');
-			}, __('Document'));
+			}, __('Actions'));
 			frm.add_custom_button(__('Create Change Request'), function() {
 				frappe.call({
 					method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
@@ -750,7 +831,11 @@ frappe.ui.form.on('Transport Job', {
 			});
 			return;
 		}
-		
+		// Use dialog (header + charge selection) when available
+		if (typeof show_create_sales_invoice_dialog === 'function') {
+			show_create_sales_invoice_dialog(frm);
+			return;
+		}
 		// Call the shared function to create Sales Invoice
 		frm.events.create_sales_invoice_call(frm, true);
 	},

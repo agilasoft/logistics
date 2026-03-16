@@ -1,0 +1,323 @@
+<style>
+    .contract-body {
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        line-height: 1.5;
+        text-align: justify;
+    }
+    .contract-body h2 {
+        font-size: 18pt;
+        font-weight: bold;
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 20px;
+    }
+    .contract-body h3 {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        text-align: justify;
+    }
+    .contract-body p {
+        margin-bottom: 12px;
+        text-align: justify;
+    }
+    .contract-body .indent {
+        margin-left: 20px;
+    }
+    .contract-body ul {
+        text-align: justify;
+    }
+    .fee-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        margin-bottom: 15px;
+    }
+    .fee-table th, .fee-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .fee-table th {
+        background-color: #f4f4f4;
+    }
+    .signatures {
+        margin-top: 50px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 100px;
+    }
+    .sig-block {
+        border-top: 1px solid #000;
+        padding-top: 8px;
+        text-align: left;
+    }
+</style>
+
+<div class="contract-body">
+
+    <h2 style="text-align: center;">WAREHOUSING SERVICES AGREEMENT</h2>
+
+    <p>
+        This Warehousing Services Agreement ("Agreement") is entered into on this 
+        <strong>{{ doc.get_formatted("date") }}</strong>
+        at <strong>{{ doc.venue_city or "[City]" }}</strong>, Philippines, by and between:
+    </p>
+    
+    {% set company_doc = frappe.get_doc("Company", doc.company) %}
+    
+
+    {% set warehouse_settings = frappe.get_doc("Warehouse Settings", doc.company) %}
+    
+    {% set company_address = None %}
+    {% set company_address_id = warehouse_settings.warehouse_contract_address %}
+
+    {% if not company_address_id %}
+        {% set company_address_link = frappe.get_all('Dynamic Link', 
+            filters={'link_doctype': 'Company', 'link_name': doc.company}, 
+            fields=['parent'], 
+            limit=1) 
+        %}
+        
+        {# Use the parent ID of the first link found #}
+        {% if company_address_link %}
+            {% set company_address_id = company_address_link[0].parent %}
+        {% endif %}
+    {% endif %}
+
+    {# 3. Fetch the actual Address document #}
+    {% set company_address = frappe.get_doc("Address", company_address_id) if company_address_id else None %}
+    
+    <p class="indent">
+        <strong>{{ doc.company }}</strong>, a corporation duly organized under the laws of the Philippines 
+        
+        with principal office at 
+        {% if company_address %}
+            <strong>
+                {{ company_address.address_line1 or "" }}
+                {%- if company_address.address_line2 %}, {{ company_address.address_line2 }}{% endif -%}
+                {%- if company_address.city %}, {{ company_address.city }}{% endif -%}
+                {%- if company_address.state %}, {{ company_address.state }}{% endif -%}
+                {%- if company_address.country %}, {{ company_address.country }}{% endif -%}
+            </strong>
+        {% else %}
+            <strong>[Company Address Not Found]</strong>
+        {% endif %}
+        
+        <br>
+        Contact: {{ company_doc.phone_no or "[Company Phone]" }} / {{ company_doc.email or "[Company Email]" }}
+        
+        ("Warehouse"),
+    </p>
+    
+    <p class="indent">-and-</p>
+    
+    {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+    
+    {% set customer_address_name = customer_doc.customer_primary_address %}
+    {% set customer_address = frappe.get_doc("Address", customer_address_name) if customer_address_name else None %}
+
+    <p class="indent">
+        <strong>{{ doc.customer }}</strong>, 
+        a {{ doc.customer_type or "corporation/partnership/sole proprietorship" }} 
+        organized under the laws of {{ doc.customer_jurisdiction or "[jurisdiction]" }}, 
+        
+        with principal office at 
+        {% if customer_address %}
+            <strong>
+                {{ customer_address.address_line1 or "" }}
+                {%- if customer_address.address_line2 %}, {{ customer_address.address_line2 }}{% endif -%}
+                {%- if customer_address.city %}, {{ customer_address.city }}{% endif -%}
+                {%- if customer_address.state %}, {{ customer_address.state }}{% endif -%}
+                {%- if customer_address.country %}, {{ customer_address.country }}{% endif -%}
+            </strong> {% else %}
+            <strong>[Customer Address Not Found]</strong>
+        {% endif %}
+
+        Contact: 
+        {% if customer_doc.mobile_no or customer_doc.email_id %}
+            {{ customer_doc.mobile_no or "[Customer Phone]" }} / {{ customer_doc.email_id or "[Customer Email]" }}
+        {% else %}
+            [Customer Contact Not Found]
+        {% endif %}
+        
+        ("Customer").
+    </p>
+    
+    <p>Together referred to as the "Parties."</p>
+
+    <h3>1. Scope of Services</h3>
+    <p>
+        The Warehouse agrees to receive, handle, and store Customer's goods ("Goods") 
+        
+        at its facility located at 
+        {% if company_address %}
+            <strong>
+                {{ company_address.address_line1 or "" }}
+                {%- if company_address.city %}, {{ company_address.city }}{% endif -%} </strong>.
+        {% else %}
+            <strong>[Facility Address Not Found]</strong>.
+        {% endif %}
+    </p>
+    <p>
+        Services include unloading, storage, handling, inventory reporting, and re-delivery. 
+        Additional services (e.g., repacking, labeling, kitting) may be provided upon 
+        written request and subject to additional fees.
+    </p>
+
+    <h3>2. Term and Renewal</h3>
+    <p>
+        This Agreement shall be effective for {{ doc.term or "[one (1) year]" }} 
+        commencing on <strong>{{ doc.get_formatted("date") }}</strong>
+        (and valid until <strong>{{ doc.get_formatted("valid_until") }}</strong>)
+        and may be renewed upon mutual written agreement.
+    </p>
+
+    <h3>3. Obligations of Warehouse</h3>
+    <p>The Warehouse shall:</p>
+    <ul>
+        <li>Exercise reasonable care in handling and storing Goods in accordance with Philippine Civil Code provisions.</li>
+        <li>Maintain facilities in compliance with safety, fire, and regulatory standards.</li>
+        <li>Maintain fire and other perils insurance on its premises, but not on individual Goods unless separately agreed.</li>
+    </ul>
+
+    <h3>4. Obligations of Customer</h3>
+    <p>The Customer shall:</p>
+    <ul>
+        <li>Provide accurate and complete documentation of Goods.</li>
+        <li>Ensure that Goods are properly packed and comply with labeling and regulatory requirements.</li>
+        <li>Pay all storage, handling, and service fees on time.</li>
+        <li>Provide valuation of Goods, get insurance.</li>
+    </ul>
+
+    <h3>5. Fees and Payment</h3>
+    
+    <table class="fee-table">
+        <thead>
+            <tr>
+                <th>Item Charge</th>
+                <th>Item Name</th>
+                <th>Handling Unit Type</th>
+                <th>Storage Type</th>
+                <th>Calculation Method</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.items %}
+            <tr>
+                <td>{{ item.item_charge }}</td>
+                <td>{{ item.item_name }}</td>
+                <td>{{ item.handling_unit_type }}</td>
+                <td>{{ item.storage_type }}</td>
+                <td>{{ item.calculation_method }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p>All amounts are exclusive of 12% VAT and applicable Philippine taxes.</p>
+    <p>
+        Warehouse standard operating hours are: <br>
+        Mon – Friday: 7am – 5pm <br>
+        Saturday: 7am – 12nn
+    </p>
+    <p>
+        Any services rendered beyond standard operating hours, on Sundays, or on legal 
+        holidays shall be subject to overtime and holiday charges as set forth in the 
+        applicable Rate Matrix.
+    </p>
+
+    <h3>6. Liability and Insurance</h3>
+    <p>
+        The Warehouse's liability for loss or damage shall not exceed the agreed valuation 
+        of the Goods, or if no valuation is agreed, the lower of: 
+        (i) the declared value of Goods; or (ii) [X pesos] per package or [X pesos] per CBM. 
+        The Warehouse is not an insurer of the Goods.
+    </p>
+    <p>
+        The Warehouse shall not be liable for losses arising from force majeure, inherent defects, 
+        poor packing, infestation, mold, natural shrinkage, obsolescence, or regulatory seizures.
+    </p>
+    <p>Indirect or consequential damages are expressly excluded.</p>
+
+    <h3>7. Lien Rights</h3>
+    <p>
+        The Warehouse shall have a lien on all Goods stored for unpaid charges and may sell
+        such Goods in accordance with applicable Philippine law if fees remain unpaid after 
+        receipt of Notice of Lien, or [other condition if not able to receive notice].
+    </p>
+
+    <h3>8. Termination</h3>
+    <p>
+        Either Party may terminate this Agreement for cause upon thirty (30) days' written notice.
+    </p>
+    <p>
+        Either Party may also terminate without cause with ninety (90) days' written notice.
+    </p>
+    <p>
+        The Warehouse reserves the right to immediately remove or dispose of Goods that pose 
+        an imminent hazard, are illegal, or subject to regulatory seizure.
+    </p>
+    <p>
+        Upon termination, the Customer shall first settle all outstanding balances and 
+        obligations to the Warehouse.
+    </p>
+    <p>
+        Only after such settlement may the Customer remove its Goods from the Warehouse.
+    </p>
+
+    <h3>9. Force Majeure</h3>
+    <p>
+        Neither Party shall be liable for delays or failures due to acts of nature, war,
+        strikes, floods, or other circumstances beyond reasonable control.
+    </p>
+
+    <h3>10. Confidentiality</h3>
+    <p>
+        Both Parties agree to maintain confidentiality of all storage records, client data, 
+        and related business information.
+    </p>
+
+    <h3>11. Governing Law and Jurisdiction</h3>
+    <p>
+        This Agreement shall be governed by and construed in accordance with the laws 
+        of the Republic of the Philippines.
+    </p>
+    <p>
+        Venue for any disputes shall be the proper courts of 
+        <strong>{{ doc.venue_city or "[City/Province]" }}</strong>.
+    </p>
+
+    <h3>12. Miscellaneous</h3>
+    <p>
+        This Agreement constitutes the entire agreement between the Parties. Any amendment 
+        must be in writing and signed by both Parties.
+    </p>
+    
+    <p>
+        IN WITNESS WHEREOF, the Parties have executed this Agreement on the 
+        date and place first above written.
+    </p>
+
+    <div class="signatures">
+        <div class="sig-block">
+            <strong>{{ doc.company }}</strong>
+            <br><br><br><br>
+            By: _________________________
+            <br>
+            Name: {{ doc.warehouse_signer_name or "_________________________" }}
+            <br>
+            Title: {{ doc.warehouse_signer_title or "_________________________" }}
+        </div>
+        <div class="sig-block">
+            <strong>{{ doc.customer }}</strong>
+            <br><br><br><br>
+            By: _________________________
+            <br>
+            Name: {{ doc.customer_signer_name or "_________________________" }}
+            <br>
+            Title: {{ doc.customer_signer_title or "_________________________" }}
+        </div>
+    </div>
+
+</div>

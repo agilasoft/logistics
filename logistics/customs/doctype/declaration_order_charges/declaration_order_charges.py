@@ -4,6 +4,7 @@
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
 from logistics.utils.charges_calculation import (
     calculate_charge_revenue,
     calculate_charge_cost,
@@ -14,6 +15,7 @@ class DeclarationOrderCharges(Document):
     """Declaration Order Charges child table - uses centralized charge calculation."""
 
     def validate(self):
+        validate_charge_item_not_manual_other_service(self, "Declaration Order Charges", "item_code")
         self._calculate_charges()
 
     def _calculate_charges(self, parent_doc=None):

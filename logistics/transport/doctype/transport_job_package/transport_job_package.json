@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "commodity",
+  "item",
   "hs_code",
   "reference_no",
   "column_break_1",
@@ -25,8 +26,6 @@
   "volume",
   "volume_uom",
   "dimension_uom",
-  "chargeable_weight",
-  "chargeable_weight_uom",
   "atl",
   "section_break_dg_identification",
   "dg_identification_section",
@@ -80,6 +79,13 @@
    "in_list_view": 1,
    "label": "Commodity",
    "options": "Commodity"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.customer\"]]",
+   "options": "Warehouse Item"
   },
   {
    "fetch_from": "commodity.default_hs_code",
@@ -191,17 +197,6 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "chargeable_weight",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight"
-  },
-  {
-   "fieldname": "chargeable_weight_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable Weight UOM",
    "options": "UOM"
   },
   {

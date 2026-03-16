@@ -363,6 +363,13 @@ class Declaration(Document):
 			# Status badge for dashboard (prominent display)
 			status_class = (status or "draft").lower().replace(" ", "_").replace(" ", "_")
 			status_badge_html = f'<span class="dash-status-badge {status_class}">{frappe.utils.escape_html(status)}</span>'
+			# Format value with correct currency from commercial invoice
+			currency = self.inv_currency or frappe.db.get_default("currency") or "PHP"
+			value_display = frappe.format_value(
+				self.declaration_value or 0, 
+				df=dict(fieldtype="Currency", options=currency)
+			)
+			
 			header_items = [
 				("Status", status),
 				("Declaration #", self.declaration_number or "—"),
@@ -372,7 +379,7 @@ class Declaration(Document):
 				("Port of Discharge", self.port_of_discharge or "—"),
 				("ETD", str(self.etd) if self.etd else "—"),
 				("ETA", str(self.eta) if self.eta else "—"),
-				("Value", frappe.format_value(self.declaration_value or 0, df=dict(fieldtype="Currency"))),
+				("Value", value_display),
 				("Payment", self.payment_status or "—"),
 			]
 
@@ -440,7 +447,7 @@ class Declaration(Document):
 				origin_section_label="Exporter",
 				destination_section_label="Importer",
 				route_below_html=route_below_html,
-				doc_management_position="after",
+				doc_management_position="before",
 				cards_full_width=True,
 				hide_map=True,
 				merge_header_with_cards=True,
@@ -557,7 +564,10 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		if not order.sales_quote:
 			frappe.throw(_("Declaration Order must have a Sales Quote to create a Declaration."))
 		sq = frappe.get_doc("Sales Quote", order.sales_quote)
-		has_customs = bool(getattr(sq, "customs", None))
+		has_customs = (
+			getattr(sq, "main_service", None) == "Customs"
+			or any(c.get("service_type") == "Customs" for c in (getattr(sq, "charges") or []))
+		)
 		if not has_customs:
 			frappe.throw(_("No customs details found in the linked Sales Quote."))
 		declaration = frappe.new_doc("Declaration")
@@ -600,14 +610,14 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		sq = frappe.get_doc("Sales Quote", sales_quote_name)
 		
 		# Check if the quote is tagged as One-Off
-		if not sq.one_off:
+		if getattr(sq, "quotation_type", None) != "One-off":
 			frappe.throw(_("This Sales Quote is not tagged as One-Off. Only One-Off quotes can create Declarations."))
 		
-		# Check if Sales Quote has customs details
-		has_customs = False
-		if hasattr(sq, 'customs') and sq.customs:
-			has_customs = True
-		
+		# Check if Sales Quote has customs details (main_service or charges)
+		has_customs = (
+			getattr(sq, "main_service", None) == "Customs"
+			or any(c.get("service_type") == "Customs" for c in (getattr(sq, "charges") or []))
+		)
 		if not has_customs:
 			frappe.throw(_("No customs details found in this Sales Quote."))
 		
@@ -626,8 +636,11 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		declaration.cost_center = getattr(sq, 'cost_center', None)
 		declaration.profit_center = getattr(sq, 'profit_center', None)
 		
-		# Set customs authority if available in quote
-		if hasattr(sq, 'customs_authority') and sq.customs_authority:
+		# Set customs authority from first Customs charge or legacy header
+		customs_charge = next((c for c in (getattr(sq, "charges") or []) if c.get("service_type") == "Customs"), None)
+		if customs_charge and customs_charge.get("customs_authority"):
+			declaration.customs_authority = customs_charge.customs_authority
+		elif hasattr(sq, "customs_authority") and sq.customs_authority:
 			declaration.customs_authority = sq.customs_authority
 		
 		# Set currency from quote
@@ -709,11 +722,12 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 
 	# Commercial invoice header fields
 	declaration.invoice_no = order.invoice_no
-	declaration.supplier = order.supplier
-	declaration.supplier_name = order.supplier_name
+	declaration.exporter = getattr(order, "exporter", None)
+	declaration.exporter_name = getattr(order, "exporter_name", None)
 	declaration.inv_date = order.inv_date
 	declaration.payment_date = order.payment_date
 	declaration.inv_importer = order.inv_importer
+	declaration.importer_name = getattr(order, "importer_name", None)
 	declaration.agreed_place = order.agreed_place
 	declaration.incoterm_place = order.incoterm_place
 	declaration.inv_incoterm = order.inv_incoterm
@@ -858,13 +872,15 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 
 
 def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Document):
-	"""Populate charges from Sales Quote Customs charges"""
+	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 	try:
-		if not hasattr(sales_quote, 'customs') or not sales_quote.customs:
+		customs_charges = []
+		if hasattr(sales_quote, "charges") and sales_quote.charges:
+			customs_charges = [c for c in sales_quote.charges if c.get("service_type") == "Customs"]
+		if not customs_charges and hasattr(sales_quote, "customs") and sales_quote.customs:
+			customs_charges = list(sales_quote.customs)
+		if not customs_charges:
 			return
-		
-		# Get customs charges from Sales Quote
-		customs_charges = sales_quote.get('customs') or []
 		
 		# Get Declaration Charges meta to check available fields
 		declaration_charges_meta = frappe.get_meta("Declaration Charges")
@@ -882,7 +898,8 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 				'cost_quantity', 'cost_uom', 'cost_currency', 'unit_cost', 'cost_unit_type',
 				'cost_minimum_quantity', 'cost_minimum_charge', 'cost_maximum_charge',
 				'cost_base_amount', 'estimated_cost', 'revenue_calc_notes', 'cost_calc_notes',
-				'use_tariff_in_revenue', 'use_tariff_in_cost', 'tariff'
+				'use_tariff_in_revenue', 'use_tariff_in_cost', 'tariff',
+				'revenue_tariff', 'cost_tariff'
 			]
 			
 			for field in common_fields:
@@ -1013,6 +1030,22 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 		"sales_invoice": si.name,
 		"message": _("Sales Invoice {0} created successfully.").format(si.name)
 	}
+
+
+@frappe.whitelist()
+def post_standard_costs(docname):
+	"""Post standard costs for Declaration charges. No-op if charges do not support standard costs."""
+	declaration = frappe.get_doc("Declaration", docname)
+	posted = 0
+	for ch in (declaration.charges or []):
+		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):
+			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
+				ch.standard_cost_posted = 1
+				ch.standard_cost_posted_at = frappe.utils.now()
+				posted += 1
+	if posted > 0:
+		declaration.save()
+	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
 
 
 def _safe_meta_fieldnames(doctype: str) -> list:

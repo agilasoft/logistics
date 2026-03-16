@@ -109,6 +109,65 @@
 		});
 	};
 
+	// Collapsible dashboard alerts: per-level groups (Critical, Warnings, Information), default collapsed
+	window.logistics_group_and_collapse_dash_alerts = function ($container) {
+		if (!$container || !$container.length) return;
+		const $section = $container.find(".dash-alerts-section");
+		if (!$section.length) return;
+		const $items = $section.find(".dash-alert-item");
+		if (!$items.length) return;
+
+		const groups = { danger: [], warning: [], info: [] };
+		const order = ["danger", "warning", "info"];
+		const labels = {
+			danger: __("There are %s critical alerts"),
+			warning: __("There are %s warnings"),
+			info: __("There are %s information alerts")
+		};
+
+		$items.each(function () {
+			const $el = $(this);
+			const level = $el.hasClass("danger") ? "danger" : $el.hasClass("warning") ? "warning" : "info";
+			groups[level].push($el[0].outerHTML);
+		});
+
+		let groupsHtml = "";
+		order.forEach(function (level) {
+			const items = groups[level];
+			if (!items || items.length === 0) return;
+			const count = items.length;
+			const label = labels[level].replace("%s", count);
+			const groupClass = "dash-alert-group dash-alert-group-" + level + " collapsed";
+			groupsHtml += "<div class=\"" + groupClass + "\">";
+			groupsHtml += "<div class=\"dash-alert-group-header\" data-level=\"" + level + "\">";
+			groupsHtml += "<i class=\"fa fa-chevron-right dash-alert-group-chevron\"></i>";
+			groupsHtml += "<span class=\"dash-alert-group-title\">" + label + "</span>";
+			groupsHtml += "</div>";
+			groupsHtml += "<div class=\"dash-alert-group-body\">" + items.join("") + "</div>";
+			groupsHtml += "</div>";
+		});
+
+		$section.html(groupsHtml);
+
+		// Per-level group collapse/expand
+		$section.find(".dash-alert-group-header").on("click", function () {
+			const $header = $(this);
+			const $group = $header.closest(".dash-alert-group");
+			const $body = $group.find(".dash-alert-group-body");
+			const $chevron = $header.find(".dash-alert-group-chevron");
+			const collapsed = $group.hasClass("collapsed");
+			if (collapsed) {
+				$body.slideDown(200);
+				$group.removeClass("collapsed");
+				$chevron.removeClass("fa-chevron-right").addClass("fa-chevron-down");
+			} else {
+				$body.slideUp(200);
+				$group.addClass("collapsed");
+				$chevron.removeClass("fa-chevron-down").addClass("fa-chevron-right");
+			}
+		});
+	};
+
 	window.logistics_bind_document_alert_cards = function ($container) {
 		if (!$container || !$container.length) return;
 		const $wrapper = $container.find(".doc-alerts-cards-wrapper");

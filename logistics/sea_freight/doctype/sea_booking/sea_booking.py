@@ -32,6 +32,8 @@ class SeaBooking(Document):
 	
 	def validate(self):
 		"""Validate Sea Booking data"""
+		from logistics.utils.module_integration import set_billing_company_from_sales_quote
+		set_billing_company_from_sales_quote(self)
 		# Normalize legacy house_type values (backup, in case before_validate didn't run)
 		if hasattr(self, 'house_type') and self.house_type:
 			if self.house_type == "Direct":
@@ -71,6 +73,30 @@ class SeaBooking(Document):
 		# Only preserve sales_quote if quote_type is Sales Quote (One-Off Quote clears sales_quote)
 		if original_sales_quote and getattr(self, 'quote_type', None) == 'Sales Quote' and not getattr(self, 'sales_quote', None):
 			self.sales_quote = original_sales_quote
+		
+		# Validate One-off Sales Quote not already converted
+		if self.sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
+			validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
+		
+		# Validate quote field when quote_type is One-Off Quote (quote might reference Sales Quote)
+		if getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
+			# Check if quote is a Sales Quote (new system) and validate it
+			if frappe.db.exists("Sales Quote", self.quote):
+				from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
+				validate_one_off_quote_not_converted(self.quote, self.doctype, self.name)
+		
+		# Handle sales_quote field clearing - reset One-off quote if cleared
+		if not self.is_new() and original_sales_quote and not self.sales_quote:
+			# sales_quote was cleared, check if it was a One-off quote and reset it
+			try:
+				if frappe.db.exists("Sales Quote", original_sales_quote):
+					sq = frappe.get_doc("Sales Quote", original_sales_quote)
+					if sq.quotation_type == "One-off":
+						from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+						reset_one_off_quote_on_cancel(original_sales_quote)
+			except Exception:
+				pass
 		
 		self.validate_required_fields()
 		self.validate_dates()
@@ -263,7 +289,11 @@ class SeaBooking(Document):
 			return
 		
 		# ISO 6346 validation for each container
-		from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+		from logistics.utils.container_validation import (
+			validate_container_number,
+			get_strict_validation_setting,
+			normalize_container_number,
+		)
 		strict = get_strict_validation_setting()
 		for i, c in enumerate(self.containers, 1):
 			container_no = getattr(c, "container_no", None)
@@ -272,49 +302,67 @@ class SeaBooking(Document):
 				if not valid:
 					frappe.throw(_("Container {0}: {1}").format(i, err), title=_("Invalid Container Number"))
 		
+		# In-table duplicate: same container number must not appear on multiple rows
+		seen = {}
+		for i, c in enumerate(self.containers, 1):
+			container_no = getattr(c, "container_no", None)
+			if not container_no or not str(container_no).strip():
+				continue
+			normalized = normalize_container_number(container_no)
+			if normalized in seen:
+				frappe.throw(
+					_("Duplicate container number in this document: {0} appears on row {1} and row {2}.").format(
+						container_no, seen[normalized], i
+					),
+					title=_("Duplicate Container Numbers"),
+				)
+			seen[normalized] = i
+		
 		# Get container numbers from current booking (filter out empty values)
 		container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None) and str(c.container_no).strip()]
 		if not container_numbers:
 			return
 		
-		# Check for duplicates in other submitted Sea Bookings
+		# Check for duplicates in other submitted Sea Bookings (allow reuse when container returned)
 		if self.name:
-			existing_bookings = frappe.db.sql("""
+			booking_candidates = frappe.db.sql("""
 				SELECT DISTINCT sb.name, sbc.container_no
 				FROM `tabSea Booking` sb
 				INNER JOIN `tabSea Booking Containers` sbc ON sbc.parent = sb.name
 				WHERE sbc.container_no IN %(container_numbers)s
 				AND sb.name != %(booking_name)s
 				AND sb.docstatus = 1
-				LIMIT 10
 			""", {
 				"container_numbers": container_numbers,
 				"booking_name": self.name
 			}, as_dict=True)
 		else:
-			existing_bookings = frappe.db.sql("""
+			booking_candidates = frappe.db.sql("""
 				SELECT DISTINCT sb.name, sbc.container_no
 				FROM `tabSea Booking` sb
 				INNER JOIN `tabSea Booking Containers` sbc ON sbc.parent = sb.name
 				WHERE sbc.container_no IN %(container_numbers)s
 				AND sb.docstatus = 1
-				LIMIT 10
 			""", {
 				"container_numbers": container_numbers
 			}, as_dict=True)
-		
-		# Check for duplicates in submitted Sea Shipments
-		existing_shipments = frappe.db.sql("""
+		existing_bookings = [c for c in booking_candidates if not self._container_returned(c.container_no)]
+
+		# Check for duplicates in submitted Sea Shipments (allow reuse when container returned)
+		shipment_candidates = frappe.db.sql("""
 			SELECT DISTINCT ss.name, sfc.container_no
 			FROM `tabSea Shipment` ss
 			INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
 			WHERE sfc.container_no IN %(container_numbers)s
 			AND ss.docstatus = 1
-			LIMIT 10
 		""", {
 			"container_numbers": container_numbers
 		}, as_dict=True)
-		
+		existing_shipments = [
+			c for c in shipment_candidates
+			if not self._container_returned(c.container_no, other_shipment_name=c.name)
+		]
+
 		# Build error message if duplicates found
 		errors = []
 		if existing_bookings:
@@ -336,6 +384,36 @@ class SeaBooking(Document):
 				"\n".join(errors),
 				title=_("Duplicate Container Numbers")
 			)
+	
+	def _container_returned(self, container_no, other_shipment_name=None):
+		"""
+		Return True if the container is considered returned so reuse on another booking is allowed.
+		When checking another submitted booking/shipment, we allow reuse if the container has been
+		returned (Container return_status/status or that shipment's shipping_status indicates returned).
+		"""
+		if not container_no:
+			return False
+		# If we have a specific shipment, use its shipping_status first (same as Sea Shipment logic)
+		if other_shipment_name:
+			shipping_status = frappe.db.get_value("Sea Shipment", other_shipment_name, "shipping_status")
+			if shipping_status in ("Empty Container Returned", "Closed"):
+				return True
+		try:
+			from logistics.container_management.api import is_container_management_enabled, get_container_by_number
+			if is_container_management_enabled():
+				container_name = get_container_by_number(container_no)
+				if container_name:
+					row = frappe.db.get_value(
+						"Container", container_name, ["return_status", "status"], as_dict=True
+					)
+					if row:
+						if row.get("return_status") == "Returned":
+							return True
+						if row.get("status") in ("Empty Returned", "Closed"):
+							return True
+		except Exception:
+			pass
+		return False
 	
 	def before_submit(self):
 		"""Validate quote reference before submitting the Sea Booking."""
@@ -374,6 +452,18 @@ class SeaBooking(Document):
 			self.db_set('quote_type', current_quote_type, update_modified=False)
 		if current_sales_quote and not getattr(self, 'sales_quote', None):
 			self.db_set('sales_quote', current_sales_quote, update_modified=False)
+		
+		# Update One-off Sales Quote status to Converted
+		if current_sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
+			update_one_off_quote_on_submit(current_sales_quote, self.name, self.doctype)
+	
+	def on_cancel(self):
+		"""Reset One-off Sales Quote status when Sea Booking is cancelled."""
+		current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+		if current_sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+			reset_one_off_quote_on_cancel(current_sales_quote)
 	
 	def validate_required_fields(self):
 		"""Validate required fields"""
@@ -506,18 +596,27 @@ class SeaBooking(Document):
 			if not self.sales_quote:
 				frappe.throw(_("Please select a Sales Quote first"))
 			
+			# Set flag to skip on_change handler to prevent it from interfering with charge population
+			# This flag prevents on_change from clearing/populating charges when fields are modified
+			self.flags.skip_sales_quote_on_change = True
+			# Also set a flag to indicate we're fetching quotations (for JavaScript to know not to trigger handlers)
+			self.flags.fetching_quotations = True
+			
 			# Get Sales Quote document
 			sales_quote = frappe.get_doc("Sales Quote", self.sales_quote)
 			
-			# Check if Sales Quote has sea freight details
-			# Note: Sales Quote Sea Freight child table may not exist yet
-			# If it doesn't exist, we'll still populate basic fields
+			# Check if Sales Quote has sea charges (new) or sea freight (legacy)
+			sea_charge_exists = frappe.db.exists("Sales Quote Charge", {
+				"parent": self.sales_quote,
+				"parenttype": "Sales Quote",
+				"service_type": "Sea"
+			})
 			sea_freight_exists = frappe.db.exists("Sales Quote Sea Freight", {
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
-			})
+			}) if frappe.db.table_exists("Sales Quote Sea Freight") else False
 			
-			if not sea_freight_exists:
+			if not sea_charge_exists and not sea_freight_exists:
 				frappe.msgprint(
 					_("No Sea Freight lines found in Sales Quote {0}. Only basic fields will be populated.").format(self.sales_quote),
 					indicator="orange"
@@ -567,13 +666,27 @@ class SeaBooking(Document):
 			if not self.terms:
 				self.terms = getattr(sales_quote, 'terms', None)
 			
-			# Populate charges from Sales Quote Sea Freight (if child table exists)
+			# Populate charges from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+			sea_charge_exists = frappe.db.exists("Sales Quote Charge", {
+				"parent": self.sales_quote,
+				"parenttype": "Sales Quote",
+				"service_type": "Sea"
+			})
 			sea_freight_exists = frappe.db.exists("Sales Quote Sea Freight", {
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
-			})
-			if sea_freight_exists:
+			}) if frappe.db.table_exists("Sales Quote Sea Freight") else False
+			if sea_charge_exists or sea_freight_exists:
 				self._populate_charges_from_sales_quote(sales_quote)
+			
+			# Save the document to persist the changes (charges and other fields)
+			# This ensures charges are saved before the form reloads
+			# Keep the flag set during save to prevent on_change from running
+			self.save(ignore_permissions=True)
+			
+			# Clear the flags after charge population and save
+			self.flags.skip_sales_quote_on_change = False
+			self.flags.fetching_quotations = False
 			
 			frappe.msgprint(
 				_("Quotations fetched successfully from Sales Quote {0}").format(self.sales_quote),
@@ -587,6 +700,9 @@ class SeaBooking(Document):
 			}
 			
 		except Exception as e:
+			# Clear the flags even on error
+			self.flags.skip_sales_quote_on_change = False
+			self.flags.fetching_quotations = False
 			frappe.log_error(
 				f"Error fetching quotations for Sea Booking {self.name}: {str(e)}",
 				"Sea Booking - Fetch Quotations Error"
@@ -611,27 +727,25 @@ class SeaBooking(Document):
 			# Clear existing charges
 			self.set("charges", [])
 
-			# Fetch sales_quote_sea_freight records from the selected sales_quote
+			# Fetch from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+			charge_fields = [
+				"name", "item_code", "item_name", "calculation_method", "uom", "currency",
+				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+				"maximum_charge", "base_amount", "estimated_revenue", "charge_type"
+			]
 			sales_quote_sea_freight_records = frappe.get_all(
-				"Sales Quote Sea Freight",
-				filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-				fields=[
-					"name",
-					"item_code",
-					"item_name",
-					"calculation_method",
-					"uom",
-					"currency",
-					"unit_rate",
-					"unit_type",
-					"minimum_quantity",
-					"minimum_charge",
-					"maximum_charge",
-					"base_amount",
-					"estimated_revenue"
-				],
+				"Sales Quote Charge",
+				filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Sea"},
+				fields=charge_fields,
 				order_by="idx"
 			)
+			if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+				sales_quote_sea_freight_records = frappe.get_all(
+					"Sales Quote Sea Freight",
+					filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+					fields=charge_fields,
+					order_by="idx"
+				)
 
 			if not sales_quote_sea_freight_records:
 				frappe.msgprint(
@@ -679,29 +793,26 @@ class SeaBooking(Document):
 			# Clear existing charges
 			self.set("charges", [])
 			
-			# Get Sales Quote Sea Freight records
-			# Note: Adjust the child table name if it's different
+			# Get from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+			charge_fields = [
+				"item_code", "item_name", "calculation_method", "uom", "currency",
+				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+				"maximum_charge", "base_amount", "estimated_revenue", "charge_type"
+			]
 			sales_quote_sea_freight_records = frappe.get_all(
-				"Sales Quote Sea Freight",
-				filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
-				fields=[
-					"item_code",
-					"item_name",
-					"calculation_method",
-					"uom",
-					"currency",
-					"unit_rate",
-					"unit_type",
-					"minimum_quantity",
-					"minimum_charge",
-					"maximum_charge",
-					"base_amount",
-					"estimated_revenue"
-				],
+				"Sales Quote Charge",
+				filters={"parent": sales_quote.name, "parenttype": "Sales Quote", "service_type": "Sea"},
+				fields=charge_fields,
 				order_by="idx"
 			)
+			if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+				sales_quote_sea_freight_records = frappe.get_all(
+					"Sales Quote Sea Freight",
+					filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
+					fields=charge_fields,
+					order_by="idx"
+				)
 			
-			# If Sales Quote Sea Freight doesn't exist, return early
 			if not sales_quote_sea_freight_records:
 				frappe.msgprint(
 					_("No Sea Freight charges found in Sales Quote. Charges will not be populated."),
@@ -824,16 +935,17 @@ class SeaBooking(Document):
 			# Get default currency
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Map unit_type to unit (for Sea Booking Charges)
-			unit_type_to_unit = {
+			# Map unit_type from Sales Quote to Sea Booking Charges unit_type
+			# Sea Booking Charges unit_type options: Distance, Weight, Volume, Package, Piece, Job, Trip, TEU, Operation Time
+			unit_type_mapping = {
 				"Weight": "Weight",
 				"Volume": "Volume",
-				"Package": "House Bill",
-				"Piece": "House Bill",
-				"Shipment": "House Bill",
-				"Container": "Container Count"
+				"Package": "Package",
+				"Piece": "Piece",
+				"Container": "TEU",  # Map Container to TEU
+				"Shipment": "Job"  # Map Shipment to Job
 			}
-			unit = unit_type_to_unit.get(sqsf_record.unit_type, "House Bill")
+			mapped_unit_type = unit_type_mapping.get(sqsf_record.unit_type, "Package")
 			
 			# Get quantity based on unit type
 			quantity = 0
@@ -881,19 +993,76 @@ class SeaBooking(Document):
 			else:
 				selling_amount = sqsf_record.unit_rate or 0
 			
-			# Determine charge_type from item or use default
+			# Determine charge_type: first from Sales Quote Sea Freight record, then from item, then default
 			charge_type = "Revenue"
-			if hasattr(item_doc, 'custom_charge_type'):
-				charge_type = item_doc.custom_charge_type or "Revenue"
+			# First check if charge_type is set in the Sales Quote Sea Freight record
+			if hasattr(sqsf_record, 'charge_type') and sqsf_record.charge_type:
+				charge_type = sqsf_record.charge_type
+			# Fall back to item's custom_charge_type if not set in Sales Quote Sea Freight
+			elif hasattr(item_doc, 'custom_charge_type') and item_doc.custom_charge_type:
+				charge_type = item_doc.custom_charge_type
 			
-			# Map revenue_calc_type from calculation_method
-			calc_method_to_revenue_calc_type = {
-				"Per Unit": "Base plus per Unit",
-				"Fixed Amount": "Fixed",
-				"Base Plus Additional": "Base plus per Unit",
-				"First Plus Additional": "Base plus per Unit"
-			}
-			revenue_calc_type = calc_method_to_revenue_calc_type.get(sqsf_record.calculation_method, "Fixed")
+			# Normalize calculation_method for Sea Booking Charges
+			sqsf_calc_method = (sqsf_record.get("calculation_method") or "").strip()
+			valid_calc_methods = [
+				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+			]
+			
+			# Invalid calculation methods that should be converted
+			invalid_calc_methods = [
+				"Per m³", "Per m3", "Per kg", "Per package", "Per shipment",
+				"per m³", "per m3", "per kg", "per package", "per shipment",
+				"Per m³", "Per m3", "Per Kg", "Per Package", "Per Shipment",
+				"Automatic", "automatic", "Manual", "manual"
+			]
+			
+			# Normalize the calculation_method value (handle case variations and common mistakes)
+			sqsf_calc_method_normalized = sqsf_calc_method
+			if sqsf_calc_method:
+				# First check if it's an invalid method (case-insensitive)
+				sqsf_calc_method_lower = sqsf_calc_method.lower()
+				sqsf_calc_method_normalized_lower = sqsf_calc_method_normalized.lower()
+				
+				# Check for invalid methods first
+				if sqsf_calc_method_normalized_lower in [m.lower() for m in invalid_calc_methods]:
+					# These are invalid - will be converted to "Per Unit" below
+					pass
+				# Handle case-insensitive matching for valid method variations
+				elif sqsf_calc_method_lower in ["per unit", "perunit"]:
+					sqsf_calc_method_normalized = "Per Unit"
+				elif sqsf_calc_method_lower in ["fixed amount", "fixedamount"]:
+					sqsf_calc_method_normalized = "Fixed Amount"
+				elif sqsf_calc_method_lower in ["flat rate", "flatrate"]:
+					sqsf_calc_method_normalized = "Flat Rate"
+				elif sqsf_calc_method_lower in ["base plus additional", "baseplusadditional"]:
+					sqsf_calc_method_normalized = "Base Plus Additional"
+				elif sqsf_calc_method_lower in ["first plus additional", "firstplusadditional"]:
+					sqsf_calc_method_normalized = "First Plus Additional"
+				elif sqsf_calc_method_lower in ["percentage"]:
+					sqsf_calc_method_normalized = "Percentage"
+				elif sqsf_calc_method_lower in ["location-based", "locationbased"]:
+					sqsf_calc_method_normalized = "Location-based"
+				elif sqsf_calc_method_lower in ["weight break", "weightbreak"]:
+					sqsf_calc_method_normalized = "Weight Break"
+				elif sqsf_calc_method_lower in ["qty break", "qtybreak", "quantity break", "quantitybreak"]:
+					sqsf_calc_method_normalized = "Qty Break"
+			
+			# If calculation_method is invalid (e.g., "Per m³", "Automatic", empty), convert based on unit_type
+			calc_method_final = sqsf_calc_method_normalized
+			if not sqsf_calc_method_normalized or sqsf_calc_method_normalized not in valid_calc_methods:
+				sqsf_calc_method_normalized_lower = sqsf_calc_method_normalized.lower() if sqsf_calc_method_normalized else ""
+				if sqsf_calc_method_normalized_lower in [m.lower() for m in invalid_calc_methods]:
+					calc_method_final = "Per Unit"
+				elif sqsf_calc_method_normalized_lower in ["fixed amount", "flat rate"]:
+					calc_method_final = "Flat Rate"
+				else:
+					calc_method_final = "Per Unit" if sqsf_record.get("unit_type") else "Flat Rate"
+			else:
+				calc_method_final = sqsf_calc_method_normalized
+			
+			if calc_method_final not in valid_calc_methods:
+				calc_method_final = "Per Unit" if sqsf_record.get("unit_type") else "Flat Rate"
 			
 			# Map the fields to Sea Booking Charges structure
 			charge_data = {
@@ -905,15 +1074,22 @@ class SeaBooking(Document):
 				"pay_to": getattr(sqsf_record, "pay_to", None),
 				"selling_currency": sqsf_record.currency or default_currency,
 				"selling_amount": selling_amount,
-				"per_unit_rate": sqsf_record.unit_rate or 0,
-				"unit": unit,
-				"revenue_calc_type": revenue_calc_type,
+				"rate": sqsf_record.unit_rate or 0,
+				"uom": sqsf_record.uom or None,
+				"revenue_calculation_method": calc_method_final,
+				"quantity": quantity,
+				"currency": sqsf_record.currency or default_currency,
+				"unit_type": mapped_unit_type,  # Use mapped unit_type
 				"base_amount": sqsf_record.base_amount or 0
 			}
 			
-			# Add minimum charge if available
+			# Add minimum/maximum charges and quantities if available
 			if sqsf_record.minimum_charge:
-				charge_data["minimum"] = sqsf_record.minimum_charge
+				charge_data["minimum_charge"] = sqsf_record.minimum_charge
+			if sqsf_record.maximum_charge:
+				charge_data["maximum_charge"] = sqsf_record.maximum_charge
+			if sqsf_record.minimum_quantity:
+				charge_data["minimum_quantity"] = sqsf_record.minimum_quantity
 			
 			return charge_data
 			
@@ -1020,7 +1196,7 @@ class SeaBooking(Document):
 	def get_dashboard_html(self):
 		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html
+			from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
 			from logistics.document_management.dashboard_layout import (
 				build_run_sheet_style_dashboard,
 				build_map_segments_from_routing_legs,
@@ -1081,6 +1257,7 @@ class SeaBooking(Document):
 				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
 					map_points.append(d)
 
+			alerts_html = get_dashboard_alerts_html("Sea Booking", self.name or "new")
 			return build_run_sheet_style_dashboard(
 				header_title=self.name or "Sea Booking",
 				header_subtitle="Sea Booking",
@@ -1090,6 +1267,7 @@ class SeaBooking(Document):
 				map_segments=map_segments,
 				map_id_prefix="sea-booking-dash-map",
 				doc_alerts_html=doc_alerts,
+				alerts_html=alerts_html,
 				straight_line=True,
 				origin_label=self.origin_port or None,
 				destination_label=self.destination_port or None,
@@ -1162,6 +1340,10 @@ class SeaBooking(Document):
 			sea_shipment.booking_date = self.booking_date or today()
 			sea_shipment.sea_booking = self.name
 			sea_shipment.sales_quote = self.sales_quote
+			if hasattr(self, "booking_party") and self.booking_party:
+				sea_shipment.booking_party = self.booking_party
+			if hasattr(self, "controlling_party") and self.controlling_party:
+				sea_shipment.controlling_party = self.controlling_party
 			sea_shipment.shipper = self.shipper
 			sea_shipment.consignee = self.consignee
 			sea_shipment.origin_port = self.origin_port
@@ -1173,8 +1355,8 @@ class SeaBooking(Document):
 			if hasattr(self, "broker") and self.broker:
 				sea_shipment.broker = self.broker
 			sea_shipment.direction = self.direction
-			sea_shipment.weight = self.total_weight
-			sea_shipment.volume = self.total_volume
+			sea_shipment.total_weight = self.total_weight
+			sea_shipment.total_volume = self.total_volume
 			sea_shipment.chargeable = self.chargeable
 			# Only copy service_level if it exists as a valid record
 			if self.service_level and frappe.db.exists("Logistics Service Level", self.service_level):
@@ -1268,6 +1450,26 @@ class SeaBooking(Document):
 				sea_shipment.notify_party = self.notify_party
 			if hasattr(self, "notify_party_address") and self.notify_party_address:
 				sea_shipment.notify_party_address = self.notify_party_address
+			# Copy Cut-offs from Sea Booking to Sea Shipment
+			for field in (
+				"cargo_cut_off", "document_cut_off", "vgm_cut_off",
+				"gate_in_cut_off", "empty_return_cut_off", "other_cut_off",
+			):
+				if hasattr(self, field) and getattr(self, field, None):
+					setattr(sea_shipment, field, getattr(self, field))
+			# Copy CTOs from Sea Booking to Sea Shipment
+			if hasattr(self, "origin_cto") and self.origin_cto:
+				sea_shipment.origin_cto = self.origin_cto
+			if hasattr(self, "destination_cto") and self.destination_cto:
+				sea_shipment.destination_cto = self.destination_cto
+			# Copy Reference Numbers (child table) from Sea Booking to Sea Shipment
+			if hasattr(self, "reference_numbers") and self.reference_numbers:
+				for ref in self.reference_numbers:
+					sea_shipment.append("reference_numbers", {
+						"country_region_of_issue": getattr(ref, "country_region_of_issue", None),
+						"reference_type": getattr(ref, "reference_type", None),
+						"reference_number": getattr(ref, "reference_number", None),
+					})
 			# Populate addresses and contacts from Shipper/Consignee primary if not set on Booking
 			if self.shipper and (not sea_shipment.shipper_address or not sea_shipment.shipper_contact):
 				try:
@@ -1331,21 +1533,6 @@ class SeaBooking(Document):
 				except Exception as e:
 					frappe.log_error(f"Error fetching consignee address/contact: {str(e)}", "Sea Booking - Convert to Shipment")
 			
-			# Copy services if they exist (from Sea Booking Services to Sea Freight Services)
-			if hasattr(self, 'services') and self.services:
-				for svc in self.services:
-					sea_shipment.append("services", {
-						"type": svc.type,
-						"date_booked": svc.date_booked,
-						"date_completed": svc.date_completed,
-						"service_provider": svc.service_provider,
-						"reference": svc.reference,
-						"currency": svc.currency,
-						"rate": svc.rate,
-						"tax_category": svc.tax_category,
-						"notes": getattr(svc, "notes", None),
-					})
-			
 			# Copy containers if they exist (from Sea Booking Containers to Sea Freight Containers)
 			if hasattr(self, 'containers') and self.containers:
 				for container in self.containers:
@@ -1378,58 +1565,140 @@ class SeaBooking(Document):
 						"height": getattr(package, "height", None),
 						"volume_uom": getattr(package, "volume_uom", None),
 						"weight_uom": getattr(package, "weight_uom", None),
-						"chargeable_weight": getattr(package, "chargeable_weight", None),
-						"chargeable_weight_uom": getattr(package, "chargeable_weight_uom", None),
 					})
 			
-			# Copy charges (from Sea Booking Charges to Sea Freight Charges)
+			# Copy charges (from Sea Booking Charges to Sea Shipment Charges)
+			# Store mapping of old charge names to charge indices for copying weight/qty breaks
+			charge_name_mapping = {}
 			if hasattr(self, 'charges') and self.charges:
-				# Map calculation methods to calc types
-				calc_method_to_revenue_calc_type = {
-					"Per Unit": "Base plus per Unit",
-					"Fixed Amount": "Fixed",
-					"Flat Rate": "Fixed",
-					"Base Plus Additional": "Base plus per Unit",
-					"First Plus Additional": "Base plus per Unit",
-					"Percentage": "Fixed",
-					"Location-based": "Fixed",
-					"Weight Break": "Base plus per Unit",
-					"Qty Break": "Base plus per Unit"
-				}
-				
-				for charge in self.charges:
-					# Map charge_basis to revenue_calc_type
-					revenue_calc_type = calc_method_to_revenue_calc_type.get(
-						getattr(charge, 'charge_basis', None), 
-						"Fixed"
-					)
+				for idx, charge in enumerate(self.charges):
+					old_charge_name = charge.name
+					new_charge_row = sea_shipment.append("charges", {})
 					
-					# Map cost_calculation_method to cost_calc_type
-					cost_calc_type = calc_method_to_revenue_calc_type.get(
-						getattr(charge, 'cost_calculation_method', None),
-						"Fixed"
-					)
+					# Copy basic charge fields
+					if hasattr(charge, 'charge_item'):
+						new_charge_row.charge_item = charge.charge_item
+					if hasattr(charge, 'charge_name'):
+						new_charge_row.charge_name = charge.charge_name
+					if hasattr(charge, 'charge_type'):
+						new_charge_row.charge_type = charge.charge_type
+					if hasattr(charge, 'charge_category'):
+						new_charge_row.charge_category = charge.charge_category
+					if hasattr(charge, 'item_tax_template'):
+						new_charge_row.item_tax_template = charge.item_tax_template
+					if hasattr(charge, 'invoice_type'):
+						new_charge_row.invoice_type = charge.invoice_type
+					if hasattr(charge, 'charge_description'):
+						new_charge_row.charge_description = charge.charge_description
+					if hasattr(charge, 'sales_quote_link'):
+						new_charge_row.sales_quote_link = charge.sales_quote_link
 					
-					sea_shipment.append("charges", {
-						"charge_item": charge.charge_item,
-						"charge_name": charge.charge_name,
-						"charge_type": charge.charge_type,
-						"item_tax_template": charge.item_tax_template,
-						"invoice_type": charge.invoice_type,
-						"charge_description": charge.charge_description,
-						"bill_to": charge.bill_to,
-						"selling_currency": charge.selling_currency,
-						"selling_amount": charge.selling_amount,
-						"pay_to": charge.pay_to,
-						"buying_currency": charge.buying_currency,
-						"buying_amount": charge.buying_amount,
-						"revenue_calc_type": revenue_calc_type,
-						"base_amount": getattr(charge, 'base_amount', 0),
-						"per_unit_rate": getattr(charge, 'rate', 0),
-						"unit": getattr(charge, 'uom', None),
-						"minimum": getattr(charge, 'minimum_charge', 0),
-						"cost_calc_type": cost_calc_type
-					})
+					# Copy revenue fields
+					if hasattr(charge, 'bill_to'):
+						new_charge_row.bill_to = charge.bill_to
+					if hasattr(charge, 'selling_currency'):
+						new_charge_row.selling_currency = charge.selling_currency
+					if hasattr(charge, 'selling_amount'):
+						new_charge_row.selling_amount = charge.selling_amount
+					if hasattr(charge, 'estimated_revenue'):
+						new_charge_row.estimated_revenue = charge.estimated_revenue
+					if hasattr(charge, 'use_tariff_in_revenue'):
+						new_charge_row.use_tariff_in_revenue = charge.use_tariff_in_revenue
+					if hasattr(charge, 'revenue_tariff'):
+						new_charge_row.revenue_tariff = charge.revenue_tariff
+					
+					# Copy cost fields
+					if hasattr(charge, 'pay_to'):
+						new_charge_row.pay_to = charge.pay_to
+					if hasattr(charge, 'buying_currency'):
+						new_charge_row.buying_currency = charge.buying_currency
+					if hasattr(charge, 'buying_amount'):
+						new_charge_row.buying_amount = charge.buying_amount
+					if hasattr(charge, 'estimated_cost'):
+						new_charge_row.estimated_cost = charge.estimated_cost
+					if hasattr(charge, 'use_tariff_in_cost'):
+						new_charge_row.use_tariff_in_cost = charge.use_tariff_in_cost
+					if hasattr(charge, 'cost_tariff'):
+						new_charge_row.cost_tariff = charge.cost_tariff
+					
+					# Copy revenue calculation fields
+					if hasattr(charge, 'revenue_calculation_method'):
+						new_charge_row.revenue_calculation_method = charge.revenue_calculation_method
+					if hasattr(charge, 'quantity'):
+						new_charge_row.quantity = charge.quantity
+					if hasattr(charge, 'uom'):
+						new_charge_row.uom = charge.uom
+					if hasattr(charge, 'currency'):
+						new_charge_row.currency = charge.currency
+					if hasattr(charge, 'rate'):
+						new_charge_row.rate = charge.rate
+					if hasattr(charge, 'unit_type'):
+						new_charge_row.unit_type = charge.unit_type
+					if hasattr(charge, 'minimum_quantity'):
+						new_charge_row.minimum_quantity = charge.minimum_quantity
+					if hasattr(charge, 'minimum_unit_rate'):
+						new_charge_row.minimum_unit_rate = charge.minimum_unit_rate
+					if hasattr(charge, 'minimum_charge'):
+						new_charge_row.minimum_charge = charge.minimum_charge
+					if hasattr(charge, 'maximum_charge'):
+						new_charge_row.maximum_charge = charge.maximum_charge
+					if hasattr(charge, 'base_amount'):
+						new_charge_row.base_amount = charge.base_amount
+					if hasattr(charge, 'base_quantity'):
+						new_charge_row.base_quantity = charge.base_quantity
+					
+					# Copy cost calculation fields
+					if hasattr(charge, 'cost_calculation_method'):
+						new_charge_row.cost_calculation_method = charge.cost_calculation_method
+					if hasattr(charge, 'cost_quantity'):
+						new_charge_row.cost_quantity = charge.cost_quantity
+					if hasattr(charge, 'cost_uom'):
+						new_charge_row.cost_uom = charge.cost_uom
+					if hasattr(charge, 'cost_currency'):
+						new_charge_row.cost_currency = charge.cost_currency
+					if hasattr(charge, 'unit_cost'):
+						new_charge_row.unit_cost = charge.unit_cost
+					if hasattr(charge, 'cost_unit_type'):
+						new_charge_row.cost_unit_type = charge.cost_unit_type
+					if hasattr(charge, 'cost_minimum_quantity'):
+						new_charge_row.cost_minimum_quantity = charge.cost_minimum_quantity
+					if hasattr(charge, 'cost_minimum_unit_rate'):
+						new_charge_row.cost_minimum_unit_rate = charge.cost_minimum_unit_rate
+					if hasattr(charge, 'cost_minimum_charge'):
+						new_charge_row.cost_minimum_charge = charge.cost_minimum_charge
+					if hasattr(charge, 'cost_maximum_charge'):
+						new_charge_row.cost_maximum_charge = charge.cost_maximum_charge
+					if hasattr(charge, 'cost_base_amount'):
+						new_charge_row.cost_base_amount = charge.cost_base_amount
+					if hasattr(charge, 'cost_base_quantity'):
+						new_charge_row.cost_base_quantity = charge.cost_base_quantity
+					
+					# Copy calculation notes
+					if hasattr(charge, 'revenue_calc_notes'):
+						new_charge_row.revenue_calc_notes = charge.revenue_calc_notes
+					if hasattr(charge, 'cost_calc_notes'):
+						new_charge_row.cost_calc_notes = charge.cost_calc_notes
+					
+					# Copy other service fields
+					if hasattr(charge, 'is_other_service'):
+						new_charge_row.is_other_service = charge.is_other_service
+					if hasattr(charge, 'other_service_reference'):
+						new_charge_row.other_service_reference = charge.other_service_reference
+					if hasattr(charge, 'other_service_type'):
+						new_charge_row.other_service_type = charge.other_service_type
+					if hasattr(charge, 'date_started'):
+						new_charge_row.date_started = charge.date_started
+					if hasattr(charge, 'date_ended'):
+						new_charge_row.date_ended = charge.date_ended
+					if hasattr(charge, 'other_service_reference_no'):
+						new_charge_row.other_service_reference_no = charge.other_service_reference_no
+					if hasattr(charge, 'other_service_notes'):
+						new_charge_row.other_service_notes = charge.other_service_notes
+					
+					# Store mapping for copying weight/qty breaks after insert
+					# Use idx+1 because Frappe uses 1-based indexing for child table rows
+					if old_charge_name and old_charge_name != "new":
+						charge_name_mapping[old_charge_name] = idx + 1
 			
 			# Copy routing legs (from Sea Booking Routing Leg to Sea Shipment Routing Leg)
 			# Note: Order is determined by idx (automatically set by Frappe), not leg_order
@@ -1443,15 +1712,56 @@ class SeaBooking(Document):
 						"notes": leg.notes,
 						"vessel": leg.vessel,
 						"voyage_no": leg.voyage_no,
+						"shipping_line": getattr(leg, 'shipping_line', None),
 						"flight_no": leg.flight_no,
-						"carrier_type": leg.carrier_type,
-						"carrier": leg.carrier,
+						"airline": getattr(leg, 'airline', None),
 						"load_port": leg.load_port,
 						"etd": leg.etd,
 						"atd": leg.atd,
 						"discharge_port": leg.discharge_port,
 						"eta": leg.eta,
 						"ata": leg.ata
+					})
+			
+			# Copy milestone_template if it exists
+			if hasattr(self, 'milestone_template') and self.milestone_template:
+				sea_shipment.milestone_template = self.milestone_template
+			
+			# Copy milestones if they exist (from Sea Booking Milestone to Sea Shipment Milestone)
+			if hasattr(self, 'milestones') and self.milestones:
+				for milestone in self.milestones:
+					sea_shipment.append("milestones", {
+						"milestone": milestone.milestone,
+						"status": milestone.status,
+						"planned_start": milestone.planned_start,
+						"planned_end": milestone.planned_end,
+						"actual_start": milestone.actual_start,
+						"actual_end": milestone.actual_end,
+						"source": milestone.source,
+						"fetched_at": milestone.fetched_at
+					})
+			
+			# Copy document_list_template and documents (Job Document child table) from Sea Booking to Sea Shipment
+			if hasattr(self, 'document_list_template') and self.document_list_template:
+				sea_shipment.document_list_template = self.document_list_template
+			if hasattr(self, 'documents') and self.documents:
+				for doc_row in self.documents:
+					sea_shipment.append("documents", {
+						"document_type": getattr(doc_row, "document_type", None),
+						"document_name": getattr(doc_row, "document_name", None),
+						"document_number": getattr(doc_row, "document_number", None),
+						"status": getattr(doc_row, "status", None),
+						"date_required": getattr(doc_row, "date_required", None),
+						"date_received": getattr(doc_row, "date_received", None),
+						"date_verified": getattr(doc_row, "date_verified", None),
+						"expiry_date": getattr(doc_row, "expiry_date", None),
+						"attachment": getattr(doc_row, "attachment", None),
+						"is_required": getattr(doc_row, "is_required", 0),
+						"is_verified": getattr(doc_row, "is_verified", 0),
+						"verified_by": getattr(doc_row, "verified_by", None),
+						"issued_by": getattr(doc_row, "issued_by", None),
+						"overdue_days": getattr(doc_row, "overdue_days", None),
+						"notes": getattr(doc_row, "notes", None),
 					})
 			
 			# Final validation check before insert - ensure all link fields are valid
@@ -1481,6 +1791,10 @@ class SeaBooking(Document):
 				else:
 					raise
 			
+			# Reload the document to sync the timestamp after insert
+			# This prevents timestamp mismatch errors when saving again
+			sea_shipment.reload()
+			
 			# Save the Sea Shipment (after_insert may have already saved it, but we save again to be sure)
 			try:
 				sea_shipment.save(ignore_permissions=True)
@@ -1498,6 +1812,107 @@ class SeaBooking(Document):
 					sea_shipment.save(ignore_permissions=True)
 				else:
 					raise
+			
+			# Copy weight breaks and quantity breaks from Sea Booking Charges to Sea Shipment Charges
+			# This must be done after the shipment is saved so charge names are available
+			if charge_name_mapping:
+				sea_shipment.reload()  # Reload to get saved charge names
+				for old_charge_name, charge_idx in charge_name_mapping.items():
+					if not old_charge_name or old_charge_name == "new":
+						continue
+					
+					# Get the new charge name after save by matching idx
+					new_charge_name = None
+					if sea_shipment.charges:
+						for ch in sea_shipment.charges:
+							if hasattr(ch, 'idx') and ch.idx == charge_idx:
+								new_charge_name = ch.name
+								break
+					
+					if not new_charge_name:
+						continue
+					
+					# Copy weight breaks (Selling)
+					old_weight_breaks = frappe.get_all(
+						"Sales Quote Weight Break",
+						filters={
+							"reference_doctype": "Sea Booking Charges",
+							"reference_no": old_charge_name,
+							"type": "Selling"
+						},
+						fields=["rate_type", "weight_break", "unit_rate", "currency"]
+					)
+					for wb in old_weight_breaks:
+						new_wb = frappe.new_doc("Sales Quote Weight Break")
+						new_wb.reference_doctype = "Sea Shipment Charges"
+						new_wb.reference_no = new_charge_name
+						new_wb.type = "Selling"
+						new_wb.rate_type = wb.get("rate_type") or "N (Normal)"
+						new_wb.weight_break = wb.get("weight_break", 0)
+						new_wb.unit_rate = wb.get("unit_rate", 0)
+						new_wb.currency = wb.get("currency") or "USD"
+						new_wb.insert(ignore_permissions=True)
+					
+					# Copy weight breaks (Cost)
+					old_cost_weight_breaks = frappe.get_all(
+						"Sales Quote Weight Break",
+						filters={
+							"reference_doctype": "Sea Booking Charges",
+							"reference_no": old_charge_name,
+							"type": "Cost"
+						},
+						fields=["rate_type", "weight_break", "unit_rate", "currency"]
+					)
+					for wb in old_cost_weight_breaks:
+						new_wb = frappe.new_doc("Sales Quote Weight Break")
+						new_wb.reference_doctype = "Sea Shipment Charges"
+						new_wb.reference_no = new_charge_name
+						new_wb.type = "Cost"
+						new_wb.rate_type = wb.get("rate_type") or "N (Normal)"
+						new_wb.weight_break = wb.get("weight_break", 0)
+						new_wb.unit_rate = wb.get("unit_rate", 0)
+						new_wb.currency = wb.get("currency") or "USD"
+						new_wb.insert(ignore_permissions=True)
+					
+					# Copy quantity breaks (Selling)
+					old_qty_breaks = frappe.get_all(
+						"Sales Quote Qty Break",
+						filters={
+							"reference_doctype": "Sea Booking Charges",
+							"reference_no": old_charge_name,
+							"type": "Selling"
+						},
+						fields=["qty_break", "unit_rate", "currency"]
+					)
+					for qb in old_qty_breaks:
+						new_qb = frappe.new_doc("Sales Quote Qty Break")
+						new_qb.reference_doctype = "Sea Shipment Charges"
+						new_qb.reference_no = new_charge_name
+						new_qb.type = "Selling"
+						new_qb.qty_break = qb.get("qty_break", 0)
+						new_qb.unit_rate = qb.get("unit_rate", 0)
+						new_qb.currency = qb.get("currency") or "USD"
+						new_qb.insert(ignore_permissions=True)
+					
+					# Copy quantity breaks (Cost)
+					old_cost_qty_breaks = frappe.get_all(
+						"Sales Quote Qty Break",
+						filters={
+							"reference_doctype": "Sea Booking Charges",
+							"reference_no": old_charge_name,
+							"type": "Cost"
+						},
+						fields=["qty_break", "unit_rate", "currency"]
+					)
+					for qb in old_cost_qty_breaks:
+						new_qb = frappe.new_doc("Sales Quote Qty Break")
+						new_qb.reference_doctype = "Sea Shipment Charges"
+						new_qb.reference_no = new_charge_name
+						new_qb.type = "Cost"
+						new_qb.qty_break = qb.get("qty_break", 0)
+						new_qb.unit_rate = qb.get("unit_rate", 0)
+						new_qb.currency = qb.get("currency") or "USD"
+						new_qb.insert(ignore_permissions=True)
 			
 			# Ensure commit before client navigates to the new doc (avoids "not found" on form load)
 			frappe.db.commit()
@@ -1593,16 +2008,15 @@ def get_available_one_off_quotes(sea_booking_name: str = None) -> Dict[str, Any]
 		if excluded_quotes:
 			filters["name"] = ["not in", excluded_quotes]
 		
-		# Also filter to only show One-Off Quotes that have sea enabled
-		# Check if One-Off Quote has is_sea field
+		# Also filter to only show Sales Quotes that have sea enabled
 		def _has_field(doctype: str, fieldname: str) -> bool:
 			try:
 				return frappe.get_meta(doctype).has_field(fieldname)
 			except Exception:
 				return False
-		
-		if _has_field("One-Off Quote", "is_sea"):
-			filters["is_sea"] = 1
+
+		if _has_field("Sales Quote", "main_service"):
+			filters["main_service"] = "Sea"
 		
 		return {"filters": filters}
 	except Exception as e:
@@ -1655,7 +2069,8 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 				"minimum_charge",
 				"maximum_charge",
 				"base_amount",
-				"estimated_revenue"
+				"estimated_revenue",
+				"charge_type"
 			],
 			order_by="idx"
 		)

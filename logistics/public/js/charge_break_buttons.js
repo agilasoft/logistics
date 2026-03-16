@@ -1,14 +1,14 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 // Weight Break and Qty Break buttons for charge tables - shared by Air Booking Charges,
-// Air Shipment Charges, Sea Booking Charges, Sea Freight Charges, Transport Order Charges,
+// Air Shipment Charges, Sea Booking Charges, Sea Shipment Charges, Transport Order Charges,
 // Transport Job Charges, Declaration Charges, Declaration Order Charges
 
 var CHARGE_DOCTYPES_WITH_BREAKS = [
 	"Air Booking Charges",
 	"Air Shipment Charges",
 	"Sea Booking Charges",
-	"Sea Freight Charges",
+	"Sea Shipment Charges",
 	"Transport Order Charges",
 	"Transport Job Charges",
 	"Declaration Charges",

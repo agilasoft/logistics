@@ -130,13 +130,23 @@ RUN_SHEET_LAYOUT_CSS = """
 .dash-status-badge.released { background: #d4edda; color: #155724; }
 .dash-status-badge.rejected { background: #f8d7da; color: #721c24; }
 .dash-status-badge.cancelled { background: #e2e3e5; color: #6c757d; }
-/* Delay/penalty alerts section */
+/* Delay/penalty alerts section - per-level collapsible groups only */
 .dash-alerts-section { margin-bottom: 16px; }
 .dash-alert-item { padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; display: flex; align-items: flex-start; gap: 8px; }
 .dash-alert-item.danger { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
 .dash-alert-item.warning { background: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }
 .dash-alert-item.info { background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8; }
 .dash-alert-item i { margin-top: 1px; }
+/* Collapsible alert groups per level (Critical, Warnings, Information) */
+.dash-alert-group { margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08); }
+.dash-alert-group-header { padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; }
+.dash-alert-group-header:hover { opacity: 0.9; }
+.dash-alert-group.dash-alert-group-danger .dash-alert-group-header { background: #f8d7da; color: #721c24; }
+.dash-alert-group.dash-alert-group-warning .dash-alert-group-header { background: #fff3cd; color: #856404; }
+.dash-alert-group.dash-alert-group-info .dash-alert-group-header { background: #d1ecf1; color: #0c5460; }
+.dash-alert-group-chevron { font-size: 10px; transition: transform 0.2s ease; }
+.dash-alert-group-body { padding: 6px 12px 12px; }
+.dash-alert-group.collapsed .dash-alert-group-body { display: none; }
 /* Dangerous Goods under origin/destination: green = compliant, red = non-compliant */
 .dg-alert-compliant { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
 .dg-alert-non-compliant { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -528,14 +538,8 @@ def build_run_sheet_style_dashboard(
 	if alerts_section:
 		alerts_section = f'<div class="dash-alerts-section">{alerts_section}</div>'
 
+	# Document Management section removed from dashboard (cards no longer shown here)
 	doc_management_section = ""
-	if doc_alerts_html:
-		doc_management_section = f"""
-		<div class="doc-management-section" style="margin-bottom: 20px;">
-			<label class="section-label">Document Management</label>
-			{doc_alerts_html}
-		</div>
-		"""
 	merged_cards_content = ""
 	if merge_header_with_cards:
 		merged_cards_content = f"""
@@ -567,17 +571,20 @@ def build_run_sheet_style_dashboard(
 			{map_section}
 		</div>
 	"""
-	# Alerts at top (no label), header + cards, Document Management at bottom
+	# Alerts at top (no label); doc_management_position "before" = above header, "after" = below body
 	top_alerts = (alerts_section or "").strip()
 	if merge_header_with_cards:
 		body_content = ""
 	else:
 		body_content = route_container
 	status_badge = (status_badge_html or "").strip()
+	doc_above_header = doc_management_section if (doc_management_section and doc_management_position == "before") else ""
+	doc_below_body = doc_management_section if (doc_management_section and doc_management_position != "before") else ""
 	html = f"""
 	<div class="run-sheet-dash">
 		<style>{RUN_SHEET_LAYOUT_CSS}</style>
 		{top_alerts}
+		{doc_above_header}
 		<div class="run-sheet-header">
 			<div class="header-main">
 				<div class="header-primary">
@@ -590,7 +597,7 @@ def build_run_sheet_style_dashboard(
 			{merged_cards_content}
 		</div>
 		{body_content}
-		{doc_management_section if doc_management_section else ""}
+		{doc_below_body}
 	</div>
 	"""
 	return html

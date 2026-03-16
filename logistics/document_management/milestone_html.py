@@ -31,7 +31,9 @@ def _render_icon_html(icon):
 
 
 def _compute_milestone_status(m):
-	"""Return (display_status, is_delayed) for a milestone."""
+	"""Return (display_status, is_delayed, severity) for a milestone.
+	severity: critical (red), impending (orange), informational (blue), or None.
+	"""
 	status = (_get_milestone_attr(m, "status") or "Planned").strip()
 	planned_end = _get_milestone_attr(m, "planned_end")
 	actual_end = _get_milestone_attr(m, "actual_end")
@@ -39,27 +41,33 @@ def _compute_milestone_status(m):
 	now = frappe.utils.now_datetime()
 
 	is_delayed = False
+	severity = None
 	if planned_end:
 		planned_dt = frappe.utils.get_datetime(planned_end)
 		if not actual_end:
 			if planned_dt < now:
 				is_delayed = True
 				status = "Delayed"
+				severity = "critical"
+			else:
+				from logistics.utils.alert_utils import get_severity_for_milestone
+				_, severity = get_severity_for_milestone(planned_end, None)
 		else:
 			actual_dt = frappe.utils.get_datetime(actual_end)
 			if actual_dt > planned_dt:
 				is_delayed = True
+				severity = "critical"
 				if status.lower() not in ("completed", "finished", "done"):
 					status = "Delayed"
 
 	# Normalize status for counting
 	if status.lower() in ("completed", "finished", "done"):
-		return "completed", is_delayed
+		return "completed", is_delayed, None
 	if status.lower() in ("delayed", "overdue"):
-		return "delayed", True
+		return "delayed", True, "critical"
 	if status.lower() in ("started", "in progress", "in_progress") or (actual_start and not actual_end):
-		return "started", is_delayed
-	return "planned", is_delayed
+		return "started", is_delayed, None
+	return "planned", is_delayed, severity
 
 
 def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
@@ -97,7 +105,7 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 	timeline_dots = []
 
 	for m in milestones:
-		display_status, is_delayed = _compute_milestone_status(m)
+		display_status, is_delayed, severity = _compute_milestone_status(m)
 		if display_status == "completed":
 			count_completed += 1
 		elif display_status == "started":
@@ -106,15 +114,29 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 			count_planned += 1
 		if is_delayed:
 			count_exceptions += 1
-		timeline_dots.append({"status": display_status, "is_delayed": is_delayed})
+		timeline_dots.append({"status": display_status, "is_delayed": is_delayed, "severity": severity})
 
 	# Build timeline HTML (horizontal line from first to last, smaller colored dots)
+	# Colors: green=completed, blue=started, red=critical/delayed, orange=impending, blue=informational, gray=planned
+	def _timeline_color(dot):
+		if dot["status"] == "completed":
+			return "#28a745"
+		if dot["status"] == "started":
+			return "#007bff"
+		if dot["is_delayed"]:
+			return "#dc3545"
+		if dot.get("severity") == "impending":
+			return "#fd7e14"
+		if dot.get("severity") == "informational":
+			return "#17a2b8"
+		return "#6c757d"
+
 	timeline_html = ""
 	if milestones:
 		n = len(milestones)
 		dots_html = []
 		for i, dot in enumerate(timeline_dots):
-			bg = "#28a745" if dot["status"] == "completed" else "#007bff" if dot["status"] == "started" else "#dc3545" if dot["is_delayed"] else "#6c757d"
+			bg = _timeline_color(dot)
 			title = milestone_details.get(milestones[i].milestone, milestones[i].milestone or "—")
 			pct = 100.0 * (i + 0.5) / n if n > 1 else 50
 			dots_html.append(
@@ -126,7 +148,7 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 		for i in range(n - 1):
 			left_pct = 100.0 * (i + 0.5) / n
 			right_pct = 100.0 * (i + 1.5) / n
-			seg_bg = "#28a745" if timeline_dots[i + 1]["status"] == "completed" else "#007bff" if timeline_dots[i + 1]["status"] == "started" else "#dc3545" if timeline_dots[i + 1]["is_delayed"] else "#6c757d"
+			seg_bg = _timeline_color(timeline_dots[i + 1])
 			line_segments.append(
 				'<div style="position:absolute;top:50%%;left:%s%%;width:%s%%;height:3px;margin-top:-2px;background:%s;border-radius:2px;"></div>'
 				% (left_pct, right_pct - left_pct, seg_bg)
@@ -162,7 +184,7 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 	rows = []
 	for m in milestones:
 		desc = milestone_details.get(m.milestone, m.milestone or "—")
-		display_status, is_delayed = _compute_milestone_status(m)
+		display_status, is_delayed, _ = _compute_milestone_status(m)
 		status_label = "Delayed" if (display_status == "delayed" or is_delayed) else (m.status or "Planned").strip()
 		status_class = "label-success" if display_status == "completed" else "label-info" if display_status == "started" else "label-danger" if display_status == "delayed" or is_delayed else "label-default"
 		planned_start = format_datetime_fn(m.planned_start) if m.planned_start else "—"
@@ -304,14 +326,26 @@ def build_milestone_html(
 	if milestones:
 		timeline_dots = []
 		for i, m in enumerate(milestones):
-			display_status, is_delayed = _compute_milestone_status(m)
+			display_status, is_delayed, severity = _compute_milestone_status(m)
 			info = milestone_details.get(m.get("milestone"), {})
 			desc = info.get("description") or m.get("milestone") or "—"
 			icon = info.get("icon") or "circle"
 			if not icon or str(icon).strip() == "":
 				icon = "circle"
 			icon_html = _render_icon_html(icon)
-			bg = "#28a745" if display_status == "completed" else "#007bff" if display_status == "started" else "#dc3545" if is_delayed else "#6c757d"
+			# Colors: green=completed, blue=started, red=critical/delayed, orange=impending, blue=informational, gray=planned
+			if display_status == "completed":
+				bg = "#28a745"
+			elif display_status == "started":
+				bg = "#007bff"
+			elif is_delayed:
+				bg = "#dc3545"
+			elif severity == "impending":
+				bg = "#fd7e14"
+			elif severity == "informational":
+				bg = "#17a2b8"
+			else:
+				bg = "#6c757d"
 			pct = 100.0 * (i + 0.5) / len(milestones) if len(milestones) > 1 else 50
 			timeline_dots.append({
 				"pct": pct, "bg": bg, "icon_html": icon_html, "desc": desc, "title": frappe.utils.escape_html(desc),

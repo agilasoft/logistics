@@ -30,18 +30,18 @@ def populate_unlocode_details(unlocode: str, doc: Any = None) -> Dict[str, Any]:
         unlocode_data = get_unlocode_data(unlocode.upper())
         
         if unlocode_data:
-            # Populate fields
+            # Ensure unlocode is in data for function/code-pattern logic
+            unlocode_data.setdefault("unlocode", unlocode.upper())
+            # Populate fields (includes Function Capabilities tab checkboxes)
             populated_fields = populate_fields_from_data(unlocode_data)
-            
             # Update document if provided
             if doc:
                 update_document_fields(doc, populated_fields)
-            
             print(f"✅ UNLOCO details populated for {unlocode}")
             return populated_fields
         else:
             print(f"⚠️  No UNLOCO data found for {unlocode}")
-            # Try to populate basic details from code
+            # Try to populate basic details from code; always include Function Capabilities checkboxes
             basic_fields = populate_basic_details_from_code(unlocode.upper())
             if doc:
                 update_document_fields(doc, basic_fields)
@@ -64,34 +64,49 @@ def get_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
     """
     try:
         # First, check if we have this UNLOCO code in our existing UNLOCO records
-        existing_unlocode = frappe.db.get_value("UNLOCO", 
-                                               {"unlocode": unlocode.upper()},
-                                               ["name", "location_name", "country", 
-                                                "country_code", "subdivision", "city",
-                                                "location_type", "iata_code", "icao_code",
-                                                "timezone", "currency", "language",
-                                                "utc_offset", "operating_hours", "latitude", "longitude",
-                                                "description"])
-        
+        existing_unlocode = frappe.db.get_value(
+            "UNLOCO",
+            {"unlocode": unlocode.upper()},
+            [
+                "name", "location_name", "country", "country_code", "subdivision", "city",
+                "location_type", "iata_code", "icao_code",
+                "timezone", "currency", "language", "utc_offset", "operating_hours",
+                "latitude", "longitude", "description",
+                "has_post", "has_customs", "has_unload", "has_airport", "has_rail",
+                "has_road", "has_store", "has_terminal", "has_discharge", "has_seaport", "has_outport",
+            ],
+        )
+
         if existing_unlocode:
-            # Return data from existing UNLOCO record
+            # Return data from existing UNLOCO record (Function Capabilities tab)
             return {
-                'location_name': existing_unlocode[1] or '',
-                'country': existing_unlocode[2] or '',
-                'country_code': existing_unlocode[3] or '',
-                'subdivision': existing_unlocode[4] or '',
-                'city': existing_unlocode[5] or '',
-                'location_type': existing_unlocode[6] or '',
-                'iata_code': existing_unlocode[7] or '',
-                'icao_code': existing_unlocode[8] or '',
-                'timezone': existing_unlocode[9] or '',
-                'currency': existing_unlocode[10] or '',
-                'language': existing_unlocode[11] or '',
-                'utc_offset': existing_unlocode[12] or '',
-                'operating_hours': existing_unlocode[13] or '',
-                'latitude': existing_unlocode[14],
-                'longitude': existing_unlocode[15],
-                'description': existing_unlocode[16] or ''
+                "location_name": existing_unlocode[1] or "",
+                "country": existing_unlocode[2] or "",
+                "country_code": existing_unlocode[3] or "",
+                "subdivision": existing_unlocode[4] or "",
+                "city": existing_unlocode[5] or "",
+                "location_type": existing_unlocode[6] or "",
+                "iata_code": existing_unlocode[7] or "",
+                "icao_code": existing_unlocode[8] or "",
+                "timezone": existing_unlocode[9] or "",
+                "currency": existing_unlocode[10] or "",
+                "language": existing_unlocode[11] or "",
+                "utc_offset": existing_unlocode[12] or "",
+                "operating_hours": existing_unlocode[13] or "",
+                "latitude": existing_unlocode[14],
+                "longitude": existing_unlocode[15],
+                "description": existing_unlocode[16] or "",
+                "has_post": existing_unlocode[17],
+                "has_customs": existing_unlocode[18],
+                "has_unload": existing_unlocode[19],
+                "has_airport": existing_unlocode[20],
+                "has_rail": existing_unlocode[21],
+                "has_road": existing_unlocode[22],
+                "has_store": existing_unlocode[23],
+                "has_terminal": existing_unlocode[24],
+                "has_discharge": existing_unlocode[25],
+                "has_seaport": existing_unlocode[26],
+                "has_outport": existing_unlocode[27],
             }
         
         # If not found in existing locations, try to get from UNLOCO database
@@ -519,7 +534,7 @@ def populate_fields_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, Any]:
         if unlocode_data.get('description'):
             populated_fields['description'] = unlocode_data['description']
         
-        # Set function checkboxes
+        # Set function checkboxes (from Function Capabilities tab; supports multiple functions)
         function_checkboxes = set_function_checkboxes_from_data(unlocode_data)
         populated_fields.update(function_checkboxes)
         
@@ -534,66 +549,113 @@ def populate_fields_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, Any]:
         frappe.log_error(f"Fields population error: {str(e)}")
         return {}
 
+# UN/LOCODE function code to Function Capabilities mapping (1=Port, 2=Rail, 3=Road, 4=Airport, 5=Post, etc.)
+_FUNCTION_TO_CAPABILITIES = {
+    "0": {},
+    "1": {"has_seaport": 1, "has_discharge": 1, "has_unload": 1, "has_terminal": 1},
+    "2": {"has_rail": 1, "has_terminal": 1},
+    "3": {"has_road": 1, "has_terminal": 1},
+    "4": {"has_airport": 1, "has_customs": 1, "has_terminal": 1},
+    "5": {"has_post": 1},
+    "6": {},
+    "7": {},
+    "b": {},
+    "port": {"has_seaport": 1, "has_discharge": 1, "has_unload": 1, "has_terminal": 1},
+    "rail": {"has_rail": 1, "has_terminal": 1},
+    "road": {"has_road": 1, "has_terminal": 1},
+    "airport": {"has_airport": 1, "has_customs": 1, "has_terminal": 1},
+    "post": {"has_post": 1},
+}
+
+
 def set_function_checkboxes_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, int]:
     """
-    Set function checkboxes based on location data
-    
-    Args:
-        unlocode_data: Dictionary of UNLOCO data
-    
-    Returns:
-        Dictionary of function checkbox values
+    Set Function Capabilities checkboxes from location data.
+    A location can have multiple functions (e.g. Port and Road); use the
+    'functions' list in data or location_type/code patterns.
     """
     try:
         checkboxes = {
-            'has_post': 0,
-            'has_customs': 0,
-            'has_unload': 0,
-            'has_airport': 0,
-            'has_rail': 0,
-            'has_road': 0,
-            'has_store': 1,  # Most locations have some storage
-            'has_terminal': 0,
-            'has_discharge': 0,
-            'has_seaport': 0,
-            'has_outport': 0
+            "has_post": 0,
+            "has_customs": 0,
+            "has_unload": 0,
+            "has_airport": 0,
+            "has_rail": 0,
+            "has_road": 0,
+            "has_store": 1,
+            "has_terminal": 0,
+            "has_discharge": 0,
+            "has_seaport": 0,
+            "has_outport": 0,
         }
-        
-        location_type = unlocode_data.get('location_type', '')
-        unlocode = unlocode_data.get('unlocode', '').upper()
-        
-        # Set checkboxes based on location type
+
+        # If data already has capability fields (e.g. from existing UNLOCO), preserve them
+        cap_keys = [k for k in checkboxes if k in unlocode_data and unlocode_data[k] is not None]
+        if cap_keys:
+            for k in cap_keys:
+                checkboxes[k] = 1 if unlocode_data.get(k) else 0
+            return checkboxes
+
+        # Support multiple functions via "functions" list (e.g. ["1", "3"] or ["Port", "Road"])
+        functions = unlocode_data.get("functions") or []
+        if isinstance(functions, str):
+            functions = [f.strip() for f in functions.split(",") if f.strip()]
+        for fn in functions:
+            key = str(fn).strip().lower()
+            if key in _FUNCTION_TO_CAPABILITIES:
+                for cap, val in _FUNCTION_TO_CAPABILITIES[key].items():
+                    checkboxes[cap] = max(checkboxes.get(cap, 0), val)
+            # Allow "1 - Port" style and take first token
+            if " " in key:
+                code = key.split()[0]
+                if code in _FUNCTION_TO_CAPABILITIES:
+                    for cap, val in _FUNCTION_TO_CAPABILITIES[code].items():
+                        checkboxes[cap] = max(checkboxes.get(cap, 0), val)
+
+        if any(checkboxes.values()):
+            return checkboxes
+
+        location_type = unlocode_data.get("location_type", "")
+        unlocode = (unlocode_data.get("unlocode") or "").upper()
+
+        # Set checkboxes based on location type (single primary type)
         if location_type == "Airport":
-            checkboxes['has_airport'] = 1
-            checkboxes['has_customs'] = 1
-            checkboxes['has_terminal'] = 1
+            checkboxes["has_airport"] = 1
+            checkboxes["has_customs"] = 1
+            checkboxes["has_terminal"] = 1
         elif location_type == "Port":
-            checkboxes['has_seaport'] = 1
-            checkboxes['has_customs'] = 1
-            checkboxes['has_unload'] = 1
-            checkboxes['has_discharge'] = 1
-            checkboxes['has_terminal'] = 1
+            checkboxes["has_seaport"] = 1
+            checkboxes["has_customs"] = 1
+            checkboxes["has_unload"] = 1
+            checkboxes["has_discharge"] = 1
+            checkboxes["has_terminal"] = 1
         elif location_type == "Railway Station":
-            checkboxes['has_rail'] = 1
-            checkboxes['has_terminal'] = 1
+            checkboxes["has_rail"] = 1
+            checkboxes["has_terminal"] = 1
         elif location_type == "Road Terminal":
-            checkboxes['has_road'] = 1
-            checkboxes['has_terminal'] = 1
-        
+            checkboxes["has_road"] = 1
+            checkboxes["has_terminal"] = 1
+
         # Set additional checkboxes based on UNLOCO code patterns
-        if "LAX" in unlocode or "JFK" in unlocode or "MIA" in unlocode or "ORD" in unlocode or "DFW" in unlocode or "ATL" in unlocode or "SEA" in unlocode or "LHR" in unlocode or "LGW" in unlocode:
-            checkboxes['has_airport'] = 1
-            checkboxes['has_customs'] = 1
-            checkboxes['has_terminal'] = 1
-        elif "LGB" in unlocode or "NYC" in unlocode or "HAM" in unlocode or "RTM" in unlocode or "SIN" in unlocode or "PVG" in unlocode or "YOK" in unlocode:
-            checkboxes['has_seaport'] = 1
-            checkboxes['has_customs'] = 1
-            checkboxes['has_unload'] = 1
-            checkboxes['has_discharge'] = 1
-            checkboxes['has_terminal'] = 1
-        
+        if any(
+            x in unlocode
+            for x in ["LAX", "JFK", "MIA", "ORD", "DFW", "ATL", "SEA", "LHR", "LGW"]
+        ):
+            checkboxes["has_airport"] = 1
+            checkboxes["has_customs"] = 1
+            checkboxes["has_terminal"] = 1
+        elif any(
+            x in unlocode
+            for x in ["LGB", "NYC", "HAM", "RTM", "SIN", "PVG", "YOK"]
+        ):
+            checkboxes["has_seaport"] = 1
+            checkboxes["has_customs"] = 1
+            checkboxes["has_unload"] = 1
+            checkboxes["has_discharge"] = 1
+            checkboxes["has_terminal"] = 1
+
         return checkboxes
-        
+
     except Exception as e:
         print(f"❌ Error setting function checkboxes: {str(e)}")
         frappe.log_error(f"Function checkbox setting error: {str(e)}")
@@ -674,38 +736,26 @@ def update_document_fields(doc: Any, populated_fields: Dict[str, Any]) -> None:
 
 def populate_basic_details_from_code(unlocode: str) -> Dict[str, Any]:
     """
-    Populate basic details from UNLOCO code when no data is found
-    
-    Args:
-        unlocode: UNLOCO code
-    
-    Returns:
-        Dictionary of basic populated fields
+    Populate basic details from UNLOCO code when no data is found.
+    Always includes Function Capabilities tab checkboxes (inferred from code or defaults).
     """
     try:
         if len(unlocode) != 5:
             return {}
-        
         country_code = unlocode[:2]
-        location_code = unlocode[2:]
-        
-        # Get country information
         country_info = get_country_info(country_code)
-        
-        # Set basic fields
         basic_fields = {
-            'country': country_info.get('country', ''),
-            'country_code': country_info.get('country_code', ''),
-            'currency': country_info.get('currency', ''),
-            'language': country_info.get('language', ''),
-            'timezone': get_timezone_for_country(country_code),
-            'utc_offset': get_utc_offset_for_country(country_code),
-            'description': f"Transport location with UNLOCO code {unlocode}",
-            'has_store': 1  # Most locations have some storage
+            "country": country_info.get("country", ""),
+            "country_code": country_info.get("country_code", ""),
+            "currency": country_info.get("currency", ""),
+            "language": country_info.get("language", ""),
+            "timezone": get_timezone_for_country(country_code),
+            "utc_offset": get_utc_offset_for_country(country_code),
+            "description": f"Transport location with UNLOCO code {unlocode}",
         }
-        
+        # Always update Function Capabilities checkboxes (from code pattern or defaults)
+        basic_fields.update(set_function_checkboxes_from_data({"unlocode": unlocode.upper()}))
         return basic_fields
-        
     except Exception as e:
         print(f"❌ Error populating basic details from code: {str(e)}")
         frappe.log_error(f"Basic details population error: {str(e)}")

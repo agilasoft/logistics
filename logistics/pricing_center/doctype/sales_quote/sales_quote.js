@@ -9,21 +9,35 @@ frappe.ui.form.on("Sales Quote", {
 	
 	onload(frm) {
 		frm.events.setup_vehicle_type_query(frm);
-		// Preload vehicle types cache for load_types present in transport table
-		if (frm.doc.transport && frm.doc.transport.length) {
-			const load_types = [...new Set(frm.doc.transport.map(r => r.load_type).filter(Boolean))];
+		// Preload vehicle types cache for load_types in Transport charges
+		const transport_charges = (frm.doc.charges || []).filter(c => c.service_type === "Transport");
+		if (transport_charges.length) {
+			const load_types = [...new Set(transport_charges.map(r => r.load_type).filter(Boolean))];
 			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
 		}
 		// Default UOMs from Settings per tab when fields are empty (for any visible tab)
 		if (frm.is_new()) {
 			frm.events.apply_default_uoms_per_tab(frm);
-			// Clear converted_to and status when duplicating
-			if (frm.doc.converted_to) {
-				frm.set_value("converted_to", "");
+			// Clear converted_to_doc and status when duplicating
+			if (frm.doc.converted_to_doc) {
+				frm.set_value("converted_to_doc", "");
 			}
 			if (frm.doc.status) {
 				frm.set_value("status", "");
 			}
+			// Validate and auto-correct naming_series on initial load for new documents
+			if (frm.doc.quotation_type && frm.doc.naming_series) {
+				setTimeout(() => {
+					frm.events._validate_naming_series_quotation_type(frm);
+				}, 200);
+			}
+		}
+		
+		// Set naming_series and quotation_type read-only for existing documents (name already generated)
+		// Allow editing for new documents and draft documents that haven't been saved yet
+		if (!frm.is_new() && frm.doc.name) {
+			frm.set_df_property("naming_series", "read_only", 1);
+			frm.set_df_property("quotation_type", "read_only", 1);
 		}
 		
 		// Listen to form dirty state changes to update primary button
@@ -35,83 +49,119 @@ frappe.ui.form.on("Sales Quote", {
 		$(frm.wrapper).on("clean", function() {
 			frm.events.update_primary_button(frm);
 		});
+		// Sync quotation_type to child table rows so Charge Parameters show when Regular
+		frm.events._sync_quotation_type_to_children(frm);
 	},
 
 	quotation_type(frm) {
-		if (frm.doc.quotation_type === "One-off" && frm.is_new()) {
-			frm.set_value("naming_series", "OOQ-.#####");
-		} else if (frm.doc.quotation_type === "Project" && frm.is_new()) {
-			frm.set_value("naming_series", "PQ-.#####");
-			frm.set_value("is_multimodal", 1);
-		} else if (frm.doc.quotation_type === "Regular" && frm.is_new()) {
-			frm.set_value("naming_series", "SQU.#########");
+		// Determine the correct naming_series based on quotation_type
+		let correct_series = null;
+		if (frm.doc.quotation_type === "One-off") {
+			correct_series = "OOQ.#####";
+		} else if (frm.doc.quotation_type === "Project") {
+			correct_series = "PQ.#####";
+		} else if (frm.doc.quotation_type === "Regular") {
+			correct_series = "SQU.#########";
 		}
+		
+		// For new documents, always set the correct naming_series
+		// For existing documents, validate and warn if mismatch
+		if (frm.is_new() && correct_series) {
+			frm.set_value("naming_series", correct_series);
+			// Validate after a short delay to ensure value is set
+			setTimeout(() => {
+				frm.events._validate_naming_series_quotation_type(frm);
+			}, 150);
+		} else {
+			// For existing documents or when quotation_type is cleared, just validate
+			// Use setTimeout to ensure doc values are updated
+			setTimeout(() => {
+				frm.events._validate_naming_series_quotation_type(frm);
+			}, 100);
+		}
+		
 		frm.refresh_field("naming_series");
 		frm.refresh_field("status_section");
 		frm.refresh_field("status");
 		frm.refresh_field("converted_to_doc");
 		frm.refresh_field("projects_tab");
 		frm.events._set_child_param_readonly(frm);
-		frm.refresh_field("sea_freight");
-		frm.refresh_field("air_freight");
-		frm.refresh_field("transport");
+		frm.events._sync_quotation_type_to_children(frm);
+		frm.refresh_field("charges");
+	},
+
+	naming_series(frm) {
+		// Validate naming_series matches quotation_type when user manually changes it
+		frm.events._validate_naming_series_quotation_type(frm);
+	},
+
+	_validate_naming_series_quotation_type(frm) {
+		// Mapping of quotation_type to allowed naming_series prefixes (dot and hyphen both accepted)
+		const allowed_prefixes_mapping = {
+			"Regular": ["SQU.", "SQU-"],
+			"One-off": ["OOQ.", "OOQ-"],
+			"Project": ["PQ.", "PQ-"]
+		};
+
+		if (!frm.doc.quotation_type || !frm.doc.naming_series) {
+			return; // Skip validation if either field is empty
+		}
+
+		const allowed_prefixes = allowed_prefixes_mapping[frm.doc.quotation_type];
+		if (!allowed_prefixes) {
+			return; // Unknown quotation_type, skip validation
+		}
+
+		const is_valid = allowed_prefixes.some(p => frm.doc.naming_series.startsWith(p));
+		if (!is_valid) {
+			const quotation_type = frm.doc.quotation_type;
+			const correct_series = quotation_type === "Regular" ? "SQU.#########"
+				: quotation_type === "One-off" ? "OOQ.#####"
+				: "PQ.#####";
+			const expected_display = allowed_prefixes.join(" / ");
+
+			// Auto-correct for new documents immediately
+			if (frm.is_new()) {
+				frm.set_value("naming_series", correct_series);
+				frappe.show_alert({
+					message: __("Naming Series automatically updated to match Quotation Type '{0}'.", [quotation_type]),
+					indicator: "blue"
+				}, 3);
+			} else {
+				// For existing documents, show warning but don't auto-correct
+				frappe.msgprint({
+					title: __("Naming Series Mismatch"),
+					message: __("Naming Series '{0}' does not match Quotation Type '{1}'. Expected series starting with '{2}' (e.g., {3}).", [
+						frm.doc.naming_series,
+						quotation_type,
+						expected_display,
+						correct_series
+					]),
+					indicator: "orange"
+				});
+			}
+		}
 	},
 
 	_set_child_param_readonly(frm) {
-		const isOneOff = frm.doc.quotation_type === "One-off";
-		const seaParams = ["sea_load_type", "sea_direction", "shipping_line", "freight_agent", "sea_transport_mode", "sea_house_type", "sea_release_type", "sea_entry_type", "origin_port", "destination_port"];
-		const airParams = ["air_load_type", "air_direction", "airline", "freight_agent", "air_house_type", "air_release_type", "air_entry_type", "origin_port", "destination_port"];
-		const transportParams = ["load_type", "transport_template", "vehicle_type", "container_type", "location_type", "location_from", "location_to", "pick_mode", "drop_mode"];
-		if (frm.fields_dict.sea_freight) {
-			seaParams.forEach(function(f) {
-				frm.set_df_property("sea_freight", f, "read_only", isOneOff);
-			});
-		}
-		if (frm.fields_dict.air_freight) {
-			airParams.forEach(function(f) {
-				frm.set_df_property("air_freight", f, "read_only", isOneOff);
-			});
-		}
-		if (frm.fields_dict.transport) {
-			transportParams.forEach(function(f) {
-				frm.set_df_property("transport", f, "read_only", isOneOff);
-			});
-		}
+		// Legacy child tables (sea_freight, air_freight, transport) removed in Phase 3; params now on Sales Quote Charge
 	},
 
-	sea_freight_add(frm) {
-		if (frm.doc.quotation_type === "One-off" && frm.doc.is_sea) {
-			frm.events._default_sea_row_from_header(frm);
-		}
+	_sync_quotation_type_to_children(frm) {
+		const qt = frm.doc.quotation_type || "Regular";
+		(frm.doc.charges || []).forEach(row => { row.quotation_type = qt; });
 	},
-	air_freight_add(frm) {
-		if (frm.doc.quotation_type === "One-off" && frm.doc.is_air) {
-			frm.events._default_air_row_from_header(frm);
-		}
+
+	charges_add(frm) {
+		frm.events._sync_quotation_type_to_children(frm);
 	},
-	transport_add(frm) {
-		if (frm.doc.quotation_type === "One-off" && frm.doc.is_transport) {
-			frm.events._default_transport_row_from_header(frm);
-		}
-	},
-	is_sea(frm) {
-		if (frm.doc.is_sea) {
-			frm.events.apply_default_uoms_for_tab(frm, "sea", "sea_");
-		}
-	},
-	is_air(frm) {
-		if (frm.doc.is_air) {
-			frm.events.apply_default_uoms_for_tab(frm, "air", "air_");
-		}
-	},
-	is_transport(frm) {
-		if (frm.doc.is_transport) {
-			frm.events.apply_default_uoms_for_tab(frm, "transport", "transport_");
-		}
-	},
-	is_warehousing(frm) {
-		if (frm.doc.is_warehousing) {
-			frm.events.apply_default_uoms_for_tab(frm, "warehousing", "warehouse_");
+	main_service(frm) {
+		if (frm.doc.main_service) {
+			const prefix_map = { "Sea": "sea_", "Air": "air_", "Transport": "transport_", "Warehousing": "warehouse_" };
+			const prefix = prefix_map[frm.doc.main_service];
+			if (prefix) {
+				frm.events.apply_default_uoms_for_tab(frm, frm.doc.main_service.toLowerCase(), prefix);
+			}
 		}
 	},
 
@@ -119,71 +169,16 @@ frappe.ui.form.on("Sales Quote", {
 		// Leg order is determined by child table idx (no separate Leg field).
 	},
 
-	_default_sea_row_from_header(frm) {
-		const rows = frm.doc.sea_freight || [];
-		if (rows.length === 0) return;
-		const row = rows[rows.length - 1];
-		const map = {
-			sea_load_type: frm.doc.sea_load_type,
-			sea_direction: frm.doc.sea_direction,
-			sea_transport_mode: frm.doc.sea_transport_mode,
-			shipping_line: frm.doc.shipping_line,
-			freight_agent: frm.doc.freight_agent_sea,
-			sea_house_type: frm.doc.sea_house_type,
-			origin_port: frm.doc.origin_port_sea,
-			destination_port: frm.doc.destination_port_sea
-		};
-		Object.keys(map).forEach(function(k) {
-			if (map[k] != null && map[k] !== "") {
-				row[k] = map[k];
-			}
-		});
-		frm.refresh_field("sea_freight");
-	},
-	_default_air_row_from_header(frm) {
-		const rows = frm.doc.air_freight || [];
-		if (rows.length === 0) return;
-		const row = rows[rows.length - 1];
-		const map = {
-			air_load_type: frm.doc.air_load_type,
-			air_direction: frm.doc.air_direction,
-			airline: frm.doc.airline,
-			freight_agent: frm.doc.freight_agent,
-			air_house_type: frm.doc.air_house_type,
-			origin_port: frm.doc.origin_port,
-			destination_port: frm.doc.destination_port
-		};
-		Object.keys(map).forEach(function(k) {
-			if (map[k] != null && map[k] !== "") {
-				row[k] = map[k];
-			}
-		});
-		frm.refresh_field("air_freight");
-	},
-	_default_transport_row_from_header(frm) {
-		const rows = frm.doc.transport || [];
-		if (rows.length === 0) return;
-		const row = rows[rows.length - 1];
-		const map = {
-			transport_template: frm.doc.transport_template,
-			load_type: frm.doc.load_type,
-			vehicle_type: frm.doc.vehicle_type,
-			container_type: frm.doc.container_type,
-			location_type: frm.doc.location_type,
-			location_from: frm.doc.location_from,
-			location_to: frm.doc.location_to,
-			pick_mode: frm.doc.pick_mode,
-			drop_mode: frm.doc.drop_mode
-		};
-		Object.keys(map).forEach(function(k) {
-			if (map[k] != null && map[k] !== "") {
-				row[k] = map[k];
-			}
-		});
-		frm.refresh_field("transport");
-	},
-	
 	refresh(frm) {
+		// Set naming_series and quotation_type read-only for existing documents (name already generated)
+		if (!frm.is_new() && frm.doc.name) {
+			frm.set_df_property("naming_series", "read_only", 1);
+			frm.set_df_property("quotation_type", "read_only", 1);
+		} else {
+			frm.set_df_property("naming_series", "read_only", 0);
+			frm.set_df_property("quotation_type", "read_only", 0);
+		}
+		
 		// Delegated click handler for Weight/Qty Break buttons (bypasses form event system if needed)
 		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
 			const $ctrl = $(e.target).closest(
@@ -236,24 +231,27 @@ frappe.ui.form.on("Sales Quote", {
 		if (frm.is_new()) {
 			frm.events.apply_default_uoms_per_tab(frm);
 		}
-		// Preload vehicle types cache for load_types in transport table
-		if (frm.doc.transport && frm.doc.transport.length) {
-			const load_types = [...new Set(frm.doc.transport.map(r => r.load_type).filter(Boolean))];
+		// Preload vehicle types cache for load_types in Transport charges
+		const transport_charges = (frm.doc.charges || []).filter(c => c.service_type === "Transport");
+		if (transport_charges.length) {
+			const load_types = [...new Set(transport_charges.map(r => r.load_type).filter(Boolean))];
 			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
 		}
 		frm.events.setup_vehicle_type_query(frm);
-		
-		// Add custom button to create Transport Order if is_transport = 1
+
+		// Add custom button to create Transport Order if main_service = Transport
 		add_create_button(frm, {
 			doctype: "Transport Order",
-			flag_field: "is_transport",
+			main_service: "Transport",
 			create_label: "Create Transport Order",
 			view_label: "View Transport Orders",
 			create_function: create_transport_order_from_sales_quote
 		});
 		
-		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items
-		if (frm.doc.docstatus === 1 && frm.doc.warehousing && frm.doc.warehousing.length > 0 && !frm.doc.__islocal) {
+		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items (unified or legacy)
+		const has_warehousing = (frm.doc.charges && frm.doc.charges.some(c => c.service_type === "Warehousing")) ||
+			(frm.doc.warehousing && frm.doc.warehousing.length > 0);
+		if (frm.doc.docstatus === 1 && has_warehousing && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Create Warehouse Contract"), function() {
 				create_warehouse_contract_from_sales_quote(frm);
 			}, __("Create"));
@@ -269,45 +267,70 @@ frappe.ui.form.on("Sales Quote", {
 			});
 		}
 		
-		// Add custom button to create Declaration if quote is One-Off and submitted
-		if (frm.doc.quotation_type === "One-off" && frm.doc.customs && frm.doc.customs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
-			// Check if Declaration already exists - restrict multiple orders for one-off quotes
-			frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
+		// Add custom button to create Declaration Order if quote is One-Off and submitted (unified or legacy)
+		const has_customs = (frm.doc.charges && frm.doc.charges.some(c => c.service_type === "Customs")) ||
+			(frm.doc.customs && frm.doc.customs.length > 0);
+		if (frm.doc.quotation_type === "One-off" && has_customs && !frm.doc.__islocal && frm.doc.docstatus === 1) {
+			frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
 				if (!r || !r.name) {
-					// No existing Declaration - show create button
-					frm.add_custom_button(__("Create Declaration"), function() {
-						create_declaration_from_sales_quote(frm);
+					frm.add_custom_button(__("Declaration Order"), function() {
+						create_declaration_order_from_sales_quote(frm);
 					}, __("Create"));
 				} else {
-					// Declaration exists - only show view button
-					frm.add_custom_button(__("View Declarations"), function() {
+					frm.add_custom_button(__("View Declaration Orders"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Declaration");
+						frappe.set_route("List", "Declaration Order");
 					}, __("Actions"));
 				}
 			});
 		}
 		
-		// Add custom button to create Air Booking if is_air = 1
+		// Add custom button to create Air Booking if main_service = Air
 		add_create_button(frm, {
 			doctype: "Air Booking",
-			flag_field: "is_air",
+			main_service: "Air",
 			create_label: "Create Air Booking",
 			view_label: "View Air Bookings",
 			create_function: create_air_booking_from_sales_quote
 		});
 		
-		// Add custom button to create Sea Booking if is_sea = 1
+		// Add custom button to create Sea Booking if main_service = Sea
 		add_create_button(frm, {
 			doctype: "Sea Booking",
-			flag_field: "is_sea",
+			main_service: "Sea",
 			create_label: "Create Sea Booking",
 			view_label: "View Sea Bookings",
 			create_function: create_sea_booking_from_sales_quote
 		});
 
+		// Recalculate Charges - show when quote has any charge lines
+		const has_charges = frm.doc.charges && frm.doc.charges.length > 0;
+		if (has_charges && !frm.is_new()) {
+			frm.add_custom_button(__("Calculate Charges"), function() {
+				frappe.call({
+					method: "logistics.pricing_center.doctype.sales_quote.sales_quote.recalculate_charges",
+					args: { docname: frm.doc.name },
+					freeze: true,
+					freeze_message: __("Recalculating charges..."),
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({ message: r.message.message, indicator: "green" }, 3);
+						}
+					}
+				});
+			}, __("Actions"));
+		}
+
+		// Get Rates from Cost Sheet - prompt for charge params, show charge list, fetch selected
+		if (has_charges && !frm.is_new()) {
+			frm.add_custom_button(__("Get Rates from Cost Sheet"), function() {
+				show_get_rates_from_cost_sheet_dialog(frm);
+			}, __("Actions"));
+		}
+
 		// Add custom button to create Sales Invoice from multimodal quote (when routing legs exist and Main Job has job_no)
-		if (frm.doc.is_multimodal && frm.doc.routing_legs && frm.doc.routing_legs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
+		if (frm.doc.routing_legs && frm.doc.routing_legs.length > 0 && !frm.doc.__islocal && frm.doc.docstatus === 1) {
 			const main_leg = frm.doc.routing_legs.find(r => r.is_main_job);
 			const has_main_job = main_leg && main_leg.job_no;
 			if (has_main_job) {
@@ -315,6 +338,13 @@ frappe.ui.form.on("Sales Quote", {
 					create_sales_invoice_from_sales_quote(frm);
 				}, __("Post"));
 			}
+		}
+		// Cross-module billing: suggest contributors for a leg (bill transport/warehouse with air/sea)
+		const legs_with_job = (frm.doc.routing_legs || []).filter(r => r.job_type && r.job_no);
+		if (legs_with_job.length > 0) {
+			frm.add_custom_button(__("Suggest contributors for leg"), function() {
+				suggest_contributors_for_leg(frm, legs_with_job);
+			}, __("Routing"));
 		}
 	},
 	
@@ -383,57 +413,41 @@ frappe.ui.form.on("Sales Quote", {
 	},
 	
 	setup_vehicle_type_query(frm) {
-		// Set up get_query for vehicle_type in child table (transport) based on row's load_type
-		if (frm.fields_dict.transport) {
-			frm.set_query('vehicle_type', 'transport', function(doc, cdt, cdn) {
+		// Set up get_query for vehicle_type in Transport services based on row's load_type
+		if (frm.fields_dict.services) {
+			frm.set_query('vehicle_type', 'services', function(doc, cdt, cdn) {
 				const row = frappe.get_doc(cdt, cdn);
+				if (row.service_type !== "Transport") return { filters: {} };
 				const load_type = row.load_type;
 				if (!load_type) return { filters: {} };
 				
-				// Ensure cache is initialized
-				if (!frm.allowed_vehicle_types_cache) {
-					frm.allowed_vehicle_types_cache = {};
-				}
-				
-				// Check if cache exists and has data
+				if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
 				const allowed = frm.allowed_vehicle_types_cache[load_type];
-				
-				// If cache exists and has data, return filtered list
 				if (allowed && allowed.length > 0) {
 					return { filters: { name: ["in", allowed] } };
 				}
 				
-				// If cache doesn't exist or is empty, trigger loading
 				if (!frm._loading_vehicle_types) frm._loading_vehicle_types = {};
-				
-				// Trigger async loading if not already loading
 				if (!frm._loading_vehicle_types[load_type]) {
 					frm._loading_vehicle_types[load_type] = true;
-					
 					frm.events.load_allowed_vehicle_types(frm, load_type, function() {
-						// After cache is loaded, refresh the transport child table
-						// This will cause get_query to be called again with the populated cache
-						frm.refresh_field('transport');
-						if (frm._loading_vehicle_types) {
-							delete frm._loading_vehicle_types[load_type];
-						}
+						frm.refresh_field('services');
+						if (frm._loading_vehicle_types) delete frm._loading_vehicle_types[load_type];
 					});
 				}
-				
-				// Return empty filter while loading - user will need to click dropdown again after cache loads
-				// Or we can show a message, but empty filter is cleaner
 				return { filters: { name: ["in", []] } };
 			});
 		}
 	},
 
 	apply_default_uoms_per_tab(frm) {
-		// Set default weight/volume/chargeable UOM from respective Settings for all visible tabs when fields are empty
+		// Set default weight/volume/chargeable UOM from respective Settings for main_service when fields are empty
+		const main = frm.doc.main_service || "";
 		const tabs = [
-			{ domain: "sea", visible: frm.doc.is_sea, prefix: "sea_" },
-			{ domain: "air", visible: frm.doc.is_air, prefix: "air_" },
-			{ domain: "transport", visible: frm.doc.is_transport, prefix: "transport_" },
-			{ domain: "warehousing", visible: frm.doc.is_warehousing, prefix: "warehouse_" }
+			{ domain: "sea", visible: main === "Sea", prefix: "sea_" },
+			{ domain: "air", visible: main === "Air", prefix: "air_" },
+			{ domain: "transport", visible: main === "Transport", prefix: "transport_" },
+			{ domain: "warehousing", visible: main === "Warehousing", prefix: "warehouse_" }
 		];
 		tabs.forEach(function (tab) {
 			if (tab.visible) {
@@ -559,18 +573,250 @@ frappe.ui.form.on("Sales Quote", {
 	
 });
 
+// Get Rates from Cost Sheet: Step 1 = params prompt, Step 2 = charge selection dialog
+function show_get_rates_from_cost_sheet_dialog(frm) {
+	var defaults = {};
+	if (frm.doc.quotation_type === "One-off") {
+		defaults = {
+			service_type: frm.doc.main_service || undefined,
+			origin_port: frm.doc.origin_port || undefined,
+			destination_port: frm.doc.destination_port || undefined,
+			load_type: frm.doc.load_type || undefined,
+			transport_mode: frm.doc.transport_mode || undefined
+		};
+	}
+	frappe.prompt([
+		{
+			fieldname: "charge_params_section",
+			fieldtype: "Section Break",
+			label: __("Charge Parameters")
+		},
+		{
+			fieldname: "service_type",
+			fieldtype: "Select",
+			label: __("Service Type"),
+			options: "\nAir\nSea\nTransport\nCustoms\nWarehousing",
+			default: defaults.service_type
+		},
+		{
+			fieldname: "charge_group",
+			fieldtype: "Select",
+			label: __("Charge Group"),
+			options: "\nOrigin\nDestination\nFreight\nCustoms\nDocumentation\nStorage\nInsurance\nOther"
+		},
+		{
+			fieldname: "column_break_params",
+			fieldtype: "Column Break"
+		},
+		{
+			fieldname: "origin_port",
+			fieldtype: "Link",
+			label: __("Origin Port"),
+			options: "UNLOCO",
+			default: defaults.origin_port
+		},
+		{
+			fieldname: "destination_port",
+			fieldtype: "Link",
+			label: __("Destination Port"),
+			options: "UNLOCO",
+			default: defaults.destination_port
+		},
+		{
+			fieldname: "load_type",
+			fieldtype: "Link",
+			label: __("Load Type"),
+			options: "Load Type",
+			default: defaults.load_type
+		},
+		{
+			fieldname: "transport_mode",
+			fieldtype: "Select",
+			label: __("Transport Mode"),
+			options: "\nFCL\nLCL",
+			default: defaults.transport_mode
+		},
+		{
+			fieldname: "cost_sheet_optional",
+			fieldtype: "Link",
+			label: __("Cost Sheet (optional)"),
+			description: __("Leave blank to search across all submitted Cost Sheets"),
+			options: "Cost Sheet",
+			get_query: function() {
+				return { filters: { "docstatus": 1 } };
+			}
+		}
+	], function(values) {
+		frappe.call({
+			method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_cost_sheet_charges_for_selection",
+			args: {
+				sales_quote: frm.doc.name,
+				cost_sheet: values.cost_sheet_optional || undefined,
+				service_type: values.service_type || undefined,
+				charge_group: values.charge_group || undefined,
+				origin_port: values.origin_port || undefined,
+				destination_port: values.destination_port || undefined,
+				load_type: values.load_type || undefined,
+				transport_mode: values.transport_mode || undefined
+			},
+			freeze: true,
+			freeze_message: __("Loading charges..."),
+			callback: function(r) {
+				if (!r.message || !r.message.charges || r.message.charges.length === 0) {
+					frappe.msgprint({
+						title: __("No Charges Found"),
+						message: __("No matching charges found. Try adjusting the parameters."),
+						indicator: "orange"
+					});
+					return;
+				}
+				show_cost_sheet_charge_selection_dialog(frm, r.message.charges);
+			}
+		});
+	}, __("Get Rates from Cost Sheet"));
+}
+
+function show_cost_sheet_charge_selection_dialog(frm, charges) {
+	var table_html = [
+		'<div class="cost-sheet-charge-selection">',
+		'<p class="text-muted">' + __("Select charges to fetch into Sales Quote.") + '</p>',
+		'<div class="mb-2">',
+		'<button type="button" class="btn btn-xs btn-secondary" id="select_all_charges">' + __("Select All") + '</button> ',
+		'<button type="button" class="btn btn-xs btn-secondary" id="deselect_all_charges">' + __("Deselect All") + '</button>',
+		'</div>',
+		'<div class="table-responsive"><table class="table table-bordered table-sm">',
+		'<thead><tr>',
+		'<th style="width:40px"><input type="checkbox" id="select_all_checkbox" /></th>',
+		'<th>' + __("Cost Sheet") + '</th>',
+		'<th>' + __("Provider") + '</th>',
+		'<th>' + __("Valid From") + '</th>',
+		'<th>' + __("Valid To") + '</th>',
+		'<th>' + __("Item") + '</th>',
+		'<th>' + __("Service") + '</th>',
+		'<th>' + __("Charge Group") + '</th>',
+		'<th>' + __("Origin") + '</th>',
+		'<th>' + __("Destination") + '</th>',
+		'<th>' + __("Load Type") + '</th>',
+		'<th>' + __("Mode") + '</th>',
+		'<th>' + __("Direction") + '</th>',
+		'<th>' + __("Unit Cost") + '</th>',
+		'<th>' + __("Currency") + '</th>',
+		'</tr></thead>',
+		'<tbody id="cost_sheet_charge_tbody"></tbody>',
+		'</table></div>',
+		'</div>'
+	].join("");
+
+	var dialog = new frappe.ui.Dialog({
+		title: __("Select Charges to Fetch"),
+		size: "extra-large",
+		fields: [
+			{ fieldname: "charges_section", fieldtype: "Section Break", label: __("Available Charges") },
+			{ fieldname: "charges_html", fieldtype: "HTML", options: table_html }
+		],
+		primary_action_label: __("Fetch Selected"),
+		primary_action: function() {
+			var tbody = dialog.$wrapper.find("#cost_sheet_charge_tbody");
+			var selected = [];
+			tbody.find("tr").each(function() {
+				var $row = $(this);
+				if ($row.find("input.charge-select").is(":checked")) {
+					selected.push($row.data("charge-name"));
+				}
+			});
+			if (selected.length === 0) {
+				frappe.msgprint({
+					title: __("No Selection"),
+					message: __("Please select at least one charge to fetch."),
+					indicator: "orange"
+				});
+				return;
+			}
+			dialog.hide();
+			frappe.call({
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_rates_from_cost_sheet",
+				args: {
+					sales_quote: frm.doc.name,
+					selected_charge_names: selected
+				},
+				freeze: true,
+				freeze_message: __("Fetching rates from Cost Sheet..."),
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						frm.reload_doc();
+						frappe.show_alert({
+							message: r.message.message || __("Cost rates have been populated from Cost Sheet"),
+							indicator: "green"
+						}, 3);
+					} else if (r.message && r.message.message) {
+						frappe.msgprint({
+							title: __("Information"),
+							message: r.message.message,
+							indicator: "blue"
+						});
+					}
+				}
+			});
+		}
+	});
+	dialog.show();
+
+	var tbody = dialog.$wrapper.find("#cost_sheet_charge_tbody");
+	charges.forEach(function(ch) {
+		var tr = $('<tr></tr>');
+		tr.data("charge-name", ch.name);
+		tr.append('<td><input type="checkbox" class="charge-select" checked /></td>');
+		var csTitle = ch.cost_sheet_description ? (' title="' + frappe.utils.escape_html(ch.cost_sheet_description) + '"') : '';
+		tr.append('<td' + csTitle + '>' + (ch.cost_sheet || "") + '</td>');
+		tr.append('<td>' + (ch.provider_name || ch.provider_type || "") + '</td>');
+		tr.append('<td>' + (ch.valid_from || "") + '</td>');
+		tr.append('<td>' + (ch.valid_to || "") + '</td>');
+		tr.append('<td>' + (ch.item_code || "") + (ch.item_name ? " - " + ch.item_name : "") + '</td>');
+		tr.append('<td>' + (ch.service_type || "") + '</td>');
+		tr.append('<td>' + (ch.charge_group || "") + '</td>');
+		tr.append('<td>' + (ch.origin_port || "") + '</td>');
+		tr.append('<td>' + (ch.destination_port || "") + '</td>');
+		tr.append('<td>' + (ch.load_type || "") + '</td>');
+		tr.append('<td>' + (ch.transport_mode || "") + '</td>');
+		tr.append('<td>' + (ch.direction || "") + '</td>');
+		tr.append('<td>' + (ch.unit_cost != null && ch.unit_cost !== "" ? (typeof frappe.format === "function" ? frappe.format(ch.unit_cost, { fieldtype: "Currency", options: ch.cost_currency || "" }) : ch.unit_cost) : "") + '</td>');
+		tr.append('<td>' + (ch.cost_currency || "") + '</td>');
+		tbody.append(tr);
+	});
+
+	dialog.$wrapper.find("#select_all_charges").on("click", function() {
+		tbody.find("input.charge-select").prop("checked", true);
+		dialog.$wrapper.find("#select_all_checkbox").prop("checked", true);
+	});
+	dialog.$wrapper.find("#deselect_all_charges").on("click", function() {
+		tbody.find("input.charge-select").prop("checked", false);
+		dialog.$wrapper.find("#select_all_checkbox").prop("checked", false);
+	});
+	dialog.$wrapper.find("#select_all_checkbox").on("change", function() {
+		var checked = $(this).is(":checked");
+		tbody.find("input.charge-select").prop("checked", checked);
+	});
+	tbody.on("change", "input.charge-select", function() {
+		var total = tbody.find("input.charge-select").length;
+		var checked = tbody.find("input.charge-select:checked").length;
+		dialog.$wrapper.find("#select_all_checkbox").prop("checked", total === checked);
+	});
+}
+
 // Helper function to add create/view buttons for related documents
 function add_create_button(frm, config) {
 	const {
 		doctype,           // e.g., "Transport Order"
-		flag_field,        // e.g., "is_transport"
+		main_service,      // e.g., "Transport"
 		create_label,      // e.g., "Create Transport Order"
 		view_label,        // e.g., "View Transport Orders"
 		create_function    // e.g., create_transport_order_from_sales_quote
 	} = config;
-	
-	// Check if flag is set to 1
-	if (frm.doc[flag_field] !== 1) return;
+
+	// Check if main_service matches or quote has charges for this service
+	const mainMatches = frm.doc.main_service === main_service;
+	const hasChargesForService = (frm.doc.charges || []).some(c => c.service_type === main_service);
+	if (!mainMatches && !hasChargesForService) return;
 	
 	// Common conditions
 	const isSubmitted = !frm.doc.__islocal && frm.doc.docstatus === 1;
@@ -595,320 +841,72 @@ function add_create_button(frm, config) {
 	});
 }
 
-// Child table events for Sales Quote Transport
-frappe.ui.form.on('Sales Quote Transport', {
+// Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
+frappe.ui.form.on('Sales Quote Charge', {
+	charge_type: function(frm, cdt, cdn) {
+		// Refresh charges so Revenue/Cost fields show/hide based on charge_type
+		frm.refresh_field('charges');
+	},
 	load_type: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
-		if (row.load_type) {
-			// Ensure cache is initialized
-			if (!frm.allowed_vehicle_types_cache) {
-				frm.allowed_vehicle_types_cache = {};
+		if (row.service_type !== "Transport" || !row.load_type) return;
+		if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
+		const previous_vehicle_type = row.vehicle_type;
+		if (previous_vehicle_type) frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
+		frm.events.load_allowed_vehicle_types(frm, row.load_type, function() {
+			if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
+			const allowed = frm.allowed_vehicle_types_cache[row.load_type] || [];
+			if (previous_vehicle_type && allowed.length > 0 && allowed.includes(previous_vehicle_type)) {
+				frappe.model.set_value(cdt, cdn, 'vehicle_type', previous_vehicle_type);
 			}
-			
-			// Store previous vehicle_type to potentially restore it if still valid
-			const previous_vehicle_type = row.vehicle_type;
-			
-			// Clear vehicle_type immediately when load_type changes
-			// This prevents showing invalid options in dropdown
-			if (previous_vehicle_type) {
-				frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
-			}
-			
-			// Load vehicle types and refresh vehicle_type field after loading
-			frm.events.load_allowed_vehicle_types(frm, row.load_type, function() {
-				// Ensure cache is initialized (defensive check)
-				if (!frm.allowed_vehicle_types_cache) {
-					frm.allowed_vehicle_types_cache = {};
-				}
-				// Check if previous vehicle_type is still valid for the new load_type
-				if (previous_vehicle_type) {
-					const allowed = frm.allowed_vehicle_types_cache[row.load_type] || [];
-					if (allowed.length > 0 && allowed.includes(previous_vehicle_type)) {
-						// Restore vehicle_type if it's still valid
-						frappe.model.set_value(cdt, cdn, 'vehicle_type', previous_vehicle_type);
-					}
-				}
-				// Refresh transport child table to update vehicle_type dropdown with new options
-				frm.refresh_field('transport');
-			});
-		} else {
-			// If load_type is cleared, clear vehicle_type and refresh
-			if (row.vehicle_type) {
-				frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
-			}
-			frm.refresh_field('transport');
-		}
+			frm.refresh_field('charges');
+		});
 	},
-	quantity: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_quantity: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	calculation_method: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	unit_rate: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	unit_type: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	minimum_quantity: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	minimum_charge: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	maximum_charge: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	base_amount: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_calculation_method: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	unit_cost: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_unit_type: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_minimum_quantity: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_minimum_charge: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_maximum_charge: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	},
-	
-	cost_base_amount: function(frm, cdt, cdn) {
-		trigger_transport_calculation(frm, cdt, cdn);
-	}
+	calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	unit_rate: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	unit_type: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	minimum_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	minimum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	maximum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	unit_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_unit_type: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_minimum_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_minimum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 });
 
-// Function to trigger transport calculations
-function trigger_transport_calculation(frm, cdt, cdn) {
-	// Get row data from the form
-	let row = null;
-	if (frm.doc.transport) {
-		row = frm.doc.transport.find(function(r) { return r.name === cdn; });
-	}
-	
-	if (!row) {
-		// Fallback: use the first transport row
-		if (frm.doc.transport && frm.doc.transport.length > 0) {
-			row = frm.doc.transport[0];
-		} else {
-			return;
-		}
-	}
-	
-	// Debounce the calculation to avoid too many calls
-	if (row._calculation_timeout) {
-		clearTimeout(row._calculation_timeout);
-	}
-	
-	row._calculation_timeout = setTimeout(function() {
-		// Get current row data
-		let line_data = {
-			item_code: row.item_code,
-			item_name: row.item_name,
-			calculation_method: row.calculation_method,
-			quantity: row.quantity,
-			unit_rate: row.unit_rate,
-			unit_type: row.unit_type,
-			minimum_quantity: row.minimum_quantity,
-			minimum_charge: row.minimum_charge,
-			maximum_charge: row.maximum_charge,
-			base_amount: row.base_amount,
-			cost_calculation_method: row.cost_calculation_method,
-			cost_quantity: row.cost_quantity,
-			unit_cost: row.unit_cost,
-			cost_unit_type: row.cost_unit_type,
-			cost_minimum_quantity: row.cost_minimum_quantity,
-			cost_minimum_charge: row.cost_minimum_charge,
-			cost_maximum_charge: row.cost_maximum_charge,
-			cost_base_amount: row.cost_base_amount,
-			use_tariff_in_revenue: row.use_tariff_in_revenue,
-			use_tariff_in_cost: row.use_tariff_in_cost,
-			tariff: row.tariff
-		};
-		
-		// Call the calculation API
-		frappe.call({
-			method: 'logistics.pricing_center.doctype.sales_quote_transport.sales_quote_transport.trigger_calculations_for_line',
-			args: {
-				line_data: JSON.stringify(line_data)
-			},
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					// Update the row with calculated values
-					frappe.model.set_value(cdt, cdn, 'estimated_revenue', r.message.estimated_revenue || 0);
-					frappe.model.set_value(cdt, cdn, 'estimated_cost', r.message.estimated_cost || 0);
-					frappe.model.set_value(cdt, cdn, 'revenue_calc_notes', r.message.revenue_calc_notes || '');
-					frappe.model.set_value(cdt, cdn, 'cost_calc_notes', r.message.cost_calc_notes || '');
-					
-					// Refresh the field to show updated values
-					frm.refresh_field('transport');
+function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
+	if (!cdn) return;
+	var row = locals[cdt] && locals[cdt][cdn];
+	if (!row) return;
+	frappe.call({
+		method: "logistics.utils.charges_calculation.calculate_charge_row",
+		args: {
+			doctype: "Sales Quote Charge",
+			parenttype: "Sales Quote",
+			parent: frm.doc.name || "new",
+			row_data: JSON.stringify(row)
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
+				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				if (r.message.quantity != null) {
+					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
 				}
-			}
-		});
-	}, 500); // 500ms debounce
-}
-
-// Child table events for Sales Quote Air Freight
-frappe.ui.form.on('Sales Quote Air Freight', {
-	quantity: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_quantity: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	calculation_method: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	unit_rate: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	unit_type: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	minimum_quantity: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	minimum_charge: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	maximum_charge: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	base_amount: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_calculation_method: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	unit_cost: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_unit_type: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_minimum_quantity: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_minimum_charge: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_maximum_charge: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	},
-	
-	cost_base_amount: function(frm, cdt, cdn) {
-		trigger_air_freight_calculation(frm, cdt, cdn);
-	}
-});
-
-// Function to trigger air freight calculations
-function trigger_air_freight_calculation(frm, cdt, cdn) {
-	// Get row data from the form
-	let row = null;
-	if (frm.doc.air_freight) {
-		row = frm.doc.air_freight.find(function(r) { return r.name === cdn; });
-	}
-	
-	if (!row) {
-		// Fallback: use the first air freight row
-		if (frm.doc.air_freight && frm.doc.air_freight.length > 0) {
-			row = frm.doc.air_freight[0];
-		} else {
-			return;
-		}
-	}
-	
-	// Debounce the calculation to avoid too many calls
-	if (row._calculation_timeout) {
-		clearTimeout(row._calculation_timeout);
-	}
-	
-	row._calculation_timeout = setTimeout(function() {
-		// Get current row data
-		let line_data = {
-			item_code: row.item_code,
-			item_name: row.item_name,
-			calculation_method: row.calculation_method,
-			quantity: row.quantity,
-			unit_rate: row.unit_rate,
-			unit_type: row.unit_type,
-			minimum_quantity: row.minimum_quantity,
-			minimum_charge: row.minimum_charge,
-			maximum_charge: row.maximum_charge,
-			base_amount: row.base_amount,
-			cost_calculation_method: row.cost_calculation_method,
-			cost_quantity: row.cost_quantity,
-			unit_cost: row.unit_cost,
-			cost_unit_type: row.cost_unit_type,
-			cost_minimum_quantity: row.cost_minimum_quantity,
-			cost_minimum_charge: row.cost_minimum_charge,
-			cost_maximum_charge: row.cost_maximum_charge,
-			cost_base_amount: row.cost_base_amount,
-			use_tariff_in_revenue: row.use_tariff_in_revenue,
-			use_tariff_in_cost: row.use_tariff_in_cost,
-			tariff: row.tariff
-		};
-		
-		// Call the calculation API
-		frappe.call({
-			method: 'logistics.pricing_center.doctype.sales_quote_air_freight.sales_quote_air_freight.trigger_air_freight_calculations_for_line',
-			args: {
-				line_data: JSON.stringify(line_data)
-			},
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					// Update the row with calculated values
-					frappe.model.set_value(cdt, cdn, 'estimated_revenue', r.message.estimated_revenue || 0);
-					frappe.model.set_value(cdt, cdn, 'estimated_cost', r.message.estimated_cost || 0);
-					frappe.model.set_value(cdt, cdn, 'revenue_calc_notes', r.message.revenue_calc_notes || '');
-					frappe.model.set_value(cdt, cdn, 'cost_calc_notes', r.message.cost_calc_notes || '');
-					
-					// Refresh the field to show updated values
-					frm.refresh_field('air_freight');
+				if (r.message.cost_quantity != null) {
+					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
 				}
+				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
 			}
-		});
-	}, 500); // 500ms debounce
+		}
+	});
 }
 
 function create_transport_order_from_sales_quote(frm) {
@@ -1041,6 +1039,59 @@ function create_warehouse_contract_from_sales_quote(frm) {
 	);
 }
 
+function suggest_contributors_for_leg(frm, legs_with_job) {
+	let leg;
+	if (legs_with_job.length === 1) {
+		leg = legs_with_job[0];
+		do_suggest_contributors(frm, leg);
+		return;
+	}
+	const option_labels = legs_with_job.map((r, i) => __("Leg {0}: {1} {2}").format((i + 1), r.job_type || "", r.job_no || ""));
+	frappe.prompt({
+		fieldname: "leg_idx",
+		fieldtype: "Select",
+		label: __("Select leg to suggest contributors for"),
+		options: option_labels.join("\n"),
+		reqd: 1
+	}, function(values) {
+		const idx = option_labels.indexOf(values.leg_idx);
+		leg = legs_with_job[idx >= 0 ? idx : 0];
+		do_suggest_contributors(frm, leg);
+	}, __("Suggest contributors"));
+}
+
+function do_suggest_contributors(frm, leg) {
+	frappe.call({
+		method: "logistics.billing.cross_module_billing.get_suggested_contributors_for_anchor",
+		args: {
+			anchor_doctype: leg.job_type,
+			anchor_name: leg.job_no,
+			sales_quote: frm.doc.name || undefined
+		},
+		callback: function(r) {
+			if (!r.message || r.message.length === 0) {
+				frappe.msgprint({ message: __("No linked jobs found to bill with this leg."), indicator: "blue" });
+				return;
+			}
+			const existing = (leg.bill_with_contributors || []).map(c => c.contributor_job_type + "|" + c.contributor_job_no);
+			let added = 0;
+			(r.message || []).forEach(function(s) {
+				const key = (s.job_type || s.contributor_job_type) + "|" + (s.job_no || s.contributor_job_no);
+				if (existing.indexOf(key) >= 0) return;
+				existing.push(key);
+				if (!leg.bill_with_contributors) leg.bill_with_contributors = [];
+				leg.bill_with_contributors.push({
+					contributor_job_type: s.job_type || s.contributor_job_type,
+					contributor_job_no: s.job_no || s.contributor_job_no
+				});
+				added++;
+			});
+			frm.refresh_field("routing_legs");
+			frappe.msgprint({ message: __("Added {0} contributor(s) to leg. Save the document to keep changes.").format(added), indicator: "green" });
+		}
+	});
+}
+
 function create_sales_invoice_from_sales_quote(frm) {
 	frappe.confirm(
 		__("Create Sales Invoice from this multimodal Sales Quote?"),
@@ -1113,28 +1164,62 @@ function show_air_booking_confirmation(frm) {
 				callback: function(r) {
 					frm.dashboard.clear_headline();
 					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.air_booking) {
+
+					var air_booking_name = (r.message && r.message.air_booking) ? r.message.air_booking : null;
+					if (!air_booking_name) {
+						if (r.message && r.message.success) {
+							frappe.msgprint({
+								title: __("Air Booking Created"),
+								message: __("Air Booking has been created successfully."),
+								indicator: "green"
+							});
+						} else if (r.message && r.message.message) {
+							frappe.msgprint({
+								title: __("Information"),
+								message: r.message.message,
+								indicator: "blue"
+							});
+						}
+						return;
+					}
+
+					if (r.message && r.message.success) {
 						frappe.msgprint({
 							title: __("Air Booking Created"),
-							message: __("Air Booking {0} has been created successfully.", [r.message.air_booking]),
+							message: __("Air Booking {0} has been created successfully.", [air_booking_name]),
 							indicator: "green"
 						});
-						setTimeout(function() {
-							frappe.set_route("Form", "Air Booking", r.message.air_booking);
-						}, 100);
 					} else if (r.message && r.message.message) {
 						frappe.msgprint({
 							title: __("Information"),
 							message: r.message.message,
 							indicator: "blue"
 						});
-						if (r.message.air_booking) {
-							setTimeout(function() {
-								frappe.set_route("Form", "Air Booking", r.message.air_booking);
-							}, 100);
-						}
 					}
+
+					// Poll until doc is visible on server, then navigate (avoids "Air Booking ... not found" on form load)
+					function try_navigate(attempt) {
+						var max_attempts = 15;
+						if (attempt > max_attempts) {
+							frappe.set_route("Form", "Air Booking", air_booking_name);
+							return;
+						}
+						frappe.call({
+							method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
+							args: { docname: air_booking_name },
+							callback: function(res) {
+								if (res.message === true) {
+									frappe.set_route("Form", "Air Booking", air_booking_name);
+								} else {
+									setTimeout(function() { try_navigate(attempt + 1); }, 300);
+								}
+							},
+							error: function() {
+								setTimeout(function() { try_navigate(attempt + 1); }, 300);
+							}
+						});
+					}
+					try_navigate(1);
 				},
 				error: function(r) {
 					frm.dashboard.clear_headline();
@@ -1214,9 +1299,10 @@ function show_sea_booking_confirmation(frm) {
 				},
 				error: function(r) {
 					frm.dashboard.clear_headline();
+					const msg = (r && r.message) || __("Failed to create Sea Booking. Please try again.");
 					frappe.msgprint({
 						title: __("Error"),
-						message: __("Failed to create Sea Booking. Please try again."),
+						message: msg,
 						indicator: "red"
 					});
 				}
@@ -1225,74 +1311,59 @@ function show_sea_booking_confirmation(frm) {
 	);
 }
 
-function create_declaration_from_sales_quote(frm) {
-	// Check if one-off and declaration already exists
+function create_declaration_order_from_sales_quote(frm) {
 	if (frm.doc.quotation_type === "One-off") {
-		frappe.db.get_value("Declaration", {"sales_quote": frm.doc.name}, "name", function(r) {
+		frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
 			if (r && r.name) {
 				frappe.msgprint({
-					title: __("Cannot Create Multiple Orders"),
-					message: __("This is a One-Off Sales Quote and a Declaration already exists. Only one declaration can be created from a One-Off quote."),
+					title: __("Already Created"),
+					message: __("A Declaration Order already exists for this One-Off Sales Quote."),
 					indicator: "orange"
 				});
-				// Show existing declaration
-				frappe.set_route("Form", "Declaration", r.name);
+				frappe.set_route("Form", "Declaration Order", r.name);
 				return;
 			}
-			// No existing declaration - proceed with creation
-			show_declaration_confirmation(frm);
+			show_declaration_order_confirmation(frm);
 		});
 	} else {
-		// Not one-off - allow multiple declarations
-		show_declaration_confirmation(frm);
+		show_declaration_order_confirmation(frm);
 	}
 }
 
-function show_declaration_confirmation(frm) {
-	// Show confirmation dialog
+function show_declaration_order_confirmation(frm) {
 	frappe.confirm(
-		__("Are you sure you want to create a Declaration from this Sales Quote?"),
+		__("Create a Declaration Order from this Sales Quote?"),
 		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Declaration..."));
-			
-			// Call the server method
+			frm.dashboard.set_headline_alert(__("Creating Declaration Order..."));
 			frappe.call({
-				method: "logistics.customs.doctype.declaration.declaration.create_declaration_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
+				method: "logistics.customs.doctype.declaration_order.declaration_order.create_declaration_order_from_sales_quote",
+				args: { sales_quote_name: frm.doc.name },
 				callback: function(r) {
 					frm.dashboard.clear_headline();
 					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.declaration) {
+					if (r.message && r.message.success && r.message.declaration_order) {
 						frappe.msgprint({
-							title: __("Declaration Created"),
-							message: __("Declaration {0} has been created successfully.", [r.message.declaration]),
+							title: __("Declaration Order Created"),
+							message: __("Declaration Order {0} has been created. Sales Quote status and Converted To have been updated.", [r.message.declaration_order]),
 							indicator: "green"
 						});
+						frm.reload_doc();
 						setTimeout(function() {
-							frappe.set_route("Form", "Declaration", r.message.declaration);
+							frappe.set_route("Form", "Declaration Order", r.message.declaration_order);
 						}, 100);
 					} else if (r.message && r.message.message) {
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-						if (r.message.declaration) {
-							setTimeout(function() {
-								frappe.set_route("Form", "Declaration", r.message.declaration);
-							}, 100);
+						frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+						if (r.message.declaration_order) {
+							frm.reload_doc();
+							setTimeout(function() { frappe.set_route("Form", "Declaration Order", r.message.declaration_order); }, 100);
 						}
 					}
 				},
-				error: function(r) {
+				error: function() {
 					frm.dashboard.clear_headline();
 					frappe.msgprint({
 						title: __("Error"),
-						message: __("Failed to create Declaration. Please try again."),
+						message: __("Failed to create Declaration Order. Please try again."),
 						indicator: "red"
 					});
 				}

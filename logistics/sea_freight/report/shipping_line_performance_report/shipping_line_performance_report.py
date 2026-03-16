@@ -63,7 +63,7 @@ def get_data(filters):
 		FROM `tabSea Shipment` ss
 		LEFT JOIN (
 			SELECT parent, SUM(total_amount) as total_charges
-			FROM `tabSea Freight Charges`
+			FROM `tabSea Shipment Charges`
 			GROUP BY parent
 		) charge_agg ON charge_agg.parent = ss.name
 		WHERE ss.docstatus = 1 AND ss.shipping_line IS NOT NULL

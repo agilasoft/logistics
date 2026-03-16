@@ -20,7 +20,7 @@ logistics.transport.create_transport_order_from_sales_quote = function() {
 					return {
 						filters: {
 							quotation_type: "One-off",
-							is_transport: 1,
+							main_service: "Transport",
 							status: ["not in", ["Converted", "Lost", "Expired"]]
 						}
 					};
@@ -67,7 +67,7 @@ logistics.air_freight.create_air_booking_from_sales_quote = function() {
 					return {
 						filters: {
 							quotation_type: "One-off",
-							is_air: 1,
+							main_service: "Air",
 							status: ["not in", ["Converted", "Lost", "Expired"]]
 						}
 					};
@@ -114,7 +114,7 @@ logistics.sea_freight.create_sea_booking_from_sales_quote = function() {
 					return {
 						filters: {
 							quotation_type: "One-off",
-							is_sea: 1,
+							main_service: "Sea",
 							status: ["not in", ["Converted", "Lost", "Expired"]]
 						}
 					};

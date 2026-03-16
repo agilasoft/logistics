@@ -24,6 +24,28 @@ frappe.ui.form.on("Warehouse Contract", {
 				});
 			}, __("Actions"));
 		}
+
+		// Add Create menu buttons for linked doctypes (only when document is saved)
+		if (!frm.is_new() && frm.doc.name) {
+			frm.add_custom_button(__("Inbound Order"), function() {
+				frappe.new_doc("Inbound Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Release Order"), function() {
+				frappe.new_doc("Release Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Transfer Order"), function() {
+				frappe.new_doc("Transfer Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("VAS Order"), function() {
+				frappe.new_doc("VAS Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Stocktake Order"), function() {
+				frappe.new_doc("Stocktake Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Warehouse Job"), function() {
+				frappe.new_doc("Warehouse Job", { warehouse_contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+		}
 	},
 	
 	sales_quote(frm) {

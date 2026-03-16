@@ -9,6 +9,7 @@
   "template_name",
   "product_type",
   "applies_to",
+  "applies_to_doctype",
   "column_break_1",
   "direction",
   "entry_type",
@@ -42,6 +43,13 @@
    "label": "Applies To",
    "options": "Booking\nShipment/Job\nBoth",
    "reqd": 1
+  },
+  {
+   "fieldname": "applies_to_doctype",
+   "fieldtype": "Link",
+   "label": "Applies to DocType",
+   "options": "DocType",
+   "description": "When set, this template is shown only for this doctype. Leave blank for all matching product type."
   },
   {
    "fieldname": "column_break_1",

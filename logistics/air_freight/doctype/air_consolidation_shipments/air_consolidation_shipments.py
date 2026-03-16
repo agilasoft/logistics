@@ -208,7 +208,7 @@ class AirConsolidationShipments(Document):
             individual_charges[charge.charge_type] = {
                 "amount": individual_amount,
                 "allocation_factor": allocation_factor,
-                "charge_basis": charge.charge_basis
+                "revenue_calculation_method": charge.revenue_calculation_method
             }
         
         return individual_charges

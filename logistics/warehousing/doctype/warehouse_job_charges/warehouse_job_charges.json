@@ -25,7 +25,11 @@
   "calculation_notes",
   "standard_cost_posted",
   "standard_cost_posted_at",
-  "journal_entry_reference"
+  "journal_entry_reference",
+  "purchase_invoice_status",
+  "purchase_invoice",
+  "sales_invoice_status",
+  "sales_invoice"
  ],
  "fields": [
   {
@@ -154,6 +158,38 @@
    "fieldtype": "Link",
    "label": "Journal Entry",
    "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "default": "Not Requested",
+   "fieldname": "purchase_invoice_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Cost Invoice Status",
+   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "default": "Not Requested",
+   "fieldname": "sales_invoice_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Revenue Invoice Status",
+   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
    "read_only": 1
   },
   {

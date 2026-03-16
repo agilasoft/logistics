@@ -6,6 +6,85 @@ from datetime import datetime, timedelta
 
 
 class AirConsolidation(Document):
+    @frappe.whitelist()
+    def get_dashboard_html(self):
+        """Generate HTML for Dashboard tab: consolidation details, milestones, documents and header alerts."""
+        try:
+            from logistics.document_management.api import (
+                get_dashboard_alerts_html,
+                get_document_alerts_html,
+            )
+            from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
+
+            status = self.get("status") or "Draft"
+            status_badge_html = f'<span class="dash-status-badge {(status or "draft").lower().replace(" ", "_")}">{frappe.utils.escape_html(status)}</span>'
+            header_items = [
+                ("Status", status),
+                ("Consolidation Date", str(self.consolidation_date) if self.consolidation_date else "—"),
+                ("Type", self.consolidation_type or "—"),
+                ("Origin", self.origin_airport or "—"),
+                ("Destination", self.destination_airport or "—"),
+                ("Departure", str(self.departure_date) if self.departure_date else "—"),
+                ("Arrival", str(self.arrival_date) if self.arrival_date else "—"),
+                ("Airline", self.airline or "—"),
+                ("Packages", str(self.total_packages or 0)),
+                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+                ("Volume", frappe.format_value(self.total_volume or 0, df=dict(fieldtype="Float"))),
+            ]
+            alerts_html = get_dashboard_alerts_html("Air Consolidation", self.name or "new")
+            try:
+                doc_alerts_html = get_document_alerts_html("Air Consolidation", self.name or "new")
+            except Exception:
+                doc_alerts_html = ""
+
+            milestone_rows = list(self.get("milestones") or [])
+            milestone_details = {}
+            if milestone_rows:
+                names = [m.milestone for m in milestone_rows if m.milestone]
+                if names:
+                    for lm in frappe.get_all(
+                        "Logistics Milestone",
+                        filters={"name": ["in", names]},
+                        fields=["name", "description"],
+                    ):
+                        milestone_details[lm.name] = lm.description or lm.name
+
+            cards_html = ""
+            for i, m in enumerate(milestone_rows, 1):
+                st = (m.status or "Planned").lower().replace(" ", "-")
+                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
+                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
+                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
+                cards_html += f"""
+                <div class="dash-card {st}">
+                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
+                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
+                    <span class="card-badge {st}">{m.status or "Planned"}</span>
+                </div>"""
+
+            if not cards_html:
+                cards_html = '<div class="text-muted">No milestones. Use Get Milestones in Milestones tab. Attached Air Shipments in Shipments tab.</div>'
+
+            return build_run_sheet_style_dashboard(
+                header_title=self.name or "Air Consolidation",
+                header_subtitle="Air Consolidation",
+                header_items=header_items,
+                status_badge_html=status_badge_html,
+                alerts_html=alerts_html,
+                cards_html=cards_html,
+                map_points=[],
+                map_id_prefix="ac-dash-map",
+                doc_alerts_html=doc_alerts_html,
+                straight_line=True,
+                origin_label=self.origin_airport or "—",
+                destination_label=self.destination_airport or "—",
+                hide_map=True,
+                cards_full_width=True,
+            )
+        except Exception as e:
+            frappe.log_error(f"Air Consolidation get_dashboard_html: {str(e)}", "Air Consolidation Dashboard")
+            return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
     def validate(self):
         """Validate Air Consolidation document"""
         self.validate_dates()
@@ -244,15 +323,18 @@ class AirConsolidation(Document):
         total_charges = 0
         
         for charge in self.consolidation_charges:
-            if charge.charge_basis == "Per kg":
-                charge.base_amount = charge.rate * self.chargeable_weight
-            elif charge.charge_basis == "Per m³":
-                charge.base_amount = charge.rate * self.total_volume
-            elif charge.charge_basis == "Per package":
-                charge.base_amount = charge.rate * self.total_packages
-            elif charge.charge_basis == "Fixed amount":
+            if charge.revenue_calculation_method == "Per Unit":
+                if getattr(charge, "unit_type", None) == "Weight":
+                    charge.base_amount = charge.rate * self.chargeable_weight
+                elif getattr(charge, "unit_type", None) == "Volume":
+                    charge.base_amount = charge.rate * self.total_volume
+                elif getattr(charge, "unit_type", None) == "Package":
+                    charge.base_amount = charge.rate * self.total_packages
+                else:
+                    charge.base_amount = charge.rate * (charge.quantity or 0)
+            elif charge.revenue_calculation_method == "Flat Rate":
                 charge.base_amount = charge.rate
-            elif charge.charge_basis == "Percentage":
+            elif charge.revenue_calculation_method == "Percentage":
                 charge.base_amount = charge.rate * (self.chargeable_weight * 0.01)
             
             # Calculate discount
@@ -353,8 +435,8 @@ class AirConsolidation(Document):
         package.consignee = job.consignee
         package.package_type = "Box"  # Default, can be updated
         package.package_count = job.packs or 1
-        package.package_weight = job.weight or 0
-        package.package_volume = job.volume or 0
+        package.package_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
+        package.package_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0
         package.commodity = job.description
         package.contains_dangerous_goods = job.contains_dangerous_goods or 0
         
@@ -473,7 +555,7 @@ class AirConsolidation(Document):
             charge_info = {
                 "type": charge.charge_type,
                 "category": charge.charge_category,
-                "basis": charge.charge_basis,
+                "basis": charge.revenue_calculation_method,
                 "rate": charge.rate,
                 "quantity": charge.quantity,
                 "base_amount": charge.base_amount,
@@ -509,8 +591,8 @@ class AirConsolidation(Document):
             attached_job.consignee = job.consignee
             attached_job.origin_port = job.origin_port
             attached_job.destination_port = job.destination_port
-            attached_job.weight = job.weight
-            attached_job.volume = job.volume
+            attached_job.weight = getattr(job, "total_weight", None) or job.weight
+            attached_job.volume = getattr(job, "total_volume", None) or job.volume
             attached_job.packs = job.packs
             attached_job.value = job.gooda_value
             attached_job.currency = job.currency
@@ -523,7 +605,8 @@ class AirConsolidation(Document):
             
             # Calculate cost allocation
             if self.total_weight > 0:
-                attached_job.cost_allocation_percentage = (job.weight / self.total_weight) * 100
+                job_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
+                attached_job.cost_allocation_percentage = (job_weight / self.total_weight) * 100
             else:
                 attached_job.cost_allocation_percentage = 0
     
@@ -557,8 +640,8 @@ class AirConsolidation(Document):
         package.consignee = job.consignee
         package.package_type = "Box"  # Default, can be updated
         package.package_count = job.packs or 1
-        package.package_weight = job.weight or 0
-        package.package_volume = job.volume or 0
+        package.package_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
+        package.package_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0
         package.commodity = job.description
         package.contains_dangerous_goods = job.contains_dangerous_goods or 0
         
@@ -623,8 +706,8 @@ class AirConsolidation(Document):
                 "shipper": job.shipper,
                 "consignee": job.consignee,
                 "route": f"{job.origin_port} → {job.destination_port}",
-                "weight": job.weight,
-                "volume": job.volume,
+                "weight": getattr(job, "total_weight", None) or job.weight,
+                "volume": getattr(job, "total_volume", None) or job.volume,
                 "value": job.value,
                 "currency": job.currency,
                 "dangerous_goods": job.contains_dangerous_goods,
@@ -654,7 +737,7 @@ class AirConsolidation(Document):
             summary["charges"].append({
                 "type": charge.charge_type,
                 "category": charge.charge_category,
-                "basis": charge.charge_basis,
+                "basis": charge.revenue_calculation_method,
                 "rate": charge.rate,
                 "total_amount": charge.total_amount,
                 "status": charge.charge_status

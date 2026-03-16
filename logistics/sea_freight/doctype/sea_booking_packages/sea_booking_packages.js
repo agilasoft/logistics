@@ -41,77 +41,47 @@ frappe.ui.form.on('Sea Booking Packages', {
 				logistics_calculate_volume_from_dimensions(frm, _cdt, _cdn);
 			}
 		}
-		// Calculate chargeable weight when form loads
-		if (_cdt && _cdn) {
-			var row = locals[_cdt] && locals[_cdt][_cdn] ? locals[_cdt][_cdn] : null;
-			// Calculate if row exists and has weight or volume (including 0 values)
-			if (row && (row.weight !== undefined || row.volume !== undefined)) {
-				// Use setTimeout to ensure form context is fully initialized
-				setTimeout(function() {
-					_calculate_package_chargeable_weight(frm, _cdt, _cdn);
-				}, 50);
-			}
-		}
+		// Chargeable weight is computed on parent Sea Booking
 	},
 	length: function(frm, cdt, cdn) {
 		// Don't call if dialog is open (prevents freeze message)
 		if (!_is_grid_dialog_open() && typeof logistics_calculate_volume_from_dimensions === 'function') {
 			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
-			// Trigger chargeable weight calculation after volume is calculated
-			setTimeout(function() {
-				_calculate_package_chargeable_weight(frm, cdt, cdn);
-			}, 300);
+			_trigger_parent_aggregation(frm);
 		}
 	},
 	width: function(frm, cdt, cdn) {
-		// Don't call if dialog is open (prevents freeze message)
 		if (!_is_grid_dialog_open() && typeof logistics_calculate_volume_from_dimensions === 'function') {
 			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
-			// Trigger chargeable weight calculation after volume is calculated
-			setTimeout(function() {
-				_calculate_package_chargeable_weight(frm, cdt, cdn);
-			}, 300);
+			_trigger_parent_aggregation(frm);
 		}
 	},
 	height: function(frm, cdt, cdn) {
-		// Don't call if dialog is open (prevents freeze message)
 		if (!_is_grid_dialog_open() && typeof logistics_calculate_volume_from_dimensions === 'function') {
 			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
-			// Trigger chargeable weight calculation after volume is calculated
-			setTimeout(function() {
-				_calculate_package_chargeable_weight(frm, cdt, cdn);
-			}, 300);
+			_trigger_parent_aggregation(frm);
 		}
 	},
 	dimension_uom: function(frm, cdt, cdn) {
-		// Don't call if dialog is open (prevents freeze message)
 		if (!_is_grid_dialog_open() && typeof logistics_calculate_volume_from_dimensions === 'function') {
 			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
-			// Trigger chargeable weight calculation after volume is calculated
-			setTimeout(function() {
-				_calculate_package_chargeable_weight(frm, cdt, cdn);
-			}, 300);
+			_trigger_parent_aggregation(frm);
 		}
 	},
 	volume_uom: function(frm, cdt, cdn) {
-		// Don't call if dialog is open (prevents freeze message)
 		if (!_is_grid_dialog_open() && typeof logistics_calculate_volume_from_dimensions === 'function') {
 			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
 		}
-		// Calculate chargeable weight (allowed even when dialog is open)
-		_calculate_package_chargeable_weight(frm, cdt, cdn);
+		_trigger_parent_aggregation(frm);
 	},
 	volume: function(frm, cdt, cdn) {
-		// Calculate chargeable weight (allowed even when dialog is open)
-		_calculate_package_chargeable_weight(frm, cdt, cdn);
+		_trigger_parent_aggregation(frm);
 	},
 	weight: function(frm, cdt, cdn) {
-		// Calculate chargeable weight (allowed even when dialog is open)
-		_calculate_package_chargeable_weight(frm, cdt, cdn);
+		_trigger_parent_aggregation(frm);
 	},
 	weight_uom: function(frm, cdt, cdn) {
-		// Calculate chargeable weight (allowed even when dialog is open)
-		_calculate_package_chargeable_weight(frm, cdt, cdn);
+		_trigger_parent_aggregation(frm);
 	},
 	commodity: function(frm, cdt, cdn) {
 		// Don't make API calls or set values if dialog is open (prevents freeze messages)
@@ -142,150 +112,10 @@ frappe.ui.form.on('Sea Booking Packages', {
 	}
 });
 
-// Cache for Sea Freight Settings to avoid repeated API calls
-var _sea_freight_settings_cache = {
-	volume_to_weight_factor: null,
-	chargeable_weight_calculation: null,
-	timestamp: null,
-	cache_duration: 5 * 60 * 1000 // 5 minutes
-};
-
-function _get_sea_freight_settings(callback) {
-	// Check cache first
-	var now = new Date().getTime();
-	if (_sea_freight_settings_cache.volume_to_weight_factor !== null &&
-		_sea_freight_settings_cache.timestamp &&
-		(now - _sea_freight_settings_cache.timestamp) < _sea_freight_settings_cache.cache_duration) {
-		// Use cached values
-		callback(
-			_sea_freight_settings_cache.volume_to_weight_factor,
-			_sea_freight_settings_cache.chargeable_weight_calculation || 'Higher of Both'
-		);
-		return;
+// Trigger parent Sea Booking aggregation (chargeable weight computed on parent)
+function _trigger_parent_aggregation(frm) {
+	if (!frm || frm.doctype !== 'Sea Booking') return;
+	if (typeof window._sea_booking_debounced_aggregate_packages === 'function') {
+		window._sea_booking_debounced_aggregate_packages(frm);
 	}
-	
-	// Get settings from Sea Freight Settings
-	frappe.call({
-		method: 'frappe.client.get_value',
-		args: {
-			doctype: 'Sea Freight Settings',
-			name: 'Sea Freight Settings',
-			fieldname: ['volume_to_weight_factor', 'chargeable_weight_calculation']
-		},
-		freeze: false,
-		callback: function(r) {
-			var factor = 1000; // Default (equivalent to 1000 kg/m³ factor)
-			var calculation_method = 'Higher of Both'; // Default
-			
-			if (r && r.message) {
-				if (r.message.volume_to_weight_factor) {
-					factor = parseFloat(r.message.volume_to_weight_factor) || 1000;
-				}
-				if (r.message.chargeable_weight_calculation) {
-					calculation_method = r.message.chargeable_weight_calculation;
-				}
-			}
-			
-			// Cache the values
-			_sea_freight_settings_cache.volume_to_weight_factor = factor;
-			_sea_freight_settings_cache.chargeable_weight_calculation = calculation_method;
-			_sea_freight_settings_cache.timestamp = now;
-			
-			callback(factor, calculation_method);
-		},
-		error: function(r) {
-			// On error, use defaults
-			callback(1000, 'Higher of Both');
-		}
-	});
-}
-
-function _calculate_package_chargeable_weight(frm, cdt, cdn) {
-	// Calculate chargeable weight for a package row in the child table
-	// Simplified version following Air Booking pattern
-	if (!cdt || !cdn) {
-		return;
-	}
-	
-	// Get form context if not provided
-	if (!frm && typeof cur_frm !== 'undefined' && cur_frm) {
-		frm = cur_frm;
-	}
-	
-	// Try to get form from open forms if still not available
-	if (!frm) {
-		try {
-			var forms = frappe.ui.form.get_open_forms();
-			for (var form_name in forms) {
-				var form = forms[form_name];
-				// For child tables, find the parent form (Sea Booking)
-				if (form && form.doctype === 'Sea Booking') {
-					frm = form;
-					break;
-				}
-			}
-		} catch(e) {
-			// Ignore errors finding form
-		}
-	}
-	
-	var row = locals[cdt] && locals[cdt][cdn] ? locals[cdt][cdn] : null;
-	if (!row) {
-		return;
-	}
-	
-	var package_volume = parseFloat(row.volume || 0) || 0;
-	var package_weight = parseFloat(row.weight || 0) || 0;
-	
-	// If both volume and weight are zero or missing, set chargeable weight to 0
-	if (package_volume <= 0 && package_weight <= 0) {
-		frappe.model.set_value(cdt, cdn, 'chargeable_weight', 0);
-		return;
-	}
-	
-	// Get settings and calculate
-	_get_sea_freight_settings(function(factor, calculation_method) {
-		// Convert factor (kg/m³) to divisor: divisor = 1,000,000 / factor
-		var divisor = 1000000.0 / factor;
-		
-		// Get latest row state to avoid stale data
-		var current_row = locals[cdt] && locals[cdt][cdn] ? locals[cdt][cdn] : null;
-		if (!current_row) return;
-		
-		// Re-read values from current row
-		var volume = parseFloat(current_row.volume || 0) || 0;
-		var weight = parseFloat(current_row.weight || 0) || 0;
-		
-		// Note: Volume should already be in m³ and weight in kg from the conversion system
-		// Calculate volume weight: volume (m³) * 1,000,000 / divisor
-		var volume_weight = 0;
-		if (volume > 0 && divisor && divisor > 0) {
-			volume_weight = volume * (1000000.0 / divisor);
-		}
-		
-		// Calculate chargeable weight based on calculation method
-		var chargeable = 0;
-		if (calculation_method === 'Actual Weight') {
-			chargeable = weight;
-		} else if (calculation_method === 'Volume Weight') {
-			chargeable = volume_weight;
-		} else { // 'Higher of Both' (default)
-			if (weight > 0 && volume_weight > 0) {
-				chargeable = Math.max(weight, volume_weight);
-			} else if (weight > 0) {
-				chargeable = weight;
-			} else if (volume_weight > 0) {
-				chargeable = volume_weight;
-			} else {
-				chargeable = 0;
-			}
-		}
-		
-		frappe.model.set_value(cdt, cdn, 'chargeable_weight', chargeable);
-		
-		// Set chargeable_weight_uom to match weight_uom if not set
-		if (!current_row.chargeable_weight_uom && current_row.weight_uom) {
-			frappe.model.set_value(cdt, cdn, 'chargeable_weight_uom', current_row.weight_uom);
-		}
-	});
 }

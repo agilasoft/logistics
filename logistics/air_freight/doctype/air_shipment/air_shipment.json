@@ -31,6 +31,7 @@
   "release_type",
   "entry_type",
   "service_level",
+  "contains_dangerous_goods",
   "section_break_booking_control",
   "booking_party",
   "controlling_party",
@@ -73,16 +74,18 @@
   "packages",
   "section_break_summary",
   "total_packages",
+  "override_volume_weight",
+  "column_break_zgif",
   "total_volume",
   "total_weight",
-  "override_volume_weight",
-  "volume",
-  "weight",
   "chargeable",
+  "column_break_dbui",
+  "total_volume_uom",
+  "total_weight_uom",
+  "chargeable_weight_uom",
   "column_break_zsxk",
   "density_factor_html",
   "excess_weight_volume",
-  "contains_dangerous_goods",
   "contacts_and_addresses_tab",
   "shipper_address",
   "shipper_address_display",
@@ -99,12 +102,13 @@
   "notify_party",
   "column_break_mzhi",
   "notify_party_address",
-  "other_services_tab",
-  "services_section",
-  "services",
   "charges_tab",
   "sales_quote",
+  "billing_company",
+  "other_services_section",
   "charges",
+  "profitability_section_break",
+  "profitability_section_html",
   "documents_tab",
   "document_management_section",
   "documents_html",
@@ -279,7 +283,7 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "AF.#########"
+   "options": "ASP-.#########"
   },
   {
    "fieldname": "booking_date",
@@ -455,25 +459,34 @@
   },
   {
    "default": "0",
-   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "description": "When checked, Total Volume and Total Weight are manual and will not be updated from package totals.",
    "fieldname": "override_volume_weight",
    "fieldtype": "Check",
    "label": "Override Volume & Weight"
   },
   {
-   "fieldname": "volume",
-   "fieldtype": "Float",
-   "label": "Volume (cbm)"
-  },
-  {
-   "fieldname": "weight",
-   "fieldtype": "Float",
-   "label": "Weight (kg)"
-  },
-  {
    "fieldname": "chargeable",
    "fieldtype": "Float",
-   "label": "Chargeable (kg)"
+   "label": "Chargeable Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Total Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Total Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Wt. UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "density_factor_html",
@@ -930,6 +943,15 @@
    "options": "Sales Quote"
   },
   {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
@@ -1293,9 +1315,11 @@
    "label": "Charges"
   },
   {
-   "fieldname": "services",
-   "fieldtype": "Table",
-   "options": "Air Shipment Services"
+   "collapsible": 1,
+   "description": "Add charge rows for auxiliary/incidental services and check 'Other Services' on each row.",
+   "fieldname": "other_services_section",
+   "fieldtype": "Section Break",
+   "label": "Other Services"
   },
   {
    "collapsible": 1,
@@ -1512,6 +1536,19 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "packages",
    "fieldtype": "Table",
    "options": "Air Shipment Packages"
@@ -1591,11 +1628,6 @@
    "fieldname": "goods_value",
    "fieldtype": "Currency",
    "label": "Goods Value"
-  },
-  {
-   "fieldname": "services_section",
-   "fieldtype": "Section Break",
-   "label": "Services"
   },
   {
    "fieldname": "packing_tab",
@@ -1681,16 +1713,25 @@
    "label": "Document Management"
   },
   {
-   "fieldname": "other_services_tab",
-   "fieldtype": "Tab Break",
-   "label": "Other Services"
+   "fieldname": "column_break_zgif",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dbui",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2026-02-28 12:33:11.845841",
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  }
+ ],
+ "modified": "2026-03-09 13:56:48.433266",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",
@@ -1712,6 +1753,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "origin_port, destination_port",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

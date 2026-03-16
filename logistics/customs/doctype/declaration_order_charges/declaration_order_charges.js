@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Declaration Order Charges", {
-	calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -31,6 +31,12 @@ function _calculate_charge_row(frm, cdt, cdn) {
 			if (r.message && r.message.success) {
 				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
 				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				if (r.message.quantity != null) {
+					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
+				}
+				if (r.message.cost_quantity != null) {
+					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
+				}
 				if (row.revenue_calc_notes !== undefined) {
 					frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes);
 				}

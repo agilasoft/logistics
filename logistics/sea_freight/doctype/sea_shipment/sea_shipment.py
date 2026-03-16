@@ -9,6 +9,8 @@ from frappe import _
 class SeaShipment(Document):
     def validate(self):
         """Validate Sea Shipment data"""
+        from logistics.utils.module_integration import set_billing_company_from_sales_quote
+        set_billing_company_from_sales_quote(self)
         # Normalize legacy house_type values
         self._normalize_house_type()
         self.validate_accounts()
@@ -22,6 +24,10 @@ class SeaShipment(Document):
             pass
         if not getattr(self, "override_volume_weight", False):
             self.aggregate_volume_from_packages()
+            self.aggregate_weight_from_packages()
+        self._ensure_total_volume_weight()
+        self._update_packing_summary()
+        self._apply_uom_defaults()
         self.validate_weight_volume()
         self.validate_packages()
         self.validate_containers()
@@ -59,16 +65,98 @@ class SeaShipment(Document):
                         company=getattr(self, "company", None),
                     )
             if total > 0:
-                self.volume = total
+                self.total_volume = total
+        except Exception:
+            pass
+
+    def aggregate_weight_from_packages(self):
+        """Set total_weight from sum of package weights, converted to default weight UOM."""
+        if getattr(self, "override_volume_weight", False):
+            return
+        packages = getattr(self, "packages", []) or []
+        if not packages:
+            return
+        try:
+            from logistics.utils.measurements import convert_weight, get_default_uoms
+            defaults = get_default_uoms(company=getattr(self, "company", None))
+            target_weight_uom = defaults.get("weight")
+            if not target_weight_uom:
+                return
+            target_normalized = str(target_weight_uom).strip().upper()
+            total = 0
+            for pkg in packages:
+                pkg_weight = flt(getattr(pkg, "weight", 0) or 0)
+                if pkg_weight <= 0:
+                    continue
+                pkg_weight_uom = getattr(pkg, "weight_uom", None) or defaults.get("weight")
+                if not pkg_weight_uom:
+                    continue
+                if str(pkg_weight_uom).strip().upper() == target_normalized:
+                    total += pkg_weight
+                else:
+                    total += convert_weight(
+                        pkg_weight,
+                        from_uom=pkg_weight_uom,
+                        to_uom=target_weight_uom,
+                        company=getattr(self, "company", None),
+                    )
+            if total > 0:
+                self.total_weight = total
+        except Exception:
+            pass
+
+    def _ensure_total_volume_weight(self):
+        """Ensure total_volume and total_weight are set; default to 0 when packages empty and not override."""
+        if not getattr(self, "packages", None) and not getattr(self, "override_volume_weight", False):
+            self.total_volume = 0
+            self.total_weight = 0
+        self.total_volume = flt(self.total_volume or 0)
+        self.total_weight = flt(self.total_weight or 0)
+
+    def _update_packing_summary(self):
+        """Update total_containers, total_teus, total_packages from child tables."""
+        containers = getattr(self, "containers", []) or []
+        packages = getattr(self, "packages", []) or []
+        self.total_containers = len(containers)
+        total_teus = 0
+        for c in containers:
+            ct = getattr(c, "type", None)
+            if ct:
+                teu = frappe.db.get_value("Container Type", ct, "teu_count")
+                total_teus += flt(teu) or 0
+        self.total_teus = total_teus
+        self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
+
+    def _apply_uom_defaults(self):
+        """Apply UOM defaults from Logistics Settings when not set."""
+        try:
+            from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom
+            defaults = get_default_uoms(company=getattr(self, "company", None))
+            if not getattr(self, "total_volume_uom", None):
+                vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get("volume")
+                if vol_uom:
+                    self.total_volume_uom = vol_uom
+            if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
+                self.total_weight_uom = defaults["weight"]
+            if not getattr(self, "chargeable_weight_uom", None):
+                self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
         except Exception:
             pass
     
     @frappe.whitelist()
     def aggregate_volume_from_packages_api(self):
-        """Whitelisted API: aggregate volume from packages for client-side refresh when override is unchecked."""
+        """Whitelisted API: aggregate volume and weight from packages for client-side refresh when override is unchecked."""
         if not getattr(self, "override_volume_weight", False):
             self.aggregate_volume_from_packages()
-        return {"volume": getattr(self, "volume", 0)}
+            self.aggregate_weight_from_packages()
+        self._update_packing_summary()
+        return {
+            "total_volume": getattr(self, "total_volume", 0),
+            "total_weight": getattr(self, "total_weight", 0),
+            "total_containers": getattr(self, "total_containers", 0),
+            "total_teus": getattr(self, "total_teus", 0),
+            "total_packages": getattr(self, "total_packages", 0),
+        }
     
     def after_insert(self):
         """Create Job Costing Number when document is first created. Defer to avoid 'not found' during conversion."""
@@ -112,17 +200,17 @@ class SeaShipment(Document):
         """Calculate sustainability metrics for this sea shipment"""
         try:
             # Calculate carbon footprint based on weight and distance
-            if hasattr(self, 'weight') and hasattr(self, 'origin_port') and hasattr(self, 'destination_port'):
+            if hasattr(self, 'total_weight') and hasattr(self, 'origin_port') and hasattr(self, 'destination_port'):
                 # Get distance between ports (simplified calculation)
                 distance = self._calculate_port_distance(self.origin_port, self.destination_port)
-                if distance and self.weight:
+                if distance and self.total_weight:
                     # Use sea freight emission factor
                     emission_factor = 0.01  # kg CO2e per ton-km for sea freight
-                    carbon_footprint = (flt(self.weight) / 1000) * distance * emission_factor
+                    carbon_footprint = (flt(self.total_weight) / 1000) * distance * emission_factor
                     self.estimated_carbon_footprint = carbon_footprint
                     
                     # Calculate fuel consumption estimate
-                    fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.weight))
+                    fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.total_weight))
                     self.estimated_fuel_consumption = fuel_consumption
                 
         except Exception as e:
@@ -358,17 +446,17 @@ class SeaShipment(Document):
     def validate_weight_volume(self):
         """Validate weight and volume for Sea Shipment"""
         # Weight and volume should be positive numbers
-        if self.weight and self.weight <= 0:
+        if self.total_weight and self.total_weight <= 0:
             frappe.throw(_("Weight must be greater than zero"))
         
-        if self.volume and self.volume <= 0:
+        if self.total_volume and self.total_volume <= 0:
             frappe.throw(_("Volume must be greater than zero"))
         
         # Chargeable weight should be >= actual weight
-        if self.weight and self.chargeable:
-            if self.chargeable < self.weight:
+        if self.total_weight and self.chargeable:
+            if self.chargeable < self.total_weight:
                 frappe.msgprint(_("Chargeable weight ({0}) is less than actual weight ({1})").format(
-                    self.chargeable, self.weight
+                    self.chargeable, self.total_weight
                 ), indicator="orange")
     
     def validate_packages(self):
@@ -379,19 +467,19 @@ class SeaShipment(Document):
             total_package_volume = sum(flt(p.volume or 0) for p in self.packages)
             
             # Check if package weights match total weight (with tolerance)
-            if self.weight and total_package_weight > 0:
-                weight_diff = abs(total_package_weight - flt(self.weight))
+            if self.total_weight and total_package_weight > 0:
+                weight_diff = abs(total_package_weight - flt(self.total_weight))
                 if weight_diff > 0.01:  # Allow 0.01 kg tolerance
                     frappe.msgprint(_("Package weights ({0} kg) do not match total weight ({1} kg)").format(
-                        total_package_weight, self.weight
+                        total_package_weight, self.total_weight
                     ), indicator="orange")
             
             # Check if package volumes match total volume (with tolerance)
-            if self.volume and total_package_volume > 0:
-                volume_diff = abs(total_package_volume - flt(self.volume))
+            if self.total_volume and total_package_volume > 0:
+                volume_diff = abs(total_package_volume - flt(self.total_volume))
                 if volume_diff > 0.01:  # Allow 0.01 cbm tolerance
                     frappe.msgprint(_("Package volumes ({0} cbm) do not match total volume ({1} cbm)").format(
-                        total_package_volume, self.volume
+                        total_package_volume, self.total_volume
                     ), indicator="orange")
             
             # Validate each package has commodity
@@ -411,8 +499,13 @@ class SeaShipment(Document):
                 ), indicator="orange")
             
             # Validate each container has required fields and ISO 6346 format
-            from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+            from logistics.utils.container_validation import (
+                validate_container_number,
+                get_strict_validation_setting,
+                normalize_container_number,
+            )
             strict = get_strict_validation_setting()
+            seen = {}
             for i, container in enumerate(self.containers, 1):
                 if not container.type:
                     frappe.msgprint(_("Container {0}: Container Type is required").format(i), indicator="orange")
@@ -426,6 +519,16 @@ class SeaShipment(Document):
                             _("Container {0}: {1}").format(i, err),
                             title=_("Invalid Container Number")
                         )
+                    # In-table duplicate: same container number must not appear on multiple rows
+                    normalized = normalize_container_number(container.container_no)
+                    if normalized in seen:
+                        frappe.throw(
+                            _("Duplicate container number in this document: {0} appears on row {1} and row {2}.").format(
+                                container.container_no, seen[normalized], i
+                            ),
+                            title=_("Duplicate Container Numbers"),
+                        )
+                    seen[normalized] = i
     
     def validate_duplicates(self):
         """Check for duplicate Sea Shipments based on identifying fields"""
@@ -466,36 +569,37 @@ class SeaShipment(Document):
                     title=_("Duplicate Sea Booking Reference")
                 )
         
-        # Check for duplicate container numbers
+        # Check for duplicate container numbers (allow reuse when other shipment is submitted and container returned)
         if hasattr(self, "containers") and self.containers:
             container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None)]
             if container_numbers:
-                # Check if any container number is already used in another shipment
                 if self.name:
-                    existing_containers = frappe.db.sql("""
-                        SELECT DISTINCT ss.name, sfc.container_no
+                    candidates = frappe.db.sql("""
+                        SELECT DISTINCT ss.name, ss.docstatus, sfc.container_no
                         FROM `tabSea Shipment` ss
                         INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
                         WHERE sfc.container_no IN %(container_numbers)s
                         AND ss.name != %(shipment_name)s
                         AND ss.docstatus != 2
-                        LIMIT 10
                     """, {
                         "container_numbers": container_numbers,
                         "shipment_name": self.name
                     }, as_dict=True)
                 else:
-                    existing_containers = frappe.db.sql("""
-                        SELECT DISTINCT ss.name, sfc.container_no
+                    candidates = frappe.db.sql("""
+                        SELECT DISTINCT ss.name, ss.docstatus, sfc.container_no
                         FROM `tabSea Shipment` ss
                         INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
                         WHERE sfc.container_no IN %(container_numbers)s
                         AND ss.docstatus != 2
-                        LIMIT 10
                     """, {
                         "container_numbers": container_numbers
                     }, as_dict=True)
-                
+                # Block only when container is not returned: draft always blocks; submitted blocks unless returned
+                existing_containers = [
+                    c for c in candidates
+                    if c.docstatus == 0 or not self._container_returned_for_shipment(c.container_no, c.name)
+                ]
                 if existing_containers:
                     container_list = ", ".join(set([c.container_no for c in existing_containers]))
                     shipment_list = ", ".join(set([c.name for c in existing_containers]))
@@ -534,6 +638,33 @@ class SeaShipment(Document):
                     indicator="orange",
                     title=_("Possible Duplicate")
                 )
+
+    def _container_returned_for_shipment(self, container_no, other_shipment_name):
+        """
+        Return True if the container is considered returned so reuse on another shipment is allowed.
+        When the other shipment is submitted, we allow reuse if the container has been returned
+        (Container return_status/status or that shipment's shipping_status indicates returned).
+        """
+        if not container_no:
+            return False
+        try:
+            from logistics.container_management.api import is_container_management_enabled, get_container_by_number
+            if is_container_management_enabled():
+                container_name = get_container_by_number(container_no)
+                if container_name:
+                    row = frappe.db.get_value(
+                        "Container", container_name, ["return_status", "status"], as_dict=True
+                    )
+                    if row:
+                        if row.get("return_status") == "Returned":
+                            return True
+                        if row.get("status") in ("Empty Returned", "Closed"):
+                            return True
+        except Exception:
+            pass
+        # Fallback: use the other shipment's shipping_status
+        shipping_status = frappe.db.get_value("Sea Shipment", other_shipment_name, "shipping_status")
+        return shipping_status in ("Empty Container Returned", "Closed")
     
     def validate_master_bill(self):
         """Validate Master Bill if linked"""
@@ -545,17 +676,19 @@ class SeaShipment(Document):
             # Get master bill document
             master_bill = frappe.get_doc("Master Bill", self.master_bill)
             
-            # Validate vessel and voyage match if both are set
-            if self.vessel and master_bill.vessel:
-                if self.vessel != master_bill.vessel:
+            # Validate vessel and voyage match if both are set (use getattr in case fields are not on doctype)
+            vessel = getattr(self, "vessel", None)
+            voyage_no = getattr(self, "voyage_no", None)
+            if vessel and master_bill.vessel:
+                if vessel != master_bill.vessel:
                     frappe.msgprint(_("Vessel ({0}) does not match Master Bill vessel ({1})").format(
-                        self.vessel, master_bill.vessel
+                        vessel, master_bill.vessel
                     ), indicator="orange")
             
-            if self.voyage_no and master_bill.voyage_no:
-                if self.voyage_no != master_bill.voyage_no:
+            if voyage_no and master_bill.voyage_no:
+                if voyage_no != master_bill.voyage_no:
                     frappe.msgprint(_("Voyage No ({0}) does not match Master Bill voyage ({1})").format(
-                        self.voyage_no, master_bill.voyage_no
+                        voyage_no, master_bill.voyage_no
                     ), indicator="orange")
             
             # Validate ports match if both are set
@@ -578,7 +711,7 @@ class SeaShipment(Document):
     def get_dashboard_html(self):
         """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
         try:
-            from logistics.document_management.api import get_document_alerts_html
+            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
             from logistics.document_management.dashboard_layout import (
                 build_run_sheet_style_dashboard,
                 build_map_segments_from_routing_legs,
@@ -643,6 +776,7 @@ class SeaShipment(Document):
                 if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
                     map_points.append(d)
 
+            alerts_html = get_dashboard_alerts_html("Sea Shipment", self.name or "new")
             return build_run_sheet_style_dashboard(
                 header_title=self.name or "Sea Shipment",
                 header_subtitle="Sea Shipment",
@@ -652,6 +786,7 @@ class SeaShipment(Document):
                 map_segments=map_segments,
                 map_id_prefix="sea-dash-map",
                 doc_alerts_html=doc_alerts,
+                alerts_html=alerts_html,
                 straight_line=True,
                 origin_label=self.origin_port or None,
                 destination_label=self.destination_port or None,
@@ -860,7 +995,8 @@ class SeaShipment(Document):
                     message={
                         'shipment': self.name,
                         'delay_count': self.delay_count,
-                        'message': notification_message
+                        'message': notification_message,
+                        'severity': 'critical',  # Delay incurred = Red
                     },
                     user=user
                 )
@@ -876,8 +1012,8 @@ class SeaShipment(Document):
                     "email_content": notification_message
                 }).insert(ignore_permissions=True)
             
-            frappe.msgprint(_("Delay alert sent for {0} delayed milestone(s)").format(self.delay_count), 
-                          indicator="orange")
+            frappe.msgprint(_("Delay alert sent for {0} delayed milestone(s)").format(self.delay_count),
+                indicator="red")
             
         except Exception as e:
             frappe.log_error(f"Error sending delay alert: {str(e)}", "Sea Shipment Delay Alert")
@@ -907,7 +1043,8 @@ class SeaShipment(Document):
                         'detention_days': self.detention_days or 0,
                         'demurrage_days': self.demurrage_days or 0,
                         'estimated_amount': self.estimated_penalty_amount or 0,
-                        'message': notification_message
+                        'message': notification_message,
+                        'severity': 'critical',  # Penalty incurred = Red
                     },
                     user=user
                 )
@@ -1015,28 +1152,26 @@ class SeaShipment(Document):
             # Clear existing charges
             self.set("charges", [])
             
-            # Get Sales Quote Sea Freight records
+            # Get from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+            charge_fields = [
+                "item_code", "item_name", "calculation_method", "uom", "currency",
+                "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+                "maximum_charge", "base_amount", "estimated_revenue"
+            ]
             sales_quote_sea_freight_records = frappe.get_all(
-                "Sales Quote Sea Freight",
-                filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-                fields=[
-                    "item_code",
-                    "item_name", 
-                    "calculation_method",
-                    "uom",
-                    "currency",
-                    "unit_rate",
-                    "unit_type",
-                    "minimum_quantity",
-                    "minimum_unit_rate",
-                    "minimum_charge",
-                    "maximum_charge",
-                    "base_amount",
-                    "base_quantity",
-                    "estimated_revenue"
-                ],
+                "Sales Quote Charge",
+                filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Sea"},
+                fields=charge_fields,
                 order_by="idx"
             )
+            if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+                sqsf_fields = charge_fields + ["minimum_unit_rate", "base_quantity"]
+                sales_quote_sea_freight_records = frappe.get_all(
+                    "Sales Quote Sea Freight",
+                    filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+                    fields=sqsf_fields,
+                    order_by="idx"
+                )
             
             if not sales_quote_sea_freight_records:
                 frappe.msgprint(
@@ -1209,7 +1344,7 @@ def compute_chargeable(self):
     """Calculate chargeable weight based on volume and weight using Sea Freight Settings.
     Respects chargeable_weight_calculation setting: 'Actual Weight', 'Volume Weight', or 'Higher of Both'.
     """
-    if not self.volume and not self.weight:
+    if not self.total_volume and not self.total_weight:
         self.chargeable = 0
         return
     
@@ -1219,13 +1354,13 @@ def compute_chargeable(self):
     
     # Calculate volume weight
     volume_weight = 0
-    if self.volume and divisor:
+    if self.total_volume and divisor:
         # Convert volume from m³ to cm³, then divide by divisor
         # Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
-        volume_weight = flt(self.volume) * (1000000.0 / divisor)
+        volume_weight = flt(self.total_volume) * (1000000.0 / divisor)
     
     # Get actual weight
-    actual_weight = flt(self.weight) or 0
+    actual_weight = flt(self.total_weight) or 0
     
     # Calculate chargeable weight based on calculation method
     if calculation_method == "Actual Weight":

@@ -9,6 +9,8 @@ from frappe.utils import flt
 class AirShipment(Document):
 	def before_save(self):
 		"""Calculate sustainability metrics before saving"""
+		from logistics.utils.module_integration import set_billing_company_from_sales_quote
+		set_billing_company_from_sales_quote(self)
 		self.calculate_sustainability_metrics()
 	
 	def after_submit(self):
@@ -22,14 +24,14 @@ class AirShipment(Document):
 			if hasattr(self, 'weight') and hasattr(self, 'origin_port') and hasattr(self, 'destination_port'):
 				# Get distance between ports (simplified calculation)
 				distance = self._calculate_port_distance(self.origin_port, self.destination_port)
-				if distance and self.weight:
+				if distance and self.total_weight:
 					# Use air freight emission factor
 					emission_factor = 0.5  # kg CO2e per ton-km for air freight
-					carbon_footprint = (flt(self.weight) / 1000) * distance * emission_factor
+					carbon_footprint = (flt(self.total_weight) / 1000) * distance * emission_factor
 					self.estimated_carbon_footprint = carbon_footprint
 					
 					# Calculate fuel consumption estimate
-					fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.weight))
+					fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.total_weight))
 					self.estimated_fuel_consumption = fuel_consumption
 				
 		except Exception as e:
@@ -1329,7 +1331,7 @@ class AirShipment(Document):
 	def get_dashboard_html(self):
 		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html
+			from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
 			from logistics.document_management.dashboard_layout import (
 				build_run_sheet_style_dashboard,
 				build_map_segments_from_routing_legs,
@@ -1388,6 +1390,7 @@ class AirShipment(Document):
 				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
 					map_points.append(d)
 
+			alerts_html = get_dashboard_alerts_html("Air Shipment", self.name or "new")
 			return build_run_sheet_style_dashboard(
 				header_title=self.name or "Air Shipment",
 				header_subtitle="Air Shipment",
@@ -1397,6 +1400,7 @@ class AirShipment(Document):
 				map_segments=map_segments,
 				map_id_prefix="air-dash-map",
 				doc_alerts_html=doc_alerts,
+				alerts_html=alerts_html,
 				straight_line=True,
 				origin_label=self.origin_port or None,
 				destination_label=self.destination_port or None,
@@ -1489,6 +1493,7 @@ class AirShipment(Document):
 			pass
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
+			self.aggregate_weight_from_packages()
 		self._update_packing_summary()
 		self.validate_weight_volume()
 		self.validate_packages()
@@ -1541,7 +1546,43 @@ class AirShipment(Document):
 						company=getattr(self, "company", None),
 					)
 			if total > 0:
-				self.volume = total
+				self.total_volume = total
+		except Exception:
+			pass
+
+	def aggregate_weight_from_packages(self):
+		"""Set total_weight from sum of package weights, converted to default weight UOM."""
+		if getattr(self, "override_volume_weight", False):
+			return
+		packages = getattr(self, "packages", []) or []
+		if not packages:
+			return
+		try:
+			from logistics.utils.measurements import convert_weight, get_default_uoms
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			target_weight_uom = defaults.get("weight")
+			if not target_weight_uom:
+				return
+			target_normalized = str(target_weight_uom).strip().upper()
+			total = 0
+			for pkg in packages:
+				pkg_weight = flt(getattr(pkg, "weight", 0) or 0)
+				if pkg_weight <= 0:
+					continue
+				pkg_weight_uom = getattr(pkg, "weight_uom", None) or defaults.get("weight")
+				if not pkg_weight_uom:
+					continue
+				if str(pkg_weight_uom).strip().upper() == target_normalized:
+					total += pkg_weight
+				else:
+					total += convert_weight(
+						pkg_weight,
+						from_uom=pkg_weight_uom,
+						to_uom=target_weight_uom,
+						company=getattr(self, "company", None),
+					)
+			if total > 0:
+				self.total_weight = total
 		except Exception:
 			pass
 
@@ -1549,15 +1590,19 @@ class AirShipment(Document):
 		"""Update total_packages, total_volume, total_weight from packages."""
 		packages = getattr(self, "packages", []) or []
 		self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
-		self.total_volume = flt(self.volume) if self.volume else 0
-		self.total_weight = flt(self.weight) if self.weight else 0
-	
+		if not packages and not getattr(self, "override_volume_weight", False):
+			self.total_volume = 0
+			self.total_weight = 0
+		self.total_volume = flt(self.total_volume or 0)
+		self.total_weight = flt(self.total_weight or 0)
+
 	@frappe.whitelist()
 	def aggregate_volume_from_packages_api(self):
-		"""Whitelisted API: aggregate volume from packages for client-side refresh when override is unchecked."""
+		"""Whitelisted API: aggregate volume and weight from packages for client-side refresh when override is unchecked."""
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
-		return {"volume": getattr(self, "volume", 0)}
+			self.aggregate_weight_from_packages()
+		return {"total_volume": getattr(self, "total_volume", 0), "total_weight": getattr(self, "total_weight", 0)}
 	
 	def on_update(self):
 		"""Called after document is updated"""
@@ -2078,11 +2123,11 @@ class AirShipment(Document):
 	def validate_weight_volume(self):
 		"""Validate weight and volume fields"""
 		# Validate weight is positive
-		if self.weight is not None and self.weight <= 0:
+		if self.total_weight is not None and self.total_weight <= 0:
 			frappe.throw(_("Weight must be greater than zero"), title=_("Validation Error"))
 		
 		# Validate volume is positive
-		if self.volume is not None and self.volume <= 0:
+		if self.total_volume is not None and self.total_volume <= 0:
 			frappe.throw(_("Volume must be greater than zero"), title=_("Validation Error"))
 		
 		# Get settings for volume to weight factor
@@ -2095,23 +2140,23 @@ class AirShipment(Document):
 			chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
 		
 		# Calculate chargeable weight based on settings
-		if self.weight and self.volume:
-			volume_weight = flt(self.volume) * volume_to_weight_factor
+		if self.total_weight and self.total_volume:
+			volume_weight = flt(self.total_volume) * volume_to_weight_factor
 			
 			if chargeable_weight_calculation == "Actual Weight":
-				chargeable_weight = flt(self.weight)
+				chargeable_weight = flt(self.total_weight)
 			elif chargeable_weight_calculation == "Volume Weight":
 				chargeable_weight = volume_weight
 			else:  # Higher of Both (default)
-				chargeable_weight = max(flt(self.weight), volume_weight)
+				chargeable_weight = max(flt(self.total_weight), volume_weight)
 			
 			# Update chargeable weight if not set or different
 			if not self.chargeable or abs(flt(self.chargeable) - chargeable_weight) > 0.01:
 				self.chargeable = chargeable_weight
-		elif self.weight:
+		elif self.total_weight:
 			# If only weight is provided, use it as chargeable
 			if not self.chargeable:
-				self.chargeable = self.weight
+				self.chargeable = self.total_weight
 	
 	def validate_packages(self):
 		"""Validate package data"""
@@ -2121,20 +2166,20 @@ class AirShipment(Document):
 			total_package_volume = sum(flt(p.volume or 0) for p in self.packages)
 			
 			# Warn if package weights don't match total weight (allow small tolerance)
-			if self.weight and abs(total_package_weight - flt(self.weight)) > 0.01:
+			if self.total_weight and abs(total_package_weight - flt(self.total_weight)) > 0.01:
 				frappe.msgprint(
 					_("Package weights ({0} kg) do not match total weight ({1} kg). Please verify.").format(
-						total_package_weight, self.weight
+						total_package_weight, self.total_weight
 					),
 					indicator="orange",
 					title=_("Weight Mismatch Warning")
 				)
 			
 			# Warn if package volumes don't match total volume (allow small tolerance)
-			if self.volume and abs(total_package_volume - flt(self.volume)) > 0.01:
+			if self.total_volume and abs(total_package_volume - flt(self.total_volume)) > 0.01:
 				frappe.msgprint(
 					_("Package volumes ({0} m³) do not match total volume ({1} m³). Please verify.").format(
-						total_package_volume, self.volume
+						total_package_volume, self.total_volume
 					),
 					indicator="orange",
 					title=_("Volume Mismatch Warning")
@@ -2212,11 +2257,11 @@ class AirShipment(Document):
 			# Validate weight doesn't exceed ULD capacity
 			# Re-fetch in case it was set above
 			uld_capacity_kg = getattr(self, 'uld_capacity_kg', uld_capacity_kg)
-			if uld_capacity_kg and self.weight:
-				if flt(self.weight) > flt(uld_capacity_kg):
+			if uld_capacity_kg and self.total_weight:
+				if flt(self.total_weight) > flt(uld_capacity_kg):
 					frappe.msgprint(
 						_("Cargo weight ({0} kg) exceeds ULD capacity ({1} kg). Please verify.").format(
-							self.weight, uld_capacity_kg
+							self.total_weight, uld_capacity_kg
 						),
 						indicator="orange",
 						title=_("ULD Capacity Warning")
@@ -2493,8 +2538,8 @@ class AirShipment(Document):
 			rate_params = {
 				"origin": self.origin_port,
 				"destination": self.destination_port,
-				"weight": self.weight,
-				"volume": self.volume,
+				"weight": self.total_weight,
+				"volume": self.total_volume,
 				"chargeable_weight": self.chargeable
 			}
 			
@@ -2713,54 +2758,35 @@ class AirShipment(Document):
 			# Get default currency from system settings
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Map unit_type to charge_basis
-			unit_type_to_charge_basis = {
-				"Weight": "Per kg",
-				"Volume": "Per m³",
-				"Package": "Per package",
-				"Piece": "Per package",
-				"Shipment": "Per shipment"
-			}
-			charge_basis = unit_type_to_charge_basis.get(sqaf_record.unit_type, "Fixed amount")
-			
-			# Get quantity based on charge basis
+			# Map unit_type to quantity
 			quantity = 0
-			if charge_basis == "Per kg":
-				quantity = flt(self.weight) or 0
-			elif charge_basis == "Per m³":
-				quantity = flt(self.volume) or 0
-			elif charge_basis == "Per package":
-				# Get package count from Air Shipment if available
-				if hasattr(self, 'packages') and self.packages:
-					quantity = len(self.packages)
-				else:
-					quantity = 1
-			elif charge_basis == "Per shipment":
+			if sqaf_record.unit_type == "Weight":
+				quantity = flt(self.total_weight) or 0
+			elif sqaf_record.unit_type == "Volume":
+				quantity = flt(self.total_volume) or 0
+			elif sqaf_record.unit_type in ("Package", "Piece"):
+				quantity = len(self.packages) if (hasattr(self, 'packages') and self.packages) else 1
+			else:
 				quantity = 1
 			
-			# Determine charge_type and charge_category from item or use defaults
 			charge_type = "Other"
 			charge_category = "Other"
-			
-			# Try to get charge type from item custom fields or item name
 			if hasattr(item_doc, 'custom_charge_type'):
 				charge_type = item_doc.custom_charge_type or "Other"
-			if hasattr(item_doc, 'custom_charge_category'):
-				charge_category = item_doc.custom_charge_category or "Other"
+				if hasattr(item_doc, 'custom_charge_category'):
+					charge_category = item_doc.custom_charge_category or "Other"
 			
-			# Map the fields from sales_quote_air_freight to air_shipment_charges
 			charge_data = {
 				"item_code": sqaf_record.item_code,
 				"item_name": sqaf_record.item_name or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_category": charge_category,
-				"charge_basis": charge_basis,
+				"revenue_calculation_method": sqaf_record.calculation_method or "Per Unit",
 				"rate": sqaf_record.unit_rate or 0,
 				"currency": sqaf_record.currency or default_currency,
 				"quantity": quantity,
-				"unit_of_measure": sqaf_record.uom or (charge_basis.replace("Per ", "").replace("kg", "kg").replace("m³", "m³")),
-				"calculation_method": sqaf_record.calculation_method or "Manual",
-				"billing_status": "Pending"
+				"unit_of_measure": sqaf_record.uom or None,
+				"billing_status": "To Bill"
 			}
 			
 			return charge_data
@@ -2888,6 +2914,20 @@ class AirShipment(Document):
 		# Apply document settings
 		if not self.uld_type and settings.default_uld_type:
 			self.uld_type = settings.default_uld_type
+
+		# Apply UOM defaults from Logistics Settings
+		try:
+			from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get("volume")
+			if not getattr(self, "total_volume_uom", None) and vol_uom:
+				self.total_volume_uom = vol_uom
+			if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
+				self.total_weight_uom = defaults["weight"]
+			if not getattr(self, "chargeable_weight_uom", None):
+				self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
+		except Exception:
+			pass
 		
 		# Mark as applied
 		self._settings_applied = True
@@ -3073,26 +3113,25 @@ def populate_charges_from_sales_quote(docname=None):
 		# Clear existing charges
 		self.set("charges", [])
 		
-		# Get Sales Quote Air Freight records
+		# Get from Sales Quote Charge (Air) or Sales Quote Air Freight (legacy)
+		charge_fields = [
+			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+			"maximum_charge", "base_amount", "estimated_revenue"
+		]
 		sales_quote_air_freight_records = frappe.get_all(
-			"Sales Quote Air Freight",
-			filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-			fields=[
-				"item_code",
-				"item_name", 
-				"calculation_method",
-				"uom",
-				"currency",
-				"unit_rate",
-				"unit_type",
-				"minimum_quantity",
-				"minimum_charge",
-				"maximum_charge",
-				"base_amount",
-				"estimated_revenue"
-			],
+			"Sales Quote Charge",
+			filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			fields=charge_fields,
 			order_by="idx"
 		)
+		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
+			sales_quote_air_freight_records = frappe.get_all(
+				"Sales Quote Air Freight",
+				filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+				fields=charge_fields,
+				order_by="idx"
+			)
 		
 		if not sales_quote_air_freight_records:
 			frappe.msgprint(

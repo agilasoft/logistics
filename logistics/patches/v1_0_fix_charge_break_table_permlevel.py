@@ -9,7 +9,7 @@ CHARGE_DOCTYPES = [
 	"Air Booking Charges",
 	"Air Shipment Charges",
 	"Sea Booking Charges",
-	"Sea Freight Charges",
+	"Sea Shipment Charges",
 	"Transport Order Charges",
 	"Transport Job Charges",
 	"Declaration Charges",

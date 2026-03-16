@@ -8,6 +8,7 @@
  "field_order": [
   "dashboard_tab",
   "dashboard_html",
+  "details_tab",
   "consolidation_info_section",
   "amended_from",
   "naming_series",
@@ -50,8 +51,11 @@
   "total_packages",
   "total_weight",
   "total_volume",
+  "total_volume_uom",
+  "total_weight_uom",
   "column_break_3",
   "chargeable_weight",
+  "chargeable_weight_uom",
   "consolidation_ratio",
   "cost_per_kg",
   "documents_tab",
@@ -223,16 +227,28 @@
   {
    "fieldname": "total_weight",
    "fieldtype": "Float",
-   "label": "Total Weight (kg)",
+   "label": "Total Weight",
    "precision": "2",
    "read_only": 1
   },
   {
    "fieldname": "total_volume",
    "fieldtype": "Float",
-   "label": "Total Volume (m\u00b3)",
+   "label": "Total Volume",
    "precision": "3",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Total Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Total Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_3",
@@ -241,9 +257,15 @@
   {
    "fieldname": "chargeable_weight",
    "fieldtype": "Float",
-   "label": "Chargeable Weight (kg)",
+   "label": "Chargeable Weight",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "consolidation_ratio",
@@ -484,11 +506,16 @@
    "fieldtype": "Link",
    "label": "Job Costing Number",
    "options": "Job Costing Number"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-26 22:01:53.206427",
+ "modified": "2026-03-07 19:01:41.482727",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",

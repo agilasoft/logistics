@@ -31,6 +31,7 @@
   "charges",
   "documents_tab",
   "documents_section",
+  "documents_html",
   "document_list_template",
   "documents",
   "docking_tab",
@@ -184,6 +185,12 @@
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
   },
   {
    "fieldname": "document_list_template",

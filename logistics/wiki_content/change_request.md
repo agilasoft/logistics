@@ -18,7 +18,7 @@ To access Change Request, go to:
 ## 2. Supported Job Types
 
 - Air Shipment
-- Sea Shipment (via Sea Freight Charges)
+- Sea Shipment (via Sea Shipment Charges)
 - Transport Job
 - Warehouse Job
 - Declaration

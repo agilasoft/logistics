@@ -13,7 +13,7 @@ frappe.ui.form.on("Change Request", {
 						frm.save();
 					}
 				);
-			});
+			}, __("Actions"));
 		}
 		if (!frm.doc.__islocal && frm.doc.status !== "Sales Quote Created" && frm.doc.charges && frm.doc.charges.length > 0) {
 			frm.add_custom_button(__("Create Sales Quote"), function () {
@@ -32,7 +32,7 @@ frappe.ui.form.on("Change Request", {
 						});
 					}
 				);
-			});
+			}, __("Create"));
 		}
 	},
 });

@@ -4512,7 +4512,7 @@ frappe.ui.form.on('Run Sheet', {
         if (frm.doc.dispatch_terminal && frm.doc.return_terminal) {
           frm.add_custom_button(__('Create Support Legs'), function() {
             create_support_legs_rs(frm);
-          }, __('Actions'));
+          }, __('Create'));
         }
       }
     }

@@ -3,6 +3,23 @@ function vehicle_type_cache_key(load_type, hazardous, reefer) {
 	return (load_type || "") + "|" + (hazardous ? "1" : "0") + "|" + (reefer ? "1" : "0");
 }
 
+function _load_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
+	frappe.call({
+		method: 'logistics.document_management.api.get_milestone_html',
+		args: { doctype: 'Transport Order', docname: frm.doc.name },
+		callback: function(r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			}
+		}
+	}).always(function() {
+		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
+	});
+}
+
 // Build Address link filter for a leg row - used by pick_address and drop_address get_query.
 // Uses (doc, cdt, cdn) so the correct row is used when opening the link from the grid.
 function get_address_query_for_leg(frm, doc, cdt, cdn, kind) {
@@ -150,6 +167,10 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 
 frappe.ui.form.on("Transport Order", {
 	setup: function(frm) {
+		frm.set_query('milestone_template', function() {
+			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
+				.then(function(r) { return r.message || { filters: [] }; });
+		});
 		frm._vehicle_types_by_load_type = {};
 		// Apply load_type filters before field is ever used
 		apply_load_type_filters(frm);
@@ -278,9 +299,29 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	refresh: function(frm) {
+		// Load documents summary HTML in Documents tab
+		if (window.logistics_load_documents_html) {
+			window.logistics_load_documents_html(frm, "Transport Order");
+		}
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+				if (window.logistics_load_documents_html) {
+					window.logistics_load_documents_html(frm, "Transport Order");
+				}
+			});
+		}
+
+		// Load milestone HTML in Milestones tab
+		_load_milestone_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+				_load_milestone_html(frm);
+			});
+		}
+
 		// Populate Documents from Template
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__('Populate from Template'), function() {
+			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
 					args: { doctype: 'Transport Order', docname: frm.doc.name },
@@ -288,6 +329,38 @@ frappe.ui.form.on("Transport Order", {
 						if (r.message && r.message.added !== undefined) {
 							frm.reload_doc();
 							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Actions'));
+		}
+
+		// Get Milestones (populate from template)
+		if (!frm.doc.__islocal && frm.fields_dict.milestones) {
+			frm.add_custom_button(__('Get Milestones'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_milestones_from_template',
+					args: { doctype: 'Transport Order', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Actions'));
+		}
+
+		// Recalculate Charges
+		if (!frm.is_new() && frm.doc.charges && frm.doc.charges.length > 0) {
+			frm.add_custom_button(__('Calculate Charges'), function() {
+				frappe.call({
+					method: 'logistics.transport.doctype.transport_order.transport_order.recalculate_all_charges',
+					args: { docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'green' }, 3);
 						}
 					}
 				});
@@ -443,7 +516,7 @@ frappe.ui.form.on("Transport Order", {
 						});
 					}, __("Create"));
 				}
-			});
+				});
 			}, 300);
 		}
 		
@@ -565,7 +638,6 @@ frappe.ui.form.on("Transport Order", {
 			row._prev_dimension_uom = row.dimension_uom;
 			row._prev_volume_uom = row.volume_uom;
 			row._prev_weight_uom = row.weight_uom;
-			row._prev_chargeable_weight_uom = row.chargeable_weight_uom;
 		});
 		}; // End of do_refresh_ops function
 		
@@ -649,7 +721,18 @@ frappe.ui.form.on("Transport Order", {
 
 function _setup_sales_quote_query(frm) {
 	frm.set_query('sales_quote', function() {
-		return { filters: { is_transport: 1 } };
+		// Filter to show only non-converted quotes
+		// Exclude One-off quotes that have status="Converted"
+		// Note: Validation will also check converted_to_doc field
+		return { 
+			filters: {
+				main_service: "Transport",
+				_or: [
+					["quotation_type", "!=", "One-off"],
+					["quotation_type", "=", "One-off", "status", "!=", "Converted"]
+				]
+			}
+		};
 	});
 }
 
@@ -725,6 +808,36 @@ function _populate_charges_from_sales_quote(frm) {
 }
 
 frappe.ui.form.on("Transport Order", {
+	document_list_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	milestone_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_milestones_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
 	consolidate: function(frm) {
 		// Update vehicle_type required state when consolidate checkbox changes
 		frm.events.toggle_vehicle_type_required(frm);
@@ -1347,8 +1460,32 @@ function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 	});
 }
 
+function _transport_order_volume_fallback(frm, cdt, cdn, grid_row) {
+	var fn = window.logistics_volume_from_dimensions_fallback;
+	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
+}
+
+frappe.ui.form.on('Transport Order', {
+	packages_on_form_rendered: function(frm) {
+		if (window.logistics_attach_packages_change_listener) {
+			window.logistics_attach_packages_change_listener(frm, 'Transport Order Package', 'packages', 'transport_order_volume');
+		}
+	}
+});
+
 // Child table events for Transport Order Package (UOM conversion is in measurements_uom_conversion.js)
 frappe.ui.form.on('Transport Order Package', {
+	form_render: function(frm, cdt, cdn) {
+		if (!cdt || !cdn) return;
+		frm.trigger('packages_on_form_rendered');
+		setTimeout(function() {
+			var fn_immediate = window.logistics_calculate_volume_from_dimensions_immediate;
+			var fn_debounced = window.logistics_calculate_volume_from_dimensions;
+			if (typeof fn_immediate === 'function') fn_immediate(frm, cdt, cdn);
+			else if (typeof fn_debounced === 'function') fn_debounced(frm, cdt, cdn);
+			else _transport_order_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		}, 50);
+	},
 	commodity: function(frm, cdt, cdn) {
 		// Populate HS code from commodity's default_hs_code
 		let row = locals[cdt][cdn];
@@ -1387,40 +1524,44 @@ frappe.ui.form.on('Transport Order Package', {
 		}, 100);
 	},
 	
-	// Trigger volume calculation and aggregation when dimensions change
 	length: function(frm, cdt, cdn) {
-		if (frm.is_new() || frm.doc.__islocal) return;
-		setTimeout(function() {
-			frm.trigger('aggregate_volume_from_packages');
-		}, 100);
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === 'function') fn(frm, cdt, cdn);
+		else _transport_order_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function() { frm.trigger('aggregate_volume_from_packages'); }, 100);
+		}
 	},
-	
 	width: function(frm, cdt, cdn) {
-		if (frm.is_new() || frm.doc.__islocal) return;
-		setTimeout(function() {
-			frm.trigger('aggregate_volume_from_packages');
-		}, 100);
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === 'function') fn(frm, cdt, cdn);
+		else _transport_order_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function() { frm.trigger('aggregate_volume_from_packages'); }, 100);
+		}
 	},
-	
 	height: function(frm, cdt, cdn) {
-		if (frm.is_new() || frm.doc.__islocal) return;
-		setTimeout(function() {
-			frm.trigger('aggregate_volume_from_packages');
-		}, 100);
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === 'function') fn(frm, cdt, cdn);
+		else _transport_order_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function() { frm.trigger('aggregate_volume_from_packages'); }, 100);
+		}
 	},
-	
-	// Trigger recalculation when UOMs change (volume will be recalculated by global handler)
 	dimension_uom: function(frm, cdt, cdn) {
-		if (frm.is_new() || frm.doc.__islocal) return;
-		setTimeout(function() {
-			frm.trigger('aggregate_volume_from_packages');
-		}, 100);
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === 'function') fn(frm, cdt, cdn);
+		else _transport_order_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function() { frm.trigger('aggregate_volume_from_packages'); }, 100);
+		}
 	},
-	
 	volume_uom: function(frm, cdt, cdn) {
-		if (frm.is_new() || frm.doc.__islocal) return;
-		setTimeout(function() {
-			frm.trigger('aggregate_volume_from_packages');
-		}, 100);
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === 'function') fn(frm, cdt, cdn);
+		else _transport_order_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function() { frm.trigger('aggregate_volume_from_packages'); }, 100);
+		}
 	}
 });
