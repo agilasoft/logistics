@@ -86,12 +86,10 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
         }
 
     # Build list for dialog: use position in cost_rows as the index we pass back (0, 1, 2, ...)
+    # Invoice uses qty=1 with estimated cost as unit rate
     eligible = []
     default_supplier = None
     for row_idx, (doc_idx, ch, cost, item_code, sup) in enumerate(cost_rows):
-        qty = flt(getattr(ch, qty_field or "quantity", 1) or 1)
-        if qty <= 0:
-            qty = 1
         item_name = frappe.db.get_value("Item", item_code, "item_name") or item_code
         if sup and default_supplier is None:
             default_supplier = sup
@@ -100,7 +98,7 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
             "item_code": item_code,
             "item_name": item_name,
             "cost": cost,
-            "quantity": qty,
+            "quantity": 1,
             "pay_to": sup,
         })
     if not default_supplier:
@@ -218,15 +216,17 @@ def create_purchase_invoice(
     has_ref = pi_item_meta.get_field("reference_doctype") and pi_item_meta.get_field("reference_name")
 
     for _doc_idx, ch, cost, item_code, _sup in cost_rows:
-        qty = flt(getattr(ch, qty_field or "quantity", 1) or 1)
-        if qty <= 0:
-            qty = 1
-        rate = cost / qty
-        row = pi.append("items", {
+        # Quantity = 1, estimated cost as unit rate
+        item_payload = {
             "item_code": item_code,
-            "qty": qty,
-            "rate": rate,
-        })
+            "qty": 1,
+            "rate": cost,
+        }
+        # Description: include Calc Notes (cost_calc_notes or calculation_notes)
+        calc_notes = getattr(ch, "cost_calc_notes", None) or getattr(ch, "calculation_notes", None)
+        if calc_notes:
+            item_payload["description"] = calc_notes
+        row = pi.append("items", item_payload)
         if has_ref:
             row.reference_doctype = job_type
             row.reference_name = job_name

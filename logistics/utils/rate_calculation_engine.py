@@ -350,7 +350,9 @@ class RateCalculationEngine:
         max_charge = flt(rate_data.get("maximum_charge", 0))
         unit_type = rate_data.get("unit_type", "Weight")
         currency = rate_data.get("currency", "USD")
-        unit_suffix = self.unit_types.get(unit_type, "")
+        # Prefer UOM from charge/rate definition; fall back to unit_types mapping
+        uom = (rate_data.get("uom") or "").strip()
+        unit_suffix = uom if uom else self.unit_types.get(unit_type, "")
 
         if method == "Per Unit":
             qty_str = f"{qty} {unit_suffix}".strip() if unit_suffix else f"{qty} units"

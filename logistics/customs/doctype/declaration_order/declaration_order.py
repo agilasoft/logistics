@@ -449,6 +449,8 @@ def create_declaration_order_from_sales_quote(sales_quote_name: str):
 		if details.get(key) is not None:
 			order.set(key, details[key])
 	order.insert(ignore_permissions=True)
+	# Reload the document to sync timestamps after insert
+	order.reload()
 	order._populate_charges_from_sales_quote()
 	order.save(ignore_permissions=True)
 	try:

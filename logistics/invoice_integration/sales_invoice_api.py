@@ -110,17 +110,14 @@ def get_eligible_charges_for_sales_invoice(
 
     eligible = []
     for row_idx, (doc_idx, ch, revenue, item_code, item_name) in enumerate(cost_rows):
-        qty = flt(getattr(ch, config[3] or "quantity", 1) or 1)
-        if qty <= 0:
-            qty = 1
-        rate = revenue / qty
+        # Invoice uses qty=1 with estimated revenue as unit rate
         eligible.append({
             "index": row_idx,
             "item_code": item_code,
             "item_name": item_name,
             "revenue": revenue,
-            "quantity": qty,
-            "rate": rate,
+            "quantity": 1,
+            "rate": revenue,
         })
     return {
         "eligible_charges": eligible,
@@ -210,19 +207,23 @@ def create_sales_invoice_from_job(
     has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
 
     for doc_idx, ch, revenue, item_code, item_name in cost_rows:
-        qty = flt(getattr(ch, qty_field or "quantity", 1) or 1)
-        if qty <= 0:
-            qty = 1
-        rate = revenue / qty
+        # Quantity = 1, estimated revenue as unit rate
         item_payload = {
             "item_code": item_code,
             "item_name": item_name,
-            "qty": qty,
-            "rate": rate,
+            "qty": 1,
+            "rate": revenue,
         }
+        # Description: include Calc Notes (revenue_calc_notes, charge_description, or calculation_notes)
+        calc_notes = getattr(ch, "revenue_calc_notes", None) or getattr(ch, "calculation_notes", None)
+        desc_parts = []
+        if getattr(ch, "charge_description", None):
+            desc_parts.append(ch.charge_description)
+        if calc_notes:
+            desc_parts.append(calc_notes)
+        if desc_parts:
+            item_payload["description"] = "\n".join(desc_parts)
         if job_type == "Sea Shipment":
-            if getattr(ch, "charge_description", None):
-                item_payload["description"] = ch.charge_description
             if getattr(ch, "selling_currency", None):
                 item_payload["currency"] = ch.selling_currency
             if getattr(ch, "item_tax_template", None):

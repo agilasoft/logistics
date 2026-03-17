@@ -100,10 +100,6 @@ class AirBooking(Document):
 			self.aggregate_weight_from_packages()
 		# Always calculate chargeable weight (even if volume/weight are 0)
 		self.calculate_chargeable_weight()
-		# Validate weight is greater than 0
-		weight = flt(self.weight) if hasattr(self, 'weight') and self.weight is not None else 0
-		if weight <= 0:
-			frappe.throw(_("Weight must be greater than 0 before submitting Air Booking"))
 		# Validate volume is not less than 0
 		volume = flt(self.volume) if hasattr(self, 'volume') and self.volume is not None else 0
 		if volume < 0:
@@ -240,6 +236,11 @@ class AirBooking(Document):
 		# Validate ETA is required
 		if not self.eta:
 			frappe.throw(_("ETA (Estimated Time of Arrival) is required before submitting the Air Booking."))
+		
+		# Validate weight is greater than 0
+		weight = flt(self.weight) if hasattr(self, 'weight') and self.weight is not None else 0
+		if weight <= 0:
+			frappe.throw(_("Weight must be greater than 0 before submitting Air Booking"))
 	
 	def aggregate_volume_from_packages(self):
 		"""Set header volume from sum of package volumes, converted to base/default volume UOM (used for chargeable weight)."""
@@ -1054,6 +1055,57 @@ class AirBooking(Document):
 		# Default fallback
 		return "package"
 	
+	def _convert_normalized_uom_to_record_name(self, normalized_uom):
+		"""
+		Convert normalized UOM string (like "m³", "kg", "package") to actual UOM record name.
+		
+		The uom field in Air Booking Charges is a Link field that requires an actual UOM DocType record name.
+		This function maps normalized values to possible UOM record names and returns the first one that exists.
+		
+		Args:
+			normalized_uom: Normalized UOM string from _normalize_uom_for_air_booking_charges (e.g., "m³", "kg", "package")
+		
+		Returns:
+			UOM record name that exists in the system, or None if no match found
+		"""
+		if not normalized_uom:
+			return None
+		
+		# Map normalized UOM values to possible UOM record names (in order of preference)
+		uom_record_mapping = {
+			"m³": ["CBM", "Cubic Meter", "Cubic Metre", "M³", "M3", "m³"],
+			"kg": ["Kg", "KG", "Kilogram", "Kilograms", "kg"],
+			"package": ["Nos", "No", "Unit", "Units", "Package", "Packages", "Pkg", "PCS", "PC"],
+			"shipment": ["Shipment", "Shipments", "Job", "Jobs"],
+			"hour": ["Hour", "Hours", "Hr", "Hrs"],
+			"day": ["Day", "Days"],
+		}
+		
+		# Get list of possible UOM record names for this normalized value
+		possible_names = uom_record_mapping.get(normalized_uom, [normalized_uom])
+		
+		# Try each name and return the first one that exists
+		for uom_name in possible_names:
+			if frappe.db.exists("UOM", uom_name):
+				return uom_name
+		
+		# If none found, try the normalized value itself (in case it's already a valid UOM name)
+		if frappe.db.exists("UOM", normalized_uom):
+			return normalized_uom
+		
+		# If still not found, try with first letter capitalized
+		capitalized = normalized_uom.capitalize()
+		if frappe.db.exists("UOM", capitalized):
+			return capitalized
+		
+		# If still not found, try uppercase
+		uppercase = normalized_uom.upper()
+		if frappe.db.exists("UOM", uppercase):
+			return uppercase
+		
+		# Return None if no matching UOM record found
+		return None
+	
 	def _normalize_charges_before_save(self):
 		"""
 		Normalize all charges before save() to prevent _validate_selects() errors.
@@ -1108,14 +1160,19 @@ class AirBooking(Document):
 					# Normalize the extracted UOM
 					normalized_extracted_uom = self._normalize_uom_for_air_booking_charges(extracted_uom)
 					if normalized_extracted_uom:
+						# Convert normalized UOM to actual UOM record name
+						uom_record_name = self._convert_normalized_uom_to_record_name(normalized_extracted_uom)
+						
 						if hasattr(charge, 'unit_of_measure'):
 							charge.unit_of_measure = normalized_extracted_uom
 						if hasattr(charge, 'uom'):
-							charge.uom = normalized_extracted_uom
+							# Use actual UOM record name for Link field
+							charge.uom = uom_record_name if uom_record_name else normalized_extracted_uom
 						
 						frappe.logger().info(
 							f"[Air Booking] Normalized charge: calculation_method '{original_calc_method}' → 'Per Unit', "
-							f"UOM set to '{normalized_extracted_uom}' for item {getattr(charge, 'item_code', 'Unknown')}"
+							f"normalized UOM: '{normalized_extracted_uom}', UOM record: '{uom_record_name}' "
+							f"for item {getattr(charge, 'item_code', 'Unknown')}"
 						)
 				
 				normalized_count += 1
@@ -1324,10 +1381,33 @@ class AirBooking(Document):
 					sqaf_record.unit_type
 				)
 			
+			# STEP 4: Convert normalized UOM string to actual UOM record name
+			# The uom field is a Link field that requires an actual UOM DocType record name
+			uom_record_name = None
+			if normalized_uom:
+				uom_record_name = self._convert_normalized_uom_to_record_name(normalized_uom)
+				if not uom_record_name:
+					frappe.log_error(
+						f"Could not find UOM record for normalized value '{normalized_uom}' for item {item_code}. "
+						f"Please ensure UOM records exist in the system (e.g., 'CBM', 'Kg', 'Nos').",
+						"Air Booking - UOM Record Not Found"
+					)
+					# Try to use the original UOM from the record if available
+					if sqaf_record.get("uom") and frappe.db.exists("UOM", sqaf_record.uom):
+						uom_record_name = sqaf_record.uom
+					else:
+						# Fallback: try common defaults
+						default_uoms = ["Nos", "Kg", "CBM"]
+						for default_uom in default_uoms:
+							if frappe.db.exists("UOM", default_uom):
+								uom_record_name = default_uom
+								break
+			
 			# Log final values
 			frappe.logger().info(
 				f"[Air Booking] _map_sales_quote_air_freight_to_charge: FINAL values for item {item_code} - "
-				f"calculation_method: '{calculation_method}' (original: '{sqaf_calc_method}'), uom: '{normalized_uom}'"
+				f"calculation_method: '{calculation_method}' (original: '{sqaf_calc_method}'), "
+				f"normalized_uom: '{normalized_uom}', uom_record_name: '{uom_record_name}'"
 			)
 			
 			# Map the fields (use uom for Air Booking Charges; unit_of_measure for legacy)
@@ -1340,8 +1420,8 @@ class AirBooking(Document):
 				"rate": sqaf_record.unit_rate or 0,
 				"currency": sqaf_record.currency or default_currency,
 				"quantity": quantity,
-				"uom": normalized_uom,
-				"unit_of_measure": normalized_uom,
+				"uom": uom_record_name,  # Use actual UOM record name, not normalized string
+				"unit_of_measure": normalized_uom,  # Keep normalized value for unit_of_measure if needed
 				"unit_type": sqaf_record.get("unit_type"),
 				"billing_status": "To Bill",
 				"bill_to": getattr(sqaf_record, "bill_to", None),
