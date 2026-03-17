@@ -233,7 +233,7 @@ def get_all_billing_jobs_from_sales_quote(sales_quote) -> List[Tuple[str, str]]:
 					if ct and cn and (ct, cn) not in seen:
 						seen.add((ct, cn))
 						out.append((ct, cn))
-    return out
+	return out
 
 
 @frappe.whitelist()
