@@ -10,6 +10,8 @@ from __future__ import unicode_literals
 import frappe
 from datetime import datetime, timedelta
 
+from logistics.utils.alert_utils import get_penalty_impending_days as _get_penalty_impending_days
+
 
 def check_sea_shipment_delays():
 	"""
@@ -200,9 +202,9 @@ def check_impending_penalties():
 				if discharge_date:
 					today = getdate(now_datetime())
 					days_since_discharge = (today - discharge_date).days
-					
-					# Alert if approaching free time limit (within 2 days)
-					if days_since_discharge >= (free_time_days - 2) and days_since_discharge < free_time_days:
+					penalty_impending_days = _get_penalty_impending_days()
+					# Alert if approaching free time limit (within penalty_impending_days)
+					if days_since_discharge >= (free_time_days - penalty_impending_days) and days_since_discharge < free_time_days:
 						# Send impending penalty alert
 						doc._send_impending_penalty_alert(days_since_discharge, free_time_days)
 						impending_count += 1
@@ -221,4 +223,42 @@ def check_impending_penalties():
 		
 	except Exception as e:
 		frappe.log_error(f"Check impending penalties error: {str(e)}")
+
+
+def check_container_penalties():
+	"""
+	Check for penalties in Containers (hourly task).
+	Calculates demurrage/detention and syncs from linked Sea Shipments.
+	"""
+	try:
+		from logistics.container_management.api import is_container_management_enabled
+		if not is_container_management_enabled():
+			return
+
+		settings = frappe.get_single("Logistics Settings")
+		if not getattr(settings, "enable_container_penalty_alerts", 1):
+			return
+
+		from logistics.logistics.doctype.container.container import calculate_penalties_for_container
+
+		containers = frappe.get_all(
+			"Container",
+			filters={
+				"status": ["in", [
+					"Discharged", "At Port (Destination)", "Customs Hold",
+					"Available for Pick-Up", "Out for Delivery", "Delivered"
+				]],
+				"return_status": ["!=", "Returned"]
+			},
+			fields=["name"],
+			limit=100
+		)
+		for c in containers:
+			try:
+				calculate_penalties_for_container(c.name)
+			except Exception as e:
+				frappe.log_error("Container penalty check error: {0}".format(str(e)), "Container Management")
+		frappe.db.commit()
+	except Exception as e:
+		frappe.log_error("Check container penalties error: {0}".format(str(e)))
 

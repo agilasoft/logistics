@@ -11,7 +11,8 @@
   "charge_category",
   "description",
   "column_break_1",
-  "charge_basis",
+  "revenue_calculation_method",
+  "unit_type",
   "rate",
   "currency",
   "section_break_calculation",
@@ -69,11 +70,17 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "charge_basis",
+   "fieldname": "revenue_calculation_method",
    "fieldtype": "Select",
-   "label": "Charge Basis",
-   "options": "Per kg\nPer m³\nPer package\nPer shipment\nFixed amount\nPercentage",
+   "label": "Revenue Calculation Method",
+   "options": "Per Unit\nFlat Rate\nPercentage",
    "reqd": 1
+  },
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Weight\nVolume\nPackage\nPiece"
   },
   {
    "fieldname": "rate",
@@ -109,12 +116,6 @@
   {
    "fieldname": "column_break_2",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "calculation_method",
-   "fieldtype": "Select",
-   "label": "Calculation Method",
-   "options": "Manual\nAutomatic\nFormula-based"
   },
   {
    "fieldname": "discount_percentage",

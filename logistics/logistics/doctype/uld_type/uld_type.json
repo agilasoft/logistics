@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2026-01-27 23:38:03.212095",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -9,7 +10,7 @@
   "description",
   "column_break_dwsh",
   "aircraft_compatibility",
-  "table_eeps",
+  "aircraft_compatibility_details",
   "dimensions_tab",
   "section_break_kgxc",
   "length",
@@ -32,7 +33,8 @@
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "description",
@@ -95,10 +97,10 @@
    "label": "Aircraft Compatibility"
   },
   {
-   "fieldname": "table_eeps",
+   "fieldname": "aircraft_compatibility_details",
    "fieldtype": "Table",
-   "label": "null",
-   "options": "Air Booking Charges"
+   "label": "Compatible Aircraft",
+   "options": "ULD Type Aircraft Compatibility"
   },
   {
    "fieldname": "dimensions_tab",
@@ -143,10 +145,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-28 00:00:23.183558",
+ "modified": "2026-02-27 11:28:55.133433",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "ULD Type",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -164,6 +167,7 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
+ "search_fields": "description",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

@@ -1,26 +1,27 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-// Create order/booking from One-Off Quote (not from Sales Quote)
+// Create order/booking from Sales Quote (One-off type)
 frappe.provide("logistics.transport");
 frappe.provide("logistics.air_freight");
 frappe.provide("logistics.sea_freight");
 
 logistics.transport.create_transport_order_from_sales_quote = function() {
 	const d = new frappe.ui.Dialog({
-		title: __("Create Transport Order from One-Off Quote"),
+		title: __("Create Transport Order from Sales Quote"),
 		fields: [
 			{
 				fieldtype: "Link",
-				fieldname: "one_off_quote",
-				label: __("One-Off Quote"),
-				options: "One-Off Quote",
+				fieldname: "sales_quote",
+				label: __("Sales Quote"),
+				options: "Sales Quote",
 				reqd: 1,
 				get_query: function() {
 					return {
 						filters: {
-							is_transport: 1,
-							status: ["!=", "Converted"]
+							quotation_type: "One-off",
+							main_service: "Transport",
+							status: ["not in", ["Converted", "Lost", "Expired"]]
 						}
 					};
 				}
@@ -28,12 +29,12 @@ logistics.transport.create_transport_order_from_sales_quote = function() {
 		],
 		primary_action_label: __("Create"),
 		primary_action(values) {
-			if (!values.one_off_quote) return;
+			if (!values.sales_quote) return;
 			d.hide();
 			frappe.show_alert({ message: __("Creating Transport Order..."), indicator: "blue" });
 			frappe.call({
-				method: "logistics.pricing_center.doctype.one_off_quote.one_off_quote.create_transport_order",
-				args: { one_off_quote_name: values.one_off_quote },
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_transport_order_from_sales_quote",
+				args: { sales_quote_name: values.sales_quote },
 				callback: function(r) {
 					if (r.exc) return;
 					if (r.message && r.message.success && r.message.transport_order) {
@@ -54,27 +55,33 @@ logistics.transport.create_transport_order_from_sales_quote = function() {
 
 logistics.air_freight.create_air_booking_from_sales_quote = function() {
 	const d = new frappe.ui.Dialog({
-		title: __("Create Air Booking from One-Off Quote"),
+		title: __("Create Air Booking from Sales Quote"),
 		fields: [
 			{
 				fieldtype: "Link",
-				fieldname: "one_off_quote",
-				label: __("One-Off Quote"),
-				options: "One-Off Quote",
+				fieldname: "sales_quote",
+				label: __("Sales Quote"),
+				options: "Sales Quote",
 				reqd: 1,
 				get_query: function() {
-					return { filters: { mode: "Air", status: ["!=", "Converted"] } };
+					return {
+						filters: {
+							quotation_type: "One-off",
+							main_service: "Air",
+							status: ["not in", ["Converted", "Lost", "Expired"]]
+						}
+					};
 				}
 			}
 		],
 		primary_action_label: __("Create"),
 		primary_action(values) {
-			if (!values.one_off_quote) return;
+			if (!values.sales_quote) return;
 			d.hide();
 			frappe.show_alert({ message: __("Creating Air Booking..."), indicator: "blue" });
 			frappe.call({
-				method: "logistics.pricing_center.doctype.one_off_quote.one_off_quote.create_air_booking",
-				args: { one_off_quote_name: values.one_off_quote },
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_booking_from_sales_quote",
+				args: { sales_quote_name: values.sales_quote },
 				callback: function(r) {
 					if (r.exc) return;
 					if (r.message && r.message.success && r.message.air_booking) {
@@ -95,27 +102,33 @@ logistics.air_freight.create_air_booking_from_sales_quote = function() {
 
 logistics.sea_freight.create_sea_booking_from_sales_quote = function() {
 	const d = new frappe.ui.Dialog({
-		title: __("Create Sea Booking from One-Off Quote"),
+		title: __("Create Sea Booking from Sales Quote"),
 		fields: [
 			{
 				fieldtype: "Link",
-				fieldname: "one_off_quote",
-				label: __("One-Off Quote"),
-				options: "One-Off Quote",
+				fieldname: "sales_quote",
+				label: __("Sales Quote"),
+				options: "Sales Quote",
 				reqd: 1,
 				get_query: function() {
-					return { filters: { is_sea: 1, status: ["!=", "Converted"] } };
+					return {
+						filters: {
+							quotation_type: "One-off",
+							main_service: "Sea",
+							status: ["not in", ["Converted", "Lost", "Expired"]]
+						}
+					};
 				}
 			}
 		],
 		primary_action_label: __("Create"),
 		primary_action(values) {
-			if (!values.one_off_quote) return;
+			if (!values.sales_quote) return;
 			d.hide();
 			frappe.show_alert({ message: __("Creating Sea Booking..."), indicator: "blue" });
 			frappe.call({
-				method: "logistics.pricing_center.doctype.one_off_quote.one_off_quote.create_sea_booking",
-				args: { one_off_quote_name: values.one_off_quote },
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_sea_booking_from_sales_quote",
+				args: { sales_quote_name: values.sales_quote },
 				callback: function(r) {
 					if (r.exc) return;
 					if (r.message && r.message.success && r.message.sea_booking) {

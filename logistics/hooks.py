@@ -1,102 +1,147 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from . import __version__ as app_version
 
+# App dependencies
+app_dependencies = ["erpnext"]
+
+# App configuration
 app_name = "logistics"
 app_title = "CargoNext"
-app_publisher = "www.agilasoft.com"
+app_publisher = "Agilasoft Cloud Technologies Inc."
 app_description = "CargoNext"
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "info@agilasoft.com"
-app_license = "MIT"
+app_license = "AGPL-3.0-or-later"
 
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/logistics/css/logistics.css"
+app_include_css = "/assets/logistics/css/print_footer_fix.css"
 app_include_js = [
-    "/assets/logistics/js/desktop_icon_cache_bust.js",
-    "/assets/logistics/js/create_from_sales_quote.js",
-    "/assets/logistics/js/additional_charges.js",
-    "/assets/logistics/js/measurements_uom_conversion.js",
+	"/assets/logistics/js/charge_break_dialogs.js",
+	"/assets/logistics/js/volume_from_dimensions.js",
+	"/assets/logistics/js/document_alerts_dialog.js?v=2",
+	"/assets/logistics/js/documents_tab_utils.js",
+	"/assets/logistics/js/profitability_form.js?v=2",
+	"/assets/logistics/js/purchase_invoice_dialog.js",
+	"/assets/logistics/js/sales_invoice_dialog.js",
 ]
-# Lalamove JS files are loaded on-demand in form scripts to avoid loading for all pages
 
 # include js, css files in header of web template
 # web_include_css = "/assets/logistics/css/logistics.css"
 # web_include_js = "/assets/logistics/js/logistics.js"
 
-# Portal Menu Items
-# -----------------
-portal_menu_items = [
-    {
-        "title": "Warehousing Portal",
-        "route": "/warehousing-portal",
-        "reference_doctype": "Warehouse Job"
-    },
-    {
-        "title": "Transport Jobs",
-        "route": "/transport-jobs",
-        "reference_doctype": "Transport Job"
-    },
-    {
-        "title": "Stock Balance",
-        "route": "/stock-balance",
-        "reference_doctype": "Item"
-    },
-    {
-        "title": "Warehouse Jobs",
-        "route": "/warehouse-jobs",
-        "reference_doctype": "Warehouse Job"
-    },
-    {
-        "title": "Wiki & Documentation",
-        "route": "/wiki",
-        "reference_doctype": "Web Page"
-    }
-]
-
-# Portal Page Context
-# -------------------
-get_portal_page_context = "logistics.transport.portal_config.get_portal_page_context"
-
-# Website Routes
-# --------------
-# Debug routes (/simple-test, /customer-debug, etc.) removed for production safety.
-# Re-add locally for development if needed.
-website_route_rules = [
-    {"from_route": "/transport-jobs", "to_route": "transport_jobs"},
-    {"from_route": "/stock-balance", "to_route": "stock_balance"},
-    {"from_route": "/warehouse-jobs", "to_route": "warehouse_jobs"},
-    {"from_route": "/warehousing-portal", "to_route": "warehousing_portal"},
-    # Order Views
-    {"from_route": "/release-orders", "to_route": "release_orders"},
-    {"from_route": "/inbound-orders", "to_route": "inbound_orders"},
-    {"from_route": "/vas-orders", "to_route": "vas_orders"},
-    {"from_route": "/transfer-orders", "to_route": "transfer_orders"},
-    {"from_route": "/stocktake-orders", "to_route": "stocktake_orders"},
-    {
-        "from_route": "/transport-jobs/<path:name>",
-        "to_route": "transport_job_detail",
-        "defaults": {"doctype": "Transport Job", "parents": [{"label": "Transport Jobs", "route": "transport-jobs"}]},
-    },
-    # Wiki Routes
-    {"from_route": "/wiki", "to_route": "wiki"},
-    {"from_route": "/wiki/space/<path:space>", "to_route": "wiki_space"},
-    {"from_route": "/wiki/page/<path:page>", "to_route": "wiki_page"},
-]
-
 # include js in page
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	# Sales Quote: dialogs first, then air/sea freight scripts
+	"Sales Quote": [
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
+		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
+		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
+	],
+	# Charge parent doctypes: dialogs first, then charge script + handlers
+	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
+	"Air Booking": [
+		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/air_freight/doctype/air_booking_charges/air_booking_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Air Shipment": [
+		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/air_freight/doctype/air_shipment_charges/air_shipment_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/job_management/recognition_client.js",
+	],
+	"Air Consolidation": [
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Sea Booking": [
+		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/sea_freight/doctype/sea_booking_charges/sea_booking_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Sea Shipment": [
+		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/sea_freight/doctype/sea_shipment_charges/sea_shipment_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+	],
+	"Sea Consolidation": [
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Declaration": [
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/customs/doctype/declaration_charges/declaration_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/job_management/recognition_client.js",
+	],
+	"Declaration Order": [
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/customs/doctype/declaration_order_charges/declaration_order_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Transport Order": [
+		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/pricing_center/doctype/transport_order_charges/transport_order_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Transport Job": [
+		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+	],
+	"Transport Consolidation": [
+		"logistics/public/js/document_alerts_dialog.js",
+	],
+	"Warehouse Job": [
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+	],
+	"General Job": [
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+	],
+	"Special Project": [
+		"logistics/public/js/document_alerts_dialog.js",
+	],
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
-# Address map functionality is handled via Client Script (custom script) only
 
 # Home Pages
 # ----------
@@ -109,9 +154,6 @@ website_route_rules = [
 #	"Role": "home_page"
 # }
 
-# Website user home page (by function)
-# get_website_user_home_page = "logistics.utils.get_home_page"
-
 # Generators
 # ----------
 
@@ -121,9 +163,8 @@ website_route_rules = [
 # Installation
 # ------------
 
-before_install = "logistics.install.before_install.before_install"
-after_install = "logistics.install.after_install.after_install"
-# after_migrate = "logistics.patches.v1_1_fix_item_deletion_parent_columns.execute"
+# before_install = "logistics.install.before_install"
+# after_install = "logistics.install.after_install"
 
 # Desk Notifications
 # ------------------
@@ -138,47 +179,58 @@ after_install = "logistics.install.after_install.after_install"
 # permission_query_conditions = {
 # 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
 # }
-
+#
 # has_permission = {
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
 # Document Events
 # ---------------
-# Hook on document methods and events
+# Hook on document methods and events (PI/SI lifecycle for job/shipment links)
+# Auto-populate documents and milestones from template on save (doctypes with Documents/Milestones tab)
+_doc_milestone_doctypes = [
+	"Air Booking", "Air Shipment", "Air Consolidation",
+	"Sea Booking", "Sea Shipment", "Sea Consolidation",
+	"Transport Order", "Transport Job",
+	"Declaration", "Declaration Order",
+	"Inbound Order", "Release Order", "Transfer Order",
+	"Warehouse Job", "General Job", "Special Project",
+]
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-#	}
-# }
+doc_events = {
+	"Purchase Invoice": {
+		"on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
+		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
+	},
+	"Sales Invoice": {
+		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
+		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
+	},
+}
+for _dt in _doc_milestone_doctypes:
+	doc_events[_dt] = {
+		"before_save": [
+			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
+			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
+		],
+		"on_update": "logistics.document_management.api.ensure_documents_and_milestones_from_template",
+	}
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
 	"hourly": [
-		"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
-		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
-		"logistics.sea_freight.tasks.check_sea_shipment_delays",
-		"logistics.sea_freight.tasks.check_sea_shipment_penalties",
-		"logistics.transport.tasks.update_sla_statuses"
+		"logistics.status_update.tasks.update_milestone_statuses",
 	],
 	"daily": [
-		"logistics.air_freight.flight_schedules.tasks.sync_airport_master",
-		"logistics.air_freight.flight_schedules.tasks.sync_airline_master",
-		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules",
-		"logistics.sea_freight.tasks.check_impending_penalties"
+		"logistics.status_update.tasks.update_document_statuses",
+		"logistics.status_update.tasks.update_permit_statuses",
+		"logistics.status_update.tasks.update_exemption_statuses",
 	],
-	"weekly": [
-		"logistics.air_freight.flight_schedules.tasks.sync_route_data",
-		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs"
-	]
 }
 
-
+# Testing
 # -------
 
 # before_tests = "logistics.install.before_tests"
@@ -197,47 +249,46 @@ scheduler_events = {
 # 	"Task": "logistics.task.get_dashboard_data"
 # }
 
-doc_events = {
-    "Report": {
-        "onload": "logistics.transport.report.fuel_consumption_analysis.fuel_consumption_analysis.onload",
-    },
-    "Warehouse Job": {
-        # keep your existing validate hook(s) if any
-        "before_submit": "logistics.warehousing.api.warehouse_job_before_submit",
-        "on_update": "logistics.job_management.doc_events.on_job_update",
-    },
-    "Customer": {
-        "after_save": "logistics.customer_hooks.add_portal_user_permissions",
-        "on_update": "logistics.customer_hooks.remove_portal_user_permissions",
-    },
-    # Recognition Engine integration for job documents
-    "Air Shipment": {
-        "on_update": "logistics.job_management.doc_events.on_job_update",
-        "on_submit": "logistics.job_management.doc_events.on_job_submit",
-    },
-    "Sea Shipment": {
-        "on_update": "logistics.job_management.doc_events.on_job_update",
-        "on_submit": "logistics.job_management.doc_events.on_job_submit",
-    },
-    "Transport Job": {
-        "on_update": "logistics.job_management.doc_events.on_job_update",
-        "on_submit": "logistics.job_management.doc_events.on_job_submit",
-    },
-    "Declaration": {
-        "on_update": "logistics.job_management.doc_events.on_job_update",
-        "on_submit": "logistics.job_management.doc_events.on_job_submit",
-    },
-    "General Job": {
-        "on_update": "logistics.job_management.doc_events.on_job_update",
-        "on_submit": "logistics.job_management.doc_events.on_job_submit",
-    },
-    "Sales Invoice": {
-        "validate": "logistics.transport.sales_invoice_hooks.validate_transport_job_status",
-        "on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
-        "on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
-    },
-    "Purchase Invoice": {
-        "on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
-        "on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
-    },
-}
+# exempt linked doctypes from being automatically cancelled
+#
+# auto_cancel_exempted_doctypes = ["Auto Repeat"]
+
+
+# User Data Protection
+# --------------------
+
+user_data_fields = [
+	{
+		"doctype": "{doctype_1}",
+		"filter_by": "{filter_by}",
+		"redact_fields": ["{field_1}", "{field_2}"],
+		"partial": 1,
+	},
+	{
+		"doctype": "{doctype_2}",
+		"filter_by": "{filter_by}",
+		"partial": 1,
+	},
+	{
+		"doctype": "{doctype_3}",
+		"strict": False,
+	},
+	{
+		"doctype": "{doctype_4}"
+	}
+]
+
+# Authentication and authorization
+# --------------------------------
+
+# auth_hooks = [
+# 	"logistics.auth.validate"
+# ]
+
+# Translation
+# --------------------------------
+
+# Make link fields search translated document names for these DocTypes
+# Recommended only for DocTypes which have limited documents with untranslated names
+# For example: Role, Gender, etc.
+# translated_search_doctypes = []

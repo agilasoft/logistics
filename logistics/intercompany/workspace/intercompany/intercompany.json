@@ -1,0 +1,37 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\": \"header1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Intercompany</span>\", \"col\": 12}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Settings\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Invoice Log\", \"col\": 4}}]",
+ "creation": "2026-02-25 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "exchange",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Intercompany",
+ "link_type": "DocType",
+ "links": [
+  {"label": "Intercompany Settings", "link_to": "Intercompany Settings", "link_type": "DocType", "type": "Link"},
+  {"label": "Intercompany Invoice Log", "link_to": "Intercompany Invoice Log", "link_type": "DocType", "type": "Link"}
+ ],
+ "modified": "2026-02-25 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Intercompany",
+ "name": "Intercompany",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "shortcuts": [
+  {"color": "Blue", "doc_view": "Form", "label": "Intercompany Settings", "link_to": "Intercompany Settings", "stats_filter": "[]", "type": "DocType"},
+  {"color": "Grey", "doc_view": "List", "label": "Intercompany Invoice Log", "link_to": "Intercompany Invoice Log", "stats_filter": "[]", "type": "DocType"}
+ ],
+ "title": "Intercompany",
+ "type": "Workspace"
+}

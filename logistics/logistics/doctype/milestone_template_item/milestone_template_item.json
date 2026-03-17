@@ -1,0 +1,121 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-02-27 00:00:00.000000",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "milestone",
+    "column_break_1",
+    "date_basis",
+    "planned_days_offset",
+    "column_break_sync",
+    "update_trigger_type",
+    "sync_parent_date_field",
+    "sync_direction",
+    "column_break_trigger",
+    "trigger_field",
+    "trigger_condition",
+    "trigger_value",
+    "trigger_action"
+  ],
+  "fields": [
+    {
+      "fieldname": "milestone",
+      "fieldtype": "Link",
+      "in_list_view": 1,
+      "label": "Milestone",
+      "options": "Logistics Milestone",
+      "reqd": 1
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "date_basis",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Planned Date Basis",
+      "options": "\nJob Date\nETD\nETA\nBooking Date\nManual\nNone",
+      "description": "Parent date used as this milestone's planned_end."
+    },
+    {
+      "default": "0",
+      "fieldname": "planned_days_offset",
+      "fieldtype": "Int",
+      "label": "Planned Start Reduction (Days)",
+      "description": "Days to reduce from Planned Date Basis for planned_start (e.g. 7 = planned_start 7 days before planned_end)"
+    },
+    {
+      "fieldname": "column_break_sync",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "update_trigger_type",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Update Trigger",
+      "options": "\nNone\nDate Based\nField Based",
+      "description": "When set, updates milestone actual_end and status (Completed). Date Based: sync with parent date field. Field Based: complete when parent field meets condition."
+    },
+    {
+      "depends_on": "eval:doc.update_trigger_type == 'Date Based'",
+      "fieldname": "sync_parent_date_field",
+      "fieldtype": "Select",
+      "label": "Sync Parent Date Field",
+      "description": "Parent field to sync with this milestone's date completed. Set 'Applies to DocType' on the template and refresh to load options."
+    },
+    {
+      "depends_on": "eval:doc.update_trigger_type == 'Date Based'",
+      "fieldname": "sync_direction",
+      "fieldtype": "Select",
+      "label": "Sync Direction",
+      "options": "\nBoth\nParent to Milestone only\nMilestone to Parent only"
+    },
+    {
+      "fieldname": "column_break_trigger",
+      "fieldtype": "Column Break"
+    },
+    {
+      "depends_on": "eval:doc.update_trigger_type == 'Field Based'",
+      "fieldname": "trigger_field",
+      "fieldtype": "Select",
+      "label": "Trigger Field",
+      "description": "Parent doctype field for condition. Set 'Applies to DocType' on the template and refresh to load options."
+    },
+    {
+      "depends_on": "eval:doc.update_trigger_type == 'Field Based'",
+      "fieldname": "trigger_condition",
+      "fieldtype": "Select",
+      "label": "Trigger Condition",
+      "options": "\nIs set\nNot empty\nEquals\nIs empty\nIn list"
+    },
+    {
+      "depends_on": "eval:doc.update_trigger_type == 'Field Based'",
+      "fieldname": "trigger_value",
+      "fieldtype": "Data",
+      "label": "Trigger Value",
+      "description": "For Equals or comma-separated for In list"
+    },
+    {
+      "depends_on": "eval:doc.update_trigger_type == 'Field Based'",
+      "fieldname": "trigger_action",
+      "fieldtype": "Select",
+      "label": "Trigger Action",
+      "options": "\nComplete milestone\nSet actual_end from field"
+    }
+  ],
+  "istable": 1,
+  "links": [],
+  "modified": "2026-02-27 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Logistics",
+  "name": "Milestone Template Item",
+  "owner": "Administrator",
+  "permissions": [],
+  "sort_field": "idx",
+  "sort_order": "ASC",
+  "states": []
+}

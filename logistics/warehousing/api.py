@@ -493,10 +493,33 @@ def _ensure_serial(serial_code: Optional[str], item: Optional[str] = None, custo
 def create_serial_and_batch_for_inbound(inbound_order: str):
     if not inbound_order:
         frappe.throw(_("Inbound Order is required"))
+    
+    import time
+    
+    # Check if inbound_order is a temporary name (starts with "new-")
+    if inbound_order.startswith("new-"):
+        frappe.throw(_("Cannot create serial/batch for unsaved document. Please save the Inbound Order first."))
+    
+    # Guard: Check if we're in a save transaction and handle accordingly
+    if getattr(frappe.flags, 'in_save', False):
+        frappe.db.commit()
+        time.sleep(0.3)  # Wait for transaction to complete
+    
     customer = None
     try:
-        parent = frappe.get_doc("Inbound Order", inbound_order)
-        customer = getattr(parent, "customer", None)
+        # Get the document directly, handling DoesNotExistError
+        try:
+            parent = frappe.get_doc("Inbound Order", inbound_order)
+            customer = getattr(parent, "customer", None)
+        except frappe.DoesNotExistError:
+            # Retry once after delay if document not found (may have been in save transaction)
+            time.sleep(0.3)
+            try:
+                # Use get_cached_doc to avoid false not-found during post-save calls
+                parent = frappe.get_cached_doc("Inbound Order", inbound_order)
+                customer = getattr(parent, "customer", None)
+            except frappe.DoesNotExistError:
+                frappe.throw(_("Inbound Order {0} is not ready yet. Please try again in a moment.").format(inbound_order))
     except Exception as e:
         frappe.logger().debug(f"Failed to get customer from Inbound Order {inbound_order}: {str(e)}")
 

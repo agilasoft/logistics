@@ -154,7 +154,7 @@
    "fieldname": "default_declaration_status",
    "fieldtype": "Select",
    "label": "Default Declaration Status",
-   "options": "Draft\nSubmitted\nIn Progress\nApproved\nRejected\nCancelled"
+   "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled"
   },
   {
    "default": "0",

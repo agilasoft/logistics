@@ -2,10 +2,13 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2026-02-06 00:00:00.000000",
+ "creation": "2026-02-06 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "details",
   "section_break_main",
   "naming_series",
   "order_date",
@@ -13,25 +16,161 @@
   "customer",
   "column_break_1",
   "customs_authority",
+  "currency",
+  "exchange_rate",
+  "column_break_pemj",
+  "customs_broker",
+  "notify_party",
   "status",
-  "section_break_connections",
+  "section_break_shipment_type",
+  "exporter_shipper",
+  "importer_consignee",
+  "column_break_knri",
+  "declaration_type",
+  "transport_mode",
+  "column_break_pwce",
   "air_shipment",
   "sea_shipment",
+  "transport_order",
+  "section_break_transport",
+  "column_break_transport",
+  "vessel_flight_number",
+  "transport_document_number",
+  "transport_document_type",
+  "container_numbers",
+  "column_break_hyfv",
+  "port_of_loading",
+  "etd",
+  "column_break_erxo",
+  "port_of_discharge",
+  "eta",
+  "section_break_trade",
+  "incoterm",
+  "payment_terms",
+  "trade_agreement",
+  "special_instructions",
+  "column_break_trade",
+  "country_of_origin",
+  "country_of_destination",
+  "priority_level",
+  "marks_and_numbers",
+  "external_reference",
+  "commercial_invoice_tab",
+  "section_break_commercial_invoice_headers",
+  "column_break_otwm",
+  "invoice_no",
+  "exporter",
+  "exporter_name",
+  "inv_date",
+  "payment_date",
+  "column_break_quah",
+  "inv_importer",
+  "importer_name",
+  "agreed_place",
+  "incoterm_place",
+  "inv_incoterm",
+  "column_break_zsjh",
+  "inv_total_amount",
+  "inv_currency",
+  "inv_exchange_rate",
+  "balance",
+  "invoice_details_section",
+  "column_break_inv_headers",
+  "inv_volume",
+  "inv_volume_uom",
+  "inv_gross_weight",
+  "inv_gross_weight_uom",
+  "inv_net_weight",
+  "inv_net_weight_uom",
+  "packages",
+  "packages_uom",
+  "column_break_inv_financial",
+  "cif",
+  "fob",
+  "charges_excl_from_itot",
+  "expected_invoice_line_total",
+  "column_break_fevp",
+  "remarks",
+  "settlement_details_section",
+  "column_break_inv_bank",
+  "exporters_bank_account_no",
+  "exporters_bank_name",
+  "exporters_bank_swift_code",
+  "column_break_inv_lc",
+  "letter_of_credit_number",
+  "letter_of_credit_date",
+  "lc_ex_rate",
+  "column_break_lirr",
+  "payment_number",
+  "payment_amount",
+  "payment_ex_rate",
+  "section_break_invoice_charges",
+  "commercial_invoice_charges",
+  "section_break_line_items",
+  "commercial_invoice_line_items",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "permits_tab",
+  "permits_section",
+  "permit_requirements",
+  "exemptions_section",
+  "exemptions",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
+  "charges_tab",
+  "charges_section",
+  "charges",
   "accounts_tab",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_accounts",
+  "billing_company",
   "job_costing_number",
+  "project",
+  "more_info_tab",
   "notes_section",
-  "internal_notes"
+  "internal_notes",
+  "column_break_parties",
+  "external_notes",
+  "amended_from",
+  "section_break_sla",
+  "service_level",
+  "column_break_xsrb",
+  "sla_target_date",
+  "sla_status",
+  "sla_target_source",
+  "column_break_sla",
+  "sla_notes"
  ],
  "fields": [
   {
-   "fieldname": "section_break_main",
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_shipment_type",
    "fieldtype": "Section Break",
-   "label": "Order Details"
+   "label": "Shipment Details"
+  },
+  {
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "naming_series",
@@ -51,8 +190,18 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_customs\",\"=\",1]]",
+   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Customs\"]]",
+   "no_copy": 1,
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "fieldname": "customer",
@@ -67,40 +216,575 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "declaration_type",
+   "fieldtype": "Select",
+   "label": "Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded"
+  },
+  {
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
    "options": "Customs Authority"
   },
   {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "description": "Exchange rate if different from base currency",
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
    "default": "Draft",
+   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nConfirmed\nIn Progress\nCompleted\nCancelled",
+   "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled",
+   "read_only": 1,
    "reqd": 1
   },
   {
-   "fieldname": "section_break_connections",
-   "fieldtype": "Section Break",
-   "label": "Connected Documents",
-   "collapsible": 1
+   "fieldname": "exporter_shipper",
+   "fieldtype": "Link",
+   "label": "Exporter/Shipper",
+   "options": "Shipper"
   },
   {
+   "fieldname": "importer_consignee",
+   "fieldtype": "Link",
+   "label": "Importer/Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "column_break_parties",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customs_broker",
+   "fieldtype": "Link",
+   "label": "Customs Broker/Agent",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "notify_party",
+   "fieldtype": "Link",
+   "label": "Notify Party",
+   "options": "Customer"
+  },
+  {
+   "depends_on": "eval:doc.transport_mode == 'Air'",
+   "description": "Trace customs order to air freight",
    "fieldname": "air_shipment",
    "fieldtype": "Link",
    "label": "Air Shipment",
-   "options": "Air Shipment",
-   "description": "Trace customs order to air freight"
+   "options": "Air Shipment"
   },
   {
+   "depends_on": "eval:doc.transport_mode == 'Sea'",
+   "description": "Trace customs order to sea freight",
    "fieldname": "sea_shipment",
    "fieldtype": "Link",
    "label": "Sea Shipment",
-   "options": "Sea Shipment",
-   "description": "Trace customs order to sea freight"
+   "options": "Sea Shipment"
+  },
+  {
+   "description": "Trace customs order to domestic transport",
+   "fieldname": "transport_order",
+   "fieldtype": "Link",
+   "label": "Transport Order",
+   "options": "Transport Order"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_transport",
+   "fieldtype": "Section Break",
+   "label": "Transport Information"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Select",
+   "label": "Transport Mode",
+   "options": "Sea\nAir\nRoad\nRail\nCourier\nPost"
+  },
+  {
+   "fieldname": "port_of_loading",
+   "fieldtype": "Link",
+   "label": "Port of Loading/Entry",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "port_of_discharge",
+   "fieldtype": "Link",
+   "label": "Port of Discharge/Exit",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "column_break_transport",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vessel_flight_number",
+   "fieldtype": "Data",
+   "label": "Vessel/Flight/Vehicle Number"
+  },
+  {
+   "description": "Bill of Lading, Air Waybill, CMR, etc.",
+   "fieldname": "transport_document_number",
+   "fieldtype": "Data",
+   "label": "Transport Document Number"
+  },
+  {
+   "fieldname": "transport_document_type",
+   "fieldtype": "Select",
+   "label": "Transport Document Type",
+   "options": "Bill of Lading\nAir Waybill\nCMR\nRailway Bill\nCourier Receipt\nOther"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "label": "ETD (Expected Departure)"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "label": "ETA (Expected Arrival)"
+  },
+  {
+   "description": "Comma-separated list of container numbers",
+   "fieldname": "container_numbers",
+   "fieldtype": "Small Text",
+   "label": "Container Numbers"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_trade",
+   "fieldtype": "Section Break",
+   "label": "Trade Information"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Link",
+   "label": "Payment Terms",
+   "options": "Payment Terms Template"
+  },
+  {
+   "fieldname": "trade_agreement",
+   "fieldtype": "Data",
+   "label": "Trade Agreement/Preference"
+  },
+  {
+   "fieldname": "column_break_trade",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "country_of_origin",
+   "fieldtype": "Link",
+   "label": "Country of Origin",
+   "options": "Country"
+  },
+  {
+   "fieldname": "country_of_destination",
+   "fieldtype": "Link",
+   "label": "Country of Destination",
+   "options": "Country"
+  },
+  {
+   "fieldname": "priority_level",
+   "fieldtype": "Select",
+   "label": "Priority Level",
+   "options": "Normal\nExpress\nUrgent"
+  },
+  {
+   "fieldname": "marks_and_numbers",
+   "fieldtype": "Long Text",
+   "label": "Marks and Numbers"
+  },
+  {
+   "fieldname": "special_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Instructions"
+  },
+  {
+   "description": "Reference from external systems or customs authority",
+   "fieldname": "external_reference",
+   "fieldtype": "Data",
+   "label": "External Reference Number"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_sla",
+   "fieldtype": "Section Break",
+   "label": "Service Level Agreement"
+  },
+  {
+   "fieldname": "service_level",
+   "fieldtype": "Link",
+   "label": "Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fieldname": "sla_target_date",
+   "fieldtype": "Datetime",
+   "label": "SLA Target Date"
+  },
+  {
+   "default": "Not Applicable",
+   "fieldname": "sla_status",
+   "fieldtype": "Select",
+   "label": "SLA Status",
+   "options": "On Track\nAt Risk\nBreached\nNot Applicable"
+  },
+  {
+   "fieldname": "sla_target_source",
+   "fieldtype": "Select",
+   "label": "SLA Target Source",
+   "options": "From Service Level\nManual"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sla_notes",
+   "fieldtype": "Text",
+   "label": "SLA Notes"
+  },
+  {
+   "fieldname": "commercial_invoice_tab",
+   "fieldtype": "Tab Break",
+   "label": "Commercial Invoice"
+  },
+  {
+   "fieldname": "section_break_commercial_invoice_headers",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "invoice_no",
+   "fieldtype": "Data",
+   "label": "Invoice No."
+  },
+  {
+   "fieldname": "agreed_place",
+   "fieldtype": "Data",
+   "label": "Agreed Place"
+  },
+  {
+   "fieldname": "inv_total_amount",
+   "fieldtype": "Currency",
+   "label": "Invoice Total"
+  },
+  {
+   "fieldname": "inv_currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "inv_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
+   "fieldname": "balance",
+   "fieldtype": "Data",
+   "label": "Balance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_date",
+   "fieldtype": "Date",
+   "label": "Payment Date"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "column_break_inv_headers",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "inv_date",
+   "fieldtype": "Date",
+   "label": "Inv. Date"
+  },
+  {
+   "fieldname": "inv_importer",
+   "fieldtype": "Link",
+   "label": "Importer",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "inv_volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "inv_volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "inv_incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "incoterm_place",
+   "fieldtype": "Data",
+   "label": "Incoterm Place"
+  },
+  {
+   "fieldname": "column_break_inv_financial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cif",
+   "fieldtype": "Currency",
+   "label": "CIF"
+  },
+  {
+   "fieldname": "fob",
+   "fieldtype": "Currency",
+   "label": "FOB"
+  },
+  {
+   "default": "0",
+   "fieldname": "charges_excl_from_itot",
+   "fieldtype": "Check",
+   "label": "Charges excl. from ITOT"
+  },
+  {
+   "fieldname": "expected_invoice_line_total",
+   "fieldtype": "Currency",
+   "label": "Expected Invoice Line Total"
+  },
+  {
+   "fieldname": "column_break_inv_bank",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "exporters_bank_account_no",
+   "fieldtype": "Data",
+   "label": "Exporters Bank Account No"
+  },
+  {
+   "fieldname": "exporters_bank_name",
+   "fieldtype": "Data",
+   "label": "Exporters Bank Name"
+  },
+  {
+   "fieldname": "exporters_bank_swift_code",
+   "fieldtype": "Data",
+   "label": "Exporters Bank SWIFT Code"
+  },
+  {
+   "fieldname": "column_break_inv_lc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "letter_of_credit_number",
+   "fieldtype": "Data",
+   "label": "Letter of Credit Number"
+  },
+  {
+   "fieldname": "letter_of_credit_date",
+   "fieldtype": "Date",
+   "label": "Letter of Credit Date"
+  },
+  {
+   "fieldname": "lc_ex_rate",
+   "fieldtype": "Float",
+   "label": "LC Ex Rate"
+  },
+  {
+   "fieldname": "payment_number",
+   "fieldtype": "Data",
+   "label": "Payment #"
+  },
+  {
+   "fieldname": "payment_amount",
+   "fieldtype": "Currency",
+   "label": "Payment Amount"
+  },
+  {
+   "fieldname": "payment_ex_rate",
+   "fieldtype": "Float",
+   "label": "Payment Ex Rate"
+  },
+  {
+   "fieldname": "inv_gross_weight",
+   "fieldtype": "Float",
+   "label": "Inv. Gross Weight"
+  },
+  {
+   "fieldname": "inv_gross_weight_uom",
+   "fieldtype": "Link",
+   "label": "Inv. Gross Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "inv_net_weight",
+   "fieldtype": "Float",
+   "label": "Inv. Net Weight"
+  },
+  {
+   "fieldname": "inv_net_weight_uom",
+   "fieldtype": "Link",
+   "label": "Inv. Net Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Float",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "packages_uom",
+   "fieldtype": "Link",
+   "label": "Packages UOM",
+   "options": "UOM"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_line_items",
+   "fieldtype": "Section Break",
+   "label": "Line Items"
+  },
+  {
+   "fieldname": "commercial_invoice_line_items",
+   "fieldtype": "Table",
+   "label": "Line Items",
+   "options": "Commercial Invoice Line Item"
+  },
+  {
+   "fieldname": "section_break_invoice_charges",
+   "fieldtype": "Section Break",
+   "label": "Invoice Charges"
+  },
+  {
+   "fieldname": "commercial_invoice_charges",
+   "fieldtype": "Table",
+   "label": "Invoice Charges",
+   "options": "Commercial Invoice Charges"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Declaration Order Milestone"
+  },
+  {
+   "fieldname": "permits_tab",
+   "fieldtype": "Tab Break",
+   "label": "Permits and Exemptions"
+  },
+  {
+   "fieldname": "permits_section",
+   "fieldtype": "Section Break",
+   "label": "Permit Requirements"
+  },
+  {
+   "fieldname": "permit_requirements",
+   "fieldtype": "Table",
+   "label": "Permit Requirements",
+   "options": "Declaration Order Permit Requirement"
+  },
+  {
+   "fieldname": "exemptions_section",
+   "fieldtype": "Section Break",
+   "label": "Exemptions"
+  },
+  {
+   "fieldname": "exemptions",
+   "fieldtype": "Table",
+   "label": "Exemptions",
+   "options": "Declaration Order Exemption"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Declaration Order Charges"
   },
   {
    "fieldname": "accounts_tab",
@@ -137,13 +821,21 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "For revenue/cost recognition",
    "fieldname": "job_costing_number",
    "fieldtype": "Link",
    "label": "Job Costing Number",
-   "options": "Job Costing Number",
-   "description": "For revenue/cost recognition"
+   "options": "Job Costing Number"
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
    "label": "Notes"
@@ -152,11 +844,113 @@
    "fieldname": "internal_notes",
    "fieldtype": "Text Editor",
    "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_knri",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_pwce",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_pemj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_hyfv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_erxo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "settlement_details_section",
+   "fieldtype": "Section Break",
+   "label": "Settlement Details"
+  },
+  {
+   "fieldname": "column_break_quah",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_zsjh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "invoice_details_section",
+   "fieldtype": "Section Break",
+   "label": "Invoice Details"
+  },
+  {
+   "fieldname": "column_break_fevp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "fieldname": "column_break_lirr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "external_notes",
+   "fieldtype": "Text Editor",
+   "label": "External Notes"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Declaration Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_xsrb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_otwm",
+   "fieldtype": "Column Break",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exporter",
+   "fieldtype": "Link",
+   "label": "Exporter",
+   "options": "Shipper"
+  },
+  {
+   "fetch_from": "exporter.shipper_name",
+   "fieldname": "exporter_name",
+   "fieldtype": "Data",
+   "label": "Exporter Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "inv_importer.consignee_name",
+   "fieldname": "importer_name",
+   "fieldtype": "Data",
+   "label": "Importer Name"
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2026-02-06 00:00:00.000000",
+ "modified": "2026-03-13 11:58:57.947924",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",
@@ -173,9 +967,11 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

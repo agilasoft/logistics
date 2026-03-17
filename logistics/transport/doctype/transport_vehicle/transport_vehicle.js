@@ -2,7 +2,13 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Transport Vehicle", {
+	company_owned(frm) {
+		// Show company field only when company_owned is checked (1)
+		frm.toggle_display("company", frm.doc.company_owned == 1);
+	},
 	refresh(frm) {
+		// Set initial visibility of company field based on company_owned
+		frm.toggle_display("company", frm.doc.company_owned == 1);
 		// Add button to fetch latest position
 		if (frm.doc.telematics_external_id) {
 			frm.add_custom_button(__("Get Latest Position"), function() {
@@ -19,14 +25,14 @@ frappe.ui.form.on("Transport Vehicle", {
 					freeze: true,
 					freeze_message: __("Fetching latest position...")
 				});
-			}, __("Telematics"));
+			}, __("Actions"));
 		}
 		
 		// Add button to view position on map if coordinates are available
 		if (frm.doc.last_telematics_lat && frm.doc.last_telematics_lon) {
 			frm.add_custom_button(__("View on Map"), function() {
 				open_map(frm.doc.last_telematics_lat, frm.doc.last_telematics_lon);
-			}, __("Telematics"));
+			}, __("Actions"));
 		}
 		
 		// Add button to fetch CAN data specifically
@@ -45,7 +51,7 @@ frappe.ui.form.on("Transport Vehicle", {
 					freeze: true,
 					freeze_message: __("Fetching CAN data...")
 				});
-			}, __("Telematics"));
+			}, __("Actions"));
 		}
 		
 		// Add button to view all devices with selection capability
@@ -60,7 +66,7 @@ frappe.ui.form.on("Transport Vehicle", {
 				freeze: true,
 				freeze_message: __("Retrieving all devices...")
 			});
-		}, __("Telematics"));
+		}, __("Actions"));
 		
 		// Add button to fetch Device ID using Device Name
 		if (frm.doc.telematics_device_name && frm.doc.telematics_provider) {
@@ -81,7 +87,7 @@ frappe.ui.form.on("Transport Vehicle", {
 					freeze: true,
 					freeze_message: __("Fetching Device ID...")
 				});
-			}, __("Telematics"));
+			}, __("Actions"));
 		}
 		
 	}

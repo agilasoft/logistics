@@ -154,8 +154,8 @@ class TestAirShipment(FrappeTestCase):
 		if hasattr(shipment, 'estimated_carbon_footprint'):
 			self.assertIsNotNone(shipment.estimated_carbon_footprint)
 	
-	def test_air_shipment_milestone_html(self):
-		"""Test get_milestone_html method"""
+	def test_air_shipment_milestones_child_table(self):
+		"""Test milestones child table and populate_milestones_from_template."""
 		shipment = frappe.get_doc({
 			"doctype": "Air Shipment",
 			"booking_date": today(),
@@ -170,15 +170,15 @@ class TestAirShipment(FrappeTestCase):
 			"profit_center": self.profit_center
 		})
 		shipment.insert()
-		
-		# Test milestone HTML generation
-		try:
-			html = shipment.get_milestone_html()
-			self.assertIsInstance(html, str)
-			self.assertIn("milestone", html.lower() or "origin" in html.lower())
-		except Exception:
-			# If method requires more setup, that's okay
-			pass
+		self.assertTrue(hasattr(shipment, "milestones"))
+		# populate_milestones_from_template returns dict with message and added (0 if no template)
+		from logistics.document_management.api import populate_milestones_from_template
+		result = populate_milestones_from_template("Air Shipment", shipment.name)
+		self.assertIsInstance(result, dict)
+		self.assertIn("added", result)
+		# Dashboard HTML builds from child table
+		html = shipment.get_dashboard_html()
+		self.assertIsInstance(html, str)
 	
 	def test_air_shipment_package_validation(self):
 		"""Test validation of packages"""

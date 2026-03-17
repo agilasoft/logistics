@@ -20,8 +20,9 @@ class PermitApplication(Document):
 				frappe.throw(_("Can only renew an Approved or Expired permit."))
 	
 	def before_save(self):
-		"""Auto-update dates based on status"""
+		"""Auto-update dates and status based on validity"""
 		self.update_status_dates()
+		self.update_expired_status()
 		self.set_default_currency()
 	
 	def update_status_dates(self):
@@ -32,6 +33,11 @@ class PermitApplication(Document):
 			self.approval_date = nowdate()
 		elif self.status == "Rejected" and not self.rejection_date:
 			self.rejection_date = nowdate()
+
+	def update_expired_status(self):
+		"""Set status to Expired when valid_to has passed"""
+		if self.status == "Approved" and self.valid_to and getdate(self.valid_to) < nowdate():
+			self.status = "Expired"
 	
 	def set_default_currency(self):
 		"""Set default currency from company if not set"""

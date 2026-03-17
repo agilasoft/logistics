@@ -49,7 +49,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Draft\nSubmitted\nSales Quote Created"
+   "options": "Draft\nSubmitted\nApproved\nSales Quote Created"
   },
   {
    "fieldname": "section_break_charges",

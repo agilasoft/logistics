@@ -231,6 +231,23 @@ def update_sla_statuses():
                 sl_field="logistics_service_level",
                 docstatus_filter=1
             )
+        # Declaration: module Customs
+        if frappe.db.table_exists("Declaration") and frappe.db.has_column("Declaration", "sla_target_date"):
+            updated += _update_sla_status_for_doctype(
+                "Declaration",
+                "Customs",
+                sl_field="service_level",
+                docstatus_filter=1,
+                status_exclude=["Cleared", "Released", "Rejected", "Cancelled"]
+            )
+        # Declaration Order: module Customs (no docstatus)
+        if frappe.db.table_exists("Declaration Order") and frappe.db.has_column("Declaration Order", "sla_target_date"):
+            updated += _update_sla_status_for_doctype(
+                "Declaration Order",
+                "Customs",
+                sl_field="service_level",
+                status_exclude=["Cleared", "Released", "Rejected", "Cancelled"]
+            )
         if updated:
             frappe.db.commit()
     except Exception as e:

@@ -27,20 +27,23 @@ class TestTransportJob(FrappeTestCase):
 			customer.customer_type = "Company"
 			customer.insert(ignore_permissions=True)
 		
-		# Create test vehicle type if it doesn't exist
+		# Create test vehicle type if it doesn't exist (autoname: field:code)
 		if not frappe.db.exists("Vehicle Type", "Test Truck"):
 			vehicle_type = frappe.new_doc("Vehicle Type")
-			vehicle_type.vehicle_type = "Test Truck"
+			vehicle_type.code = "Test Truck"
+			vehicle_type.description = "Test Truck"
 			vehicle_type.insert(ignore_permissions=True)
-		
-		# Create test facilities (Shipper and Consignee)
+
+		# Create test facilities (Shipper and Consignee - autoname: field:code)
 		if not frappe.db.exists("Shipper", "Test Shipper"):
 			shipper = frappe.new_doc("Shipper")
+			shipper.code = "Test Shipper"
 			shipper.shipper_name = "Test Shipper"
 			shipper.insert(ignore_permissions=True)
-		
+
 		if not frappe.db.exists("Consignee", "Test Consignee"):
 			consignee = frappe.new_doc("Consignee")
+			consignee.code = "Test Consignee"
 			consignee.consignee_name = "Test Consignee"
 			consignee.insert(ignore_permissions=True)
 		

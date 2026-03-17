@@ -14,121 +14,102 @@ Usage:
 
 import frappe
 
+# Aliases to try when resolving UOM names (first existing wins)
+DIMENSION_UOM_ALIASES = {
+    "CM": ["CM", "Centimeter", "Centimetre"],
+    "M": ["M", "Meter", "Metre"],
+    "MM": ["MM", "Millimeter", "Millimetre"],
+    "IN": ["IN", "Inch"],
+    "FT": ["FT", "Foot", "Feet"],
+}
+VOLUME_UOM_ALIASES = {
+    "CBM": ["CBM", "Cubic Meter", "Cubic Metre", "M3", "M³"],
+    "CFT": ["CFT", "Cubic Foot", "FT³"],
+    "CM3": ["CM3", "CM³", "Cubic Centimeter", "Cubic Centimetre"],
+}
+
+
+def _resolve_uom(preferred: str, aliases: list) -> str | None:
+    """Return first UOM name from aliases that exists in the database."""
+    for name in aliases:
+        if frappe.db.exists("UOM", name):
+            return name
+    return None
+
 
 def create_default_conversions():
-    """Create default Dimension Volume UOM Conversion records"""
-    
-    print("🚀 Creating default Dimension Volume UOM Conversion records...")
-    
-    # Default conversions to create
+    """Create default Dimension Volume UOM Conversion records.
+    Tries common UOM name variants (e.g. CM vs Centimeter) so it works across sites.
+    """
+    if not frappe.db.table_exists("Dimension Volume UOM Conversion"):
+        return
+
+    # Default conversions: (dimension_key, volume_key) -> factor and description
     default_conversions = [
-        {
-            "dimension_uom": "CM",
-            "volume_uom": "CBM",
-            "conversion_factor": 0.000001,
-            "description": "Convert cubic centimeters to cubic meters (1 cm³ = 0.000001 m³)",
-            "is_standard": 1,
-            "enabled": 1
-        },
-        {
-            "dimension_uom": "M",
-            "volume_uom": "CBM",
-            "conversion_factor": 1.0,
-            "description": "Convert cubic meters to cubic meters (1 m³ = 1 m³)",
-            "is_standard": 1,
-            "enabled": 1
-        },
-        {
-            "dimension_uom": "MM",
-            "volume_uom": "CBM",
-            "conversion_factor": 0.000000001,
-            "description": "Convert cubic millimeters to cubic meters (1 mm³ = 0.000000001 m³)",
-            "is_standard": 1,
-            "enabled": 1
-        },
-        {
-            "dimension_uom": "IN",
-            "volume_uom": "CFT",
-            "conversion_factor": 0.000578704,
-            "description": "Convert cubic inches to cubic feet (1 in³ = 1/1728 ft³ ≈ 0.000578704 ft³)",
-            "is_standard": 1,
-            "enabled": 1
-        },
-        {
-            "dimension_uom": "FT",
-            "volume_uom": "CFT",
-            "conversion_factor": 1.0,
-            "description": "Convert cubic feet to cubic feet (1 ft³ = 1 ft³)",
-            "is_standard": 1,
-            "enabled": 1
-        },
-        {
-            "dimension_uom": "CM",
-            "volume_uom": "CM3",
-            "conversion_factor": 1.0,
-            "description": "Convert cubic centimeters to cubic centimeters (1 cm³ = 1 cm³)",
-            "is_standard": 1,
-            "enabled": 1
-        }
+        ("CM", "CBM", 0.000001, "Convert cubic centimeters to cubic meters (1 cm³ = 0.000001 m³)"),
+        ("M", "CBM", 1.0, "Convert cubic meters to cubic meters (1 m³ = 1 m³)"),
+        ("MM", "CBM", 0.000000001, "Convert cubic millimeters to cubic meters (1 mm³ = 0.000000001 m³)"),
+        ("IN", "CFT", 0.000578704, "Convert cubic inches to cubic feet (1 in³ ≈ 0.000578704 ft³)"),
+        ("FT", "CFT", 1.0, "Convert cubic feet to cubic feet (1 ft³ = 1 ft³)"),
+        ("CM", "CM3", 1.0, "Convert cubic centimeters to cubic centimeters (1 cm³ = 1 cm³)"),
     ]
-    
+
     created_count = 0
     skipped_count = 0
     error_count = 0
-    
-    for conv_data in default_conversions:
+    silent = not frappe.conf.get("developer_mode", False)
+
+    def log(msg):
+        if not silent:
+            print(msg)
+
+    for dim_key, vol_key, factor, description in default_conversions:
         try:
-            # Check if conversion already exists
-            dimension_uom = conv_data["dimension_uom"]
-            volume_uom = conv_data["volume_uom"]
-            
+            dimension_uom = _resolve_uom(dim_key, DIMENSION_UOM_ALIASES.get(dim_key, [dim_key]))
+            volume_uom = _resolve_uom(vol_key, VOLUME_UOM_ALIASES.get(vol_key, [vol_key]))
+
+            if not dimension_uom:
+                log(f"  ⚠️  No dimension UOM found for {dim_key}, skipping")
+                error_count += 1
+                continue
+            if not volume_uom:
+                log(f"  ⚠️  No volume UOM found for {vol_key}, skipping")
+                error_count += 1
+                continue
+
             existing = frappe.db.exists(
                 "Dimension Volume UOM Conversion",
-                {
-                    "dimension_uom": dimension_uom,
-                    "volume_uom": volume_uom
-                }
+                {"dimension_uom": dimension_uom, "volume_uom": volume_uom},
             )
-            
             if existing:
-                print(f"  ℹ️  Conversion {dimension_uom} → {volume_uom} already exists, skipping")
                 skipped_count += 1
                 continue
-            
-            # Check if UOMs exist
-            if not frappe.db.exists("UOM", dimension_uom):
-                print(f"  ⚠️  Dimension UOM '{dimension_uom}' does not exist, skipping conversion")
-                error_count += 1
-                continue
-            
-            if not frappe.db.exists("UOM", volume_uom):
-                print(f"  ⚠️  Volume UOM '{volume_uom}' does not exist, skipping conversion")
-                error_count += 1
-                continue
-            
-            # Create conversion record
-            conversion_doc = frappe.get_doc({
-                "doctype": "Dimension Volume UOM Conversion",
-                **conv_data
-            })
-            conversion_doc.insert(ignore_permissions=True)
-            created_count += 1
-            print(f"  ✅ Created conversion: {dimension_uom} → {volume_uom} (factor: {conv_data['conversion_factor']})")
-            
+
+            try:
+                frappe.get_doc({
+                    "doctype": "Dimension Volume UOM Conversion",
+                    "dimension_uom": dimension_uom,
+                    "volume_uom": volume_uom,
+                    "conversion_factor": factor,
+                    "description": description,
+                    "is_standard": 1,
+                    "enabled": 1,
+                }).insert(ignore_permissions=True)
+                created_count += 1
+                log(f"  ✅ Created conversion: {dimension_uom} → {volume_uom} (factor: {factor})")
+            except frappe.DuplicateEntryError:
+                skipped_count += 1
         except Exception as e:
-            print(f"  ❌ Error creating conversion {dimension_uom} → {volume_uom}: {str(e)}")
             error_count += 1
+            log(f"  ❌ Error creating conversion {dim_key} → {vol_key}: {str(e)}")
             frappe.log_error(
                 f"Error creating Dimension Volume UOM Conversion: {str(e)}",
-                "Create Default Conversions Error"
+                "Create Default Conversions Error",
             )
-    
+
     frappe.db.commit()
-    
-    print(f"\n✅ Default conversions creation completed!")
-    print(f"   Created: {created_count}")
-    print(f"   Skipped: {skipped_count}")
-    print(f"   Errors: {error_count}")
+    if not silent:
+        print(f"\n✅ Default conversions: created={created_count}, skipped={skipped_count}, errors={error_count}")
 
 
 if __name__ == "__main__":

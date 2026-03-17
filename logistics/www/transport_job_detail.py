@@ -55,12 +55,12 @@ def get_context(context):
                 show_vehicle_location = True
                 break
     
-    # Get transport settings for map configuration
-    try:
-        transport_settings = frappe.get_single("Transport Settings")
-        map_renderer = getattr(transport_settings, 'map_renderer', 'OpenStreetMap')
-    except Exception:
-        map_renderer = 'OpenStreetMap'
+    # Map renderer: Logistics Settings first, then Transport Settings
+    map_renderer = frappe.db.get_single_value("Logistics Settings", "map_renderer")
+    if not map_renderer or not str(map_renderer).strip():
+        map_renderer = frappe.db.get_single_value("Transport Settings", "map_renderer")
+    if not map_renderer or not str(map_renderer).strip():
+        map_renderer = "OpenStreetMap"
     
     context.update({
         "job": job_data,

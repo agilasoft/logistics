@@ -8,6 +8,12 @@
  "field_order": [
   "item_code",
   "item_name",
+  "charge_type",
+  "charge_category",
+  "quotation_type",
+  "column_break_sujg",
+  "bill_to",
+  "pay_to",
   "parameters_section",
   "customs_authority",
   "declaration_type",
@@ -20,7 +26,7 @@
   "use_tariff_in_revenue",
   "use_tariff_in_cost",
   "tariff",
-  "section_break_yyll",
+  "revenue_cost_section",
   "revenue_column",
   "calculation_method",
   "quantity",
@@ -29,11 +35,13 @@
   "unit_rate",
   "unit_type",
   "minimum_quantity",
+  "minimum_unit_rate",
   "minimum_charge",
   "maximum_charge",
   "base_amount",
+  "base_quantity",
   "estimated_revenue",
-  "column_break_pndm",
+  "cost_column",
   "cost_calculation_method",
   "cost_quantity",
   "cost_uom",
@@ -41,9 +49,11 @@
   "unit_cost",
   "cost_unit_type",
   "cost_minimum_quantity",
+  "cost_minimum_unit_rate",
   "cost_minimum_charge",
   "cost_maximum_charge",
   "cost_base_amount",
+  "cost_base_quantity",
   "estimated_cost",
   "calculation_notes_section",
   "revenue_calc_notes",
@@ -68,51 +78,81 @@
    "label": "Item Name"
   },
   {
+   "default": "Margin",
+   "fieldname": "charge_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Margin\nDisbursement\nRevenue\nCost"
+  },
+  {
+   "fieldname": "charge_category",
+   "fieldtype": "Select",
+   "label": "Charge Category",
+   "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+  },
+  {
+   "default": "Regular",
+   "fieldname": "quotation_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Quotation Type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "parameters_section",
    "fieldtype": "Section Break",
    "label": "Charge Parameters"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
    "options": "Customs Authority"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
    "options": "Import\nExport\nTransit\nBonded"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
    "options": "Supplier"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "column_break_customs_params",
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "transport_mode",
    "fieldtype": "Select",
    "label": "Transport Mode",
    "options": "Sea\nAir\nRoad\nRail"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "port_of_loading",
    "fieldtype": "Link",
    "label": "Port of Loading",
    "options": "UNLOCO"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "port_of_discharge",
    "fieldtype": "Link",
    "label": "Port of Discharge",
    "options": "UNLOCO"
   },
   {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "column_break_jbbp",
    "fieldtype": "Column Break"
   },
@@ -136,10 +176,6 @@
    "options": "Tariff"
   },
   {
-   "fieldname": "section_break_yyll",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "revenue_column",
    "fieldtype": "Column Break",
    "label": "Revenue"
@@ -150,7 +186,8 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage",
+   "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "quantity",
@@ -179,13 +216,20 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
    "fieldname": "minimum_quantity",
    "fieldtype": "Float",
    "label": "Minimum Quantity"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
+   "fieldname": "minimum_unit_rate",
+   "fieldtype": "Currency",
+   "label": "Minimum Unit Rate"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
@@ -200,20 +244,28 @@
    "label": "Maximum Charge"
   },
   {
-   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\"",
+   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"Percentage\"",
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\"",
+   "fieldname": "base_quantity",
+   "fieldtype": "Float",
+   "label": "Base Quantity"
   },
   {
    "columns": 1,
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Estimated Revenue"
+   "label": "Estimated Revenue",
+   "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "column_break_pndm",
+   "fieldname": "cost_column",
    "fieldtype": "Column Break",
    "label": "Cost"
   },
@@ -221,7 +273,8 @@
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage"
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "cost_quantity",
@@ -250,13 +303,20 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time"
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
    "fieldname": "cost_minimum_quantity",
    "fieldtype": "Float",
    "label": "Minimum Quantity"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
+   "fieldname": "cost_minimum_unit_rate",
+   "fieldtype": "Currency",
+   "label": "Minimum Unit Rate"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
@@ -271,27 +331,34 @@
    "label": "Maximum Charge"
   },
   {
-   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\"",
+   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
    "fieldname": "cost_base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\"",
+   "fieldname": "cost_base_quantity",
+   "fieldtype": "Float",
+   "label": "Base Quantity"
   },
   {
    "columns": 1,
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Estimated Cost"
+   "label": "Estimated Cost",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
-   "collapsible": 1,
    "fieldname": "calculation_notes_section",
    "fieldtype": "Section Break",
    "label": "Calculation Notes"
   },
   {
    "fieldname": "revenue_calc_notes",
-   "fieldtype": "Long Text",
+   "fieldtype": "Small Text",
    "label": "Revenue",
    "read_only": 1
   },
@@ -301,16 +368,39 @@
   },
   {
    "fieldname": "cost_calc_notes",
-   "fieldtype": "Long Text",
+   "fieldtype": "Small Text",
    "label": "Cost",
    "read_only": 1
+  },
+  {
+   "fieldname": "bill_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Bill To",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "pay_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Pay To",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "column_break_sujg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "revenue_cost_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-11 18:32:45.003564",
+ "modified": "2026-03-16 13:05:48.705449",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Customs",

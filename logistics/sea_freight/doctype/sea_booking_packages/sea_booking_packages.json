@@ -24,9 +24,7 @@
   "volume",
   "column_break_xbsy",
   "weight_uom",
-  "weight",
-  "chargeable_weight_uom",
-  "chargeable_weight"
+  "weight"
  ],
  "fields": [
   {
@@ -121,17 +119,6 @@
    "label": "Height"
   },
   {
-   "fieldname": "chargeable_weight",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight"
-  },
-  {
-   "fieldname": "chargeable_weight_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable Weight UOM",
-   "options": "UOM"
-  },
-  {
    "fieldname": "goods_description",
    "fieldtype": "Long Text",
    "label": "Goods Description"
@@ -150,7 +137,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-19 15:24:54.188258",
+ "modified": "2026-02-28 15:30:13.775708",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking Packages",

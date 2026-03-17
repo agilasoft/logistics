@@ -6,6 +6,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "details_tab",
   "consolidation_info_section",
   "amended_from",
   "naming_series",
@@ -27,8 +30,11 @@
   "total_packages",
   "total_weight",
   "total_volume",
+  "total_volume_uom",
+  "total_weight_uom",
   "column_break_3",
   "chargeable_weight",
+  "chargeable_weight_uom",
   "consolidation_ratio",
   "cost_per_kg",
   "section_break_documents",
@@ -43,14 +49,24 @@
   "column_break_5",
   "quality_control_notes",
   "handling_requirements",
+  "tab_routes",
+  "consolidation_routes",
   "tab_attached_jobs",
   "attached_air_freight_jobs",
   "tab_packages",
   "consolidation_packages",
-  "tab_routes",
-  "consolidation_routes",
   "tab_charges",
   "consolidation_charges",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
+  "documents_tab",
+  "document_management_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
   "accounts_tab",
   "company",
   "branch",
@@ -59,6 +75,74 @@
   "job_costing_number"
  ],
  "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Air Consolidation Milestone"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "document_management_section",
+   "fieldtype": "Section Break",
+   "label": "Document Management"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
   {
    "fieldname": "consolidation_info_section",
    "fieldtype": "Section Break",
@@ -79,7 +163,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Naming Series",
-   "options": "AC-{MM}-{YYYY}-{####}\nAC-{YYYY}-{####}\nCONS-{MM}-{YYYY}-{####}",
+   "options": "AFC.########",
    "reqd": 1
   },
   {
@@ -186,16 +270,28 @@
   {
    "fieldname": "total_weight",
    "fieldtype": "Float",
-   "label": "Total Weight (kg)",
+   "label": "Total Weight",
    "precision": "2",
    "read_only": 1
   },
   {
    "fieldname": "total_volume",
    "fieldtype": "Float",
-   "label": "Total Volume (m\u00b3)",
+   "label": "Total Volume",
    "precision": "3",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Total Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Total Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_3",
@@ -204,9 +300,15 @@
   {
    "fieldname": "chargeable_weight",
    "fieldtype": "Float",
-   "label": "Chargeable Weight (kg)",
+   "label": "Chargeable Weight",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "consolidation_ratio",
@@ -312,7 +414,8 @@
   {
    "fieldname": "tab_routes",
    "fieldtype": "Tab Break",
-   "label": "Routes"
+   "label": "Routes",
+   "search_index": 1
   },
   {
    "fieldname": "tab_charges",
@@ -364,11 +467,16 @@
    "fieldtype": "Link",
    "label": "Job Costing Number",
    "options": "Job Costing Number"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-06 08:26:48.490975",
+ "modified": "2026-03-17 09:45:07.494684",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",

@@ -61,7 +61,7 @@ def get_data(filters):
 
 def get_pending_approvals(filters):
 	conditions = get_base_conditions(filters)
-	conditions.append("d.status IN ('Draft', 'Submitted', 'In Progress')")
+	conditions.append("d.status IN ('Draft', 'Submitted', 'Under Review', 'Cleared')")
 	
 	declarations = frappe.db.sql("""
 		SELECT
@@ -100,7 +100,7 @@ def get_missing_documents(filters):
 			DATEDIFF(CURDATE(), d.declaration_date) as days_overdue,
 			'Medium' as priority
 		FROM `tabDeclaration` d
-		LEFT JOIN `tabDeclaration Document` dd ON dd.parent = d.name AND dd.is_required = 1
+		LEFT JOIN `tabJob Document` dd ON dd.parent = d.name AND dd.is_required = 1
 		WHERE d.docstatus != 2
 		AND {conditions}
 		AND (dd.name IS NULL OR dd.attachment IS NULL OR dd.attachment = '')
@@ -127,7 +127,7 @@ def get_expired_documents(filters):
 				ELSE 'Low'
 			END as priority
 		FROM `tabDeclaration` d
-		INNER JOIN `tabDeclaration Document` dd ON dd.parent = d.name
+		INNER JOIN `tabJob Document` dd ON dd.parent = d.name
 		WHERE d.docstatus != 2
 		AND {conditions}
 		AND dd.expiry_date IS NOT NULL
@@ -139,7 +139,7 @@ def get_expired_documents(filters):
 
 def get_overdue_declarations(filters):
 	conditions = get_base_conditions(filters)
-	conditions.append("d.status NOT IN ('Approved', 'Rejected', 'Cancelled')")
+	conditions.append("d.status NOT IN ('Cleared', 'Released', 'Rejected', 'Cancelled')")
 	
 	# Get declarations that are past their expected processing date
 	# This is a simplified version - in production, you'd check against SLA from Customs Authority

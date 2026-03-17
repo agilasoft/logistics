@@ -19,7 +19,6 @@ def execute():
 		("Air Shipment", "house_type"),
 		("Sales Quote Air Freight", "air_house_type"),
 		("Sales Quote Sea Freight", "sea_house_type"),
-		("One-Off Quote", "air_house_type"),
 	]:
 		_migrate_doctype(doctype, fieldname, revert_map)
 
@@ -31,7 +30,6 @@ def execute():
 		("Air Shipment", "house_type"),
 		("Sales Quote Air Freight", "air_house_type"),
 		("Sales Quote Sea Freight", "sea_house_type"),
-		("One-Off Quote", "air_house_type"),
 	]:
 		_normalize_break_bulk(doctype, fieldname)
 

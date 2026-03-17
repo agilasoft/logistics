@@ -1,143 +1,245 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-01-27 00:00:00",
+ "creation": "2025-12-01 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "item_code",
   "item_name",
-  "parameters_section",
-  "air_load_type",
-  "air_direction",
-  "airline",
-  "freight_agent",
-  "air_house_type",
-  "air_release_type",
-  "air_entry_type",
-  "column_break_air_params",
-  "origin_port",
-  "destination_port",
-  "column_break_jbbp",
+  "charge_type",
+  "quotation_type",
+  "column_break_zwxz",
+  "tariff",
+  "revenue_tariff",
+  "cost_tariff",
   "use_tariff_in_revenue",
   "use_tariff_in_cost",
-  "tariff",
-  "section_break_yyll",
+  "bill_to",
+  "pay_to",
+  "air_house_type",
+  "section_break_charge_params_air",
+  "load_type",
+  "direction",
+  "airline",
+  "freight_agent",
+  "column_break_oo_air_child",
+  "origin_port",
+  "destination_port",
+  "section_break_ntfq",
   "revenue_column",
   "calculation_method",
-  "quantity",
-  "uom",
-  "currency",
   "unit_rate",
   "unit_type",
+  "currency",
+  "quantity",
   "minimum_quantity",
   "minimum_charge",
   "maximum_charge",
   "base_amount",
+  "uom",
   "estimated_revenue",
-  "selling_weight_break",
-  "column_break_pndm",
+  "revenue_calc_notes",
+  "cost_column",
   "cost_calculation_method",
-  "cost_quantity",
-  "cost_uom",
-  "cost_currency",
   "unit_cost",
   "cost_unit_type",
+  "cost_currency",
+  "cost_quantity",
   "cost_minimum_quantity",
   "cost_minimum_charge",
   "cost_maximum_charge",
   "cost_base_amount",
+  "cost_uom",
   "estimated_cost",
-  "cost_weight_break",
-  "calculation_notes_section",
-  "revenue_calc_notes",
-  "column_break_crci",
   "cost_calc_notes"
  ],
  "fields": [
   {
-   "columns": 2,
    "fieldname": "item_code",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
    "link_filters": "[[\"Item\",\"custom_air_forwarding_charge\",\"=\",1]]",
-   "options": "Item",
-   "reqd": 1
+   "options": "Item"
   },
   {
    "fetch_from": "item_code.item_name",
    "fieldname": "item_name",
    "fieldtype": "Data",
-   "label": "Item Name"
+   "label": "Item Name",
+   "read_only": 1
   },
   {
-   "fieldname": "parameters_section",
-   "fieldtype": "Section Break",
-   "label": "Charge Parameters"
-  },
-  {
-   "fieldname": "air_load_type",
-   "fieldtype": "Link",
-   "label": "Load Type",
-   "options": "Load Type"
-  },
-  {
-   "fieldname": "air_direction",
+   "fieldname": "charge_type",
    "fieldtype": "Select",
-   "label": "Direction",
-   "options": "Import\nExport\nDomestic"
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Revenue\nCost\nOther"
   },
   {
-   "fieldname": "airline",
-   "fieldtype": "Link",
-   "label": "Airline / Carrier",
-   "options": "Airline"
-  },
-  {
-   "fieldname": "freight_agent",
-   "fieldtype": "Link",
-   "label": "Freight Agent",
-   "options": "Freight Agent"
-  },
-  {
-   "fieldname": "air_house_type",
+   "fieldname": "calculation_method",
    "fieldtype": "Select",
-   "label": "House Type",
-   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+   "in_list_view": 1,
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
   },
   {
-   "fieldname": "air_release_type",
-   "fieldtype": "Link",
-   "label": "Release Type",
-   "options": "Release Type"
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unit Rate",
+   "options": "currency"
   },
   {
-   "fieldname": "air_entry_type",
+   "fieldname": "unit_type",
    "fieldtype": "Select",
-   "label": "Entry Type",
-   "options": "Direct\nTransit\nTransshipment\nATA Carnet"
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nItem Count\nOperation Time"
   },
   {
-   "fieldname": "column_break_air_params",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "origin_port",
+   "fieldname": "currency",
    "fieldtype": "Link",
-   "label": "Origin Port",
-   "options": "UNLOCO"
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency"
   },
   {
-   "fieldname": "destination_port",
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Minimum Quantity"
+  },
+  {
+   "fieldname": "minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Minimum Charge",
+   "options": "currency"
+  },
+  {
+   "fieldname": "maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Maximum Charge",
+   "options": "currency"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount",
+   "options": "currency"
+  },
+  {
+   "fieldname": "uom",
    "fieldtype": "Link",
-   "label": "Destination Port",
-   "options": "UNLOCO"
+   "label": "UOM",
+   "options": "UOM"
   },
   {
-   "fieldname": "column_break_jbbp",
-   "fieldtype": "Column Break"
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revenue_calc_notes",
+   "fieldtype": "Small Text",
+   "label": "Revenue Calc Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_calculation_method",
+   "fieldtype": "Select",
+   "label": "Cost Calculation Method",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
+  },
+  {
+   "fieldname": "unit_cost",
+   "fieldtype": "Currency",
+   "label": "Unit Cost",
+   "options": "cost_currency"
+  },
+  {
+   "fieldname": "cost_unit_type",
+   "fieldtype": "Select",
+   "label": "Cost Unit Type",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nItem Count\nOperation Time"
+  },
+  {
+   "fieldname": "cost_currency",
+   "fieldtype": "Link",
+   "label": "Cost Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "cost_quantity",
+   "fieldtype": "Float",
+   "label": "Cost Quantity"
+  },
+  {
+   "fieldname": "cost_minimum_quantity",
+   "fieldtype": "Float",
+   "label": "Cost Minimum Quantity"
+  },
+  {
+   "fieldname": "cost_minimum_charge",
+   "fieldtype": "Currency",
+   "label": "Cost Minimum Charge",
+   "options": "cost_currency"
+  },
+  {
+   "fieldname": "cost_maximum_charge",
+   "fieldtype": "Currency",
+   "label": "Cost Maximum Charge",
+   "options": "cost_currency"
+  },
+  {
+   "fieldname": "cost_base_amount",
+   "fieldtype": "Currency",
+   "label": "Cost Base Amount",
+   "options": "cost_currency"
+  },
+  {
+   "fieldname": "cost_uom",
+   "fieldtype": "Link",
+   "label": "Cost UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "label": "Estimated Cost",
+   "options": "cost_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_calc_notes",
+   "fieldtype": "Small Text",
+   "label": "Cost Calc Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tariff",
+   "fieldtype": "Link",
+   "label": "Tariff",
+   "options": "Tariff"
+  },
+  {
+   "fieldname": "revenue_tariff",
+   "fieldtype": "Link",
+   "label": "Revenue Tariff",
+   "options": "Tariff"
+  },
+  {
+   "fieldname": "cost_tariff",
+   "fieldtype": "Link",
+   "label": "Cost Tariff",
+   "options": "Tariff"
   },
   {
    "default": "0",
@@ -152,14 +254,90 @@
    "label": "Use Tariff in Cost"
   },
   {
-   "depends_on": "eval:doc.use_tariff_in_revenue || doc.use_tariff_in_cost",
-   "fieldname": "tariff",
+   "fieldname": "bill_to",
    "fieldtype": "Link",
-   "label": "Tariff",
-   "options": "Tariff"
+   "label": "Bill To",
+   "options": "Customer"
   },
   {
-   "fieldname": "section_break_yyll",
+   "fieldname": "pay_to",
+   "fieldtype": "Link",
+   "label": "Pay To",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "Air House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "default": "Regular",
+   "fieldname": "quotation_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Quotation Type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "section_break_charge_params_air",
+   "fieldtype": "Section Break",
+   "label": "Charge Parameters"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"air\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "column_break_oo_air_child",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Regular\"",
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "column_break_zwxz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_ntfq",
    "fieldtype": "Section Break"
   },
   {
@@ -168,200 +346,20 @@
    "label": "Revenue"
   },
   {
-   "columns": 1,
-   "fieldname": "calculation_method",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "fieldname": "quantity",
-   "fieldtype": "Float",
-   "label": "Quantity"
-  },
-  {
-   "fieldname": "uom",
-   "fieldtype": "Link",
-   "label": "UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "currency",
-   "fieldtype": "Link",
-   "label": "Currency",
-   "options": "Currency"
-  },
-  {
-   "fieldname": "unit_rate",
-   "fieldtype": "Currency",
-   "label": "Unit Rate",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "depends_on": "eval:doc.calculation_method == \"Per Unit\" || doc.calculation_method == \"Fixed Amount\" || doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"First Plus Additional\" || doc.calculation_method == \"Percentage\"",
-   "fieldname": "unit_type",
-   "fieldtype": "Select",
-   "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
-   "fieldname": "minimum_quantity",
-   "fieldtype": "Float",
-   "label": "Minimum Quantity",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
-   "fieldname": "minimum_charge",
-   "fieldtype": "Currency",
-   "label": "Minimum Charge",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "depends_on": "eval:doc.calculation_method == \"Per Unit\"",
-   "fieldname": "maximum_charge",
-   "fieldtype": "Currency",
-   "label": "Maximum Charge",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "depends_on": "eval:doc.calculation_method == \"Base Plus Additional\" || doc.calculation_method == \"Percentage\"",
-   "fieldname": "base_amount",
-   "fieldtype": "Currency",
-   "label": "Base Amount",
-   "read_only_depends_on": "eval:doc.use_tariff_in_revenue"
-  },
-  {
-   "columns": 1,
-   "fieldname": "estimated_revenue",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Estimated Revenue"
-  },
-  {
-   "fieldname": "column_break_pndm",
+   "fieldname": "cost_column",
    "fieldtype": "Column Break",
    "label": "Cost"
-  },
-  {
-   "fieldname": "cost_calculation_method",
-   "fieldtype": "Select",
-   "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "fieldname": "cost_quantity",
-   "fieldtype": "Float",
-   "label": "Quantity"
-  },
-  {
-   "fieldname": "cost_uom",
-   "fieldtype": "Link",
-   "label": "UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "cost_currency",
-   "fieldtype": "Link",
-   "label": "Currency",
-   "options": "Currency"
-  },
-  {
-   "fieldname": "unit_cost",
-   "fieldtype": "Currency",
-   "label": "Unit Cost",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\" || doc.cost_calculation_method == \"Fixed Amount\" || doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"First Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
-   "fieldname": "cost_unit_type",
-   "fieldtype": "Select",
-   "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
-   "fieldname": "cost_minimum_quantity",
-   "fieldtype": "Float",
-   "label": "Minimum Quantity",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
-   "fieldname": "cost_minimum_charge",
-   "fieldtype": "Currency",
-   "label": "Minimum Charge",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "depends_on": "eval:doc.cost_calculation_method == \"Per Unit\"",
-   "fieldname": "cost_maximum_charge",
-   "fieldtype": "Currency",
-   "label": "Maximum Charge",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "depends_on": "eval:doc.cost_calculation_method == \"Base Plus Additional\" || doc.cost_calculation_method == \"Percentage\"",
-   "fieldname": "cost_base_amount",
-   "fieldtype": "Currency",
-   "label": "Base Amount",
-   "read_only_depends_on": "eval:doc.use_tariff_in_cost"
-  },
-  {
-   "columns": 1,
-   "fieldname": "estimated_cost",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Estimated Cost"
-  },
-  {
-   "fieldname": "calculation_notes_section",
-   "fieldtype": "Section Break",
-   "label": "Calculation Notes"
-  },
-  {
-   "fieldname": "revenue_calc_notes",
-   "fieldtype": "Long Text",
-   "label": "Revenue",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_crci",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "cost_calc_notes",
-   "fieldtype": "Long Text",
-   "label": "Cost",
-   "read_only": 1
-  },
-  {
-   "depends_on": "eval:doc.calculation_method=='Weight Break'",
-   "fieldname": "selling_weight_break",
-   "fieldtype": "Button",
-   "label": "Manage Selling Weight Breaks"
-  },
-  {
-   "depends_on": "eval:doc.cost_calculation_method=='Weight Break'",
-   "fieldname": "cost_weight_break",
-   "fieldtype": "Button",
-   "label": "Manage Cost Weight Breaks"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-12-18 11:12:12.915821",
+ "modified": "2026-03-09 10:11:15.955659",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Air Freight",
+ "naming_rule": "Random",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",

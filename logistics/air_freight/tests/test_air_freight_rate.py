@@ -6,7 +6,7 @@ import unittest
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import today, add_days
 from logistics.air_freight.tests.test_helpers import (
-	setup_basic_master_data, create_test_item, create_test_currency, create_test_airport
+	setup_basic_master_data, create_test_item, create_test_currency, create_test_unloco
 )
 
 
@@ -19,8 +19,8 @@ class TestAirFreightRate(FrappeTestCase):
 		self.company = data["company"]
 		create_test_item()
 		create_test_currency("USD")
-		create_test_airport("LAX")
-		create_test_airport("JFK")
+		create_test_unloco("USLAX", "Los Angeles", "LAX", "US", "Airport")
+		create_test_unloco("USJFK", "New York JFK", "JFK", "US", "Airport")
 		
 		# Create a Tariff to hold Air Freight Rates (since it's a child table)
 		# Use a unique name for each test run to avoid conflicts
@@ -174,10 +174,10 @@ class TestAirFreightRate(FrappeTestCase):
 		self.assertIsNotNone(rate_info.get('rate_name'))
 	
 	def test_air_freight_rate_with_route(self):
-		"""Test creating rate with origin and destination airports"""
-		origin_airport = "LAX"
-		destination_airport = "JFK"
-		
+		"""Test creating rate with origin and destination (UNLOCO)"""
+		origin_airport = "USLAX"
+		destination_airport = "USJFK"
+
 		tariff = frappe.get_doc("Tariff", self.tariff_name)
 		rate = tariff.append("air_freight_rates", {
 			"item_code": "Test Air Freight Item",

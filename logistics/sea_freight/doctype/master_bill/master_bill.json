@@ -6,6 +6,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_break_main",
+  "amended_from",
   "master_bl",
   "master_type",
   "charted_vessel",
@@ -13,15 +15,54 @@
   "shipping_line",
   "vessel",
   "voyage_no",
+  "vessel_type",
+  "vessel_imo",
   "column_break_vsbq",
+  "booking_reference_no",
+  "agent_reference",
   "consolidator",
   "sending_agent",
   "receiving_agent",
+  "voyage_section",
+  "vessel_date",
+  "manifest_sent",
+  "manifest_sent_date",
+  "voyage_status_section",
+  "voyage_status",
+  "delay_hours",
+  "column_break_ports",
+  "origin_port",
+  "departure_berth",
+  "column_break_ports2",
+  "destination_port",
+  "arrival_berth",
+  "voyage_times_section",
+  "scheduled_departure",
+  "actual_departure",
+  "etd_local",
+  "column_break_times",
+  "scheduled_arrival",
+  "actual_arrival",
+  "eta_local",
+  "voyage_details_section",
+  "voyage_duration_hours",
+  "distance_nautical_miles",
+  "column_break_details",
+  "teu_capacity",
+  "available_teu",
+  "booked_weight_kg",
+  "vessel_tracking_section",
+  "last_known_position",
+  "current_latitude",
+  "current_longitude",
+  "column_break_tracking",
+  "current_speed_knots",
+  "last_position_update",
   "departure_tab",
   "origin_cto",
   "origin_cfs",
   "origin_cy",
-  "column_break_qrqv",
+  "column_break_bqmc",
   "origin_receipt_requested",
   "origin_dispatch_requested",
   "departure",
@@ -29,13 +70,30 @@
   "destination_cto",
   "destination_cfs",
   "destination_cy",
-  "column_break_hwqe",
+  "column_break_ejdt",
   "destination_receipt_requested",
   "destination_dispatch_requested",
   "arrival",
+  "ground_handling_tab",
+  "port_handling_works_agreement_section",
+  "ground_works_agreement",
   "connections_tab"
  ],
  "fields": [
+  {
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Master Bill",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
   {
    "fieldname": "master_bl",
    "fieldtype": "Data",
@@ -45,8 +103,15 @@
   {
    "fieldname": "master_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Master Type",
    "options": "Direct\nCo-Load\nAgent Consolidation\nCharter\nCourier\nOther"
+  },
+  {
+   "default": "0",
+   "fieldname": "charted_vessel",
+   "fieldtype": "Check",
+   "label": "Chartered Vessel"
   },
   {
    "fieldname": "column_break_liay",
@@ -55,40 +120,52 @@
   {
    "fieldname": "shipping_line",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Shipping Line",
    "options": "Shipping Line"
   },
   {
-   "fieldname": "consolidator",
-   "fieldtype": "Link",
-   "label": "Consolidator",
-   "options": "Freight Consolidator"
-  },
-  {
-   "fieldname": "connections_tab",
-   "fieldtype": "Tab Break",
-   "label": "Connections",
-   "show_dashboard": 1
-  },
-  {
    "fieldname": "vessel",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Vessel"
   },
   {
    "fieldname": "voyage_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Voyage No"
+  },
+  {
+   "fieldname": "vessel_type",
+   "fieldtype": "Data",
+   "label": "Vessel Type"
+  },
+  {
+   "fieldname": "vessel_imo",
+   "fieldtype": "Data",
+   "label": "Vessel IMO"
   },
   {
    "fieldname": "column_break_vsbq",
    "fieldtype": "Column Break"
   },
   {
-   "default": "0",
-   "fieldname": "charted_vessel",
-   "fieldtype": "Check",
-   "label": "Charted Vessel"
+   "fieldname": "booking_reference_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Booking Reference No"
+  },
+  {
+   "fieldname": "agent_reference",
+   "fieldtype": "Data",
+   "label": "Agent Reference"
+  },
+  {
+   "fieldname": "consolidator",
+   "fieldtype": "Link",
+   "label": "Consolidator",
+   "options": "Freight Consolidator"
   },
   {
    "fieldname": "sending_agent",
@@ -103,6 +180,218 @@
    "options": "Freight Agent"
   },
   {
+   "collapsible": 1,
+   "fieldname": "voyage_section",
+   "fieldtype": "Section Break",
+   "label": "Voyage Information"
+  },
+  {
+   "fieldname": "vessel_date",
+   "fieldtype": "Date",
+   "label": "Vessel Date"
+  },
+  {
+   "default": "0",
+   "fieldname": "manifest_sent",
+   "fieldtype": "Check",
+   "label": "Manifest Sent"
+  },
+  {
+   "fieldname": "manifest_sent_date",
+   "fieldtype": "Datetime",
+   "label": "Manifest Sent Date",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "voyage_status_section",
+   "fieldtype": "Section Break",
+   "label": "Voyage Status"
+  },
+  {
+   "fieldname": "voyage_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Voyage Status",
+   "options": "\nScheduled\nAt Origin\nDeparted\nIn Transit\nArrived\nAt Destination\nDelayed\nCancelled",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "delay_hours",
+   "fieldtype": "Float",
+   "label": "Delay (Hours)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ports",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "read_only": 1
+  },
+  {
+   "fieldname": "departure_berth",
+   "fieldtype": "Data",
+   "label": "Departure Berth",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ports2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "read_only": 1
+  },
+  {
+   "fieldname": "arrival_berth",
+   "fieldtype": "Data",
+   "label": "Arrival Berth",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "voyage_times_section",
+   "fieldtype": "Section Break",
+   "label": "Voyage Times"
+  },
+  {
+   "fieldname": "scheduled_departure",
+   "fieldtype": "Datetime",
+   "label": "Scheduled Departure (UTC)"
+  },
+  {
+   "fieldname": "actual_departure",
+   "fieldtype": "Datetime",
+   "label": "Actual Departure (UTC)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "etd_local",
+   "fieldtype": "Data",
+   "label": "ETD (Local Time)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_times",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scheduled_arrival",
+   "fieldtype": "Datetime",
+   "label": "Scheduled Arrival (UTC)"
+  },
+  {
+   "fieldname": "actual_arrival",
+   "fieldtype": "Datetime",
+   "label": "Actual Arrival (UTC)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "eta_local",
+   "fieldtype": "Data",
+   "label": "ETA (Local Time)",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "voyage_details_section",
+   "fieldtype": "Section Break",
+   "label": "Voyage Details"
+  },
+  {
+   "fieldname": "voyage_duration_hours",
+   "fieldtype": "Float",
+   "label": "Voyage Duration (Hours)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "distance_nautical_miles",
+   "fieldtype": "Float",
+   "label": "Distance (Nautical Miles)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "teu_capacity",
+   "fieldtype": "Float",
+   "label": "Total TEU Capacity",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_teu",
+   "fieldtype": "Float",
+   "label": "Available TEU",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "booked_weight_kg",
+   "fieldtype": "Float",
+   "label": "Booked on This BL (KG)",
+   "precision": "2"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.voyage_status=='In Transit' || doc.voyage_status=='Departed'",
+   "fieldname": "vessel_tracking_section",
+   "fieldtype": "Section Break",
+   "label": "Vessel Tracking"
+  },
+  {
+   "fieldname": "last_known_position",
+   "fieldtype": "Data",
+   "label": "Last Known Position",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tracking",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_speed_knots",
+   "fieldtype": "Float",
+   "label": "Speed (Knots)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_position_update",
+   "fieldtype": "Datetime",
+   "label": "Last Position Update",
+   "read_only": 1
+  },
+  {
    "fieldname": "departure_tab",
    "fieldtype": "Tab Break",
    "label": "Departure"
@@ -111,51 +400,25 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "origin_cfs",
    "fieldtype": "Link",
    "label": "Origin CFS",
+   "link_filters": "[[\"Container Freight Station\",\"sea_cfs\",\"=\",1]]",
    "options": "Container Freight Station"
-  },
-  {
-   "fieldname": "column_break_qrqv",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "departure",
-   "fieldtype": "Date",
-   "label": "Departure"
   },
   {
    "fieldname": "origin_cy",
    "fieldtype": "Link",
-   "label": "Container Yard",
+   "label": "Origin Container Yard",
    "options": "Container Yard"
   },
   {
-   "fieldname": "arrival_tab",
-   "fieldtype": "Tab Break",
-   "label": "Arrival"
-  },
-  {
-   "fieldname": "destination_cto",
-   "fieldtype": "Link",
-   "label": "Destination CTO",
-   "options": "Cargo Terminal Operator"
-  },
-  {
-   "fieldname": "destination_cfs",
-   "fieldtype": "Link",
-   "label": "Destination CFS",
-   "options": "Container Freight Station"
-  },
-  {
-   "fieldname": "destination_cy",
-   "fieldtype": "Link",
-   "label": "Container Yard",
-   "options": "Container Yard"
+   "fieldname": "column_break_bqmc",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "origin_receipt_requested",
@@ -168,7 +431,37 @@
    "label": "Dispatch Requested"
   },
   {
-   "fieldname": "column_break_hwqe",
+   "fieldname": "departure",
+   "fieldtype": "Date",
+   "label": "Departure"
+  },
+  {
+   "fieldname": "arrival_tab",
+   "fieldtype": "Tab Break",
+   "label": "Arrival"
+  },
+  {
+   "fieldname": "destination_cto",
+   "fieldtype": "Link",
+   "label": "Destination CTO",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
+   "options": "Cargo Terminal Operator"
+  },
+  {
+   "fieldname": "destination_cfs",
+   "fieldtype": "Link",
+   "label": "Destination CFS",
+   "link_filters": "[[\"Container Freight Station\",\"sea_cfs\",\"=\",1]]",
+   "options": "Container Freight Station"
+  },
+  {
+   "fieldname": "destination_cy",
+   "fieldtype": "Link",
+   "label": "Destination Container Yard",
+   "options": "Container Yard"
+  },
+  {
+   "fieldname": "column_break_ejdt",
    "fieldtype": "Column Break"
   },
   {
@@ -185,18 +478,39 @@
    "fieldname": "arrival",
    "fieldtype": "Date",
    "label": "Arrival"
+  },
+  {
+   "fieldname": "ground_handling_tab",
+   "fieldtype": "Tab Break",
+   "label": "Port Handling"
+  },
+  {
+   "fieldname": "ground_works_agreement",
+   "fieldtype": "Text Editor"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "port_handling_works_agreement_section",
+   "fieldtype": "Section Break",
+   "label": "Port Handling Works Agreement"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [
   {
    "group": "Operations",
-   "link_doctype": "Sea Freight Booking",
+   "link_doctype": "Sea Shipment",
    "link_fieldname": "master_bill"
   }
  ],
- "modified": "2025-06-01 16:17:31.342954",
+ "modified": "2026-03-02 23:31:07.822605",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Master Bill",
@@ -213,10 +527,12 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "master_type,shipping_line,vessel,voyage_no",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

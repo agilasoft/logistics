@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "container_no",
+  "container",
   "seal_no",
   "type",
   "mode",
@@ -21,6 +22,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Container No"
+  },
+  {
+   "fieldname": "container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "read_only": 1
   },
   {
    "fieldname": "seal_no",

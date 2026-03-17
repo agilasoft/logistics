@@ -1,6 +1,8 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-22 12:35:19.722010",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -236,8 +238,8 @@
    "label": "Enable SLA Tracking"
   },
   {
-   "depends_on": "eval:doc.enable_sla_tracking",
    "default": "80",
+   "depends_on": "eval:doc.enable_sla_tracking",
    "fieldname": "sla_alert_threshold_percent",
    "fieldtype": "Percent",
    "label": "SLA Alert Threshold (%)"
@@ -335,10 +337,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-28 22:53:29.683219",
+ "modified": "2026-03-17 12:47:12.090977",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Customs Authority",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

@@ -28,25 +28,24 @@ class TransportOrderLegs(Document):
 		"""Get the primary address for a facility"""
 		try:
 			# Map facility types to their primary address field names
+			# Shipper: pick_address (transport pickup), fallback to shipper_primary_address
+			# Consignee: delivery_address (transport delivery), fallback to consignee_primary_address
 			primary_address_fields = {
-				"Shipper": "shipper_primary_address",
-				"Consignee": "consignee_primary_address", 
-				"Container Yard": "containeryard_primary_address",
-				"Container Depot": "containerdepot_primary_address",
-				"Container Freight Station": "cfs_primary_address",
-				"Transport Terminal": "transportterminal_primary_address"
+				"Shipper": ("pick_address", "shipper_primary_address"),
+				"Consignee": ("delivery_address", "consignee_primary_address"),
+				"Container Yard": ("containeryard_primary_address",),
+				"Container Depot": ("containerdepot_primary_address",),
+				"Container Freight Station": ("cfs_primary_address",),
+				"Transport Terminal": ("transportterminal_primary_address",)
 			}
 			
-			# Get the primary address field name for this facility type
-			primary_address_field = primary_address_fields.get(facility_type)
-			
-			if primary_address_field:
-				# Get the facility document and its primary address
+			fields_to_try = primary_address_fields.get(facility_type)
+			if fields_to_try:
 				facility_doc = frappe.get_doc(facility_type, facility_name)
-				primary_address = getattr(facility_doc, primary_address_field, None)
-				
-				if primary_address:
-					return primary_address
+				for field in fields_to_try:
+					addr = getattr(facility_doc, field, None)
+					if addr:
+						return addr
 			
 			# Fallback: For facility types without primary address fields (Storage Facility, Truck Park, Sorting Hub, Terminal)
 			# or if primary address is not set, get addresses linked to this facility
@@ -131,25 +130,24 @@ def get_primary_address(facility_type: str, facility_name: str):
 	
 	try:
 		# Map facility types to their primary address field names
+		# Shipper: pick_address (transport pickup), fallback to shipper_primary_address
+		# Consignee: delivery_address (transport delivery), fallback to consignee_primary_address
 		primary_address_fields = {
-			"Shipper": "shipper_primary_address",
-			"Consignee": "consignee_primary_address", 
-			"Container Yard": "containeryard_primary_address",
-			"Container Depot": "containerdepot_primary_address",
-			"Container Freight Station": "cfs_primary_address",
-			"Transport Terminal": "transportterminal_primary_address"
+			"Shipper": ("pick_address", "shipper_primary_address"),
+			"Consignee": ("delivery_address", "consignee_primary_address"),
+			"Container Yard": ("containeryard_primary_address",),
+			"Container Depot": ("containerdepot_primary_address",),
+			"Container Freight Station": ("cfs_primary_address",),
+			"Transport Terminal": ("transportterminal_primary_address",)
 		}
 		
-		# Get the primary address field name for this facility type
-		primary_address_field = primary_address_fields.get(facility_type)
-		
-		if primary_address_field:
-			# Get the facility document and its primary address
+		fields_to_try = primary_address_fields.get(facility_type)
+		if fields_to_try:
 			facility_doc = frappe.get_doc(facility_type, facility_name)
-			primary_address = getattr(facility_doc, primary_address_field, None)
-			
-			if primary_address:
-				return primary_address
+			for field in fields_to_try:
+				addr = getattr(facility_doc, field, None)
+				if addr:
+					return addr
 		
 		# Fallback: For facility types without primary address fields (Storage Facility, Truck Park, Sorting Hub, Terminal)
 		# or if primary address is not set, get addresses linked to this facility

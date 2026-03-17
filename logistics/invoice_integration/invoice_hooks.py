@@ -8,6 +8,7 @@ linked logistics jobs/shipments (lifecycle and cancellation).
 """
 
 import frappe
+from frappe import _
 from .lifecycle import (
     update_job_on_sales_invoice_submit,
     update_job_on_sales_invoice_cancel,
@@ -17,10 +18,33 @@ from .lifecycle import (
 
 
 def on_sales_invoice_submit(doc, method=None):
-    """Update linked jobs when SI is submitted."""
+    """Update linked jobs when SI is submitted; create intercompany invoices if from Sales Quote."""
     if doc.docstatus != 1:
         return
     update_job_on_sales_invoice_submit(doc)
+    # Intercompany: when customer SI is from a Sales Quote, create intercompany SI/PI for legs where job company != quote company
+    try:
+        from logistics.intercompany.intercompany_invoice import (
+            is_intercompany_enabled,
+            create_intercompany_invoices_for_quote,
+        )
+        if is_intercompany_enabled() and getattr(doc, "quotation_no", None):
+            if frappe.db.exists("Sales Quote", doc.quotation_no):
+                create_intercompany_invoices_for_quote(
+                    sales_quote_name=doc.quotation_no,
+                    billing_company=doc.company,
+                    trigger_si=doc.name,
+                    posting_date=doc.posting_date,
+                )
+    except Exception as e:
+        frappe.log_error(
+            title="Intercompany Invoices on SI Submit",
+            message=frappe.get_traceback(),
+        )
+        frappe.msgprint(
+            _("Intercompany invoices could not be created: {0}").format(str(e)),
+            indicator="orange",
+        )
 
 
 def on_sales_invoice_cancel(doc, method=None):

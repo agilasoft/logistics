@@ -55,14 +55,14 @@
    "label": "Plate No."
   },
   {
-   "depends_on": "eval:type=='Putaway,Pick'",
+   "depends_on": "eval:parent.type=='Putaway' || parent.type=='Pick'",
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
    "options": "Container Type"
   },
   {
-   "depends_on": "eval:type=='Putaway,Pick'",
+   "depends_on": "eval:parent.type=='Putaway' || parent.type=='Pick'",
    "fieldname": "container_no",
    "fieldtype": "Data",
    "label": "Container No."

@@ -1,0 +1,269 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-03 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "declaration_product_code",
+  "item",
+  "product_code",
+  "procedure_code",
+  "tariff",
+  "goods_description",
+  "goods_origin",
+  "preference",
+  "commodity_code",
+  "column_break_1",
+  "invoice_qty",
+  "invoice_qty_uom",
+  "customs_qty",
+  "customs_qty_uom",
+  "additional_qty_1",
+  "additional_qty_1_uom",
+  "additional_qty_2",
+  "additional_qty_2_uom",
+  "additional_qty_3",
+  "additional_qty_3_uom",
+  "price",
+  "tax_type_code",
+  "gross_weight",
+  "gross_weight_uom",
+  "volume",
+  "volume_uom",
+  "measurements_section",
+  "no_of_packs",
+  "package_type",
+  "dimension_uom",
+  "length",
+  "width",
+  "height",
+  "chargeable_weight",
+  "chargeable_weight_uom",
+  "reference_no"
+ ],
+ "fields": [
+  {
+   "fieldname": "declaration_product_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Declaration Product Code",
+   "options": "Declaration Product Code",
+   "description": "Select from Declaration Product Code (filtered by importer/exporter)"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1,
+   "description": "Fetched from Declaration Product Code"
+  },
+  {
+   "fieldname": "product_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Product Code",
+   "read_only": 1,
+   "description": "Fetched from Declaration Product Code"
+  },
+  {
+   "fieldname": "procedure_code",
+   "fieldtype": "Data",
+   "label": "Procedure Code"
+  },
+  {
+   "fieldname": "tariff",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tariff",
+   "options": "Customs Tariff Number"
+  },
+  {
+   "fieldname": "goods_description",
+   "fieldtype": "Long Text",
+   "in_list_view": 1,
+   "label": "Goods Description"
+  },
+  {
+   "fieldname": "goods_origin",
+   "fieldtype": "Link",
+   "label": "Goods Origin",
+   "options": "Country"
+  },
+  {
+   "fieldname": "preference",
+   "fieldtype": "Data",
+   "label": "Preference"
+  },
+  {
+   "fieldname": "commodity_code",
+   "fieldtype": "Link",
+   "label": "Commodity Code",
+   "options": "Commodity"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "invoice_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Invoice Qty"
+  },
+  {
+   "fieldname": "invoice_qty_uom",
+   "fieldtype": "Link",
+   "label": "Invoice Qty UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "customs_qty",
+   "fieldtype": "Float",
+   "label": "Customs Qty"
+  },
+  {
+   "fieldname": "customs_qty_uom",
+   "fieldtype": "Link",
+   "label": "Customs Qty UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "additional_qty_1",
+   "fieldtype": "Float",
+   "label": "Additional Qty 1"
+  },
+  {
+   "fieldname": "additional_qty_1_uom",
+   "fieldtype": "Link",
+   "label": "Additional Qty 1 UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "additional_qty_2",
+   "fieldtype": "Float",
+   "label": "Additional Qty 2"
+  },
+  {
+   "fieldname": "additional_qty_2_uom",
+   "fieldtype": "Link",
+   "label": "Additional Qty 2 UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "additional_qty_3",
+   "fieldtype": "Float",
+   "label": "Additional Qty 3"
+  },
+  {
+   "fieldname": "additional_qty_3_uom",
+   "fieldtype": "Link",
+   "label": "Additional Qty 3 UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "price",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Price"
+  },
+  {
+   "fieldname": "tax_type_code",
+   "fieldtype": "Data",
+   "label": "Tax Type Code"
+  },
+  {
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Gross Weight"
+  },
+  {
+   "fieldname": "gross_weight_uom",
+   "fieldtype": "Link",
+   "label": "Gross Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Volume"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
+   "fieldname": "no_of_packs",
+   "fieldtype": "Float",
+   "label": "No of Packs"
+  },
+  {
+   "fieldname": "package_type",
+   "fieldtype": "Data",
+   "label": "Package Type"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Commercial Invoice Line Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

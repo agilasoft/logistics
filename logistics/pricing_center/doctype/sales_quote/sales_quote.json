@@ -9,6 +9,10 @@
  "field_order": [
   "section_break_aall",
   "naming_series",
+  "quotation_type",
+  "status_section",
+  "status",
+  "converted_to_doc",
   "amended_from",
   "customer",
   "date",
@@ -21,31 +25,39 @@
   "consignee",
   "incoterm",
   "column_break_lfap",
-  "is_sea",
-  "is_air",
-  "is_transport",
-  "is_customs",
-  "is_warehousing",
-  "is_multimodal",
+  "main_service",
+  "details_tab",
+  "one_off_params_section",
+  "origin_port",
+  "destination_port",
+  "load_type",
+  "transport_mode",
+  "direction",
+  "column_break_params",
+  "airline",
+  "freight_agent",
+  "shipping_line",
+  "freight_agent_sea",
+  "location_type",
+  "location_from",
+  "location_to",
+  "transport_template",
+  "vehicle_type",
+  "container_type",
   "routing_tab",
   "routing_section",
   "billing_mode",
   "routing_legs",
-  "sea_tab",
-  "sea_freight",
-  "air_tab",
-  "air_freight",
-  "transport_tab",
-  "transport",
-  "customs_tab",
-  "customs_section",
-  "customs_authority",
-  "declaration_type",
-  "column_break_customs",
-  "section_break_qqlf",
-  "customs",
-  "warehousing_tab",
+  "charges_tab",
+  "charges_section",
+  "charges",
+  "section_break_oiqx",
   "warehousing",
+  "projects_tab",
+  "projects_section",
+  "special_project",
+  "project_resources",
+  "project_products",
   "accounts_tab",
   "sales_rep",
   "operations_rep",
@@ -61,18 +73,52 @@
   "terms",
   "service_level_agreement_section",
   "service_code",
-  "service_level_details"
+  "service_level_details",
+  "connections_tab"
  ],
  "fields": [
   {
    "fieldname": "section_break_aall",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Quote Details"
   },
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "SQU.#########"
+   "options": "SQU.#########\nOOQ.#####\nPQ.#####",
+   "read_only": 1
+  },
+  {
+   "default": "Regular",
+   "fieldname": "quotation_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Quotation Type",
+   "options": "Regular\nOne-off\nProject"
+  },
+  {
+   "fieldname": "status_section",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "default": "Draft",
+   "depends_on": "eval:doc.quotation_type=='One-off'",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Draft\nConverted",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.quotation_type=='One-off'",
+   "fieldname": "converted_to_doc",
+   "fieldtype": "Data",
+   "label": "Converted To",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -129,83 +175,160 @@
    "options": "Incoterm"
   },
   {
-   "depends_on": "eval:doc.is_sea",
-   "fieldname": "sea_tab",
+   "fieldname": "details_tab",
    "fieldtype": "Tab Break",
-   "label": "Sea"
+   "label": "Products"
   },
   {
-   "fieldname": "sea_freight",
-   "fieldtype": "Table",
-   "label": "Sea Freight",
-   "options": "Sales Quote Sea Freight"
-  },
-  {
-   "depends_on": "eval:doc.is_air",
-   "fieldname": "air_tab",
-   "fieldtype": "Tab Break",
-   "label": "Air"
-  },
-  {
-   "fieldname": "air_freight",
-   "fieldtype": "Table",
-   "label": "Air Freight",
-   "options": "Sales Quote Air Freight"
-  },
-  {
-   "depends_on": "eval:doc.is_transport",
-   "fieldname": "transport_tab",
-   "fieldtype": "Tab Break",
-   "label": "Transport"
-  },
-  {
-   "fieldname": "transport",
-   "fieldtype": "Table",
-   "options": "Sales Quote Transport"
-  },
-  {
-   "depends_on": "eval:doc.is_customs",
-   "fieldname": "customs_tab",
-   "fieldtype": "Tab Break",
-   "label": "Customs"
-  },
-  {
-   "depends_on": "eval:doc.is_customs",
-   "fieldname": "customs_section",
+   "collapsible": 1,
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "one_off_params_section",
    "fieldtype": "Section Break",
-   "label": "Customs Details"
+   "label": "Parameters"
   },
   {
-   "depends_on": "eval:doc.is_customs",
-   "fieldname": "customs_authority",
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "origin_port",
    "fieldtype": "Link",
-   "label": "Customs Authority",
-   "options": "Customs Authority"
+   "label": "Origin Port",
+   "options": "UNLOCO"
   },
   {
-   "depends_on": "eval:doc.is_customs",
-   "fieldname": "declaration_type",
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "options": "Load Type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "transport_mode",
    "fieldtype": "Select",
-   "label": "Declaration Type",
-   "options": "Import\nExport\nTransit\nBonded"
+   "label": "Transport Mode",
+   "options": "\nFCL\nLCL"
   },
   {
-   "depends_on": "eval:doc.is_customs",
-   "fieldname": "column_break_customs",
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "\nImport\nExport\nDomestic"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "fieldname": "column_break_params",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.is_customs",
-   "fieldname": "customs",
-   "fieldtype": "Table",
-   "label": "Customs Charges",
-   "options": "Sales Quote Customs"
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline"
   },
   {
-   "depends_on": "eval:doc.is_warehousing",
-   "fieldname": "warehousing_tab",
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Sea\"",
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Sea\"",
+   "fieldname": "freight_agent_sea",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Location From",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Location To",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "options": "Container Type"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "fieldname": "projects_tab",
    "fieldtype": "Tab Break",
-   "label": "Warehousing"
+   "label": "Projects"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "fieldname": "projects_section",
+   "fieldtype": "Section Break",
+   "label": "Project Details"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "fieldname": "special_project",
+   "fieldtype": "Link",
+   "label": "Special Project",
+   "options": "Special Project"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "fieldname": "project_resources",
+   "fieldtype": "Table",
+   "label": "Resources",
+   "options": "Sales Quote Resource"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "fieldname": "project_products",
+   "fieldtype": "Table",
+   "label": "Products",
+   "options": "Sales Quote Product"
   },
   {
    "fieldname": "accounts_tab",
@@ -296,67 +419,50 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "0",
-   "fieldname": "is_sea",
-   "fieldtype": "Check",
-   "label": "Sea"
+   "fieldname": "main_service",
+   "fieldtype": "Select",
+   "label": "Main Service",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing"
   },
   {
-   "default": "0",
-   "fieldname": "is_air",
-   "fieldtype": "Check",
-   "label": "Air"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_transport",
-   "fieldtype": "Check",
-   "label": "Transport"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_customs",
-   "fieldtype": "Check",
-   "label": "Customs"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_warehousing",
-   "fieldtype": "Check",
-   "label": "Warehousing"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_multimodal",
-   "fieldtype": "Check",
-   "label": "Multimodal"
-  },
-  {
-   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
    "fieldname": "routing_tab",
    "fieldtype": "Tab Break",
    "label": "Routing"
   },
   {
-   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Multimodal Routing Details"
   },
   {
    "default": "Consolidated",
-   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
    "fieldname": "billing_mode",
    "fieldtype": "Select",
    "label": "Billing Mode",
    "options": "Consolidated\nPer Product"
   },
   {
-   "depends_on": "eval:doc.is_multimodal || (doc.is_sea && doc.is_air) || (doc.is_sea && doc.is_transport) || (doc.is_air && doc.is_transport)",
    "fieldname": "routing_legs",
    "fieldtype": "Table",
    "label": "Routing Legs",
    "options": "Sales Quote Routing Leg"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "depends_on": "eval:doc.main_service != \"Warehousing\"",
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Quote Charges"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Sales Quote Charge"
   },
   {
    "fieldname": "additional_information_tab",
@@ -400,7 +506,14 @@
    "label": "Service Level Details"
   },
   {
-   "fieldname": "section_break_qqlf",
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Warehousing\"",
+   "fieldname": "section_break_oiqx",
    "fieldtype": "Section Break"
   }
  ],
@@ -409,8 +522,43 @@
  "is_submittable": 1,
  "links": [
   {
-   "group": "Orders",
+   "group": "Orders and Bookings",
    "link_doctype": "Transport Order",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Air Booking",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Sea Booking",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Declaration Order",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Transport Job",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Air Shipment",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Sea Shipment",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Declaration",
    "link_fieldname": "sales_quote"
   },
   {
@@ -419,7 +567,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-02-11 18:20:26.406084",
+ "modified": "2026-03-17 11:19:50.761723",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

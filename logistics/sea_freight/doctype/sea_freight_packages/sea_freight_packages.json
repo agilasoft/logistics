@@ -16,16 +16,15 @@
   "no_of_packs",
   "uom",
   "measurements_section",
-  "weight",
-  "volume",
-  "weight_uom",
-  "volume_uom",
   "dimension_uom",
   "length",
   "width",
   "height",
-  "chargeable_weight",
-  "chargeable_weight_uom",
+  "volume_uom",
+  "volume",
+  "column_break_wutu",
+  "weight_uom",
+  "weight",
   "section_break_kovs",
   "dangerous_goods_column",
   "dg_substance",
@@ -128,17 +127,6 @@
    "label": "Height"
   },
   {
-   "fieldname": "chargeable_weight",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight"
-  },
-  {
-   "fieldname": "chargeable_weight_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable Weight UOM",
-   "options": "UOM"
-  },
-  {
    "fieldname": "goods_description",
    "fieldtype": "Long Text",
    "label": "Goods Description"
@@ -196,13 +184,17 @@
    "fieldname": "dangerous_goods_column",
    "fieldtype": "Column Break",
    "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "column_break_wutu",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-06-02 15:08:48.344917",
+ "modified": "2026-03-02 23:49:40.561329",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Packages",

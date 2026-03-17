@@ -6,16 +6,22 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "details_tab",
   "naming_series",
   "transport_template",
   "booking_date",
   "customer",
   "customer_ref_no",
+  "shipper",
+  "consignee",
   "scheduled_date",
   "column_break_5",
   "transport_job_type",
   "container_type",
   "container_no",
+  "container",
   "load_type",
   "vehicle_type",
   "hazardous",
@@ -27,48 +33,25 @@
   "priority",
   "group_legs_in_one_runsheet",
   "packing_tab",
+  "routing_section",
+  "legs",
   "section_break_jozr",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "total_volume",
   "total_weight",
   "column_break_summary",
   "density_factor_html",
-  "dangerous_goods_tab",
-  "dangerous_goods_section",
-  "dg_declaration_complete",
-  "dg_compliance_status",
-  "column_break_dg",
-  "dg_emergency_contact",
-  "dg_emergency_phone",
-  "dg_emergency_email",
-  "leg_plan_tab",
-  "legs",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
   "charges_tab",
   "charges",
-  "accounts_tab",
-  "company",
-  "branch",
-  "profit_center",
-  "cost_center",
-  "column_break_xphe",
-  "job_costing_number",
-  "project",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
   "recognition_section",
   "wip_recognition_enabled",
   "wip_recognition_date_basis",
@@ -89,14 +72,47 @@
   "accrual_journal_entry",
   "accrual_adjustment_journal_entry",
   "accrual_closed",
-  "sustainability_tab",
-  "sustainability_section",
-  "total_distance",
-  "fuel_consumption",
-  "estimated_carbon_footprint",
-  "column_break_sustainability",
-  "sustainability_notes",
-  "sla_tab",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "accounts_tab",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center",
+  "column_break_xphe",
+  "job_costing_number",
+  "project",
+  "sales_quote",
+  "billing_company",
+  "invoice_monitoring_section",
+  "sales_invoice",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
+  "more_info_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_16",
+  "client_notes",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
   "sla_section",
   "logistics_service_level",
   "sla_target_source",
@@ -104,11 +120,12 @@
   "sla_status",
   "column_break_sla",
   "sla_notes",
-  "notes_tab",
-  "notes_section",
-  "internal_notes",
-  "column_break_16",
-  "client_notes",
+  "sustainability_section",
+  "total_distance",
+  "fuel_consumption",
+  "estimated_carbon_footprint",
+  "column_break_sustainability",
+  "sustainability_notes",
   "connections_tab",
   "section_break_freight_connections",
   "air_shipment",
@@ -116,6 +133,17 @@
   "amended_from"
  ],
  "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
@@ -149,6 +177,18 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Customer Ref No"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
   },
   {
    "fieldname": "column_break_5",
@@ -189,6 +229,18 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
    "label": "Notes"
@@ -217,20 +269,39 @@
    "label": "Charges"
   },
   {
-   "fieldname": "notes_tab",
-   "fieldtype": "Tab Break",
-   "label": "Notes"
-  },
-  {
    "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Transport Job Charges"
   },
   {
-   "fieldname": "sla_tab",
+   "fieldname": "documents_tab",
    "fieldtype": "Tab Break",
-   "label": "Service Level"
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
   },
   {
    "collapsible": 1,
@@ -274,7 +345,7 @@
   {
    "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
-   "label": "Packing"
+   "label": "Packing & Routing"
   },
   {
    "fieldname": "section_break_summary",
@@ -315,12 +386,7 @@
    "label": "Packages"
   },
   {
-   "depends_on": "eval:doc.hazardous",
-   "fieldname": "dangerous_goods_tab",
-   "fieldtype": "Tab Break",
-   "label": "Dangerous Goods"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
    "label": "Declaration & Emergency Response"
@@ -366,11 +432,6 @@
    "options": "Transport Order"
   },
   {
-   "fieldname": "leg_plan_tab",
-   "fieldtype": "Tab Break",
-   "label": "Leg Plan"
-  },
-  {
    "fieldname": "transport_template",
    "fieldtype": "Link",
    "label": "Transport Template",
@@ -381,6 +442,34 @@
    "fieldname": "legs",
    "fieldtype": "Table",
    "options": "Transport Job Legs"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Transport Job Milestone"
   },
   {
    "fieldname": "container_type",
@@ -394,6 +483,14 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Container No."
+  },
+  {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "read_only": 1
   },
   {
    "fieldname": "accounts_tab",
@@ -426,17 +523,17 @@
    "options": "Job Costing Number"
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
-   "options": "Project",
-   "description": "ERPNext Project for Special Projects integration"
+   "options": "Project"
   },
   {
+   "collapsible": 1,
    "fieldname": "invoice_monitoring_section",
    "fieldtype": "Section Break",
-   "label": "Invoice Monitoring",
-   "collapsible": 1
+   "label": "Invoice Monitoring"
   },
   {
    "fieldname": "sales_invoice",
@@ -453,6 +550,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "fully_invoiced",
    "fieldtype": "Check",
    "label": "Fully Invoiced",
@@ -465,6 +563,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "fully_paid",
    "fieldtype": "Check",
    "label": "Fully Paid",
@@ -505,6 +604,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "costs_fully_paid",
    "fieldtype": "Check",
    "label": "Costs Fully Paid",
@@ -520,9 +620,10 @@
    "collapsible": 1,
    "fieldname": "recognition_section",
    "fieldtype": "Section Break",
-   "label": "Revenue & Cost Recognition"
+   "label": "Profitability"
   },
   {
+   "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
    "label": "Enable WIP Recognition"
@@ -534,6 +635,7 @@
    "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
   },
   {
+   "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
    "label": "Enable Accrual Recognition"
@@ -587,6 +689,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "wip_closed",
    "fieldtype": "Check",
    "label": "WIP Closed",
@@ -629,6 +732,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "accrual_closed",
    "fieldtype": "Check",
    "label": "Accrual Closed",
@@ -650,11 +754,7 @@
    "reqd": 1
   },
   {
-   "fieldname": "sustainability_tab",
-   "fieldtype": "Tab Break",
-   "label": "Sustainability"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "sustainability_section",
    "fieldtype": "Section Break",
    "label": "Sustainability Metrics"
@@ -698,18 +798,18 @@
    "label": "Freight Connections"
   },
   {
+   "description": "Port pickup/delivery for air freight",
    "fieldname": "air_shipment",
    "fieldtype": "Link",
    "label": "Air Shipment",
-   "options": "Air Shipment",
-   "description": "Port pickup/delivery for air freight"
+   "options": "Air Shipment"
   },
   {
+   "description": "Port pickup/delivery for sea freight",
    "fieldname": "sea_shipment",
    "fieldtype": "Link",
    "label": "Sea Shipment",
-   "options": "Sea Shipment",
-   "description": "Port pickup/delivery for sea freight"
+   "options": "Sea Shipment"
   },
   {
    "fieldname": "amended_from",
@@ -756,6 +856,36 @@
    "options": "Draft\nSubmitted\nIn Progress\nCompleted\nCancelled",
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
@@ -776,7 +906,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2026-01-30 19:32:36.489853",
+ "modified": "2026-02-28 21:24:46.134536",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

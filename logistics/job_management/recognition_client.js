@@ -12,16 +12,24 @@ logistics.recognition = {
      * @param {Object} frm - The form object
      */
     setup_form: function(frm) {
-        if (frm.doc.docstatus !== 1) return;
+        // Show recognition buttons for both draft and submitted documents
+        // Add Recognize button under Post (runs both WIP and accruals)
+        var needs_recognition = (!frm.doc.wip_journal_entry && !frm.doc.wip_closed) ||
+            (!frm.doc.accrual_journal_entry && !frm.doc.accrual_closed);
+        if (needs_recognition) {
+            frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
+                logistics.recognition.recognize(frm);
+            }, __('Post'));
+        }
         
-        // Add WIP Recognition button
+        // Add WIP Recognition button (individual)
         if (!frm.doc.wip_journal_entry && !frm.doc.wip_closed) {
             frm.add_custom_button(__('Recognize WIP'), function() {
                 logistics.recognition.recognize_wip(frm);
             }, __('Recognition'));
         }
         
-        // Add Accrual Recognition button
+        // Add Accrual Recognition button (individual)
         if (!frm.doc.accrual_journal_entry && !frm.doc.accrual_closed) {
             frm.add_custom_button(__('Recognize Accruals'), function() {
                 logistics.recognition.recognize_accruals(frm);
@@ -208,6 +216,55 @@ logistics.recognition = {
     },
     
     /**
+     * Recognize WIP and accruals (manual action - both in one call)
+     */
+    recognize: function(frm) {
+        frappe.prompt([
+            {
+                fieldname: 'recognition_date',
+                fieldtype: 'Date',
+                label: __('Recognition Date'),
+                default: frappe.datetime.get_today(),
+                reqd: 1
+            }
+        ], function(values) {
+            frappe.call({
+                method: 'logistics.job_management.recognition_engine.recognize',
+                args: {
+                    doctype: frm.doc.doctype,
+                    docname: frm.doc.name,
+                    recognition_date: values.recognition_date
+                },
+                freeze: true,
+                freeze_message: __('Recognizing WIP and Accruals...'),
+                callback: function(r) {
+                    if (r.message) {
+                        var msg = [];
+                        if (r.message.wip_journal_entry) {
+                            msg.push(__('WIP: {0}', [r.message.wip_journal_entry]));
+                        }
+                        if (r.message.accrual_journal_entry) {
+                            msg.push(__('Accruals: {0}', [r.message.accrual_journal_entry]));
+                        }
+                        if (msg.length) {
+                            frappe.show_alert({
+                                message: msg.join(' | '),
+                                indicator: 'green'
+                            });
+                        } else {
+                            frappe.show_alert({
+                                message: __('Nothing to recognize (already recognized or below minimum)'),
+                                indicator: 'blue'
+                            });
+                        }
+                        frm.reload_doc();
+                    }
+                }
+            });
+        }, __('Recognize WIP & Accrual'), __('Create'));
+    },
+    
+    /**
      * Close all recognition for a job
      */
     close_recognition: function(frm) {
@@ -256,3 +313,15 @@ logistics.recognition = {
         );
     }
 };
+
+// Register form refresh for job doctypes
+frappe.ui.form.on([
+    'Air Shipment', 'Sea Shipment', 'Transport Job',
+    'Warehouse Job', 'Declaration', 'General Job'
+], {
+    refresh: function(frm) {
+        if (typeof logistics !== 'undefined' && logistics.recognition) {
+            logistics.recognition.setup_form(frm);
+        }
+    }
+});

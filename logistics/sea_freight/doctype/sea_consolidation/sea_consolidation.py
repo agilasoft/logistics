@@ -14,6 +14,7 @@ class SeaConsolidation(Document):
     def validate(self):
         """Validate Sea Consolidation document"""
         self.validate_dates()
+        self.validate_containers_iso6346()
         self.validate_consolidation_data()
         self.validate_route_consistency()
         self.validate_capacity_constraints()
@@ -22,9 +23,13 @@ class SeaConsolidation(Document):
         self.calculate_consolidation_metrics()
         self.validate_dangerous_goods_compliance()
         self.validate_accounts()
+        self.validate_packages()
+        self.validate_containers()
+        self.validate_duplicate_containers()
     
     def before_save(self):
         """Actions before saving the document"""
+        self._auto_populate_routing_from_ports()
         self.update_consolidation_status()
         self.calculate_total_charges()
         self.optimize_consolidation_ratio()
@@ -43,6 +48,18 @@ class SeaConsolidation(Document):
         self.update_attached_shipments_table()
         self.send_consolidation_notifications()
     
+    def validate_containers_iso6346(self):
+        """Validate container numbers per ISO 6346."""
+        from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+        containers = getattr(self, "consolidation_containers", []) or []
+        strict = get_strict_validation_setting()
+        for i, c in enumerate(containers, 1):
+            container_no = getattr(c, "container_number", None)
+            if container_no and str(container_no).strip():
+                valid, err = validate_container_number(container_no, strict=strict)
+                if not valid:
+                    frappe.throw(_("Container {0}: {1}").format(i, err), title=_("Invalid Container Number"))
+
     def validate_consolidation_data(self):
         """Validate consolidation data integrity"""
         if not self.consolidation_packages and not self.consolidation_containers:
@@ -58,7 +75,7 @@ class SeaConsolidation(Document):
                 frappe.throw(_("ETA cannot be earlier than ETD"))
         
         if self.consolidation_date:
-            if self.etd and self.consolidation_date > getdate(self.etd):
+            if self.etd and getdate(self.consolidation_date) > getdate(self.etd):
                 frappe.throw(_("Consolidation date cannot be later than ETD"))
     
     def validate_route_consistency(self):
@@ -250,18 +267,170 @@ class SeaConsolidation(Document):
                 ))
         
         if self.profit_center:
-            profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
-            if profit_center_company and profit_center_company != self.company:
-                frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
-                    self.profit_center, self.company
-                ))
+            # Check if Profit Center doctype has a company field before validating
+            # Profit Center may not have a company field in this installation
+            try:
+                profit_center_meta = frappe.get_meta("Profit Center")
+                if profit_center_meta.has_field("company"):
+                    try:
+                        profit_center_company = frappe.db.get_value("Profit Center", self.profit_center, "company")
+                        if profit_center_company and profit_center_company != self.company:
+                            frappe.throw(_("Profit Center {0} does not belong to Company {1}").format(
+                                self.profit_center, self.company
+                            ))
+                    except Exception as db_error:
+                        # If Profit Center doesn't have company field in database, skip validation
+                        # Check if it's a missing column error (1054: Unknown column)
+                        if "Unknown column" in str(db_error) or "1054" in str(db_error):
+                            # Field doesn't exist in database, skip validation
+                            pass
+                        else:
+                            # Re-raise other exceptions
+                            raise
+            except Exception as e:
+                # If there's an error getting meta or other issues, skip validation
+                if "Unknown column" in str(e) or "1054" in str(e):
+                    pass
+                else:
+                    raise
         
         if self.branch:
-            branch_company = frappe.db.get_value("Branch", self.branch, "company")
-            if branch_company and branch_company != self.company:
-                frappe.throw(_("Branch {0} does not belong to Company {1}").format(
-                    self.branch, self.company
-                ))
+            # Check if Branch doctype has a company field before validating
+            try:
+                branch_meta = frappe.get_meta("Branch")
+                if branch_meta.has_field("company"):
+                    try:
+                        branch_company = frappe.db.get_value("Branch", self.branch, "company")
+                        if branch_company and branch_company != self.company:
+                            frappe.throw(_("Branch {0} does not belong to Company {1}").format(
+                                self.branch, self.company
+                            ))
+                    except Exception as db_error:
+                        # If Branch doesn't have company field in database, skip validation
+                        # Check if it's a missing column error (1054: Unknown column)
+                        if "Unknown column" in str(db_error) or "1054" in str(db_error):
+                            # Field doesn't exist in database, skip validation
+                            pass
+                        else:
+                            # Re-raise other exceptions
+                            raise
+            except Exception as e:
+                # If there's an error getting meta or other issues, skip validation
+                if "Unknown column" in str(e) or "1054" in str(e):
+                    pass
+                else:
+                    raise
+    
+    def validate_packages(self):
+        """Validate packages for Sea Consolidation (aligned with Sea Shipment)."""
+        packages = getattr(self, "consolidation_packages", []) or []
+        if not packages:
+            return
+        total_pkg_weight = sum(flt(getattr(p, "package_weight", 0) or 0) for p in packages)
+        total_pkg_volume = sum(flt(getattr(p, "package_volume", 0) or 0) for p in packages)
+        if self.total_weight and total_pkg_weight > 0:
+            weight_diff = abs(total_pkg_weight - flt(self.total_weight))
+            if weight_diff > 0.01:
+                frappe.msgprint(
+                    _("Package weights ({0} kg) do not match total weight ({1} kg)").format(
+                        total_pkg_weight, self.total_weight
+                    ),
+                    indicator="orange",
+                )
+        if self.total_volume and total_pkg_volume > 0:
+            volume_diff = abs(total_pkg_volume - flt(self.total_volume))
+            if volume_diff > 0.01:
+                frappe.msgprint(
+                    _("Package volumes ({0} m³) do not match total volume ({1} m³)").format(
+                        total_pkg_volume, self.total_volume
+                    ),
+                    indicator="orange",
+                )
+        for i, package in enumerate(packages, 1):
+            if not getattr(package, "package_type", None):
+                frappe.msgprint(_("Package row {0}: Package Type is recommended").format(i), indicator="orange")
+    
+    def validate_containers(self):
+        """Validate containers for Sea Consolidation (aligned with Sea Shipment)."""
+        containers = getattr(self, "consolidation_containers", []) or []
+        if not containers:
+            return
+        container_count = len(containers)
+        if self.total_containers and container_count != flt(self.total_containers):
+            frappe.msgprint(
+                _("Container count ({0}) does not match total containers ({1})").format(
+                    container_count, self.total_containers
+                ),
+                indicator="orange",
+            )
+        for i, container in enumerate(containers, 1):
+            if not getattr(container, "container_type", None):
+                frappe.msgprint(_("Container {0}: Container Type is required").format(i), indicator="orange")
+    
+    def validate_duplicate_containers(self):
+        """Check container numbers are not already used in another consolidation/shipment."""
+        containers = getattr(self, "consolidation_containers", []) or []
+        container_numbers = [
+            getattr(c, "container_number", None) for c in containers
+            if getattr(c, "container_number", None)
+        ]
+        if not container_numbers:
+            return
+        if self.name:
+            existing = frappe.db.sql("""
+                SELECT DISTINCT parent, parenttype, container_number
+                FROM `tabSea Consolidation Containers`
+                WHERE container_number IN %(nums)s AND parent != %(docname)s
+                LIMIT 10
+            """, {"nums": container_numbers, "docname": self.name}, as_dict=True)
+        else:
+            existing = frappe.db.sql("""
+                SELECT DISTINCT parent, parenttype, container_number
+                FROM `tabSea Consolidation Containers`
+                WHERE container_number IN %(nums)s
+                LIMIT 10
+            """, {"nums": container_numbers}, as_dict=True)
+        if existing:
+            nums = ", ".join(set(c.container_number for c in existing))
+            parents = ", ".join(set(c.parent for c in existing))
+            frappe.throw(
+                _("Container number(s) {0} are already used in: {1}").format(nums, parents),
+                title=_("Duplicate Container Numbers"),
+            )
+    
+    def _auto_populate_routing_from_ports(self):
+        """Auto-populate routing from origin/destination when routing legs are empty (aligned with Sea Shipment)."""
+        routes = getattr(self, "consolidation_routes", None) or []
+        if routes or not self.origin_port or not self.destination_port:
+            return
+        self._append_main_route()
+    
+    def _append_main_route(self):
+        """Append a single Direct route from origin to destination using header vessel/etd/eta."""
+        if not self.origin_port or not self.destination_port:
+            return
+        route = {
+            "route_sequence": 1,
+            "route_type": "Direct",
+            "origin_port": self.origin_port,
+            "destination_port": self.destination_port,
+            "shipping_line": self.shipping_line,
+            "vessel_name": getattr(self, "vessel_name", None),
+            "voyage_number": getattr(self, "voyage_number", None),
+            "etd": self.etd,
+            "eta": self.eta,
+        }
+        self.append("consolidation_routes", route)
+    
+    @frappe.whitelist()
+    def populate_routing_from_ports(self):
+        """Manually populate routing from origin/destination. Replaces existing routes with one Direct leg (aligned with Sea Shipment)."""
+        if not self.origin_port or not self.destination_port:
+            return {"message": _("Set Origin Port and Destination Port first.")}
+        self.set("consolidation_routes", [])
+        self._append_main_route()
+        self.save()
+        return {"message": _("Routing leg created from origin to destination.")}
     
     def create_job_costing_number_if_needed(self):
         """Create Job Costing Number if not already linked"""
@@ -327,12 +496,10 @@ class SeaConsolidation(Document):
             frappe.log_error(f"Error updating related Sea Shipments: {str(e)}")
     
     def update_attached_shipments_table(self):
-        """Update attached shipments table with latest data"""
+        """Update attached shipments table with latest data from packages.
+        Preserves manually added rows that don't correspond to packages."""
         if not self.consolidation_packages:
             return
-        
-        # Clear existing attached shipments
-        self.attached_sea_shipments = []
         
         # Get unique shipments from packages
         unique_shipments = set()
@@ -340,12 +507,27 @@ class SeaConsolidation(Document):
             if package.sea_shipment:
                 unique_shipments.add(package.sea_shipment)
         
-        # Add shipments to attached table
+        # Create a map of existing attached shipments by sea_shipment
+        existing_attached = {}
+        for attached in self.attached_sea_shipments:
+            if attached.sea_shipment:
+                existing_attached[attached.sea_shipment] = attached
+        
+        # Update or add shipments from packages
         for shipment_name in unique_shipments:
             try:
                 shipment = frappe.get_doc("Sea Shipment", shipment_name)
-                attached = self.append("attached_sea_shipments", {})
-                attached.sea_shipment = shipment.name
+                
+                # Check if row already exists
+                if shipment_name in existing_attached:
+                    # Update existing row with latest data
+                    attached = existing_attached[shipment_name]
+                else:
+                    # Add new row
+                    attached = self.append("attached_sea_shipments", {})
+                    attached.sea_shipment = shipment.name
+                
+                # Update/sync all fields from shipment
                 attached.job_status = shipment.shipping_status
                 attached.booking_date = shipment.booking_date
                 attached.shipper = shipment.shipper
@@ -366,6 +548,8 @@ class SeaConsolidation(Document):
                     attached.cost_allocation_percentage = (shipment.total_weight / self.total_weight) * 100
             except Exception as e:
                 frappe.log_error(f"Error updating attached shipment {shipment_name}: {str(e)}")
+        
+        # Note: Manually added rows (those not in unique_shipments) are preserved
     
     def send_consolidation_notifications(self):
         """Send notifications for consolidation updates"""
@@ -428,6 +612,85 @@ class SeaConsolidation(Document):
         return True
     
     @frappe.whitelist()
+    def get_dashboard_html(self):
+        """Generate HTML for Dashboard tab: Run Sheet layout with map and milestones (aligned with Sea Shipment)."""
+        try:
+            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
+            from logistics.document_management.dashboard_layout import (
+                build_run_sheet_style_dashboard,
+                build_map_segments_from_routing_legs,
+                get_unloco_coords,
+            )
+            status = self.get("status") or "Draft"
+            header_items = [
+                ("Status", status),
+                ("ETD", str(self.etd) if self.etd else "—"),
+                ("ETA", str(self.eta) if self.eta else "—"),
+                ("Packages", str(sum(getattr(p, "package_count", 0) or 0 for p in (self.consolidation_packages or [])))),
+                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+            ]
+            if self.shipping_line:
+                header_items.append(("Shipping Line", self.shipping_line))
+            try:
+                doc_alerts = get_document_alerts_html("Sea Consolidation", self.name or "new")
+            except Exception:
+                doc_alerts = ""
+            milestone_rows = list(self.get("milestones") or [])
+            milestone_details = {}
+            if milestone_rows:
+                names = [m.milestone for m in milestone_rows if m.milestone]
+                if names:
+                    for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
+                        milestone_details[lm.name] = lm.description or lm.name
+            cards_html = ""
+            for i, m in enumerate(milestone_rows, 1):
+                st = (m.status or "Planned").lower().replace(" ", "-")
+                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
+                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
+                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
+                cards_html += f"""
+                <div class="dash-card {st}">
+                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
+                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
+                    <span class="card-badge {st}">{m.status or "Planned"}</span>
+                </div>"""
+            routes = getattr(self, "consolidation_routes", None) or []
+            legs_for_map = [{"idx": getattr(r, "route_sequence", i), "load_port": getattr(r, "origin_port", None), "discharge_port": getattr(r, "destination_port", None), "type": getattr(r, "route_type", "Direct")} for i, r in enumerate(routes, 1)]
+            map_segments = build_map_segments_from_routing_legs(legs_for_map)
+            map_points = []
+            if not map_segments:
+                o = get_unloco_coords(self.origin_port)
+                d = get_unloco_coords(self.destination_port)
+                if o:
+                    map_points.append(o)
+                if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
+                    map_points.append(d)
+            alerts_html = get_dashboard_alerts_html("Sea Consolidation", self.name or "new")
+            return build_run_sheet_style_dashboard(
+                header_title=self.name or "Sea Consolidation",
+                header_subtitle="Sea Consolidation",
+                header_items=header_items,
+                cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Get Milestones in Milestones tab.</div>",
+                map_points=map_points,
+                map_segments=map_segments,
+                map_id_prefix="sea-cons-dash-map",
+                doc_alerts_html=doc_alerts,
+                alerts_html=alerts_html,
+                straight_line=True,
+                origin_label=self.origin_port or None,
+                destination_label=self.destination_port or None,
+                route_below_html="",
+            )
+        except Exception as e:
+            frappe.log_error(f"Sea Consolidation get_dashboard_html: {str(e)}", "Sea Consolidation Dashboard")
+            return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
+    @frappe.whitelist()
+    def recalculate_all_charges_api(self):
+        """Recalculate all consolidation charges based on current document data."""
+        return recalculate_all_charges(self.name)
+
+    @frappe.whitelist()
     def allocate_costs(self, allocation_method="weight"):
         """Allocate consolidation costs to individual shipments"""
         total_cost = self.calculate_total_charges()
@@ -436,8 +699,9 @@ class SeaConsolidation(Document):
             # Allocate based on weight
             total_weight = self.total_weight or 1
             for shipment in self.attached_sea_shipments:
-                if shipment.weight:
-                    allocation_pct = (shipment.weight / total_weight) * 100
+                if getattr(shipment, "total_weight", None) or getattr(shipment, "weight", None):
+                    sw = getattr(shipment, "total_weight", None) or getattr(shipment, "weight", None) or 0
+                    allocation_pct = (sw / total_weight) * 100
                     shipment.cost_allocation_percentage = allocation_pct
                     shipment.total_charge = (total_cost * allocation_pct) / 100
         
@@ -445,8 +709,9 @@ class SeaConsolidation(Document):
             # Allocate based on volume
             total_volume = self.total_volume or 1
             for shipment in self.attached_sea_shipments:
-                if shipment.volume:
-                    allocation_pct = (shipment.volume / total_volume) * 100
+                if getattr(shipment, "total_volume", None) or getattr(shipment, "volume", None):
+                    sv = getattr(shipment, "total_volume", None) or getattr(shipment, "volume", None) or 0
+                    allocation_pct = (sv / total_volume) * 100
                     shipment.cost_allocation_percentage = allocation_pct
                     shipment.total_charge = (total_cost * allocation_pct) / 100
         
@@ -460,4 +725,34 @@ class SeaConsolidation(Document):
         
         self.save()
         return True
+
+
+@frappe.whitelist()
+def populate_routing_from_ports(docname):
+    """API: Populate routing from origin/destination ports."""
+    doc = frappe.get_doc("Sea Consolidation", docname)
+    return doc.populate_routing_from_ports()
+
+
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+    """Recalculate all charges based on current Sea Consolidation data."""
+    doc = frappe.get_doc("Sea Consolidation", docname)
+    if not doc.consolidation_charges:
+        return {"success": False, "message": _("No charges found to recalculate")}
+    try:
+        charges_recalculated = 0
+        for charge in doc.consolidation_charges:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=doc)
+                charges_recalculated += 1
+        doc.save()
+        return {
+            "success": True,
+            "message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+            "charges_recalculated": charges_recalculated,
+        }
+    except Exception as e:
+        frappe.log_error(str(e), "Sea Consolidation - Recalculate Charges Error")
+        frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 

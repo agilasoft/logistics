@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-03 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "charge_code",
+  "amount",
+  "currency",
+  "column_break_1",
+  "incl_in_inv_lines",
+  "add_to_fob",
+  "vat_apply",
+  "included_in_inv_amt",
+  "distribute_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "charge_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Code",
+   "options": "CI Charge Code"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Curr.",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "incl_in_inv_lines",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Incl. in Inv.Lines?"
+  },
+  {
+   "default": "0",
+   "fieldname": "add_to_fob",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Add to FOB?"
+  },
+  {
+   "default": "0",
+   "fieldname": "vat_apply",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "VAT Apply"
+  },
+  {
+   "default": "0",
+   "fieldname": "included_in_inv_amt",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Included in Inv. Amt"
+  },
+  {
+   "fieldname": "distribute_by",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Distribute By",
+   "options": "\nWGT: Weight\nVOL: Volume\nQTY: Quantity\nVAL: Value"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Commercial Invoice Charges",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

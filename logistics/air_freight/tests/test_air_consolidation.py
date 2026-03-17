@@ -5,18 +5,19 @@ import frappe
 import unittest
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import today, getdate
-from logistics.air_freight.tests.test_helpers import setup_basic_master_data, create_test_airport
+from logistics.air_freight.tests.test_helpers import setup_basic_master_data, create_test_unloco
 
 
 class TestAirConsolidation(FrappeTestCase):
 	"""Test cases for Air Consolidation doctype"""
-	
+
 	def setUp(self):
 		"""Set up test data"""
 		data = setup_basic_master_data()
 		self.company = data["company"]
-		create_test_airport("LAX")
-		create_test_airport("JFK")
+		# Air Consolidation uses UNLOCO for origin_airport/destination_airport
+		create_test_unloco("USLAX", "Los Angeles", "LAX", "US", "Airport")
+		create_test_unloco("USJFK", "New York JFK", "JFK", "US", "Airport")
 	
 	def tearDown(self):
 		"""Clean up test data"""
@@ -31,8 +32,8 @@ class TestAirConsolidation(FrappeTestCase):
 			"consolidation_type": "Direct Consolidation",
 			"status": "Draft",
 			"company": self.company,
-			"origin_airport": "LAX",
-			"destination_airport": "JFK"
+			"origin_airport": "USLAX",
+			"destination_airport": "USJFK"
 		})
 		
 		consolidation.insert()
@@ -47,8 +48,8 @@ class TestAirConsolidation(FrappeTestCase):
 			"consolidation_type": "Direct Consolidation",
 			"status": "Draft",
 			"company": self.company,
-			"origin_airport": "LAX",
-			"destination_airport": "JFK"
+			"origin_airport": "USLAX",
+			"destination_airport": "USJFK"
 		})
 		
 		# Test that validation methods exist
@@ -65,8 +66,8 @@ class TestAirConsolidation(FrappeTestCase):
 			"consolidation_type": "Direct Consolidation",
 			"status": "Draft",
 			"company": self.company,
-			"origin_airport": "LAX",
-			"destination_airport": "JFK"
+			"origin_airport": "USLAX",
+			"destination_airport": "USJFK"
 		})
 		
 		# Test that before_save method exists
@@ -81,8 +82,8 @@ class TestAirConsolidation(FrappeTestCase):
 			"consolidation_type": "Direct Consolidation",
 			"status": "Draft",
 			"company": self.company,
-			"origin_airport": "LAX",
-			"destination_airport": "JFK"
+			"origin_airport": "USLAX",
+			"destination_airport": "USJFK"
 		})
 		
 		# Test that after_insert method exists

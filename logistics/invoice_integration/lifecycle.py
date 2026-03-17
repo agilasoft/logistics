@@ -14,6 +14,15 @@ from frappe.utils import getdate, today, flt
 # Job doctypes that have invoice monitoring fields
 JOB_DOCTYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration")
 
+# Child table doctypes for charges (have purchase_invoice_status, purchase_invoice, sales_invoice_status, sales_invoice)
+CHARGE_CHILD_DOCTYPES = (
+    "Transport Job Charges",
+    "Air Shipment Charges",
+    "Sea Shipment Charges",
+    "Warehouse Job Charges",
+    "Declaration Charges",
+)
+
 # Fields to update on jobs
 SI_LIFECYCLE_FIELDS = (
     "sales_invoice",
@@ -91,7 +100,7 @@ def get_jobs_linked_to_purchase_invoice(pi_name: str) -> list:
 
 
 def update_job_on_sales_invoice_submit(si_doc):
-    """Update linked jobs when Sales Invoice is submitted."""
+    """Update linked jobs and charge rows when Sales Invoice is submitted."""
     jobs = get_jobs_linked_to_sales_invoice(si_doc.name)
     posting_date = getdate(si_doc.posting_date)
     grand_total = flt(si_doc.grand_total)
@@ -118,12 +127,13 @@ def update_job_on_sales_invoice_submit(si_doc):
                 f"Failed to update {job_dt} {job_name} on SI submit: {e}",
                 "Invoice Integration Error",
             )
-    if jobs:
-        frappe.db.commit()
+    update_charge_rows_for_sales_invoice(si_doc.name, "Posted")
+    frappe.db.commit()
 
 
 def update_job_on_sales_invoice_cancel(si_doc):
     """Clear links and reset statuses when Sales Invoice is cancelled."""
+    update_charge_rows_for_sales_invoice(si_doc.name, None)
     jobs = get_jobs_linked_to_sales_invoice(si_doc.name)
     for job_dt, job_name in jobs:
         try:
@@ -144,12 +154,73 @@ def update_job_on_sales_invoice_cancel(si_doc):
                 f"Failed to update {job_dt} {job_name} on SI cancel: {e}",
                 "Invoice Integration Error",
             )
-    if jobs:
-        frappe.db.commit()
+    frappe.db.commit()
+
+
+def update_charge_rows_for_purchase_invoice(pi_name: str, status: str):
+    """Set purchase_invoice_status on all charge rows referencing this PI. status='Posted' on submit, 'Paid' on pay, None to clear."""
+    for child_dt in CHARGE_CHILD_DOCTYPES:
+        if not frappe.db.table_exists(child_dt):
+            continue
+        meta = frappe.get_meta(child_dt)
+        if not meta.get_field("purchase_invoice_status") or not meta.get_field("purchase_invoice"):
+            continue
+        try:
+            names = frappe.get_all(
+                child_dt,
+                filters={"purchase_invoice": pi_name},
+                pluck="name",
+            )
+            for name in names:
+                frappe.db.set_value(
+                    child_dt,
+                    name,
+                    {
+                        "purchase_invoice_status": status or "Not Requested",
+                        "purchase_invoice": None if status is None else pi_name,
+                    },
+                    update_modified=False,
+                )
+        except Exception as e:
+            frappe.log_error(
+                f"Failed to update charge rows for PI {pi_name} in {child_dt}: {e}",
+                "Invoice Integration Error",
+            )
+
+
+def update_charge_rows_for_sales_invoice(si_name: str, status: str):
+    """Set sales_invoice_status on all charge rows referencing this SI. status='Posted' on submit, 'Paid' on pay, None to clear."""
+    for child_dt in CHARGE_CHILD_DOCTYPES:
+        if not frappe.db.table_exists(child_dt):
+            continue
+        meta = frappe.get_meta(child_dt)
+        if not meta.get_field("sales_invoice_status") or not meta.get_field("sales_invoice"):
+            continue
+        try:
+            names = frappe.get_all(
+                child_dt,
+                filters={"sales_invoice": si_name},
+                pluck="name",
+            )
+            for name in names:
+                frappe.db.set_value(
+                    child_dt,
+                    name,
+                    {
+                        "sales_invoice_status": status or "Not Requested",
+                        "sales_invoice": None if status is None else si_name,
+                    },
+                    update_modified=False,
+                )
+        except Exception as e:
+            frappe.log_error(
+                f"Failed to update charge rows for SI {si_name} in {child_dt}: {e}",
+                "Invoice Integration Error",
+            )
 
 
 def update_job_on_purchase_invoice_submit(pi_doc):
-    """Update linked jobs when Purchase Invoice is submitted."""
+    """Update linked jobs and charge rows when Purchase Invoice is submitted."""
     jobs = get_jobs_linked_to_purchase_invoice(pi_doc.name)
     posting_date = getdate(pi_doc.posting_date)
     for job_dt, job_name in jobs:
@@ -169,12 +240,13 @@ def update_job_on_purchase_invoice_submit(pi_doc):
                 f"Failed to update {job_dt} {job_name} on PI submit: {e}",
                 "Invoice Integration Error",
             )
-    if jobs:
-        frappe.db.commit()
+    update_charge_rows_for_purchase_invoice(pi_doc.name, "Posted")
+    frappe.db.commit()
 
 
 def update_job_on_purchase_invoice_cancel(pi_doc):
     """Clear links and reset statuses when Purchase Invoice is cancelled."""
+    update_charge_rows_for_purchase_invoice(pi_doc.name, None)
     jobs = get_jobs_linked_to_purchase_invoice(pi_doc.name)
     for job_dt, job_name in jobs:
         try:
@@ -193,12 +265,11 @@ def update_job_on_purchase_invoice_cancel(pi_doc):
                 f"Failed to update {job_dt} {job_name} on PI cancel: {e}",
                 "Invoice Integration Error",
             )
-    if jobs:
-        frappe.db.commit()
+    frappe.db.commit()
 
 
 def update_job_on_payment(party_type: str, party: str):
-    """Update fully_paid when Sales Invoice or Purchase Invoice is fully paid."""
+    """Update fully_paid and charge row status when Sales Invoice or Purchase Invoice is fully paid."""
     if party_type == "Customer":
         # Find SIs for this customer with outstanding = 0
         sis = frappe.get_all(
@@ -211,6 +282,7 @@ def update_job_on_payment(party_type: str, party: str):
             pluck="name",
         )
         for si_name in sis:
+            update_charge_rows_for_sales_invoice(si_name, "Paid")
             jobs = get_jobs_linked_to_sales_invoice(si_name)
             for job_dt, job_name in jobs:
                 if _has_field(job_dt, "fully_paid"):
@@ -236,6 +308,7 @@ def update_job_on_payment(party_type: str, party: str):
             pluck="name",
         )
         for pi_name in pis:
+            update_charge_rows_for_purchase_invoice(pi_name, "Paid")
             jobs = get_jobs_linked_to_purchase_invoice(pi_name)
             for job_dt, job_name in jobs:
                 if _has_field(job_dt, "costs_fully_paid"):

@@ -42,7 +42,7 @@ def _get_password(doctype: str, fieldnames: list[str]) -> Optional[str]:
 
 def _get_setting(name: str, default=None):
     """
-    Read a value from Transport Settings with tolerant alias lookups and site_config fallbacks.
+    Read routing settings: prefer Logistics Settings (single source), fall back to Transport Settings.
     Special-cases Password fields to use get_decrypted_password.
     """
     alias_map = {
@@ -56,7 +56,7 @@ def _get_setting(name: str, default=None):
         "routing_timeout_sec": ["route_timeout_sec"],
         "routing_debug": ["route_debug"],
 
-        # 🔐 Password fields (your DocType dump has these names)
+        # 🔐 Password fields
         "google_api_key": ["routing_google_api_key", "google_api_key", "google_maps_api_key", "google_key", "maps_api_key"],
         "mapbox_access_token": ["routing_mapbox_api_key", "mapbox_access_token", "mapbox_token", "mapbox_api_key"],
 
@@ -64,12 +64,26 @@ def _get_setting(name: str, default=None):
         "mapbox_profile": ["mapbox_mode", "mapbox_route_profile"],
     }
 
-    # Password-like settings first
+    def _read_from(doctype: str, field_name: str) -> Optional[Any]:
+        try:
+            doc = frappe.get_single(doctype)
+            if hasattr(doc, field_name):
+                return getattr(doc, field_name)
+            for alias in alias_map.get(name, []):
+                if hasattr(doc, alias):
+                    return getattr(doc, alias)
+        except Exception:
+            pass
+        return None
+
+    # Password-like settings: Logistics Settings first, then Transport Settings
     if name in ("google_api_key", "mapbox_access_token"):
+        pw = _get_password("Logistics Settings", alias_map.get(name, []))
+        if pw:
+            return pw
         pw = _get_password("Transport Settings", alias_map.get(name, []))
         if pw:
             return pw
-        # site_config fallbacks
         if hasattr(frappe, "conf") and hasattr(frappe.conf, "get"):
             if name == "google_api_key":
                 for k in ("google_maps_api_key", "google_api_key", "maps_api_key"):
@@ -83,20 +97,13 @@ def _get_setting(name: str, default=None):
                         return v
         return default
 
-    # Non-password settings
-    ts = None
-    try:
-        ts = frappe.get_single("Transport Settings")
-    except Exception:
-        ts = None
-
-    if ts and hasattr(ts, name):
-        return getattr(ts, name)
-
-    if ts:
-        for alias in alias_map.get(name, []):
-            if hasattr(ts, alias):
-                return getattr(ts, alias)
+    # Non-password settings: Logistics Settings first, then Transport Settings
+    val = _read_from("Logistics Settings", name)
+    if val is not None and val != "":
+        return val
+    val = _read_from("Transport Settings", name)
+    if val is not None and val != "":
+        return val
 
     # site_config backup for non-passwords
     if hasattr(frappe, "conf") and hasattr(frappe.conf, "get"):

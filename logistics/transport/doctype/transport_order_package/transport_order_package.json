@@ -20,12 +20,11 @@
   "length",
   "width",
   "height",
-  "volume",
   "volume_uom",
-  "weight",
+  "volume",
+  "column_break_ycdf",
   "weight_uom",
-  "chargeable_weight",
-  "chargeable_weight_uom",
+  "weight",
   "goods_details_section",
   "goods_description",
   "section_break_dg_identification",
@@ -154,17 +153,6 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
-  },
-  {
-   "fieldname": "chargeable_weight",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight"
-  },
-  {
-   "fieldname": "chargeable_weight_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable Weight UOM",
    "options": "UOM"
   },
   {
@@ -438,13 +426,17 @@
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "UOM",
+   "label": "Dimension UOM",
    "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_ycdf",
+   "fieldtype": "Column Break"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-02-05 17:43:49.560292",
+ "modified": "2026-02-24 10:59:00.351592",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order Package",

@@ -1,7 +1,8 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-11-09 00:00:00.000000",
+ "autoname": "field:company",
+ "creation": "2025-11-09 00:00:00",
  "default_view": "Form",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -36,7 +37,7 @@
   "volume_to_weight_factor",
   "chargeable_weight_calculation",
   "column_break_calculation",
-  "default_charge_basis",
+  "default_calculation_method",
   "default_weight_uom",
   "default_volume_uom",
   "default_chargeable_uom",
@@ -55,6 +56,8 @@
   "document_settings_section",
   "auto_generate_house_awb",
   "auto_generate_master_awb",
+  "use_mawb_stock",
+  "default_mawb_stock_range",
   "column_break_document",
   "require_dg_declaration",
   "require_customs_declaration",
@@ -81,6 +84,7 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
    "options": "Company",
    "reqd": 1,
@@ -116,15 +120,15 @@
   },
   {
    "fieldname": "default_incoterm",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Default Incoterm",
-   "options": "EXW\nFCA\nCPT\nCIP\nDAP\nDPU\nDDP\nFAS\nFOB\nCFR\nCIF"
+   "options": "Incoterm"
   },
   {
    "fieldname": "default_service_level",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Default Service Level",
-   "options": "Standard\nExpress\nEconomy\nPremium"
+   "options": "Service Level Agreement"
   },
   {
    "fieldname": "location_settings_section",
@@ -148,18 +152,18 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Default origin port UNLOCO code",
    "fieldname": "default_origin_port",
    "fieldtype": "Link",
    "label": "Default Origin Port",
-   "options": "UNLOCO",
-   "description": "Default origin port UNLOCO code"
+   "options": "UNLOCO"
   },
   {
+   "description": "Default destination port UNLOCO code",
    "fieldname": "default_destination_port",
    "fieldtype": "Link",
    "label": "Default Destination Port",
-   "options": "UNLOCO",
-   "description": "Default destination port UNLOCO code"
+   "options": "UNLOCO"
   },
   {
    "fieldname": "business_settings_section",
@@ -176,7 +180,7 @@
    "fieldname": "default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent",
-   "options": "User"
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_business",
@@ -231,48 +235,48 @@
   },
   {
    "default": "167",
+   "description": "IATA standard factor: 167 kg/m\u00b3 (6 m\u00b3/1000 kg). Factor to convert volume (m\u00b3) to weight (kg) for chargeable weight calculation",
    "fieldname": "volume_to_weight_factor",
    "fieldtype": "Float",
-   "label": "Volume to Weight Factor (kg/m³)",
-   "description": "IATA standard factor: 167 kg/m³ (6 m³/1000 kg). Factor to convert volume (m³) to weight (kg) for chargeable weight calculation"
+   "label": "Volume to Weight Factor (kg/m\u00b3)"
   },
   {
+   "default": "Higher of Both",
    "fieldname": "chargeable_weight_calculation",
    "fieldtype": "Select",
    "label": "Chargeable Weight Calculation",
-   "options": "Actual Weight\nVolume Weight\nHigher of Both",
-   "default": "Higher of Both"
+   "options": "Actual Weight\nVolume Weight\nHigher of Both"
   },
   {
    "fieldname": "column_break_calculation",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "default_charge_basis",
+   "fieldname": "default_calculation_method",
    "fieldtype": "Select",
-   "label": "Default Charge Basis",
-   "options": "Per kg\nPer m³\nPer package\nPer shipment\nFixed amount"
+   "label": "Default Calculation Method",
+   "options": "Per kg\nPer m\u00b3\nPer package\nPer shipment\nFixed amount"
   },
   {
+   "description": "Default UOM for weight in Sales Quote Air tab and air-related doctypes",
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
-   "options": "UOM",
-   "description": "Default UOM for weight in Sales Quote Air tab and air-related doctypes"
+   "options": "UOM"
   },
   {
+   "description": "Default UOM for volume in Sales Quote Air tab and air-related doctypes",
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
-   "options": "UOM",
-   "description": "Default UOM for volume in Sales Quote Air tab and air-related doctypes"
+   "options": "UOM"
   },
   {
+   "description": "Default UOM for chargeable weight in Sales Quote Air tab and air-related doctypes",
    "fieldname": "default_chargeable_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable UOM",
-   "options": "UOM",
-   "description": "Default UOM for chargeable weight in Sales Quote Air tab and air-related doctypes"
+   "options": "UOM"
   },
   {
    "fieldname": "alert_settings_section",
@@ -358,6 +362,20 @@
    "label": "Auto-generate Master AWB Number"
   },
   {
+   "default": "0",
+   "description": "When on, new Master AWB is issued from MAWB Stock Range instead of random reference",
+   "fieldname": "use_mawb_stock",
+   "fieldtype": "Check",
+   "label": "Use MAWB Stock for New MAWB"
+  },
+  {
+   "depends_on": "eval:doc.use_mawb_stock==1",
+   "fieldname": "default_mawb_stock_range",
+   "fieldtype": "Link",
+   "label": "Default MAWB Stock Range",
+   "options": "MAWB Stock Range"
+  },
+  {
    "fieldname": "column_break_document",
    "fieldtype": "Column Break"
   },
@@ -401,16 +419,16 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Maximum weight for automatic consolidation assignment",
    "fieldname": "max_consolidation_weight",
    "fieldtype": "Float",
-   "label": "Max Consolidation Weight (kg)",
-   "description": "Maximum weight for automatic consolidation assignment"
+   "label": "Max Consolidation Weight (kg)"
   },
   {
+   "description": "Maximum volume for automatic consolidation assignment",
    "fieldname": "max_consolidation_volume",
    "fieldtype": "Float",
-   "label": "Max Consolidation Volume (m³)",
-   "description": "Maximum volume for automatic consolidation assignment"
+   "label": "Max Consolidation Volume (m\u00b3)"
   },
   {
    "fieldname": "billing_settings_section",
@@ -448,7 +466,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-09 00:00:00.000000",
+ "modified": "2026-03-05 13:44:02.013217",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight Settings",
@@ -469,7 +487,6 @@
   },
   {
    "create": 1,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -480,14 +497,9 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
  "track_changes": 1
 }
-
-
-
-
-
-

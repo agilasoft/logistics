@@ -6,6 +6,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
   "naming_series",
   "consolidation_date",
   "column_break_1",
@@ -16,6 +18,8 @@
   "section_break_details",
   "total_weight",
   "total_volume",
+  "total_volume_uom",
+  "total_weight_uom",
   "column_break_2",
   "consolidation_notes",
   "run_sheet_tab",
@@ -29,6 +33,16 @@
   "amended_from"
  ],
  "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "label": "Dashboard"
+  },
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
@@ -79,14 +93,26 @@
   {
    "fieldname": "total_weight",
    "fieldtype": "Float",
-   "label": "Total Weight (kg)",
+   "label": "Total Weight",
    "read_only": 1
   },
   {
    "fieldname": "total_volume",
    "fieldtype": "Float",
-   "label": "Total Volume (m\u00b3)",
+   "label": "Total Volume",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Total Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Total Weight UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_2",

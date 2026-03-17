@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-05-20 23:55:47.259907",
@@ -20,6 +21,7 @@
   "contact_html",
   "section_break_unej",
   "shipper_primary_address",
+  "pick_address",
   "primary_address",
   "column_break_giwp",
   "shipper_primary_contact"
@@ -101,6 +103,13 @@
    "options": "Address"
   },
   {
+   "description": "Default address for transport pickups",
+   "fieldname": "pick_address",
+   "fieldtype": "Link",
+   "label": "Pick Address",
+   "options": "Address"
+  },
+  {
    "fieldname": "primary_address",
    "fieldtype": "Text"
   },
@@ -118,7 +127,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-28 22:53:07.117149",
+ "modified": "2026-03-17 12:40:57.437766",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Shipper",

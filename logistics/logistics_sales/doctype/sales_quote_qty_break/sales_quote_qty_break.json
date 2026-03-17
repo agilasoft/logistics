@@ -36,18 +36,21 @@
    "fieldname": "rate_type",
    "fieldtype": "Select",
    "label": "Rate Type",
-   "options": "Normal\nMinimum\nQty Break"
+   "options": "Normal\nMinimum\nQty Break",
+   "in_list_view": 1
   },
   {
    "fieldname": "qty_break",
    "fieldtype": "Float",
-   "label": "Qty Break"
+   "label": "Qty Break",
+   "in_list_view": 1
   },
   {
    "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
-   "options": "currency"
+   "options": "currency",
+   "in_list_view": 1
   },
   {
    "fieldname": "currency",

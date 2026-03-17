@@ -6,7 +6,6 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "leg_order",
   "mode",
   "type",
   "status",
@@ -16,11 +15,10 @@
   "section_break_sea",
   "vessel",
   "voyage_no",
+  "shipping_line",
   "section_break_air",
   "flight_no",
-  "section_break_carrier",
-  "carrier_type",
-  "carrier",
+  "airline",
   "section_break_origin",
   "load_port",
   "etd",
@@ -32,19 +30,12 @@
  ],
  "fields": [
   {
-   "fieldname": "leg_order",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Leg",
-   "reqd": 1
-  },
-  {
-   "default": "SEA",
+   "default": "Sea",
    "fieldname": "mode",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Mode",
-   "options": "SEA\nAIR"
+   "options": "Transport Mode"
   },
   {
    "fieldname": "type",
@@ -76,54 +67,53 @@
    "label": "Notes"
   },
   {
-   "depends_on": "eval:doc.mode === 'SEA'",
+   "depends_on": "eval:doc.mode === 'Sea'",
    "fieldname": "section_break_sea",
    "fieldtype": "Section Break",
    "label": "Vessel & Voyage"
   },
   {
-   "depends_on": "eval:doc.mode === 'SEA'",
+   "depends_on": "eval:doc.mode === 'Sea'",
    "fieldname": "vessel",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Vessel"
   },
   {
-   "depends_on": "eval:doc.mode === 'SEA'",
+   "depends_on": "eval:doc.mode === 'Sea'",
    "fieldname": "voyage_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Voyage No"
   },
   {
-   "depends_on": "eval:doc.mode === 'AIR'",
+   "depends_on": "eval:doc.mode === 'Sea'",
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Shipping Line",
+   "options": "Shipping Line"
+  },
+  {
+   "depends_on": "eval:doc.mode === 'Air'",
    "fieldname": "section_break_air",
    "fieldtype": "Section Break",
    "label": "Flight"
   },
   {
-   "depends_on": "eval:doc.mode === 'AIR'",
+   "depends_on": "eval:doc.mode === 'Air'",
    "fieldname": "flight_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Flight No"
   },
   {
-   "fieldname": "section_break_carrier",
-   "fieldtype": "Section Break",
-   "label": "Carrier"
-  },
-  {
-   "fieldname": "carrier_type",
-   "fieldtype": "Select",
-   "label": "Carrier Type",
-   "options": "Shipping Line\nAirline"
-  },
-  {
-   "fieldname": "carrier",
-   "fieldtype": "Dynamic Link",
-   "label": "Carrier",
-   "options": "carrier_type"
+   "depends_on": "eval:doc.mode === 'Air'",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Airline",
+   "options": "Airline"
   },
   {
    "fieldname": "section_break_origin",
@@ -147,7 +137,8 @@
    "fieldname": "atd",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "ATD"
+   "label": "ATD",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_dest",
@@ -170,7 +161,8 @@
    "fieldname": "ata",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "ATA"
+   "label": "ATA",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -182,7 +174,7 @@
  "name": "Sea Booking Routing Leg",
  "owner": "Administrator",
  "permissions": [],
- "sort_field": "leg_order",
+ "sort_field": "idx",
  "sort_order": "ASC",
  "states": []
 }

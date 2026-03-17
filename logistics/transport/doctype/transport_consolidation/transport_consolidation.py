@@ -8,6 +8,46 @@ from frappe.utils import flt
 
 
 class TransportConsolidation(Document):
+	@frappe.whitelist()
+	def get_dashboard_html(self):
+		"""Generate HTML for Dashboard tab: consolidation details and header alerts."""
+		try:
+			from logistics.document_management.api import get_dashboard_alerts_html
+			from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
+
+			status = self.get("status") or "Draft"
+			status_badge_html = f'<span class="dash-status-badge {(status or "draft").lower().replace(" ", "_")}">{frappe.utils.escape_html(status)}</span>'
+			header_items = [
+				("Status", status),
+				("Consolidation Date", str(self.consolidation_date) if self.consolidation_date else "—"),
+				("Type", self.consolidation_type or "—"),
+				("Load Type", self.load_type or "—"),
+				("Jobs", str(len(self.transport_jobs or []))),
+				("Total Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+				("Total Volume", frappe.format_value(self.total_volume or 0, df=dict(fieldtype="Float"))),
+			]
+			alerts_html = get_dashboard_alerts_html("Transport Consolidation", self.name or "new")
+			cards_html = '<div class="text-muted">Transport jobs in this consolidation. Use Run Sheet tab to create run sheet.</div>'
+			return build_run_sheet_style_dashboard(
+				header_title=self.name or "Transport Consolidation",
+				header_subtitle="Transport Consolidation",
+				header_items=header_items,
+				status_badge_html=status_badge_html,
+				alerts_html=alerts_html,
+				cards_html=cards_html,
+				map_points=[],
+				map_id_prefix="tc-dash-map",
+				doc_alerts_html="",
+				straight_line=True,
+				origin_label="—",
+				destination_label="—",
+				hide_map=True,
+				cards_full_width=True,
+			)
+		except Exception as e:
+			frappe.log_error(f"Transport Consolidation get_dashboard_html: {str(e)}", "Transport Consolidation Dashboard")
+			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
 	def validate(self):
 		"""Validate consolidation rules and calculate totals"""
 		# Clear consolidation flags for removed jobs (must be done before other validations)
@@ -406,10 +446,12 @@ class TransportConsolidation(Document):
 		total_volume = 0
 		
 		for job in self.transport_jobs:
-			if job.weight:
-				total_weight += flt(job.weight)
-			if job.volume:
-				total_volume += flt(job.volume)
+			job_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None)
+			job_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None)
+			if job_weight:
+				total_weight += flt(job_weight)
+			if job_volume:
+				total_volume += flt(job_volume)
 		
 		self.total_weight = total_weight
 		self.total_volume = total_volume

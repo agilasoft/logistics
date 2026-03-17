@@ -1,23 +1,26 @@
 frappe.ui.form.on('Consignee', {
   setup(frm) {
-    // Primary Contact query → only contacts linked to this Consignee
+    // Primary Contact query → only contacts linked to this Consignee (server-side to avoid contact.link_doctype permission errors)
     frm.set_query('consignee_primary_contact', function (doc) {
-      return {
-        filters: {
-          link_doctype: 'Consignee',
-          link_name: doc.name
-        },
-      };
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
+      let contact_names = [];
+      frappe.call({
+        method: 'logistics.contact_links.get_contact_names_for_dynamic_link',
+        args: { link_doctype: 'Consignee', link_name: doc.name },
+        async: false,
+        callback: function (r) { contact_names = r.message || []; }
+      });
+      return contact_names.length ? { filters: { name: ['in', contact_names] } } : { filters: { name: '__none__' } };
     });
 
     // Primary Address query → only addresses linked to this Consignee
     frm.set_query('consignee_primary_address', function (doc) {
-      return {
-        filters: {
-          link_doctype: 'Consignee',
-          link_name: doc.name
-        },
-      };
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
+      return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', doc.name]] };
+    });
+    frm.set_query('delivery_address', function (doc) {
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
+      return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', doc.name]] };
     });
   },
 

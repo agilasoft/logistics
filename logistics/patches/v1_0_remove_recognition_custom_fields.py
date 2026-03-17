@@ -49,7 +49,7 @@ def execute():
     charges_doctypes = [
         "Air Shipment Charges",
         "Sea Shipment Charges",
-        "Sea Freight Charges",
+        "Sea Shipment Charges",
         "Warehouse Job Charges",
         "Declaration Charges",
     ]

@@ -3,14 +3,17 @@
 
 frappe.ui.form.on('Transport Terminal', {
   setup(frm) {
-    // Primary Contact query → only contacts linked to this Transport Terminal
+    // Primary Contact query → only contacts linked to this Transport Terminal (server-side to avoid contact.link_doctype permission errors)
     frm.set_query('transportterminal_primary_contact', function (doc) {
-      return {
-        filters: {
-          link_doctype: 'Transport Terminal',
-          link_name: doc.name
-        },
-      };
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
+      let contact_names = [];
+      frappe.call({
+        method: 'logistics.contact_links.get_contact_names_for_dynamic_link',
+        args: { link_doctype: 'Transport Terminal', link_name: doc.name },
+        async: false,
+        callback: function (r) { contact_names = r.message || []; }
+      });
+      return contact_names.length ? { filters: { name: ['in', contact_names] } } : { filters: { name: '__none__' } };
     });
 
     // Primary Address query → only addresses linked to this Transport Terminal

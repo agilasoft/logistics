@@ -8,10 +8,12 @@
  "field_order": [
   "code",
   "description",
+  "icon",
   "column_break_rydr",
   "air_freight",
   "sea_freight",
-  "transport"
+  "transport",
+  "customs"
  ],
  "fields": [
   {
@@ -24,6 +26,12 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "label": "Description"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Icon",
+   "in_list_view": 1,
+   "label": "Icon"
   },
   {
    "fieldname": "column_break_rydr",
@@ -46,12 +54,18 @@
    "fieldname": "transport",
    "fieldtype": "Check",
    "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "customs",
+   "fieldtype": "Check",
+   "label": "Customs"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-29 22:12:07.222404",
+ "modified": "2026-02-28 10:58:37.519341",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Logistics Milestone",

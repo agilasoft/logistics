@@ -50,13 +50,17 @@
   },
   {
    "fieldname": "origin_port",
-   "fieldtype": "Data",
-   "label": "Origin Port"
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "fetch_from": "air_shipment.origin_port"
   },
   {
    "fieldname": "destination_port",
-   "fieldtype": "Data",
-   "label": "Destination Port"
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "fetch_from": "air_shipment.destination_port"
   },
   {
    "fieldname": "section_break_emergency",

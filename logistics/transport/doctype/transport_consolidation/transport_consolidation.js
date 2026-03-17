@@ -3,6 +3,31 @@
 
 frappe.ui.form.on("Transport Consolidation", {
 	refresh(frm) {
+		// Load dashboard HTML in Dashboard tab
+		const load_dashboard = () => {
+			if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal && !frm._dashboard_html_called) {
+				frm._dashboard_html_called = true;
+				frm.call("get_dashboard_html").then((r) => {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_group_and_collapse_dash_alerts) {
+							setTimeout(function() {
+								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							}, 100);
+						}
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+						}
+					}
+				});
+				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+			}
+		};
+		load_dashboard();
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.tc_dashboard").on("click.tc_dashboard", '[data-fieldname="dashboard_tab"]', load_dashboard);
+		}
+
 		// Add custom button to fetch jobs (always show dialog for manual selection)
 		frm.add_custom_button(__("Jobs"), function() {
 			fetch_consolidatable_jobs(frm);

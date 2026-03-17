@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-05-22 19:50:32.404879",
@@ -8,6 +9,8 @@
  "field_order": [
   "code",
   "consignee_name",
+  "section_break_customs",
+  "customs_importer_classification",
   "addresses_tab",
   "addresses_and_contacts",
   "address_html",
@@ -15,6 +18,7 @@
   "contact_html",
   "section_break_vizq",
   "consignee_primary_address",
+  "delivery_address",
   "primary_address",
   "column_break_umfc",
   "consignee_primary_contact",
@@ -31,6 +35,18 @@
    "fieldname": "consignee_name",
    "fieldtype": "Data",
    "label": "Consignee Name"
+  },
+  {
+   "fieldname": "section_break_customs",
+   "fieldtype": "Section Break",
+   "label": "Customs"
+  },
+  {
+   "description": "Customs lane classification (SGL=Super Green Lane, GL=Green Lane)",
+   "fieldname": "customs_importer_classification",
+   "fieldtype": "Select",
+   "label": "Customs Importer Classification",
+   "options": "\nSGL\nGL\nYellow Lane\nRed Lane\nNot Classified"
   },
   {
    "fieldname": "connections_tab",
@@ -52,6 +68,13 @@
    "fieldname": "consignee_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "description": "Default address for transport deliveries",
+   "fieldname": "delivery_address",
+   "fieldtype": "Link",
+   "label": "Delivery Address",
    "options": "Address"
   },
   {
@@ -90,7 +113,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-19 13:17:45.895600",
+ "modified": "2026-03-17 12:43:22.604016",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Consignee",

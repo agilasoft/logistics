@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "container",
+  "movement_type",
+  "from_location_type",
+  "from_location",
+  "to_location_type",
+  "to_location",
+  "movement_date",
+  "column_break_1",
+  "reference_doctype",
+  "reference_name",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "container",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Container",
+   "options": "Container",
+   "reqd": 1
+  },
+  {
+   "fieldname": "movement_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Movement Type",
+   "options": "Gate-In\nLoaded\nDischarged\nPicked Up\nDelivered\nReturned\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "from_location_type",
+   "fieldtype": "Link",
+   "label": "From Location Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "from_location",
+   "fieldtype": "Dynamic Link",
+   "label": "From Location",
+   "options": "from_location_type"
+  },
+  {
+   "fieldname": "to_location_type",
+   "fieldtype": "Link",
+   "label": "To Location Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "to_location",
+   "fieldtype": "Dynamic Link",
+   "label": "To Location",
+   "options": "to_location_type"
+  },
+  {
+   "fieldname": "movement_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Movement Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Container Movement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

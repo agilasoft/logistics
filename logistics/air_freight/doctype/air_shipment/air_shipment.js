@@ -1,1145 +1,433 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-// Suppress "Air Shipment X not found" when form is new/unsaved (e.g. child grid triggers API before save)
-frappe.ui.form.on("Air Shipment", {
-	onload(frm) {
-		if (frm.is_new() || frm.doc.__islocal) {
-			if (!frappe._original_msgprint_as) {
-				frappe._original_msgprint_as = frappe.msgprint;
+function _load_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
+	frappe.call({
+		method: 'logistics.document_management.api.get_milestone_html',
+		args: { doctype: 'Air Shipment', docname: frm.doc.name },
+		callback: function(r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
 			}
-			frappe.msgprint = function(options) {
-				const message = typeof options === 'string' ? options : (options && options.message || '');
-				if (message && typeof message === 'string' &&
-					message.includes('Air Shipment') &&
-					message.includes('not found')) {
-					return;
-				}
-				return frappe._original_msgprint_as.apply(this, arguments);
-			};
-			frm.$wrapper.one('form-refresh', function() {
-				if (!frm.is_new() && !frm.doc.__islocal && frappe._original_msgprint_as) {
-					frappe.msgprint = frappe._original_msgprint_as;
-				}
-			});
 		}
-		// Apply settings defaults when creating new document
-		if (frm.is_new()) {
-			apply_settings_defaults(frm);
-		}
-	},
-	override_volume_weight: function(frm) {
-		// Only call server when doc is saved to avoid "Air Shipment not found"
-		if (!frm.doc.override_volume_weight && !frm.doc.__islocal) {
-			frm.call({
-				method: 'aggregate_volume_from_packages_api',
-				doc: frm.doc,
-				callback: function(r) {
-					if (r && !r.exc && r.message && r.message.volume !== undefined) {
-						frm.set_value('volume', r.message.volume);
-					}
-				}
-			});
-		}
-	},
-	refresh(frm) {
-		// Add button to load charges from Sales Quote
-		if (frm.doc.sales_quote && !frm.is_new()) {
-			frm.add_custom_button(__('Load Charges from Sales Quote'), function() {
-				load_charges_from_sales_quote(frm);
-			}, __('Pricing'));
-		}
-		
-		// Add button to recalculate all charges
-		if (frm.doc.charges && frm.doc.charges.length > 0 && !frm.is_new()) {
-			frm.add_custom_button(__('Recalculate All Charges'), function() {
-				recalculate_all_charges(frm);
-			}, __('Pricing'));
-		}
-		
-		// Add button to calculate total charges
-		if (frm.doc.charges && frm.doc.charges.length > 0 && !frm.is_new()) {
-			frm.add_custom_button(__('Calculate Total Charges'), function() {
-				calculate_total_charges(frm);
-			}, __('Pricing'));
-		}
+	}).always(function() {
+		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
+	});
+}
 
-		// Create Transport Order / Inbound Order from Air Shipment
-		if (!frm.is_new()) {
-			frm.add_custom_button(__('Transport Order'), function() {
-				frappe.call({
-					method: 'logistics.utils.module_integration.create_transport_order_from_air_shipment',
-					args: { air_shipment_name: frm.doc.name },
-					callback: function(r) {
-						if (r.exc) return;
-						if (r.message && r.message.transport_order) {
-							frappe.msgprint(r.message.message);
-							setTimeout(function() {
-								frappe.set_route('Form', 'Transport Order', r.message.transport_order);
-							}, 100);
-						}
-					}
-				});
-			}, __('Create'));
-			frm.add_custom_button(__('Inbound Order'), function() {
-				frappe.call({
-					method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
-					args: { air_shipment_name: frm.doc.name },
-					callback: function(r) {
-						if (r.exc) return;
-						if (r.message && r.message.inbound_order) {
-							frappe.msgprint(r.message.message);
-							setTimeout(function() {
-								frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-							}, 100);
-						}
-					}
-				});
-			}, __('Create'));
+function _load_documents_html(frm) {
+	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._documents_html_called) return;
+	frm._documents_html_called = true;
+	frappe.call({
+		method: 'logistics.document_management.api.get_document_alerts_html',
+		args: { doctype: 'Air Shipment', docname: frm.doc.name },
+		callback: function(r) {
+			if (r.message && frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.html(r.message);
+				if (window.logistics_bind_document_alert_cards) {
+					window.logistics_bind_document_alert_cards(frm.fields_dict.documents_html.$wrapper);
+				}
+			}
 		}
+	}).always(() => {
+		setTimeout(() => { frm._documents_html_called = false; }, 2000);
+	});
+}
 
-		// Additional Charges: Get Additional Charges and Create Change Request
-		if (!frm.is_new()) {
-			frm.add_custom_button(__('Get Additional Charges'), function() {
-				logistics_additional_charges_show_sales_quote_dialog(frm, 'Air Shipment');
-			}, __('Actions'));
-			frm.add_custom_button(__('Create Change Request'), function() {
-				frappe.call({
-					method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
-					args: { job_type: 'Air Shipment', job_name: frm.doc.name },
-					callback: function(r) {
-						if (r.message) frappe.set_route('Form', 'Change Request', r.message);
-					}
-				});
-			}, __('Actions'));
+function _load_profitability_html(frm) {
+	var control = frm.fields_dict.profitability_section_html;
+	if (!control || !control.$wrapper) return;
+	function set_html(html) {
+		if (control.$wrapper && control.$wrapper.length) {
+			control.$wrapper.html(html || '');
 		}
-		console.log("Air Shipment form refreshed");
-		console.log("Origin Port:", frm.doc.origin_port);
-		console.log("Destination Port:", frm.doc.destination_port);
-		
-		// Apply settings defaults if document is new and not already applied
-		if (frm.is_new() && !frm.doc._settings_applied) {
-			apply_settings_defaults(frm);
-		}
-		
-		// Update DG compliance status on form load (only when doc is saved to avoid "Air Shipment not found")
-		if (!frm.is_new() && frm.doc.contains_dangerous_goods) {
-			frm.call('refresh_dg_compliance_status').then(r => {
-				if (r.message) {
-					console.log("DG Compliance Status updated:", r.message.status);
-					// Refresh milestone view to update badge
-					refresh_milestone_view(frm);
-				}
-			}).catch(err => {
-				console.error("Error refreshing DG compliance status:", err);
-			});
-		}
-		
-		// Check for dangerous goods and show alert only if non-compliant (only when doc is saved)
-		if (!frm.is_new()) {
-			frm.call('get_dg_dashboard_info').then(r => {
-				if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-					show_dg_alert(frm, r.message);
-				}
-			}).catch(err => {
-				console.error("Error getting DG dashboard info:", err);
-			});
-		}
-		
-		// Add DG compliance check button
-		let contains_dg = frm.doc.contains_dangerous_goods || false;
-		if (contains_dg || frm.doc.packages) {
-			// Check if any package has dangerous goods
-			let has_dg = false;
-			if (frm.doc.packages) {
-				for (let package of frm.doc.packages) {
-					if (package.dg_substance || package.un_number || package.proper_shipping_name || package.dg_class) {
-						has_dg = true;
-						break;
-					}
-				}
-			}
-			
-			if (has_dg || contains_dg) {
-				frm.add_custom_button(__('Check DG Compliance'), function() {
-				frm.call('check_dg_compliance').then(r => {
-					if (r.message) {
-						frappe.msgprint({
-							title: __('DG Compliance Check'),
-							message: r.message.message,
-							indicator: r.message.status === 'Compliant' ? 'green' : 'red'
-						});
-					}
-				});
-			}, __('Dangerous Goods'));
-			
-			frm.add_custom_button(__('Generate DG Declaration'), function() {
-				frm.call('generate_dg_declaration').then(r => {
-					if (r.message) {
-						frappe.msgprint({
-							title: __('DG Declaration'),
-							message: r.message.message,
-							indicator: 'green'
-						});
-						frm.reload_doc();
-					}
-				});
-			}, __('Dangerous Goods'));
-			
-			frm.add_custom_button(__('Send DG Alert'), function() {
-				frm.call('send_dg_alert', {alert_type: 'compliance'}).then(r => {
-					if (r.message) {
-						frappe.msgprint({
-							title: __('DG Alert'),
-							message: r.message.message,
-							indicator: 'blue'
-						});
-					}
-				});
-			}, __('Dangerous Goods'));
-			}
-		}
-		
-		// Only call if not already called recently
-		if (!frm._milestone_html_called) {
-			frm._milestone_html_called = true;
-			console.log("Calling get_milestone_html...");
-			frm.call('get_milestone_html').then(r => {
-				console.log("Response from get_milestone_html:", r);
-				console.log("Message content:", r.message);
-				if (r.message) {
-					const html = r.message || '';
-					
-					// Get the HTML field wrapper and set content directly
-					const $wrapper = frm.get_field('milestone_html').$wrapper;
-					if ($wrapper) {
-						$wrapper.html(html);
-						console.log("HTML set directly in DOM (virtual field)");
-					}
-					
-					// Don't set the field value since it's virtual - just update DOM
-					console.log("Milestone HTML rendered successfully");
-				} else {
-					console.log("No message in response");
-				}
-			}).catch(err => {
-				console.error("Error calling get_milestone_html:", err);
-			});
-			
-			// Reset flag after 2 seconds
-			setTimeout(() => {
-				frm._milestone_html_called = false;
-			}, 2000);
-		}
-		
-		// Populate display fields if they are empty but link fields have values
-		populate_display_fields_if_missing(frm);
-	},
-	
-	origin_port(frm) {
-		console.log("Origin port changed to:", frm.doc.origin_port);
-		// Regenerate milestone HTML when origin port changes
-		if (frm.doc.origin_port && frm.doc.destination_port) {
-			frm.call('get_milestone_html').then(r => {
-				if (r.message) {
-					const $wrapper = frm.get_field('milestone_html').$wrapper;
-					if ($wrapper) {
-						$wrapper.html(r.message);
-					}
-				}
-			});
-		}
-	},
-	
-	destination_port(frm) {
-		console.log("Destination port changed to:", frm.doc.destination_port);
-		// Regenerate milestone HTML when destination port changes
-		if (frm.doc.origin_port && frm.doc.destination_port) {
-			frm.call('get_milestone_html').then(r => {
-				if (r.message) {
-					const $wrapper = frm.get_field('milestone_html').$wrapper;
-					if ($wrapper) {
-						$wrapper.html(r.message);
-					}
-				}
-			});
-		}
-	},
-	
-	contains_dangerous_goods(frm) {
-		// Refresh DG alert when dangerous goods flag changes
-		let contains_dg = frm.doc.contains_dangerous_goods || false;
-		if (contains_dg) {
-			// Update DG compliance status
-			frm.call('refresh_dg_compliance_status').then(r => {
-				if (r.message) {
-					console.log("DG Compliance Status updated:", r.message.status);
-				}
-			});
-			
-			frm.call('get_dg_dashboard_info').then(r => {
-				if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-					show_dg_alert(frm, r.message);
-				} else {
-					// Remove alert if compliant
-					remove_dg_alert(frm);
-				}
-			}).catch(err => {
-				console.error("Error getting DG dashboard info:", err);
-			});
-		} else {
-			// Remove DG alert if unchecked
-			remove_dg_alert(frm);
-		}
-		
-		// Refresh milestone view to update DG compliance badge
-		refresh_milestone_view(frm);
-	},
-	
-	dg_compliance_status(frm) {
-		// Refresh milestone view when DG compliance status changes
-		refresh_milestone_view(frm);
-	},
-	
-	dg_declaration_complete(frm) {
-		// Update DG compliance status when declaration completion changes
-		frm.call('refresh_dg_compliance_status').then(r => {
-			if (r.message) {
-				console.log("DG Compliance Status updated:", r.message.status);
-			}
-		});
-		
-		// Check if alert should be shown or removed based on new compliance status
-		frm.call('get_dg_dashboard_info').then(r => {
-			if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-				show_dg_alert(frm, r.message);
+	}
+	if (!frm.doc.job_costing_number || !frm.doc.company) {
+		set_html("<p class=\"text-muted\">" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
+		return;
+	}
+	set_html("<p class=\"text-muted\"><i class=\"fa fa-spinner fa-spin\"></i> " + __("Loading profitability...") + "</p>");
+	frappe.call({
+		method: 'logistics.job_management.api.get_job_profitability_html',
+		args: {
+			job_costing_number: frm.doc.job_costing_number,
+			company: frm.doc.company
+		},
+		callback: function(r) {
+			if (r.exc) {
+				var msg = r.exc;
+				try {
+					if (r._server_messages) msg = JSON.parse(r._server_messages).message || msg;
+				} catch (e) {}
+				set_html("<p class=\"text-danger\">" + __("Error loading profitability: ") + msg + "</p>");
 			} else {
-				// Remove alert if compliant
-				remove_dg_alert(frm);
+				set_html(r.message != null ? String(r.message) : '');
 			}
-		}).catch(err => {
-			console.error("Error getting DG dashboard info:", err);
-		});
-		
-		// Refresh milestone view when DG declaration completion changes
-		refresh_milestone_view(frm);
+		}
+	});
+}
+
+function _air_shipment_volume_fallback(frm, cdt, cdn, grid_row) {
+	var fn = window.logistics_volume_from_dimensions_fallback;
+	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
+}
+
+frappe.ui.form.on('Air Shipment', {
+	packages_on_form_rendered: function(frm) {
+		if (window.logistics_attach_packages_change_listener) {
+			window.logistics_attach_packages_change_listener(frm, 'Air Shipment Packages', 'packages', 'air_shipment_volume');
+		}
 	},
-	
-	// Handler for shipper address - populate display field
-	shipper_address(frm) {
+	document_list_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	milestone_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_milestones_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	setup: function(frm) {
+		frm.set_query('milestone_template', function() {
+			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
+				.then(function(r) { return r.message || { filters: [] }; });
+		});
+		frm.set_query('shipper_address', function() {
+			if (frm.doc.shipper) {
+				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Shipper'], ['Dynamic Link', 'link_name', '=', frm.doc.shipper]] };
+			}
+			return {};
+		});
+		frm.set_query('consignee_address', function() {
+			if (frm.doc.consignee) {
+				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', frm.doc.consignee]] };
+			}
+			return {};
+		});
+	},
+
+	override_volume_weight: function(frm) {
+		_update_measurement_fields_readonly(frm);
+	},
+
+	shipper: function(frm) {
+		if (!frm.doc.shipper) {
+			frm.set_value('shipper_address', '');
+			frm.set_value('shipper_address_display', '');
+			return;
+		}
+		frappe.db.get_value('Shipper', frm.doc.shipper, ['pick_address', 'shipper_primary_address'], function(r) {
+			if (r && (r.pick_address || r.shipper_primary_address)) {
+				frm.set_value('shipper_address', r.pick_address || r.shipper_primary_address);
+				frm.trigger('shipper_address');
+			}
+		});
+	},
+
+	consignee: function(frm) {
+		if (!frm.doc.consignee) {
+			frm.set_value('consignee_address', '');
+			frm.set_value('consignee_address_display', '');
+			return;
+		}
+		frappe.db.get_value('Consignee', frm.doc.consignee, ['delivery_address', 'consignee_primary_address'], function(r) {
+			if (r && (r.delivery_address || r.consignee_primary_address)) {
+				frm.set_value('consignee_address', r.delivery_address || r.consignee_primary_address);
+				frm.trigger('consignee_address');
+			}
+		});
+	},
+
+	shipper_address: function(frm) {
 		if (frm.doc.shipper_address) {
 			frappe.call({
 				method: 'frappe.contacts.doctype.address.address.get_address_display',
-				args: {
-					address_dict: frm.doc.shipper_address
-				},
+				args: { address_dict: frm.doc.shipper_address },
 				callback: function(r) {
-					if (r.message) {
-						frm.set_value('shipper_address_display', r.message);
-					} else {
-						frm.set_value('shipper_address_display', '');
-					}
+					frm.set_value('shipper_address_display', r.message || '');
 				}
 			});
 		} else {
 			frm.set_value('shipper_address_display', '');
 		}
 	},
-	
-	// Handler for consignee address - populate display field
-	consignee_address(frm) {
+
+	consignee_address: function(frm) {
 		if (frm.doc.consignee_address) {
 			frappe.call({
 				method: 'frappe.contacts.doctype.address.address.get_address_display',
-				args: {
-					address_dict: frm.doc.consignee_address
-				},
+				args: { address_dict: frm.doc.consignee_address },
 				callback: function(r) {
-					if (r.message) {
-						frm.set_value('consignee_address_display', r.message);
-					} else {
-						frm.set_value('consignee_address_display', '');
-					}
+					frm.set_value('consignee_address_display', r.message || '');
 				}
 			});
 		} else {
 			frm.set_value('consignee_address_display', '');
 		}
 	},
-	
-	// Handler for shipper contact - populate display field
-	shipper_contact(frm) {
-		if (frm.doc.shipper_contact) {
-			frappe.call({
-				method: 'frappe.client.get',
-				args: {
-					doctype: 'Contact',
-					name: frm.doc.shipper_contact
-				},
-				callback: function(r) {
-					if (r.message) {
-						const contact = r.message;
-						let display_text = '';
-						
-						// Build contact display text
-						if (contact.first_name || contact.last_name) {
-							display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
-						} else if (contact.name) {
-							display_text = contact.name;
-						}
-						
-						if (contact.designation) {
-							display_text += display_text ? '\n' + contact.designation : contact.designation;
-						}
-						
-						if (contact.phone) {
-							display_text += display_text ? '\n' + contact.phone : contact.phone;
-						}
-						
-						if (contact.mobile_no) {
-							display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
-						}
-						
-						if (contact.email_id) {
-							display_text += display_text ? '\n' + contact.email_id : contact.email_id;
-						}
-						
-						frm.set_value('shipper_contact_display', display_text);
-					} else {
-						frm.set_value('shipper_contact_display', '');
-					}
-				}
-			});
-		} else {
-			frm.set_value('shipper_contact_display', '');
-		}
-	},
-	
-	// Handler for consignee contact - populate display field
-	consignee_contact(frm) {
-		if (frm.doc.consignee_contact) {
-			frappe.call({
-				method: 'frappe.client.get',
-				args: {
-					doctype: 'Contact',
-					name: frm.doc.consignee_contact
-				},
-				callback: function(r) {
-					if (r.message) {
-						const contact = r.message;
-						let display_text = '';
-						
-						// Build contact display text
-						if (contact.first_name || contact.last_name) {
-							display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
-						} else if (contact.name) {
-							display_text = contact.name;
-						}
-						
-						if (contact.designation) {
-							display_text += display_text ? '\n' + contact.designation : contact.designation;
-						}
-						
-						if (contact.phone) {
-							display_text += display_text ? '\n' + contact.phone : contact.phone;
-						}
-						
-						if (contact.mobile_no) {
-							display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
-						}
-						
-						if (contact.email_id) {
-							display_text += display_text ? '\n' + contact.email_id : contact.email_id;
-						}
-						
-						frm.set_value('consignee_contact_display', display_text);
-					} else {
-						frm.set_value('consignee_contact_display', '');
-					}
-				}
-			});
-		} else {
-			frm.set_value('consignee_contact_display', '');
-		}
-	}
-});
 
-// Function to show dangerous goods alert in header (only for non-compliant status)
-function show_dg_alert(frm, dg_info) {
-	// Remove existing alert if any
-	remove_dg_alert(frm);
-	
-	// Only show alert for non-compliant status
-	if (dg_info.compliance_status !== 'Non-Compliant') {
-		return;
-	}
-	
-	// Set alert styling for non-compliant status
-	let alert_level = 'danger';
-	let alert_icon = 'fa-exclamation-triangle';
-	let alert_text = '⚠️ DANGEROUS GOODS NON-COMPLIANT ⚠️';
-	
-	// Create alert element
-	const alert_html = `
-		<div id="dg-alert-banner" class="dg-alert-banner alert-${alert_level}" style="
-			position: fixed;
-			top: 0;
-			left: 0;
-			right: 0;
-			z-index: 1050;
-			padding: 10px 20px;
-			margin: 0;
-			border-radius: 0;
-			font-weight: bold;
-			text-align: center;
-			box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-			animation: slideDown 0.3s ease-out;
-		">
-			<div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-				<i class="fa ${alert_icon}" style="font-size: 18px;"></i>
-				<span>${alert_text}</span>
-				<i class="fa ${alert_icon}" style="font-size: 18px;"></i>
-			</div>
-			<div style="font-size: 14px; margin-top: 5px; opacity: 0.9;">
-				${dg_info.message}
-				${dg_info.emergency_contact ? ` | Emergency: ${dg_info.emergency_contact} (${dg_info.emergency_phone})` : ''}
-				${dg_info.compliance_status ? ` | Status: ${dg_info.compliance_status}` : ''}
-			</div>
-			<div style="position: absolute; top: 5px; right: 10px;">
-				<button type="button" class="btn btn-sm" onclick="remove_dg_alert()" style="
-					background: rgba(255,255,255,0.2);
-					border: 1px solid rgba(255,255,255,0.3);
-					color: white;
-					padding: 2px 8px;
-					border-radius: 3px;
-				">
-					<i class="fa fa-times"></i>
-				</button>
-			</div>
-		</div>
-		
-		<style>
-		@keyframes slideDown {
-			from { transform: translateY(-100%); }
-			to { transform: translateY(0); }
-		}
-		
-		.dg-alert-banner.alert-danger {
-			background: linear-gradient(135deg, #dc3545, #c82333);
-			color: white;
-			border-left: 5px solid #721c24;
-		}
-		
-		.dg-alert-banner.alert-warning {
-			background: linear-gradient(135deg, #ffc107, #e0a800);
-			color: #212529;
-			border-left: 5px solid #856404;
-		}
-		
-		.dg-alert-banner.alert-info {
-			background: linear-gradient(135deg, #17a2b8, #138496);
-			color: white;
-			border-left: 5px solid #0c5460;
-		}
-		
-		/* Adjust body padding when alert is shown */
-		body.dg-alert-shown {
-			padding-top: 80px !important;
-		}
-		</style>
-	`;
-	
-	// Add alert to page
-	$('body').prepend(alert_html);
-	$('body').addClass('dg-alert-shown');
-	
-	// Add click handler for close button
-	window.remove_dg_alert = function() {
-		remove_dg_alert(frm);
-	};
-}
-
-// Function to remove dangerous goods alert
-function remove_dg_alert(frm) {
-	// Check if alert can be dismissed by looking for the lock icon
-	const alert_banner = $('#dg-alert-banner');
-	if (alert_banner.length && alert_banner.find('.fa-lock').length > 0) {
-		// Alert is locked and cannot be dismissed
-		frappe.msgprint({
-			title: __('Alert Cannot Be Dismissed'),
-			message: __('This dangerous goods alert cannot be dismissed until DG compliance is complete. Please ensure all required fields are filled and compliance status is "Compliant".'),
-			indicator: 'red'
-		});
-		return;
-	}
-	
-	$('#dg-alert-banner').remove();
-	$('body').removeClass('dg-alert-shown');
-	delete window.remove_dg_alert;
-}
-
-// Package table field change handlers
-frappe.ui.form.on("Air Shipment Packages", {
-	volume(frm) {
-		// Skip server call when parent is unsaved to avoid "Air Shipment not found"
-		if (frm.doc && !frm.doc.override_volume_weight && !frm.doc.__islocal) {
-			frm.call({
-				method: 'aggregate_volume_from_packages_api',
-				doc: frm.doc,
-				callback: function(r) {
-					if (r && !r.exc && r.message) {
-						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
-						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
-					}
-				}
-			});
-		}
-	},
-	weight(frm) {
-		// Skip server call when parent is unsaved to avoid "Air Shipment not found"
-		if (frm.doc && !frm.doc.override_volume_weight && !frm.doc.__islocal) {
-			frm.call({
-				method: 'aggregate_volume_from_packages_api',
-				doc: frm.doc,
-				callback: function(r) {
-					if (r && !r.exc && r.message) {
-						if (r.message.volume !== undefined) frm.set_value('volume', r.message.volume);
-						if (r.message.weight !== undefined) frm.set_value('weight', r.message.weight);
-					}
-				}
-			});
-		}
-	},
-	length(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
-	width(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
-	height(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
-	dimension_uom(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
-	volume_uom(frm, cdt, cdn) { if (typeof logistics_calculate_volume_from_dimensions === 'function') logistics_calculate_volume_from_dimensions(frm, cdt, cdn); },
-
-	dg_substance(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	un_number(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	proper_shipping_name(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	dg_class(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	is_radioactive(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	temp_controlled(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	emergency_contact_name(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	},
-	emergency_contact_phone(frm, cdt, cdn) {
-		check_and_update_dg_status(frm);
-	}
-});
-
-// Function to check and update dangerous goods status
-function check_and_update_dg_status(frm) {
-	// Skip server calls when doc is unsaved (avoids "Air Shipment not found" from get_doc on server)
-	const doc_saved = !frm.is_new() && !frm.doc.__islocal;
-
-	// Check if any package has dangerous goods
-	let has_dg = false;
-	if (frm.doc.packages) {
-		for (let package of frm.doc.packages) {
-			if (package.dg_substance || package.un_number || package.proper_shipping_name || package.dg_class) {
-				has_dg = true;
-				break;
-			}
-		}
-	}
-	
-	// Update the main dangerous goods flag
-	let contains_dg = frm.doc.contains_dangerous_goods || false;
-	if (has_dg && !contains_dg) {
-		frm.set_value('contains_dangerous_goods', 1);
-		if (doc_saved) {
-			// Update DG compliance status
-			frm.call('refresh_dg_compliance_status').then(r => {
-				if (r.message) {
-					console.log("DG Compliance Status updated:", r.message.status);
-				}
-			});
-			// Trigger DG alert only if non-compliant
-			setTimeout(() => {
-				frm.call('get_dg_dashboard_info').then(r => {
-					if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-						show_dg_alert(frm, r.message);
-					} else {
-						// Remove alert if compliant
-						remove_dg_alert(frm);
+	refresh: function(frm) {
+		_update_measurement_fields_readonly(frm);
+		// Load dashboard HTML in Dashboard tab (only when doc is saved)
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+			if (!frm._dashboard_html_called) {
+				frm._dashboard_html_called = true;
+				frm.call('get_dashboard_html').then(r => {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_group_and_collapse_dash_alerts) {
+							setTimeout(function() {
+								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							}, 100);
+						}
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+						}
 					}
 				});
-			}, 500);
+				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+			}
 		}
-	} else if (!has_dg && contains_dg) {
-		frm.set_value('contains_dangerous_goods', 0);
-		remove_dg_alert(frm);
-	} else if (has_dg && contains_dg && doc_saved) {
-		// Update DG compliance status for existing DG packages
-		frm.call('refresh_dg_compliance_status').then(r => {
-			if (r.message) {
-				console.log("DG Compliance Status updated:", r.message.status);
-			}
-		});
-		
-		// Check if alert should be shown or removed based on compliance status
-		frm.call('get_dg_dashboard_info').then(r => {
-			if (r.message && r.message.has_dg && r.message.compliance_status === 'Non-Compliant') {
-				show_dg_alert(frm, r.message);
-			} else {
-				// Remove alert if compliant
-				remove_dg_alert(frm);
-			}
-		}).catch(err => {
-			console.error("Error getting DG dashboard info:", err);
-		});
-	}
-	
-	// Refresh milestone view to update DG compliance badge (only when doc exists on server)
-	if (doc_saved) {
-		refresh_milestone_view(frm);
-	}
-}
 
-// Function to populate display fields if they are missing but link fields have values
-function populate_display_fields_if_missing(frm) {
-	// Populate shipper address display if missing
-	if (frm.doc.shipper_address && !frm.doc.shipper_address_display) {
-		frappe.call({
-			method: 'frappe.contacts.doctype.address.address.get_address_display',
-			args: {
-				address_dict: frm.doc.shipper_address
-			},
-			callback: function(r) {
-				if (r.message) {
-					frm.set_value('shipper_address_display', r.message);
-				}
-			}
-		});
-	}
-	
-	// Populate consignee address display if missing
-	if (frm.doc.consignee_address && !frm.doc.consignee_address_display) {
-		frappe.call({
-			method: 'frappe.contacts.doctype.address.address.get_address_display',
-			args: {
-				address_dict: frm.doc.consignee_address
-			},
-			callback: function(r) {
-				if (r.message) {
-					frm.set_value('consignee_address_display', r.message);
-				}
-			}
-		});
-	}
-	
-	// Populate shipper contact display if missing
-	if (frm.doc.shipper_contact && !frm.doc.shipper_contact_display) {
-		frappe.call({
-			method: 'frappe.client.get',
-			args: {
-				doctype: 'Contact',
-				name: frm.doc.shipper_contact
-			},
-			callback: function(r) {
-				if (r.message) {
-					const contact = r.message;
-					let display_text = '';
-					
-					if (contact.first_name || contact.last_name) {
-						display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
-					} else if (contact.name) {
-						display_text = contact.name;
-					}
-					
-					if (contact.designation) {
-						display_text += display_text ? '\n' + contact.designation : contact.designation;
-					}
-					
-					if (contact.phone) {
-						display_text += display_text ? '\n' + contact.phone : contact.phone;
-					}
-					
-					if (contact.mobile_no) {
-						display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
-					}
-					
-					if (contact.email_id) {
-						display_text += display_text ? '\n' + contact.email_id : contact.email_id;
-					}
-					
-					frm.set_value('shipper_contact_display', display_text);
-				}
-			}
-		});
-	}
-	
-	// Populate consignee contact display if missing
-	if (frm.doc.consignee_contact && !frm.doc.consignee_contact_display) {
-		frappe.call({
-			method: 'frappe.client.get',
-			args: {
-				doctype: 'Contact',
-				name: frm.doc.consignee_contact
-			},
-			callback: function(r) {
-				if (r.message) {
-					const contact = r.message;
-					let display_text = '';
-					
-					if (contact.first_name || contact.last_name) {
-						display_text = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
-					} else if (contact.name) {
-						display_text = contact.name;
-					}
-					
-					if (contact.designation) {
-						display_text += display_text ? '\n' + contact.designation : contact.designation;
-					}
-					
-					if (contact.phone) {
-						display_text += display_text ? '\n' + contact.phone : contact.phone;
-					}
-					
-					if (contact.mobile_no) {
-						display_text += display_text ? '\n' + contact.mobile_no : contact.mobile_no;
-					}
-					
-					if (contact.email_id) {
-						display_text += display_text ? '\n' + contact.email_id : contact.email_id;
-					}
-					
-					frm.set_value('consignee_contact_display', display_text);
-				}
-			}
-		});
-	}
-}
-
-// Function to refresh milestone view when DG compliance status changes
-function refresh_milestone_view(frm) {
-	// Check if milestone view is currently displayed
-	if (frm.dashboard && frm.dashboard.wrapper && frm.dashboard.wrapper.find('.milestone-container').length > 0) {
-		// Refresh the milestone HTML
-		frm.call('get_milestone_html').then(r => {
-			if (r.message) {
-				// Update the milestone container with new HTML
-				frm.dashboard.wrapper.find('.milestone-container').html(r.message);
-			}
-		}).catch(err => {
-			console.error("Error refreshing milestone view:", err);
-		});
-	}
-}
-
-// Function to load charges from Sales Quote
-function load_charges_from_sales_quote(frm) {
-	if (!frm.doc.sales_quote) {
-		frappe.msgprint({
-			title: __("Error"),
-			message: __("Sales Quote is not set for this Air Shipment."),
-			indicator: "red"
-		});
-		return;
-	}
-	
-	frappe.confirm(
-		__("This will replace all existing charges with charges from Sales Quote. Do you want to continue?"),
-		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Loading charges from Sales Quote..."));
-			
-			// Call the server method
-			frm.call({
-				method: "populate_charges_from_sales_quote",
-				args: {
-					docname: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					
-					if (r.message && r.message.success) {
-						// Refresh the form to show new charges
-						frm.refresh_field("charges");
-						
-						frappe.msgprint({
-							title: __("Charges Loaded"),
-							message: __("Successfully loaded {0} charges from Sales Quote.", [r.message.charges_added]),
-							indicator: "green"
-						});
-					} else {
-						frappe.msgprint({
-							title: __("Error"),
-							message: r.message && r.message.message ? r.message.message : __("Failed to load charges from Sales Quote."),
-							indicator: "red"
-						});
-					}
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to load charges from Sales Quote. Please try again."),
-						indicator: "red"
-					});
-				}
+		// Load documents summary HTML in Documents tab
+		_load_documents_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.documents_html').on('click.documents_html', '[data-fieldname="documents_tab"]', function() {
+				_load_documents_html(frm);
 			});
 		}
-	);
-}
 
-// Function to recalculate all charges
-function recalculate_all_charges(frm) {
-	if (!frm.doc.charges || frm.doc.charges.length === 0) {
-		frappe.msgprint({
-			title: __("Error"),
-			message: __("No charges found to recalculate."),
-			indicator: "red"
-		});
-		return;
-	}
-	
-	// Show loading indicator
-	frm.dashboard.set_headline_alert(__("Recalculating charges..."));
-	
-	// Call the server method (doc required for run_doc_method)
-	frm.call({
-		doc: frm.doc,
-		method: "recalculate_all_charges",
-		callback: function(r) {
-			frm.dashboard.clear_headline();
-			
-			if (r.message && r.message.success) {
-				// Refresh the form to show updated charges
-				frm.refresh_field("charges");
-				
-				frappe.msgprint({
-					title: __("Charges Recalculated"),
-					message: __("Successfully recalculated {0} charges.", [r.message.charges_recalculated]),
-					indicator: "green"
-				});
-			} else {
-				frappe.msgprint({
-					title: __("Error"),
-					message: r.message && r.message.message ? r.message.message : __("Failed to recalculate charges."),
-					indicator: "red"
-				});
-			}
-		},
-		error: function(r) {
-			frm.dashboard.clear_headline();
-			frappe.msgprint({
-				title: __("Error"),
-				message: __("Failed to recalculate charges. Please try again."),
-				indicator: "red"
+		_load_milestone_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+				_load_milestone_html(frm);
 			});
 		}
-	});
-}
 
-// Function to calculate total charges
-function calculate_total_charges(frm) {
-	if (!frm.doc.charges || frm.doc.charges.length === 0) {
-		frappe.msgprint({
-			title: __("Error"),
-			message: __("No charges found to calculate."),
-			indicator: "red"
-		});
-		return;
-	}
-	
-	// Call the server method (doc required for run_doc_method)
-	frm.call({
-		doc: frm.doc,
-		method: "calculate_total_charges",
-		callback: function(r) {
-			if (r.message) {
-				const total = r.message.total_charges || 0;
-				const currency = r.message.currency || "";
-				
-				frappe.msgprint({
-					title: __("Total Charges"),
-					message: __("Total Charges: {0} {1}", [currency, total.toFixed(2)]),
-					indicator: "blue"
-				});
-			}
-		},
-		error: function(r) {
-			frappe.msgprint({
-				title: __("Error"),
-				message: __("Failed to calculate total charges. Please try again."),
-				indicator: "red"
+		// Profitability (from GL) section in Charges tab
+		setTimeout(function() { _load_profitability_html(frm); }, 100);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.profitability_html').on('click.profitability_html', '[data-fieldname="charges_tab"]', function() {
+				setTimeout(function() { _load_profitability_html(frm); }, 50);
 			});
 		}
-	});
-}
 
-// Calculate charge amount when rate or quantity changes
-frappe.ui.form.on("Air Shipment Charges", {
-	rate: function(frm, cdt, cdn) {
-		calculate_charge_amount(frm, cdt, cdn);
-	},
-	quantity: function(frm, cdt, cdn) {
-		calculate_charge_amount(frm, cdt, cdn);
-	},
-	charge_basis: function(frm, cdt, cdn) {
-		calculate_charge_amount(frm, cdt, cdn);
-	},
-	discount_percentage: function(frm, cdt, cdn) {
-		calculate_charge_amount(frm, cdt, cdn);
-	},
-	surcharge_amount: function(frm, cdt, cdn) {
-		calculate_charge_amount(frm, cdt, cdn);
-	}
-});
-
-// Function to calculate charge amount
-function calculate_charge_amount(frm, cdt, cdn) {
-	let row = locals[cdt][cdn];
-	if (!row.rate || !row.charge_basis) {
-		return;
-	}
-	
-	let base_amount = 0;
-	const rate = parseFloat(row.rate) || 0;
-	const quantity = parseFloat(row.quantity) || 0;
-	
-	// Calculate base amount based on charge basis
-	if (row.charge_basis === "Per kg" || row.charge_basis === "Per m³" || row.charge_basis === "Per package") {
-		base_amount = rate * quantity;
-	} else if (row.charge_basis === "Per shipment" || row.charge_basis === "Fixed amount") {
-		base_amount = rate;
-	} else if (row.charge_basis === "Percentage") {
-		// For percentage, use chargeable weight from parent
-		const chargeable = parseFloat(frm.doc.chargeable) || parseFloat(frm.doc.weight) || 0;
-		base_amount = rate * (chargeable * 0.01);
-	}
-	
-	// Calculate discount
-	const discount_percentage = parseFloat(row.discount_percentage) || 0;
-	const discount_amount = base_amount * (discount_percentage / 100);
-	
-	// Calculate surcharge
-	const surcharge_amount = parseFloat(row.surcharge_amount) || 0;
-	
-	// Calculate tax (if applicable)
-	const tax_amount = parseFloat(row.tax_amount) || 0;
-	
-	// Calculate total
-	const total_amount = base_amount - discount_amount + surcharge_amount + tax_amount;
-	
-	// Update fields
-	frappe.model.set_value(cdt, cdn, {
-		base_amount: base_amount,
-		discount_amount: discount_amount,
-		total_amount: Math.max(0, total_amount)
-	});
-	
-	// Refresh the field
-	frm.refresh_field("charges");
-}
-
-// Function to apply settings defaults
-function apply_settings_defaults(frm) {
-	if (frm.doc._settings_applied) {
-		return;
-	}
-	
-	// Get company
-	const company = frm.doc.company || frappe.defaults.get_user_default("Company");
-	if (!company) {
-		return;
-	}
-	
-	// Get Air Freight Settings
-	frappe.call({
-		method: "frappe.client.get_list",
-		args: {
-			doctype: "Air Freight Settings",
-			filters: {
-				company: company
-			},
-			limit_page_length: 1
-		},
-		callback: function(r) {
-			if (r.message && r.message.length > 0) {
-				// Get the first settings document
+		// --- Actions menu ---
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			frm.add_custom_button(__('Get Milestones'), function() {
 				frappe.call({
-					method: "frappe.client.get",
-					args: {
-						doctype: "Air Freight Settings",
-						name: r.message[0].name
-					},
-					callback: function(r2) {
-						if (r2.message) {
-							const settings = r2.message;
-							
-							// Apply general settings
-							if (!frm.doc.branch && settings.default_branch) {
-								frm.set_value("branch", settings.default_branch);
-							}
-							if (!frm.doc.cost_center && settings.default_cost_center) {
-								frm.set_value("cost_center", settings.default_cost_center);
-							}
-							if (!frm.doc.profit_center && settings.default_profit_center) {
-								frm.set_value("profit_center", settings.default_profit_center);
-							}
-							if (!frm.doc.incoterm && settings.default_incoterm) {
-								frm.set_value("incoterm", settings.default_incoterm);
-							}
-							if (!frm.doc.service_level && settings.default_service_level) {
-								frm.set_value("service_level", settings.default_service_level);
-							}
-							
-							// Apply location settings
-							if (!frm.doc.origin_port && settings.default_origin_port) {
-								frm.set_value("origin_port", settings.default_origin_port);
-							}
-							if (!frm.doc.destination_port && settings.default_destination_port) {
-								frm.set_value("destination_port", settings.default_destination_port);
-							}
-							
-							// Apply business settings
-							if (!frm.doc.airline && settings.default_airline) {
-								frm.set_value("airline", settings.default_airline);
-							}
-							if (!frm.doc.freight_agent && settings.default_freight_agent) {
-								frm.set_value("freight_agent", settings.default_freight_agent);
-							}
-							if (!frm.doc.house_type && settings.default_house_type) {
-								frm.set_value("house_type", settings.default_house_type);
-							}
-							if (!frm.doc.direction && settings.default_direction) {
-								frm.set_value("direction", settings.default_direction);
-							}
-							if (!frm.doc.release_type && settings.default_release_type) {
-								frm.set_value("release_type", settings.default_release_type);
-							}
-							if (!frm.doc.entry_type && settings.default_entry_type) {
-								frm.set_value("entry_type", settings.default_entry_type);
-							}
-							
-							// Apply document settings
-							if (!frm.doc.uld_type && settings.default_uld_type) {
-								frm.set_value("uld_type", settings.default_uld_type);
-							}
-							
-							// Mark as applied
-							frm.set_value("_settings_applied", 1);
+					method: 'logistics.document_management.api.populate_milestones_from_template',
+					args: { doctype: 'Air Shipment', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
 						}
 					}
 				});
+			}, __('Actions'));
+			frm.add_custom_button(__('Get Documents'), function() {
+				frappe.call({
+					method: 'logistics.document_management.api.populate_documents_from_template',
+					args: { doctype: 'Air Shipment', docname: frm.doc.name },
+					callback: function(r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+						}
+					}
+				});
+			}, __('Actions'));
+			if (frm.doc.charges && frm.doc.charges.length > 0) {
+				frm.add_custom_button(__('Calculate Charges'), function() {
+					frm.call('recalculate_all_charges').then(function(r) {
+						if (r && r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'green' }, 3);
+						}
+					});
+				}, __('Actions'));
+			}
+			if (typeof logistics_additional_charges_show_sales_quote_dialog === 'function') {
+				frm.add_custom_button(__('Get Additional Charges from Quote'), function() {
+					logistics_additional_charges_show_sales_quote_dialog(frm, 'Air Shipment');
+				}, __('Actions'));
 			}
 		}
-	});
+
+		// --- Create and Post menus - use setTimeout so they appear after form ready ---
+		if (frm.doc.name && !frm.doc.__islocal) {
+			setTimeout(function() {
+				// Create menu - Sales Invoice always shown to allow multiple invoices (by bill_to, invoice_type, etc.)
+				frm.add_custom_button(__('Sales Invoice'), function() {
+					if (typeof show_create_sales_invoice_dialog === 'function') {
+						show_create_sales_invoice_dialog(frm);
+					} else {
+						_create_sales_invoice_from_air_shipment(frm);
+					}
+				}, __('Create'));
+				if (typeof show_create_purchase_invoice_dialog === 'function') {
+					frm.add_custom_button(__('Purchase Invoice'), function() {
+						show_create_purchase_invoice_dialog(frm);
+					}, __('Create'));
+				}
+				frm.add_custom_button(__('Inbound Order'), function() {
+					// Check if warehouse_items is empty
+					const warehouse_items = frm.doc.warehouse_items || [];
+					if (warehouse_items.length === 0) {
+						frappe.confirm(
+							__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
+							function() {
+								// User confirmed - proceed with conversion
+								frappe.call({
+									method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+									args: { air_shipment_name: frm.doc.name },
+									freeze: true,
+									freeze_message: __('Creating Inbound Order...'),
+									callback: function(r) {
+										if (r.message && r.message.inbound_order) {
+											frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+										}
+									}
+								});
+							}
+							// User cancelled - do nothing
+						);
+					} else {
+						// warehouse_items exist - proceed directly
+						frappe.call({
+							method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+							args: { air_shipment_name: frm.doc.name },
+							freeze: true,
+							freeze_message: __('Creating Inbound Order...'),
+							callback: function(r) {
+								if (r.message && r.message.inbound_order) {
+									frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+								}
+							}
+						});
+					}
+				}, __('Create'));
+				frm.add_custom_button(__('Transport Order'), function() {
+					frappe.call({
+						method: 'logistics.utils.module_integration.create_transport_order_from_air_shipment',
+						args: { air_shipment_name: frm.doc.name },
+						freeze: true,
+						freeze_message: __('Creating Transport Order...'),
+						callback: function(r) {
+							if (r.message && r.message.transport_order) {
+								frappe.set_route('Form', 'Transport Order', r.message.transport_order);
+							}
+						}
+					});
+				}, __('Create'));
+				frm.add_custom_button(__('Declaration Order'), function() {
+					frappe.new_doc('Declaration Order', { air_shipment: frm.doc.name });
+				}, __('Create'));
+				frm.add_custom_button(__('Create Change Request'), function() {
+					frappe.call({
+						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
+						args: { job_type: 'Air Shipment', job_name: frm.doc.name },
+						callback: function(r) {
+							if (r.message) {
+								frappe.set_route('Form', 'Change Request', r.message);
+							}
+						}
+					});
+				}, __('Create'));
+				frm.add_custom_button(__('Sea Booking'), function() {
+					frappe.new_doc('Sea Booking');
+				}, __('Create'));
+
+				// Post menu
+				frm.add_custom_button(__('Standard Costs'), function() {
+					frappe.call({
+						method: 'logistics.air_freight.doctype.air_shipment.air_shipment.post_standard_costs',
+						args: { docname: frm.doc.name },
+						callback: function(r) {
+							if (r.message) frm.reload_doc();
+						}
+					});
+				}, __('Post'));
+				if (frm.doc.sales_quote && frm.doc.company) {
+					frm.add_custom_button(__('Intercompany Transactions'), function() {
+						frappe.call({
+							method: 'logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote',
+							args: {
+								sales_quote_name: frm.doc.sales_quote,
+								billing_company: frm.doc.company,
+								posting_date: frappe.datetime.get_today()
+							},
+							callback: function(r) {
+								if (r.message) {
+									var msg = r.message.message || __('Intercompany invoices processed');
+									if (r.message.created !== undefined) {
+										msg = __('Created {0} intercompany invoice(s).', [r.message.created]);
+									}
+									frappe.show_alert({ message: msg, indicator: 'green' }, 5);
+									frm.reload_doc();
+								}
+							}
+						});
+					}, __('Post'));
+				}
+			}, 100);
+		}
+	},
+});
+
+function _create_sales_invoice_from_air_shipment(frm) {
+	frappe.prompt([
+		{ fieldname: 'posting_date', fieldtype: 'Date', label: __('Posting Date'), default: frappe.datetime.get_today(), reqd: 1 },
+		{ fieldname: 'customer', fieldtype: 'Link', label: __('Customer'), options: 'Customer', default: frm.doc.local_customer, reqd: 1 }
+	], function(values) {
+		frappe.call({
+			method: 'logistics.air_freight.doctype.air_shipment.air_shipment.create_sales_invoice_from_air_shipment',
+			args: {
+				shipment_name: frm.doc.name,
+				posting_date: values.posting_date,
+				customer: values.customer
+			},
+			freeze: true,
+			freeze_message: __('Creating Sales Invoice...'),
+			callback: function(r) {
+				if (r.message && r.message.sales_invoice) {
+					frappe.set_route('Form', 'Sales Invoice', r.message.sales_invoice);
+					frm.reload_doc();
+				}
+			}
+		});
+	}, __('Create Sales Invoice'));
+}
+
+function _update_measurement_fields_readonly(frm) {
+	var readonly = !frm.doc.override_volume_weight;
+	if (frm.fields_dict.total_volume) frm.set_df_property('total_volume', 'read_only', readonly);
+	if (frm.fields_dict.total_weight) frm.set_df_property('total_weight', 'read_only', readonly);
+	if (frm.fields_dict.chargeable) frm.set_df_property('chargeable', 'read_only', readonly);
 }

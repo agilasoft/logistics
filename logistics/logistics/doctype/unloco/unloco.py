@@ -27,7 +27,7 @@ class UNLOCO(Document):
             details = populate_unlocode_details(self.unlocode)
             
             if details:
-                # Update document with populated details
+                # Update document with populated details (including Function Capabilities tab checkboxes)
                 for field_name, field_value in details.items():
                     if hasattr(self, field_name) and field_value is not None:
                         setattr(self, field_name, field_value)

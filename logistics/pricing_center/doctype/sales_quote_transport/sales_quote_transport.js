@@ -1,5 +1,64 @@
 // Sales Quote Transport Client Script
 
+// Fetch tariff data: uses revenue_tariff for revenue, cost_tariff for cost (fallback: tariff)
+function _fetch_tariff_data_for_transport_row(frm, cdt, cdn) {
+	let row = locals[cdt][cdn];
+	let rev_tariff = row.revenue_tariff || row.tariff;
+	let cost_tariff = row.cost_tariff || row.tariff;
+	if (!(row.use_tariff_in_revenue || row.use_tariff_in_cost)) return;
+	if (!rev_tariff && !cost_tariff) return;
+
+	function fetch_and_apply(tariff_name, is_revenue) {
+		if (!tariff_name) return Promise.resolve();
+		return new Promise(function(resolve) {
+			frappe.call({
+				method: 'logistics.pricing_center.doctype.sales_quote_transport.sales_quote_transport.get_tariff_rates',
+				args: { tariff_name: tariff_name, item_code: row.item_code },
+				callback: function(r) {
+					if (r.message && r.message.length > 0) {
+						let tr = r.message[0];
+						if (is_revenue && row.use_tariff_in_revenue) {
+							frappe.model.set_value(cdt, cdn, 'calculation_method', tr.calculation_method || 'Per Unit');
+							frappe.model.set_value(cdt, cdn, 'unit_rate', tr.rate || 0);
+							frappe.model.set_value(cdt, cdn, 'unit_type', tr.unit_type || '');
+							frappe.model.set_value(cdt, cdn, 'currency', tr.currency || 'USD');
+							frappe.model.set_value(cdt, cdn, 'minimum_quantity', tr.minimum_quantity || 0);
+							frappe.model.set_value(cdt, cdn, 'minimum_charge', tr.minimum_charge || 0);
+							frappe.model.set_value(cdt, cdn, 'maximum_charge', tr.maximum_charge || 0);
+							frappe.model.set_value(cdt, cdn, 'base_amount', tr.base_amount || 0);
+							frappe.model.set_value(cdt, cdn, 'uom', tr.uom || '');
+						}
+						if (!is_revenue && row.use_tariff_in_cost) {
+							frappe.model.set_value(cdt, cdn, 'cost_calculation_method', tr.calculation_method || 'Per Unit');
+							frappe.model.set_value(cdt, cdn, 'unit_cost', tr.rate || 0);
+							frappe.model.set_value(cdt, cdn, 'cost_unit_type', tr.unit_type || '');
+							frappe.model.set_value(cdt, cdn, 'cost_currency', tr.currency || 'USD');
+							frappe.model.set_value(cdt, cdn, 'cost_minimum_quantity', tr.minimum_quantity || 0);
+							frappe.model.set_value(cdt, cdn, 'cost_minimum_charge', tr.minimum_charge || 0);
+							frappe.model.set_value(cdt, cdn, 'cost_maximum_charge', tr.maximum_charge || 0);
+							frappe.model.set_value(cdt, cdn, 'cost_base_amount', tr.base_amount || 0);
+							frappe.model.set_value(cdt, cdn, 'cost_uom', tr.uom || '');
+						}
+					} else if (is_revenue && row.use_tariff_in_revenue) {
+						frappe.msgprint(__('No matching transport rate found in tariff {0}', [rev_tariff]));
+					} else if (!is_revenue && row.use_tariff_in_cost) {
+						frappe.msgprint(__('No matching transport rate found in tariff {0}', [cost_tariff]));
+					}
+					resolve();
+				}
+			});
+		});
+	}
+
+	// Fetch revenue and cost tariffs (may be same or different)
+	let p1 = row.use_tariff_in_revenue && rev_tariff ? fetch_and_apply(rev_tariff, true) : Promise.resolve();
+	let p2 = row.use_tariff_in_cost && cost_tariff ? fetch_and_apply(cost_tariff, false) : Promise.resolve();
+	Promise.all([p1, p2]).then(function() {
+		frm.refresh_field('transport');
+		frm.save();
+	});
+}
+
 // Cache key for Vehicle Type list by (load_type, hazardous, reefer) - used for load_type-based filter only
 function vehicle_type_cache_key(load_type, hazardous, reefer) {
 	return (load_type || "") + "|" + (hazardous ? "1" : "0") + "|" + (reefer ? "1" : "0");
@@ -108,56 +167,13 @@ frappe.ui.form.on('Sales Quote Transport', {
     },
     
     tariff: function(frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
-        if (row.tariff && (row.use_tariff_in_revenue || row.use_tariff_in_cost)) {
-            // Fetch tariff data and populate fields
-            frappe.call({
-                method: 'logistics.pricing_center.doctype.sales_quote_transport.sales_quote_transport.get_tariff_rates',
-                args: {
-                    tariff_name: row.tariff,
-                    item_code: row.item_code
-                },
-                callback: function(r) {
-                    if (r.message && r.message.length > 0) {
-                        let tariff_rate = r.message[0];
-                        
-                        if (row.use_tariff_in_revenue) {
-                            // Populate revenue fields
-                            frappe.model.set_value(cdt, cdn, 'calculation_method', tariff_rate.calculation_method || 'Per Unit');
-                            frappe.model.set_value(cdt, cdn, 'unit_rate', tariff_rate.rate || 0);
-                            frappe.model.set_value(cdt, cdn, 'unit_type', tariff_rate.unit_type || '');
-                            frappe.model.set_value(cdt, cdn, 'currency', tariff_rate.currency || 'USD');
-                            frappe.model.set_value(cdt, cdn, 'minimum_quantity', tariff_rate.minimum_quantity || 0);
-                            frappe.model.set_value(cdt, cdn, 'minimum_charge', tariff_rate.minimum_charge || 0);
-                            frappe.model.set_value(cdt, cdn, 'maximum_charge', tariff_rate.maximum_charge || 0);
-                            frappe.model.set_value(cdt, cdn, 'base_amount', tariff_rate.base_amount || 0);
-                            frappe.model.set_value(cdt, cdn, 'uom', tariff_rate.uom || '');
-                        }
-                        
-                        if (row.use_tariff_in_cost) {
-                            // Populate cost fields
-                            frappe.model.set_value(cdt, cdn, 'cost_calculation_method', tariff_rate.calculation_method || 'Per Unit');
-                            frappe.model.set_value(cdt, cdn, 'unit_cost', tariff_rate.rate || 0);
-                            frappe.model.set_value(cdt, cdn, 'cost_unit_type', tariff_rate.unit_type || '');
-                            frappe.model.set_value(cdt, cdn, 'cost_currency', tariff_rate.currency || 'USD');
-                            frappe.model.set_value(cdt, cdn, 'cost_minimum_quantity', tariff_rate.minimum_quantity || 0);
-                            frappe.model.set_value(cdt, cdn, 'cost_minimum_charge', tariff_rate.minimum_charge || 0);
-                            frappe.model.set_value(cdt, cdn, 'cost_maximum_charge', tariff_rate.maximum_charge || 0);
-                            frappe.model.set_value(cdt, cdn, 'cost_base_amount', tariff_rate.base_amount || 0);
-                            frappe.model.set_value(cdt, cdn, 'cost_uom', tariff_rate.uom || '');
-                        }
-                        
-                        // Trigger calculations by refreshing the form
-                        frm.refresh_field('transport');
-                        
-                        // Force calculation by triggering a save (this will call the Python validate method)
-                        frm.save();
-                    } else {
-                        frappe.msgprint(__('No matching transport rate found in tariff {0}', [row.tariff]));
-                    }
-                }
-            });
-        }
+        _fetch_tariff_data_for_transport_row(frm, cdt, cdn);
+    },
+    revenue_tariff: function(frm, cdt, cdn) {
+        _fetch_tariff_data_for_transport_row(frm, cdt, cdn);
+    },
+    cost_tariff: function(frm, cdt, cdn) {
+        _fetch_tariff_data_for_transport_row(frm, cdt, cdn);
     },
     
     load_type: function(frm, cdt, cdn) {
@@ -200,9 +216,10 @@ frappe.ui.form.on('Sales Quote Transport', {
     
     item_code: function(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-        if (row.tariff && (row.use_tariff_in_revenue || row.use_tariff_in_cost)) {
-            // Re-fetch tariff data when item code changes
-            frappe.trigger(cdt, cdn, 'tariff');
+        let rev_tariff = row.revenue_tariff || row.tariff;
+        let cost_tariff = row.cost_tariff || row.tariff;
+        if ((rev_tariff || cost_tariff) && (row.use_tariff_in_revenue || row.use_tariff_in_cost)) {
+            _fetch_tariff_data_for_transport_row(frm, cdt, cdn);
         }
     },
     

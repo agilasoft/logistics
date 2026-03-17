@@ -18,7 +18,7 @@ JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 SALES_QUOTE_CHARGE_FIELDS = [
     "item_code",
     "item_name",
-    "calculation_method",
+    "calculation_method",  # mapped to revenue_calculation_method on charge row
     "quantity",
     "uom",
     "currency",
@@ -32,6 +32,8 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "use_tariff_in_revenue",
     "use_tariff_in_cost",
     "tariff",
+    "revenue_tariff",
+    "cost_tariff",
     "cost_calculation_method",
     "cost_quantity",
     "cost_uom",
@@ -84,7 +86,9 @@ class TransportOrder(Document):
             original_sales_quote = getattr(self, 'sales_quote', None)
         
         _sync_quote_and_sales_quote(self)
-        
+        from logistics.utils.module_integration import set_billing_company_from_sales_quote
+        set_billing_company_from_sales_quote(self)
+
         # Ensure quote field is preserved - restore original values if they were cleared
         # This ensures the quote field remains after submission
         if original_quote and not getattr(self, 'quote', None):
@@ -109,7 +113,24 @@ class TransportOrder(Document):
                 )
                 self.set(legs_field, [])
         
-        # Validate sales_quote duplication rules for one-off quotes
+        # Validate One-off Sales Quote not already converted
+        if self.sales_quote:
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
+            validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
+        
+        # Handle sales_quote field clearing - reset One-off quote if cleared
+        if not self.is_new() and original_sales_quote and not self.sales_quote:
+            # sales_quote was cleared, check if it was a One-off quote and reset it
+            try:
+                if frappe.db.exists("Sales Quote", original_sales_quote):
+                    sq = frappe.get_doc("Sales Quote", original_sales_quote)
+                    if sq.quotation_type == "One-off":
+                        from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+                        reset_one_off_quote_on_cancel(original_sales_quote)
+            except Exception:
+                pass
+        
+        # On duplicate (new doc with same One-Off Quote), clear quote reference
         self._validate_sales_quote_duplication()
         
         # Validate that pick and drop facilities are different in each leg
@@ -148,6 +169,14 @@ class TransportOrder(Document):
     def before_save(self):
         from logistics.utils.module_integration import run_propagate_on_link
         run_propagate_on_link(self)
+        # Container Management: create/link container for Container orders
+        if getattr(self, "transport_job_type", None) == "Container" and getattr(self, "container_no", None):
+            try:
+                from logistics.container_management.api import sync_transport_order_container
+                sync_transport_order_container(self)
+            except Exception as e:
+                if not getattr(frappe.flags, "skip_container_sync", False):
+                    frappe.log_error("Transport Order container sync error: {0}".format(str(e)), "Container Management")
 
     def aggregate_volume_from_packages(self):
         """Set header volume from sum of package volumes, converted to base/default volume UOM."""
@@ -279,6 +308,18 @@ class TransportOrder(Document):
             self.db_set('quote_type', current_quote_type, update_modified=False)
         if current_sales_quote and not getattr(self, 'sales_quote', None):
             self.db_set('sales_quote', current_sales_quote, update_modified=False)
+        
+        # Update One-off Sales Quote status to Converted
+        if current_sales_quote:
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
+            update_one_off_quote_on_submit(current_sales_quote, self.name, self.doctype)
+    
+    def on_cancel(self):
+        """Reset One-off Sales Quote status when Transport Order is cancelled."""
+        current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+        if current_sales_quote:
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+            reset_one_off_quote_on_cancel(current_sales_quote)
 
     def _validate_transport_legs(self):
         """Validate that transport legs have complete details and scheduled_date if filled."""
@@ -494,9 +535,13 @@ class TransportOrder(Document):
             if not self.container_no:
                 frappe.throw(_("Container Number is required for Container transport jobs."))
         
-        # Validate container number format if needed
-        if self.container_no and len(self.container_no) < 4:
-            frappe.throw(_("Container Number must be at least 4 characters long."))
+        # ISO 6346 validation
+        if self.container_no:
+            from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
+            strict = get_strict_validation_setting()
+            valid, err = validate_container_number(self.container_no, strict=strict)
+            if not valid:
+                frappe.throw(_("Container Number: {0}").format(err), title=_("Invalid Container Number"))
 
     def _validate_heavy_haul_requirements(self):
         """Validate heavy haul specific requirements."""
@@ -974,14 +1019,21 @@ class TransportOrder(Document):
             # Clear existing charges
             self.set("charges", [])
 
-            # Fetch sales_quote_transport records from the selected sales_quote
+            # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
             fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
             sales_quote_transport_records = frappe.get_all(
-                "Sales Quote Transport",
-                filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+                "Sales Quote Charge",
+                filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Transport"},
                 fields=fields_to_fetch,
                 order_by="idx"
             )
+            if not sales_quote_transport_records and frappe.db.table_exists("Sales Quote Transport"):
+                sales_quote_transport_records = frappe.get_all(
+                    "Sales Quote Transport",
+                    filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+                    fields=fields_to_fetch,
+                    order_by="idx"
+                )
 
             if not sales_quote_transport_records:
                 frappe.msgprint(
@@ -1098,6 +1150,9 @@ class TransportOrder(Document):
             for field in SALES_QUOTE_CHARGE_FIELDS:
                 if field in sqt_record:
                     charge_data[field] = sqt_record.get(field)
+            # Map Sales Quote calculation_method to charge revenue_calculation_method
+            if "calculation_method" in charge_data:
+                charge_data["revenue_calculation_method"] = charge_data.pop("calculation_method")
 
             # Fallbacks for essential fields
             if not charge_data.get("item_name") and sqt_record.get("item_code"):
@@ -1280,6 +1335,12 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         return {"charges": []}
     
     try:
+        # Temporary names (unsaved documents) cannot be fetched
+        if sales_quote.startswith("new-"):
+            return {
+                "error": _("Please save the Sales Quote first before selecting it here."),
+                "charges": []
+            }
         # Verify that the sales_quote exists
         if not frappe.db.exists("Sales Quote", sales_quote):
             return {
@@ -1287,14 +1348,21 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
                 "charges": []
             }
         
-        # Fetch sales_quote_transport records from the selected sales_quote
+        # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
         fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
         sales_quote_transport_records = frappe.get_all(
-            "Sales Quote Transport",
-            filters={"parent": sales_quote, "parenttype": "Sales Quote"},
+            "Sales Quote Charge",
+            filters={"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Transport"},
             fields=fields_to_fetch,
             order_by="idx"
         )
+        if not sales_quote_transport_records and frappe.db.table_exists("Sales Quote Transport"):
+            sales_quote_transport_records = frappe.get_all(
+                "Sales Quote Transport",
+                filters={"parent": sales_quote, "parenttype": "Sales Quote"},
+                fields=fields_to_fetch,
+                order_by="idx"
+            )
         
         if not sales_quote_transport_records:
             return {
@@ -1329,6 +1397,29 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         }
 
 
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+    """Recalculate all charges based on current Transport Order data using RateCalculationEngine."""
+    doc = frappe.get_doc("Transport Order", docname)
+    if not doc.charges:
+        return {"success": False, "message": _("No charges found to recalculate")}
+    try:
+        charges_recalculated = 0
+        for charge in doc.charges:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=doc)
+                charges_recalculated += 1
+        doc.save()
+        return {
+            "success": True,
+            "message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+            "charges_recalculated": charges_recalculated,
+        }
+    except Exception as e:
+        frappe.log_error(str(e), "Transport Order - Recalculate Charges Error")
+        frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
+
+
 def _map_sales_quote_transport_to_charge_dict(sqt_record):
     """Map sales_quote_transport record to transport_order_charges format (returns dict)."""
     try:
@@ -1337,6 +1428,8 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
         for field in SALES_QUOTE_CHARGE_FIELDS:
             if field in sqt_record:
                 charge_data[field] = sqt_record.get(field)
+        if "calculation_method" in charge_data:
+            charge_data["revenue_calculation_method"] = charge_data.pop("calculation_method")
         
         # Fallbacks for essential fields
         item_doc = None
@@ -1374,6 +1467,12 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
         return {"charges": []}
     
     try:
+        # Temporary names (unsaved documents) cannot be fetched
+        if one_off_quote.startswith("new-"):
+            return {
+                "error": _("Please save the One-Off Quote first before selecting it here."),
+                "charges": []
+            }
         # Verify that the one_off_quote exists
         if not frappe.db.exists("One-Off Quote", one_off_quote):
             return {
@@ -1590,6 +1689,8 @@ def action_create_transport_job(docname: str):
             "customer": getattr(doc, "customer", None),
             "booking_date": getattr(doc, "booking_date", None),
             "customer_ref_no": getattr(doc, "customer_ref_no", None),
+            "shipper": getattr(doc, "shipper", None),
+            "consignee": getattr(doc, "consignee", None),
             "hazardous": getattr(doc, "hazardous", None),
             "refrigeration": getattr(doc, "reefer", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
@@ -1603,6 +1704,8 @@ def action_create_transport_job(docname: str):
             "branch": getattr(doc, "branch", None),
             "cost_center": getattr(doc, "cost_center", None),
             "profit_center": getattr(doc, "profit_center", None),
+            "document_list_template": getattr(doc, "document_list_template", None),
+            "milestone_template": getattr(doc, "milestone_template", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):
@@ -1616,6 +1719,21 @@ def action_create_transport_job(docname: str):
         # ---- Charges (TO -> TJ) by common fields
         _copy_child_rows_by_common_fields(
             src_doc=doc, src_table_field="charges", dst_doc=job, dst_table_field="charges"
+        )
+
+        # ---- Documents (TO -> TJ) by common fields
+        _copy_child_rows_by_common_fields(
+            src_doc=doc, src_table_field="documents", dst_doc=job, dst_table_field="documents"
+        )
+
+        # ---- Milestones (TO -> TJ) by common fields
+        _copy_child_rows_by_common_fields(
+            src_doc=doc, src_table_field="milestones", dst_doc=job, dst_table_field="milestones"
+        )
+
+        # ---- Warehouse Items (TO -> TJ) by common fields
+        _copy_child_rows_by_common_fields(
+            src_doc=doc, src_table_field="warehouse_items", dst_doc=job, dst_table_field="warehouse_items"
         )
 
         # Insert now to get a real job name for back-references from Transport Leg
@@ -2049,10 +2167,9 @@ def get_available_one_off_quotes(transport_order_name: str = None) -> Dict[str, 
         if excluded_quotes:
             filters["name"] = ["not in", excluded_quotes]
         
-        # Also filter to only show One-Off Quotes that have transport enabled
-        # Check if One-Off Quote has is_transport field
-        if _has_field("One-Off Quote", "is_transport"):
-            filters["is_transport"] = 1
+        # Also filter to only show Sales Quotes that have transport enabled
+        if _has_field("Sales Quote", "main_service"):
+            filters["main_service"] = "Transport"
         
         return {"filters": filters}
     except Exception as e:

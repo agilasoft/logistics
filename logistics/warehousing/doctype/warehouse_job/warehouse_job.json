@@ -40,6 +40,11 @@
   "counts",
   "charges_tab",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
   "operations_tab",
   "operations",
   "job_totals_tab",
@@ -53,6 +58,7 @@
   "weight_qty_type",
   "accounts_tab",
   "company",
+  "billing_company",
   "branch",
   "cost_center",
   "profit_center",
@@ -250,6 +256,14 @@
    "label": "Company",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "description": "Company that will bill the customer (from linked Sales Quote / shipment / contract). Used for intercompany.",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.type=='Stocktake'",
@@ -470,6 +484,36 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Warehouse Job Charges"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template",
+   "description": "Override default template. Leave empty to use product default."
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
   },
   {
    "fieldname": "dashboard_tab",
@@ -770,6 +814,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  },
   {
    "group": "Accounts",
    "link_doctype": "Periodic Billing",

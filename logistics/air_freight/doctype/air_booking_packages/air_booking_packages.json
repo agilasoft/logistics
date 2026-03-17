@@ -24,8 +24,15 @@
   "column_break_hveo",
   "weight_uom",
   "weight",
-  "chargeable_weight_uom",
-  "chargeable_weight"
+  "dg_identification_section",
+  "dg_substance",
+  "un_number",
+  "proper_shipping_name",
+  "dg_class",
+  "packing_group",
+  "emergency_contact_section",
+  "emergency_contact_name",
+  "emergency_contact_phone"
  ],
  "fields": [
   {
@@ -119,17 +126,6 @@
    "label": "Height"
   },
   {
-   "fieldname": "chargeable_weight",
-   "fieldtype": "Float",
-   "label": "Chargeable Weight"
-  },
-  {
-   "fieldname": "chargeable_weight_uom",
-   "fieldtype": "Link",
-   "label": "Chargeable Weight UOM",
-   "options": "UOM"
-  },
-  {
    "fieldname": "reference_no",
    "fieldtype": "Data",
    "label": "Reference No"
@@ -137,13 +133,66 @@
   {
    "fieldname": "column_break_hveo",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dg_identification_section",
+   "fieldtype": "Section Break",
+   "label": "DG Identification Section"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "dg_substance",
+   "fieldtype": "Data",
+   "label": "DG Substance"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "un_number",
+   "fieldtype": "Data",
+   "label": "UN Number"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "proper_shipping_name",
+   "fieldtype": "Data",
+   "label": "Proper Shipping Name"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "packing_group",
+   "fieldtype": "Select",
+   "label": "Packing Group",
+   "options": "\nI\nII\nIII"
+  },
+  {
+   "fieldname": "emergency_contact_section",
+   "fieldtype": "Section Break",
+   "label": "Emergency Contact Section"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "emergency_contact_name",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Name"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "emergency_contact_phone",
+   "fieldtype": "Data",
+   "label": "Emergency Contact Phone"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-11 11:17:57.942946",
+ "modified": "2026-03-16 10:30:24.767637",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Packages",

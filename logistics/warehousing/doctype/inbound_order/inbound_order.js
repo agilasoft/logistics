@@ -3,7 +3,50 @@
 
 // ---------------------------- Inbound Order (Parent) ----------------------------
 frappe.ui.form.on('Inbound Order', {
+  document_list_template: function (frm) {
+    if (!frm.doc.name || frm.doc.__islocal) return;
+    frm.save().then(function () {
+      frappe.call({
+        method: "logistics.document_management.api.populate_documents_from_template",
+        args: { doctype: frm.doctype, docname: frm.doc.name },
+        callback: function (r) {
+          if (r.message) {
+            frm.reload_doc();
+            if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+          }
+        }
+      });
+    });
+  },
   refresh(frm) {
+    // Load documents summary HTML in Documents tab
+    if (window.logistics_load_documents_html) {
+      window.logistics_load_documents_html(frm, "Inbound Order");
+    }
+    if (frm.layout && frm.layout.wrapper) {
+      frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+        if (window.logistics_load_documents_html) {
+          window.logistics_load_documents_html(frm, "Inbound Order");
+        }
+      });
+    }
+
+    // Populate Documents from Template
+    if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+      frm.add_custom_button(__('Get Documents'), function() {
+        frappe.call({
+          method: 'logistics.document_management.api.populate_documents_from_template',
+          args: { doctype: 'Inbound Order', docname: frm.doc.name },
+          callback: function(r) {
+            if (r.message && r.message.added !== undefined) {
+              frm.reload_doc();
+              frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+            }
+          }
+        });
+      }, __('Actions'));
+    }
+
     // Create → Warehouse Job button (only when submitted)
     if (!frm.doc.__islocal && frm.doc.docstatus === 1) {
       frm.add_custom_button(

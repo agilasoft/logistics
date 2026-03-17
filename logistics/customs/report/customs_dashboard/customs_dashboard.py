@@ -81,7 +81,7 @@ def get_data(filters):
 		SELECT COUNT(*) as count
 		FROM `tabDeclaration` d
 		WHERE d.docstatus != 2
-		AND d.status IN ('Draft', 'Submitted', 'In Progress')
+		AND d.status IN ('Draft', 'Submitted', 'Under Review', 'Cleared')
 		{conditions}
 	""".format(conditions=conditions), filters, as_dict=1)[0]
 	
@@ -96,7 +96,7 @@ def get_data(filters):
 		SELECT COUNT(*) as count
 		FROM `tabDeclaration` d
 		WHERE d.docstatus != 2
-		AND d.status NOT IN ('Approved', 'Rejected', 'Cancelled')
+		AND d.status NOT IN ('Cleared', 'Released', 'Rejected', 'Cancelled')
 		AND DATEDIFF(CURDATE(), DATE_ADD(d.declaration_date, INTERVAL 5 DAY)) > 0
 		{conditions}
 	""".format(conditions=conditions), filters, as_dict=1)[0]
@@ -151,7 +151,7 @@ def get_data(filters):
 		SELECT AVG(DATEDIFF(CURDATE(), declaration_date)) as avg_days
 		FROM `tabDeclaration` d
 		WHERE d.docstatus != 2
-		AND d.status IN ('Approved', 'Rejected')
+		AND d.status IN ('Cleared', 'Released', 'Rejected')
 		{conditions}
 	""".format(conditions=conditions), filters, as_dict=1)[0]
 	

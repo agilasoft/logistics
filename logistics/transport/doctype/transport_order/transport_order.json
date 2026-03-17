@@ -11,11 +11,14 @@
   "booking_date",
   "customer",
   "customer_ref_no",
+  "shipper",
+  "consignee",
   "scheduled_date",
   "column_break_5",
   "transport_job_type",
   "container_type",
   "container_no",
+  "container",
   "load_type",
   "vehicle_type",
   "hazardous",
@@ -28,6 +31,8 @@
   "packing_tab",
   "section_break_ofjt",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "total_volume",
@@ -46,6 +51,16 @@
   "legs",
   "charges_tab",
   "charges",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
   "section_break_connections",
   "air_shipment",
   "sea_shipment",
@@ -69,9 +84,8 @@
   "column_break_jkpj",
   "job_costing_number",
   "quote_section",
-  "quote_type",
-  "quote",
   "sales_quote",
+  "billing_company",
   "project"
  ],
  "fields": [
@@ -106,6 +120,18 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Customer Ref No"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
   },
   {
    "default": "0",
@@ -158,6 +184,18 @@
    "fieldtype": "Table",
    "label": "Packages",
    "options": "Transport Order Package"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
   },
   {
    "depends_on": "eval:doc.hazardous",
@@ -253,6 +291,65 @@
    "options": "Transport Order Charges"
   },
   {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template",
+   "description": "Override default template. Leave empty to use product default."
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Transport Order Milestone"
+  },
+  {
    "fieldname": "section_break_summary",
    "fieldtype": "Section Break",
    "label": "Summary"
@@ -334,6 +431,14 @@
    "mandatory_depends_on": "eval:doc.transport_job_type=='Container'"
   },
   {
+   "depends_on": "eval:doc.transport_job_type=='Container'",
+   "fieldname": "container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "read_only": 1
+  },
+  {
    "fieldname": "accounts_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts"
@@ -384,23 +489,21 @@
    "label": "Quote Reference"
   },
   {
-   "fieldname": "quote_type",
-   "fieldtype": "Select",
-   "label": "Quote Type",
-   "options": "One-Off Quote\nSales Quote"
-  },
-  {
-   "fieldname": "quote",
-   "fieldtype": "Dynamic Link",
-   "label": "Quote",
-   "options": "quote_type"
-  },
-  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
-   "hidden": 1,
    "label": "Sales Quote",
+   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Transport\"]]",
+   "no_copy": 1,
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_xzix",

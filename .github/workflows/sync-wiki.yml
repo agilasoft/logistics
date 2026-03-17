@@ -1,0 +1,50 @@
+# Sync wiki content from logistics/wiki_content/ to GitHub Wiki
+# Runs when wiki content or this workflow changes
+name: Sync Wiki to GitHub
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'logistics/wiki_content/**'
+      - 'scripts/sync_wiki_to_github.py'
+      - '.github/workflows/sync-wiki.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to push to wiki repo
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync wiki content
+        run: |
+          python3 scripts/sync_wiki_to_github.py
+
+      - name: Clone wiki repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git wiki-repo
+
+      - name: Copy files to wiki repo
+        run: |
+          cp wiki-output/*.md wiki-repo/
+          ls -la wiki-repo/
+
+      - name: Commit and push wiki changes
+        run: |
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --staged --quiet; then
+            echo "No wiki changes to push"
+          else
+            git commit -m "Sync wiki from repository (${GITHUB_SHA::7})"
+            git push origin master
+            echo "Wiki updated successfully"
+          fi

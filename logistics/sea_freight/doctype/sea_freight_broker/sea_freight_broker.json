@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "broker",
+  "declaration",
+  "column_break_broker",
+  "customs_notes"
+ ],
+ "fields": [
+  {
+   "description": "Customs broker / agent (Supplier)",
+   "fieldname": "broker",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Broker",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "description": "Link to customs declaration if applicable",
+   "fieldname": "declaration",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Declaration",
+   "options": "Declaration"
+  },
+  {
+   "fieldname": "column_break_broker",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customs_notes",
+   "fieldtype": "Small Text",
+   "label": "Customs Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Freight Broker",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -41,7 +41,7 @@ def get_data(filters):
 			DATEDIFF(CURDATE(), ss.booking_date) as days_since_booking,
 			ss.company
 		FROM `tabSea Shipment` ss
-		LEFT JOIN `tabSea Freight Charges` sfc ON sfc.parent = ss.name
+		LEFT JOIN `tabSea Shipment Charges` sfc ON sfc.parent = ss.name
 		WHERE ss.docstatus = 1
 		{conditions}
 		GROUP BY ss.name

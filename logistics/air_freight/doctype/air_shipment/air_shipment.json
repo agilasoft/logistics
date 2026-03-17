@@ -6,8 +6,13 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
   "milestones_tab",
+  "section_break_milestones",
   "milestone_html",
+  "milestone_template",
+  "milestones",
   "details_tab",
   "section_break_main",
   "transport_mode_column",
@@ -26,6 +31,15 @@
   "release_type",
   "entry_type",
   "service_level",
+  "contains_dangerous_goods",
+  "section_break_consolidation",
+  "consolidation_reference",
+  "column_break_consolidation",
+  "consolidation_status",
+  "section_break_booking_control",
+  "booking_party",
+  "controlling_party",
+  "column_break_booking_control",
   "section_break_parties",
   "column_break_origin",
   "shipper",
@@ -37,7 +51,11 @@
   "destination_port",
   "eta",
   "ata",
-  "column_break_ohdu",
+  "column_break_entities_agents",
+  "sending_agent",
+  "receiving_agent",
+  "column_break_entities_broker",
+  "broker",
   "master_details_section",
   "master_awb",
   "house_details_section",
@@ -53,26 +71,133 @@
   "description",
   "column_break_marks",
   "marks_and_nos",
-  "services_section",
-  "services",
   "packing_tab",
   "routing_section",
   "routing_legs",
   "packages_section",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
+  "override_volume_weight",
+  "column_break_zgif",
   "total_volume",
   "total_weight",
-  "override_volume_weight",
-  "volume",
-  "weight",
   "chargeable",
+  "column_break_dbui",
+  "total_volume_uom",
+  "total_weight_uom",
+  "chargeable_weight_uom",
   "column_break_zsxk",
   "density_factor_html",
   "excess_weight_volume",
-  "contains_dangerous_goods",
-  "dangerous_goods_tab",
+  "contacts_and_addresses_tab",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_cyzc",
+  "consignee_address",
+  "consignee_address_display",
+  "section_break_haya",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_tptt",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_xuwf",
+  "notify_party",
+  "column_break_mzhi",
+  "notify_party_address",
+  "charges_tab",
+  "charges_section",
+  "charges",
+  "profitability_section_break",
+  "profitability_section_html",
+  "documents_tab",
+  "document_management_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "billing_automation_section",
+  "auto_billing_enabled",
+  "billing_status",
+  "sales_invoice",
+  "column_break_billing",
+  "billing_date",
+  "billing_amount",
+  "billing_currency",
+  "invoice_monitoring_section",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
+  "revenue_section",
+  "revenue_recognition_date",
+  "revenue_recognition_method",
+  "revenue_amount",
+  "column_break_revenue",
+  "partial_revenue_enabled",
+  "recognized_revenue_amount",
+  "revenue_reversal_date",
+  "accounts_tab",
+  "section_break_vztz",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "job_costing_number",
+  "project",
+  "column_break_vzlm",
+  "sales_quote",
+  "billing_company",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "wip_recognition_date_basis",
+  "accrual_recognition_enabled",
+  "accrual_recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
+  "more_info_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
+  "customs_section",
+  "customs_declaration_number",
+  "export_license",
+  "import_permit",
+  "commercial_invoice_number",
+  "customs_status",
+  "customs_broker",
+  "column_break_customs",
+  "duty_amount",
+  "tax_amount",
+  "customs_clearance_date",
+  "customs_notes",
   "dangerous_goods_section",
   "dg_declaration_complete",
   "dg_compliance_status",
@@ -104,99 +229,6 @@
   "real_time_tracking_enabled",
   "last_tracking_update",
   "tracking_status",
-  "documents_section",
-  "commercial_invoice_number",
-  "packing_list_number",
-  "certificate_of_origin",
-  "column_break_documents",
-  "export_license",
-  "import_permit",
-  "other_documents",
-  "customs_section",
-  "customs_declaration_number",
-  "customs_status",
-  "customs_broker",
-  "column_break_customs",
-  "duty_amount",
-  "tax_amount",
-  "customs_clearance_date",
-  "customs_notes",
-  "contacts_and_addresses_tab",
-  "shipper_address",
-  "shipper_address_display",
-  "column_break_cyzc",
-  "consignee_address",
-  "consignee_address_display",
-  "section_break_haya",
-  "shipper_contact",
-  "shipper_contact_display",
-  "column_break_tptt",
-  "consignee_contact",
-  "consignee_contact_display",
-  "section_break_xuwf",
-  "notify_party",
-  "column_break_mzhi",
-  "notify_party_address",
-  "charges_tab",
-  "sales_quote",
-  "charges",
-  "billing_automation_section",
-  "auto_billing_enabled",
-  "billing_status",
-  "sales_invoice",
-  "column_break_billing",
-  "billing_date",
-  "billing_amount",
-  "billing_currency",
-  "invoice_monitoring_section",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
-  "revenue_section",
-  "revenue_recognition_date",
-  "revenue_recognition_method",
-  "revenue_amount",
-  "column_break_revenue",
-  "partial_revenue_enabled",
-  "recognized_revenue_amount",
-  "revenue_reversal_date",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "job_costing_number",
-  "project",
-  "recognition_section",
-  "wip_recognition_enabled",
-  "wip_recognition_date_basis",
-  "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
-  "recognition_date",
-  "column_break_recognition",
-  "estimated_revenue",
-  "wip_amount",
-  "recognized_revenue",
-  "wip_journal_entry",
-  "wip_adjustment_journal_entry",
-  "wip_closed",
-  "column_break_accrual",
-  "estimated_costs",
-  "accrual_amount",
-  "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
-  "accrual_closed",
-  "more_info_tab",
   "sustainability_section",
   "estimated_carbon_footprint",
   "estimated_fuel_consumption",
@@ -259,7 +291,7 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "AF.#########"
+   "options": "ASP-.#########"
   },
   {
    "fieldname": "booking_date",
@@ -354,6 +386,28 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "section_break_booking_control",
+   "fieldtype": "Section Break",
+   "label": "Booking & Control"
+  },
+  {
+   "fieldname": "booking_party",
+   "fieldtype": "Link",
+   "label": "Booking Party",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "controlling_party",
+   "fieldtype": "Select",
+   "label": "Controlling Party",
+   "options": "Customer Controlled\nAgent Controlled"
+  },
+  {
+   "fieldname": "column_break_booking_control",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "sla_section",
    "fieldtype": "Section Break",
    "label": "SLA Monitoring"
@@ -413,25 +467,34 @@
   },
   {
    "default": "0",
-   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "description": "When checked, Total Volume and Total Weight are manual and will not be updated from package totals.",
    "fieldname": "override_volume_weight",
    "fieldtype": "Check",
    "label": "Override Volume & Weight"
   },
   {
-   "fieldname": "volume",
-   "fieldtype": "Float",
-   "label": "Volume (cbm)"
-  },
-  {
-   "fieldname": "weight",
-   "fieldtype": "Float",
-   "label": "Weight (kg)"
-  },
-  {
    "fieldname": "chargeable",
    "fieldtype": "Float",
-   "label": "Chargeable (kg)"
+   "label": "Chargeable Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Total Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Total Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Wt. UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "density_factor_html",
@@ -484,6 +547,30 @@
    "fieldname": "dg_emergency_email",
    "fieldtype": "Data",
    "label": "DG Emergency Email"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_consolidation",
+   "fieldtype": "Section Break",
+   "label": "Consolidation"
+  },
+  {
+   "fieldname": "consolidation_reference",
+   "fieldtype": "Link",
+   "label": "Consolidation Reference",
+   "options": "Air Consolidation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_consolidation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consolidation_status",
+   "fieldtype": "Select",
+   "label": "Consolidation Status",
+   "options": "\nPending\nAccepted\nIn Transit\nDelivered\nException",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -737,6 +824,21 @@
    "label": "Customs Declaration Number"
   },
   {
+   "fieldname": "export_license",
+   "fieldtype": "Data",
+   "label": "Export License"
+  },
+  {
+   "fieldname": "import_permit",
+   "fieldtype": "Data",
+   "label": "Import Permit"
+  },
+  {
+   "fieldname": "commercial_invoice_number",
+   "fieldtype": "Data",
+   "label": "Commercial Invoice Number"
+  },
+  {
    "fieldname": "customs_status",
    "fieldtype": "Select",
    "label": "Customs Status",
@@ -867,57 +969,49 @@
    "label": "Temperature Log"
   },
   {
-   "collapsible": 1,
-   "fieldname": "documents_section",
-   "fieldtype": "Section Break",
-   "label": "Document Management"
-  },
-  {
-   "fieldname": "commercial_invoice_number",
-   "fieldtype": "Data",
-   "label": "Commercial Invoice Number"
-  },
-  {
-   "fieldname": "packing_list_number",
-   "fieldtype": "Data",
-   "label": "Packing List Number"
-  },
-  {
-   "fieldname": "certificate_of_origin",
-   "fieldtype": "Data",
-   "label": "Certificate of Origin"
-  },
-  {
-   "fieldname": "column_break_documents",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "export_license",
-   "fieldtype": "Data",
-   "label": "Export License"
-  },
-  {
-   "fieldname": "import_permit",
-   "fieldtype": "Data",
-   "label": "Import Permit"
-  },
-  {
-   "description": "List of other required documents (e.g., health certificates, phytosanitary certificates)",
-   "fieldname": "other_documents",
-   "fieldtype": "Long Text",
-   "label": "Other Documents"
-  },
-  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote"
   },
   {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
    "options": "Air Shipment Charges"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
   },
   {
    "collapsible": 1,
@@ -1253,9 +1347,42 @@
    "label": "Charges"
   },
   {
-   "fieldname": "services",
-   "fieldtype": "Table",
-   "options": "Air Shipment Services"
+   "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
   },
   {
    "fieldname": "connections_tab",
@@ -1434,19 +1561,73 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "packages",
    "fieldtype": "Table",
    "options": "Air Shipment Packages"
   },
   {
-   "fieldname": "milestones_tab",
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
+  },
+  {
+   "fieldname": "dashboard_tab",
    "fieldtype": "Tab Break",
    "label": "Dashboard"
   },
   {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break"
+  },
+  {
    "fieldname": "milestone_html",
    "fieldtype": "HTML",
-   "is_virtual": 1
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Air Shipment Milestone"
   },
   {
    "fieldname": "details_tab",
@@ -1466,12 +1647,6 @@
    "label": "Billing Automation"
   },
   {
-   "depends_on": "eval:doc.contains_dangerous_goods",
-   "fieldname": "dangerous_goods_tab",
-   "fieldtype": "Tab Break",
-   "label": "Dangerous Goods"
-  },
-  {
    "collapsible": 1,
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
@@ -1484,22 +1659,12 @@
   {
    "fieldname": "section_break_parties",
    "fieldtype": "Section Break",
-   "label": "Parties & Routing"
-  },
-  {
-   "fieldname": "column_break_ohdu",
-   "fieldtype": "Column Break"
+   "label": "Entities and Parties"
   },
   {
    "fieldname": "goods_value",
    "fieldtype": "Currency",
    "label": "Goods Value"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "services_section",
-   "fieldtype": "Section Break",
-   "label": "Services"
   },
   {
    "fieldname": "packing_tab",
@@ -1540,6 +1705,32 @@
    "label": "ATA"
   },
   {
+   "fieldname": "column_break_entities_agents",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sending_agent",
+   "fieldtype": "Link",
+   "label": "Sending Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "receiving_agent",
+   "fieldtype": "Link",
+   "label": "Receiving Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_entities_broker",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "broker",
+   "fieldtype": "Link",
+   "label": "Broker",
+   "options": "Freight Agent"
+  },
+  {
    "fieldname": "house_awb",
    "fieldtype": "Data",
    "label": "House AWB"
@@ -1552,13 +1743,45 @@
    "fieldname": "more_info_tab",
    "fieldtype": "Tab Break",
    "label": "More Info"
+  },
+  {
+   "fieldname": "document_management_section",
+   "fieldtype": "Section Break",
+   "label": "Document Management"
+  },
+  {
+   "fieldname": "column_break_zgif",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dbui",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_vztz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_vzlm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2026-02-20 14:55:43.028961",
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  }
+ ],
+ "modified": "2026-03-17 11:13:09.140293",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",
@@ -1580,6 +1803,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "origin_port, destination_port",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
