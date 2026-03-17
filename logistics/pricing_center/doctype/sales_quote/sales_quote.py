@@ -1112,26 +1112,6 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	air_booking.cost_center = sales_quote.cost_center
 	air_booking.profit_center = sales_quote.profit_center
 
-	# Air Booking requires weight > 0 (from packages). Add one package from quote weight/volume so validation passes.
-	total_weight, total_volume = _get_air_weight_volume_from_sales_quote(sales_quote)
-	try:
-		from logistics.utils.measurements import get_default_uoms
-		defaults = get_default_uoms(company=sales_quote.company)
-		weight_uom = defaults.get("weight") or "Kg"
-		volume_uom = defaults.get("volume") or "CBM"
-	except Exception:
-		weight_uom = "Kg"
-		volume_uom = "CBM"
-	# Ensure at least 1 kg so "Weight must be greater than 0" validation passes
-	package_weight = total_weight if total_weight > 0 else 1
-	air_booking.append("packages", {
-		"weight": package_weight,
-		"weight_uom": weight_uom,
-		"volume": total_volume if total_volume > 0 else 0,
-		"volume_uom": volume_uom,
-		"no_of_packs": 1,
-	})
-
 	air_booking.insert(ignore_permissions=True)
 	air_booking.reload()
 	air_booking.quote_type = "Sales Quote"

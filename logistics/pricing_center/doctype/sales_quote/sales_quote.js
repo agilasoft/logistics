@@ -841,8 +841,70 @@ function add_create_button(frm, config) {
 	});
 }
 
+// Mapping between service types and their corresponding Item custom fields for filtering
+const SERVICE_TYPE_ITEM_FIELD_MAP = {
+	"Air": "custom_air_forwarding_charge",
+	"Sea": "custom_sea_forwarding_charge",
+	"Transport": "custom_land_transport_charge",
+	"Customs": "custom_customs_charge",
+	"Warehousing": "custom_warehousing_charge"
+};
+
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
+	service_type: function(frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		// Clear item_code when service_type changes to prevent incompatible selections
+		if (row.item_code) {
+			frappe.model.set_value(cdt, cdn, 'item_code', '');
+			frappe.model.set_value(cdt, cdn, 'item_name', '');
+		}
+		// Set up query filter for item_code based on new service_type
+		if (row.service_type) {
+			const item_field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+			if (item_field) {
+				frm.set_query('item_code', 'charges', function(doc, cdt, cdn) {
+					const row = locals[cdt][cdn];
+					if (row && row.service_type) {
+						const field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+						if (field) {
+							return {
+								filters: {
+									[field]: 1
+								}
+							};
+						}
+					}
+				});
+			}
+		}
+		// Refresh the field to apply new filter
+		frm.refresh_field('charges');
+	},
+	
+	item_code: function(frm, cdt, cdn) {
+		// Set query filter when item_code field is focused/clicked
+		const row = frappe.get_doc(cdt, cdn);
+		if (row.service_type) {
+			const item_field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+			if (item_field) {
+				frm.set_query('item_code', 'charges', function(doc, cdt, cdn) {
+					const row = locals[cdt][cdn];
+					if (row && row.service_type) {
+						const field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+						if (field) {
+							return {
+								filters: {
+									[field]: 1
+								}
+							};
+						}
+					}
+				});
+			}
+		}
+	},
+	
 	charge_type: function(frm, cdt, cdn) {
 		// Refresh charges so Revenue/Cost fields show/hide based on charge_type
 		frm.refresh_field('charges');

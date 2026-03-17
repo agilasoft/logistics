@@ -355,10 +355,12 @@ def _prepare_rate_data(
     if method in ("Weight Break", "Qty Break"):
         return None
 
+    uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, f"{prefix}uom", None)
     rate_data = {
         "calculation_method": method,
         "rate": rate,
         "unit_type": unit_type or "Weight",
+        "uom": (uom or "").strip() or None,
         "minimum_quantity": flt(getattr(charge_doc, f"{prefix}minimum_quantity", None) or 0),
         "minimum_unit_rate": flt(getattr(charge_doc, f"{prefix}minimum_unit_rate", None) or 0),
         "minimum_charge": flt(getattr(charge_doc, f"{prefix}minimum_charge", None) or 0),
@@ -579,10 +581,11 @@ def _calculate_charge_amount(
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
         currency = applicable.get("currency") or getattr(charge_doc, "currency", None) or getattr(charge_doc, "cost_currency", None) or "USD"
+        weight_uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, "cost_uom", None) or "Kg"
         weight_break = flt(applicable.get("weight_break", 0))
         detail = (
-            f"Weight Break (Weight): Actual weight {weight} kg ≥ break {weight_break} kg → "
-            f"Rate {rate} {currency}/kg × {weight} kg = {calc_base} {currency}"
+            f"Weight Break (Weight): Actual weight {weight} {weight_uom} ≥ break {weight_break} {weight_uom} → "
+            f"Rate {rate} {currency}/{weight_uom} × {weight} {weight_uom} = {calc_base} {currency}"
         )
         if min_charge > 0 and calc_base < min_charge and amount == min_charge:
             detail += f"; Minimum charge {min_charge} {currency} applied"
@@ -612,10 +615,11 @@ def _calculate_charge_amount(
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
         currency = applicable.get("currency") or getattr(charge_doc, "currency", None) or getattr(charge_doc, "cost_currency", None) or "USD"
+        qty_uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, "cost_uom", None) or "Nos"
         qty_break = flt(applicable.get("qty_break", 0))
         detail = (
-            f"Qty Break (Piece): Actual qty {qty} pcs ≥ break {qty_break} pcs → "
-            f"Rate {rate} {currency}/pc × {qty} pcs = {calc_base} {currency}"
+            f"Qty Break (Piece): Actual qty {qty} {qty_uom} ≥ break {qty_break} {qty_uom} → "
+            f"Rate {rate} {currency}/{qty_uom} × {qty} {qty_uom} = {calc_base} {currency}"
         )
         if min_charge > 0 and calc_base < min_charge and amount == min_charge:
             detail += f"; Minimum charge {min_charge} {currency} applied"
