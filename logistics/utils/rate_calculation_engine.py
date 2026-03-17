@@ -50,6 +50,7 @@ class RateCalculationEngine:
             "TEU": "teu",
             "Container": "cnt",
             "Operation Time": "hrs",
+            "Day": "day",
         }
 
     def calculate_rate(
@@ -341,49 +342,54 @@ class RateCalculationEngine:
         quantity_used: float = 0,
         base_amount: float = None,
     ) -> str:
-        """Get human-readable calculation details with quantity, min/max, and method."""
+        """Get human-readable calculation details with quantity, unit type, currency, min/max."""
         rate = flt(rate_data.get("rate", 0) or rate_data.get("unit_rate", 0))
         qty = flt(quantity_used or 0)
         calc_base = base_amount if base_amount is not None else amount
         min_charge = flt(rate_data.get("minimum_charge", 0))
         max_charge = flt(rate_data.get("maximum_charge", 0))
+        unit_type = rate_data.get("unit_type", "Weight")
+        currency = rate_data.get("currency", "USD")
+        unit_suffix = self.unit_types.get(unit_type, "")
 
         if method == "Per Unit":
-            detail = f"Qty: {qty} × Rate: {rate} = {calc_base}"
+            qty_str = f"{qty} {unit_suffix}".strip() if unit_suffix else f"{qty} units"
+            rate_str = f"{rate} {currency}/{unit_suffix}" if unit_suffix else f"{rate} {currency}/unit"
+            detail = f"Per Unit ({unit_type}): {qty_str} × {rate_str} = {calc_base} {currency}"
         elif method == "Fixed Amount":
-            detail = f"Fixed Amount: {rate}"
+            detail = f"Fixed Amount: {rate} {currency}"
             if qty and qty != 1:
-                detail = f"Qty: {qty} × Fixed: {rate} = {calc_base}"
+                detail = f"Fixed Amount: {qty} × {rate} {currency} = {calc_base} {currency}"
         elif method == "Flat Rate":
-            detail = f"Flat Rate: {calc_base}"
+            detail = f"Flat Rate: {calc_base} {currency}"
         elif method == "Base Plus Additional":
             base_amt = flt(rate_data.get("base_amount", 0))
             base_qty = flt(rate_data.get("base_quantity", 1))
             additional_qty = max(0, qty - base_qty)
-            detail = f"Base: {base_amt} + (Additional Qty: {additional_qty} × Rate: {rate}) = {calc_base}"
+            detail = f"Base Plus Additional: Base {base_amt} {currency} + ({additional_qty} {unit_suffix} × {rate} {currency}) = {calc_base} {currency}"
         elif method == "First Plus Additional":
             minimum_quantity = flt(rate_data.get("minimum_quantity", 0))
             if qty <= minimum_quantity:
-                detail = f"First {minimum_quantity} @ {rate}; Qty: {qty} = {calc_base}"
+                detail = f"First Plus Additional: First {minimum_quantity} @ {rate} {currency}; Qty {qty} = {calc_base} {currency}"
             else:
                 additional_qty = qty - minimum_quantity
-                detail = f"First {minimum_quantity} @ {rate}; Additional {additional_qty} × {rate} = {calc_base}"
+                detail = f"First Plus Additional: First {minimum_quantity} @ {rate}; Additional {additional_qty} × {rate} {currency} = {calc_base} {currency}"
         elif method == "Percentage":
             base_amt = flt(rate_data.get("base_amount", 0))
-            detail = f"Base: {base_amt} × {rate}% = {calc_base}"
+            detail = f"Percentage: Base {base_amt} {currency} × {rate}% = {calc_base} {currency}"
         else:
-            detail = f"Calculated: {amount}"
+            detail = f"Calculated: {amount} {currency}"
 
         # Append min/max when applied
         suffixes = []
         if min_charge > 0 and calc_base < min_charge and amount == min_charge:
-            suffixes.append(f"Minimum {min_charge} applied")
+            suffixes.append(f"Minimum charge {min_charge} {currency} applied")
         if max_charge > 0 and calc_base > max_charge and amount == max_charge:
-            suffixes.append(f"Maximum {max_charge} applied")
+            suffixes.append(f"Maximum charge {max_charge} {currency} applied")
         if suffixes:
             detail = f"{detail}; {'; '.join(suffixes)}"
         elif amount != calc_base:
-            detail = f"{detail} → {amount}"
+            detail = f"{detail} (final: {amount} {currency})"
 
         return detail
 

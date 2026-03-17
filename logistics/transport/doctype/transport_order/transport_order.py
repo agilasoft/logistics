@@ -1335,6 +1335,12 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         return {"charges": []}
     
     try:
+        # Temporary names (unsaved documents) cannot be fetched
+        if sales_quote.startswith("new-"):
+            return {
+                "error": _("Please save the Sales Quote first before selecting it here."),
+                "charges": []
+            }
         # Verify that the sales_quote exists
         if not frappe.db.exists("Sales Quote", sales_quote):
             return {
@@ -1461,6 +1467,12 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
         return {"charges": []}
     
     try:
+        # Temporary names (unsaved documents) cannot be fetched
+        if one_off_quote.startswith("new-"):
+            return {
+                "error": _("Please save the One-Off Quote first before selecting it here."),
+                "charges": []
+            }
         # Verify that the one_off_quote exists
         if not frappe.db.exists("One-Off Quote", one_off_quote):
             return {
@@ -1677,6 +1689,8 @@ def action_create_transport_job(docname: str):
             "customer": getattr(doc, "customer", None),
             "booking_date": getattr(doc, "booking_date", None),
             "customer_ref_no": getattr(doc, "customer_ref_no", None),
+            "shipper": getattr(doc, "shipper", None),
+            "consignee": getattr(doc, "consignee", None),
             "hazardous": getattr(doc, "hazardous", None),
             "refrigeration": getattr(doc, "reefer", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
@@ -1715,6 +1729,11 @@ def action_create_transport_job(docname: str):
         # ---- Milestones (TO -> TJ) by common fields
         _copy_child_rows_by_common_fields(
             src_doc=doc, src_table_field="milestones", dst_doc=job, dst_table_field="milestones"
+        )
+
+        # ---- Warehouse Items (TO -> TJ) by common fields
+        _copy_child_rows_by_common_fields(
+            src_doc=doc, src_table_field="warehouse_items", dst_doc=job, dst_table_field="warehouse_items"
         )
 
         # Insert now to get a real job name for back-references from Transport Leg

@@ -114,7 +114,7 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 
 - **Charges** – Declaration Order Charges child table
 - **Populate Charges from Sales Quote** – Load charges from linked Sales Quote
-- Supports quantity breaks and weight breaks.
+- Supports quantity breaks and weight breaks (unified calculation engine; revenue and cost calculation methods).
 
 ## 8. Accounts Tab
 

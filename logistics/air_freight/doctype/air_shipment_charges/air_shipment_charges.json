@@ -90,7 +90,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.is_other_service",
    "fieldname": "other_services_section",
    "fieldtype": "Section Break",
@@ -174,7 +173,6 @@
    "label": "Description"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_revenue_cost",
    "fieldtype": "Section Break",
    "label": "Revenue & Cost"
@@ -509,7 +507,6 @@
    "options": "Tariff"
   },
   {
-   "collapsible": 1,
    "fieldname": "weight_breaks_section",
    "fieldtype": "Section Break",
    "label": "Weight Breaks"
@@ -519,7 +516,7 @@
  "in_create": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-16 08:58:57.959832",
+ "modified": "2026-03-17 11:20:08.730234",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment Charges",

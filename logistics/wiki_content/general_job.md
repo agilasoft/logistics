@@ -33,9 +33,14 @@ The Documents tab allows you to track required documents. Use **Populate from Te
 
 General Job links to child jobs (Air Shipment, Sea Shipment, etc.) for end-to-end visibility.
 
+### 3.3 Profitability (from GL)
+
+When **Job Costing Number** and **Company** are set, the form displays a Profitability section with revenue, cost, gross profit, WIP, and accrual from the General Ledger. See [Job Management Module](welcome/job-management-module).
+
 ## 4. Related Topics
 
 - [Sea Shipment](welcome/sea-shipment)
 - [Air Shipment](welcome/air-shipment)
 - [Transport Job](welcome/transport-job)
 - [Document Management](welcome/document-management)
+- [Job Management Module](welcome/job-management-module)

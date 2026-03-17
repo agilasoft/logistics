@@ -18,7 +18,7 @@ To access: **Home > Sea Freight > Sea Booking**
 - **Entry Type** – Direct, Transit, Transshipment
 - **Cutoffs** – Cargo, Document, VGM, Gate-In, Empty Return
 - **Packages** – Weight, volume, chargeable
-- **Charges** – Selling and cost charges with weight/qty breaks
+- **Charges** – Selling and cost charges with weight/qty breaks (unified calculation engine; revenue and cost calculation methods)
 - **Documents** – Job Document child table; Populate from Template
 
 ## 3. Workflow

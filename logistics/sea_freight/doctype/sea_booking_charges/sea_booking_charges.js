@@ -51,11 +51,11 @@ function _calculate_charge_row(frm, cdt, cdn) {
 				if (r.message.cost_quantity != null) {
 					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
 				}
-				if (row.revenue_calc_notes !== undefined) {
-					frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes);
+				if ("revenue_calc_notes" in r.message) {
+					frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
 				}
-				if (row.cost_calc_notes !== undefined) {
-					frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes);
+				if ("cost_calc_notes" in r.message) {
+					frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
 				}
 			}
 		}

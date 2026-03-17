@@ -70,7 +70,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.is_other_service",
    "fieldname": "other_services_section",
    "fieldtype": "Section Break",
@@ -175,7 +174,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_calc",
    "fieldtype": "Section Break",
    "label": "Calculation"
@@ -316,7 +314,6 @@
    "precision": "2"
   },
   {
-   "collapsible": 1,
    "fieldname": "calculation_notes_section",
    "fieldtype": "Section Break",
    "label": "Calculation Notes"
@@ -385,7 +382,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-16 08:53:23.252304",
+ "modified": "2026-03-17 11:19:39.854391",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Charges",

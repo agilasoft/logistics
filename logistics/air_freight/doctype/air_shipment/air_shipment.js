@@ -47,10 +47,10 @@ function _load_profitability_html(frm) {
 		}
 	}
 	if (!frm.doc.job_costing_number || !frm.doc.company) {
-		set_html("<p class='text-muted'>" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
+		set_html("<p class=\"text-muted\">" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
 		return;
 	}
-	set_html("<p class='text-muted'><i class='fa fa-spinner fa-spin'></i> " + __("Loading profitability...") + "</p>");
+	set_html("<p class=\"text-muted\"><i class=\"fa fa-spinner fa-spin\"></i> " + __("Loading profitability...") + "</p>");
 	frappe.call({
 		method: 'logistics.job_management.api.get_job_profitability_html',
 		args: {
@@ -63,7 +63,7 @@ function _load_profitability_html(frm) {
 				try {
 					if (r._server_messages) msg = JSON.parse(r._server_messages).message || msg;
 				} catch (e) {}
-				set_html("<p class='text-danger'>" + __("Error loading profitability: ") + msg + "</p>");
+				set_html("<p class=\"text-danger\">" + __("Error loading profitability: ") + msg + "</p>");
 			} else {
 				set_html(r.message != null ? String(r.message) : '');
 			}
@@ -297,17 +297,41 @@ frappe.ui.form.on('Air Shipment', {
 					}, __('Create'));
 				}
 				frm.add_custom_button(__('Inbound Order'), function() {
-					frappe.call({
-						method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
-						args: { air_shipment_name: frm.doc.name },
-						freeze: true,
-						freeze_message: __('Creating Inbound Order...'),
-						callback: function(r) {
-							if (r.message && r.message.inbound_order) {
-								frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+					// Check if warehouse_items is empty
+					const warehouse_items = frm.doc.warehouse_items || [];
+					if (warehouse_items.length === 0) {
+						frappe.confirm(
+							__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
+							function() {
+								// User confirmed - proceed with conversion
+								frappe.call({
+									method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+									args: { air_shipment_name: frm.doc.name },
+									freeze: true,
+									freeze_message: __('Creating Inbound Order...'),
+									callback: function(r) {
+										if (r.message && r.message.inbound_order) {
+											frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+										}
+									}
+								});
 							}
-						}
-					});
+							// User cancelled - do nothing
+						);
+					} else {
+						// warehouse_items exist - proceed directly
+						frappe.call({
+							method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+							args: { air_shipment_name: frm.doc.name },
+							freeze: true,
+							freeze_message: __('Creating Inbound Order...'),
+							callback: function(r) {
+								if (r.message && r.message.inbound_order) {
+									frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+								}
+							}
+						});
+					}
 				}, __('Create'));
 				frm.add_custom_button(__('Transport Order'), function() {
 					frappe.call({

@@ -68,12 +68,12 @@ logistics.profitability.load_profitability_html = function(frm) {
 	}
 
 	if (!frm.doc.job_costing_number || !frm.doc.company) {
-		set_html("<p class='text-muted'>" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
+		set_html("<p class=\"text-muted\">" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
 		return;
 	}
 
 	// Show loading state immediately so we know the section can display content
-	set_html("<p class='text-muted'><i class='fa fa-spinner fa-spin'></i> " + __("Loading profitability...") + "</p>");
+	set_html("<p class=\"text-muted\"><i class=\"fa fa-spinner fa-spin\"></i> " + __("Loading profitability...") + "</p>");
 
 	frappe.call({
 		method: "logistics.job_management.api.get_job_profitability_html",
@@ -88,7 +88,7 @@ logistics.profitability.load_profitability_html = function(frm) {
 				try {
 					if (r._server_messages) errMsg = JSON.parse(r._server_messages).message || errMsg;
 				} catch (e) { /* ignore */ }
-				html = "<p class='text-danger'>" + __("Error loading profitability: ") + errMsg + "</p>";
+				html = "<p class=\"text-danger\">" + __("Error loading profitability: ") + errMsg + "</p>";
 			} else {
 				html = (r.message != null && r.message !== undefined) ? String(r.message) : "";
 			}

@@ -20,6 +20,25 @@ def _sync_quote_and_sales_quote(doc):
 		doc.quote = doc.sales_quote
 
 
+# Fields to copy from Air Booking Charges to Air Shipment Charges (all copyable data fields)
+_AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
+	"item_code", "item_name", "charge_type", "charge_category", "description",
+	"bill_to", "estimated_revenue", "use_tariff_in_revenue", "revenue_tariff",
+	"pay_to", "estimated_cost", "use_tariff_in_cost", "cost_tariff",
+	"revenue_calculation_method", "quantity", "currency", "rate", "unit_type",
+	"minimum_quantity", "minimum_unit_rate", "minimum_charge", "maximum_charge",
+	"base_amount", "base_quantity",
+	"revenue_calc_notes",
+	"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency",
+	"unit_cost", "cost_unit_type",
+	"cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
+	"cost_maximum_charge", "cost_base_amount", "cost_base_quantity",
+	"cost_calc_notes",
+	"other_service_type", "date_started", "date_ended",
+	"other_service_reference_no", "other_service_notes",
+)
+
+
 def _normalize_packing_group_for_shipment(value):
 	"""Air Shipment Packages.packing_group is Select I/II/III; only pass allowed values."""
 	if value is None:
@@ -1311,7 +1330,7 @@ class AirBooking(Document):
 				f"calculation_method: '{calculation_method}' (original: '{sqaf_calc_method}'), uom: '{normalized_uom}'"
 			)
 			
-			# Map the fields
+			# Map the fields (use uom for Air Booking Charges; unit_of_measure for legacy)
 			charge_data = {
 				"item_code": sqaf_record.item_code,
 				"item_name": sqaf_record.item_name or item_doc.item_name,
@@ -1321,17 +1340,22 @@ class AirBooking(Document):
 				"rate": sqaf_record.unit_rate or 0,
 				"currency": sqaf_record.currency or default_currency,
 				"quantity": quantity,
+				"uom": normalized_uom,
 				"unit_of_measure": normalized_uom,
-				"revenue_calculation_method": calculation_method,
+				"unit_type": sqaf_record.get("unit_type"),
 				"billing_status": "To Bill",
 				"bill_to": getattr(sqaf_record, "bill_to", None),
 			}
 			
-			# Add minimum/maximum charge if available
-			if sqaf_record.minimum_charge:
-				charge_data["minimum_charge"] = sqaf_record.minimum_charge
-			if sqaf_record.maximum_charge:
-				charge_data["maximum_charge"] = sqaf_record.maximum_charge
+			# Add minimum/maximum/quantity if available
+			if sqaf_record.get("minimum_quantity") is not None:
+				charge_data["minimum_quantity"] = sqaf_record.get("minimum_quantity")
+			if sqaf_record.get("minimum_charge") is not None:
+				charge_data["minimum_charge"] = sqaf_record.get("minimum_charge")
+			if sqaf_record.get("maximum_charge") is not None:
+				charge_data["maximum_charge"] = sqaf_record.get("maximum_charge")
+			if sqaf_record.get("base_amount") is not None:
+				charge_data["base_amount"] = sqaf_record.get("base_amount")
 			
 			# Log the final charge_data calculation_method
 			frappe.logger().info(
@@ -1707,35 +1731,30 @@ class AirBooking(Document):
 						"emergency_contact_phone": getattr(package, "emergency_contact_phone", None),
 					})
 			
+			# Copy warehouse_items if they exist
+			if hasattr(self, 'warehouse_items') and self.warehouse_items:
+				for warehouse_item in self.warehouse_items:
+					air_shipment.append("warehouse_items", {
+						"item": getattr(warehouse_item, "item", None),
+						"item_name": getattr(warehouse_item, "item_name", None),
+						"uom": getattr(warehouse_item, "uom", None),
+						"quantity": getattr(warehouse_item, "quantity", None),
+					})
+			
+			# Fetch charges from Sales Quote if Air Booking has quote but no charges
+			if self.sales_quote and (not hasattr(self, 'charges') or not self.charges):
+				self._populate_charges_from_sales_quote(self.sales_quote)
+				self._normalize_charges_before_save()
+
 			# Copy charges (from Air Booking Charges to Air Shipment Charges)
 			if hasattr(self, 'charges') and self.charges:
 				for charge in self.charges:
-					# Safely get UOM - AirBookingCharges may use 'unit_of_measure' but AirShipmentCharges uses 'uom'
-					# Use getattr to safely access attributes that may not exist in the schema
-					uom_value = getattr(charge, 'unit_of_measure', None) or getattr(charge, 'uom', None)
-					
-					air_shipment.append("charges", {
-						"item_code": getattr(charge, 'item_code', None),
-						"item_name": getattr(charge, 'item_name', None),
-						"charge_type": getattr(charge, 'charge_type', None),
-						"charge_category": getattr(charge, 'charge_category', None),
-						"description": getattr(charge, 'description', None),
-						"revenue_calculation_method": getattr(charge, 'revenue_calculation_method', None),
-						"rate": getattr(charge, 'rate', None),
-						"currency": getattr(charge, 'currency', None),
-						"quantity": getattr(charge, 'quantity', None),
-						"uom": uom_value,  # AirShipmentCharges uses 'uom', not 'unit_of_measure'
-						"discount_percentage": getattr(charge, 'discount_percentage', None),
-						"base_amount": getattr(charge, 'base_amount', None),
-						"discount_amount": getattr(charge, 'discount_amount', None),
-						"tax_amount": getattr(charge, 'tax_amount', None),
-						"surcharge_amount": getattr(charge, 'surcharge_amount', None),
-						"total_amount": getattr(charge, 'total_amount', None),
-						"billing_status": getattr(charge, 'billing_status', None),
-						"invoice_reference": getattr(charge, 'invoice_reference', None),
-						"bill_to": getattr(charge, 'bill_to', None),
-						"pay_to": getattr(charge, 'pay_to', None),
-					})
+					charge_row = {f: getattr(charge, f, None) for f in _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS}
+					# UOM: Air Booking may use unit_of_measure, Air Shipment uses uom
+					charge_row["uom"] = getattr(charge, 'unit_of_measure', None) or getattr(charge, 'uom', None)
+					# sales_quote_link: from parent or charge
+					charge_row["sales_quote_link"] = self.sales_quote or getattr(charge, 'sales_quote_link', None)
+					air_shipment.append("charges", charge_row)
 			
 			# Copy routing legs (from Air Booking Routing Leg to Air Shipment Routing Leg)
 			# Note: Order is determined by idx (automatically set by Frappe), not leg_order

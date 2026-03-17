@@ -38,6 +38,17 @@ function _load_documents_html(frm) {
 	});
 }
 
+function _populate_shipper_consignee_from_shipment(frm, doctype) {
+	var shipment_name = doctype === 'Air Shipment' ? frm.doc.air_shipment : frm.doc.sea_shipment;
+	if (!shipment_name) return;
+	frappe.db.get_value(doctype, shipment_name, ['shipper', 'consignee'], function(r) {
+		if (r && (r.shipper || r.consignee)) {
+			if (!frm.doc.shipper && r.shipper) frm.set_value('shipper', r.shipper);
+			if (!frm.doc.consignee && r.consignee) frm.set_value('consignee', r.consignee);
+		}
+	});
+}
+
 // Helper function to apply load_type filters (same pattern as vehicle_type)
 function apply_load_type_filters(frm, preserve_existing_value) {
 	// Filter load types based on transport job type and boolean columns
@@ -364,48 +375,66 @@ frappe.ui.form.on('Transport Job', {
 		// Create Inbound Order from Transport Job
 		if (!frm.is_new() && frm.doc.name) {
 			frm.add_custom_button(__('Inbound Order'), function() {
-				frappe.call({
-					method: 'logistics.utils.module_integration.create_inbound_order_from_transport_job',
-					args: { transport_job_name: frm.doc.name },
-					freeze: true,
-					freeze_message: __('Creating Inbound Order...'),
-					callback: function(r) {
-						if (r.exc) {
-							// Show error message if exception occurred
+				// Check if warehouse_items is empty
+				const warehouse_items = frm.doc.warehouse_items || [];
+				const create_inbound_order = function() {
+					frappe.call({
+						method: 'logistics.utils.module_integration.create_inbound_order_from_transport_job',
+						args: { transport_job_name: frm.doc.name },
+						freeze: true,
+						freeze_message: __('Creating Inbound Order...'),
+						callback: function(r) {
+							if (r.exc) {
+								// Show error message if exception occurred
+								frappe.msgprint({
+									title: __('Error'),
+									message: r.exc || __('An error occurred while creating Inbound Order. Please check the error log for details.'),
+									indicator: 'red'
+								});
+								return;
+							}
+							if (r.message && r.message.inbound_order) {
+								frappe.show_alert({
+									message: r.message.message || __('Inbound Order {0} created successfully', [r.message.inbound_order]),
+									indicator: 'green'
+								}, 5);
+								setTimeout(function() {
+									frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+								}, 100);
+							} else {
+								// Handle case where response doesn't have expected structure
+								frappe.msgprint({
+									title: __('Error'),
+									message: __('Unexpected response from server. Please check the error log for details.'),
+									indicator: 'red'
+								});
+							}
+						},
+						error: function(r) {
+							// Handle server-side errors
+							const error_msg = (r && r.message) ? (typeof r.message === 'string' ? r.message : r.message.message || r.message.exc || '') : __('Unknown error occurred');
 							frappe.msgprint({
-								title: __('Error'),
-								message: r.exc || __('An error occurred while creating Inbound Order. Please check the error log for details.'),
+								title: __('Error Creating Inbound Order'),
+								message: error_msg,
 								indicator: 'red'
 							});
-							return;
 						}
-						if (r.message && r.message.inbound_order) {
-							frappe.show_alert({
-								message: r.message.message || __('Inbound Order {0} created successfully', [r.message.inbound_order]),
-								indicator: 'green'
-							}, 5);
-							setTimeout(function() {
-								frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-							}, 100);
-						} else {
-							// Handle case where response doesn't have expected structure
-							frappe.msgprint({
-								title: __('Error'),
-								message: __('Unexpected response from server. Please check the error log for details.'),
-								indicator: 'red'
-							});
+					});
+				};
+				
+				if (warehouse_items.length === 0) {
+					frappe.confirm(
+						__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
+						function() {
+							// User confirmed - proceed with conversion
+							create_inbound_order();
 						}
-					},
-					error: function(r) {
-						// Handle server-side errors
-						const error_msg = (r && r.message) ? (typeof r.message === 'string' ? r.message : r.message.message || r.message.exc || '') : __('Unknown error occurred');
-						frappe.msgprint({
-							title: __('Error Creating Inbound Order'),
-							message: error_msg,
-							indicator: 'red'
-						});
-					}
-				});
+						// User cancelled - do nothing
+					);
+				} else {
+					// warehouse_items exist - proceed directly
+					create_inbound_order();
+				}
 			}, __('Create'));
 		}
 
@@ -759,6 +788,13 @@ frappe.ui.form.on('Transport Job', {
 				});
 			});
 		}
+	},
+
+	air_shipment: function(frm) {
+		_populate_shipper_consignee_from_shipment(frm, 'Air Shipment');
+	},
+	sea_shipment: function(frm) {
+		_populate_shipper_consignee_from_shipment(frm, 'Sea Shipment');
 	},
 
 	status: function(frm) {
@@ -1267,14 +1303,22 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	fetch_scheduled_date_from_transport_order: function(frm) {
-		// Fetch scheduled_date from Transport Order
+		// Fetch scheduled_date, shipper, consignee from Transport Order
 		if (!frm.doc.transport_order) {
 			return;
 		}
 		
-		frappe.db.get_value('Transport Order', frm.doc.transport_order, 'scheduled_date', (r) => {
-			if (r && r.scheduled_date && !frm.doc.scheduled_date) {
-				frm.set_value('scheduled_date', r.scheduled_date);
+		frappe.db.get_value('Transport Order', frm.doc.transport_order, ['scheduled_date', 'shipper', 'consignee'], (r) => {
+			if (r) {
+				if (r.scheduled_date && !frm.doc.scheduled_date) {
+					frm.set_value('scheduled_date', r.scheduled_date);
+				}
+				if (r.shipper && !frm.doc.shipper) {
+					frm.set_value('shipper', r.shipper);
+				}
+				if (r.consignee && !frm.doc.consignee) {
+					frm.set_value('consignee', r.consignee);
+				}
 			}
 		});
 	},

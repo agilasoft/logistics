@@ -32,6 +32,10 @@
   "entry_type",
   "service_level",
   "contains_dangerous_goods",
+  "section_break_consolidation",
+  "consolidation_reference",
+  "column_break_consolidation",
+  "consolidation_status",
   "section_break_booking_control",
   "booking_party",
   "controlling_party",
@@ -72,6 +76,8 @@
   "routing_legs",
   "packages_section",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "override_volume_weight",
@@ -103,9 +109,7 @@
   "column_break_mzhi",
   "notify_party_address",
   "charges_tab",
-  "sales_quote",
-  "billing_company",
-  "other_services_section",
+  "charges_section",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
@@ -144,12 +148,16 @@
   "recognized_revenue_amount",
   "revenue_reversal_date",
   "accounts_tab",
+  "section_break_vztz",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "job_costing_number",
   "project",
+  "column_break_vzlm",
+  "sales_quote",
+  "billing_company",
   "recognition_section",
   "wip_recognition_enabled",
   "wip_recognition_date_basis",
@@ -539,6 +547,30 @@
    "fieldname": "dg_emergency_email",
    "fieldtype": "Data",
    "label": "DG Emergency Email"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_consolidation",
+   "fieldtype": "Section Break",
+   "label": "Consolidation"
+  },
+  {
+   "fieldname": "consolidation_reference",
+   "fieldtype": "Link",
+   "label": "Consolidation Reference",
+   "options": "Air Consolidation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_consolidation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consolidation_status",
+   "fieldtype": "Select",
+   "label": "Consolidation Status",
+   "options": "\nPending\nAccepted\nIn Transit\nDelivered\nException",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -1316,13 +1348,6 @@
   },
   {
    "collapsible": 1,
-   "description": "Add charge rows for auxiliary/incidental services and check 'Other Services' on each row.",
-   "fieldname": "other_services_section",
-   "fieldtype": "Section Break",
-   "label": "Other Services"
-  },
-  {
-   "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
    "label": "Notes"
@@ -1554,6 +1579,18 @@
    "options": "Air Shipment Packages"
   },
   {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
+  },
+  {
    "fieldname": "dashboard_tab",
    "fieldtype": "Tab Break",
    "label": "Dashboard"
@@ -1719,6 +1756,19 @@
   {
    "fieldname": "column_break_dbui",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_vztz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_vzlm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
   }
  ],
  "grid_page_length": 50,
@@ -1731,7 +1781,7 @@
    "link_fieldname": "job_costing_number"
   }
  ],
- "modified": "2026-03-09 13:56:48.433266",
+ "modified": "2026-03-17 11:13:09.140293",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

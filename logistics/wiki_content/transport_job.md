@@ -68,6 +68,10 @@ Link a Transport Job to a [Transport Consolidation](welcome/transport-consolidat
 
 Carbon emissions are calculated automatically based on distance, weight, and emission factors from Transport Settings.
 
+### 3.7 Profitability (from GL)
+
+When **Job Costing Number** and **Company** are set, the form displays a Profitability section with revenue, cost, gross profit, WIP, and accrual from the General Ledger. See [Job Management Module](welcome/job-management-module).
+
 ## 4. Related Topics
 
 - [Transport Order](welcome/transport-order)
@@ -76,3 +80,4 @@ Carbon emissions are calculated automatically based on distance, weight, and emi
 - [Proof of Delivery](welcome/proof-of-delivery)
 - [Document Management](welcome/document-management)
 - [Milestone Tracking](welcome/milestone-tracking)
+- [Job Management Module](welcome/job-management-module)

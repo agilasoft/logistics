@@ -79,6 +79,8 @@
   "routing_legs",
   "packages_section",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "containers_section",
   "containers",
   "section_break_mene",
@@ -745,6 +747,18 @@
    "fieldname": "packages",
    "fieldtype": "Table",
    "options": "Sea Freight Packages"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
   },
   {
    "fieldname": "recognition_date",

@@ -73,6 +73,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Air Shipment",
+   "link_filters": "[[\"Air Shipment\",\"origin_port\",\"=\",\"eval:parent.origin_airport\"],[\"Air Shipment\",\"destination_port\",\"=\",\"eval:parent.destination_airport\"]]",
    "options": "Air Shipment",
    "reqd": 1
   },

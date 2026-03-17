@@ -280,6 +280,8 @@ def create_transport_order_from_air_shipment(air_shipment_name: str, routing_leg
 	order = frappe.new_doc("Transport Order")
 	order.air_shipment = air_shipment_name
 	order.customer = shipment.local_customer
+	order.shipper = getattr(shipment, "shipper", None)
+	order.consignee = getattr(shipment, "consignee", None)
 	order.booking_date = shipment.booking_date or frappe.utils.today()
 	order.scheduled_date = shipment.eta or shipment.etd or shipment.booking_date or frappe.utils.today()
 	order.location_type = "UNLOCO"
@@ -330,6 +332,8 @@ def create_transport_order_from_sea_shipment(sea_shipment_name: str, routing_leg
 	order = frappe.new_doc("Transport Order")
 	order.sea_shipment = sea_shipment_name
 	order.customer = shipment.local_customer
+	order.shipper = getattr(shipment, "shipper", None)
+	order.consignee = getattr(shipment, "consignee", None)
 	order.booking_date = shipment.booking_date or frappe.utils.today()
 	order.scheduled_date = shipment.eta or shipment.etd or shipment.booking_date or frappe.utils.today()
 	order.location_type = "UNLOCO"
@@ -529,6 +533,21 @@ def _get_default_warehouse_item(customer=None):
 
 def _copy_shipment_packages_to_inbound_order(shipment, order):
 	"""Copy packages from Air Shipment to Inbound Order items. Inbound Order Item requires item (Warehouse Item)."""
+	# Check if warehouse_items exist first
+	warehouse_items = getattr(shipment, "warehouse_items", []) or []
+	if warehouse_items:
+		# Use warehouse_items to populate inbound order items
+		for wi in warehouse_items:
+			item = getattr(wi, "item", None)
+			if item:
+				order.append("items", {
+					"item": item,
+					"quantity": getattr(wi, "quantity", 1) or 1,
+					"uom": getattr(wi, "uom", None),
+				})
+		return
+	
+	# Fall back to packages with default item
 	packages = getattr(shipment, "packages", []) or []
 	default_item = _get_default_warehouse_item(getattr(shipment, "local_customer", None))
 	for pkg in packages:
@@ -548,6 +567,21 @@ def _copy_shipment_packages_to_inbound_order(shipment, order):
 
 def _copy_sea_packages_to_inbound_order(shipment, order):
 	"""Copy packages from Sea Shipment to Inbound Order items."""
+	# Check if warehouse_items exist first
+	warehouse_items = getattr(shipment, "warehouse_items", []) or []
+	if warehouse_items:
+		# Use warehouse_items to populate inbound order items
+		for wi in warehouse_items:
+			item = getattr(wi, "item", None)
+			if item:
+				order.append("items", {
+					"item": item,
+					"quantity": getattr(wi, "quantity", 1) or 1,
+					"uom": getattr(wi, "uom", None),
+				})
+		return
+	
+	# Fall back to packages with default item
 	packages = getattr(shipment, "packages", []) or []
 	default_item = _get_default_warehouse_item(getattr(shipment, "local_customer", None))
 	for pkg in packages:
@@ -567,6 +601,21 @@ def _copy_sea_packages_to_inbound_order(shipment, order):
 def _copy_transport_packages_to_inbound_order(job, order):
 	"""Copy packages from Transport Job to Inbound Order items."""
 	from frappe import _
+	# Check if warehouse_items exist first
+	warehouse_items = getattr(job, "warehouse_items", []) or []
+	if warehouse_items:
+		# Use warehouse_items to populate inbound order items
+		for wi in warehouse_items:
+			item = getattr(wi, "item", None)
+			if item:
+				order.append("items", {
+					"item": item,
+					"quantity": getattr(wi, "quantity", 1) or 1,
+					"uom": getattr(wi, "uom", None),
+				})
+		return
+	
+	# Fall back to packages with default item
 	packages = getattr(job, "packages", []) or []
 	default_item = _get_default_warehouse_item(getattr(job, "customer", None))
 	if not default_item:

@@ -14,6 +14,8 @@
   "booking_date",
   "customer",
   "customer_ref_no",
+  "shipper",
+  "consignee",
   "scheduled_date",
   "column_break_5",
   "transport_job_type",
@@ -35,6 +37,8 @@
   "legs",
   "section_break_jozr",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "total_volume",
@@ -175,6 +179,18 @@
    "label": "Customer Ref No"
   },
   {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
    "fieldname": "column_break_5",
    "fieldtype": "Column Break"
   },
@@ -210,6 +226,18 @@
    "fieldtype": "Table",
    "label": "Packages",
    "options": "Transport Job Package"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
   },
   {
    "collapsible": 1,

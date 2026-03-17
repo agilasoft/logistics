@@ -10,6 +10,7 @@ class AirConsolidationPackages(Document):
     )
     def validate(self):
         """Validate Air Consolidation Packages document"""
+        self.validate_air_freight_job_route()
         self.validate_package_data()
         self.calculate_total_charge()
         self.validate_dangerous_goods()
@@ -18,6 +19,33 @@ class AirConsolidationPackages(Document):
         """Actions before saving the document"""
         self.update_consolidation_status()
         self.calculate_cost_allocation()
+    
+    def validate_air_freight_job_route(self):
+        """Validate Air Shipment origin/destination match consolidation header"""
+        if not self.air_freight_job or not self.parent:
+            return
+        consolidation = frappe.get_cached_value(
+            "Air Consolidation", self.parent,
+            ["origin_airport", "destination_airport"]
+        )
+        if not consolidation:
+            return
+        origin_airport, destination_airport = consolidation
+        job = frappe.get_cached_value(
+            "Air Shipment", self.air_freight_job,
+            ["origin_port", "destination_port"]
+        )
+        if not job:
+            return
+        origin_port, destination_port = job
+        if origin_airport and origin_port != origin_airport:
+            frappe.throw(_(
+                "Air Shipment {0} origin port ({1}) does not match consolidation origin ({2})."
+            ).format(self.air_freight_job, origin_port or "-", origin_airport))
+        if destination_airport and destination_port != destination_airport:
+            frappe.throw(_(
+                "Air Shipment {0} destination port ({1}) does not match consolidation destination ({2})."
+            ).format(self.air_freight_job, destination_port or "-", destination_airport))
     
     def validate_package_data(self):
         """Validate package data integrity"""

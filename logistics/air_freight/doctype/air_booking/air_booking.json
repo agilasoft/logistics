@@ -62,6 +62,8 @@
   "routing_legs",
   "packages_section",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "column_break_summary",
   "override_volume_weight",
@@ -467,6 +469,18 @@
    "fieldtype": "Table",
    "label": "Packages",
    "options": "Air Booking Packages"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
   },
   {
    "fieldname": "routing_section",

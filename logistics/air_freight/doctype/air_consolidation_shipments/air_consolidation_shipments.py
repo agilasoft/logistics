@@ -37,14 +37,37 @@ class AirConsolidationShipments(Document):
         if existing_consolidation:
             frappe.throw(_("Air Shipment {0} is already part of consolidation {1}".format(
                 self.air_freight_job, existing_consolidation)))
+        
+        # Validate origin and destination match consolidation header
+        if self.parent:
+            consolidation = frappe.get_cached_value(
+                "Air Consolidation", self.parent,
+                ["origin_airport", "destination_airport"]
+            )
+            if consolidation:
+                origin_airport, destination_airport = consolidation
+                job = frappe.get_cached_value(
+                    "Air Shipment", self.air_freight_job,
+                    ["origin_port", "destination_port"]
+                )
+                if job:
+                    origin_port, destination_port = job
+                    if origin_airport and origin_port != origin_airport:
+                        frappe.throw(_(
+                            "Air Shipment {0} origin port ({1}) does not match consolidation origin ({2})."
+                        ).format(self.air_freight_job, origin_port or "-", origin_airport))
+                    if destination_airport and destination_port != destination_airport:
+                        frappe.throw(_(
+                            "Air Shipment {0} destination port ({1}) does not match consolidation destination ({2})."
+                        ).format(self.air_freight_job, destination_port or "-", destination_airport))
     
     def update_job_data(self):
         """Update data from the Air Shipment"""
         if self.air_freight_job:
             job = frappe.get_doc("Air Shipment", self.air_freight_job)
             
-            # Update basic information
-            self.job_status = job.status
+            # Update basic information (Air Shipment uses docstatus, not status)
+            self.job_status = "Submitted" if job.docstatus == 1 else "Cancelled" if job.docstatus == 2 else "Draft"
             self.booking_date = job.booking_date
             self.shipper = job.shipper
             self.consignee = job.consignee

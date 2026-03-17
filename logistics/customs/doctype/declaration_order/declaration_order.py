@@ -18,13 +18,12 @@ class DeclarationOrder(Document):
 			# Section 1: Order details (header format) with Exporter | Importer
 			status = self.status or "Draft"
 			status_badge_html = f'<span class="dash-status-badge {(status or "draft").lower().replace(" ", "_")}">{frappe.utils.escape_html(status)}</span>'
-			# Format value with correct currency from commercial invoice
+			# Format value with correct currency code from commercial invoice
 			currency = self.inv_currency or frappe.db.get_default("currency") or "PHP"
 			try:
-				value_str = frappe.format_value(
-					self.inv_total_amount or 0, 
-					df=dict(fieldtype="Currency", options=currency)
-				)
+				# Format number and append currency code instead of using symbol
+				amount = flt(self.inv_total_amount or 0)
+				value_str = f"{frappe.utils.fmt_money(amount, precision=2)} {currency}"
 			except Exception:
 				value_str = str(self.inv_total_amount) if self.inv_total_amount is not None else "—"
 			header_items = [
@@ -371,6 +370,9 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 	if not sales_quote:
 		return {"charges": [], "charges_count": 0}
 	try:
+		# Temporary names (unsaved documents) cannot be fetched
+		if sales_quote.startswith("new-"):
+			return {"charges": [], "charges_count": 0, "error": _("Please save the Sales Quote first before selecting it here.")}
 		if not frappe.db.exists("Sales Quote", sales_quote):
 			return {"charges": [], "error": _("Sales Quote {0} does not exist.").format(sales_quote)}
 		sq = frappe.get_doc("Sales Quote", sales_quote)

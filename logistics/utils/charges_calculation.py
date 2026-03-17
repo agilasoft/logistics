@@ -69,6 +69,42 @@ def _get_field(doc: Any, *field_names: str, default=None):
     return default
 
 
+def _sum_distance_from_legs(parent_doc: Any) -> float:
+    """Sum distance from legs/routing_legs when parent has no total_distance field."""
+    total = 0.0
+    legs = (
+        getattr(parent_doc, "legs", None)
+        or getattr(parent_doc, "routing_legs", None)
+        or []
+    )
+    for leg in legs:
+        val = _get_field(
+            leg,
+            "distance_km", "actual_distance_km", "route_distance_km",
+            "distance", "total_distance"
+        )
+        if val is not None and val != "":
+            total += flt(val)
+        else:
+            # Transport Job Legs links to Transport Leg - fetch distance from linked doc
+            transport_leg = getattr(leg, "transport_leg", None)
+            if transport_leg:
+                try:
+                    tl = frappe.db.get_value(
+                        "Transport Leg",
+                        transport_leg,
+                        ["actual_distance_km", "distance_km", "route_distance_km"],
+                        as_dict=True,
+                    )
+                    if tl:
+                        val = tl.get("actual_distance_km") or tl.get("distance_km") or tl.get("route_distance_km")
+                        if val is not None:
+                            total += flt(val)
+                except Exception:
+                    pass
+    return total
+
+
 def get_charge_bill_to_customers(charge: Any) -> List[str]:
     """
     Return list of Customer names/IDs this charge is billable to.
@@ -81,7 +117,11 @@ def get_charge_bill_to_customers(charge: Any) -> List[str]:
 
 
 def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
-    """Extract actual quantity data from parent document for charge calculation."""
+    """Extract quantity data from parent document for charge calculation.
+
+    On Sales Quote: quantity is estimated (weight, volume, etc. from quote header).
+    On Booking/Shipment: quantity is actual (total_weight, chargeable_weight, etc. from packages/actuals).
+    """
     if not parent_doc:
         return {
             "actual_quantity": 0,
@@ -98,21 +138,36 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
     fields = PARENT_QUANTITY_FIELDS.get(parent_doctype, ())
 
     weight = flt(
-        _get_field(parent_doc, "total_weight", "chargeable_weight", "weight") or 0
+        _get_field(
+            parent_doc,
+            "total_weight", "chargeable_weight", "weight", "chargeable",
+            "air_weight", "sea_weight", "transport_weight"
+        ) or 0
     )
     volume = flt(
-        _get_field(parent_doc, "total_volume") or 0
+        _get_field(
+            parent_doc,
+            "total_volume", "volume",
+            "air_volume", "sea_volume", "transport_volume"
+        ) or 0
     )
     pieces = flt(
-        _get_field(parent_doc, "total_pieces", "total_packages") or 0
+        _get_field(parent_doc, "total_pieces", "total_packages", "pieces") or 0
     )
     if pieces <= 0 and hasattr(parent_doc, "packages") and parent_doc.packages:
         pieces = len(parent_doc.packages)
     distance = flt(
-        _get_field(parent_doc, "total_distance") or 0
+        _get_field(
+            parent_doc,
+            "total_distance", "distance", "transport_distance",
+            "distance_km", "total_distance_km"
+        ) or 0
     )
+    # Sum distance from legs when parent has no total_distance (Transport Order, Transport Job, etc.)
+    if distance <= 0:
+        distance = _sum_distance_from_legs(parent_doc)
     teu = flt(
-        _get_field(parent_doc, "total_teu") or 0
+        _get_field(parent_doc, "total_teu", "teu") or 0
     )
     containers = flt(_get_field(parent_doc, "total_containers") or 0)
     if containers <= 0 and hasattr(parent_doc, "containers") and parent_doc.containers:
@@ -122,7 +177,7 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
     if containers <= 0 and _get_field(parent_doc, "container_no"):
         containers = 1
     operation_time = flt(
-        _get_field(parent_doc, "total_operation_time") or 0
+        _get_field(parent_doc, "total_operation_time", "operation_time", "actual_hours") or 0
     )
 
     return {
@@ -140,7 +195,11 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
 def _get_quantity_for_calculation_method(
     actual_data: Dict, method: str, unit_type: str, is_revenue: bool = True
 ) -> float:
-    """Get quantity from parent actual_data based on revenue_calculation_method / cost_calculation_method and unit_type."""
+    """Get quantity from parent based on calculation method and unit_type.
+
+    Quantity is the estimated value (Sales Quote) or actual value (Booking/Shipment)
+    for the given unit type (weight, volume, pieces, distance, teu, container, etc.).
+    """
     if not method:
         return 0.0
     method = (method or "").strip()
@@ -435,14 +494,17 @@ def _calculate_charge_amount(
         unit_type = _get_field(charge_doc, *COST_UNIT_TYPE_FIELDS) or "Weight"
 
     if not method:
-        result["calc_notes"] = "No calculation method specified"
+        result["calc_notes"] = "Charge calculation: No calculation method specified. Set revenue/cost calculation method."
         return result
 
     if parent_doc is None and getattr(charge_doc, "parent", None):
-        try:
-            parent_doc = frappe.get_doc(charge_doc.parenttype, charge_doc.parent)
-        except Exception:
-            parent_doc = None
+        parent_name = charge_doc.parent
+        # Skip loading parent when it's a temporary name (unsaved document)
+        if parent_name and not str(parent_name).startswith("new-") and parent_name not in ("new", ""):
+            try:
+                parent_doc = frappe.get_doc(charge_doc.parenttype, parent_name)
+            except Exception:
+                parent_doc = None
 
     actual_data = _get_parent_actual_data(charge_doc, parent_doc)
 
@@ -450,6 +512,35 @@ def _calculate_charge_amount(
     derived_qty = _get_quantity_for_calculation_method(
         actual_data, method, unit_type, is_revenue=is_revenue
     )
+
+    # Sales Quote only: use charge row quantity for any unit type when user has entered it
+    parent_is_sales_quote = (
+        (parent_doc and getattr(parent_doc, "doctype", None) == "Sales Quote")
+        or getattr(charge_doc, "parenttype", None) == "Sales Quote"
+    )
+    if parent_is_sales_quote:
+        row_qty = flt(
+            _get_field(charge_doc, "quantity") if is_revenue else _get_field(charge_doc, "cost_quantity")
+        )
+        if row_qty > 0:
+            derived_qty = row_qty
+            ut = (unit_type or "Weight").strip().lower()
+            actual_data["actual_quantity"] = row_qty
+            if ut == "weight":
+                actual_data["actual_weight"] = row_qty
+            elif ut == "volume":
+                actual_data["actual_volume"] = row_qty
+            elif ut in ("piece", "package"):
+                actual_data["actual_pieces"] = row_qty
+            elif ut == "distance":
+                actual_data["actual_distance"] = row_qty
+            elif ut == "teu":
+                actual_data["actual_teu"] = row_qty
+            elif ut == "container":
+                actual_data["actual_containers"] = row_qty
+            elif ut in ("day", "operation time"):
+                actual_data["actual_operation_time"] = row_qty
+
     if is_revenue:
         if getattr(charge_doc, "quantity", None) is None or (
             isinstance(getattr(charge_doc, "quantity", None), (int, float))
@@ -475,7 +566,7 @@ def _calculate_charge_amount(
             record_type,
         )
         if not applicable:
-            result["calc_notes"] = "No weight break rates defined"
+            result["calc_notes"] = "Weight Break: No weight break rates defined for this charge"
             return result
         rate = flt(applicable.get("unit_rate", 0))
         weight = actual_data["actual_weight"]
@@ -487,11 +578,18 @@ def _calculate_charge_amount(
             amount = min_charge
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
-        detail = f"Weight Break: {weight} × {rate} = {calc_base} (Break: {applicable.get('weight_break', 0)})"
+        currency = applicable.get("currency") or getattr(charge_doc, "currency", None) or getattr(charge_doc, "cost_currency", None) or "USD"
+        weight_break = flt(applicable.get("weight_break", 0))
+        detail = (
+            f"Weight Break (Weight): Actual weight {weight} kg ≥ break {weight_break} kg → "
+            f"Rate {rate} {currency}/kg × {weight} kg = {calc_base} {currency}"
+        )
         if min_charge > 0 and calc_base < min_charge and amount == min_charge:
-            detail += f"; Minimum {min_charge} applied"
+            detail += f"; Minimum charge {min_charge} {currency} applied"
         elif max_charge > 0 and calc_base > max_charge and amount == max_charge:
-            detail += f"; Maximum {max_charge} applied"
+            detail += f"; Maximum charge {max_charge} {currency} applied"
+        if amount != calc_base:
+            detail += f" (Final: {amount} {currency})"
         result["amount"] = amount
         result["calc_notes"] = detail
         result["success"] = True
@@ -502,7 +600,7 @@ def _calculate_charge_amount(
         qty = actual_data["actual_pieces"] or actual_data["actual_weight"] or 1
         applicable = _resolve_qty_break_rate(charge_doc, qty, record_type)
         if not applicable:
-            result["calc_notes"] = "No qty break rates defined"
+            result["calc_notes"] = "Qty Break: No qty break rates defined for this charge"
             return result
         rate = flt(applicable.get("unit_rate", 0))
         calc_base = rate * qty
@@ -513,11 +611,18 @@ def _calculate_charge_amount(
             amount = min_charge
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
-        detail = f"Qty Break: {qty} × {rate} = {calc_base} (Break: {applicable.get('qty_break', 0)})"
+        currency = applicable.get("currency") or getattr(charge_doc, "currency", None) or getattr(charge_doc, "cost_currency", None) or "USD"
+        qty_break = flt(applicable.get("qty_break", 0))
+        detail = (
+            f"Qty Break (Piece): Actual qty {qty} pcs ≥ break {qty_break} pcs → "
+            f"Rate {rate} {currency}/pc × {qty} pcs = {calc_base} {currency}"
+        )
         if min_charge > 0 and calc_base < min_charge and amount == min_charge:
-            detail += f"; Minimum {min_charge} applied"
+            detail += f"; Minimum charge {min_charge} {currency} applied"
         elif max_charge > 0 and calc_base > max_charge and amount == max_charge:
-            detail += f"; Maximum {max_charge} applied"
+            detail += f"; Maximum charge {max_charge} {currency} applied"
+        if amount != calc_base:
+            detail += f" (Final: {amount} {currency})"
         result["amount"] = amount
         result["calc_notes"] = detail
         result["success"] = True
@@ -526,18 +631,18 @@ def _calculate_charge_amount(
     # Standard methods via engine
     rate_data = _prepare_rate_data(charge_doc, is_revenue=is_revenue)
     if not rate_data:
-        result["calc_notes"] = "Could not prepare rate data"
+        result["calc_notes"] = "Charge calculation: Could not prepare rate data. Check calculation method and unit type."
         return result
 
     rate = flt(rate_data.get("rate", 0))
     if not rate and rate_data.get("calculation_method") not in ("Fixed Amount", "Flat Rate"):
-        result["calc_notes"] = "No unit rate specified"
+        result["calc_notes"] = "Charge calculation: No unit rate specified. Enter rate for this charge."
         return result
 
     if rate_data.get("calculation_method") == "Percentage":
         base = flt(rate_data.get("base_amount", 0))
         if not base:
-            result["calc_notes"] = "Base Amount is required for Percentage calculation"
+            result["calc_notes"] = "Charge calculation: Base Amount is required for Percentage method. Enter base amount."
             return result
 
     # Use quantity from charge row (already set above from method, or user override)
@@ -562,7 +667,7 @@ def _calculate_charge_amount(
             result["calc_notes"] = res.get("calculation_details", "")
             result["success"] = True
         else:
-            result["calc_notes"] = f"Calculation failed: {res.get('error', 'Unknown error')}"
+            result["calc_notes"] = f"Charge calculation failed: {res.get('error', 'Unknown error')}"
             result["error"] = res.get("error")
     except Exception as e:
         frappe.log_error(f"Charge calculation error: {str(e)}")
@@ -618,7 +723,8 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
         doc.parent = parent
 
         parent_doc = None
-        if parent and parent not in ("new", ""):
+        # Skip loading parent when it's a temporary name (unsaved document)
+        if parent and parent not in ("new", "") and not str(parent).startswith("new-"):
             try:
                 parent_doc = frappe.get_doc(parenttype, parent)
             except Exception:

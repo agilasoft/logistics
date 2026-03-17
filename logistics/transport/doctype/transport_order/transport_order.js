@@ -716,8 +716,26 @@ frappe.ui.form.on("Transport Order", {
 
 	sales_quote: function(frm) {
 		_populate_charges_from_sales_quote(frm);
+	},
+
+	air_shipment: function(frm) {
+		_populate_shipper_consignee_from_shipment(frm, 'Air Shipment');
+	},
+	sea_shipment: function(frm) {
+		_populate_shipper_consignee_from_shipment(frm, 'Sea Shipment');
 	}
 });
+
+function _populate_shipper_consignee_from_shipment(frm, doctype) {
+	var shipment_name = doctype === 'Air Shipment' ? frm.doc.air_shipment : frm.doc.sea_shipment;
+	if (!shipment_name) return;
+	frappe.db.get_value(doctype, shipment_name, ['shipper', 'consignee'], function(r) {
+		if (r && (r.shipper || r.consignee)) {
+			if (!frm.doc.shipper && r.shipper) frm.set_value('shipper', r.shipper);
+			if (!frm.doc.consignee && r.consignee) frm.set_value('consignee', r.consignee);
+		}
+	});
+}
 
 function _setup_sales_quote_query(frm) {
 	frm.set_query('sales_quote', function() {
@@ -743,6 +761,15 @@ function _populate_charges_from_sales_quote(frm) {
 	if (!sales_quote) {
 		frm.clear_table('charges');
 		frm.refresh_field('charges');
+		return;
+	}
+	// Skip when sales_quote is a temporary name (unsaved document)
+	if (String(sales_quote).startsWith('new-')) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Sales Quote first before selecting it here."),
+			indicator: 'orange'
+		});
 		return;
 	}
 

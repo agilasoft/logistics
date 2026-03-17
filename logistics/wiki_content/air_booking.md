@@ -18,7 +18,7 @@ To access: **Home > Air Freight > Air Booking**
 - **Entry Type** – Direct, Transit, Transshipment
 - **Routing Legs** – Flight segments (origin, destination, ETD, ETA)
 - **Packages** – Weight, volume, chargeable weight
-- **Charges** – Selling and cost charges with weight/qty breaks
+- **Charges** – Selling and cost charges with weight/qty breaks (unified calculation engine; revenue and cost calculation methods)
 - **Documents** – Job Document child table; use Populate from Template
 
 ## 3. Workflow

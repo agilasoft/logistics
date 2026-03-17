@@ -51,6 +51,8 @@
   "charges_tab",
   "charges_section",
   "charges",
+  "section_break_oiqx",
+  "warehousing",
   "projects_tab",
   "projects_section",
   "special_project",
@@ -451,6 +453,7 @@
    "label": "Charges"
   },
   {
+   "depends_on": "eval:doc.main_service != \"Warehousing\"",
    "fieldname": "charges_section",
    "fieldtype": "Section Break",
    "label": "Quote Charges"
@@ -503,14 +506,15 @@
    "label": "Service Level Details"
   },
   {
-   "fieldname": "section_break_qqlf",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "connections_tab",
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Warehousing\"",
+   "fieldname": "section_break_oiqx",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -520,11 +524,6 @@
   {
    "group": "Orders and Bookings",
    "link_doctype": "Transport Order",
-   "link_fieldname": "sales_quote"
-  },
-  {
-   "group": "Orders and Bookings",
-   "link_doctype": "Warehouse Contract",
    "link_fieldname": "sales_quote"
   },
   {
@@ -541,9 +540,34 @@
    "group": "Orders and Bookings",
    "link_doctype": "Declaration Order",
    "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Transport Job",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Air Shipment",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Sea Shipment",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Declaration",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Contracts",
+   "link_doctype": "Warehouse Contract",
+   "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-03-05 14:15:35.965008",
+ "modified": "2026-03-17 11:19:50.761723",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

@@ -21,16 +21,24 @@ To access: **Home > Job Management**
 - **Cost Center** – Cost center for job costs
 - **Profit Center** – Profit center for job revenue
 
-## 2. Reports
+## 2. Profitability (from GL)
+
+Job Management provides a **Profitability** section on job and shipment forms. When a document has **Job Costing Number** and **Company** set, the section loads revenue, cost, gross profit, profit margin, WIP amount, and accrual amount from the General Ledger (GL Entry by job_costing_number). It also shows a table of related GL entries with links to view the source vouchers (Sales Invoice, Purchase Invoice, Journal Entry, etc.).
+
+**Supported doctypes:** Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration, General Job
+
+Figures are computed from posted GL entries: Income accounts for revenue, Expense accounts for cost. WIP and accrual use accounts from the Recognition Policy when configured.
+
+## 3. Reports
 
 - **Recognition Status** – WIP and revenue recognition status across jobs
 
-## 3. Related Topics
+## 4. Related Topics
 
 - [General Job](welcome/general-job)
-- [Transport Job](welcome/transport-job)
 - [Air Shipment](welcome/air-shipment)
 - [Sea Shipment](welcome/sea-shipment)
+- [Transport Job](welcome/transport-job)
 - [Warehouse Job](welcome/warehouse-job)
 - [Declaration](welcome/declaration)
 - [Reports Overview](welcome/reports-overview)

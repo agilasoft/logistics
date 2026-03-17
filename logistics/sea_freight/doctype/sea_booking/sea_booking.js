@@ -453,7 +453,31 @@ frappe.ui.form.on('Sea Booking', {
 											message: __('Sea Shipment {0} created', [r.message.sea_shipment]),
 											indicator: 'green'
 										}, 3);
-										frappe.set_route('Form', 'Sea Shipment', r.message.sea_shipment);
+										
+										// Poll until doc is visible on server, then navigate (avoids "Sea Shipment ... not found" on form load)
+										var sea_shipment_name = r.message.sea_shipment;
+										function try_navigate(attempt) {
+											var max_attempts = 15;
+											if (attempt > max_attempts) {
+												frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
+												return;
+											}
+											frappe.call({
+												method: "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
+												args: { docname: sea_shipment_name },
+												callback: function(res) {
+													if (res.message === true) {
+														frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
+													} else {
+														setTimeout(function() { try_navigate(attempt + 1); }, 300);
+													}
+												},
+												error: function() {
+													setTimeout(function() { try_navigate(attempt + 1); }, 300);
+												}
+											});
+										}
+										try_navigate(1);
 									}
 								}
 							});
@@ -561,6 +585,15 @@ function _populate_charges_from_quote(frm) {
 	if (!target_quote || !method_name) {
 		frm.clear_table('charges');
 		frm.refresh_field('charges');
+		return;
+	}
+	// Skip when quote is a temporary name (unsaved document)
+	if (String(target_quote).startsWith('new-')) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Sales Quote or One-Off Quote first before selecting it here."),
+			indicator: 'orange'
+		});
 		return;
 	}
 	

@@ -15,7 +15,7 @@ To access: **Home > Transport > Transport Order**
 - **Load Type** – FCL, LCL, Palletized, etc.
 - **Origin / Destination** – Locations, pick/drop mode
 - **Packages** – Weight, volume
-- **Charges** – Selling and cost charges; supports quantity breaks
+- **Charges** – Selling and cost charges; supports quantity breaks (unified calculation engine; revenue and cost calculation methods)
 - **Documents** – Job Document child table; Populate from Template
 
 ## 3. Workflow

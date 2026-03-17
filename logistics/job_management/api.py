@@ -295,7 +295,7 @@ def get_job_profitability_html(job_costing_number, company, to_date=None, from_d
 		return html if isinstance(html, str) else str(html)
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Job Profitability HTML")
-		return "<p class='text-danger'>" + _("Error loading profitability: ") + str(e) + "</p>"
+		return "<p class=\"text-danger\">" + _("Error loading profitability: ") + str(e) + "</p>"
 
 
 def _build_profitability_html(data):

@@ -14,9 +14,10 @@ To access: **Home > Air Freight > Air Shipment**
 
 - **Dashboard Tab** – Document alerts (missing, overdue, expiring), status summary
 - **Milestones Tab** – Visual timeline of operational stages (Planned, Started, Completed)
-- **Charges** – Selling and cost charges; supports weight and quantity breaks
+- **Charges** – Selling and cost charges; supports weight and quantity breaks (unified calculation engine)
 - **Documents** – Job Document child table; Populate from Template
 - **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
+- **Profitability (from GL)** – Revenue, cost, gross profit, WIP, accrual from General Ledger when Job Costing Number and Company are set (see [Job Management Module](welcome/job-management-module))
 
 ## 3. Workflow
 
@@ -34,3 +35,4 @@ To access: **Home > Air Freight > Air Shipment**
 - [Milestone Tracking](welcome/milestone-tracking)
 - [Document Management](welcome/document-management)
 - [Change Request](welcome/change-request)
+- [Job Management Module](welcome/job-management-module)

@@ -244,6 +244,23 @@ def update_milestone_status_on_parent_before_save(doc, method=None):
 		update_milestone_status(row)
 
 
+def update_job_document_status_on_parent_before_save(doc, method=None):
+	"""Before save: validate and apply status updates to Job Document child rows. Child table rows
+	do not run their controller validate/before_save when parent is saved, so we must run from parent."""
+	if not doc:
+		return
+	if not hasattr(doc, "documents") or not doc.get("documents"):
+		return
+	from logistics.logistics.doctype.job_document.job_document import (
+		apply_job_document_status_updates,
+		validate_job_document_status_aligned,
+	)
+	for row in doc.documents:
+		# Validate status aligns with dates/fields (child validate never runs on parent save)
+		validate_job_document_status_aligned(row)
+		apply_job_document_status_updates(row)
+
+
 def ensure_documents_and_milestones_from_template(doc, method=None):
 	"""On parent save: auto-populate documents and milestones from applicable default template if empty or new.
 	Called from doc_events on_update for doctypes that have documents/milestones tabs.
@@ -363,17 +380,25 @@ def get_doctype_fields_for_milestone(doctype):
 @frappe.whitelist()
 def get_milestone_template_items(product_type, applies_to, direction=None, entry_type=None, doctype=None):
 	"""Resolve milestone template for context and return list of Milestone Template Items."""
-	filters = [
-		["product_type", "=", product_type],
-		["applies_to", "in", [applies_to, "Both"]],
-	]
 	if doctype:
-		filters.append([
-			"or",
-			["applies_to_doctype", "=", ""],
-			["applies_to_doctype", "is", "not set"],
-			["applies_to_doctype", "=", doctype],
-		])
+		filters = [
+			["product_type", "=", product_type],
+			"and",
+			["applies_to", "in", [applies_to, "Both"]],
+			"and",
+			[
+				["applies_to_doctype", "=", ""],
+				"or",
+				["applies_to_doctype", "is", "not set"],
+				"or",
+				["applies_to_doctype", "=", doctype],
+			],
+		]
+	else:
+		filters = [
+			["product_type", "=", product_type],
+			["applies_to", "in", [applies_to, "Both"]],
+		]
 	templates = frappe.get_all(
 		"Milestone Template",
 		filters=filters,

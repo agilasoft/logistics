@@ -191,6 +191,16 @@ class SeaShipment(Document):
                     "Sea Shipment container sync error: {0}".format(str(e)),
                     "Container Management"
                 )
+        
+        # Create Job Costing Number if missing and auto-create is enabled
+        # Only create for existing documents (updates), not during insert
+        # For new documents, after_insert will handle creation via background job
+        if self.name and not self.job_costing_number and frappe.db.exists("Sea Shipment", self.name):
+            self.create_job_costing_number_if_needed()
+        
+        # Sync Job Costing Number to Booking if it was manually changed
+        if self.name and self.job_costing_number and self.has_value_changed("job_costing_number"):
+            self.sync_job_costing_to_booking()
     
     def after_submit(self):
         """Record sustainability metrics after shipment submission"""
@@ -372,6 +382,11 @@ class SeaShipment(Document):
     
     def create_job_costing_number_if_needed(self):
         """Create Job Costing Number when document is first saved"""
+        # Check settings for auto-create job costing
+        settings = frappe.get_single("Sea Freight Settings")
+        if settings and not getattr(settings, "auto_create_job_costing", True):
+            return
+        
         # Only create if job_costing_number is not set
         if not self.job_costing_number:
             # Check if this is the first save (no existing Job Costing Number)
@@ -398,6 +413,32 @@ class SeaShipment(Document):
                 self.job_costing_number = job_ref.name
                 
                 frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+                
+                # Sync to related Sea Booking if it exists
+                self.sync_job_costing_to_booking()
+    
+    def sync_job_costing_to_booking(self):
+        """Sync Job Costing Number from Shipment to related Sea Booking"""
+        if not self.job_costing_number:
+            return
+        
+        if not getattr(self, "sea_booking", None):
+            return
+        
+        try:
+            # Check if Booking exists and get its current Job Costing Number
+            booking_jcn = frappe.db.get_value("Sea Booking", self.sea_booking, "job_costing_number")
+            
+            # Update Booking if it doesn't have a Job Costing Number or if it's different
+            if booking_jcn != self.job_costing_number:
+                frappe.db.set_value("Sea Booking", self.sea_booking, "job_costing_number", self.job_costing_number)
+                frappe.db.commit()
+        except Exception as e:
+            # Log error but don't fail the shipment save
+            frappe.log_error(
+                f"Error syncing Job Costing Number to Sea Booking {self.sea_booking}: {str(e)}",
+                "Job Costing Number Sync Error"
+            )
 
     def validate_required_fields(self):
         """Validate required fields for Sea Shipment"""
@@ -1436,4 +1477,20 @@ def create_job_costing_for_shipment(
 	job_ref.job_open_date = booking_date
 	job_ref.insert(ignore_permissions=True)
 	frappe.db.set_value("Sea Shipment", shipment_name, "job_costing_number", job_ref.name)
+	
+	# Sync to related Sea Booking if it exists
+	sea_booking = frappe.db.get_value("Sea Shipment", shipment_name, "sea_booking")
+	if sea_booking:
+		booking_jcn = frappe.db.get_value("Sea Booking", sea_booking, "job_costing_number")
+		if booking_jcn != job_ref.name:
+			frappe.db.set_value("Sea Booking", sea_booking, "job_costing_number", job_ref.name)
+	
 	frappe.db.commit()
+
+
+@frappe.whitelist()
+def sea_shipment_exists(docname):
+	"""Return True if the Sea Shipment exists. Used by client to poll before navigating so form load does not show 'not found'."""
+	if not docname or docname == "new":
+		return False
+	return bool(frappe.db.exists("Sea Shipment", docname))

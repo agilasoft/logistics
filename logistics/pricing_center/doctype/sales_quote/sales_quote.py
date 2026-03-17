@@ -966,6 +966,8 @@ def _create_transport_order_from_sales_quote(sales_quote):
 
 	transport_order = frappe.new_doc("Transport Order")
 	transport_order.customer = sales_quote.customer
+	transport_order.shipper = getattr(sales_quote, "shipper", None)
+	transport_order.consignee = getattr(sales_quote, "consignee", None)
 	transport_order.booking_date = today()
 	transport_order.scheduled_date = today()
 	transport_order.quote_type = "Sales Quote"

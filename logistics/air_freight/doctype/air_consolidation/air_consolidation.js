@@ -362,6 +362,14 @@ function add_consolidation_buttons(frm) {
 }
 
 function add_air_freight_job(frm) {
+    if (!frm.doc.origin_airport || !frm.doc.destination_airport) {
+        frappe.msgprint({
+            title: __('Origin and Destination Required'),
+            message: __('Please set Origin Airport and Destination Airport in the header before adding shipments.'),
+            indicator: 'orange'
+        });
+        return;
+    }
     let d = new frappe.ui.Dialog({
         title: __('Add Air Shipment'),
         fields: [
@@ -370,7 +378,15 @@ function add_air_freight_job(frm) {
                 'fieldname': 'air_freight_job',
                 'label': __('Air Shipment'),
                 'options': 'Air Shipment',
-                'reqd': 1
+                'reqd': 1,
+                'get_query': function() {
+                    return {
+                        filters: [
+                            ['origin_port', '=', frm.doc.origin_airport],
+                            ['destination_port', '=', frm.doc.destination_airport]
+                        ]
+                    };
+                }
             }
         ],
         primary_action_label: __('Add'),

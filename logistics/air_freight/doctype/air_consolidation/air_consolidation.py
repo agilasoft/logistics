@@ -585,7 +585,7 @@ class AirConsolidation(Document):
             # Create attached job entry
             attached_job = self.append("attached_air_freight_jobs", {})
             attached_job.air_freight_job = job_id
-            attached_job.job_status = job.status
+            attached_job.job_status = "Submitted" if job.docstatus == 1 else "Cancelled" if job.docstatus == 2 else "Draft"
             attached_job.booking_date = job.booking_date
             attached_job.shipper = job.shipper
             attached_job.consignee = job.consignee
@@ -594,8 +594,8 @@ class AirConsolidation(Document):
             attached_job.weight = getattr(job, "total_weight", None) or job.weight
             attached_job.volume = getattr(job, "total_volume", None) or job.volume
             attached_job.packs = job.packs
-            attached_job.value = job.gooda_value
-            attached_job.currency = job.currency
+            attached_job.value = getattr(job, "goods_value", None) or 0
+            attached_job.currency = getattr(job, "billing_currency", None) or frappe.get_cached_value("Company", job.company, "default_currency") if job.company else None
             attached_job.incoterm = job.incoterm
             attached_job.contains_dangerous_goods = job.contains_dangerous_goods or 0
             attached_job.dg_compliance_status = job.dg_compliance_status
@@ -630,6 +630,16 @@ class AirConsolidation(Document):
                 "Air Shipment with House Type '{0}' cannot be added to consolidation. "
                 "Only Co-load Master, Blind Co-load Master, Co-load House, Buyer's Consol Lead, or Shipper's Consol Lead are allowed."
             ).format(job.house_type or "Standard House"))
+        
+        # Validate origin and destination match consolidation header
+        if self.origin_airport and job.origin_port != self.origin_airport:
+            frappe.throw(_(
+                "Air Shipment {0} origin port ({1}) does not match consolidation origin ({2})."
+            ).format(air_freight_job, job.origin_port or "-", self.origin_airport))
+        if self.destination_airport and job.destination_port != self.destination_airport:
+            frappe.throw(_(
+                "Air Shipment {0} destination port ({1}) does not match consolidation destination ({2})."
+            ).format(air_freight_job, job.destination_port or "-", self.destination_airport))
         
         # Add package to consolidation
         package = self.append("consolidation_packages", {})

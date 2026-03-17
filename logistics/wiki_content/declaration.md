@@ -113,8 +113,12 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 ## 8. Charges Tab
 
 - **Charges** – Declaration Charges child table
-- Supports quantity breaks and weight breaks.
+- Supports quantity breaks and weight breaks (unified calculation engine).
 - **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
+
+## 8.1 Profitability (from GL)
+
+When **Job Costing Number** and **Company** are set, the form displays a Profitability section with revenue, cost, gross profit, WIP, and accrual from the General Ledger. See [Job Management Module](welcome/job-management-module).
 
 ## 9. Milestones Tab
 
@@ -191,4 +195,5 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 - [Milestone Tracking](welcome/milestone-tracking)
 - [Document Management](welcome/document-management)
 - [Change Request](welcome/change-request)
+- [Job Management Module](welcome/job-management-module)
 - [Customs Module](welcome/customs-module)

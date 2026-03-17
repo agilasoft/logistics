@@ -335,17 +335,41 @@ frappe.ui.form.on('Sea Shipment', {
 					}
 				}, __('Create'));
 				frm.add_custom_button(__('Inbound Order'), function() {
-					frappe.call({
-						method: 'logistics.utils.module_integration.create_inbound_order_from_sea_shipment',
-						args: { sea_shipment_name: frm.doc.name },
-						freeze: true,
-						freeze_message: __('Creating Inbound Order...'),
-						callback: function(r) {
-							if (r.message && r.message.inbound_order) {
-								frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+					// Check if warehouse_items is empty
+					const warehouse_items = frm.doc.warehouse_items || [];
+					if (warehouse_items.length === 0) {
+						frappe.confirm(
+							__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
+							function() {
+								// User confirmed - proceed with conversion
+								frappe.call({
+									method: 'logistics.utils.module_integration.create_inbound_order_from_sea_shipment',
+									args: { sea_shipment_name: frm.doc.name },
+									freeze: true,
+									freeze_message: __('Creating Inbound Order...'),
+									callback: function(r) {
+										if (r.message && r.message.inbound_order) {
+											frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+										}
+									}
+								});
 							}
-						}
-					});
+							// User cancelled - do nothing
+						);
+					} else {
+						// warehouse_items exist - proceed directly
+						frappe.call({
+							method: 'logistics.utils.module_integration.create_inbound_order_from_sea_shipment',
+							args: { sea_shipment_name: frm.doc.name },
+							freeze: true,
+							freeze_message: __('Creating Inbound Order...'),
+							callback: function(r) {
+								if (r.message && r.message.inbound_order) {
+									frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+								}
+							}
+						});
+					}
 				}, __('Create'));
 				frm.add_custom_button(__('Transport Order'), function() {
 					frappe.call({

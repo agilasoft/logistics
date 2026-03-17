@@ -81,6 +81,15 @@ function _load_milestone_html(frm) {
 function _populate_charges_from_sales_quote(frm) {
 	var sales_quote = frm.doc.sales_quote;
 	if (!sales_quote) return;
+	// Skip when sales_quote is a temporary name (unsaved document)
+	if (String(sales_quote).startsWith('new-')) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Sales Quote first before selecting it here."),
+			indicator: 'orange'
+		});
+		return;
+	}
 	frappe.call({
 		method: "logistics.customs.doctype.declaration_order.declaration_order.populate_charges_from_sales_quote",
 		args: { docname: frm.doc.name, sales_quote: sales_quote },

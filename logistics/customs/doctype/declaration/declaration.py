@@ -363,12 +363,11 @@ class Declaration(Document):
 			# Status badge for dashboard (prominent display)
 			status_class = (status or "draft").lower().replace(" ", "_").replace(" ", "_")
 			status_badge_html = f'<span class="dash-status-badge {status_class}">{frappe.utils.escape_html(status)}</span>'
-			# Format value with correct currency from commercial invoice
+			# Format value with correct currency code from commercial invoice
 			currency = self.inv_currency or frappe.db.get_default("currency") or "PHP"
-			value_display = frappe.format_value(
-				self.declaration_value or 0, 
-				df=dict(fieldtype="Currency", options=currency)
-			)
+			# Format number and append currency code instead of using symbol
+			amount = flt(self.declaration_value or 0)
+			value_display = f"{frappe.utils.fmt_money(amount, precision=2)} {currency}"
 			
 			header_items = [
 				("Status", status),

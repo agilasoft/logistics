@@ -62,7 +62,11 @@ Assign dock doors for receiving or dispatch. Schedule dock usage.
 
 Add warehouse charges (receiving, handling, storage, picking, loading). Create Sales Invoice from the job.
 
-### 3.6 Integration with ERPNext Stock
+### 3.6 Profitability (from GL)
+
+When **Job Costing Number** and **Company** are set, the form displays a Profitability section with revenue, cost, gross profit, WIP, and accrual from the General Ledger. See [Job Management Module](welcome/job-management-module).
+
+### 3.7 Integration with ERPNext Stock
 
 Warehouse Job posts to ERPNext Stock Entry for inventory movements when operations are completed.
 
@@ -75,3 +79,4 @@ Warehouse Job posts to ERPNext Stock Entry for inventory movements when operatio
 - [Stocktake Order](welcome/stocktake-order)
 - [Warehouse Contract](welcome/warehouse-contract)
 - [Document Management](welcome/document-management)
+- [Job Management Module](welcome/job-management-module)

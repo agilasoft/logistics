@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+import re
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import today, flt
@@ -1080,7 +1081,8 @@ class SeaBooking(Document):
 				"quantity": quantity,
 				"currency": sqsf_record.currency or default_currency,
 				"unit_type": mapped_unit_type,  # Use mapped unit_type
-				"base_amount": sqsf_record.base_amount or 0
+				"base_amount": sqsf_record.base_amount or 0,
+				"sales_quote_link": self.sales_quote if hasattr(self, 'sales_quote') and self.sales_quote else None,
 			}
 			
 			# Add minimum/maximum charges and quantities if available
@@ -1567,6 +1569,23 @@ class SeaBooking(Document):
 						"weight_uom": getattr(package, "weight_uom", None),
 					})
 			
+			# Copy warehouse_items if they exist
+			if hasattr(self, 'warehouse_items') and self.warehouse_items:
+				for warehouse_item in self.warehouse_items:
+					sea_shipment.append("warehouse_items", {
+						"item": getattr(warehouse_item, "item", None),
+						"item_name": getattr(warehouse_item, "item_name", None),
+						"uom": getattr(warehouse_item, "uom", None),
+						"quantity": getattr(warehouse_item, "quantity", None),
+					})
+			
+			# Fetch charges from Sales Quote or One-Off Quote if Sea Booking has quote but no charges
+			if not hasattr(self, 'charges') or not self.charges:
+				if self.sales_quote:
+					self._populate_charges_from_sales_quote_doc()
+				elif getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
+					self._populate_charges_from_one_off_quote()
+
 			# Copy charges (from Sea Booking Charges to Sea Shipment Charges)
 			# Store mapping of old charge names to charge indices for copying weight/qty breaks
 			charge_name_mapping = {}
@@ -1590,8 +1609,7 @@ class SeaBooking(Document):
 						new_charge_row.invoice_type = charge.invoice_type
 					if hasattr(charge, 'charge_description'):
 						new_charge_row.charge_description = charge.charge_description
-					if hasattr(charge, 'sales_quote_link'):
-						new_charge_row.sales_quote_link = charge.sales_quote_link
+					new_charge_row.sales_quote_link = getattr(charge, 'sales_quote_link', None) or self.sales_quote
 					
 					# Copy revenue fields
 					if hasattr(charge, 'bill_to'):
@@ -1934,7 +1952,24 @@ class SeaBooking(Document):
 				f"Error converting Sea Booking {self.name} to Sea Shipment: {str(e)}",
 				"Sea Booking - Convert to Shipment Error"
 			)
-			frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
+			# Provide user-friendly error messages
+			error_msg = str(e)
+			if "Could not find Job No" in error_msg or isinstance(e, frappe.LinkValidationError):
+				# Extract the job number from the error if possible
+				match = re.search(r'Job No:?\s*([A-Z0-9]+)', error_msg)
+				if match:
+					job_no = match.group(1)
+					frappe.throw(
+						_("Unable to create shipment: The system tried to create a Job Costing Number but the shipment document '{0}' was not yet saved. Please try again or contact support if the issue persists.").format(job_no),
+						title=_("Conversion Error")
+					)
+				else:
+					frappe.throw(
+						_("Unable to create shipment: There was an issue creating the Job Costing Number. The shipment document may not have been fully saved. Please try again or contact support if the issue persists."),
+						title=_("Conversion Error")
+					)
+			else:
+				frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
 
 
 @frappe.whitelist()
@@ -2037,6 +2072,12 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 		return {"charges": []}
 	
 	try:
+		# Temporary names (unsaved documents) cannot be fetched
+		if sales_quote.startswith("new-"):
+			return {
+				"error": _("Please save the Sales Quote first before selecting it here."),
+				"charges": []
+			}
 		# Verify that the sales_quote exists
 		if not frappe.db.exists("Sales Quote", sales_quote):
 			return {
@@ -2052,28 +2093,36 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 			except Exception:
 				pass
 		
-		# Fetch sales_quote_sea_freight records from the selected sales_quote
+		# Fetch from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+		charge_fields = [
+			"name",
+			"item_code",
+			"item_name",
+			"calculation_method",
+			"uom",
+			"currency",
+			"unit_rate",
+			"unit_type",
+			"minimum_quantity",
+			"minimum_charge",
+			"maximum_charge",
+			"base_amount",
+			"estimated_revenue",
+			"charge_type"
+		]
 		sales_quote_sea_freight_records = frappe.get_all(
-			"Sales Quote Sea Freight",
-			filters={"parent": sales_quote, "parenttype": "Sales Quote"},
-			fields=[
-				"name",
-				"item_code",
-				"item_name",
-				"calculation_method",
-				"uom",
-				"currency",
-				"unit_rate",
-				"unit_type",
-				"minimum_quantity",
-				"minimum_charge",
-				"maximum_charge",
-				"base_amount",
-				"estimated_revenue",
-				"charge_type"
-			],
+			"Sales Quote Charge",
+			filters={"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Sea"},
+			fields=charge_fields,
 			order_by="idx"
 		)
+		if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+			sales_quote_sea_freight_records = frappe.get_all(
+				"Sales Quote Sea Freight",
+				filters={"parent": sales_quote, "parenttype": "Sales Quote"},
+				fields=charge_fields,
+				order_by="idx"
+			)
 		
 		if not sales_quote_sea_freight_records:
 			return {
@@ -2129,6 +2178,12 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		return {"charges": []}
 	
 	try:
+		# Temporary names (unsaved documents) cannot be fetched
+		if one_off_quote.startswith("new-"):
+			return {
+				"error": _("Please save the One-Off Quote first before selecting it here."),
+				"charges": []
+			}
 		# Verify that the one_off_quote exists
 		if not frappe.db.exists("One-Off Quote", one_off_quote):
 			return {

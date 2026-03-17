@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-05-22 13:48:11.662080",
@@ -82,7 +83,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-24 13:52:30.480202",
+ "modified": "2026-03-17 12:34:17.391863",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Shipping Line",

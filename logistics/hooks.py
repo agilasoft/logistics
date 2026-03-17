@@ -209,7 +209,10 @@ doc_events = {
 }
 for _dt in _doc_milestone_doctypes:
 	doc_events[_dt] = {
-		"before_save": "logistics.document_management.api.update_milestone_status_on_parent_before_save",
+		"before_save": [
+			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
+			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
+		],
 		"on_update": "logistics.document_management.api.ensure_documents_and_milestones_from_template",
 	}
 
