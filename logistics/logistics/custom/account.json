@@ -1,0 +1,19 @@
+{
+ "custom_fields": [
+  {
+   "dt": "Account",
+   "fieldname": "job_profit_account_type",
+   "fieldtype": "Select",
+   "label": "Job Profit Account Type",
+   "options": "\nProfit\nWIP\nAccrual\nDisbursements",
+   "insert_after": "account_type",
+   "depends_on": "eval:!doc.is_group",
+   "description": "For Income Account / Expense Account: Profit, WIP, Accrual, or Disbursements. For other account types: Disbursements only."
+  }
+ ],
+ "custom_perms": [],
+ "doctype": "Account",
+ "links": [],
+ "property_setters": [],
+ "sync_on_migrate": 1
+}

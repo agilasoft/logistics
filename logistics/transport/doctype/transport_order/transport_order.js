@@ -877,25 +877,35 @@ frappe.ui.form.on("Transport Order", {
 		if (!frm.doc.packages || frm.doc.packages.length === 0) {
 			return;
 		}
-		
-		// Call server-side method to aggregate volumes and weights with proper UOM conversion
-		frm.call({
-			method: 'aggregate_volume_from_packages_api',
-			doc: frm.doc,
+
+		// frappe.call + remote helper (not frm.call): avoids run_doc_method / TimestampMismatchError
+		// when this runs right after save while modified timestamp is updating.
+		frappe.call({
+			method: 'logistics.transport.doctype.transport_order.transport_order.aggregate_volume_from_packages_remote',
+			args: { doc: frm.doc },
 			callback: function(r) {
-				// After aggregation, update form values if header fields exist
 				if (r && !r.exc && r.message) {
-					// Note: Transport Order doesn't have header volume/weight fields currently,
-					// but this method is available for future use or API calls
-					if (r.message.volume !== undefined && frm.fields_dict.volume) {
-						frm.set_value('volume', r.message.volume);
+					if (r.message.total_volume !== undefined && frm.fields_dict.total_volume) {
+						frm.set_value('total_volume', r.message.total_volume);
 					}
-					if (r.message.weight !== undefined && frm.fields_dict.weight) {
-						frm.set_value('weight', r.message.weight);
+					if (r.message.total_weight !== undefined && frm.fields_dict.total_weight) {
+						frm.set_value('total_weight', r.message.total_weight);
+					}
+					if (r.message.total_packages !== undefined && frm.fields_dict.total_packages) {
+						frm.set_value('total_packages', r.message.total_packages);
 					}
 				}
 			}
 		});
+	},
+	after_save(frm) {
+		var new_name = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
+		if (new_name) {
+			frm.docname = new_name;
+			frm.doc = (locals[frm.doctype] && locals[frm.doctype][new_name])
+				? locals[frm.doctype][new_name]
+				: frappe.get_doc(frm.doctype, new_name);
+		}
 	},
 
 	toggle_vehicle_type_required: function(frm) {
@@ -1463,6 +1473,7 @@ function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 		check_refrigeration = true;
 	}
 
+	var legIdx = (leg && leg.idx != null) ? leg.idx : '';
 	frappe.call({
 		method: "logistics.transport.doctype.transport_order.transport_order.validate_vehicle_job_type_compatibility",
 		args: {
@@ -1474,12 +1485,12 @@ function validate_leg_vehicle_compatibility(frm, cdt, cdn) {
 			if (r.message && !r.message.compatible) {
 				frappe.msgprint({
 					title: __("Incompatible Vehicle Type"),
-					message: __("Leg {0}: {1}", [leg.idx || '', r.message.message]),
+					message: __("Leg {0}: {1}", [legIdx, r.message.message]),
 					indicator: 'orange'
 				});
-				// Guard: Only clear the incompatible vehicle type if it's non-empty
-				var leg = frappe.get_doc(cdt, cdn);
-				if (leg.vehicle_type) {
+				// Re-fetch row (may be gone after async); guard before using
+				var current = frappe.get_doc(cdt, cdn);
+				if (current && current.vehicle_type) {
 					frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
 				}
 			}

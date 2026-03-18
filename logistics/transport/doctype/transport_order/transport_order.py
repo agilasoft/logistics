@@ -1326,6 +1326,39 @@ def _map_template_row_to_order_row(order_child_dt: str, tmpl_row: Dict[str, Any]
 # Whitelisted actions
 # -------------------------------------------------------------------
 @frappe.whitelist()
+def aggregate_volume_from_packages_remote(doc=None):
+    """
+    Recompute total_packages / total_volume / total_weight from the client's doc (including unsaved packages).
+    Uses frappe.get_doc(dict) instead of run_doc_method so saving and this call cannot race on modified timestamp.
+    """
+    if doc is None:
+        frappe.throw(_("Document is required"))
+    if isinstance(doc, str):
+        parsed = frappe.parse_json(doc)
+        if isinstance(parsed, dict) and parsed.get("doctype"):
+            doc = parsed
+    try:
+        if isinstance(doc, dict):
+            if doc.get("doctype") != "Transport Order":
+                frappe.throw(_("Invalid document type"))
+            order = frappe.get_doc(doc)
+        else:
+            order = frappe.get_doc("Transport Order", doc)
+    except frappe.DoesNotExistError:
+        return {}
+    except Exception:
+        return {}
+    order._update_packing_summary()
+    return {
+        "total_volume": flt(order.total_volume),
+        "total_weight": flt(order.total_weight),
+        "total_packages": flt(order.total_packages),
+        "volume": flt(order.total_volume),
+        "weight": flt(order.total_weight),
+    }
+
+
+@frappe.whitelist()
 def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
     """Populate charges from sales_quote. Called from frontend when sales_quote field changes.
     
@@ -1743,6 +1776,10 @@ def action_create_transport_job(docname: str):
         job.flags.ignore_validate = True
         job.insert(ignore_permissions=False)
 
+        # Reload so in-memory doc matches DB (modified, etc.). Avoids TimestampMismatchError
+        # when leg.insert() or hooks touch the job and we call job.save().
+        job.reload()
+
         # ---- Legs: create top-level Transport Leg for each TO leg, then link into TJ legs
         order_legs_field = _find_child_table_fieldname(
             "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
@@ -1758,8 +1795,11 @@ def action_create_transport_job(docname: str):
             job_legs_field=job_legs_field,
         )
 
-        # Save added legs to job
-        job.save(ignore_permissions=False)
+        # Save added legs to job. ignore_version=True: leg.insert() can trigger hooks
+        # (e.g. Transport Leg after_save) that touch the job in DB, so the job's
+        # modified timestamp may change between our reload() and save(); we are the
+        # only logical writer in this flow, so skip the version check.
+        job.save(ignore_permissions=False, ignore_version=True)
         frappe.db.commit()
         return {"name": job.name, "created": True, "already_exists": False}
         

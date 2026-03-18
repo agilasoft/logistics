@@ -144,6 +144,7 @@ doctype_js = {
 	"Special Project": [
 		"logistics/public/js/document_alerts_dialog.js",
 	],
+	"Account": "logistics/public/js/account_job_profit.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -204,6 +205,9 @@ _doc_milestone_doctypes = [
 ]
 
 doc_events = {
+	"Account": {
+		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
+	},
 	"Purchase Invoice": {
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",

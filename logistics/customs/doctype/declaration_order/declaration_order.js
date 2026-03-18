@@ -180,15 +180,21 @@ frappe.ui.form.on("Declaration Order", {
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call("get_dashboard_html").then((r) => {
-					if (r.message && frm.fields_dict.dashboard_html) {
-						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-						_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-						if (window.logistics_bind_document_alert_cards) {
-							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+				// Use frappe.call (not frm.call) so we avoid run_doc_method + check_if_latest,
+				// which fails with TimestampMismatchError if save just updated modified.
+				frappe.call({
+					method: "logistics.customs.doctype.declaration_order.declaration_order.fetch_declaration_order_dashboard_html",
+					args: { docname: frm.doc.name },
+					callback(r) {
+						if (r.message && frm.fields_dict.dashboard_html) {
+							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+							_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							if (window.logistics_bind_document_alert_cards) {
+								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+							}
 						}
-					}
-				}).catch(() => {}).always(() => {
+					},
+				}).always(() => {
 					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
 				});
 			}

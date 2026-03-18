@@ -24,6 +24,7 @@
   "status",
   "column_break_pemj",
   "customs_broker",
+  "freight_agent",
   "notify_party",
   "notify_party_address",
   "section_break_customs",
@@ -220,8 +221,7 @@
   "sustainability_notes",
   "connections_tab",
   "section_break_sla",
-  "service_level",
-  "column_break_parties"
+  "service_level"
  ],
  "fields": [
   {
@@ -381,14 +381,10 @@
    "options": "Consignee"
   },
   {
-   "fieldname": "column_break_parties",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
-   "label": "Customs Broker/Agent",
-   "options": "Supplier"
+   "label": "Customs Broker",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
@@ -663,10 +659,6 @@
    "fieldname": "internal_notes",
    "fieldtype": "Text Editor",
    "label": "Internal Notes"
-  },
-  {
-   "fieldname": "column_break_parties",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "external_notes",
@@ -1100,6 +1092,7 @@
    "label": "Revenue & Cost Recognition"
   },
   {
+   "default": "0",
    "description": "From Recognition Policy Settings (matched by company and dimensions).",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
@@ -1115,6 +1108,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "description": "From Recognition Policy Settings.",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
@@ -1437,6 +1431,12 @@
   {
    "fieldname": "section_break_puec",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
   }
  ],
  "grid_page_length": 50,
@@ -1454,7 +1454,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-03-18 12:00:31.815427",
+ "modified": "2026-03-18 16:03:00.140447",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",

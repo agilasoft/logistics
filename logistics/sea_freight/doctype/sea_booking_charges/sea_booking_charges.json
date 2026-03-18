@@ -74,7 +74,7 @@
  "fields": [
   {
    "default": "0",
-   "description": "Set from Item (Other Service). Not editable.",
+   "description": "Automatically determined from the selected item. This field cannot be edited.",
    "fetch_from": "charge_item.custom_is_other_service",
    "fieldname": "is_other_service",
    "fieldtype": "Check",
@@ -481,7 +481,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 15:25:33.898916",
+ "modified": "2026-03-18 15:49:32.822264",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking Charges",

@@ -38,6 +38,8 @@ Job Management provides a **Profitability** section on job and shipment forms. W
 
 Figures are computed from posted GL entries: Income accounts for revenue, Expense accounts for cost. WIP and accrual use accounts from the Recognition Policy when configured.
 
+For a description of the **proforma GL entries** (expected vouchers and account movements), see [Proforma GL Entries](welcome/proforma-gl-entries).
+
 ## 4. Reports
 
 - **Recognition Status** – WIP and revenue recognition status across jobs

@@ -423,6 +423,23 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 
 
 @frappe.whitelist()
+def fetch_declaration_order_dashboard_html(docname):
+	"""
+	Return Dashboard tab HTML for a saved Declaration Order.
+
+	Uses a standalone whitelisted method instead of frm.call(get_dashboard_html) so we do not
+	go through run_doc_method / check_if_latest. That avoids TimestampMismatchError when the user
+	saves and refresh() loads the dashboard in the same moment the DB modified timestamp updates.
+	"""
+	if not docname or str(docname).startswith("new-"):
+		return ""
+	if not frappe.db.exists("Declaration Order", docname):
+		return ""
+	doc = frappe.get_doc("Declaration Order", docname)
+	return doc.get_dashboard_html()
+
+
+@frappe.whitelist()
 def create_declaration_order_from_sales_quote(sales_quote_name: str):
 	"""
 	Create a Declaration Order from a Sales Quote (One-off, with customs).

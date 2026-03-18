@@ -34,9 +34,11 @@
   "rate",
   "unit_type",
   "minimum_quantity",
+  "minimum_unit_rate",
   "minimum_charge",
   "maximum_charge",
   "base_amount",
+  "base_quantity",
   "column_break_cost",
   "cost_calculation_method",
   "cost_quantity",
@@ -45,9 +47,11 @@
   "unit_cost",
   "cost_unit_type",
   "cost_minimum_quantity",
+  "cost_minimum_unit_rate",
   "cost_minimum_charge",
   "cost_maximum_charge",
   "cost_base_amount",
+  "cost_base_quantity",
   "calculation_notes_section",
   "revenue_calc_notes",
   "column_break_gelh",
@@ -69,7 +73,7 @@
  "fields": [
   {
    "default": "0",
-   "description": "Set from Item (Other Service). Not editable.",
+   "description": "Automatically determined from the selected item. This field cannot be edited.",
    "fetch_from": "item_code.custom_is_other_service",
    "fieldname": "is_other_service",
    "fieldtype": "Check",
@@ -260,25 +264,25 @@
   {
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
-   "label": "Cost Calculation Method",
+   "label": "Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break"
   },
   {
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
-   "label": "Cost Quantity",
+   "label": "Quantity",
    "precision": "2"
   },
   {
    "fieldname": "cost_uom",
    "fieldtype": "Link",
-   "label": "Cost UOM",
+   "label": "UOM",
    "options": "UOM"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
-   "label": "Cost Currency",
+   "label": "Currency",
    "options": "Currency"
   },
   {
@@ -291,33 +295,33 @@
   {
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
-   "label": "Cost Unit Type",
+   "label": "Unit Type",
    "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "fieldname": "cost_minimum_quantity",
    "fieldtype": "Float",
-   "label": "Cost Minimum Quantity",
+   "label": "Minimum Quantity",
    "precision": "2"
   },
   {
    "fieldname": "cost_minimum_charge",
    "fieldtype": "Currency",
-   "label": "Cost Minimum Charge",
+   "label": "Minimum Charge",
    "options": "cost_currency",
    "precision": "2"
   },
   {
    "fieldname": "cost_maximum_charge",
    "fieldtype": "Currency",
-   "label": "Cost Maximum Charge",
+   "label": "Maximum Charge",
    "options": "cost_currency",
    "precision": "2"
   },
   {
    "fieldname": "cost_base_amount",
    "fieldtype": "Currency",
-   "label": "Cost Base Amount",
+   "label": "Base Amount",
    "options": "cost_currency",
    "precision": "2"
   },
@@ -422,13 +426,37 @@
    "fieldname": "section_break_revenue_cost",
    "fieldtype": "Section Break",
    "label": "Revenue & Cost"
+  },
+  {
+   "fieldname": "base_quantity",
+   "fieldtype": "Float",
+   "label": "Base Quantity",
+   "precision": "2"
+  },
+  {
+   "fieldname": "cost_base_quantity",
+   "fieldtype": "Float",
+   "label": "Base Quantity",
+   "precision": "2"
+  },
+  {
+   "fieldname": "cost_minimum_unit_rate",
+   "fieldtype": "Currency",
+   "label": "Minimum Unit Rate",
+   "precision": "2"
+  },
+  {
+   "fieldname": "minimum_unit_rate",
+   "fieldtype": "Currency",
+   "label": "Minimum Unit Rate",
+   "precision": "2"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 15:25:32.183057",
+ "modified": "2026-03-18 15:49:13.662620",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Charges",
