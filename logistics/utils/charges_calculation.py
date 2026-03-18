@@ -698,8 +698,9 @@ CHARGE_DOCTYPES = (
 @frappe.whitelist()
 def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: str):
     """
-    Recalculate estimated_revenue and estimated_cost for a charge row.
+    Recalculate estimated_revenue, estimated_cost, actual_revenue, and actual_cost for a charge row.
     Used by client-side form events when user changes unit_rate, calculation_method, etc.
+    Actual amounts use the same calculation method; when separate actual-value inputs exist they are used.
 
     Args:
         doctype: Charge child doctype (e.g. 'Air Booking Charges')
@@ -708,7 +709,7 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
         row_data: JSON string of the charge row data (or dict)
 
     Returns:
-        dict with estimated_revenue, estimated_cost, revenue_calc_notes, cost_calc_notes
+        dict with estimated_revenue, estimated_cost, actual_revenue, actual_cost, revenue_calc_notes, cost_calc_notes
     """
     import json
 
@@ -736,11 +737,18 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
 
         rev = calculate_charge_revenue(doc, parent_doc)
         cost = calculate_charge_cost(doc, parent_doc)
+        est_rev = flt(rev.get("amount", 0))
+        est_cost = flt(cost.get("amount", 0))
+        # Actual = same calculation (basis for SI/PI); override with actual-value inputs when present
+        actual_rev = flt(row_dict.get("actual_revenue")) if row_dict.get("actual_revenue") is not None else est_rev
+        actual_cst = flt(row_dict.get("actual_cost")) if row_dict.get("actual_cost") is not None else est_cost
 
         return {
             "success": True,
-            "estimated_revenue": flt(rev.get("amount", 0)),
-            "estimated_cost": flt(cost.get("amount", 0)),
+            "estimated_revenue": est_rev,
+            "estimated_cost": est_cost,
+            "actual_revenue": actual_rev,
+            "actual_cost": actual_cst,
             "revenue_calc_notes": rev.get("calc_notes", ""),
             "cost_calc_notes": cost.get("calc_notes", ""),
             "quantity": rev.get("quantity"),

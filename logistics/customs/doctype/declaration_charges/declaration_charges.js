@@ -41,8 +41,13 @@ function _calculate_charge_row(frm, cdt, cdn) {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				// Declaration charges: only update actual (estimated comes from Declaration Order, do not overwrite)
+				if ("actual_revenue" in r.message) {
+					frappe.model.set_value(cdt, cdn, "actual_revenue", r.message.actual_revenue);
+				}
+				if ("actual_cost" in r.message) {
+					frappe.model.set_value(cdt, cdn, "actual_cost", r.message.actual_cost);
+				}
 				if (r.message.quantity != null) {
 					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
 				}

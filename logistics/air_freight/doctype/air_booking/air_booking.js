@@ -250,6 +250,53 @@ frappe.ui.form.on('Air Booking', {
 		}
 	},
 
+	quote_type: function(frm) {
+		// Don't clear quote fields if document is already submitted
+		if (frm.doc.docstatus === 1) {
+			return;
+		}
+		
+		// If changing quote type and there's an existing quote, clear it
+		// This ensures users select a new quote of the correct type
+		if (frm.doc.quote) {
+			frm.set_value('quote', '');
+		}
+		
+		// Setup query filter for quote field based on quote_type
+		_setup_quote_query(frm);
+		
+		if (!frm.doc.quote) {
+			frm.clear_table('charges');
+			frm.refresh_field('charges');
+		} else {
+			_populate_charges_from_quote(frm);
+		}
+	},
+	
+	quote: function(frm) {
+		// Don't clear quote fields if document is already submitted
+		if (frm.doc.docstatus === 1) {
+			return;
+		}
+		if (!frm.doc.quote) {
+			frm.clear_table('charges');
+			frm.refresh_field('charges');
+			// Clear sales_quote when quote is cleared
+			if (frm.doc.sales_quote) {
+				frm.set_value('sales_quote', '');
+			}
+			return;
+		}
+		// Sync sales_quote field when quote_type is "Sales Quote"
+		if (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote) {
+			frm.set_value('sales_quote', frm.doc.quote);
+		} else if (frm.doc.quote_type === 'One-Off Quote') {
+			// Clear sales_quote for One-Off Quote
+			frm.set_value('sales_quote', '');
+		}
+		_populate_charges_from_quote(frm);
+	},
+	
 	override_volume_weight: function(frm) {
 		_update_measurement_fields_readonly(frm);
 		if (frm.is_new() || frm.doc.__islocal) return;
@@ -519,6 +566,157 @@ function _setup_sales_quote_query(frm) {
 				]
 			}
 		};
+	});
+}
+
+// Setup query filter for quote field based on quote_type
+function _setup_quote_query(frm) {
+	frm.set_query('quote', function() {
+		var quote_type = frm.doc.quote_type;
+		if (quote_type === 'Sales Quote') {
+			// For Sales Quote, use the same filters as sales_quote
+			if (frm._available_sales_quotes_filters) {
+				return { filters: frm._available_sales_quotes_filters };
+			}
+			return {
+				filters: {
+					main_service: "Air",
+					_or: [
+						["quotation_type", "!=", "One-off"],
+						["quotation_type", "=", "One-off", "status", "!=", "Converted"]
+					]
+				}
+			};
+		} else if (quote_type === 'One-Off Quote') {
+			// For One-Off Quote, filter to only One-off Sales Quotes
+			return {
+				filters: {
+					main_service: "Air",
+					quotation_type: "One-off",
+					status: ["!=", "Converted"]
+				}
+			};
+		}
+		return {};
+	});
+}
+
+// Populate charges from quote (handles both Sales Quote and One-Off Quote)
+function _populate_charges_from_quote(frm) {
+	var docname = frm.is_new() ? null : frm.doc.name;
+	var quote_type = frm.doc.quote_type;
+	var quote = frm.doc.quote;
+	var sales_quote = frm.doc.sales_quote;
+	
+	// Determine which quote to use
+	var target_quote = null;
+	var method_name = null;
+	var freeze_message = null;
+	var success_message_template = null;
+	
+	if (quote_type === 'Sales Quote' && quote) {
+		target_quote = quote;
+		method_name = "logistics.air_freight.doctype.air_booking.air_booking.populate_charges_from_sales_quote";
+		freeze_message = __("Fetching charges from Sales Quote...");
+		success_message_template = __("Successfully populated {0} charges from Sales Quote: {1}");
+	} else if (quote_type === 'One-Off Quote' && quote) {
+		target_quote = quote;
+		method_name = "logistics.air_freight.doctype.air_booking.air_booking.populate_charges_from_one_off_quote";
+		freeze_message = __("Fetching charges from One-Off Quote...");
+		success_message_template = __("Successfully populated {0} charges from One-Off Quote: {1}");
+	} else if (sales_quote) {
+		// Fallback to sales_quote field for backward compatibility
+		target_quote = sales_quote;
+		method_name = "logistics.air_freight.doctype.air_booking.air_booking.populate_charges_from_sales_quote";
+		freeze_message = __("Fetching charges from Sales Quote...");
+		success_message_template = __("Successfully populated {0} charges from Sales Quote: {1}");
+	}
+	
+	if (!target_quote || !method_name) {
+		frm.clear_table('charges');
+		frm.refresh_field('charges');
+		return;
+	}
+	
+	// Skip when quote is a temporary name (unsaved document)
+	if (String(target_quote).startsWith('new-')) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Sales Quote or One-Off Quote first before selecting it here."),
+			indicator: 'orange'
+		});
+		return;
+	}
+	
+	// Determine which parameter to pass based on the method being called
+	var args = { docname: docname };
+	if (method_name.includes('populate_charges_from_sales_quote')) {
+		args.sales_quote = target_quote;
+	} else if (method_name.includes('populate_charges_from_one_off_quote')) {
+		args.one_off_quote = target_quote;
+	}
+	
+	frappe.call({
+		method: method_name,
+		args: args,
+		freeze: true,
+		freeze_message: freeze_message,
+		callback: function(r) {
+			if (r.message) {
+				if (r.message.error) {
+					frappe.msgprint({
+						title: __("Error"),
+						message: r.message.error,
+						indicator: 'red'
+					});
+					return;
+				}
+				if (r.message.message) {
+					frappe.msgprint({
+						title: __("No Charges Found"),
+						message: r.message.message,
+						indicator: 'orange'
+					});
+				}
+				// Update charges on the form (works for both new and saved documents)
+				// This avoids "document has been modified" errors by not saving on server
+				if (r.message.charges && r.message.charges.length > 0) {
+					frm.clear_table('charges');
+					r.message.charges.forEach(function(charge) {
+						var row = frm.add_child('charges');
+						Object.keys(charge).forEach(function(key) {
+							if (charge[key] !== null && charge[key] !== undefined) {
+								row[key] = charge[key];
+							}
+						});
+					});
+					frm.refresh_field('charges');
+					if (r.message.charges_count > 0) {
+						var message = success_message_template;
+						if (quote_type === 'One-Off Quote') {
+							message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
+						} else {
+							message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+						}
+						frappe.msgprint({
+							title: __("Charges Updated"),
+							message: message,
+							indicator: 'green'
+						});
+					}
+				} else {
+					frm.clear_table('charges');
+					frm.refresh_field('charges');
+				}
+			}
+		},
+		error: function(r) {
+			frappe.msgprint({
+				title: __("Error"),
+				message: __("Failed to populate charges."),
+				indicator: 'red'
+			});
+		}
 	});
 }
 

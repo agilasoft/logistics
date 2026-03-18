@@ -113,7 +113,7 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 ## 8. Charges Tab
 
 - **Charges** – Declaration Charges child table
-- Supports quantity breaks and weight breaks (unified calculation engine).
+- Supports quantity breaks and weight breaks (unified calculation engine). Each charge row has **Estimated Revenue** and **Estimated Cost** (from the Declaration Order; used for WIP and accrual) and **Actual Revenue** and **Actual Cost** (calculated on the declaration; used for Sales Invoice and Purchase Invoice when present). Use **Recalculate All Charges** to refresh actual amounts; estimated amounts are not changed.
 - **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
 
 ## 8.1 Profitability (from GL)
@@ -150,10 +150,11 @@ When **Job Costing Number** and **Company** are set, the form displays a Profita
 
 ## 13. Recognition (WIP / Accrual)
 
-- **WIP Recognition** – Work-in-progress recognition settings
-- **Accrual Recognition** – Cost accrual settings
+- **WIP Recognition** – Work-in-progress recognition settings (uses **Estimated Revenue** only)
+- **Accrual Recognition** – Cost accrual settings (uses **Estimated Cost** only)
 - **Estimated Revenue**, **WIP Amount**, **Recognized Revenue** – Revenue tracking
 - **Estimated Costs**, **Accrual Amount**, **Recognized Costs** – Cost tracking
+- **Sales Invoice** and **Purchase Invoice** creation use **Actual Revenue** and **Actual Cost** when present and &gt; 0; otherwise they fall back to estimated amounts.
 
 ## 14. Status Workflow
 

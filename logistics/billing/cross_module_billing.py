@@ -66,8 +66,8 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1))
             unit_rate = flt(getattr(ch, "unit_rate", 0))
-            est_rev = flt(getattr(ch, "estimated_revenue", 0))
-            rate = est_rev / qty if (est_rev > 0 and qty > 0) else unit_rate
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            rate = rev / qty if (rev > 0 and qty > 0) else unit_rate
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -83,11 +83,12 @@ def get_invoice_items_from_job(
         for ch in charges:
             if customer and customer not in get_charge_bill_to_customers(ch):
                 continue
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
             items.append({
                 "item_code": getattr(ch, "charge_item", None),
                 "item_name": getattr(ch, "charge_name", None),
                 "qty": 1,
-                "rate": flt(getattr(ch, "selling_amount", 0)),
+                "rate": rev,
                 "uom": None,
                 "description": getattr(ch, "charge_description", None),
             })
@@ -100,9 +101,13 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1))
             rate = flt(getattr(ch, "rate", 0))
-            total = flt(getattr(ch, "total_amount", 0))
-            if total > 0 and qty > 0:
-                rate = total / qty
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0))
+            if rev > 0 and qty > 0:
+                rate = rev / qty
+            elif not rev and rate <= 0:
+                total = flt(getattr(ch, "total_amount", 0))
+                if total > 0 and qty > 0:
+                    rate = total / qty
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -120,9 +125,9 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1))
             rate = flt(getattr(ch, "rate", 0))
-            est_rev = flt(getattr(ch, "estimated_revenue", 0))
-            if est_rev > 0 and qty > 0:
-                rate = est_rev / qty
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            if rev > 0 and qty > 0:
+                rate = rev / qty
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -140,12 +145,9 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1)) or 1
             rate = flt(getattr(ch, "unit_rate", 0)) or flt(getattr(ch, "rate", 0))
-            total = flt(getattr(ch, "total_amount", 0))
-            est_rev = flt(getattr(ch, "estimated_revenue", 0))
-            if total > 0 and qty > 0:
-                rate = total / qty
-            elif est_rev > 0 and qty > 0:
-                rate = est_rev / qty
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            if rev > 0 and qty > 0:
+                rate = rev / qty
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,

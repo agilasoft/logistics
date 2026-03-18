@@ -27,6 +27,7 @@
   "base_amount",
   "base_quantity",
   "estimated_revenue",
+  "actual_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_pndm",
@@ -43,6 +44,7 @@
   "cost_base_amount",
   "cost_base_quantity",
   "estimated_cost",
+  "actual_cost",
   "use_tariff_in_cost",
   "cost_tariff",
   "tariff",
@@ -198,6 +200,13 @@
    "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual Revenue",
+   "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
+  },
+  {
    "default": "0",
    "fieldname": "use_tariff_in_revenue",
    "fieldtype": "Check",
@@ -294,6 +303,13 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Estimated Cost",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual Cost",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {

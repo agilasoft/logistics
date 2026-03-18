@@ -1120,7 +1120,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "fieldname": "contacts_and_addresses_section",
    "fieldtype": "Section Break",
    "label": "Contacts & Addresses"
@@ -1434,7 +1433,7 @@
    "link_fieldname": "job_costing_number"
   }
  ],
- "modified": "2026-03-16 15:44:20.289565",
+ "modified": "2026-03-17 19:29:09.706436",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",

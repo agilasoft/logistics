@@ -641,11 +641,11 @@ function _populate_charges_from_quote(frm) {
 					});
 					frm.refresh_field('charges');
 					if (r.message.charges_count > 0) {
-						var message = success_message_template;
+						var message;
 						if (quote_type === 'One-Off Quote') {
-							message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
+							message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
 						} else {
-							message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+							message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
 						}
 						frappe.msgprint({
 							title: __("Charges Updated"),

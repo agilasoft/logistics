@@ -16,7 +16,29 @@ from datetime import datetime
 
 class RecognitionEngine:
     """Core engine for revenue and cost recognition."""
-    
+
+    # Journal Entry Account.reference_type only allows these ERPNext doctypes.
+    # Logistics jobs (Sea Shipment, Air Shipment, etc.) are not valid — leave ref blank.
+    _JE_ACCOUNT_REFERENCE_DOCTYPES = frozenset(
+        (
+            "Sales Invoice",
+            "Purchase Invoice",
+            "Journal Entry",
+            "Sales Order",
+            "Purchase Order",
+            "Expense Claim",
+            "Asset",
+            "Loan",
+            "Payroll Entry",
+            "Employee Advance",
+            "Exchange Rate Revaluation",
+            "Invoice Discounting",
+            "Fees",
+            "Full and Final Statement",
+            "Payment Entry",
+        )
+    )
+
     def __init__(self, job):
         """
         Initialize the Recognition Engine with a job document.
@@ -34,7 +56,13 @@ class RecognitionEngine:
         if not self.settings:
             self.settings = get_recognition_settings(self.job)
         return self.settings
-    
+
+    def _je_account_reference_fields(self):
+        """reference_type on JE rows must be an ERPNext-allowed doctype or empty."""
+        if self.job_type in self._JE_ACCOUNT_REFERENCE_DOCTYPES:
+            return {"reference_type": self.job_type, "reference_name": self.job.name}
+        return {"reference_type": "", "reference_name": ""}
+
     # ==================== WIP Recognition ====================
     
     def recognize_wip(self, recognition_date=None):
@@ -376,8 +404,7 @@ class RecognitionEngine:
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -390,8 +417,7 @@ class RecognitionEngine:
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -426,8 +452,7 @@ class RecognitionEngine:
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -440,8 +465,7 @@ class RecognitionEngine:
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -475,8 +499,7 @@ class RecognitionEngine:
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -489,8 +512,7 @@ class RecognitionEngine:
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -525,8 +547,7 @@ class RecognitionEngine:
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn
@@ -539,8 +560,7 @@ class RecognitionEngine:
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
+            **self._je_account_reference_fields(),
         }
         if jcn:
             row["job_costing_number"] = jcn

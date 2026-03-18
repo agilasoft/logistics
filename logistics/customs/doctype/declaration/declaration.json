@@ -15,7 +15,6 @@
   "amended_from",
   "naming_series",
   "declaration_date",
-  "sales_quote",
   "customer",
   "column_break_1",
   "declaration_order",
@@ -170,9 +169,11 @@
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "billing_company",
   "job_costing_number",
   "project",
+  "section_break_puec",
+  "sales_quote",
+  "billing_company",
   "invoice_monitoring_section",
   "sales_invoice",
   "purchase_invoice",
@@ -210,7 +211,7 @@
   "more_info_tab",
   "notes_section",
   "internal_notes",
-  "column_break_parties",
+  "column_break_kasq",
   "external_notes",
   "sustainability_section",
   "estimated_paper_usage",
@@ -219,7 +220,8 @@
   "sustainability_notes",
   "connections_tab",
   "section_break_sla",
-  "service_level"
+  "service_level",
+  "column_break_parties"
  ],
  "fields": [
   {
@@ -1098,28 +1100,34 @@
    "label": "Revenue & Cost Recognition"
   },
   {
-   "default": "0",
+   "description": "From Recognition Policy Settings (matched by company and dimensions).",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
+   "description": "From Recognition Policy Settings.",
    "fieldname": "wip_recognition_date_basis",
    "fieldtype": "Select",
    "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "default": "0",
+   "description": "From Recognition Policy Settings.",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
+   "description": "From Recognition Policy Settings.",
    "fieldname": "accrual_recognition_date_basis",
    "fieldtype": "Select",
    "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
    "description": "Used when date basis is 'User Specified'",
@@ -1421,6 +1429,14 @@
    "fieldname": "importer_name",
    "fieldtype": "Data",
    "label": "Importer Name"
+  },
+  {
+   "fieldname": "column_break_kasq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_puec",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -1438,7 +1454,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-03-13 15:06:34.604196",
+ "modified": "2026-03-18 12:00:31.815427",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",

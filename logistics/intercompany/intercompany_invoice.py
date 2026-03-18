@@ -54,6 +54,7 @@ def get_invoice_items_from_job(
 	return billing_get_items(job_type, job_name, customer=customer_for_sea)
 
 
+@frappe.whitelist()
 def create_intercompany_invoices_for_quote(
 	sales_quote_name: str,
 	billing_company: str,

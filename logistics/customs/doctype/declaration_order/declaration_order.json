@@ -12,7 +12,6 @@
   "section_break_main",
   "naming_series",
   "order_date",
-  "sales_quote",
   "customer",
   "column_break_1",
   "customs_authority",
@@ -20,6 +19,7 @@
   "exchange_rate",
   "column_break_pemj",
   "customs_broker",
+  "freight_agent",
   "notify_party",
   "status",
   "section_break_shipment_type",
@@ -132,9 +132,11 @@
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "billing_company",
   "job_costing_number",
   "project",
+  "quote_reference",
+  "sales_quote",
+  "billing_company",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -163,7 +165,6 @@
    "label": "Dashboard"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_shipment_type",
    "fieldtype": "Section Break",
    "label": "Shipment Details"
@@ -270,8 +271,8 @@
   {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
-   "label": "Customs Broker/Agent",
-   "options": "Supplier"
+   "label": "Customs Broker",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
@@ -303,7 +304,6 @@
    "options": "Transport Order"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_transport",
    "fieldtype": "Section Break",
    "label": "Transport Information"
@@ -364,7 +364,6 @@
    "label": "Container Numbers"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_trade",
    "fieldtype": "Section Break",
    "label": "Trade Information"
@@ -945,12 +944,23 @@
    "fieldname": "importer_name",
    "fieldtype": "Data",
    "label": "Importer Name"
+  },
+  {
+   "fieldname": "quote_reference",
+   "fieldtype": "Section Break",
+   "label": "Quote Reference"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 11:58:57.947924",
+ "modified": "2026-03-18 13:15:51.936320",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

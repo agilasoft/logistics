@@ -255,34 +255,46 @@ frappe.ui.form.on("Declaration Order", {
 			}, __("View"));
 		}
 		// Create Declaration or View Declaration
-		if (!frm.doc.__islocal && frm.doc.sales_quote) {
-			frappe.db.get_value("Declaration", { declaration_order: frm.doc.name, docstatus: ["<", 2] }, "name", function(r) {
-				if (r && r.name) {
-					frm.add_custom_button(__("View Declaration"), function() {
-						frappe.set_route("Form", "Declaration", r.name);
-					}, __("Create"));
-				} else {
-					frm.add_custom_button(__("Create Declaration"), function() {
-						frappe.call({
-							method: "logistics.customs.doctype.declaration.declaration.create_declaration_from_declaration_order",
-							args: { declaration_order_name: frm.doc.name },
-							callback: function(res) {
-								if (res.exc) return;
-								if (res.message && res.message.success && res.message.declaration) {
-									frappe.msgprint({
-										title: __("Declaration Created"),
-										message: __("Declaration {0} created.", [res.message.declaration]),
-										indicator: "green"
-									});
-									setTimeout(function() {
-										frappe.set_route("Form", "Declaration", res.message.declaration);
-									}, 100);
+		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1 && frm.doc.sales_quote) {
+			setTimeout(function() {
+				frappe.db.get_value("Declaration", { declaration_order: frm.doc.name, docstatus: ["<", 2] }, "name", function(r) {
+					if (r && r.name) {
+						frm.add_custom_button(__("View Declaration"), function() {
+							frappe.set_route("Form", "Declaration", r.name);
+						}, __("Create"));
+					} else {
+						frm.add_custom_button(__("Create Declaration"), function() {
+							frappe.call({
+								method: "logistics.customs.doctype.declaration.declaration.create_declaration_from_declaration_order",
+								args: { declaration_order_name: frm.doc.name },
+								callback: function(res) {
+									if (res.exc) return;
+									if (res.message && res.message.success && res.message.declaration) {
+										frappe.msgprint({
+											title: __("Declaration Created"),
+											message: __("Declaration {0} created.", [res.message.declaration]),
+											indicator: "green"
+										});
+										setTimeout(function() {
+											frappe.set_route("Form", "Declaration", res.message.declaration);
+										}, 100);
+									}
 								}
-							}
-						});
-					}, __("Create"));
-				}
-			});
+							});
+						}, __("Create"));
+					}
+				});
+			}, 100);
+		}
+	},
+	after_save(frm) {
+		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and run_doc_method (e.g. get_dashboard_html) use the correct modified timestamp and avoid TimestampMismatchError.
+		var new_name = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
+		if (new_name) {
+			frm.docname = new_name;
+			frm.doc = (locals[frm.doctype] && locals[frm.doctype][new_name])
+				? locals[frm.doctype][new_name]
+				: frappe.get_doc(frm.doctype, new_name);
 		}
 	},
 	sales_quote(frm) {

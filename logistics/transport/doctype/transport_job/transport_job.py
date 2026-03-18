@@ -42,6 +42,11 @@ class TransportJob(Document):
         
         # Prevent duplicate Transport Jobs for the same transport_order
         self._validate_no_duplicate_transport_order()
+        try:
+            from logistics.job_management.recognition_engine import sync_job_recognition_fields_from_policy
+            sync_job_recognition_fields_from_policy(self)
+        except Exception:
+            pass
         
         # Copy service level from Transport Order when transport_order is set
         self._copy_service_level_from_order()

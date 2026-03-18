@@ -218,6 +218,11 @@ class DeclarationOrder(Document):
 			except Exception:
 				pass
 
+	def after_insert(self):
+		"""Reload document after insert to sync timestamps and prevent timestamp mismatch errors."""
+		if self.name:
+			self.reload()
+
 	def before_save(self):
 		from logistics.utils.module_integration import run_propagate_on_link, set_billing_company_from_sales_quote
 		run_propagate_on_link(self)

@@ -49,11 +49,14 @@ def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
         status = getattr(ch, "sales_invoice_status", None)
         if status in SI_EXCLUDED_STATUSES or getattr(ch, "sales_invoice", None):
             continue
-        revenue = flt(
-            getattr(ch, revenue_field, None)
-            or (flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1)),
-            0,
-        )
+        # Use actual_revenue for SI when present and > 0, else estimated/revenue_field
+        revenue = flt(getattr(ch, "actual_revenue", None) or 0)
+        if revenue <= 0:
+            revenue = flt(
+                getattr(ch, revenue_field, None)
+                or (flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1)),
+                0,
+            )
         if revenue <= 0:
             continue
         item_code = getattr(ch, item_field, None)

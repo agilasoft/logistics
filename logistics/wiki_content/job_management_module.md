@@ -21,7 +21,16 @@ To access: **Home > Job Management**
 - **Cost Center** – Cost center for job costs
 - **Profit Center** – Profit center for job revenue
 
-## 2. Profitability (from GL)
+## 2. Estimated vs Actual Revenue and Cost
+
+On charge child tables (Air Shipment Charges, Sea Shipment Charges, Transport Job Charges, Warehouse Job Charges, Declaration Charges), each row has:
+
+- **Estimated Revenue / Estimated Cost** – Taken from the source Booking or Order; used as the basis for **WIP** and **Accrual** recognition.
+- **Actual Revenue / Actual Cost** – Calculated on the shipment or job using the same calculation method; used for **Sales Invoice** and **Purchase Invoice** when present and &gt; 0 (otherwise the system falls back to estimated amounts).
+
+**Recalculate All Charges** on the parent document updates only Actual Revenue and Actual Cost; estimated amounts are left unchanged. This keeps WIP and accrual on estimates while invoicing can use confirmed actual amounts.
+
+## 3. Profitability (from GL)
 
 Job Management provides a **Profitability** section on job and shipment forms. When a document has **Job Costing Number** and **Company** set, the section loads revenue, cost, gross profit, profit margin, WIP amount, and accrual amount from the General Ledger (GL Entry by job_costing_number). It also shows a table of related GL entries with links to view the source vouchers (Sales Invoice, Purchase Invoice, Journal Entry, etc.).
 
@@ -29,11 +38,11 @@ Job Management provides a **Profitability** section on job and shipment forms. W
 
 Figures are computed from posted GL entries: Income accounts for revenue, Expense accounts for cost. WIP and accrual use accounts from the Recognition Policy when configured.
 
-## 3. Reports
+## 4. Reports
 
 - **Recognition Status** – WIP and revenue recognition status across jobs
 
-## 4. Related Topics
+## 5. Related Topics
 
 - [General Job](welcome/general-job)
 - [Air Shipment](welcome/air-shipment)

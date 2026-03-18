@@ -60,7 +60,7 @@ Assign dock doors for receiving or dispatch. Schedule dock usage.
 
 ### 3.5 Charges Tab
 
-Add warehouse charges (receiving, handling, storage, picking, loading). Create Sales Invoice from the job.
+Add warehouse charges (receiving, handling, storage, picking, loading). Each charge row has **Estimated Revenue** and **Estimated Cost** (from the order; used for WIP and accrual) and **Actual Revenue** and **Actual Cost** (calculated on the job; used for Sales Invoice and Purchase Invoice when present). Use **Recalculate All Charges** to refresh actual amounts; estimated amounts are not changed. Create Sales Invoice from the job.
 
 ### 3.6 Profitability (from GL)
 

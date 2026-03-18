@@ -63,6 +63,7 @@ doctype_js = {
 		"logistics/public/js/profitability_form.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Air Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -85,6 +86,7 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Sea Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -99,6 +101,7 @@ doctype_js = {
 		"logistics/public/js/profitability_form.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Declaration Order": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -122,6 +125,7 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Transport Consolidation": [
 		"logistics/public/js/document_alerts_dialog.js",
@@ -130,10 +134,12 @@ doctype_js = {
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"General Job": [
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Special Project": [
 		"logistics/public/js/document_alerts_dialog.js",

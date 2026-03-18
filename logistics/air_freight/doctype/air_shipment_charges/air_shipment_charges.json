@@ -18,11 +18,13 @@
   "section_break_mzrh",
   "bill_to",
   "estimated_revenue",
+  "actual_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_tzln",
   "pay_to",
   "estimated_cost",
+  "actual_cost",
   "use_tariff_in_cost",
   "cost_tariff",
   "section_break_revenue_cost",
@@ -280,6 +282,13 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "label": "Actual Revenue",
+   "precision": "2",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+  },
+  {
    "fieldname": "bill_to",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -379,6 +388,13 @@
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
    "label": "Estimated Cost",
+   "precision": "2",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Cost",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },

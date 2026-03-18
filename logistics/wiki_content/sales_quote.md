@@ -60,7 +60,7 @@ Sales Quote can be linked to ERPNext Sales Order. When the order is confirmed, y
 
 ## 4. Calculation Methods
 
-Each charge line (Air Freight, Sea Freight, Transport) uses a **Calculation Method** to compute revenue and cost. Revenue uses **Calculation Method**; cost uses **Cost Calculation Method**, with the same options and formulas. The same unified calculation engine is used across Air Booking, Sea Booking, Transport Order, Transport Job, Air Shipment, Sea Shipment, Declaration, and Declaration Order charges.
+Each charge line (Air Freight, Sea Freight, Transport) uses a **Calculation Method** to compute revenue and cost. Revenue uses **Calculation Method**; cost uses **Cost Calculation Method**, with the same options and formulas. The same unified calculation engine is used across Air Booking, Sea Booking, Transport Order, Transport Job, Air Shipment, Sea Shipment, Declaration, and Declaration Order charges. On Bookings and Orders, charges store **Estimated Revenue** and **Estimated Cost**; on Shipments and Jobs, **Actual Revenue** and **Actual Cost** are also calculated and used for invoicing when present (see [Job Management Module](welcome/job-management-module)).
 
 ### 4.1 Formula Summary
 

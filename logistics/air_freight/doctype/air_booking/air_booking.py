@@ -201,6 +201,43 @@ class AirBooking(Document):
 				f"Air Booking {self.name} not visible after commit in after_insert. Check DB replication if using read replicas.",
 				"Air Booking after_insert visibility",
 			)
+	
+	def on_change(self):
+		"""Handle changes to the document."""
+		# Skip if flag is set (e.g., when creating from Sales Quote)
+		if getattr(self.flags, 'skip_sales_quote_on_change', False):
+			return
+		
+		# Skip if document name is still temporary (starts with "new-")
+		# This prevents errors when the document is being saved for the first time
+		if self.name and self.name.startswith("new-"):
+			return
+		
+		# Handle Sales Quote changes
+		if self.has_value_changed("sales_quote"):
+			if self.sales_quote:
+				self._populate_charges_from_sales_quote(self.sales_quote)
+			else:
+				# Clear charges if sales_quote is removed
+				self.set("charges", [])
+				frappe.msgprint(
+					"Charges cleared as Sales Quote was removed",
+					title="Charges Updated",
+					indicator="blue"
+				)
+		
+		# Handle One-Off Quote changes
+		if self.has_value_changed("quote") or self.has_value_changed("quote_type"):
+			if getattr(self, "quote_type", None) == "One-Off Quote" and self.quote:
+				self._populate_charges_from_one_off_quote()
+			elif getattr(self, "quote_type", None) == "One-Off Quote" and not self.quote:
+				# Clear charges if One-Off Quote is removed
+				self.set("charges", [])
+				frappe.msgprint(
+					"Charges cleared as One-Off Quote was removed",
+					title="Charges Updated",
+					indicator="blue"
+				)
 
 	def before_submit(self):
 		"""Validate packages and required dates before submitting the Air Booking."""
@@ -770,10 +807,16 @@ class AirBooking(Document):
 			self.set("charges", [])
 			
 			# Get records from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
+			# Include both revenue and cost fields
 			charge_fields = [
 				"item_code", "item_name", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to"
+				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
+				# Cost fields
+				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
+				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
+				"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
 			]
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Charge",
@@ -913,6 +956,49 @@ class AirBooking(Document):
 				"Air Booking - Charges Population Error"
 			)
 			raise
+	
+	def _populate_charges_from_one_off_quote(self):
+		"""Populate charges from One-Off Quote (which is a Sales Quote with quotation_type='One-off').
+		
+		When quote_type is "One-Off Quote", the quote field contains a Sales Quote name.
+		We fetch charges from Sales Quote Charge with service_type="Air".
+		"""
+		if not self.quote or getattr(self, "quote_type", None) != "One-Off Quote":
+			return
+		
+		try:
+			# Verify that the quote exists (it should be a Sales Quote)
+			if not frappe.db.exists("Sales Quote", self.quote):
+				frappe.msgprint(
+					f"Sales Quote {self.quote} does not exist",
+					title="Error",
+					indicator="red"
+				)
+				return
+			
+			# Verify it's actually a One-off quote
+			sq_quotation_type = frappe.db.get_value("Sales Quote", self.quote, "quotation_type")
+			if sq_quotation_type != "One-off":
+				frappe.msgprint(
+					f"Sales Quote {self.quote} is not a One-off quote (quotation_type: {sq_quotation_type})",
+					title="Error",
+					indicator="red"
+				)
+				return
+			
+			# Use the same method as Sales Quote since One-off quotes are Sales Quotes
+			self._populate_charges_from_sales_quote(self.quote)
+			
+		except Exception as e:
+			frappe.log_error(
+				f"Error populating charges from one-off quote {self.quote}: {str(e)}",
+				"Air Booking Charges Population Error"
+			)
+			frappe.msgprint(
+				f"Error populating charges: {str(e)}",
+				title="Error",
+				indicator="red"
+			)
 	
 	def _extract_uom_from_calculation_method(self, calculation_method):
 		"""
@@ -1425,6 +1511,12 @@ class AirBooking(Document):
 				"unit_type": sqaf_record.get("unit_type"),
 				"billing_status": "To Bill",
 				"bill_to": getattr(sqaf_record, "bill_to", None),
+				"pay_to": getattr(sqaf_record, "pay_to", None),
+				"use_tariff_in_revenue": getattr(sqaf_record, "use_tariff_in_revenue", False),
+				"use_tariff_in_cost": getattr(sqaf_record, "use_tariff_in_cost", False),
+				"tariff": getattr(sqaf_record, "tariff", None),
+				"revenue_tariff": getattr(sqaf_record, "revenue_tariff", None),
+				"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
 			}
 			
 			# Add minimum/maximum/quantity if available
@@ -1436,6 +1528,30 @@ class AirBooking(Document):
 				charge_data["maximum_charge"] = sqaf_record.get("maximum_charge")
 			if sqaf_record.get("base_amount") is not None:
 				charge_data["base_amount"] = sqaf_record.get("base_amount")
+			
+			# Add cost fields if available
+			if sqaf_record.get("cost_calculation_method"):
+				charge_data["cost_calculation_method"] = sqaf_record.get("cost_calculation_method")
+			if sqaf_record.get("unit_cost") is not None:
+				charge_data["unit_cost"] = sqaf_record.get("unit_cost")
+			if sqaf_record.get("cost_unit_type"):
+				charge_data["cost_unit_type"] = sqaf_record.get("cost_unit_type")
+			if sqaf_record.get("cost_currency"):
+				charge_data["cost_currency"] = sqaf_record.get("cost_currency")
+			if sqaf_record.get("cost_quantity") is not None:
+				charge_data["cost_quantity"] = sqaf_record.get("cost_quantity")
+			if sqaf_record.get("cost_minimum_quantity") is not None:
+				charge_data["cost_minimum_quantity"] = sqaf_record.get("cost_minimum_quantity")
+			if sqaf_record.get("cost_minimum_charge") is not None:
+				charge_data["cost_minimum_charge"] = sqaf_record.get("cost_minimum_charge")
+			if sqaf_record.get("cost_maximum_charge") is not None:
+				charge_data["cost_maximum_charge"] = sqaf_record.get("cost_maximum_charge")
+			if sqaf_record.get("cost_base_amount") is not None:
+				charge_data["cost_base_amount"] = sqaf_record.get("cost_base_amount")
+			if sqaf_record.get("cost_uom"):
+				charge_data["cost_uom"] = sqaf_record.get("cost_uom")
+			if sqaf_record.get("estimated_cost") is not None:
+				charge_data["estimated_cost"] = sqaf_record.get("estimated_cost")
 			
 			# Log the final charge_data calculation_method
 			frappe.logger().info(
@@ -2159,6 +2275,216 @@ def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]
 			"Air Booking Quote Query Error"
 		)
 		return {"filters": {}}
+
+
+@frappe.whitelist()
+def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
+	"""Populate charges from sales_quote. Called from frontend when sales_quote field changes.
+	
+	Returns charge data that can be populated in the frontend.
+	"""
+	if not sales_quote:
+		return {"charges": []}
+	
+	try:
+		# Temporary names (unsaved documents) cannot be fetched
+		if sales_quote.startswith("new-"):
+			return {
+				"error": _("Please save the Sales Quote first before selecting it here."),
+				"charges": []
+			}
+		# Verify that the sales_quote exists
+		if not frappe.db.exists("Sales Quote", sales_quote):
+			return {
+				"error": f"Sales Quote {sales_quote} does not exist",
+				"charges": []
+			}
+		
+		# Get the document if it exists (for getting weight/volume/packages)
+		doc = None
+		if docname:
+			try:
+				doc = frappe.get_doc("Air Booking", docname)
+			except Exception:
+				pass
+		
+		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
+		# Include both revenue and cost fields
+		charge_fields = [
+			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
+			# Cost fields
+			"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
+			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
+			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
+			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
+		]
+		
+		sales_quote_air_freight_records = frappe.get_all(
+			"Sales Quote Charge",
+			filters={"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			fields=charge_fields,
+			order_by="idx"
+		)
+		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
+			sales_quote_air_freight_records = frappe.get_all(
+				"Sales Quote Air Freight",
+				filters={"parent": sales_quote, "parenttype": "Sales Quote"},
+				fields=charge_fields,
+				order_by="idx"
+			)
+		
+		if not sales_quote_air_freight_records:
+			return {
+				"charges": [],
+				"message": f"No air freight charges found in Sales Quote: {sales_quote}"
+			}
+		
+		# Create a temporary document instance for mapping
+		temp_doc = doc if doc else frappe.new_doc("Air Booking")
+		if doc:
+			# Copy relevant fields from the document
+			temp_doc.weight = doc.weight
+			temp_doc.volume = doc.volume
+			temp_doc.local_customer = doc.local_customer
+			if hasattr(doc, 'packages') and doc.packages:
+				temp_doc.packages = doc.packages
+		
+		# Map and populate charges
+		charges = []
+		for sqaf_record in sales_quote_air_freight_records:
+			charge_row = temp_doc._map_sales_quote_air_freight_to_charge(sqaf_record)
+			if charge_row:
+				charges.append(charge_row)
+		
+		# Note: We do NOT save the document here to avoid "document has been modified" errors.
+		# The client-side JavaScript will handle updating the form with the charges data.
+		
+		return {
+			"charges": charges,
+			"charges_count": len(charges)
+		}
+		
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating charges from sales quote {sales_quote}: {str(e)}",
+			"Air Booking Charges Population Error"
+		)
+		return {
+			"error": f"Error populating charges: {str(e)}",
+			"charges": []
+		}
+
+
+@frappe.whitelist()
+def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str = None):
+	"""Populate charges from one-off quote (which is a Sales Quote with quotation_type='One-off').
+	
+	Called from frontend when one-off quote field changes.
+	Returns charge data that can be populated in the frontend.
+	"""
+	if not one_off_quote:
+		return {"charges": []}
+	
+	try:
+		# Temporary names (unsaved documents) cannot be fetched
+		if one_off_quote.startswith("new-"):
+			return {
+				"error": _("Please save the Sales Quote first before selecting it here."),
+				"charges": []
+			}
+		
+		# Verify that the quote exists (it should be a Sales Quote)
+		if not frappe.db.exists("Sales Quote", one_off_quote):
+			return {
+				"error": f"Sales Quote {one_off_quote} does not exist",
+				"charges": []
+			}
+		
+		# Verify it's actually a One-off quote
+		sq_quotation_type = frappe.db.get_value("Sales Quote", one_off_quote, "quotation_type")
+		if sq_quotation_type != "One-off":
+			return {
+				"error": f"Sales Quote {one_off_quote} is not a One-off quote (quotation_type: {sq_quotation_type})",
+				"charges": []
+			}
+		
+		# Get the document if it exists (for getting weight/volume/packages)
+		doc = None
+		if docname:
+			try:
+				doc = frappe.get_doc("Air Booking", docname)
+			except Exception:
+				pass
+		
+		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
+		# Include both revenue and cost fields
+		charge_fields = [
+			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
+			# Cost fields
+			"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
+			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
+			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
+			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
+		]
+		
+		sales_quote_air_freight_records = frappe.get_all(
+			"Sales Quote Charge",
+			filters={"parent": one_off_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			fields=charge_fields,
+			order_by="idx"
+		)
+		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
+			sales_quote_air_freight_records = frappe.get_all(
+				"Sales Quote Air Freight",
+				filters={"parent": one_off_quote, "parenttype": "Sales Quote"},
+				fields=charge_fields,
+				order_by="idx"
+			)
+		
+		if not sales_quote_air_freight_records:
+			return {
+				"charges": [],
+				"message": f"No air freight charges found in Sales Quote: {one_off_quote}"
+			}
+		
+		# Create a temporary document instance for mapping
+		temp_doc = doc if doc else frappe.new_doc("Air Booking")
+		if doc:
+			# Copy relevant fields from the document
+			temp_doc.weight = doc.weight
+			temp_doc.volume = doc.volume
+			temp_doc.local_customer = doc.local_customer
+			if hasattr(doc, 'packages') and doc.packages:
+				temp_doc.packages = doc.packages
+		
+		# Map and populate charges
+		charges = []
+		for sqaf_record in sales_quote_air_freight_records:
+			charge_row = temp_doc._map_sales_quote_air_freight_to_charge(sqaf_record)
+			if charge_row:
+				charges.append(charge_row)
+		
+		# Note: We do NOT save the document here to avoid "document has been modified" errors.
+		# The client-side JavaScript will handle updating the form with the charges data.
+		
+		return {
+			"charges": charges,
+			"charges_count": len(charges)
+		}
+		
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating charges from one-off quote {one_off_quote}: {str(e)}",
+			"Air Booking Charges Population Error"
+		)
+		return {
+			"error": f"Error populating charges: {str(e)}",
+			"charges": []
+		}
 
 
 @frappe.whitelist()

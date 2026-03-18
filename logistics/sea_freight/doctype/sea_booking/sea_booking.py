@@ -764,13 +764,9 @@ class SeaBooking(Document):
 					self.append("charges", charge_row)
 					charges_added += 1
 
-			if charges_added > 0:
-				frappe.msgprint(
-					f"Successfully populated {charges_added} charges from Sales Quote: {self.sales_quote}",
-					title="Charges Updated",
-					indicator="green"
-				)
-			else:
+			# Don't show success message here - it's called automatically during validation
+			# The frontend will show a user-friendly message when the user explicitly selects a quote
+			if charges_added == 0:
 				frappe.msgprint(
 					f"No valid charges could be mapped from Sales Quote: {self.sales_quote}",
 					title="No Valid Charges",
@@ -829,12 +825,8 @@ class SeaBooking(Document):
 					self.append("charges", charge_row)
 					charges_added += 1
 			
-			if charges_added > 0:
-				frappe.msgprint(
-					_("Successfully populated {0} charges from Sales Quote").format(charges_added),
-					title=_("Charges Updated"),
-					indicator="green"
-				)
+			# Don't show success message here - it's called automatically during validation
+			# The frontend will show a user-friendly message when the user explicitly selects a quote
 			
 		except Exception as e:
 			frappe.log_error(
@@ -903,13 +895,9 @@ class SeaBooking(Document):
 					self.append("charges", charge_row)
 					charges_added += 1
 
-			if charges_added > 0:
-				frappe.msgprint(
-					f"Successfully populated {charges_added} charges from One-Off Quote: {self.quote}",
-					title="Charges Updated",
-					indicator="green"
-				)
-			else:
+			# Don't show success message here - it's called automatically during validation
+			# The frontend will show a user-friendly message when the user explicitly selects a quote
+			if charges_added == 0:
 				frappe.msgprint(
 					f"No valid charges could be mapped from One-Off Quote: {self.quote}",
 					title="No Valid Charges",

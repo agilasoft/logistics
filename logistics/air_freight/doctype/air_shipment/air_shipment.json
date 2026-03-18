@@ -153,9 +153,10 @@
   "branch",
   "cost_center",
   "profit_center",
+  "column_break_vzlm",
   "job_costing_number",
   "project",
-  "column_break_vzlm",
+  "section_break_quote_reference",
   "sales_quote",
   "billing_company",
   "recognition_section",
@@ -1769,6 +1770,11 @@
    "fieldname": "charges_section",
    "fieldtype": "Section Break",
    "label": "Charges"
+  },
+  {
+   "fieldname": "section_break_quote_reference",
+   "fieldtype": "Section Break",
+   "label": "Quote Reference"
   }
  ],
  "grid_page_length": 50,
@@ -1781,7 +1787,7 @@
    "link_fieldname": "job_costing_number"
   }
  ],
- "modified": "2026-03-17 11:13:09.140293",
+ "modified": "2026-03-18 12:03:33.684415",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

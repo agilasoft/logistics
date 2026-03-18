@@ -115,6 +115,16 @@ frappe.ui.form.on("Declaration", {
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
 	},
+	after_save(frm) {
+		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and run_doc_method (e.g. get_dashboard_html) use the correct modified timestamp and avoid TimestampMismatchError.
+		var new_name = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
+		if (new_name) {
+			frm.docname = new_name;
+			frm.doc = (locals[frm.doctype] && locals[frm.doctype][new_name])
+				? locals[frm.doctype][new_name]
+				: frappe.get_doc(frm.doctype, new_name);
+		}
+	},
 	notify_party(frm) {
 		// Auto-populate notify_party_address when notify_party is selected
 		if (frm.doc.notify_party) {
@@ -182,8 +192,8 @@ frappe.ui.form.on("Declaration", {
 			});
 		}
 
-		// Populate Documents from Template
-		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
+		// --- Actions menu ---
+		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Get Documents"), function() {
 				frappe.call({
 					method: "logistics.document_management.api.populate_documents_from_template",
@@ -196,11 +206,7 @@ frappe.ui.form.on("Declaration", {
 					}
 				});
 			}, __("Actions"));
-		}
-
-		// Generate from template button in Milestones section
-		if (!frm.doc.__islocal && frm.fields_dict.milestones) {
-			frm.add_custom_button(__('Generate from Template'), function() {
+			frm.add_custom_button(__('Get Milestones'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
 					args: { doctype: 'Declaration', docname: frm.doc.name },
@@ -211,10 +217,54 @@ frappe.ui.form.on("Declaration", {
 						}
 					}
 				});
-			}, __('Milestones'));
+			}, __('Actions'));
+			if (frm.doc.charges && frm.doc.charges.length > 0) {
+				frm.add_custom_button(__("Calculate Charges"), function() {
+					frm.call("recalculate_all_charges").then(function(r) {
+						if (r && r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: "green" }, 3);
+						}
+					});
+				}, __("Actions"));
+				
+				// Revert Charges - clear all charges
+				frm.add_custom_button(__("Revert Charges"), function() {
+					frappe.confirm(__("Are you sure you want to clear all charges?"), function() {
+						frm.clear_table('charges');
+						frm.refresh_field('charges');
+						frappe.show_alert({ message: __("All charges have been cleared"), indicator: "blue" }, 3);
+					});
+				}, __("Actions"));
+			}
 		}
 
-		// Create > Sales Invoice: always show when submitted so multiple invoices can be created (dialog filters by customer / charges not yet invoiced)
+		// --- View menu ---
+		// View Sales Invoice if exists
+		if (frm.doc.docstatus === 1 && !frm.doc.__islocal && frm.doc.job_costing_number) {
+			frappe.db.get_value("Sales Invoice", {"job_costing_number": frm.doc.job_costing_number}, "name", function(r) {
+				if (r && r.name) {
+					frm.add_custom_button(__("View Sales Invoice"), function() {
+						frappe.set_route("Form", "Sales Invoice", r.name);
+					}, __("View"));
+				}
+			});
+		}
+		// View Declaration Order if linked
+		if (frm.doc.declaration_order) {
+			frm.add_custom_button(__("View Declaration Order"), function() {
+				frappe.set_route("Form", "Declaration Order", frm.doc.declaration_order);
+			}, __("View"));
+		}
+		// View Sales Quote if linked
+		if (frm.doc.sales_quote) {
+			frm.add_custom_button(__("View Sales Quote"), function() {
+				frappe.set_route("Form", "Sales Quote", frm.doc.sales_quote);
+			}, __("View"));
+		}
+
+		// --- Create menu ---
+		// Create > Sales Invoice: Available after submission to generate customer invoices. You can create multiple invoices for different customers or charge types.
 		if (frm.doc.docstatus === 1 && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Sales Invoice"), function() {
 				if (typeof show_create_sales_invoice_dialog === 'function') {
@@ -223,18 +273,8 @@ frappe.ui.form.on("Declaration", {
 					create_sales_invoice_from_declaration(frm);
 				}
 			}, __("Create"));
-			// If any Sales Invoice exists for this job_costing_number, add View for convenience
-			if (frm.doc.job_costing_number) {
-				frappe.db.get_value("Sales Invoice", {"job_costing_number": frm.doc.job_costing_number}, "name", function(r) {
-					if (r && r.name) {
-						frm.add_custom_button(__("View Sales Invoice"), function() {
-							frappe.set_route("Form", "Sales Invoice", r.name);
-						}, __("Actions"));
-					}
-				});
-			}
 		}
-		// Create Purchase Invoice (dialog: select charges, header details)
+		// Create > Purchase Invoice: Available after submission to generate supplier invoices. You can select which charges to include.
 		if (frm.doc.docstatus === 1 && typeof show_create_purchase_invoice_dialog === 'function') {
 			frm.add_custom_button(__("Purchase Invoice"), function() {
 				show_create_purchase_invoice_dialog(frm);
@@ -279,40 +319,6 @@ frappe.ui.form.on("Declaration", {
 				// WIP & Accrual recognition (Post > Recognize WIP & Accrual, Recognition menu)
 				_declaration_add_recognition_buttons(frm);
 			}, 100);
-		}
-
-		// Calculate Charges (same as Air Shipment)
-		if (frm.doc.charges && frm.doc.charges.length > 0) {
-			frm.add_custom_button(__("Calculate Charges"), function() {
-				frm.call("recalculate_all_charges").then(function(r) {
-					if (r && r.message && r.message.success) {
-						frm.reload_doc();
-						frappe.show_alert({ message: __(r.message.message), indicator: "green" }, 3);
-					}
-				});
-			}, __("Actions"));
-			
-			// Revert Charges - clear all charges
-			frm.add_custom_button(__("Revert Charges"), function() {
-				frappe.confirm(__("Are you sure you want to clear all charges?"), function() {
-					frm.clear_table('charges');
-					frm.refresh_field('charges');
-					frappe.show_alert({ message: __("All charges have been cleared"), indicator: "blue" }, 3);
-				});
-			}, __("Actions"));
-		}
-
-		// Add button to view Declaration Order if linked
-		if (frm.doc.declaration_order) {
-			frm.add_custom_button(__("View Declaration Order"), function() {
-				frappe.set_route("Form", "Declaration Order", frm.doc.declaration_order);
-			}, __("Actions"));
-		}
-		// Add button to view Sales Quote if linked
-		if (frm.doc.sales_quote) {
-			frm.add_custom_button(__("View Sales Quote"), function() {
-				frappe.set_route("Form", "Sales Quote", frm.doc.sales_quote);
-			}, __("Actions"));
 		}
 	},
 });

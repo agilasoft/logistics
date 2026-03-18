@@ -1335,35 +1335,49 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
     note = _("Auto-created from Sea Shipment {0}").format(shipment.name)
     invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
 
-    # Add items from charges (support multiple bill-to via bill_tos)
+    # Add items from charges (bill_to on row, else shipment local_customer, else dialog customer)
     from logistics.utils.charges_calculation import get_charge_bill_to_customers
-    for charge in shipment.charges:
-        if customer not in get_charge_bill_to_customers(charge):
+
+    def _si_customers_for_charge(ch):
+        billed = get_charge_bill_to_customers(ch)
+        if billed:
+            return billed
+        if getattr(shipment, "local_customer", None):
+            return [shipment.local_customer]
+        return [customer]
+
+    for charge in shipment.charges or []:
+        if customer not in _si_customers_for_charge(charge):
             continue
-        if getattr(charge, "invoice_type", None) != invoice_type:
+        if invoice_type and getattr(charge, "invoice_type", None) != invoice_type:
             continue
-            item_payload = {
-                'item_code': charge.charge_item,
-                'item_name': charge.charge_name or charge.charge_item,
-                'description': charge.charge_description,
-                'qty': 1,
-                'rate': charge.selling_amount or 0,
-                'currency': charge.selling_currency,
-                'item_tax_template': charge.item_tax_template or None
-            }
-            
-            # Add accounting fields to Sales Invoice Item
-            if getattr(shipment, "cost_center", None):
-                item_payload['cost_center'] = shipment.cost_center
-            if getattr(shipment, "profit_center", None):
-                item_payload['profit_center'] = shipment.profit_center
-            # Link to shipment for Recognition Engine and lifecycle tracking
-            si_item_meta = frappe.get_meta("Sales Invoice Item")
-            if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
-                item_payload["reference_doctype"] = "Sea Shipment"
-                item_payload["reference_name"] = shipment.name
-            
-            invoice.append('items', item_payload)
+        selling_rate = (
+            flt(getattr(charge, "selling_amount", None))
+            or flt(getattr(charge, "base_amount", None))
+            or flt(getattr(charge, "estimated_revenue", None))
+        )
+        if not charge.charge_item:
+            continue
+        item_payload = {
+            "item_code": charge.charge_item,
+            "item_name": charge.charge_name or charge.charge_item,
+            "description": charge.charge_description,
+            "qty": 1,
+            "rate": selling_rate,
+            "currency": charge.selling_currency or None,
+            "item_tax_template": charge.item_tax_template or None,
+        }
+
+        if getattr(shipment, "cost_center", None):
+            item_payload["cost_center"] = shipment.cost_center
+        if getattr(shipment, "profit_center", None):
+            item_payload["profit_center"] = shipment.profit_center
+        si_item_meta = frappe.get_meta("Sales Invoice Item")
+        if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
+            item_payload["reference_doctype"] = "Sea Shipment"
+            item_payload["reference_name"] = shipment.name
+
+        invoice.append("items", item_payload)
 
     if not invoice.items:
         frappe.throw(_("No matching charges found for the selected customer and invoice type."))
