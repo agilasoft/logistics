@@ -6,8 +6,8 @@
  "engine": "InnoDB",
  "field_order": [
   "controlled_doctype",
-  "block_insert",
   "block_save",
+  "block_insert",
   "block_submit",
   "block_print"
  ],
@@ -16,20 +16,14 @@
    "fieldname": "controlled_doctype",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "DocType",
+   "label": "Subject DocType",
    "options": "DocType",
-   "reqd": 1
+   "reqd": 1,
+   "description": "DocType evaluated when the resolved customer is on credit hold."
   },
   {
    "default": "1",
-   "fieldname": "block_insert",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Block new documents"
-  },
-  {
-   "default": "1",
-   "description": "Shows an orange warning after save; does not prevent saving.",
+   "description": "After save: orange warning only; save is not blocked.",
    "fieldname": "block_save",
    "fieldtype": "Check",
    "in_list_view": 1,
@@ -37,17 +31,27 @@
   },
   {
    "default": "1",
-   "fieldname": "block_submit",
+   "description": "Block creating new documents for a customer on hold.",
+   "fieldname": "block_insert",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Block submit"
+   "label": "Hold create"
   },
   {
    "default": "1",
+   "description": "Block submit while on hold.",
+   "fieldname": "block_submit",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Hold submit"
+  },
+  {
+   "default": "1",
+   "description": "Block print and PDF while on hold.",
    "fieldname": "block_print",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Block print / PDF"
+   "label": "Hold print / PDF"
   }
  ],
  "istable": 1,

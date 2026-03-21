@@ -64,6 +64,8 @@
   "credit_apply_payment_terms_breach",
   "credit_payment_terms_grace_days",
   "credit_control_bypass_role",
+  "credit_apply_hold_to_all_doctypes",
+  "credit_subject_doctypes_section",
   "credit_control_rules"
  ],
  "fields": [
@@ -378,7 +380,7 @@
    "fieldname": "enable_credit_control",
    "fieldtype": "Check",
    "label": "Enable logistics credit control",
-   "description": "When enabled, creation, save, submit, and print are restricted per rules below for documents linked to a customer under credit hold."
+   "description": "When enabled, documents for customers on credit hold are controlled after hold conditions: either **Apply hold to all DocTypes** (full defaults for every registered DocType) or per-row **Subject DocTypes** below."
   },
   {
    "fieldname": "credit_control_intro",
@@ -426,11 +428,24 @@
    "description": "Users with this role skip credit blocks (optional)."
   },
   {
+   "default": "0",
+   "fieldname": "credit_apply_hold_to_all_doctypes",
+   "fieldtype": "Check",
+   "label": "Apply hold to all DocTypes",
+   "description": "When enabled, every registered logistics DocType in credit control uses Warn on save and Hold create, submit, and print. The Subject DocTypes table is disabled and ignored."
+  },
+  {
+   "fieldname": "credit_subject_doctypes_section",
+   "fieldtype": "Section Break",
+   "label": "DocTypes subject to credit hold",
+   "description": "When **Apply hold to all DocTypes** is off, add one row per DocType and set Warn / Hold columns. When it is on, the table is disabled; all registered DocTypes in code are subject to full hold behaviour."
+  },
+  {
    "fieldname": "credit_control_rules",
    "fieldtype": "Table",
-   "label": "Per-doctype actions",
+   "label": "Subject DocTypes",
    "options": "Logistics Settings Credit Rule",
-   "description": "Add a row per DocType to control. Only listed DocTypes are enforced."
+   "description": "Ignored when **Apply hold to all DocTypes** is checked. Otherwise one row per DocType (must also be registered in code)."
   }
  ],
  "grid_page_length": 50,

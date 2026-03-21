@@ -59,8 +59,8 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | document_list_template.md | Document List Template | Introduction |
 | logistics_document_type.md | Logistics Document Type | Introduction |
 | customer_portal.md | Customer Portal | Introduction |
-| logistics_settings.md | Logistics Settings | Setup |
-| credit_management.md | Credit Management | Setup |
+| logistics_settings.md | Logistics Settings (incl. Credit Control overview) | Setup |
+| credit_management.md | Credit Management (holds, Subject DocTypes, apply-all, lifts) | Setup |
 | default_details_and_relationships.md | Default Details and Relationships | Setup |
 | sea_freight_settings.md | Sea Freight Settings | Setup |
 | air_freight_settings.md | Air Freight Settings | Setup |

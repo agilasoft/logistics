@@ -87,7 +87,19 @@ def get_credit_company_for_doc(doc):
 	return frappe.defaults.get_user_default("Company")
 
 
-def _get_rule_row(settings, doctype):
+def _full_hold_rule_for_all_doctypes():
+	"""Virtual rule when Apply hold to all DocTypes is on: all Warn / Hold flags enabled."""
+	return frappe._dict(block_insert=1, block_save=1, block_submit=1, block_print=1)
+
+
+def _get_effective_credit_rule(settings, doctype):
+	"""
+	Return a mapping with block_insert, block_save, block_submit, block_print, or None if DocType not subject.
+	"""
+	if getattr(settings, "credit_apply_hold_to_all_doctypes", 0):
+		if doctype not in CREDIT_SUBJECT_DOCTYPES:
+			return None
+		return _full_hold_rule_for_all_doctypes()
 	for row in settings.get("credit_control_rules") or []:
 		if row.controlled_doctype == doctype:
 			return row
@@ -217,7 +229,7 @@ def get_credit_block_message(doc, action):
 	if not settings or not getattr(settings, "enable_credit_control", 0):
 		return None
 
-	row = _get_rule_row(settings, doc.doctype)
+	row = _get_effective_credit_rule(settings, doc.doctype)
 	if not row:
 		return None
 
@@ -264,7 +276,7 @@ def on_credit_validate(doc, method=None):
 	settings = get_credit_settings()
 	if not settings or not getattr(settings, "enable_credit_control", 0):
 		return
-	row = _get_rule_row(settings, doc.doctype)
+	row = _get_effective_credit_rule(settings, doc.doctype)
 	if not row or not row.get("block_save"):
 		return
 	hold, reasons = is_under_credit_hold(doc, settings)

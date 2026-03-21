@@ -16,7 +16,7 @@
 
 ## Goals
 
-- One place to decide **which DocTypes** are subject to credit holds and **which actions** are blocked (new document, submit, print/PDF) or **warned** (save).
+- One place to decide **which DocTypes** are subject to credit holds—either **Apply hold to all DocTypes** (every registered DocType, full Warn + Hold) or per-row **Subject DocTypes**—and **which actions** are blocked (new document, submit, print/PDF) or **warned** (save).
 - Combine **manual** credit classification on the Customer with **automatic** signals from ERPNext (**credit limit**) and **overdue Sales Invoices** (payment terms deviation).
 - Apply consistently to operational documents that link a **Customer** (or equivalent party field—see below).
 
@@ -33,7 +33,14 @@ ERPNext’s own **Accounting** tab still holds **Payment Terms**, **Credit Limit
 
 ## Logistics Settings → Credit Control
 
-Single DocType **Logistics Settings**, tab **Credit Control**.
+Open **Logistics Settings** and select the **Credit Control** tab. Configuration is ordered as on the form:
+
+1. **Hold conditions** — Defines *when* a customer is on credit hold.  
+2. **Bypass role** — Optional role that skips enforcement.  
+3. **Apply hold to all DocTypes** — When checked, every DocType in `CREDIT_SUBJECT_DOCTYPES` gets full Warn + Hold create / submit / print; the **Subject DocTypes** table is disabled and ignored.  
+4. **DocTypes subject to credit hold** — When (3) is off, table **Subject DocTypes** defines *what happens* per DocType.
+
+See also [Logistics Settings](welcome/logistics-settings) (section Credit Control).
 
 ### Master switch
 
@@ -57,19 +64,24 @@ Any **enabled** condition below contributes; if at least one fires, the customer
    - **Payment terms grace (days)** extends the due date threshold (due date must be **before** `today − grace` to count).  
    - Implementation: any **submitted Sales Invoice** for that customer and company with **outstanding_amount > 0** and **due_date** before the cutoff.
 
-### Per-doctype rules (child table)
+### Apply hold to all DocTypes
 
-**Per-doctype actions** (`Logistics Settings Credit Rule`):
+- Checkbox **Apply hold to all DocTypes** (after **Bypass role**).  
+- When enabled: all DocTypes listed in code as `CREDIT_SUBJECT_DOCTYPES` are subject to credit hold with **Warn on save**, **Hold create**, **Hold submit**, and **Hold print / PDF** all on. The **Subject DocTypes** child table is read-only in the form and is **not** read for enforcement.
+
+### DocTypes subject to credit hold (table)
+
+When **Apply hold to all DocTypes** is **off**, use the section **DocTypes subject to credit hold**, table **Subject DocTypes** (child: `Logistics Settings Credit Rule`):
 
 | Column | Meaning |
 |--------|---------|
-| **DocType** | Target document type (only listed types are enforced). |
-| **Block new documents** | `before_insert` — block creation. |
-| **Warn on save** | `validate` on existing rows — orange **msgprint** only; save always completes. |
-| **Block submit** | `before_submit`. |
-| **Block print / PDF** | Enforced by patching Frappe’s `validate_print_permission` (in `printview` and `print_format`). This is required because core print allows access if the user has **either** read **or** print—blocking only the print permission check is not enough. |
+| **Subject DocType** | DocType included in credit control (only listed types are enforced, and each must be registered in `CREDIT_SUBJECT_DOCTYPES` in code). |
+| **Warn on save** | Orange **msgprint** after save only; save is not blocked. |
+| **Hold create** | Block **new** documents (`before_insert`). |
+| **Hold submit** | Block **submit** (`before_submit`). |
+| **Hold print / PDF** | Block print/PDF via patched `validate_print_permission` (core allows print if user has read **or** print, so the validator is patched). |
 
-Each flag is independent (e.g. warn on save but block submit). Uncheck **Warn on save** to suppress save-time messages for that DocType.
+Options are independent (e.g. **Warn on save** on with **Hold submit** off). Uncheck **Warn on save** to silence save-time messages for that DocType.
 
 ### Bypass
 
@@ -99,11 +111,11 @@ Hooks are registered for a fixed list of **CREDIT_SUBJECT_DOCTYPES** in `logisti
 
 **Important:** A DocType is only enforced if:
 
-1. It appears in that list **and**
-2. It has a row in **Per-doctype actions** **and**
+1. It appears in `CREDIT_SUBJECT_DOCTYPES` **and**
+2. Either **Apply hold to all DocTypes** is on, **or** it has a row in **Subject DocTypes**, **and**
 3. **Enable logistics credit control** is on.
 
-To extend coverage, add the DocType to `CREDIT_SUBJECT_DOCTYPES` and add a row in Logistics Settings.
+To extend coverage, add the DocType to `CREDIT_SUBJECT_DOCTYPES` in code; if not using “apply all”, add a row in **Subject DocTypes**.
 
 ## Resolving the “credit customer” on a document
 
@@ -122,7 +134,7 @@ If none is set, no credit enforcement runs for that document.
 flowchart TD
   A[Document action] --> B{Credit control enabled?}
   B -->|no| Z[Allow]
-  B -->|yes| C{DocType in rules table?}
+  B -->|yes| C{Apply all OR row in Subject DocTypes?}
   C -->|no| Z
   C -->|yes| D{User bypass role / Administrator?}
   D -->|yes| Z
@@ -131,10 +143,14 @@ flowchart TD
   F -->|no| Z
   F -->|yes| G{Which action?}
   G -->|save and Warn on save| W[Orange message only — save proceeds]
-  G -->|insert / submit / print| H{Blocked for this action in rule row?}
+  G -->|insert / submit / print| H{Hold flag on for this action?}
   H -->|no| Z
   H -->|yes| X[Throw or deny print]
 ```
+
+## Related topics
+
+- [Logistics Settings](welcome/logistics-settings) — **Credit Control** tab (hold conditions, bypass role, **Apply hold to all DocTypes**, **Subject DocTypes**)
 
 ## Relation to ERPNext Selling credit
 
@@ -151,13 +167,14 @@ flowchart TD
 | Credit Hold Lift Request | `logistics/logistics/doctype/credit_hold_lift_request/` |
 | Credit Manager role (fixture) | `logistics/fixtures/role.json` |
 | Hooks (`doc_events` + print validator patch) | `logistics/hooks.py`, `logistics/utils/credit_management.py` |
+| Logistics Settings form (disable Subject DocTypes grid when “apply all”) | `logistics/logistics/doctype/logistics_settings/logistics_settings.js` |
 | Customer tab + **Credit Status** | `logistics/logistics/custom/customer.json` |
 
 ## Operational checklist
 
 1. Migrate / sync custom fields and DocTypes.  
 2. Open **Logistics Settings → Credit Control**, enable the feature.  
-3. Add **Per-doctype actions** rows for each DocType you want controlled; set checkboxes per action.  
+3. Either enable **Apply hold to all DocTypes**, or add **Subject DocTypes** rows with **Warn** / **Hold** options per row.  
 4. Set **Credit Status** on customers as needed; maintain **Credit Limits** and **Payment Terms** in ERPNext as usual.  
 5. Optionally set **Bypass role** for credit officers.
 
