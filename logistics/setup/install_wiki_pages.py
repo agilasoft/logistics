@@ -33,6 +33,7 @@ WIKI_PAGES_CONFIG = {
     "cargonext_v1_astraea_press_release": ("CargoNext v1 — Astraea Press Release", "Introduction"),
     # Settings
     "logistics_settings": ("Logistics Settings", "Setup"),
+    "credit_management": ("Credit Management", "Setup"),
     "sea_freight_settings": ("Sea Freight Settings", "Setup"),
     "air_freight_settings": ("Air Freight Settings", "Setup"),
     "transport_settings": ("Transport Settings", "Setup"),

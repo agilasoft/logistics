@@ -29,10 +29,11 @@
   },
   {
    "default": "1",
+   "description": "Shows an orange warning after save; does not prevent saving.",
    "fieldname": "block_save",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Block updates (save)"
+   "label": "Warn on save"
   },
   {
    "default": "1",

@@ -16,6 +16,8 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
+fixtures = ["role.json"]
+
 # Includes in <head>
 # ------------------
 
@@ -148,6 +150,7 @@ doctype_js = {
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
+	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}

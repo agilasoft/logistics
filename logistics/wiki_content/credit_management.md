@@ -1,10 +1,22 @@
 # Credit management (logistics-wide)
 
-This document describes the **CargoNext logistics credit control** feature: how customer credit state is represented, how **Logistics Settings** configures enforcement, and how **create / save / submit / print** are blocked consistently across modules.
+**Logistics credit control** ties **Customer** credit status, ERPNext limits and overdue invoices, and **Logistics Settings** rules so creation, submit, and print can be blocked while **save** only shows a warning. **Credit Hold Lift Request** provides a submitted, time-bound exception.
+
+**Navigation**
+
+- **Logistics Settings** (Credit Control tab): **Home > Logistics > Logistics Settings**
+- **Customer** (Credit tab): **Home > Selling > Customer**
+- **Credit Hold Lift Request**: open from Awesome Bar or list (Logistics module)
+
+## Prerequisites
+
+- [Logistics Settings](welcome/logistics-settings) saved with your company defaults
+- **Customer** master data and (optional) ERPNext **Credit Limits** / **Payment Terms**
+- Role **Credit Manager** (synced from app fixtures) for approving lift requests
 
 ## Goals
 
-- One place to decide **which DocTypes** are subject to credit holds and **which actions** are blocked (new document, save, submit, print/PDF).
+- One place to decide **which DocTypes** are subject to credit holds and **which actions** are blocked (new document, submit, print/PDF) or **warned** (save).
 - Combine **manual** credit classification on the Customer with **automatic** signals from ERPNext (**credit limit**) and **overdue Sales Invoices** (payment terms deviation).
 - Apply consistently to operational documents that link a **Customer** (or equivalent party field—see below).
 
@@ -53,15 +65,29 @@ Any **enabled** condition below contributes; if at least one fires, the customer
 |--------|---------|
 | **DocType** | Target document type (only listed types are enforced). |
 | **Block new documents** | `before_insert` — block creation. |
-| **Block updates (save)** | `validate` on existing rows — block saves. |
+| **Warn on save** | `validate` on existing rows — orange **msgprint** only; save always completes. |
 | **Block submit** | `before_submit`. |
 | **Block print / PDF** | Enforced by patching Frappe’s `validate_print_permission` (in `printview` and `print_format`). This is required because core print allows access if the user has **either** read **or** print—blocking only the print permission check is not enough. |
 
-Each flag is independent (e.g. allow save but block submit).
+Each flag is independent (e.g. warn on save but block submit). Uncheck **Warn on save** to suppress save-time messages for that DocType.
 
 ### Bypass
 
 - **Bypass role** — users with this role skip all credit blocks (optional). **Administrator** always bypasses.
+
+### Temporary lift (approved request)
+
+DocType **Credit Hold Lift Request** (Logistics module) records a time-bound exception:
+
+- **Customer**, **Relieved DocType** (target DocType), **Valid From / Valid To**, **Justification**.
+- **Company** (optional): if set, the lift matches only documents with the same company; company-specific lifts do **not** apply when the target document has no company.
+- **Scope**: **All Documents** (any document of that DocType for the customer in the date range) or **Single Document** (Dynamic Link to one record—reference must exist before submit).
+
+**Submit** is restricted to **Credit Manager** or **System Manager** (or **Administrator**). Until submitted (`docstatus` = 1), the request has no effect. **Sales User** may create and edit drafts but cannot submit.
+
+When a matching submitted request is active for today’s date, **all** credit enforcement for that target document is skipped: no insert/submit/print blocks and no save warning (`has_active_credit_lift` in `credit_management.py`).
+
+The **Credit Manager** role is shipped via app fixture `logistics/fixtures/role.json` (synced on migrate).
 
 ### Server-side escape hatch
 
@@ -94,7 +120,7 @@ If none is set, no credit enforcement runs for that document.
 
 ```mermaid
 flowchart TD
-  A[Document action: insert / save / submit / print] --> B{Credit control enabled?}
+  A[Document action] --> B{Credit control enabled?}
   B -->|no| Z[Allow]
   B -->|yes| C{DocType in rules table?}
   C -->|no| Z
@@ -103,9 +129,11 @@ flowchart TD
   D -->|no| E[Resolve Customer + Company]
   E --> F{Any hold condition true?}
   F -->|no| Z
-  F -->|yes| G{This action blocked in rule row?}
-  G -->|no| Z
-  G -->|yes| H[Throw or deny print]
+  F -->|yes| G{Which action?}
+  G -->|save and Warn on save| W[Orange message only — save proceeds]
+  G -->|insert / submit / print| H{Blocked for this action in rule row?}
+  H -->|no| Z
+  H -->|yes| X[Throw or deny print]
 ```
 
 ## Relation to ERPNext Selling credit
@@ -120,6 +148,8 @@ flowchart TD
 | Rules + settings fields | `logistics/logistics/doctype/logistics_settings/` |
 | Child row DocType | `logistics/logistics/doctype/logistics_settings_credit_rule/` |
 | Core logic + doctype list | `logistics/utils/credit_management.py` |
+| Credit Hold Lift Request | `logistics/logistics/doctype/credit_hold_lift_request/` |
+| Credit Manager role (fixture) | `logistics/fixtures/role.json` |
 | Hooks (`doc_events` + print validator patch) | `logistics/hooks.py`, `logistics/utils/credit_management.py` |
 | Customer tab + **Credit Status** | `logistics/logistics/custom/customer.json` |
 
@@ -135,5 +165,4 @@ flowchart TD
 
 - Email / PDF API hooks beyond standard print permission.  
 - Portal / website routes (separate permission paths).  
-- Weighting **Watch** as warning-only (toast) while still allowing save.  
 - Using **Payment Schedule** lines instead of header **due_date** for finer overdue detection.

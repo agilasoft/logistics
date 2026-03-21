@@ -60,6 +60,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | logistics_document_type.md | Logistics Document Type | Introduction |
 | customer_portal.md | Customer Portal | Introduction |
 | logistics_settings.md | Logistics Settings | Setup |
+| credit_management.md | Credit Management | Setup |
 | default_details_and_relationships.md | Default Details and Relationships | Setup |
 | sea_freight_settings.md | Sea Freight Settings | Setup |
 | air_freight_settings.md | Air Freight Settings | Setup |

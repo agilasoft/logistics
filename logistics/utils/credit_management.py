@@ -94,6 +94,41 @@ def _get_rule_row(settings, doctype):
 	return None
 
 
+def has_active_credit_lift(doc):
+	"""
+	Submitted Credit Hold Lift Request that matches customer, relieved DocType, validity dates,
+	and optional company / single-document scope. When True, credit blocks and save warnings are skipped.
+	"""
+	if not doc or not frappe.db.exists("DocType", "Credit Hold Lift Request"):
+		return False
+	customer = get_credit_customer_for_doc(doc)
+	if not customer:
+		return False
+	today = getdate()
+	candidates = frappe.get_all(
+		"Credit Hold Lift Request",
+		filters=[
+			["docstatus", "=", 1],
+			["customer", "=", customer],
+			["relieved_doctype", "=", doc.doctype],
+			["valid_from", "<=", today],
+			["valid_to", ">=", today],
+		],
+		fields=["scope", "reference_name", "company"],
+	)
+	doc_company = doc.get("company")
+	for row in candidates:
+		if row.company:
+			if not doc_company or row.company != doc_company:
+				continue
+		scope = row.scope or "All Documents"
+		if scope == "Single Document":
+			if not doc.get("name") or row.reference_name != doc.get("name"):
+				continue
+		return True
+	return False
+
+
 def get_manual_credit_status(customer):
 	if not customer or not frappe.db.exists("Customer", customer):
 		return "Good"
@@ -169,11 +204,13 @@ def is_under_credit_hold(doc, settings):
 def get_credit_block_message(doc, action):
 	"""
 	Return error message string if action is blocked, else None.
-	action: insert | save | submit | print
+	action: insert | submit | print (save uses on-screen warning only; see on_credit_validate).
 	"""
 	if doc.flags.get("skip_credit_control"):
 		return None
 	if user_has_credit_bypass():
+		return None
+	if has_active_credit_lift(doc):
 		return None
 
 	settings = get_credit_settings()
@@ -190,7 +227,6 @@ def get_credit_block_message(doc, action):
 
 	flag_map = {
 		"insert": "block_insert",
-		"save": "block_save",
 		"submit": "block_submit",
 		"print": "block_print",
 	}
@@ -219,7 +255,24 @@ def on_credit_before_insert(doc, method=None):
 def on_credit_validate(doc, method=None):
 	if doc.is_new():
 		return
-	enforce_credit_action(doc, "save")
+	if doc.flags.get("skip_credit_control"):
+		return
+	if user_has_credit_bypass():
+		return
+	if has_active_credit_lift(doc):
+		return
+	settings = get_credit_settings()
+	if not settings or not getattr(settings, "enable_credit_control", 0):
+		return
+	row = _get_rule_row(settings, doc.doctype)
+	if not row or not row.get("block_save"):
+		return
+	hold, reasons = is_under_credit_hold(doc, settings)
+	if not hold:
+		return
+	base = _("Credit control warning for {0} {1}.").format(_(doc.doctype), doc.get("name") or "")
+	msg = base + (" " + " ".join(reasons) if reasons else "")
+	frappe.msgprint(msg, title=_("Credit control"), indicator="orange", alert=True)
 
 
 def on_credit_before_submit(doc, method=None):
