@@ -21,6 +21,10 @@ To access: **Home > Air Freight > Air Booking**
 - **Charges** – Selling and cost charges with weight/qty breaks (unified calculation engine; revenue and cost calculation methods)
 - **Documents** – Job Document child table; use Populate from Template
 
+### 2.1 Charges from Sales Quote
+
+When the booking is created from a [Sales Quote](welcome/sales-quote), charge lines copy **Item Code**, **Item Name**, **charge category**, **description**, **Item Tax Template**, and **Invoice Type** (from the Item where applicable) from the quote charges so invoicing and categories stay aligned.
+
 ## 3. Workflow
 
 1. Create Air Booking from [Sales Quote](welcome/sales-quote) or manually.
@@ -30,6 +34,7 @@ To access: **Home > Air Freight > Air Booking**
 
 ## 4. Related Topics
 
+- [Recent Platform Updates](welcome/recent-platform-updates)
 - [Air Shipment](welcome/air-shipment)
 - [Air Consolidation](welcome/air-consolidation)
 - [Master Air Waybill](welcome/master-air-waybill)

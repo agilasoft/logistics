@@ -2,6 +2,22 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Warehouse Contract", {
+	setup(frm) {
+		frm.set_query("sales_quote", function() {
+			var filters = {
+				service_type: "Warehousing",
+				reference_doctype: "Warehouse Contract",
+				reference_name: frm.doc.name || ""
+			};
+			if (frm.doc.customer) {
+				filters.customer = frm.doc.customer;
+			}
+			return {
+				query: "logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search",
+				filters: filters
+			};
+		});
+	},
 	refresh(frm) {
 		// Add Get Rates action to the menu
 		if (frm.doc.sales_quote && !frm.is_new()) {

@@ -54,7 +54,17 @@
   "penalties_section",
   "penalty_impending_days",
   "delays_section",
-  "delay_impending_days"
+  "delay_impending_days",
+  "credit_control_tab",
+  "enable_credit_control",
+  "credit_control_intro",
+  "credit_block_on_status_on_hold",
+  "credit_block_on_status_watch",
+  "credit_apply_limit_breach",
+  "credit_apply_payment_terms_breach",
+  "credit_payment_terms_grace_days",
+  "credit_control_bypass_role",
+  "credit_control_rules"
  ],
  "fields": [
   {
@@ -357,6 +367,70 @@
    "label": "Warning (Days)",
    "default": 1,
    "description": "Days before expected delay to show Warning (yellow)."
+  },
+  {
+   "fieldname": "credit_control_tab",
+   "fieldtype": "Tab Break",
+   "label": "Credit Control"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_credit_control",
+   "fieldtype": "Check",
+   "label": "Enable logistics credit control",
+   "description": "When enabled, creation, save, submit, and print are restricted per rules below for documents linked to a customer under credit hold."
+  },
+  {
+   "fieldname": "credit_control_intro",
+   "fieldtype": "Section Break",
+   "label": "Hold conditions",
+   "description": "A customer is under credit hold when any enabled condition is true: manual status (Customer \u003e Credit tab), credit limit exceeded, or overdue sales invoices (payment terms deviation)."
+  },
+  {
+   "default": "1",
+   "fieldname": "credit_block_on_status_on_hold",
+   "fieldtype": "Check",
+   "label": "Hold when Credit Status is On Hold"
+  },
+  {
+   "default": "0",
+   "fieldname": "credit_block_on_status_watch",
+   "fieldtype": "Check",
+   "label": "Hold when Credit Status is Watch"
+  },
+  {
+   "default": "1",
+   "fieldname": "credit_apply_limit_breach",
+   "fieldtype": "Check",
+   "label": "Hold when credit limit is exceeded",
+   "description": "Uses ERPNext customer / group / company credit limit vs outstanding (same basis as Selling)."
+  },
+  {
+   "default": "1",
+   "fieldname": "credit_apply_payment_terms_breach",
+   "fieldtype": "Check",
+   "label": "Hold on payment terms deviation",
+   "description": "Hold when any submitted Sales Invoice for the customer and company has outstanding amount and due date before today minus grace days."
+  },
+  {
+   "default": "0",
+   "fieldname": "credit_payment_terms_grace_days",
+   "fieldtype": "Int",
+   "label": "Payment terms grace (days)"
+  },
+  {
+   "fieldname": "credit_control_bypass_role",
+   "fieldtype": "Link",
+   "label": "Bypass role",
+   "options": "Role",
+   "description": "Users with this role skip credit blocks (optional)."
+  },
+  {
+   "fieldname": "credit_control_rules",
+   "fieldtype": "Table",
+   "label": "Per-doctype actions",
+   "options": "Logistics Settings Credit Rule",
+   "description": "Add a row per DocType to control. Only listed DocTypes are enforced."
   }
  ],
  "grid_page_length": 50,

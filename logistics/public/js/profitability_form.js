@@ -18,6 +18,12 @@ logistics.profitability.load_profitability_html = function(frm) {
 
 	// Find the HTML field's wrapper or create a dedicated container
 	function get_profitability_container() {
+		// Prefer the real ControlHTML $wrapper (same node set_value uses) — avoids binding the wrong element.
+		var ctrl = frm.fields_dict && frm.fields_dict.profitability_section_html;
+		if (ctrl && ctrl.$wrapper && ctrl.$wrapper.length) {
+			return ctrl.$wrapper;
+		}
+
 		var $layout = (frm.layout && frm.layout.wrapper) ? frm.layout.wrapper : null;
 		var $form = frm.wrapper ? $(frm.wrapper) : null;
 		var $scope = $layout && $layout.length ? $layout : ($form && $form.length ? $form : null);
@@ -150,3 +156,4 @@ $(document).on("render_complete", function(e) {
 		setTimeout(function() { logistics.profitability.load_profitability_html(frm); }, 100);
 	}
 });
+

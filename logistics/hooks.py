@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from logistics.utils.credit_management import merge_credit_hooks
+
 # App dependencies
 app_dependencies = ["erpnext"]
 
@@ -24,7 +26,7 @@ app_include_js = [
 	"/assets/logistics/js/volume_from_dimensions.js",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
-	"/assets/logistics/js/profitability_form.js?v=2",
+	"/assets/logistics/js/profitability_form.js?v=4",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 ]
@@ -145,6 +147,7 @@ doctype_js = {
 		"logistics/public/js/document_alerts_dialog.js",
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
+	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -205,14 +208,25 @@ _doc_milestone_doctypes = [
 ]
 
 doc_events = {
+	"Accounting Dimension": {
+		"after_insert": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
+		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
+		"on_trash": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
+	},
 	"Account": {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
 	},
 	"Purchase Invoice": {
+		"validate": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
 	},
 	"Sales Invoice": {
+		"validate": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
 	},
@@ -223,8 +237,13 @@ for _dt in _doc_milestone_doctypes:
 			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
 			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
 		],
-		"on_update": "logistics.document_management.api.ensure_documents_and_milestones_from_template",
 	}
+	# Exclude Declaration Order from automatic on_update hook to prevent timestamp mismatches
+	# Declaration Order uses user-initiated template population (like Air Booking and Sea Booking)
+	if _dt != "Declaration Order":
+		doc_events[_dt]["on_update"] = "logistics.document_management.api.ensure_documents_and_milestones_from_template"
+
+merge_credit_hooks(doc_events)
 
 # Scheduled Tasks
 # ---------------
@@ -287,6 +306,10 @@ user_data_fields = [
 		"doctype": "{doctype_4}"
 	}
 ]
+
+# Database migrations (after schema sync)
+# ---------------------------------------
+after_migrate = ["logistics.job_management.recognition_migrate.after_migrate"]
 
 # Authentication and authorization
 # --------------------------------

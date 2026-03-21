@@ -80,8 +80,8 @@
   "incoterm_place",
   "inv_incoterm",
   "column_break_zsjh",
-  "inv_total_amount",
   "inv_currency",
+  "inv_total_amount",
   "inv_exchange_rate",
   "balance",
   "invoice_details_section",
@@ -115,8 +115,8 @@
   "lc_ex_rate",
   "column_break_lirr",
   "payment_number",
-  "payment_amount",
   "payment_ex_rate",
+  "payment_amount",
   "section_break_invoice_charges",
   "commercial_invoice_charges",
   "section_break_processing",
@@ -164,36 +164,11 @@
   "charges",
   "profitability_section_break",
   "profitability_section_html",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_accounts",
-  "job_costing_number",
-  "project",
-  "section_break_puec",
-  "sales_quote",
-  "billing_company",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
@@ -209,6 +184,34 @@
   "accrual_journal_entry",
   "accrual_adjustment_journal_entry",
   "accrual_closed",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "job_costing_number",
+  "project",
+  "section_break_puec",
+  "sales_quote",
+  "billing_company",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "invoice_monitoring_section",
+  "sales_invoice",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -282,7 +285,6 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Customs\"]]",
    "options": "Sales Quote"
   },
   {
@@ -293,6 +295,27 @@
    "label": "Billing Company",
    "options": "Company",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
   },
   {
    "fieldname": "declaration_order",
@@ -340,6 +363,7 @@
    "fieldname": "declaration_value",
    "fieldtype": "Currency",
    "label": "Total Declaration Value",
+   "options": "currency",
    "read_only": 1
   },
   {
@@ -687,12 +711,13 @@
   {
    "fieldname": "inv_total_amount",
    "fieldtype": "Currency",
-   "label": "Invoice Total"
+   "label": "Invoice Total",
+   "options": "inv_currency"
   },
   {
    "fieldname": "inv_currency",
    "fieldtype": "Link",
-   "label": "Curr.",
+   "label": "Currency",
    "options": "Currency"
   },
   {
@@ -867,7 +892,8 @@
   {
    "fieldname": "payment_amount",
    "fieldtype": "Currency",
-   "label": "Payment Amount"
+   "label": "Payment Amount",
+   "options": "inv_currency"
   },
   {
    "fieldname": "payment_ex_rate",
@@ -1093,38 +1119,35 @@
   },
   {
    "default": "0",
-   "description": "From Recognition Policy Settings (matched by company and dimensions).",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
    "label": "Enable WIP Recognition",
    "read_only": 1
   },
   {
-   "description": "From Recognition Policy Settings.",
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
-   "read_only": 1
-  },
-  {
    "default": "0",
-   "description": "From Recognition Policy Settings.",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
    "label": "Enable Accrual Recognition",
    "read_only": 1
   },
   {
-   "description": "From Recognition Policy Settings.",
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
+   "label": "Recognition Date Basis",
    "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
    "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date"
@@ -1454,7 +1477,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-03-18 16:03:00.140447",
+ "modified": "2026-03-20 23:06:04.483551",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",

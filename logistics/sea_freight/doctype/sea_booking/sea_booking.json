@@ -131,6 +131,9 @@
   "job_costing_number",
   "sales_quote",
   "billing_company",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
   "notes_tab",
   "notes_section",
   "internal_notes",
@@ -209,7 +212,6 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Sea\"]]",
    "no_copy": 1,
    "options": "Sales Quote"
   },
@@ -221,6 +223,27 @@
    "label": "Billing Company",
    "options": "Company",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
   },
   {
    "description": "ERPNext Project for Special Projects integration",

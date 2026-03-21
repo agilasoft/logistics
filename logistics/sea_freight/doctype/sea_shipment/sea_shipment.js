@@ -108,6 +108,16 @@ frappe.ui.form.on('Sea Shipment', {
 			}
 			return {};
 		});
+		frm.set_query('sales_quote', function() {
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
+				filters: {
+					service_type: 'Sea',
+					reference_doctype: 'Sea Shipment',
+					reference_name: frm.doc.name || ''
+				}
+			};
+		});
 	},
 
 	override_volume_weight: function(frm) {
@@ -440,30 +450,26 @@ function _sea_shipment_add_recognition_buttons(frm) {
 	var needs_accrual = !d.accrual_journal_entry && !d.accrual_closed;
 	if (needs_wip || needs_accrual) {
 		frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
-			frappe.prompt([
-				{ fieldname: 'recognition_date', fieldtype: 'Date', label: __('Recognition Date'), default: frappe.datetime.get_today(), reqd: 1 }
-			], function(values) {
-				frappe.call({
-					method: 'logistics.job_management.recognition_engine.recognize',
-					args: { doctype: d.doctype, docname: d.name, recognition_date: values.recognition_date },
-					freeze: true,
-					freeze_message: __('Recognizing WIP and Accruals...'),
-					callback: function(r) {
-						if (r.message) {
-							var msg = [];
-							if (r.message.wip_journal_entry) msg.push(__('WIP: {0}', [r.message.wip_journal_entry]));
-							if (r.message.accrual_journal_entry) msg.push(__('Accruals: {0}', [r.message.accrual_journal_entry]));
-							if (msg.length) {
-								frappe.show_alert({ message: msg.join(' | '), indicator: 'green' });
-							} else {
-								var reason = r.message.message || __('Nothing to recognize (already recognized or below minimum)');
-								frappe.msgprint({ title: __('Recognition'), message: reason, indicator: 'blue' });
-							}
-							frm.reload_doc();
+			frappe.call({
+				method: 'logistics.job_management.recognition_engine.recognize',
+				args: { doctype: d.doctype, docname: d.name },
+				freeze: true,
+				freeze_message: __('Recognizing WIP and Accruals...'),
+				callback: function(r) {
+					if (r.message) {
+						var msg = [];
+						if (r.message.wip_journal_entry) msg.push(__('WIP: {0}', [r.message.wip_journal_entry]));
+						if (r.message.accrual_journal_entry) msg.push(__('Accruals: {0}', [r.message.accrual_journal_entry]));
+						if (msg.length) {
+							frappe.show_alert({ message: msg.join(' | '), indicator: 'green' });
+						} else {
+							var reason = r.message.message || __('Nothing to recognize (already recognized or below minimum)');
+							frappe.msgprint({ title: __('Recognition'), message: reason, indicator: 'blue' });
 						}
+						frm.reload_doc();
 					}
-				});
-			}, __('Recognize WIP & Accrual'), __('Create'));
+				}
+			});
 		}, __('Post'));
 	}
 	if (needs_wip) {

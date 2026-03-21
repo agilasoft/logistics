@@ -50,7 +50,7 @@
                     <div class="info-label">Transport Order</div>
                     <div class="info-value">{{ job.transport_order or 'N/A' }}</div>
                 </div>
-                {% if job.hazardous %}
+                {% if job.contains_dangerous_goods %}
                 <div class="info-row">
                     <div class="info-label">Hazardous</div>
                     <div class="info-value warning">⚠️ Yes</div>

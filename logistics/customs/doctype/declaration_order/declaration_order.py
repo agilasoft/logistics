@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt, today
+from frappe.utils import flt, today, getdate
 
 
 class DeclarationOrder(Document):
@@ -92,7 +92,9 @@ class DeclarationOrder(Document):
 				except Exception as alert_err:
 					frappe.log_error(f"Declaration Order get_delay_penalty_alerts: {str(alert_err)}", "Declaration Order Dashboard Alerts")
 
-			return build_run_sheet_style_dashboard(
+			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+			dash = build_run_sheet_style_dashboard(
 				header_title=self.name or "Declaration Order",
 				header_subtitle="Declaration Order",
 				header_items=header_items,
@@ -114,6 +116,7 @@ class DeclarationOrder(Document):
 				merge_header_with_cards=True,
 				header_items_in_card=True,
 			)
+			return get_sales_quote_validity_dashboard_html(self) + dash
 		except Exception as e:
 			frappe.log_error(f"Declaration Order get_dashboard_html: {str(e)}", "Declaration Order Dashboard")
 			err_msg = frappe.utils.escape_html(str(e))
@@ -128,17 +131,21 @@ class DeclarationOrder(Document):
 		except Exception:
 			return alerts
 
-		# 1. Pending required permits
+		# 1. Pending required permits (virtual permit fields use properties; avoid pr.get for those)
 		for pr in (self.get("permit_requirements") or []):
-			if pr.get("is_required") and not pr.get("is_obtained"):
-				alerts.append({"level": "danger", "msg": _("Required permit {0} not yet obtained.").format(pr.get("permit_type") or "—")})
-			elif pr.get("is_obtained") and pr.get("expiry_date"):
+			is_req = pr.get("is_required")
+			is_obt = getattr(pr, "is_obtained", None)
+			ptype = getattr(pr, "permit_type", None) or pr.get("planned_permit_type")
+			expiry = getattr(pr, "expiry_date", None)
+			if is_req and not is_obt:
+				alerts.append({"level": "danger", "msg": _("Required permit {0} not yet obtained.").format(ptype or "—")})
+			elif is_obt and expiry:
 				try:
-					exp = getdate(pr.expiry_date)
+					exp = getdate(expiry)
 					if exp < today_date:
-						alerts.append({"level": "danger", "msg": _("Permit {0} expired on {1}. Renew to avoid penalties.").format(pr.get("permit_type") or "—", pr.expiry_date)})
+						alerts.append({"level": "danger", "msg": _("Permit {0} expired on {1}. Renew to avoid penalties.").format(ptype or "—", expiry)})
 					elif date_diff(exp, today_date) <= 7:
-						alerts.append({"level": "warning", "msg": _("Permit {0} expires on {1}.").format(pr.get("permit_type") or "—", pr.expiry_date)})
+						alerts.append({"level": "warning", "msg": _("Permit {0} expires on {1}.").format(ptype or "—", expiry)})
 				except Exception:
 					pass
 
@@ -218,18 +225,43 @@ class DeclarationOrder(Document):
 			except Exception:
 				pass
 
+		self._validate_etd_eta()
+
+		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+		msgprint_sales_quote_validity_warnings(self)
+
+	def _validate_etd_eta(self):
+		"""Departure must not be after arrival (same calendar day allowed)."""
+		if not self.etd or not self.eta:
+			return
+		if getdate(self.etd) > getdate(self.eta):
+			from logistics.utils.validation_user_messages import (
+				declaration_etd_eta_invalid_message,
+				declaration_etd_eta_title,
+			)
+
+			frappe.throw(
+				declaration_etd_eta_invalid_message(),
+				title=declaration_etd_eta_title(),
+			)
+
 	def after_insert(self):
-		"""Reload document after insert to sync timestamps and prevent timestamp mismatch errors."""
-		if self.name:
-			self.reload()
+		"""Called after document is inserted."""
+		pass
 
 	def before_save(self):
 		from logistics.utils.module_integration import run_propagate_on_link, set_billing_company_from_sales_quote
 		run_propagate_on_link(self)
 		set_billing_company_from_sales_quote(self)
+		self.calculate_exemptions()
 
 	def before_submit(self):
-		"""Validate that sales_quote is required before submitting."""
+		"""Prevent submission if no Sales Quote is linked to this Declaration Order.
+		
+		This ensures every submitted Declaration Order is connected to a Sales Quote,
+		which is necessary for proper tracking and billing.
+		"""
 		if not self.sales_quote:
 			frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."))
 
@@ -295,6 +327,27 @@ class DeclarationOrder(Document):
 			)
 			frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
+	def calculate_exemptions(self):
+		"""Calculate total_exempted amount for each exemption in the declaration order"""
+		if not self.exemptions:
+			return
+		
+		for exemption in self.exemptions:
+			# Calculate total_exempted from exempted_duty, exempted_tax, and exempted_fee
+			exemption.total_exempted = (
+				flt(exemption.exempted_duty or 0) +
+				flt(exemption.exempted_tax or 0) +
+				flt(exemption.exempted_fee or 0)
+			)
+	
+	def get_total_exempted_amount(self) -> float:
+		"""Get total exempted amount from all exemptions"""
+		total = 0.0
+		if self.exemptions:
+			for exemption in self.exemptions:
+				total += flt(exemption.total_exempted or 0)
+		return total
+
 	def _populate_charges_from_sales_quote(self):
 		"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 		if not self.sales_quote:
@@ -303,10 +356,40 @@ class DeclarationOrder(Document):
 			if not frappe.db.exists("Sales Quote", self.sales_quote):
 				return
 			sq = frappe.get_doc("Sales Quote", self.sales_quote)
+			
+			# Check separate_billings_per_service_type setting and if this is the main job
+			separate_billings = True  # Default to separate (current behavior)
+			is_main_job = False
+			
+			try:
+				separate_billings = getattr(sq, "separate_billings_per_service_type", 0) or False
+				
+				# Check if this Declaration Order is the main job by checking routing legs
+				if hasattr(sq, "routing_legs") and sq.routing_legs:
+					for leg in sq.routing_legs:
+						if (getattr(leg, "is_main_job", 0) and 
+							getattr(leg, "job_type", None) in ["Declaration", "Declaration Order"] and
+							getattr(leg, "job_no", None) == self.name):
+							is_main_job = True
+							break
+				
+				# Fallback: check if main_service matches and no routing legs exist
+				if not is_main_job and (not hasattr(sq, "routing_legs") or not sq.routing_legs):
+					if getattr(sq, "main_service", None) == "Customs":
+						is_main_job = True
+			except Exception:
+				# If we can't check, default to separate billings (current behavior)
+				pass
+			
 			# Prefer Sales Quote Charge (service_type=Customs)
 			sq_charges = []
 			if hasattr(sq, "charges") and sq.charges:
-				sq_charges = [c for c in sq.charges if c.get("service_type") == "Customs"]
+				# If separate_billings is unchecked AND this is the main job, get ALL charges
+				# Otherwise, filter by service_type="Customs"
+				if not separate_billings and is_main_job:
+					sq_charges = list(sq.charges)  # Get all charges
+				else:
+					sq_charges = [c for c in sq.charges if c.get("service_type") == "Customs"]
 			if not sq_charges and hasattr(sq, "customs") and sq.customs:
 				sq_charges = list(sq.customs)
 			if not sq_charges:
@@ -381,9 +464,39 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 		if not frappe.db.exists("Sales Quote", sales_quote):
 			return {"charges": [], "error": _("Sales Quote {0} does not exist.").format(sales_quote)}
 		sq = frappe.get_doc("Sales Quote", sales_quote)
+		
+		# Check separate_billings_per_service_type setting and if this is the main job
+		separate_billings = True  # Default to separate (current behavior)
+		is_main_job = False
+		
+		try:
+			separate_billings = getattr(sq, "separate_billings_per_service_type", 0) or False
+			
+			# Check if this Declaration Order is the main job by checking routing legs
+			if docname and hasattr(sq, "routing_legs") and sq.routing_legs:
+				for leg in sq.routing_legs:
+					if (getattr(leg, "is_main_job", 0) and 
+						getattr(leg, "job_type", None) in ["Declaration", "Declaration Order"] and
+						getattr(leg, "job_no", None) == docname):
+						is_main_job = True
+						break
+			
+			# Fallback: check if main_service matches and no routing legs exist
+			if not is_main_job and (not hasattr(sq, "routing_legs") or not sq.routing_legs):
+				if getattr(sq, "main_service", None) == "Customs":
+					is_main_job = True
+		except Exception:
+			# If we can't check, default to separate billings (current behavior)
+			pass
+		
 		sq_charges = []
 		if hasattr(sq, "charges") and sq.charges:
-			sq_charges = [c for c in sq.charges if c.get("service_type") == "Customs"]
+			# If separate_billings is unchecked AND this is the main job, get ALL charges
+			# Otherwise, filter by service_type="Customs"
+			if not separate_billings and is_main_job:
+				sq_charges = list(sq.charges)  # Get all charges
+			else:
+				sq_charges = [c for c in sq.charges if c.get("service_type") == "Customs"]
 		if not sq_charges and hasattr(sq, "customs") and sq.customs:
 			sq_charges = list(sq.customs)
 		if not sq_charges:
@@ -398,6 +511,8 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 			"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 			"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
 			"revenue_calc_notes", "cost_calc_notes", "charge_basis", "rate",
+			"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
+			"bill_to", "pay_to",
 		]
 		charges = []
 		for sq_charge in sq_charges:
@@ -412,6 +527,20 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 				row["charge_basis"] = sq_charge.calculation_method
 			if "rate" in charge_fields and getattr(sq_charge, "unit_rate", None) is not None:
 				row["rate"] = sq_charge.unit_rate
+			# Map revenue_calculation_method from calculation_method if field exists
+			if "revenue_calculation_method" in charge_fields and getattr(sq_charge, "calculation_method", None):
+				row["revenue_calculation_method"] = sq_charge.calculation_method
+			# Map legacy tariff field to revenue_tariff and cost_tariff if they exist
+			legacy_tariff = getattr(sq_charge, "tariff", None)
+			if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
+				# If source has tariff but not separate revenue_tariff/cost_tariff, map to both
+				if "revenue_tariff" in charge_fields and (row.get("use_tariff_in_revenue") or getattr(sq_charge, "use_tariff_in_revenue", False)):
+					row["revenue_tariff"] = legacy_tariff
+				if "cost_tariff" in charge_fields and (row.get("use_tariff_in_cost") or getattr(sq_charge, "use_tariff_in_cost", False)):
+					row["cost_tariff"] = legacy_tariff
+			# Set sales_quote_link to link back to the Sales Quote
+			if "sales_quote_link" in charge_fields:
+				row["sales_quote_link"] = sales_quote
 			if "charge_type" not in row or not row.get("charge_type"):
 				row["charge_type"] = "Revenue"
 			if row:
@@ -446,8 +575,11 @@ def create_declaration_order_from_sales_quote(sales_quote_name: str):
 	Updates the Sales Quote status and converted_to_doc to the new Declaration Order.
 	"""
 	if not sales_quote_name:
-		frappe.throw(_("Sales Quote is required."))
+		frappe.throw(_("A Sales Quote must be selected to create a Declaration Order."))
+	from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
+
 	sq = frappe.get_doc("Sales Quote", sales_quote_name)
+	throw_if_sales_quote_expired_for_creation(sq)
 	if sq.quotation_type != "One-off":
 		frappe.throw(_("Only One-off Sales Quotes can create a Declaration Order."))
 	sq_customs = []
@@ -471,9 +603,8 @@ def create_declaration_order_from_sales_quote(sales_quote_name: str):
 		if details.get(key) is not None:
 			order.set(key, details[key])
 	order.insert(ignore_permissions=True)
-	# Reload the document to sync timestamps after insert
-	order.reload()
-	order._populate_charges_from_sales_quote()
+	# Charges should be populated from Declaration Order, not automatically from Sales Quote
+	# order._populate_charges_from_sales_quote()
 	order.save(ignore_permissions=True)
 	try:
 		from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit

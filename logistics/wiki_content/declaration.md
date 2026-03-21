@@ -4,6 +4,8 @@
 
 To access: **Home > Customs > Declaration**
 
+For customs-related upgrades (status migrations, permit/exemption structure), see [Recent Platform Updates](welcome/recent-platform-updates).
+
 ## 1. Prerequisites
 
 - [Declaration Order](welcome/declaration-order) – Source order (or create manually)
@@ -106,8 +108,8 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 
 ## 7. Permits Tab
 
-- **Permit Requirements** – Declaration Permit Requirement child table
-- **Exemptions** – Declaration Exemption child table
+- **Permit Requirements** – Child table for permit lines (type, authority, dates, status); aligned with data created from the [Declaration Order](welcome/declaration-order) where applicable.
+- **Exemptions** – Child table for exemptions carried from the order or maintained on the declaration.
 - Track permits and exemptions for the declaration.
 
 ## 8. Charges Tab

@@ -107,7 +107,7 @@ function load_vehicle_types_for_load_type_transport(frm, load_type, callback) {
 		return;
 	}
 	// Get hazardous and reefer from parent Sales Quote
-	var hazardous = frm.doc.hazardous ? 1 : 0;
+	var hazardous = (frm.doc.contains_dangerous_goods || frm.doc.hazardous) ? 1 : 0;
 	var reefer = frm.doc.reefer ? 1 : 0;
 	var key = vehicle_type_cache_key(load_type, hazardous, reefer);
 	if (frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key]) {
@@ -193,7 +193,7 @@ frappe.ui.form.on('Sales Quote Transport', {
             load_vehicle_types_for_load_type_transport(frm, row.load_type, function() {
                 // Check if previous vehicle_type is still valid for the new load_type
                 if (previous_vehicle_type) {
-                    var hazardous = frm.doc.hazardous ? 1 : 0;
+                    var hazardous = (frm.doc.contains_dangerous_goods || frm.doc.hazardous) ? 1 : 0;
                     var reefer = frm.doc.reefer ? 1 : 0;
                     var key = vehicle_type_cache_key(row.load_type, hazardous, reefer);
                     var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
@@ -400,7 +400,7 @@ function setup_vehicle_type_query_for_transport(frm) {
             const load_type = row.load_type;
             
             // Get hazardous and reefer from parent Sales Quote
-            var hazardous = doc.hazardous ? 1 : 0;
+            var hazardous = (doc.contains_dangerous_goods || doc.hazardous) ? 1 : 0;
             var reefer = doc.reefer ? 1 : 0;
             var filters = {
                 hazardous: hazardous,
@@ -411,7 +411,7 @@ function setup_vehicle_type_query_for_transport(frm) {
                 return { filters: filters };
             }
             
-            var key = vehicle_type_cache_key(load_type, doc.hazardous, doc.reefer);
+            var key = vehicle_type_cache_key(load_type, (doc.contains_dangerous_goods || doc.hazardous) ? 1 : 0, doc.reefer);
             var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
             if (!names) {
                 load_vehicle_types_for_load_type_transport(frm, load_type);

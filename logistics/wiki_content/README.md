@@ -52,6 +52,8 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | File | Title | Sidebar Group |
 |------|-------|---------------|
 | getting_started.md | Getting Started | Introduction |
+| recent_platform_updates.md | Recent Platform Updates | Introduction |
+| cargonext_v1_astraea_press_release.md | CargoNext v1 — Astraea Press Release | Introduction |
 | document_management.md | Document Management | Introduction |
 | milestone_tracking.md | Milestone Tracking | Introduction |
 | document_list_template.md | Document List Template | Introduction |
@@ -64,6 +66,11 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | transport_settings.md | Transport Settings | Setup |
 | warehouse_settings.md | Warehouse Settings | Setup |
 | customs_settings.md | Customs Settings | Setup |
+| sea_freight_module.md | Sea Freight Module | Sea Freight |
+| air_freight_module.md | Air Freight Module | Air Freight |
+| transport_module.md | Transport Module | Transport |
+| customs_module.md | Customs Module | Customs |
+| warehousing_module.md | Warehousing Module | Warehousing |
 | sea_booking.md | Sea Booking | Sea Freight |
 | sea_shipment.md | Sea Shipment | Sea Freight |
 | sea_consolidation.md | Sea Consolidation | Sea Freight |
@@ -81,6 +88,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | transport_consolidation.md | Transport Consolidation | Transport |
 | transport_leg.md | Transport Leg | Transport |
 | transport_plan.md | Transport Plan | Transport |
+| transport_order_intermodule_field_copy.md | Transport Order — Inter-module Field Copy | Transport |
 | run_sheet.md | Run Sheet | Transport |
 | proof_of_delivery.md | Proof of Delivery | Transport |
 | transport_template.md | Transport Template | Transport |
@@ -102,10 +110,19 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | storage_location.md | Storage Location | Warehousing |
 | handling_unit_type.md | Handling Unit Type | Warehousing |
 | sales_quote.md | Sales Quote | Pricing Center |
+| sales_quote_separate_billings_and_internal_job.md | Sales Quote — Separate Billings and Internal Job | Pricing Center |
+| change_request.md | Change Request | Pricing Center |
 | sales_quote_calculation_method.md | Sales Quote – Calculation Method | Pricing Center |
 | charges_tariff_revenue_cost_pattern.md | Charges, Tariff, Revenue & Cost Pattern | Pricing Center |
 | general_job.md | General Job | Logistics |
 | logistics_milestone.md | Logistics Milestone | Logistics |
+| job_management_module.md | Job Management Module | Job Management |
+| revenue_recognition_policy_accounts_and_dates.md | Revenue Recognition Policy — Accounts, Dates, and Charges | Job Management |
+| proforma_gl_entries.md | Proforma GL Entries (Job Costing) | Job Management |
+| wip_accrual_reversal_on_invoicing_design.md | WIP and Accrual Reversal on Invoicing | Job Management |
+| sustainability_module.md | Sustainability Module | Sustainability |
+| intercompany_module.md | Intercompany Module | Intercompany |
+| internal_and_intercompany_billing.md | Internal and Intercompany Billing | Intercompany |
 | special_projects_module.md | Special Projects Module | Special Projects |
 | pages_overview.md | Pages Overview | Pages |
 | reports_overview.md | Reports Overview | Reports |

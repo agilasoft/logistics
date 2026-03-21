@@ -155,7 +155,11 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         _get_field(parent_doc, "total_pieces", "total_packages", "pieces") or 0
     )
     if pieces <= 0 and hasattr(parent_doc, "packages") and parent_doc.packages:
-        pieces = len(parent_doc.packages)
+        # Handle both numeric packages (DeclarationOrder) and list/table packages (Sea Booking, Air Booking, etc.)
+        if isinstance(parent_doc.packages, (int, float)):
+            pieces = flt(parent_doc.packages)
+        else:
+            pieces = len(parent_doc.packages)
     distance = flt(
         _get_field(
             parent_doc,

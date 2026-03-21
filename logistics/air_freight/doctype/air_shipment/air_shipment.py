@@ -1391,7 +1391,9 @@ class AirShipment(Document):
 					map_points.append(d)
 
 			alerts_html = get_dashboard_alerts_html("Air Shipment", self.name or "new")
-			return build_run_sheet_style_dashboard(
+			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+			dash = build_run_sheet_style_dashboard(
 				header_title=self.name or "Air Shipment",
 				header_subtitle="Air Shipment",
 				header_items=header_items,
@@ -1406,6 +1408,7 @@ class AirShipment(Document):
 				destination_label=self.destination_port or None,
 				route_below_html=dg_route_below_html,
 			)
+			return get_sales_quote_validity_dashboard_html(self) + dash
 		except Exception as e:
 			frappe.log_error(f"Air Shipment get_dashboard_html: {str(e)}", "Air Shipment Dashboard")
 			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
@@ -1508,12 +1511,26 @@ class AirShipment(Document):
 		self.validate_eawb()
 		self.validate_revenue()
 		self.validate_billing()
-		self.validate_dangerous_goods()
-		self.validate_dg_compliance()
+		dg_errors = self._collect_dangerous_goods_validation_errors()
+		dg_errors.extend(self._collect_dg_compliance_errors())
+		if dg_errors:
+			frappe.throw(dg_errors, title=_("Dangerous goods validation"), as_list=True)
 		# Update DG compliance status automatically
 		self.update_dg_compliance_status()
 		self.validate_accounts()
-	
+		try:
+			from logistics.job_management.recognition_engine import (
+				sync_job_recognition_fields_from_policy,
+			)
+
+			sync_job_recognition_fields_from_policy(self)
+		except Exception:
+			pass
+
+		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+		msgprint_sales_quote_validity_warnings(self)
+
 	def aggregate_volume_from_packages(self):
 		"""Set header volume from sum of package volumes, converted to base/default volume UOM (used for chargeable weight)."""
 		if getattr(self, "override_volume_weight", False):
@@ -1663,59 +1680,57 @@ class AirShipment(Document):
 				else:
 					raise
 	
-	def validate_dangerous_goods(self):
-		"""Validate dangerous goods requirements"""
+	def _collect_dangerous_goods_validation_errors(self):
+		"""Header-level DG checks; messages combined with package compliance in validate()."""
 		if not self.has_dg_fields():
-			return
+			return []
+		
+		from logistics.utils.dg_fields import package_indicates_dangerous_goods
 		
 		contains_dg = getattr(self, 'contains_dangerous_goods', False)
 		if not contains_dg:
-			return
+			return []
 		
-		# Check settings for require DG declaration
+		errors = []
 		settings = self.get_air_freight_settings()
 		if settings and settings.require_dg_declaration:
-			dg_declaration_complete = getattr(self, 'dg_declaration_complete', False)
-			if not dg_declaration_complete:
-				frappe.throw(_("Dangerous Goods Declaration is required for dangerous goods shipments as per company settings."), 
-					title=_("DG Declaration Required"))
+			if not getattr(self, 'dg_declaration_complete', False):
+				errors.append(
+					_("Dangerous Goods Declaration is required for dangerous goods shipments as per company settings.")
+				)
 		
-		# Check if any packages contain dangerous goods
-		has_dg_packages = False
-		for package in self.packages:
-			if (package.dg_substance or package.un_number or 
-				package.proper_shipping_name or package.dg_class):
-				has_dg_packages = True
-				break
+		if not any(package_indicates_dangerous_goods(p) for p in self.packages):
+			errors.append(
+				_(
+					"Dangerous goods flag is set but no dangerous goods packages found. Please add dangerous goods information to packages or uncheck the 'Contains Dangerous Goods' flag."
+				)
+			)
 		
-		if not has_dg_packages:
-			frappe.throw(_("Dangerous goods flag is set but no dangerous goods packages found. Please add dangerous goods information to packages or uncheck the 'Contains Dangerous Goods' flag."))
+		if not getattr(self, 'dg_emergency_contact', None):
+			errors.append(_("Emergency contact is required for dangerous goods shipments."))
 		
-		# Validate emergency contact information
-		dg_emergency_contact = getattr(self, 'dg_emergency_contact', None)
-		dg_emergency_phone = getattr(self, 'dg_emergency_phone', None)
+		if not getattr(self, 'dg_emergency_phone', None):
+			errors.append(_("Emergency phone number is required for dangerous goods shipments."))
 		
-		if not dg_emergency_contact:
-			frappe.throw(_("Emergency contact is required for dangerous goods shipments."))
-		
-		if not dg_emergency_phone:
-			frappe.throw(_("Emergency phone number is required for dangerous goods shipments."))
+		return errors
 	
-	def validate_dg_compliance(self):
-		"""Validate dangerous goods compliance"""
+	def _collect_dg_compliance_errors(self):
+		"""Per-package DG checks when shipment is marked as containing dangerous goods."""
 		if not self.has_dg_fields():
-			return
+			return []
 		
-		contains_dg = getattr(self, 'contains_dangerous_goods', False)
-		if not contains_dg:
-			return
+		from logistics.utils.dg_fields import dg_child_row_display_label, package_indicates_dangerous_goods
 		
-		# Validate each dangerous goods package
+		if not getattr(self, 'contains_dangerous_goods', False):
+			return []
+		
+		errors = []
 		for package in self.packages:
-			if not (package.dg_substance or package.un_number):
+			if not package_indicates_dangerous_goods(package):
 				continue
 			
-			# Required fields for dangerous goods
+			ref = dg_child_row_display_label(package)
+			
 			required_fields = [
 				('un_number', 'UN Number'),
 				('proper_shipping_name', 'Proper Shipping Name'),
@@ -1725,27 +1740,27 @@ class AirShipment(Document):
 			
 			for field, label in required_fields:
 				if not getattr(package, field, None):
-					frappe.throw(_("Field {0} is required for dangerous goods package: {1}").format(label, package.commodity or 'Unknown'))
+					errors.append(_("Field {0} is required for dangerous goods package: {1}").format(_(label), ref))
 			
-			# Validate emergency contact for each package
 			if not package.emergency_contact_name:
-				frappe.throw(_("Emergency contact name is required for dangerous goods package: {0}").format(package.commodity or 'Unknown'))
+				errors.append(_("Emergency contact name is required for dangerous goods package: {0}").format(ref))
 			
 			if not package.emergency_contact_phone:
-				frappe.throw(_("Emergency contact phone is required for dangerous goods package: {0}").format(package.commodity or 'Unknown'))
+				errors.append(_("Emergency contact phone is required for dangerous goods package: {0}").format(ref))
 			
-			# Validate radioactive materials
 			if package.is_radioactive:
 				if not package.transport_index:
-					frappe.throw(_("Transport Index is required for radioactive materials in package: {0}").format(package.commodity or 'Unknown'))
-				
+					errors.append(_("Transport Index is required for radioactive materials in package: {0}").format(ref))
 				if not package.radiation_level:
-					frappe.throw(_("Radiation Level is required for radioactive materials in package: {0}").format(package.commodity or 'Unknown'))
+					errors.append(_("Radiation Level is required for radioactive materials in package: {0}").format(ref))
 			
-			# Validate temperature controlled dangerous goods
 			if package.temp_controlled:
 				if not package.min_temperature and not package.max_temperature:
-					frappe.throw(_("Temperature range is required for temperature controlled dangerous goods in package: {0}").format(package.commodity or 'Unknown'))
+					errors.append(
+						_("Temperature range is required for temperature controlled dangerous goods in package: {0}").format(ref)
+					)
+		
+		return errors
 	
 	@frappe.whitelist()
 	def check_dg_compliance(self):
@@ -2108,17 +2123,36 @@ class AirShipment(Document):
 		"""Validate date fields"""
 		from frappe.utils import getdate, today
 		
+		from logistics.utils.validation_user_messages import (
+			atd_ata_freight_invalid_message,
+			atd_ata_freight_title,
+			etd_eta_freight_invalid_message,
+			etd_eta_freight_title,
+		)
+
 		# Validate ETD is not after ETA (allows same-day shipments)
 		if self.etd and self.eta:
 			if getdate(self.etd) > getdate(self.eta):
-				frappe.throw(_("ETD (Estimated Time of Departure) must be on or before ETA (Estimated Time of Arrival)"), 
-					title=_("Date Validation Error"))
+				frappe.throw(etd_eta_freight_invalid_message(), title=etd_eta_freight_title())
+
+		# Validate ATD is not after ATA (allows same-day)
+		if self.atd and self.ata:
+			if getdate(self.atd) > getdate(self.ata):
+				frappe.throw(atd_ata_freight_invalid_message(), title=atd_ata_freight_title())
 		
 		# Warn if booking date is in the future
 		if self.booking_date:
 			if getdate(self.booking_date) > getdate(today()):
-				frappe.msgprint(_("Booking date is in the future. Please verify this is correct."), 
-					indicator="orange", title=_("Date Warning"))
+				from logistics.utils.validation_user_messages import (
+					booking_date_future_warning_message,
+					booking_date_future_warning_title,
+				)
+
+				frappe.msgprint(
+					booking_date_future_warning_message(),
+					indicator="orange",
+					title=booking_date_future_warning_title(),
+				)
 	
 	def validate_weight_volume(self):
 		"""Validate weight and volume fields"""

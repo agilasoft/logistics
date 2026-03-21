@@ -32,7 +32,19 @@ class SeaShipment(Document):
         self.validate_packages()
         self.validate_containers()
         self.validate_master_bill()
-    
+        try:
+            from logistics.job_management.recognition_engine import (
+                sync_job_recognition_fields_from_policy,
+            )
+
+            sync_job_recognition_fields_from_policy(self)
+        except Exception:
+            pass
+
+        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+        msgprint_sales_quote_validity_warnings(self)
+
     def aggregate_volume_from_packages(self):
         """Set header volume from sum of package volumes, converted to m³."""
         if getattr(self, "override_volume_weight", False):
@@ -445,6 +457,9 @@ class SeaShipment(Document):
         if not self.booking_date:
             frappe.throw(_("Booking Date is required"))
         
+        if not self.sea_booking:
+            frappe.throw(_("Sea Booking is required. Shipments can only be created by converting a Sea Booking."))
+        
         if not self.shipper:
             frappe.throw(_("Shipper is required"))
         
@@ -471,17 +486,38 @@ class SeaShipment(Document):
         """Validate date logic for Sea Shipment"""
         from frappe.utils import getdate, today
         
-        # Validate ETD is before ETA
+        from logistics.utils.validation_user_messages import (
+            atd_ata_freight_invalid_message,
+            atd_ata_freight_title,
+            etd_eta_freight_invalid_message,
+            etd_eta_freight_title,
+        )
+
+        # Validate ETD is not after ETA (allows same-day)
         if self.etd and self.eta:
-            if getdate(self.etd) >= getdate(self.eta):
-                frappe.throw(_("ETD (Estimated Time of Departure) must be before ETA (Estimated Time of Arrival)"))
+            if getdate(self.etd) > getdate(self.eta):
+                frappe.throw(etd_eta_freight_invalid_message(), title=etd_eta_freight_title())
+
+        # Validate ATD is not after ATA (allows same-day)
+        if self.atd and self.ata:
+            if getdate(self.atd) > getdate(self.ata):
+                frappe.throw(atd_ata_freight_invalid_message(), title=atd_ata_freight_title())
         
         # Warn if booking date is in the future (only once per document lifecycle)
         if self.booking_date:
             if getdate(self.booking_date) > getdate(today()):
                 # Use a flag to prevent duplicate messages during insert/save
                 if not hasattr(self, '_booking_date_warning_shown'):
-                    frappe.msgprint(_("Booking date is in the future"), indicator="orange")
+                    from logistics.utils.validation_user_messages import (
+                        booking_date_future_warning_message,
+                        booking_date_future_warning_title,
+                    )
+
+                    frappe.msgprint(
+                        booking_date_future_warning_message(),
+                        indicator="orange",
+                        title=booking_date_future_warning_title(),
+                    )
                     self._booking_date_warning_shown = True
     
     def validate_weight_volume(self):
@@ -818,7 +854,9 @@ class SeaShipment(Document):
                     map_points.append(d)
 
             alerts_html = get_dashboard_alerts_html("Sea Shipment", self.name or "new")
-            return build_run_sheet_style_dashboard(
+            from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+            dash = build_run_sheet_style_dashboard(
                 header_title=self.name or "Sea Shipment",
                 header_subtitle="Sea Shipment",
                 header_items=header_items,
@@ -833,6 +871,7 @@ class SeaShipment(Document):
                 destination_label=self.destination_port or None,
                 route_below_html=dg_route_below_html,
             )
+            return get_sales_quote_validity_dashboard_html(self) + dash
         except Exception as e:
             frappe.log_error(f"Sea Shipment get_dashboard_html: {str(e)}", "Sea Shipment Dashboard")
             return "<div class='alert alert-warning'>Error loading dashboard.</div>"

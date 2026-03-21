@@ -111,6 +111,16 @@ frappe.ui.form.on('Sea Booking', {
 			}
 			return {};
 		});
+		frm.set_query('sales_quote', function() {
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
+				filters: {
+					service_type: 'Sea',
+					reference_doctype: 'Sea Booking',
+					reference_name: frm.doc.name || ''
+				}
+			};
+		});
 	},
 	
 	shipper: function(frm) {
@@ -537,15 +547,13 @@ function _setup_quote_query(frm) {
 			};
 		});
 	} else if (frm.doc.quote_type === 'Sales Quote') {
-		// For Sales Quote, filter by main_service = "Sea" and exclude converted One-off quotes
 		frm.set_query('quote', function() {
-			return { 
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					main_service: "Sea",
-					_or: [
-						["quotation_type", "!=", "One-off"],
-						["quotation_type", "=", "One-off", "status", "!=", "Converted"]
-					]
+					service_type: 'Sea',
+					reference_doctype: 'Sea Booking',
+					reference_name: frm.doc.name || ''
 				}
 			};
 		});

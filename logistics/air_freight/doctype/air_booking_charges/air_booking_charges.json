@@ -73,7 +73,7 @@
  "fields": [
   {
    "default": "0",
-   "description": "Automatically determined from the selected item. This field cannot be edited.",
+   "description": "Set from Item (Other Service). Not editable.",
    "fetch_from": "item_code.custom_is_other_service",
    "fieldname": "is_other_service",
    "fieldtype": "Check",
@@ -456,7 +456,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 15:49:13.662620",
+ "modified": "2026-03-18 17:48:58.699520",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Charges",

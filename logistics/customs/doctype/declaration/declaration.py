@@ -11,11 +11,35 @@ from typing import Dict, Any, Optional
 class Declaration(Document):
 	def validate(self):
 		self._validate_declaration_order_unique()
+		self._validate_etd_eta()
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
 			apply_measurement_uom_conversion_to_children(self, "commercial_invoice_line_items", company=getattr(self, "company", None))
 		except Exception:
 			pass
+		try:
+			from logistics.job_management.recognition_engine import (
+				sync_job_recognition_fields_from_policy,
+			)
+
+			sync_job_recognition_fields_from_policy(self)
+		except Exception:
+			pass
+
+	def _validate_etd_eta(self):
+		"""Departure must not be after arrival (same calendar day allowed)."""
+		if not self.etd or not self.eta:
+			return
+		if getdate(self.etd) > getdate(self.eta):
+			from logistics.utils.validation_user_messages import (
+				declaration_etd_eta_invalid_message,
+				declaration_etd_eta_title,
+			)
+
+			frappe.throw(
+				declaration_etd_eta_invalid_message(),
+				title=declaration_etd_eta_title(),
+			)
 
 	def _validate_declaration_order_unique(self):
 		"""Ensure a Declaration Order can only be referenced by one Declaration."""
@@ -47,6 +71,9 @@ class Declaration(Document):
 		self.calculate_exemptions()
 		self.calculate_sustainability_metrics()
 		self.update_processing_dates()
+		# Sync Job Costing Number to Declaration Order if it exists
+		if self.job_costing_number:
+			self.sync_job_costing_to_declaration_order()
 	
 	def on_update(self):
 		"""Handle status changes"""
@@ -64,6 +91,103 @@ class Declaration(Document):
 	def after_submit(self):
 		"""Record sustainability metrics after declaration submission"""
 		self.record_sustainability_metrics()
+	
+	def after_insert(self):
+		"""Create Job Costing Number after document is inserted"""
+		# Store original job_costing_number to check if it was created
+		original_jcn = self.job_costing_number
+		self.create_job_costing_number_if_needed()
+		
+		# Save the document if Job Costing Number was created
+		if self.job_costing_number and self.job_costing_number != original_jcn:
+			try:
+				self.save(ignore_permissions=True)
+			except Exception as e:
+				# If save fails, log error but don't raise
+				frappe.log_error(
+					f"Error saving Declaration {self.name} after creating Job Costing Number: {str(e)}",
+					"Declaration Save Error"
+				)
+	
+	def create_job_costing_number_if_needed(self):
+		"""Create Job Costing Number when document is first saved"""
+		# Only create if job_costing_number is not set
+		if not self.job_costing_number:
+			# Check if this is the first save (no existing Job Costing Number)
+			existing_job_ref = frappe.db.get_value("Job Costing Number", {
+				"job_type": "Declaration",
+				"job_no": self.name
+			})
+			
+			if not existing_job_ref:
+				# Create Job Costing Number
+				try:
+					job_ref = frappe.new_doc("Job Costing Number")
+					job_ref.job_type = "Declaration"
+					job_ref.job_no = self.name
+					job_ref.company = self.company
+					job_ref.branch = self.branch
+					job_ref.cost_center = self.cost_center
+					job_ref.profit_center = self.profit_center
+					# Use declaration_date as job_open_date if available
+					job_ref.job_open_date = self.declaration_date
+					job_ref.insert(ignore_permissions=True)
+					
+					# Set the job_costing_number field
+					self.job_costing_number = job_ref.name
+					
+					# Sync to related Declaration Order if it exists
+					self.sync_job_costing_to_declaration_order()
+					
+					frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+				except frappe.DuplicateEntryError as e:
+					# If duplicate entry error occurs, try to get the existing one
+					if self.name:
+						existing = frappe.db.get_value("Job Costing Number", {
+							"job_type": "Declaration",
+							"job_no": self.name
+						})
+						if existing:
+							self.job_costing_number = existing
+							self.sync_job_costing_to_declaration_order()
+							return
+					frappe.log_error(
+						f"Duplicate Job Costing Number error for Declaration {self.name}: {str(e)}",
+						"Job Costing Number Duplicate Error"
+					)
+					raise
+				except Exception as e:
+					frappe.log_error(
+						f"Error creating Job Costing Number for Declaration {self.name}: {str(e)}",
+						"Job Costing Number Creation Error"
+					)
+					# Don't raise - allow document to save even if Job Costing Number creation fails
+		else:
+			# If job_costing_number is already set, sync to Declaration Order
+			self.sync_job_costing_to_declaration_order()
+	
+	def sync_job_costing_to_declaration_order(self):
+		"""Sync Job Costing Number from Declaration to related Declaration Order"""
+		if not self.job_costing_number:
+			return
+		
+		if not getattr(self, "declaration_order", None):
+			return
+		
+		try:
+			# Check if Declaration Order exists and get its current Job Costing Number
+			order_jcn = frappe.db.get_value("Declaration Order", self.declaration_order, "job_costing_number")
+			
+			# Update Declaration Order if it doesn't have a Job Costing Number or if it's different
+			if order_jcn != self.job_costing_number:
+				frappe.db.set_value("Declaration Order", self.declaration_order, "job_costing_number", self.job_costing_number)
+				frappe.db.commit()
+		except Exception as e:
+			# Log error but don't fail the declaration save
+			frappe.log_error(
+				f"Error syncing Job Costing Number to Declaration Order {self.declaration_order}: {str(e)}",
+				"Job Costing Number Sync Error"
+			)
 	
 	def calculate_total_payable(self):
 		"""Calculate total payable from duty, tax, and other charges (after exemptions)"""
@@ -87,17 +211,18 @@ class Declaration(Document):
 		
 		for exemption in self.exemptions:
 			exemption_type = None
-			
-			# Get exemption type details
-			if exemption.exemption_type:
+			type_code = exemption.exemption_type or exemption.get("planned_exemption_type")
+			if type_code:
 				try:
-					exemption_type = frappe.get_doc("Exemption Type", exemption.exemption_type)
+					exemption_type = frappe.get_doc("Exemption Type", type_code)
 				except frappe.DoesNotExistError:
 					continue
 			
 			# Calculate exempted amounts based on exemption type
 			if exemption_type:
-				exemption_percentage = flt(exemption.exemption_percentage or exemption_type.exemption_percentage or 0)
+				exemption_percentage = flt(exemption.exemption_percentage or 0) or flt(
+					exemption_type.exemption_percentage or 0
+				)
 				
 				# Calculate exempted duty
 				if self.duty_amount:
@@ -146,7 +271,7 @@ class Declaration(Document):
 		missing_permits = []
 		for permit_req in self.permit_requirements:
 			if permit_req.is_required and not permit_req.is_obtained:
-				permit_type_name = permit_req.permit_type or "Unknown"
+				permit_type_name = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
 				missing_permits.append(permit_type_name)
 		
 		if missing_permits:
@@ -167,10 +292,11 @@ class Declaration(Document):
 			if not permit_req.is_obtained or not permit_req.expiry_date:
 				continue
 			exp_date = getdate(permit_req.expiry_date)
+			ptn = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
 			if exp_date < today_date:
-				expired.append((permit_req.permit_type or "Unknown", permit_req.expiry_date))
+				expired.append((ptn, permit_req.expiry_date))
 			elif date_diff(exp_date, today_date) <= 7:
-				expiring_soon.append((permit_req.permit_type or "Unknown", permit_req.expiry_date))
+				expiring_soon.append((ptn, permit_req.expiry_date))
 		if expired:
 			frappe.throw(
 				_("The following permits have expired and may cause delays or penalties: {0}. Please renew before submission.").format(
@@ -220,16 +346,20 @@ class Declaration(Document):
 		alerts = []
 		today_date = getdate(today())
 
-		# 1. Pending required permits
+		# 1. Pending required permits (virtual permit fields use properties; avoid pr.get for those)
 		for pr in (self.get("permit_requirements") or []):
-			if pr.get("is_required") and not pr.get("is_obtained"):
-				alerts.append({"level": "danger", "msg": _("Required permit {0} not yet obtained. Submission will be blocked.").format(pr.get("permit_type") or "—")})
-			elif pr.get("is_obtained") and pr.get("expiry_date"):
-				exp = getdate(pr.expiry_date)
+			is_req = pr.get("is_required")
+			is_obt = getattr(pr, "is_obtained", None)
+			ptype = getattr(pr, "permit_type", None) or pr.get("planned_permit_type")
+			expiry = getattr(pr, "expiry_date", None)
+			if is_req and not is_obt:
+				alerts.append({"level": "danger", "msg": _("Required permit {0} not yet obtained. Submission will be blocked.").format(ptype or "—")})
+			elif is_obt and expiry:
+				exp = getdate(expiry)
 				if exp < today_date:
-					alerts.append({"level": "danger", "msg": _("Permit {0} expired on {1}. Renew to avoid penalties.").format(pr.get("permit_type") or "—", pr.expiry_date)})
+					alerts.append({"level": "danger", "msg": _("Permit {0} expired on {1}. Renew to avoid penalties.").format(ptype or "—", expiry)})
 				elif date_diff(exp, today_date) <= 7:
-					alerts.append({"level": "warning", "msg": _("Permit {0} expires on {1}. Renew soon to avoid clearance delays.").format(pr.get("permit_type") or "—", pr.expiry_date)})
+					alerts.append({"level": "warning", "msg": _("Permit {0} expires on {1}. Renew soon to avoid clearance delays.").format(ptype or "—", expiry)})
 
 		# 2. Exemption certificates expiring or inactive
 		for ex in (self.get("exemptions") or []):
@@ -499,6 +629,30 @@ class Declaration(Document):
 			frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Declaration - Milestone HTML")
 			return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
 
+	@frappe.whitelist()
+	def get_permit_application_create_context(self):
+		from logistics.customs.declaration_permit_exemption_create import get_permit_application_create_context
+
+		return get_permit_application_create_context(self)
+
+	@frappe.whitelist()
+	def create_linked_permit_application(self, permit_type, child_row_name=None):
+		from logistics.customs.declaration_permit_exemption_create import create_linked_permit_application
+
+		return create_linked_permit_application(self, permit_type, child_row_name)
+
+	@frappe.whitelist()
+	def get_exemption_certificate_create_context(self):
+		from logistics.customs.declaration_permit_exemption_create import get_exemption_certificate_create_context
+
+		return get_exemption_certificate_create_context(self)
+
+	@frappe.whitelist()
+	def create_linked_exemption_certificate(self, exemption_type, certificate_number, child_row_name=None):
+		from logistics.customs.declaration_permit_exemption_create import create_linked_exemption_certificate
+
+		return create_linked_exemption_certificate(self, exemption_type, certificate_number, child_row_name)
+
 	def record_sustainability_metrics(self):
 		"""Record sustainability metrics in the centralized system"""
 		try:
@@ -572,6 +726,8 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		declaration = frappe.new_doc("Declaration")
 		_copy_order_to_declaration(declaration, order, sq)
 		declaration.insert(ignore_permissions=True)
+		# Reload document to get latest timestamp after insert
+		declaration.reload()
 		# Prefer charges from Declaration Order if present; else from Sales Quote
 		if hasattr(order, "charges") and order.charges:
 			_populate_charges_from_declaration_order(declaration, order)
@@ -586,9 +742,17 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		}
 	except frappe.DoesNotExistError:
 		frappe.throw(_("Declaration Order {0} does not exist.").format(declaration_order_name))
+	except frappe.TimestampMismatchError:
+		frappe.log_error("Timestamp mismatch when creating Declaration from Declaration Order", "Declaration Creation Error")
+		frappe.throw(_("The declaration was modified during creation. Please try again."), title=_("Creation Error"))
 	except Exception as e:
 		frappe.log_error(f"Error creating Declaration from Declaration Order: {str(e)}", "Declaration Creation Error")
-		frappe.throw(_("Error creating Declaration: {0}").format(str(e)))
+		# Provide user-friendly error message
+		error_msg = str(e)
+		if "TimestampMismatchError" in error_msg or "modified after you have opened it" in error_msg:
+			frappe.throw(_("The declaration was modified during creation. Please try again."), title=_("Creation Error"))
+		else:
+			frappe.throw(_("Unable to create declaration. Please check the logs for details."), title=_("Creation Error"))
 
 
 # -------------------------------------------------------------------
@@ -686,6 +850,7 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.exchange_rate = order.exchange_rate
 	declaration.customs_broker = order.customs_broker
 	declaration.notify_party = order.notify_party
+	declaration.freight_agent = getattr(order, "freight_agent", None)
 
 	# Shipment details
 	declaration.exporter_shipper = order.exporter_shipper
@@ -835,9 +1000,13 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 			_copy_child_row(row, child, doc_fields)
 
 
-def _copy_child_row(source_row: Document, target_row: Document, valid_fields: set):
-	"""Copy fields from source child row to target child row."""
+def _copy_child_row(source_row: Document, target_row: Document, valid_fields: set, child_meta=None):
+	"""Copy fields from source child row to target child row (skip virtual fields on the target row)."""
+	meta = child_meta or frappe.get_meta(target_row.doctype)
 	for field in valid_fields:
+		df = meta.get_field(field)
+		if df and getattr(df, "is_virtual", False):
+			continue
 		if hasattr(source_row, field):
 			val = getattr(source_row, field, None)
 			if val is not None and field not in ("name", "owner", "creation", "modified", "modified_by", "parent", "parenttype", "parentfield", "idx"):
@@ -852,12 +1021,14 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 		meta = frappe.get_meta("Declaration Charges")
 		charge_fields = [f.fieldname for f in meta.fields]
 		common_fields = [
-			"item_code", "item_name", "calculation_method", "quantity", "uom",
+			"item_code", "item_name", "charge_category", "calculation_method", "quantity", "uom",
 			"currency", "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "cost_calculation_method",
 			"cost_quantity", "cost_uom", "cost_currency", "unit_cost", "cost_unit_type",
 			"cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "estimated_cost", "revenue_calc_notes", "cost_calc_notes",
+			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
+			"revenue_tariff", "cost_tariff", "bill_to", "pay_to",
 		]
 		for order_charge in order.charges:
 			charge_row = declaration.append("charges", {})
@@ -873,9 +1044,38 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Document):
 	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 	try:
+		# Check separate_billings_per_service_type setting and if this is the main job
+		separate_billings = True  # Default to separate (current behavior)
+		is_main_job = False
+		
+		try:
+			separate_billings = getattr(sales_quote, "separate_billings_per_service_type", 0) or False
+			
+			# Check if this Declaration is the main job by checking routing legs
+			if declaration.name and hasattr(sales_quote, "routing_legs") and sales_quote.routing_legs:
+				for leg in sales_quote.routing_legs:
+					if (getattr(leg, "is_main_job", 0) and 
+						getattr(leg, "job_type", None) == "Declaration" and
+						getattr(leg, "job_no", None) == declaration.name):
+						is_main_job = True
+						break
+			
+			# Fallback: check if main_service matches and no routing legs exist
+			if not is_main_job and (not hasattr(sales_quote, "routing_legs") or not sales_quote.routing_legs):
+				if getattr(sales_quote, "main_service", None) == "Customs":
+					is_main_job = True
+		except Exception:
+			# If we can't check, default to separate billings (current behavior)
+			pass
+		
 		customs_charges = []
 		if hasattr(sales_quote, "charges") and sales_quote.charges:
-			customs_charges = [c for c in sales_quote.charges if c.get("service_type") == "Customs"]
+			# If separate_billings is unchecked AND this is the main job, get ALL charges
+			# Otherwise, filter by service_type="Customs"
+			if not separate_billings and is_main_job:
+				customs_charges = list(sales_quote.charges)  # Get all charges
+			else:
+				customs_charges = [c for c in sales_quote.charges if c.get("service_type") == "Customs"]
 		if not customs_charges and hasattr(sales_quote, "customs") and sales_quote.customs:
 			customs_charges = list(sales_quote.customs)
 		if not customs_charges:
@@ -898,7 +1098,7 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 				'cost_minimum_quantity', 'cost_minimum_charge', 'cost_maximum_charge',
 				'cost_base_amount', 'estimated_cost', 'revenue_calc_notes', 'cost_calc_notes',
 				'use_tariff_in_revenue', 'use_tariff_in_cost', 'tariff',
-				'revenue_tariff', 'cost_tariff'
+				'revenue_tariff', 'cost_tariff', 'bill_to', 'pay_to'
 			]
 			
 			for field in common_fields:

@@ -113,6 +113,26 @@
   "charges",
   "profitability_section_break",
   "profitability_section_html",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "accrual_recognition_enabled",
+  "recognition_policy_reference",
+  "recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
   "documents_tab",
   "document_management_section",
   "documents_html",
@@ -159,26 +179,6 @@
   "section_break_quote_reference",
   "sales_quote",
   "billing_company",
-  "recognition_section",
-  "wip_recognition_enabled",
-  "wip_recognition_date_basis",
-  "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
-  "recognition_date",
-  "column_break_recognition",
-  "estimated_revenue",
-  "wip_amount",
-  "recognized_revenue",
-  "wip_journal_entry",
-  "wip_adjustment_journal_entry",
-  "wip_closed",
-  "column_break_accrual",
-  "estimated_costs",
-  "accrual_amount",
-  "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
-  "accrual_closed",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -386,7 +386,6 @@
    "options": "Logistics Service Level"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_booking_control",
    "fieldtype": "Section Break",
    "label": "Booking & Control"
@@ -550,7 +549,6 @@
    "label": "DG Emergency Email"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_consolidation",
    "fieldtype": "Section Break",
    "label": "Consolidation"
@@ -1449,28 +1447,33 @@
    "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date"
@@ -1787,7 +1790,7 @@
    "link_fieldname": "job_costing_number"
   }
  ],
- "modified": "2026-03-18 12:03:33.684415",
+ "modified": "2026-03-19 19:08:43.460611",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

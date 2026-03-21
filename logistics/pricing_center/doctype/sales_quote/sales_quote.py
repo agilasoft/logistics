@@ -4,7 +4,9 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import today, flt, getdate
+from frappe.utils import format_date, today, flt, getdate
+
+from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
 
 
 def map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type):
@@ -327,6 +329,7 @@ class SalesQuote(Document):
 			dict: Result with created Air Shipment name and status
 		"""
 		try:
+			throw_if_sales_quote_expired_for_creation(self)
 			# Check if Sales Quote has air charges (new) or air freight (legacy)
 			air_charge_count = frappe.db.count("Sales Quote Charge", {
 				"parent": self.name,
@@ -458,110 +461,26 @@ class SalesQuote(Document):
 	@frappe.whitelist()
 	def create_sea_shipment_from_sales_quote(self):
 		"""
-		Create a Sea Shipment from a Sales Quote when the quote is tagged as One-Off.
+		Create a Sea Booking from Sales Quote, then convert it to Sea Shipment.
+		Shipments can only be created by converting a Sea Booking.
 		
 		Returns:
 			dict: Result with created Sea Shipment name and status
 		"""
 		try:
-			# Check if Sales Quote has sea charges (unified) or legacy sea_freight
-			sea_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.name,
-				"parenttype": "Sales Quote",
-				"service_type": "Sea"
-			})
-			sea_freight_count = frappe.db.count("Sales Quote Sea Freight", {
-				"parent": self.name,
-				"parenttype": "Sales Quote"
-			}) if frappe.db.table_exists("Sales Quote Sea Freight") else 0
-			if sea_charge_count == 0 and sea_freight_count == 0:
-				frappe.throw(_("No Sea Freight lines found in this Sales Quote."))
+			throw_if_sales_quote_expired_for_creation(self)
+			# First create the Sea Booking from Sales Quote
+			booking_result = _create_sea_booking_from_sales_quote(self)
+			booking_name = booking_result.get("sea_booking")
 			
-			# Get location fields from Sales Quote
-			location_type = getattr(self, 'location_type', None)
-			location_from = getattr(self, 'location_from', None)
-			location_to = getattr(self, 'location_to', None)
+			if not booking_name:
+				frappe.throw(_("Failed to create Sea Booking from Sales Quote"))
 			
-			# Check if origin and destination ports are set (required for Sea Shipment)
-			missing_fields = []
-			if not location_from:
-				missing_fields.append("Origin Port (Location From)")
-			if not location_to:
-				missing_fields.append("Destination Port (Location To)")
+			# Get the booking and convert it to shipment
+			booking = frappe.get_doc("Sea Booking", booking_name)
+			shipment_result = booking.convert_to_shipment()
 			
-			if missing_fields:
-				frappe.throw(
-					_("Cannot create Sea Shipment: {0} {1} required in Sales Quote. Please set the Location Type to 'UNLOCO' and fill in Location From and Location To fields in the Sales Quote before creating a Sea Shipment.").format(
-						", ".join(missing_fields),
-						"is" if len(missing_fields) == 1 else "are"
-					),
-					title=_("Required Fields Missing")
-				)
-			
-			# Verify that location_from and location_to are valid UNLOCO records
-			if not frappe.db.exists("UNLOCO", location_from):
-				frappe.throw(_("Origin Port '{0}' is not a valid UNLOCO code. Please ensure Location From in Sales Quote references a valid UNLOCO record.").format(location_from))
-			
-			if not frappe.db.exists("UNLOCO", location_to):
-				frappe.throw(_("Destination Port '{0}' is not a valid UNLOCO code. Please ensure Location To in Sales Quote references a valid UNLOCO record.").format(location_to))
-			
-			# Allow creation of multiple Sea Shipments from the same Sales Quote
-			# No duplicate prevention - users can create multiple shipments as needed
-			
-			# Create new Sea Shipment
-			sea_shipment = frappe.new_doc("Sea Shipment")
-			
-			# Map basic fields from Sales Quote to Sea Shipment
-			sea_shipment.local_customer = self.customer
-			sea_shipment.booking_date = today()
-			sea_shipment.sales_quote = self.name
-			sea_shipment.billing_company = self.company
-			sea_shipment.shipper = getattr(self, 'shipper', None)
-			sea_shipment.consignee = getattr(self, 'consignee', None)
-			sea_shipment.origin_port = location_from
-			sea_shipment.destination_port = location_to
-			sea_shipment.direction = getattr(self, 'direction', None)
-			# Use Sea tab dimensions (fallback to old top-level for backward compat)
-			weight = getattr(self, 'sea_weight', None) or getattr(self, 'weight', None)
-			sea_shipment.weight = weight if weight and flt(weight) > 0 else None
-			volume = getattr(self, 'sea_volume', None) or getattr(self, 'volume', None)
-			sea_shipment.volume = volume if volume and flt(volume) > 0 else None
-			chargeable = getattr(self, 'sea_chargeable', None) or getattr(self, 'chargeable', None)
-			sea_shipment.chargeable = chargeable if chargeable and flt(chargeable) > 0 else None
-			sea_shipment.service_level = getattr(self, 'service_level', None)
-			sea_shipment.incoterm = getattr(self, 'incoterm', None)
-			sea_shipment.additional_terms = getattr(self, 'additional_terms', None)
-			sea_shipment.company = self.company
-			sea_shipment.branch = self.branch
-			sea_shipment.cost_center = self.cost_center
-			sea_shipment.profit_center = self.profit_center
-			
-			# Insert the Sea Shipment
-			sea_shipment.insert(ignore_permissions=True)
-			
-			# Populate charges from Sales Quote Charge (unified) or legacy Sales Quote Sea Freight
-			_populate_charges_from_sales_quote_sea_freight(sea_shipment, self)
-			
-			# Save the Sea Shipment
-			sea_shipment.save(ignore_permissions=True)
-			
-			# Ensure commit before client navigates (avoids "not found" on form load)
-			frappe.db.commit()
-			
-			# Prepare success message
-			success_msg = f"Sea Shipment {sea_shipment.name} created successfully from Sales Quote {self.name}"
-			
-			frappe.msgprint(
-				success_msg,
-				title="Sea Shipment Created",
-				indicator="green"
-			)
-			
-			return {
-				"success": True,
-				"message": f"Sea Shipment {sea_shipment.name} created successfully.",
-				"sea_shipment": sea_shipment.name
-			}
+			return shipment_result
 			
 		except Exception as e:
 			frappe.log_error(f"Error creating Sea Shipment: {str(e)}", "Sales Quote - Create Sea Shipment")
@@ -914,6 +833,7 @@ def _get_service_params(sales_quote, service_type):
 
 def _create_transport_order_from_sales_quote(sales_quote):
 	"""Create Transport Order from Sales Quote and update routing leg job_no if multimodal."""
+	throw_if_sales_quote_expired_for_creation(sales_quote)
 	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
 	legacy_transport = getattr(sales_quote, "transport", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Transport"
@@ -1012,7 +932,8 @@ def _create_transport_order_from_sales_quote(sales_quote):
 	transport_order.quote = sales_quote.name
 	transport_order.sales_quote = sales_quote.name
 	_sync_quote_and_sales_quote(transport_order)
-	_populate_charges_from_sales_quote(transport_order, sales_quote)
+	# Use Transport Order's implementation (separate_billings_per_service_type, main job, legacy tables).
+	transport_order._populate_charges_from_sales_quote()
 	transport_order.save(ignore_permissions=True)
 
 	_update_routing_leg_job(
@@ -1051,6 +972,7 @@ def _get_air_weight_volume_from_sales_quote(sales_quote):
 
 def _create_air_booking_from_sales_quote(sales_quote):
 	"""Create Air Booking from Sales Quote and update routing leg job_no if multimodal."""
+	throw_if_sales_quote_expired_for_creation(sales_quote)
 	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Air"]
 	legacy_air = getattr(sales_quote, "air_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Air"
@@ -1088,7 +1010,7 @@ def _create_air_booking_from_sales_quote(sales_quote):
 		frappe.throw(_("Shipper and Consignee are required for Air mode."))
 
 	air_booking = frappe.new_doc("Air Booking")
-	air_booking.booking_date = today()
+	air_booking.booking_date = sales_quote.date or today()
 	air_booking.local_customer = sales_quote.customer
 	air_booking.quote_type = "Sales Quote"
 	air_booking.quote = sales_quote.name
@@ -1112,17 +1034,21 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	air_booking.cost_center = sales_quote.cost_center
 	air_booking.profit_center = sales_quote.profit_center
 
-	air_booking.insert(ignore_permissions=True)
-	air_booking.reload()
-	air_booking.quote_type = "Sales Quote"
-	air_booking.quote = sales_quote.name
-	air_booking.sales_quote = sales_quote.name
+	# Set weight/volume from Sales Quote so charge quantities can be calculated when populating
+	weight = getattr(first, "weight", None) or getattr(sales_quote, "weight", None)
+	volume = getattr(first, "volume", None) or getattr(sales_quote, "volume", None)
+	if weight is not None and flt(weight) > 0:
+		air_booking.weight = weight
+	if volume is not None and flt(volume) > 0:
+		air_booking.volume = volume
+
+	# Populate charges before insert so they are saved with the document (avoids insert+reload clearing them)
 	from logistics.air_freight.doctype.air_booking.air_booking import _sync_quote_and_sales_quote
 	_sync_quote_and_sales_quote(air_booking)
-	# Populate charges from Sales Quote (same as Fetch Quotations)
 	air_booking._populate_charges_from_sales_quote(sales_quote.name)
 	air_booking._normalize_charges_before_save()
-	air_booking.save(ignore_permissions=True)
+
+	air_booking.insert(ignore_permissions=True)
 
 	_update_routing_leg_job(
 		sales_quote.name,
@@ -1136,6 +1062,7 @@ def _create_air_booking_from_sales_quote(sales_quote):
 
 def _create_sea_booking_from_sales_quote(sales_quote):
 	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
+	throw_if_sales_quote_expired_for_creation(sales_quote)
 	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Sea"]
 	legacy_sea = getattr(sales_quote, "sea_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Sea"
@@ -1164,7 +1091,7 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 		frappe.throw(_("Shipper and Consignee are required for Sea mode."))
 
 	sea_booking = frappe.new_doc("Sea Booking")
-	sea_booking.booking_date = today()
+	sea_booking.booking_date = sales_quote.date or today()
 	sea_booking.local_customer = sales_quote.customer
 	sea_booking.quote_type = "Sales Quote"
 	sea_booking.quote = sales_quote.name
@@ -1681,121 +1608,6 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		return None
 
 
-def _populate_charges_from_sales_quote(transport_order, sales_quote):
-	"""
-	Populate charges in Transport Order from Sales Quote Transport records.
-	
-	Args:
-		transport_order: Transport Order document
-		sales_quote: Sales Quote document
-	"""
-	try:
-		# Clear existing charges (if any)
-		transport_order.set("charges", [])
-		
-		# Import SALES_QUOTE_CHARGE_FIELDS from transport_order
-		from logistics.transport.doctype.transport_order.transport_order import SALES_QUOTE_CHARGE_FIELDS
-		
-		# Get from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-		sales_quote_transport_records = frappe.get_all(
-			"Sales Quote Charge",
-			filters={"parent": sales_quote.name, "parenttype": "Sales Quote", "service_type": "Transport"},
-			fields=["name"] + SALES_QUOTE_CHARGE_FIELDS,
-			order_by="idx"
-		)
-		if not sales_quote_transport_records and frappe.db.table_exists("Sales Quote Transport"):
-			sales_quote_transport_records = frappe.get_all(
-				"Sales Quote Transport",
-				filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
-				fields=["name"] + SALES_QUOTE_CHARGE_FIELDS,
-				order_by="idx"
-			)
-		
-		if not sales_quote_transport_records:
-			frappe.msgprint(
-				f"No transport charges found in Sales Quote: {sales_quote.name}",
-				title="No Charges Found",
-				indicator="orange"
-			)
-			return
-		
-		# Map and populate charges
-		charges_added = 0
-		for sqt_record in sales_quote_transport_records:
-			charge_row = _map_sales_quote_transport_to_charge(sqt_record, transport_order)
-			if charge_row:
-				transport_order.append("charges", charge_row)
-				charges_added += 1
-		
-		if charges_added > 0:
-			frappe.msgprint(
-				f"Successfully populated {charges_added} charges from Sales Quote",
-				title="Charges Updated",
-				indicator="green"
-			)
-		
-	except Exception as e:
-		frappe.log_error(
-			f"Error populating charges from sales quote: {str(e)}",
-			"Sales Quote Charges Population Error"
-		)
-		raise
-
-
-def _map_sales_quote_transport_to_charge(sqt_record, transport_order):
-	"""
-	Map sales_quote_transport record to transport_order_charges format.
-	
-	Args:
-		sqt_record: Sales Quote Transport record
-		transport_order: Transport Order document
-		
-	Returns:
-		dict: Mapped charge data
-	"""
-	try:
-		# Import SALES_QUOTE_CHARGE_FIELDS from transport_order
-		from logistics.transport.doctype.transport_order.transport_order import SALES_QUOTE_CHARGE_FIELDS
-		
-		# Map overlapping fields directly from SALES_QUOTE_CHARGE_FIELDS
-		charge_data = {}
-		for field in SALES_QUOTE_CHARGE_FIELDS:
-			if field in sqt_record:
-				charge_data[field] = sqt_record.get(field)
-		
-		# Fallbacks for essential fields
-		if not charge_data.get("item_name") and sqt_record.get("item_code"):
-			try:
-				item_doc = frappe.get_doc("Item", sqt_record.item_code)
-				charge_data["item_name"] = item_doc.item_name
-			except Exception:
-				charge_data["item_name"] = sqt_record.get("item_name", "")
-		
-		if not charge_data.get("uom") and sqt_record.get("item_code"):
-			try:
-				item_doc = item_doc if "item_doc" in locals() else frappe.get_doc("Item", sqt_record.item_code)
-				charge_data["uom"] = item_doc.stock_uom
-			except Exception:
-				charge_data["uom"] = sqt_record.get("uom", "")
-		
-		# Ensure unit_rate is set
-		if charge_data.get("unit_rate") is None:
-			charge_data["unit_rate"] = sqt_record.get("unit_rate") or 0
-		
-		# Ensure quantity is set
-		if not charge_data.get("quantity"):
-			charge_data["quantity"] = sqt_record.get("quantity") or 1
-		
-		return charge_data
-		
-	except Exception as e:
-		frappe.log_error(
-			f"Error mapping sales quote transport record: {str(e)}",
-			"Sales Quote Transport Mapping Error"
-		)
-		return None
-
-
 def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, doctype: str):
 	"""
 	Update One-off Sales Quote status to Converted when referenced document is submitted.
@@ -2027,6 +1839,47 @@ def validate_one_off_quote_not_converted(
 			f"Error validating One-off Sales Quote {sales_quote_name}: {str(e)}",
 			"One-off Quote Validation Error"
 		)
+
+
+@frappe.whitelist()
+def extend_sales_quote_validity(sales_quote, valid_until):
+	"""
+	Extend Sales Quote Valid Until. Draft quotes are saved; submitted quotes get a direct DB update
+	so the field can change without amending the full document.
+	"""
+	if not sales_quote:
+		frappe.throw(_("Sales Quote is required."))
+	frappe.has_permission("Sales Quote", "write", doc=sales_quote, throw=True)
+
+	doc = frappe.get_doc("Sales Quote", sales_quote)
+	if doc.docstatus == 2:
+		frappe.throw(_("Cannot extend validity of a cancelled Sales Quote."))
+
+	new_vu = getdate(valid_until)
+	today_d = getdate(today())
+	if new_vu < today_d:
+		frappe.throw(_("New Valid Until cannot be before today."), title=_("Invalid Date"))
+
+	old_vu = getattr(doc, "valid_until", None)
+	if old_vu:
+		old_d = getdate(old_vu)
+		if new_vu <= old_d:
+			frappe.throw(
+				_("New Valid Until must be after the current Valid Until ({0}).").format(format_date(old_d)),
+				title=_("Invalid Extension"),
+			)
+
+	if doc.docstatus == 0:
+		doc.valid_until = new_vu
+		doc.save()
+	else:
+		frappe.db.set_value("Sales Quote", doc.name, "valid_until", new_vu, update_modified=True)
+
+	return {
+		"success": True,
+		"valid_until": str(new_vu),
+		"message": _("Valid Until extended to {0}.").format(format_date(new_vu)),
+	}
 
 
 @frappe.whitelist()

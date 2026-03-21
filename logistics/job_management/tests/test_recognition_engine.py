@@ -80,8 +80,7 @@ class TestRecognitionEngine(unittest.TestCase):
         policy.enabled = 1
         policy.enable_wip_recognition = 1
         policy.enable_accrual_recognition = 1
-        policy.wip_recognition_date_basis = "Job Booking Date"
-        policy.accrual_recognition_date_basis = "Job Booking Date"
+        policy.recognition_date_basis = "Job Booking Date"
         policy.wip_account = wip_account
         policy.revenue_liability_account = revenue_liability
         policy.cost_accrual_account = cost_accrual
@@ -144,8 +143,8 @@ class TestRecognitionAccounting(unittest.TestCase):
     
     def test_wip_entry_structure(self):
         """Test WIP Journal Entry has correct structure."""
-        # WIP Recognition: Dr WIP, Cr Revenue Liability
-        # WIP Adjustment: Dr Revenue Liability, Cr WIP
+        # WIP Recognition: Dr Revenue Liability, Cr WIP
+        # WIP Adjustment / closure: Dr WIP, Cr Revenue Liability
         pass  # Requires actual job document to test
     
     def test_accrual_entry_structure(self):

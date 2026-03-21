@@ -47,6 +47,8 @@ For doctypes with a Dashboard tab (Air Shipment, Sea Shipment, Warehouse Job, Tr
 - **Overdue Documents** – Documents past the date required
 - **Expiring Soon** – Documents with expiry date within the next 7 days
 
+On customs-related documents, dashboard-style alert cards may also surface **permit** and **exemption** counts (distinct styling) when those workflows are in use.
+
 ### 3.2 Date Required Calculation
 
 - **ETD** – date_required = ETD + days_offset (e.g., -3 = 3 days before ETD)

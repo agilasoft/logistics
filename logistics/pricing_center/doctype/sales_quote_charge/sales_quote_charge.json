@@ -401,7 +401,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
    "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
   },
   {
@@ -488,7 +488,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
@@ -564,7 +564,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 10:04:15.007392",
+ "modified": "2026-03-19 12:05:49.828849",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Charge",

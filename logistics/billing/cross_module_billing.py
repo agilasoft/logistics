@@ -160,6 +160,54 @@ def get_invoice_items_from_job(
     return items
 
 
+def get_internal_job_revenue_and_cost(
+    job_type: str,
+    job_name: str,
+    customer: Optional[str] = None,
+) -> Tuple[float, float]:
+    """
+    Get total revenue (allocated from main job / transfer price) and total cost (tariff or actual)
+    from a job's charges. Used for internal billing Journal Entry amounts.
+    Returns (revenue_total, cost_total).
+    """
+    if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
+        return (0.0, 0.0)
+
+    doc = frappe.get_doc(job_type, job_name)
+    customer = customer or getattr(doc, "customer", None) or getattr(doc, "local_customer", None)
+    revenue_total = 0.0
+    cost_total = 0.0
+
+    if job_type == "Transport Job":
+        for ch in doc.get("charges") or []:
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            cost_total += flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            revenue_total += rev
+    elif job_type == "Sea Shipment":
+        from logistics.utils.charges_calculation import get_charge_bill_to_customers
+        for ch in doc.get("charges") or []:
+            if customer and customer not in get_charge_bill_to_customers(ch):
+                continue
+            revenue_total += flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
+            cost_total += flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+    elif job_type == "Air Shipment":
+        for ch in doc.get("charges") or []:
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0))
+            revenue_total += rev
+            cost_total += flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+    elif job_type == "Warehouse Job":
+        for ch in doc.get("charges") or []:
+            revenue_total += flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            cost_total += flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+    elif job_type in ("Declaration", "Declaration Order"):
+        for ch in doc.get("charges") or []:
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            revenue_total += rev
+            cost_total += flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+
+    return (revenue_total, cost_total)
+
+
 def get_suggested_contributors(
     anchor_doctype: str,
     anchor_name: str,

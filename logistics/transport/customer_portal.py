@@ -39,7 +39,7 @@ def get_customer_jobs(customer: str) -> Dict[str, Any]:
             fields=[
                 "name", "customer", "booking_date", "status", "vehicle_type", 
                 "load_type", "customer_ref_no", "transport_order", "company",
-                "hazardous", "refrigeration", "container_type", "container_no"
+                "contains_dangerous_goods", "refrigeration", "container_type", "container_no"
             ],
             order_by="booking_date desc"
         )

@@ -641,7 +641,7 @@ def get_document_alerts_html(doctype, docname):
 		try:
 			doc = frappe.get_doc(doctype, docname)
 			for pr in (doc.get("permit_requirements") or []):
-				if pr.get("is_required") and not pr.get("is_obtained"):
+				if pr.get("is_required") and not getattr(pr, "is_obtained", None):
 					pending_permits += 1
 			exemptions_count = len(doc.get("exemptions") or [])
 		except Exception:

@@ -13,6 +13,145 @@ import frappe
 from frappe import _
 from frappe.utils import flt, get_url_to_form, escape_html
 
+from logistics.job_management.gl_item_dimension import (
+	get_item_accounting_dimension_label,
+	get_item_dimension_fieldname_on_gl_entry,
+)
+
+
+def _profitability_gl_tabs_markup(rid):
+	"""
+	Bootstrap-style tabs (Summary | Details) without JS: hidden radios + label[for] as tab links.
+	Default tab: Summary. `rid` must be safe for HTML id (hex from frappe.generate_hash).
+	"""
+	r = rid
+	rs = (
+		"position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;"
+		"clip:rect(0,0,0,0);white-space:nowrap;border:0;opacity:0;"
+	)
+	style = (
+		'<style type="text/css">'
+		".lgprv-{r} .lgprv-{r}-panel-summary {{ display: none !important; }}"
+		".lgprv-{r} .lgprv-{r}-panel-details {{ display: block; }}"
+		".lgprv-{r} #lgprv-{r}-summary:checked ~ .lgprv-{r}-panel-details {{ display: none !important; }}"
+		".lgprv-{r} #lgprv-{r}-summary:checked ~ .lgprv-{r}-panel-summary {{ display: block !important; }}"
+		".lgprv-{r} ul.logistics-gl-nav-tabs {{ display: flex; flex-wrap: wrap; padding-left: 0; margin-bottom: 0; list-style: none; border-bottom: 1px solid #d1d8dd; }}"
+		".lgprv-{r} ul.logistics-gl-nav-tabs li {{ margin-bottom: -1px; }}"
+		".lgprv-{r} ul.logistics-gl-nav-tabs label.nav-link {{ display: block; padding: 0.5rem 0.85rem; margin: 0; cursor: pointer; "
+		"border: 1px solid transparent; border-top-left-radius: 0.25rem; border-top-right-radius: 0.25rem; color: #6c757d; font-size: 12px; font-weight: 500; }}"
+		".lgprv-{r} #lgprv-{r}-summary:checked ~ ul.logistics-gl-nav-tabs label[for=\"lgprv-{r}-summary\"] {{"
+		" color: #495057; background-color: #fff; border-color: #d1d8dd #d1d8dd #fff; }}"
+		".lgprv-{r} #lgprv-{r}-details:checked ~ ul.logistics-gl-nav-tabs label[for=\"lgprv-{r}-details\"] {{"
+		" color: #495057; background-color: #fff; border-color: #d1d8dd #d1d8dd #fff; }}"
+		"</style>"
+	)
+	# Single .format: if we format `style` first, literal `{ display: ... }` breaks a second .format (KeyError ' display').
+	return (
+		style
+		+ '<div class="logistics-profitability-wrapper lgprv-root lgprv-{r}" style="margin-top: 16px;">'
+		'<input type="radio" name="lgprv-{r}" id="lgprv-{r}-summary" checked="checked" autocomplete="off" style="{rs}">'
+		'<input type="radio" name="lgprv-{r}" id="lgprv-{r}-details" autocomplete="off" style="{rs}">'
+		'<ul class="nav nav-tabs logistics-gl-nav-tabs" role="tablist" style="border-bottom:1px solid #d1d8dd;">'
+		'<li class="nav-item" role="presentation">'
+		'<label class="nav-link" for="lgprv-{r}-summary" role="tab">{lbl_sum}</label>'
+		"</li>"
+		'<li class="nav-item" role="presentation">'
+		'<label class="nav-link" for="lgprv-{r}-details" role="tab">{lbl_det}</label>'
+		"</li>"
+		"</ul>"
+	).format(r=r, rs=rs, lbl_sum=_("Summary"), lbl_det=_("Details"))
+
+
+def _account_has_job_profit_type():
+	return frappe.db.has_column("Account", "job_profit_account_type")
+
+
+def _jp_exclude_fragment():
+	"""Exclude Job Profit–tagged lines from generic Revenue/Cost GL totals."""
+	if not _account_has_job_profit_type():
+		return ""
+	return (
+		" AND IFNULL(acc.job_profit_account_type, '') NOT IN "
+		"('Disbursements', 'WIP', 'Accrual')"
+	)
+
+
+def _signed_disbursement_amount(root_type, debit, credit):
+	"""Signed P&L-style amount for accounts tagged Disbursements."""
+	rt = (root_type or "").strip()
+	dr = flt(debit)
+	cr = flt(credit)
+	if rt == "Income":
+		return cr - dr
+	if rt == "Expense":
+		return dr - cr
+	if rt == "Liability":
+		return cr - dr
+	if rt in ("Asset", "Equity"):
+		return dr - cr
+	return 0
+
+
+def _signed_wip_by_job_profit(root_type, debit, credit):
+	"""WIP bucket for accounts tagged WIP (non-policy)."""
+	rt = (root_type or "").strip()
+	dr = flt(debit)
+	cr = flt(credit)
+	if rt == "Income":
+		return cr - dr
+	if rt == "Asset":
+		return dr - cr
+	if rt == "Liability":
+		return cr - dr
+	if rt == "Expense":
+		return dr - cr
+	return cr - dr
+
+
+def _signed_accrual_by_job_profit(root_type, debit, credit):
+	"""Accrual bucket for accounts tagged Accrual (non-policy)."""
+	rt = (root_type or "").strip()
+	dr = flt(debit)
+	cr = flt(credit)
+	if rt == "Liability":
+		return cr - dr
+	if rt == "Expense":
+		return dr - cr
+	if rt == "Income":
+		return cr - dr
+	if rt == "Asset":
+		return dr - cr
+	return cr - dr
+
+
+def aggregate_gl_entries_by_item(entries):
+	"""Roll up classified GL rows by dimension item (for Summary view)."""
+	from collections import OrderedDict
+
+	buckets = OrderedDict()
+	for e in entries or []:
+		raw = (e.get("dimension_item") or "").strip()
+		key = raw if raw else "__no_item__"
+		if key not in buckets:
+			buckets[key] = {
+				"dimension_item": raw,
+				"revenue_amount": 0,
+				"cost_amount": 0,
+				"wip_amount": 0,
+				"accrual_amount": 0,
+				"disbursement_amount": 0,
+			}
+		b = buckets[key]
+		b["revenue_amount"] += flt(e.get("revenue_amount"))
+		b["cost_amount"] += flt(e.get("cost_amount"))
+		b["wip_amount"] += flt(e.get("wip_amount"))
+		b["accrual_amount"] += flt(e.get("accrual_amount"))
+		b["disbursement_amount"] += flt(e.get("disbursement_amount"))
+
+	out = list(buckets.values())
+	out.sort(key=lambda x: (x["dimension_item"] or "").lower())
+	return out
+
 
 def get_job_profitability_from_gl(job_costing_number, company, to_date=None, from_date=None):
 	"""
@@ -24,7 +163,7 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 	:param company: Company
 	:param to_date: Optional; limit GL entries on or before this date
 	:param from_date: Optional; limit GL entries on or after this date
-	:return: dict with revenue, cost, gross_profit, profit_margin_pct, wip_amount, accrual_amount, currency
+	:return: dict with revenue, cost, gross_profit, profit_margin_pct, wip_amount, accrual_amount (always 0; Accrued Cost Liability excluded), currency
 	"""
 	if not job_costing_number or not company:
 		return _empty_profitability(company)
@@ -43,69 +182,97 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 		values["from_date"] = from_date
 	where = " AND ".join(conditions)
 
-	# Revenue: sum(credit - debit) for Income accounts
+	policy = None
+	try:
+		from logistics.job_management.recognition_engine import get_recognition_policy_for_job
+		policy = get_recognition_policy_for_job(job_costing_number)
+	except Exception:
+		pass
+
+	# Revenue: sum(credit - debit) for Income accounts (exclude policy WIP Income — it is reported under WIP)
+	revenue_values = dict(values)
+	revenue_exclude = ""
+	if policy and policy.get("wip_account"):
+		revenue_exclude = " AND gle.account != %(wip_account_exclude)s"
+		revenue_values["wip_account_exclude"] = policy["wip_account"]
+	jp_ex = _jp_exclude_fragment()
 	revenue_row = frappe.db.sql("""
 		SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as amount
 		FROM `tabGL Entry` gle
 		INNER JOIN `tabAccount` acc ON acc.name = gle.account
 		WHERE {where}
 		AND acc.root_type = 'Income'
-	""".format(where=where), values, as_dict=True)
+		{revenue_exclude}
+		{jp_ex}
+	""".format(where=where, revenue_exclude=revenue_exclude, jp_ex=jp_ex), revenue_values, as_dict=True)
 	revenue = flt(revenue_row[0].amount, 2) if revenue_row else 0
 
-	# Cost: sum(debit - credit) for Expense accounts
+	# Cost: sum(debit - credit) for Expense accounts (exclude policy Cost Accrual — shown under Accrual, not Cost)
+	cost_exclude = ""
+	cost_values = dict(values)
+	if policy and policy.get("cost_accrual_account"):
+		cost_exclude = " AND gle.account != %(cost_accrual_exclude)s"
+		cost_values["cost_accrual_exclude"] = policy["cost_accrual_account"]
 	cost_row = frappe.db.sql("""
 		SELECT COALESCE(SUM(gle.debit - gle.credit), 0) as amount
 		FROM `tabGL Entry` gle
 		INNER JOIN `tabAccount` acc ON acc.name = gle.account
 		WHERE {where}
 		AND acc.root_type = 'Expense'
-	""".format(where=where), values, as_dict=True)
+		{cost_exclude}
+		{jp_ex}
+	""".format(where=where, cost_exclude=cost_exclude, jp_ex=jp_ex), cost_values, as_dict=True)
 	cost = flt(cost_row[0].amount, 2) if cost_row else 0
 
 	gross_profit = revenue - cost
 	profit_margin_pct = (gross_profit / revenue * 100) if revenue else 0
 
-	# WIP and accrual: get accounts from recognition policy for this job
+	# Disbursements: Job Profit Account Type = Disbursements
+	disbursements_amount = 0
+	if _account_has_job_profit_type():
+		disb_row = frappe.db.sql(
+			"""
+			SELECT COALESCE(SUM(
+				CASE acc.root_type
+					WHEN 'Income' THEN gle.credit - gle.debit
+					WHEN 'Expense' THEN gle.debit - gle.credit
+					WHEN 'Liability' THEN gle.credit - gle.debit
+					WHEN 'Asset' THEN gle.debit - gle.credit
+					WHEN 'Equity' THEN gle.debit - gle.credit
+					ELSE 0
+				END
+			), 0) AS amount
+			FROM `tabGL Entry` gle
+			INNER JOIN `tabAccount` acc ON acc.name = gle.account
+			WHERE {where}
+			AND IFNULL(acc.job_profit_account_type, '') = 'Disbursements'
+			""".format(where=where),
+			values,
+			as_dict=True,
+		)
+		disbursements_amount = flt(disb_row[0].amount, 2) if disb_row else 0
+
+	# WIP from policy; accrual KPI excludes Accrued Cost Liability (balance-sheet) by design
 	wip_amount = 0
 	accrual_amount = 0
-	try:
-		from logistics.job_management.recognition_engine import get_recognition_policy_for_job
-		policy = get_recognition_policy_for_job(job_costing_number)
-		if policy:
-			if policy.get("wip_account"):
-				wip_row = frappe.db.sql("""
-					SELECT COALESCE(SUM(gle.debit - gle.credit), 0) as balance
-					FROM `tabGL Entry` gle
-					WHERE gle.job_costing_number = %(job_costing_number)s
-					AND gle.company = %(company)s
-					AND gle.account = %(wip_account)s
-					AND gle.docstatus = 1
-				""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
-					"job_costing_number": job_costing_number,
-					"company": company,
-					"wip_account": policy.wip_account,
-					**({"to_date": to_date} if to_date else {})
-				}, as_dict=True)
-				wip_amount = flt(wip_row[0].balance, 2) if wip_row else 0
-			if policy.get("accrued_cost_liability_account"):
-				# Liability: credit - debit
-				acc_row = frappe.db.sql("""
-					SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as balance
-					FROM `tabGL Entry` gle
-					WHERE gle.job_costing_number = %(job_costing_number)s
-					AND gle.company = %(company)s
-					AND gle.account = %(accrued_account)s
-					AND gle.docstatus = 1
-				""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
-					"job_costing_number": job_costing_number,
-					"company": company,
-					"accrued_account": policy.accrued_cost_liability_account,
-					**({"to_date": to_date} if to_date else {})
-				}, as_dict=True)
-				accrual_amount = flt(acc_row[0].balance, 2) if acc_row else 0
-	except Exception:
-		pass
+	if policy:
+		if policy.get("wip_account"):
+			# WIP recognition JEs credit the WIP (Income) account; show positive open WIP as (credit - debit)
+			wip_row = frappe.db.sql("""
+				SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as balance
+				FROM `tabGL Entry` gle
+				WHERE gle.job_costing_number = %(job_costing_number)s
+				AND gle.company = %(company)s
+				AND gle.account = %(wip_account)s
+				AND gle.docstatus = 1
+			""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
+				"job_costing_number": job_costing_number,
+				"company": company,
+				"wip_account": policy.wip_account,
+				**({"to_date": to_date} if to_date else {})
+			}, as_dict=True)
+			wip_amount = flt(wip_row[0].balance, 2) if wip_row else 0
+		# Accrued Cost Liability Account is excluded from profitability (not in KPI or classified GL tables).
 
 	currency = frappe.get_cached_value("Company", company, "default_currency") or "USD"
 
@@ -116,35 +283,48 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 		"profit_margin_pct": round(profit_margin_pct, 2),
 		"wip_amount": wip_amount,
 		"accrual_amount": accrual_amount,
+		"disbursements_amount": disbursements_amount,
 		"currency": currency,
 	}
 
 
-def get_job_gl_entries(job_costing_number, company, to_date=None, from_date=None, limit=100):
+def _get_job_gl_entries_classified(
+	job_costing_number,
+	company,
+	to_date=None,
+	from_date=None,
+	max_fetch=5000,
+):
 	"""
-	Get GL entries linked to the job (by job_costing_number) for the profitability "related entries" table.
-	Includes party (supplier/customer), date, references, other header details, and Revenue/Cost/WIP/Accrual amounts per row.
+	Fetch GL rows for the job, classify into Revenue/Cost/WIP/Accrual/Disbursements, drop unclassified lines.
+	Returns all matching rows up to max_fetch (posting date desc).
 	"""
 	if not job_costing_number or not company:
 		return []
 
 	wip_account = None
-	accrual_account = None
+	cost_accrual_account = None
 	try:
 		from logistics.job_management.recognition_engine import get_recognition_policy_for_job
 		policy = get_recognition_policy_for_job(job_costing_number)
 		if policy:
 			wip_account = policy.get("wip_account")
-			accrual_account = policy.get("accrued_cost_liability_account")
+			cost_accrual_account = policy.get("cost_accrual_account")
 	except Exception:
 		pass
+
+	item_link_fn = get_item_dimension_fieldname_on_gl_entry()
+	item_select = "NULL AS dimension_item"
+	if item_link_fn:
+		item_select = "gle.`{0}` AS dimension_item".format(item_link_fn)
 
 	conditions = [
 		"gle.job_costing_number = %(job_costing_number)s",
 		"gle.company = %(company)s",
 		"gle.docstatus = 1",
 	]
-	values = {"job_costing_number": job_costing_number, "company": company, "limit": limit}
+	fetch_cap = max_fetch if max_fetch is not None else 5000
+	values = {"job_costing_number": job_costing_number, "company": company, "limit": int(fetch_cap)}
 	if to_date:
 		conditions.append("gle.posting_date <= %(to_date)s")
 		values["to_date"] = to_date
@@ -152,6 +332,10 @@ def get_job_gl_entries(job_costing_number, company, to_date=None, from_date=None
 		conditions.append("gle.posting_date >= %(from_date)s")
 		values["from_date"] = from_date
 	where = " AND ".join(conditions)
+
+	jp_col = "NULL AS job_profit_account_type"
+	if _account_has_job_profit_type():
+		jp_col = "acc.job_profit_account_type AS job_profit_account_type"
 
 	rows = frappe.db.sql("""
 		SELECT
@@ -170,13 +354,15 @@ def get_job_gl_entries(job_costing_number, company, to_date=None, from_date=None
 			gle.voucher_no,
 			gle.against_voucher_type,
 			gle.against_voucher,
-			acc.root_type AS account_root_type
+			acc.root_type AS account_root_type,
+			{jp_col},
+			{dim_item}
 		FROM `tabGL Entry` gle
 		LEFT JOIN `tabAccount` acc ON acc.name = gle.account
 		WHERE {where}
 		ORDER BY gle.posting_date DESC, gle.creation DESC
 		LIMIT %(limit)s
-	""".format(where=where), values, as_dict=True)
+	""".format(where=where, dim_item=item_select, jp_col=jp_col), values, as_dict=True)
 
 	entries = []
 	for r in rows:
@@ -193,20 +379,27 @@ def get_job_gl_entries(job_costing_number, company, to_date=None, from_date=None
 		cost_amt = 0
 		wip_amt = 0
 		accrual_amt = 0
-		if root_type == "Income":
+		disbursement_amt = 0
+		jp = ((r.get("job_profit_account_type") or "") if _account_has_job_profit_type() else "").strip()
+
+		# 1) Recognition policy accounts (exact match). Accrued Cost Liability is excluded from profitability.
+		if wip_account and acc == wip_account:
+			wip_amt = credit - debit
+		elif cost_accrual_account and acc == cost_accrual_account:
+			accrual_amt = debit - credit
+		elif jp == "Disbursements":
+			disbursement_amt = _signed_disbursement_amount(root_type, debit, credit)
+		elif jp == "WIP":
+			wip_amt = _signed_wip_by_job_profit(root_type, debit, credit)
+		elif jp == "Accrual":
+			accrual_amt = _signed_accrual_by_job_profit(root_type, debit, credit)
+		elif root_type == "Income":
 			revenue_amt = credit - debit
 		elif root_type == "Expense":
-			if wip_account and acc == wip_account:
-				wip_amt = debit - credit
-			elif accrual_account and acc == accrual_account:
-				accrual_amt = credit - debit
-			else:
-				cost_amt = debit - credit
+			cost_amt = debit - credit
 		else:
-			if wip_account and acc == wip_account:
-				wip_amt = debit - credit
-			elif accrual_account and acc == accrual_account:
-				accrual_amt = credit - debit
+			# Other root types: only show if tagged Disbursements/WIP/Accrual (handled above)
+			pass
 
 		# Supplier/Customer: party_type + party, or against text
 		party_display = ""
@@ -246,11 +439,52 @@ def get_job_gl_entries(job_costing_number, company, to_date=None, from_date=None
 			"cost_amount": cost_amt,
 			"wip_amount": wip_amt,
 			"accrual_amount": accrual_amt,
+			"disbursement_amount": disbursement_amt,
+			"dimension_item": (r.get("dimension_item") or "") if item_link_fn else "",
 			"voucher_type": r.voucher_type or "",
 			"voucher_no": r.voucher_no or "",
 			"view_url": view_url,
 		})
-	return entries
+
+	# Drop lines that do not fall into any profitability classification
+	filtered = []
+	for e in entries:
+		if any(
+			flt(e.get(k)) != 0
+			for k in (
+				"revenue_amount",
+				"cost_amount",
+				"wip_amount",
+				"accrual_amount",
+				"disbursement_amount",
+			)
+		):
+			filtered.append(e)
+
+	return filtered
+
+
+def get_job_gl_entries(
+	job_costing_number,
+	company,
+	to_date=None,
+	from_date=None,
+	limit=100,
+	max_fetch=5000,
+):
+	"""
+	Public API: classified GL lines for the job, capped for list display (default 100).
+	"""
+	all_rows = _get_job_gl_entries_classified(
+		job_costing_number,
+		company,
+		to_date=to_date,
+		from_date=from_date,
+		max_fetch=max_fetch,
+	)
+	if limit is None:
+		return all_rows
+	return all_rows[: max(0, int(limit))]
 
 
 def _empty_profitability(company):
@@ -262,6 +496,7 @@ def _empty_profitability(company):
 		"profit_margin_pct": 0,
 		"wip_amount": 0,
 		"accrual_amount": 0,
+		"disbursements_amount": 0,
 		"currency": currency,
 	}
 
@@ -285,12 +520,15 @@ def get_job_profitability_html(job_costing_number, company, to_date=None, from_d
 			to_date=to_date,
 			from_date=from_date,
 		)
-		data["entries"] = get_job_gl_entries(
+		all_classified = _get_job_gl_entries_classified(
 			job_costing_number=job_costing_number,
 			company=company,
 			to_date=to_date,
 			from_date=from_date,
+			max_fetch=5000,
 		)
+		data["entries"] = all_classified[:100]
+		data["summary_by_item"] = aggregate_gl_entries_by_item(all_classified)
 		html = _build_profitability_html(data)
 		return html if isinstance(html, str) else str(html)
 	except Exception as e:
@@ -299,7 +537,7 @@ def get_job_profitability_html(job_costing_number, company, to_date=None, from_d
 
 
 def _build_profitability_html(data):
-	"""Build summary table and related GL entries table with View buttons."""
+	"""Build KPI cards, Revenue vs Cost chart, and GL tables (Details per line or Summary per item)."""
 	c = data.get("currency") or ""
 	rev = flt(data.get("revenue"), 2)
 	cost = flt(data.get("cost"), 2)
@@ -307,10 +545,16 @@ def _build_profitability_html(data):
 	margin = flt(data.get("profit_margin_pct"), 2)
 	wip = flt(data.get("wip_amount"), 2)
 	accrual = flt(data.get("accrual_amount"), 2)
+	disb = flt(data.get("disbursements_amount"), 2)
 	entries = data.get("entries") or []
+	summary_rows = data.get("summary_by_item") or []
 
 	def fmt(v):
 		return "{:,.2f}".format(v) if v is not None else "0.00"
+
+	def fmt_cell(v):
+		x = flt(v, 2)
+		return fmt(x) if x else ""
 
 	# Chart scale: max of revenue, cost for bar widths (avoid div by zero)
 	total_abs = max(abs(rev), abs(cost), 1)
@@ -349,6 +593,10 @@ def _build_profitability_html(data):
 			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #20c997;">
 				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{accrual_label}</div>
 				<div style="font-size: 18px; font-weight: 600; color: #212529;">{accrual}</div>
+			</div>
+			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #17a2b8;">
+				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{disb_label}</div>
+				<div style="font-size: 18px; font-weight: 600; color: #212529;">{disb}</div>
 			</div>
 		</div>
 		<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
@@ -393,103 +641,165 @@ def _build_profitability_html(data):
 		wip=fmt(wip),
 		accrual_label=_("Accrual Amount"),
 		accrual=fmt(accrual),
+		disb_label=_("Disbursements"),
+		disb=fmt(disb),
 		chart_title=_("Revenue vs Cost"),
 		rev_pct=rev_pct,
 		cost_pct=cost_pct,
 		source_note=_("Figures from General Ledger by Job Costing Number."),
 	)
 
-	# Related GL entries table: Date, Supplier/Customer, Account, References, Other, Revenue, Cost, WIP, Accrual, View
-	entries_html = ""
-	if entries:
-		rows = []
+	# Column header = Accounting Dimension label (matches GL Entry form), else "Item"
+	_item_dim_label = get_item_accounting_dimension_label() or _("Item")
+	_item_dim_html = escape_html(_item_dim_label)
+
+	# Classified GL only: Details (per GL row) vs Summary (per Item accounting dimension on GL)
+	tables_html = ""
+	if entries or summary_rows:
+		detail_rows = []
 		for e in entries:
 			posting_date = escape_html(str(e.get("posting_date") or ""))
 			party = escape_html(e.get("party_display") or "-")
 			account = escape_html(e.get("account") or "")
+			dim_item = escape_html(e.get("dimension_item") or "-")
 			references = escape_html(e.get("references") or "-")
 			other = escape_html(e.get("other") or "-")
-			rev_amt = flt(e.get("revenue_amount"), 2)
-			cost_amt = flt(e.get("cost_amount"), 2)
-			wip_amt = flt(e.get("wip_amount"), 2)
-			accrual_amt = flt(e.get("accrual_amount"), 2)
-			rev_str = fmt(rev_amt) if rev_amt else ""
-			cost_str = fmt(cost_amt) if cost_amt else ""
-			wip_str = fmt(wip_amt) if wip_amt else ""
-			accrual_str = fmt(accrual_amt) if accrual_amt else ""
 			view_url = e.get("view_url") or "#"
-			view_label = _("View")
+			view_lbl = _("View")
 			view_btn = (
 				'<a href="{url}" class="btn btn-xs btn-default" target="_blank" rel="noopener">{label}</a>'
-				.format(url=view_url, label=view_label)
+				.format(url=view_url, label=view_lbl)
 			) if view_url != "#" else ""
-			rows.append(
-				"<tr><td>{date}</td><td>{party}</td><td>{account}</td><td>{references}</td><td>{other}</td>"
+			detail_rows.append(
+				"<tr><td>{date}</td><td>{party}</td><td>{account}</td><td>{dim_item}</td><td>{references}</td><td>{other}</td>"
 				'<td style="text-align: right;">{revenue}</td><td style="text-align: right;">{cost}</td>'
-				'<td style="text-align: right;">{wip}</td><td style="text-align: right;">{accrual}</td><td>{view}</td></tr>'.format(
+				'<td style="text-align: right;">{wip}</td><td style="text-align: right;">{accrual}</td>'
+				'<td style="text-align: right;">{disb}</td><td>{view}</td></tr>'.format(
 					date=posting_date,
 					party=party,
 					account=account,
+					dim_item=dim_item,
 					references=references,
 					other=other,
-					revenue=rev_str,
-					cost=cost_str,
-					wip=wip_str,
-					accrual=accrual_str,
+					revenue=fmt_cell(e.get("revenue_amount")),
+					cost=fmt_cell(e.get("cost_amount")),
+					wip=fmt_cell(e.get("wip_amount")),
+					accrual=fmt_cell(e.get("accrual_amount")),
+					disb=fmt_cell(e.get("disbursement_amount")),
 					view=view_btn,
 				)
 			)
-		entries_rows = "\n".join(rows)
-		entries_html = """
-		<div style="margin-top: 16px;">
-			<h6 style="margin-bottom: 8px;">{title}</h6>
-			<div style="max-height: 360px; overflow: auto;">
-				<table class="table table-bordered table-condensed table-striped" style="font-size: 11px;">
-					<thead>
-						<tr style="background-color: #f5f5f5;">
-							<th>{col_date}</th>
-							<th>{col_party}</th>
-							<th>{col_account}</th>
-							<th>{col_references}</th>
-							<th>{col_other}</th>
-							<th style="text-align: right;">{col_revenue}</th>
-							<th style="text-align: right;">{col_cost}</th>
-							<th style="text-align: right;">{col_wip}</th>
-							<th style="text-align: right;">{col_accrual}</th>
-							<th>{col_view}</th>
-						</tr>
-					</thead>
-					<tbody>
-						{rows}
-					</tbody>
-				</table>
+		detail_tbody = "\n".join(detail_rows) if detail_rows else (
+			'<tr><td colspan="11" class="text-muted">{empty}</td></tr>'.format(
+				empty=_("No classified GL lines in the latest fetch.")
+			)
+		)
+
+		summary_lines = []
+		for s in summary_rows:
+			dlabel = (s.get("dimension_item") or "").strip()
+			if not dlabel:
+				dlabel = _("(No Item)")
+			dim_esc = escape_html(dlabel)
+			summary_lines.append(
+				"<tr><td>{dim}</td>"
+				'<td style="text-align: right;">{r}</td><td style="text-align: right;">{c}</td>'
+				'<td style="text-align: right;">{w}</td><td style="text-align: right;">{a}</td>'
+				'<td style="text-align: right;">{d}</td></tr>'.format(
+					dim=dim_esc,
+					r=fmt_cell(s.get("revenue_amount")),
+					c=fmt_cell(s.get("cost_amount")),
+					w=fmt_cell(s.get("wip_amount")),
+					a=fmt_cell(s.get("accrual_amount")),
+					d=fmt_cell(s.get("disbursement_amount")),
+				)
+			)
+		summary_tbody = "\n".join(summary_lines) if summary_lines else (
+			'<tr><td colspan="6" class="text-muted">{empty}</td></tr>'.format(empty=_("No data."))
+		)
+
+		rid = frappe.generate_hash(length=10)
+		tables_html = _profitability_gl_tabs_markup(rid) + """
+			<div class="lgprv-{rid}-panel-details">
+				<h6 style="margin-bottom: 8px;">{detail_title}</h6>
+				<div style="max-height: 360px; overflow: auto;">
+					<table class="table table-bordered table-condensed table-striped" style="font-size: 11px;">
+						<thead>
+							<tr style="background-color: #f5f5f5;">
+								<th>{col_date}</th>
+								<th>{col_party}</th>
+								<th>{col_account}</th>
+								<th>{col_dim_item}</th>
+								<th>{col_references}</th>
+								<th>{col_other}</th>
+								<th style="text-align: right;">{col_revenue}</th>
+								<th style="text-align: right;">{col_cost}</th>
+								<th style="text-align: right;">{col_wip}</th>
+								<th style="text-align: right;">{col_accrual}</th>
+								<th style="text-align: right;">{col_disb}</th>
+								<th>{col_view}</th>
+							</tr>
+						</thead>
+						<tbody>{detail_body}</tbody>
+					</table>
+				</div>
+				<p class="text-muted small" style="margin-top: 4px;">{detail_note}</p>
 			</div>
-			<p class="text-muted small" style="margin-top: 4px;">{limit_note}</p>
+			<div class="lgprv-{rid}-panel-summary">
+				<h6 style="margin-bottom: 8px;">{summary_title}</h6>
+				<div style="max-height: 360px; overflow: auto;">
+					<table class="table table-bordered table-condensed table-striped" style="font-size: 11px;">
+						<thead>
+							<tr style="background-color: #f5f5f5;">
+								<th>{col_dim_item}</th>
+								<th style="text-align: right;">{col_revenue}</th>
+								<th style="text-align: right;">{col_cost}</th>
+								<th style="text-align: right;">{col_wip}</th>
+								<th style="text-align: right;">{col_accrual}</th>
+								<th style="text-align: right;">{col_disb}</th>
+							</tr>
+						</thead>
+						<tbody>{summary_body}</tbody>
+					</table>
+				</div>
+				<p class="text-muted small" style="margin-top: 4px;">{summary_note}</p>
+			</div>
 		</div>
 		""".format(
-			title=_("Related GL Entries"),
+			rid=rid,
+			detail_title=_("GL entries (classified)"),
+			summary_title=_("Summary by {0}").format(_item_dim_html),
 			col_date=_("Date"),
 			col_party=_("Supplier/Customer"),
 			col_account=_("Account"),
+			col_dim_item=_item_dim_html,
 			col_references=_("References"),
 			col_other=_("Other"),
 			col_revenue=_("Revenue"),
 			col_cost=_("Cost"),
 			col_wip=_("WIP"),
 			col_accrual=_("Accrual"),
+			col_disb=_("Disbursements"),
 			col_view=_("View"),
-			rows=entries_rows,
-			limit_note=_("Showing up to 100 most recent entries. Amounts by type (Revenue/Cost/WIP/Accrual) per line."),
+			detail_body=detail_tbody,
+			summary_body=summary_tbody,
+			detail_note=_(
+				"Up to 100 most recent classified GL rows (Revenue, Cost, WIP, Accrual, Disbursements). "
+				'"{0}" is the value stored on each GL Entry line for the Item accounting dimension.'
+			).format(_item_dim_html),
+			summary_note=_(
+				"Totals by {0} as on GL Entry (Item accounting dimension), over up to 5000 classified GL rows."
+			).format(_item_dim_html),
 		)
 	else:
-		entries_html = """
-		<div style="margin-top: 16px;">
+		tables_html = """
+		<div class="logistics-profitability-wrapper" style="margin-top: 16px;">
 			<h6 style="margin-bottom: 8px;">{title}</h6>
 			<p class="text-muted small">{no_entries}</p>
 		</div>
 		""".format(
-			title=_("Related GL Entries"),
-			no_entries=_("No GL entries found for this Job Costing Number yet."),
+			title=_("Job GL (classified)"),
+			no_entries=_("No GL entries in Revenue, Cost, WIP, Accrual, or Disbursements for this Job Costing Number."),
 		)
 
-	return (summary_html + entries_html).strip()
+	return (summary_html + tables_html).strip()

@@ -303,6 +303,48 @@ frappe.ui.form.on("Sales Quote", {
 			create_function: create_sea_booking_from_sales_quote
 		});
 
+		// Extend Validity — update Valid Until (draft via save; submitted via server db update)
+		if (!frm.is_new() && !frm.doc.__islocal && frm.doc.name && frm.doc.docstatus !== 2 && frm.has_perm("write")) {
+			frm.add_custom_button(__("Extend Validity"), function() {
+				const base = frm.doc.valid_until || frappe.datetime.get_today();
+				const default_date = frappe.datetime.add_days(base, 30);
+				frappe.prompt(
+					[
+						{
+							fieldname: "valid_until",
+							fieldtype: "Date",
+							label: __("New Valid Until"),
+							reqd: 1,
+							default: default_date,
+							description: __("Must be after the current Valid Until and not before today."),
+						},
+					],
+					function(values) {
+						frappe.call({
+							method: "logistics.pricing_center.doctype.sales_quote.sales_quote.extend_sales_quote_validity",
+							args: {
+								sales_quote: frm.doc.name,
+								valid_until: values.valid_until,
+							},
+							freeze: true,
+							freeze_message: __("Updating validity..."),
+							callback: function(r) {
+								if (r.message && r.message.success) {
+									frm.reload_doc();
+									frappe.show_alert(
+										{ message: r.message.message || __("Validity updated."), indicator: "green" },
+										5
+									);
+								}
+							},
+						});
+					},
+					__("Extend Validity"),
+					__("Update")
+				);
+			}, __("Actions"));
+		}
+
 		// Recalculate Charges - show when quote has any charge lines
 		const has_charges = frm.doc.charges && frm.doc.charges.length > 0;
 		if (has_charges && !frm.is_new()) {
@@ -813,10 +855,9 @@ function add_create_button(frm, config) {
 		create_function    // e.g., create_transport_order_from_sales_quote
 	} = config;
 
-	// Check if main_service matches or quote has charges for this service
+	// Check if main_service matches (buttons only show for the main service)
 	const mainMatches = frm.doc.main_service === main_service;
-	const hasChargesForService = (frm.doc.charges || []).some(c => c.service_type === main_service);
-	if (!mainMatches && !hasChargesForService) return;
+	if (!mainMatches) return;
 	
 	// Common conditions
 	const isSubmitted = !frm.doc.__islocal && frm.doc.docstatus === 1;
@@ -1210,88 +1251,63 @@ function create_air_booking_from_sales_quote(frm) {
 }
 
 function show_air_booking_confirmation(frm) {
-	// Show confirmation dialog
 	frappe.confirm(
 		__("Are you sure you want to create an Air Booking from this Sales Quote?"),
 		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Air Booking..."));
-			
-			// Call the server method
-			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_booking_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-
-					var air_booking_name = (r.message && r.message.air_booking) ? r.message.air_booking : null;
-					if (!air_booking_name) {
-						if (r.message && r.message.success) {
-							frappe.msgprint({
-								title: __("Air Booking Created"),
-								message: __("Air Booking has been created successfully."),
-								indicator: "green"
-							});
-						} else if (r.message && r.message.message) {
-							frappe.msgprint({
-								title: __("Information"),
-								message: r.message.message,
-								indicator: "blue"
-							});
-						}
-						return;
-					}
-
-					if (r.message && r.message.success) {
-						frappe.msgprint({
-							title: __("Air Booking Created"),
-							message: __("Air Booking {0} has been created successfully.", [air_booking_name]),
-							indicator: "green"
-						});
-					} else if (r.message && r.message.message) {
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-					}
-
-					// Poll until doc is visible on server, then navigate (avoids "Air Booking ... not found" on form load)
-					function try_navigate(attempt) {
-						var max_attempts = 15;
-						if (attempt > max_attempts) {
-							frappe.set_route("Form", "Air Booking", air_booking_name);
+			// Save first if there are unsaved changes so the server sees all charges (fixes charges not populating)
+			function do_create() {
+				frm.dashboard.set_headline_alert(__("Creating Air Booking..."));
+				frappe.call({
+					method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_booking_from_sales_quote",
+					args: { sales_quote_name: frm.doc.name },
+					callback: function(r) {
+						frm.dashboard.clear_headline();
+						if (r.exc) return;
+						var air_booking_name = (r.message && r.message.air_booking) ? r.message.air_booking : null;
+						if (!air_booking_name) {
+							if (r.message && r.message.success) {
+								frappe.msgprint({ title: __("Air Booking Created"), message: __("Air Booking has been created successfully."), indicator: "green" });
+							} else if (r.message && r.message.message) {
+								frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+							}
 							return;
 						}
-						frappe.call({
-							method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
-							args: { docname: air_booking_name },
-							callback: function(res) {
-								if (res.message === true) {
-									frappe.set_route("Form", "Air Booking", air_booking_name);
-								} else {
-									setTimeout(function() { try_navigate(attempt + 1); }, 300);
-								}
-							},
-							error: function() {
-								setTimeout(function() { try_navigate(attempt + 1); }, 300);
+						if (r.message && r.message.success) {
+							frappe.msgprint({ title: __("Air Booking Created"), message: __("Air Booking {0} has been created successfully.", [air_booking_name]), indicator: "green" });
+						} else if (r.message && r.message.message) {
+							frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+						}
+						function try_navigate(attempt) {
+							if (attempt > 15) {
+								frappe.set_route("Form", "Air Booking", air_booking_name);
+								return;
 							}
-						});
+							frappe.call({
+								method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
+								args: { docname: air_booking_name },
+								callback: function(res) {
+									if (res.message === true) {
+										frappe.set_route("Form", "Air Booking", air_booking_name);
+									} else {
+										setTimeout(function() { try_navigate(attempt + 1); }, 300);
+									}
+								},
+								error: function() { setTimeout(function() { try_navigate(attempt + 1); }, 300); }
+							});
+						}
+						try_navigate(1);
+					},
+					error: function() {
+						frm.dashboard.clear_headline();
+						frappe.msgprint({ title: __("Error"), message: __("Failed to create Air Booking. Please try again."), indicator: "red" });
 					}
-					try_navigate(1);
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to create Air Booking. Please try again."),
-						indicator: "red"
-					});
-				}
-			});
+				});
+			}
+			if (frm.is_dirty() || frm.is_new()) {
+				frm.save(function() { do_create(); });
+			} else {
+				do_create();
+			}
 		}
 	);
 }
@@ -1320,55 +1336,38 @@ function create_sea_booking_from_sales_quote(frm) {
 }
 
 function show_sea_booking_confirmation(frm) {
-	// Show confirmation dialog
 	frappe.confirm(
 		__("Are you sure you want to create a Sea Booking from this Sales Quote?"),
 		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Sea Booking..."));
-			
-			// Call the server method
-			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_sea_booking_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.sea_booking) {
-						frappe.msgprint({
-							title: __("Sea Booking Created"),
-							message: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking]),
-							indicator: "green"
-						});
-						setTimeout(function() {
-							frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
-						}, 100);
-					} else if (r.message && r.message.message) {
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-						if (r.message.sea_booking) {
-							setTimeout(function() {
-								frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
-							}, 100);
+			function do_create() {
+				frm.dashboard.set_headline_alert(__("Creating Sea Booking..."));
+				frappe.call({
+					method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_sea_booking_from_sales_quote",
+					args: { sales_quote_name: frm.doc.name },
+					callback: function(r) {
+						frm.dashboard.clear_headline();
+						if (r.exc) return;
+						if (r.message && r.message.success && r.message.sea_booking) {
+							frappe.msgprint({ title: __("Sea Booking Created"), message: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking]), indicator: "green" });
+							setTimeout(function() { frappe.set_route("Form", "Sea Booking", r.message.sea_booking); }, 100);
+						} else if (r.message && r.message.message) {
+							frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+							if (r.message.sea_booking) {
+								setTimeout(function() { frappe.set_route("Form", "Sea Booking", r.message.sea_booking); }, 100);
+							}
 						}
+					},
+					error: function(r) {
+						frm.dashboard.clear_headline();
+						frappe.msgprint({ title: __("Error"), message: (r && r.message) || __("Failed to create Sea Booking. Please try again."), indicator: "red" });
 					}
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					const msg = (r && r.message) || __("Failed to create Sea Booking. Please try again.");
-					frappe.msgprint({
-						title: __("Error"),
-						message: msg,
-						indicator: "red"
-					});
-				}
-			});
+				});
+			}
+			if (frm.is_dirty() || frm.is_new()) {
+				frm.save(function() { do_create(); });
+			} else {
+				do_create();
+			}
 		}
 	);
 }

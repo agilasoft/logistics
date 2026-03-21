@@ -163,6 +163,16 @@ frappe.ui.form.on("Declaration Order", {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
+		frm.set_query('sales_quote', function() {
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
+				filters: {
+					service_type: 'Customs',
+					reference_doctype: 'Declaration Order',
+					reference_name: frm.doc.name || ''
+				}
+			};
+		});
 	},
 	refresh(frm) {
 		// Filter Declaration Product Code by importer/exporter for line items
@@ -180,20 +190,14 @@ frappe.ui.form.on("Declaration Order", {
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				// Use frappe.call (not frm.call) so we avoid run_doc_method + check_if_latest,
-				// which fails with TimestampMismatchError if save just updated modified.
-				frappe.call({
-					method: "logistics.customs.doctype.declaration_order.declaration_order.fetch_declaration_order_dashboard_html",
-					args: { docname: frm.doc.name },
-					callback(r) {
-						if (r.message && frm.fields_dict.dashboard_html) {
-							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-							_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-							if (window.logistics_bind_document_alert_cards) {
-								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
-							}
+				frm.call('get_dashboard_html').then(function(r) {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
 						}
-					},
+					}
 				}).always(() => {
 					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
 				});
@@ -293,8 +297,19 @@ frappe.ui.form.on("Declaration Order", {
 			}, 100);
 		}
 	},
+	before_submit(frm) {
+		// Validate required fields before submission and show clear error messages
+		if (!frm.doc.sales_quote) {
+			frappe.msgprint({
+				title: __("Validation Error"),
+				message: __("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."),
+				indicator: 'red'
+			});
+			return Promise.reject(__("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."));
+		}
+	},
 	after_save(frm) {
-		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and run_doc_method (e.g. get_dashboard_html) use the correct modified timestamp and avoid TimestampMismatchError.
+		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and run_doc_method (e.g. get_dashboard_html) use the correct modified timestamp.
 		var new_name = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
 		if (new_name) {
 			frm.docname = new_name;
@@ -326,6 +341,7 @@ frappe.ui.form.on("Declaration Order", {
 				}
 			}
 		});
+		// Populate charges from Sales Quote
 		_populate_charges_from_sales_quote(frm);
 	}
 });

@@ -61,10 +61,10 @@ function update_vehicle_type_filter_description(frm) {
 	if (frm.doc.load_type) {
 		parts.push(__("Load type is {0}", [frm.doc.load_type]));
 	}
-	parts.push(frm.doc.hazardous ? __("Hazardous is enabled") : __("Hazardous is disabled"));
+	parts.push(frm.doc.contains_dangerous_goods ? __("Hazardous is enabled") : __("Hazardous is disabled"));
 	parts.push(frm.doc.reefer ? __("Reefer is enabled") : __("Reefer is disabled"));
 	if (frm.doc.load_type) {
-		var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.hazardous, frm.doc.reefer);
+		var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.contains_dangerous_goods, frm.doc.reefer);
 		var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
 		if (names && names.length) {
 			var nameList = names.length > 5 ? names.slice(0, 5).join(", ") + "…" : names.join(", ");
@@ -80,7 +80,7 @@ function load_vehicle_types_for_load_type(frm, load_type, callback) {
 		if (callback) callback();
 		return;
 	}
-	var hazardous = frm.doc.hazardous ? 1 : 0;
+	var hazardous = frm.doc.contains_dangerous_goods ? 1 : 0;
 	var reefer = frm.doc.reefer ? 1 : 0;
 	var key = vehicle_type_cache_key(load_type, hazardous, reefer);
 	if (frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key]) {
@@ -236,13 +236,13 @@ frappe.ui.form.on("Transport Order", {
 		if (frm.fields_dict.vehicle_type) {
 			frm.fields_dict.vehicle_type.get_query = function() {
 				var filters = {
-					hazardous: frm.doc.hazardous ? 1 : 0,
+					hazardous: frm.doc.contains_dangerous_goods ? 1 : 0,
 					reefer: frm.doc.reefer ? 1 : 0
 				};
 				if (!frm.doc.load_type) {
 					return { filters: filters };
 				}
-				var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.hazardous, frm.doc.reefer);
+				var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.contains_dangerous_goods, frm.doc.reefer);
 				var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
 				if (!names) {
 					load_vehicle_types_for_load_type(frm, frm.doc.load_type);
@@ -270,11 +270,11 @@ frappe.ui.form.on("Transport Order", {
 					var leg = this;
 					var lt = leg.load_type || frm.doc.load_type;
 					var filters = {
-						hazardous: frm.doc.hazardous ? 1 : 0,
+						hazardous: frm.doc.contains_dangerous_goods ? 1 : 0,
 						reefer: frm.doc.reefer ? 1 : 0
 					};
 					if (!lt) return { filters: filters };
-					var key = vehicle_type_cache_key(lt, frm.doc.hazardous, frm.doc.reefer);
+					var key = vehicle_type_cache_key(lt, frm.doc.contains_dangerous_goods, frm.doc.reefer);
 					var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
 					if (!names) {
 						load_vehicle_types_for_load_type(frm, lt);
@@ -365,6 +365,27 @@ frappe.ui.form.on("Transport Order", {
 					}
 				});
 			}, __('Actions'));
+		}
+
+		// Load dashboard HTML in Dashboard tab (only when doc is saved; same pattern as Transport Job)
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+			if (!frm._dashboard_html_called) {
+				frm._dashboard_html_called = true;
+				frm.call('get_dashboard_html').then(r => {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_group_and_collapse_dash_alerts) {
+							setTimeout(function() {
+								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							}, 100);
+						}
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+						}
+					}
+				});
+				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+			}
 		}
 
 		// Helper function to execute refresh operations
@@ -560,13 +581,13 @@ frappe.ui.form.on("Transport Order", {
 		if (frm.fields_dict.vehicle_type) {
 			frm.fields_dict.vehicle_type.get_query = function() {
 				var filters = {
-					hazardous: frm.doc.hazardous ? 1 : 0,
+					hazardous: frm.doc.contains_dangerous_goods ? 1 : 0,
 					reefer: frm.doc.reefer ? 1 : 0
 				};
 				if (!frm.doc.load_type) {
 					return { filters: filters };
 				}
-				var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.hazardous, frm.doc.reefer);
+				var key = vehicle_type_cache_key(frm.doc.load_type, frm.doc.contains_dangerous_goods, frm.doc.reefer);
 				var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
 				if (!names) {
 					load_vehicle_types_for_load_type(frm, frm.doc.load_type);
@@ -591,11 +612,11 @@ frappe.ui.form.on("Transport Order", {
 					var leg = this;
 					var lt = leg.load_type || frm.doc.load_type;
 					var filters = {
-						hazardous: frm.doc.hazardous ? 1 : 0,
+						hazardous: frm.doc.contains_dangerous_goods ? 1 : 0,
 						reefer: frm.doc.reefer ? 1 : 0
 					};
 					if (!lt) return { filters: filters };
-					var key = vehicle_type_cache_key(lt, frm.doc.hazardous, frm.doc.reefer);
+					var key = vehicle_type_cache_key(lt, frm.doc.contains_dangerous_goods, frm.doc.reefer);
 					var names = frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[key];
 					if (!names) {
 						load_vehicle_types_for_load_type(frm, lt);
@@ -681,7 +702,7 @@ frappe.ui.form.on("Transport Order", {
 		frm.set_value('load_type', null);
 	},
 
-	hazardous: function(frm) {
+	contains_dangerous_goods: function(frm) {
 		update_vehicle_type_filter_description(frm);
 		if (frm.doc.load_type) {
 			load_vehicle_types_for_load_type(frm, frm.doc.load_type, function() {
@@ -739,16 +760,13 @@ function _populate_shipper_consignee_from_shipment(frm, doctype) {
 
 function _setup_sales_quote_query(frm) {
 	frm.set_query('sales_quote', function() {
-		// Filter to show only non-converted quotes
-		// Exclude One-off quotes that have status="Converted"
-		// Note: Validation will also check converted_to_doc field
-		return { 
+		// Main service Transport OR at least one Sales Quote Charge (or legacy transport row) with service_type Transport.
+		return {
+			query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 			filters: {
-				main_service: "Transport",
-				_or: [
-					["quotation_type", "!=", "One-off"],
-					["quotation_type", "=", "One-off", "status", "!=", "Converted"]
-				]
+				service_type: 'Transport',
+				reference_doctype: 'Transport Order',
+				reference_name: frm.doc.name || ''
 			}
 		};
 	});

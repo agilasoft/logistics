@@ -21,6 +21,10 @@ To access: **Home > Sea Freight > Sea Booking**
 - **Charges** – Selling and cost charges with weight/qty breaks (unified calculation engine; revenue and cost calculation methods)
 - **Documents** – Job Document child table; Populate from Template
 
+### 2.1 Charges from Sales Quote
+
+When the booking is created from a [Sales Quote](welcome/sales-quote), charge lines copy **Item Code**, **Item Name**, **charge category**, **Bill To**, **Pay To**, **description**, **Item Tax Template**, and **Invoice Type** (from the Item where applicable) from the quote charges.
+
 ## 3. Workflow
 
 1. Create Sea Booking from [Sales Quote](welcome/sales-quote) or manually.
@@ -30,6 +34,7 @@ To access: **Home > Sea Freight > Sea Booking**
 
 ## 4. Related Topics
 
+- [Recent Platform Updates](welcome/recent-platform-updates)
 - [Sea Shipment](welcome/sea-shipment)
 - [Sea Consolidation](welcome/sea-consolidation)
 - [Master Bill](welcome/master-bill)

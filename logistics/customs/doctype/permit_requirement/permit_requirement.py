@@ -3,7 +3,8 @@
 
 from frappe.model.document import Document
 
+from logistics.customs.child_row_virtual_mixin import PermitRequirementVirtualMixin
 
-class PermitRequirement(Document):
+
+class PermitRequirement(Document, PermitRequirementVirtualMixin):
 	pass
-

@@ -95,7 +95,6 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Sales Quote"
   },
   {

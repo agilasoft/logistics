@@ -219,49 +219,36 @@ logistics.recognition = {
      * Recognize WIP and accruals (manual action - both in one call)
      */
     recognize: function(frm) {
-        frappe.prompt([
-            {
-                fieldname: 'recognition_date',
-                fieldtype: 'Date',
-                label: __('Recognition Date'),
-                default: frappe.datetime.get_today(),
-                reqd: 1
-            }
-        ], function(values) {
-            frappe.call({
-                method: 'logistics.job_management.recognition_engine.recognize',
-                args: {
-                    doctype: frm.doc.doctype,
-                    docname: frm.doc.name,
-                    recognition_date: values.recognition_date
-                },
-                freeze: true,
-                freeze_message: __('Recognizing WIP and Accruals...'),
-                callback: function(r) {
-                    if (r.message) {
-                        var msg = [];
-                        if (r.message.wip_journal_entry) {
-                            msg.push(__('WIP: {0}', [r.message.wip_journal_entry]));
-                        }
-                        if (r.message.accrual_journal_entry) {
-                            msg.push(__('Accruals: {0}', [r.message.accrual_journal_entry]));
-                        }
-                        if (msg.length) {
-                            frappe.show_alert({
-                                message: msg.join(' | '),
-                                indicator: 'green'
-                            });
-                        } else {
-                            frappe.show_alert({
-                                message: __('Nothing to recognize (already recognized or below minimum)'),
-                                indicator: 'blue'
-                            });
-                        }
-                        frm.reload_doc();
+        frappe.call({
+            method: 'logistics.job_management.recognition_engine.recognize',
+            args: {
+                doctype: frm.doc.doctype,
+                docname: frm.doc.name
+            },
+            freeze: true,
+            freeze_message: __('Recognizing WIP and Accruals...'),
+            callback: function(r) {
+                if (r.message) {
+                    var msg = [];
+                    if (r.message.wip_journal_entry) {
+                        msg.push(__('WIP: {0}', [r.message.wip_journal_entry]));
                     }
+                    if (r.message.accrual_journal_entry) {
+                        msg.push(__('Accruals: {0}', [r.message.accrual_journal_entry]));
+                    }
+                    if (msg.length) {
+                        frappe.show_alert({
+                            message: msg.join(' | '),
+                            indicator: 'green'
+                        });
+                    } else {
+                        var reason = r.message.message || __('Nothing to recognize (already recognized or below minimum)');
+                        frappe.msgprint({ title: __('Recognition'), message: reason, indicator: 'blue' });
+                    }
+                    frm.reload_doc();
                 }
-            });
-        }, __('Recognize WIP & Accrual'), __('Create'));
+            }
+        });
     },
     
     /**

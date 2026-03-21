@@ -119,19 +119,8 @@ frappe.ui.form.on('Air Booking', {
 			}
 			return {};
 		});
-		// Setup query filter for sales_quote to exclude used one-off quotes
+		// Sales Quote: main Air OR Air charges; exclude used One-off quotes (server-side in link search).
 		_setup_sales_quote_query(frm);
-		
-		// Load available Sales Quotes filters on setup
-		frappe.call({
-			method: 'logistics.air_freight.doctype.air_booking.air_booking.get_available_sales_quotes',
-			args: { air_booking_name: frm.doc.name || null },
-			callback: function(r) {
-				if (r.message && r.message.filters) {
-					frm._available_sales_quotes_filters = r.message.filters;
-				}
-			}
-		});
 	},
 
 	shipper: function(frm) {
@@ -373,16 +362,6 @@ frappe.ui.form.on('Air Booking', {
 
 			_load_documents_html(frm);
 			_load_milestone_html(frm);
-
-			frappe.call({
-				method: 'logistics.air_freight.doctype.air_booking.air_booking.get_available_sales_quotes',
-				args: { air_booking_name: docname || null },
-				callback: function(r) {
-					if (frm && frm.doc.name === docname && r.message && r.message.filters) {
-						frm._available_sales_quotes_filters = r.message.filters;
-					}
-				}
-			});
 		}
 
 		setTimeout(load_html_fields, 400);
@@ -547,23 +526,14 @@ frappe.ui.form.on('Air Booking', {
 	}
 });
 
-// Setup query filter for sales_quote field to exclude used one-off quotes
 function _setup_sales_quote_query(frm) {
 	frm.set_query('sales_quote', function() {
-		// Return cached filters or fallback to basic filter
-		// If filters not loaded yet, they'll use the fallback but that's okay
-		// The user can still type and select, validation will catch duplicates
-		if (frm._available_sales_quotes_filters) {
-			return { filters: frm._available_sales_quotes_filters };
-		}
-		// Fallback filter (excludes converted one-off quotes)
 		return {
+			query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 			filters: {
-				main_service: "Air",
-				_or: [
-					["quotation_type", "!=", "One-off"],
-					["quotation_type", "=", "One-off", "status", "!=", "Converted"]
-				]
+				service_type: 'Air',
+				reference_doctype: 'Air Booking',
+				reference_name: frm.doc.name || ''
 			}
 		};
 	});
@@ -574,26 +544,22 @@ function _setup_quote_query(frm) {
 	frm.set_query('quote', function() {
 		var quote_type = frm.doc.quote_type;
 		if (quote_type === 'Sales Quote') {
-			// For Sales Quote, use the same filters as sales_quote
-			if (frm._available_sales_quotes_filters) {
-				return { filters: frm._available_sales_quotes_filters };
-			}
 			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					main_service: "Air",
-					_or: [
-						["quotation_type", "!=", "One-off"],
-						["quotation_type", "=", "One-off", "status", "!=", "Converted"]
-					]
+					service_type: 'Air',
+					reference_doctype: 'Air Booking',
+					reference_name: frm.doc.name || ''
 				}
 			};
 		} else if (quote_type === 'One-Off Quote') {
-			// For One-Off Quote, filter to only One-off Sales Quotes
 			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					main_service: "Air",
-					quotation_type: "One-off",
-					status: ["!=", "Converted"]
+					service_type: 'Air',
+					reference_doctype: 'Air Booking',
+					reference_name: frm.doc.name || '',
+					dialog_one_off: 1
 				}
 			};
 		}

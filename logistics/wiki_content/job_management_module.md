@@ -10,9 +10,11 @@ To access: **Home > Job Management**
 
 **Job Costing Number** is a master that defines costing series and defaults for jobs. Used when creating jobs to assign cost centers and profit centers.
 
-### 1.2 Recognition Policy Settings
+### 1.2 Revenue Recognition Policy Settings
 
-**Recognition Policy Settings** configures revenue and cost recognition policies per job type. Controls when revenue and cost are recognized (e.g., on milestone completion, on delivery).
+**Revenue Recognition Policy Settings** (DocType: Recognition Policy Settings) is **one document per company**. Rules live in **Recognition Parameters** (dimensions + single **Recognition Date Basis** + four GL accounts). **Post → Recognize WIP & Accrual** uses one posting date for both WIP and accrual. Disbursement charge lines are excluded from recognition totals.
+
+**Detail:** [Revenue Recognition Policy — Accounts, Dates, and Charges](welcome/revenue-recognition-policy-accounts-and-dates)
 
 ### 1.3 Masters
 
@@ -46,6 +48,9 @@ For a description of the **proforma GL entries** (expected vouchers and account 
 
 ## 5. Related Topics
 
+- [Recent Platform Updates](welcome/recent-platform-updates) – summary of billing, recognition, and transport changes
+- [WIP and Accrual Reversal on Invoicing](welcome/wip-accrual-reversal-on-invoicing-design) – invoice and internal billing reversal design
+- [Internal and Intercompany Billing](welcome/internal-and-intercompany-billing)
 - [General Job](welcome/general-job)
 - [Air Shipment](welcome/air-shipment)
 - [Sea Shipment](welcome/sea-shipment)

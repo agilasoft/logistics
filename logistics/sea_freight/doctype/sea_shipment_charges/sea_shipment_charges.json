@@ -7,14 +7,14 @@
  "engine": "InnoDB",
  "field_order": [
   "column_break_other_svc",
-  "charge_item",
-  "charge_name",
+  "item_code",
+  "item_name",
   "charge_type",
   "charge_category",
   "item_tax_template",
   "invoice_type",
   "column_break_crpu",
-  "charge_description",
+  "description",
   "sales_quote_link",
   "is_other_service",
   "section_break_wicx",
@@ -86,7 +86,7 @@
  "fields": [
   {
    "default": "0",
-   "description": "Set from Item (Other Service). Not editable.",
+   "description": "Automatically determined from the selected item. This field cannot be edited.",
    "fetch_from": "charge_item.custom_is_other_service",
    "fieldname": "is_other_service",
    "fieldtype": "Check",
@@ -136,20 +136,6 @@
    "label": "Notes"
   },
   {
-   "fieldname": "charge_item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Charge Item",
-   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
-   "options": "Item"
-  },
-  {
-   "fetch_from": "charge_item.item_name",
-   "fieldname": "charge_name",
-   "fieldtype": "Data",
-   "label": "Charge Name"
-  },
-  {
    "fieldname": "charge_type",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -174,12 +160,6 @@
    "fieldtype": "Link",
    "label": "Invoice Type",
    "options": "Invoice Type"
-  },
-  {
-   "fetch_from": "charge_item.description",
-   "fieldname": "charge_description",
-   "fieldtype": "Long Text",
-   "label": "Charge Description"
   },
   {
    "fieldname": "sales_quote_link",
@@ -566,13 +546,32 @@
   {
    "fieldname": "column_break_kzwc",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 13:34:12.257494",
+ "modified": "2026-03-18 17:51:35.574557",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment Charges",
