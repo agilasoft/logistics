@@ -6,8 +6,36 @@
 from __future__ import unicode_literals
 
 import frappe
+from frappe import _
 from frappe.utils import getdate, add_days, date_diff, today
 
+from logistics.utils import alert_utils
+
+
+# CSS for document alert cards (used when HTML is shown without dashboard layout, e.g. Transport Order Documents tab)
+DOC_ALERT_CARDS_CSS = """
+.doc-alerts-cards-wrapper { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; }
+.doc-alerts-cards { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+.doc-alert-card { min-width: 80px; flex: 1; background: #fff; border-radius: 6px; border: 1px solid #e0e0e0; padding: 12px 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: box-shadow 0.15s ease; }
+.doc-alert-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.doc-alert-card-value { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.doc-alert-card-title { font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; font-weight: 600; }
+.doc-alert-card-warning .doc-alert-card-value { color: #856404; }
+.doc-alert-card-warning { border-left: 4px solid #ffc107; }
+.doc-alert-card-danger .doc-alert-card-value { color: #721c24; }
+.doc-alert-card-danger { border-left: 4px solid #dc3545; }
+.doc-alert-card-info .doc-alert-card-value { color: #0c5460; }
+.doc-alert-card-info { border-left: 4px solid #17a2b8; }
+.doc-alert-card-success .doc-alert-card-value { color: #155724; }
+.doc-alert-card-success { border-left: 4px solid #28a745; }
+.doc-alert-card-secondary .doc-alert-card-value { color: #383d41; }
+.doc-alert-card-secondary { border-left: 4px solid #6c757d; }
+.doc-alert-card-permits { border-left: 4px solid #ff9800; }
+.doc-alert-card-permits .doc-alert-card-value { color: #e65100; }
+.doc-alert-card-exemptions { border-left: 4px solid #9c27b0; }
+.doc-alert-card-exemptions .doc-alert-card-value { color: #7b1fa2; }
+@media (max-width: 768px) { .doc-alert-card { min-width: 70px; } }
+"""
 
 # Mapping of doctype to (product_type, applies_to)
 DOCTYPE_CONTEXT = {
@@ -19,6 +47,7 @@ DOCTYPE_CONTEXT = {
 	"Release Order": ("Warehousing", "Booking"),
 	"Transfer Order": ("Warehousing", "Booking"),
 	"Air Shipment": ("Air Freight", "Shipment/Job"),
+	"Air Consolidation": ("Air Freight", "Shipment/Job"),
 	"Sea Shipment": ("Sea Freight", "Shipment/Job"),
 	"Sea Consolidation": ("Sea Freight", "Shipment/Job"),
 	"Transport Job": ("Transport", "Shipment/Job"),
@@ -29,14 +58,17 @@ DOCTYPE_CONTEXT = {
 }
 
 # Doctypes that have milestone child table (field "milestones")
-MILESTONE_DOCTYPES = ("Air Shipment", "Sea Booking", "Sea Shipment", "Sea Consolidation", "Transport Job", "Declaration", "Declaration Order")
+MILESTONE_DOCTYPES = ("Air Booking", "Air Shipment", "Air Consolidation", "Sea Booking", "Sea Shipment", "Sea Consolidation", "Transport Order", "Transport Job", "Declaration", "Declaration Order")
 
 # Child table doctype for each parent
 MILESTONE_CHILD_DOCTYPE = {
+	"Air Booking": "Air Booking Milestone",
 	"Air Shipment": "Air Shipment Milestone",
+	"Air Consolidation": "Air Consolidation Milestone",
 	"Sea Booking": "Sea Booking Milestone",
 	"Sea Shipment": "Sea Shipment Milestone",
 	"Sea Consolidation": "Sea Consolidation Milestone",
+	"Transport Order": "Transport Order Milestone",
 	"Transport Job": "Transport Job Milestone",
 	"Declaration": "Declaration Milestone",
 	"Declaration Order": "Declaration Order Milestone",
@@ -173,15 +205,18 @@ def populate_documents_from_template(doctype, docname):
 	existing_types = {d.document_type for d in (doc.get("documents") or [])}
 
 	added = 0
+	now_dt = frappe.utils.now()
 	for item in items:
 		if item.document_type in existing_types:
 			continue
 		date_required = _compute_date_required(doc, item)
-		row = doc.append("documents", {
+		doc.append("documents", {
 			"document_type": item.document_type,
 			"is_required": 1 if item.is_mandatory else 0,
 			"status": "Pending",
 			"date_required": date_required,
+			"source": "Fetched",
+			"created_at": now_dt,
 		})
 		existing_types.add(item.document_type)
 		added += 1
@@ -191,6 +226,85 @@ def populate_documents_from_template(doctype, docname):
 		doc.save()
 
 	return {"message": f"Added {added} document(s) from template.", "added": added}
+
+
+def update_milestone_status_on_parent_before_save(doc, method=None):
+	"""Before save: sync ata <-> milestone actual_end (Date Based) and set status from actual dates.
+	Called from before_save on milestone parent doctypes so the save persists both directions."""
+	if not doc or doc.doctype not in MILESTONE_DOCTYPES:
+		return
+	if not hasattr(doc, "milestones") or not doc.get("milestones"):
+		return
+	# Run Date Based sync in-place (ata <-> actual_end) using row automation data
+	from logistics.document_management.milestone_sync import apply_milestone_sync_in_place
+	apply_milestone_sync_in_place(doc, method)
+	# Ensure status from actual_start/actual_end (in case sync didn't set it)
+	from logistics.utils.milestone_status_utils import update_milestone_status
+	for row in doc.milestones:
+		update_milestone_status(row)
+
+
+def update_job_document_status_on_parent_before_save(doc, method=None):
+	"""Before save: validate and apply status updates to Job Document child rows. Child table rows
+	do not run their controller validate/before_save when parent is saved, so we must run from parent."""
+	if not doc:
+		return
+	if not hasattr(doc, "documents") or not doc.get("documents"):
+		return
+	from logistics.logistics.doctype.job_document.job_document import (
+		apply_job_document_status_updates,
+		validate_job_document_status_aligned,
+	)
+	for row in doc.documents:
+		# Validate status aligns with dates/fields (child validate never runs on parent save)
+		validate_job_document_status_aligned(row)
+		apply_job_document_status_updates(row)
+
+
+def ensure_documents_and_milestones_from_template(doc, method=None):
+	"""On parent save: auto-populate documents and milestones from applicable default template if empty or new.
+	Called from doc_events on_update for doctypes that have documents/milestones tabs.
+	Frappe passes (doc, method) to doc_event handlers."""
+	if not doc or getattr(doc, "flags", None) and doc.flags.ignore_documents_milestones_populate:
+		return
+	if getattr(frappe.flags, "in_ensure_documents_milestones", False):
+		return
+	name = getattr(doc, "name", None)
+	if not name or name == "new" or getattr(doc, "__islocal", True):
+		return
+	doctype = doc.doctype
+	frappe.flags.in_ensure_documents_milestones = True
+	try:
+		# Documents: populate if this doctype has documents and template resolution
+		if doctype in DOCTYPE_CONTEXT and hasattr(doc, "documents"):
+			try:
+				populate_documents_from_template(doctype, name)
+			except Exception as e:
+				frappe.log_error(
+					f"Error auto-populating documents for {doctype} {name}: {e}",
+					"Documents/Milestones Auto-Populate",
+				)
+		# Milestones: populate if this doctype has milestones
+		if doctype in MILESTONE_DOCTYPES and hasattr(doc, "milestones"):
+			try:
+				populate_milestones_from_template(doctype, name)
+			except Exception as e:
+				frappe.log_error(
+					f"Error auto-populating milestones for {doctype} {name}: {e}",
+					"Documents/Milestones Auto-Populate",
+				)
+		# Sync parent date <-> milestone actual_end and field triggers
+		if doctype in MILESTONE_DOCTYPES and hasattr(doc, "milestones"):
+			try:
+				from logistics.document_management.milestone_sync import apply_milestone_sync_and_triggers
+				apply_milestone_sync_and_triggers(doc, method)
+			except Exception as e:
+				frappe.log_error(
+					f"Error applying milestone sync/triggers for {doctype} {name}: {e}",
+					"Milestone Sync/Trigger Error",
+				)
+	finally:
+		frappe.flags.in_ensure_documents_milestones = False
 
 
 def _compute_date_required(doc, template_item):
@@ -225,16 +339,70 @@ def _compute_date_required(doc, template_item):
 
 
 @frappe.whitelist()
-def get_milestone_template_items(product_type, applies_to, direction=None, entry_type=None):
-	"""Resolve milestone template for context and return list of Milestone Template Items."""
+def get_milestone_template_filters(doctype):
+	"""Return filters for milestone_template Link field so only templates for this doctype are shown."""
+	context = DOCTYPE_CONTEXT.get(doctype)
+	if not context:
+		return {"filters": []}
+	product_type, applies_to = context
 	filters = [
 		["product_type", "=", product_type],
 		["applies_to", "in", [applies_to, "Both"]],
 	]
+	# applies_to_doctype: empty/NULL = available for all; set = only for that doctype
+	filters.append([
+		"or",
+		["applies_to_doctype", "=", ""],
+		["applies_to_doctype", "is", "not set"],
+		["applies_to_doctype", "=", doctype],
+	])
+	return {"filters": filters}
+
+
+@frappe.whitelist()
+def get_doctype_fields_for_milestone(doctype):
+	"""Return list of field names from the given doctype for use in Milestone Template Item (trigger field, sync field).
+	Only includes fields that exist on the doctype and are not layout-only (section/column break)."""
+	if not doctype or not frappe.db.exists("DocType", doctype):
+		return []
+	meta = frappe.get_meta(doctype)
+	fieldnames = []
+	for df in meta.get("fields", []):
+		if df.fieldtype in ("Section Break", "Column Break", "Tab Break", "Table MultiSelect", "HTML", "Button"):
+			continue
+		if df.hidden or (getattr(df, "permlevel", 0) or 0) > 0:
+			continue
+		if df.fieldname:
+			fieldnames.append(df.fieldname)
+	return fieldnames
+
+
+@frappe.whitelist()
+def get_milestone_template_items(product_type, applies_to, direction=None, entry_type=None, doctype=None):
+	"""Resolve milestone template for context and return list of Milestone Template Items."""
+	if doctype:
+		filters = [
+			["product_type", "=", product_type],
+			"and",
+			["applies_to", "in", [applies_to, "Both"]],
+			"and",
+			[
+				["applies_to_doctype", "=", ""],
+				"or",
+				["applies_to_doctype", "is", "not set"],
+				"or",
+				["applies_to_doctype", "=", doctype],
+			],
+		]
+	else:
+		filters = [
+			["product_type", "=", product_type],
+			["applies_to", "in", [applies_to, "Both"]],
+		]
 	templates = frappe.get_all(
 		"Milestone Template",
 		filters=filters,
-		fields=["name", "template_name", "is_default", "direction", "entry_type"],
+		fields=["name", "template_name", "is_default", "direction", "entry_type", "applies_to_doctype"],
 		order_by="is_default asc",
 	)
 	if direction and direction != "All":
@@ -253,25 +421,29 @@ def get_milestone_template_items(product_type, applies_to, direction=None, entry
 	items = frappe.get_all(
 		"Milestone Template Item",
 		filters={"parent": template_name},
-		fields=["milestone", "icon", "date_basis", "planned_days_offset"],
+		fields=[
+			"milestone", "icon", "date_basis", "planned_days_offset",
+			"update_trigger_type", "sync_parent_date_field", "sync_direction",
+			"trigger_field", "trigger_condition", "trigger_value", "trigger_action",
+		],
 		order_by="idx asc",
 	)
 	return items
 
 
-def _compute_milestone_planned_date(doc, template_item):
-	"""Return planned_end date for a milestone row from doc and template item (date_basis + planned_days_offset)."""
+def _get_planned_date_basis_value(doc, template_item):
+	"""Return the base date from parent doc using template item's Planned Date Basis (date_basis). Used for planned_end and for planned_start offset."""
 	basis = (template_item or {}).get("date_basis")
-	offset = (template_item or {}).get("planned_days_offset") or 0
-	base_date = None
+	if not basis or basis == "Manual" or basis == "None":
+		return None
 	if basis == "ETD":
-		base_date = getattr(doc, "etd", None)
-	elif basis == "ETA":
-		base_date = getattr(doc, "eta", None)
-	elif basis == "Booking Date":
-		base_date = getattr(doc, "booking_date", None) or getattr(doc, "order_date", None)
-	elif basis == "Job Date":
-		base_date = (
+		return getattr(doc, "etd", None)
+	if basis == "ETA":
+		return getattr(doc, "eta", None)
+	if basis == "Booking Date":
+		return getattr(doc, "booking_date", None) or getattr(doc, "order_date", None)
+	if basis == "Job Date":
+		return (
 			getattr(doc, "booking_date", None)
 			or getattr(doc, "order_date", None)
 			or getattr(doc, "start_date", None)
@@ -280,10 +452,19 @@ def _compute_milestone_planned_date(doc, template_item):
 			or getattr(doc, "scheduled_date", None)
 			or doc.creation
 		)
-	if not base_date:
-		return None
-	base_date = getdate(base_date)
-	return add_days(base_date, offset)
+	return None
+
+
+def _compute_milestone_planned_dates(doc, template_item):
+	"""Return (planned_start, planned_end). Planned Date Basis sets planned_end; reduction days set planned_start (base minus reduction)."""
+	base = _get_planned_date_basis_value(doc, template_item)
+	if not base:
+		return None, None
+	base_date = getdate(base)
+	reduction_days = (template_item or {}).get("planned_days_offset") or 0
+	planned_end = base_date
+	planned_start = add_days(base_date, -reduction_days)
+	return planned_start, planned_end
 
 
 @frappe.whitelist()
@@ -306,25 +487,42 @@ def populate_milestones_from_template(doctype, docname):
 		items = frappe.get_all(
 			"Milestone Template Item",
 			filters={"parent": template_name},
-			fields=["milestone", "icon", "date_basis", "planned_days_offset"],
+			fields=[
+				"milestone", "icon", "date_basis", "planned_days_offset",
+				"update_trigger_type", "sync_parent_date_field", "sync_direction",
+				"trigger_field", "trigger_condition", "trigger_value", "trigger_action",
+			],
 			order_by="idx asc",
 		)
 	else:
-		items = get_milestone_template_items(product_type, applies_to, direction, entry_type)
+		items = get_milestone_template_items(product_type, applies_to, direction, entry_type, doctype=doctype)
 
 	existing_milestones = {row.milestone for row in (doc.get("milestones") or [])}
 	added = 0
+	now_dt = frappe.utils.now()
 	for item in items:
 		milestone = item.get("milestone")
 		if not milestone or milestone in existing_milestones:
 			continue
-		planned_end = _compute_milestone_planned_date(doc, item)
+		planned_start, planned_end = _compute_milestone_planned_dates(doc, item)
 		row_data = {
 			"milestone": milestone,
 			"status": "Planned",
+			"planned_start": planned_start,
 			"planned_end": planned_end,
-			"source": "Manual",
+			"source": "Fetched",
+			"fetched_at": now_dt,
+			"created_at": now_dt,
 		}
+		# Copy automation config from template for trigger reference when saving
+		row_data["automation_planned_date_basis"] = (item.get("date_basis") or "").strip() or None
+		row_data["automation_update_trigger_type"] = (item.get("update_trigger_type") or "").strip() or None
+		row_data["automation_sync_parent_date_field"] = (item.get("sync_parent_date_field") or "").strip() or None
+		row_data["automation_sync_direction"] = (item.get("sync_direction") or "").strip() or None
+		row_data["automation_trigger_field"] = (item.get("trigger_field") or "").strip() or None
+		row_data["automation_trigger_condition"] = (item.get("trigger_condition") or "").strip() or None
+		row_data["automation_trigger_value"] = (item.get("trigger_value") or "").strip() or None
+		row_data["automation_trigger_action"] = (item.get("trigger_action") or "").strip() or None
 		icon = item.get("icon")
 		if not icon:
 			lm = frappe.db.get_value("Logistics Milestone", milestone, "icon")
@@ -401,14 +599,19 @@ def get_document_alerts(doctype, docname):
 					"status": status,
 				})
 
-		# Expiring soon (within 7 days)
+		# Expiring soon (within Logistics Settings document_expiring_soon_days)
 		if expiry_date:
 			exp = getdate(expiry_date)
-			if exp >= today_date and date_diff(exp, today_date) <= 7:
-				expiring_soon.append({
-					"document_type": d.document_type,
-					"expiry_date": expiry_date,
-				})
+			if exp >= today_date:
+				try:
+					expiring_soon_days = alert_utils.get_document_expiring_soon_days()
+				except Exception:
+					expiring_soon_days = 7
+				if date_diff(exp, today_date) <= expiring_soon_days:
+					expiring_soon.append({
+						"document_type": d.document_type,
+						"expiry_date": expiry_date,
+					})
 
 	counts = {
 		"pending": len(missing),
@@ -438,7 +641,7 @@ def get_document_alerts_html(doctype, docname):
 		try:
 			doc = frappe.get_doc(doctype, docname)
 			for pr in (doc.get("permit_requirements") or []):
-				if pr.get("is_required") and not pr.get("is_obtained"):
+				if pr.get("is_required") and not getattr(pr, "is_obtained", None):
 					pending_permits += 1
 			exemptions_count = len(doc.get("exemptions") or [])
 		except Exception:
@@ -470,12 +673,146 @@ def get_document_alerts_html(doctype, docname):
 
 	cards_html = "\n".join(cards)
 	return f'''
+	<style>{DOC_ALERT_CARDS_CSS}</style>
 	<div class="doc-alerts-cards-wrapper" style="margin-bottom: 16px;" data-doctype="{doctype}" data-docname="{docname}">
 		<div class="doc-alerts-cards">
 			{cards_html}
 		</div>
 	</div>
 	'''
+
+
+def get_dashboard_alerts(doctype, docname):
+	"""Return list of {level: "danger"|"warning"|"info", "msg": "..."} for dashboard banners.
+	Uses Logistics Settings (Alerts and Delays Notification) for day thresholds.
+	Sources: documents (overdue/expiring), milestones (delayed/impending/informational), estimated dates (ETD/ETA past)."""
+	if not doctype or not docname or docname == "new":
+		return []
+	try:
+		doc = frappe.get_doc(doctype, docname)
+	except (frappe.DoesNotExistError, Exception):
+		return []
+
+	# Load milestones from DB for banner alerts (get_doc may not always populate child tables in API context)
+	milestone_rows = []
+	if doctype in MILESTONE_DOCTYPES and docname and docname != "new":
+		child_doctype = MILESTONE_CHILD_DOCTYPE.get(doctype)
+		if child_doctype:
+			milestone_rows = frappe.get_all(
+				child_doctype,
+				filters={"parent": docname, "parenttype": doctype},
+				fields=["milestone", "planned_end", "actual_end"],
+				order_by="idx asc",
+			)
+		if not milestone_rows and (doc.get("milestones") or []):
+			for m in doc.get("milestones"):
+				milestone_rows.append({
+					"milestone": m.get("milestone"),
+					"planned_end": m.get("planned_end"),
+					"actual_end": m.get("actual_end"),
+				})
+
+	alerts = []
+	today_date = getdate(today())
+
+	# 1. Document alerts: consider both required date and expiry (critical/warning/info by days)
+	documents = doc.get("documents") or []
+	for d in documents:
+		status = (d.get("status") or "").strip()
+		if status in ("Received", "Verified", "Done"):
+			continue
+		is_required = d.get("is_required")
+		date_required = d.get("date_required")
+		expiry_date = d.get("expiry_date")
+		doc_type = d.get("document_type") or "—"
+
+		# Required date: past = critical; future within Warning/Information days = warning/info
+		if is_required and date_required:
+			dr = getdate(date_required)
+			if dr < today_date:
+				days_overdue = date_diff(today_date, dr)
+				alerts.append({
+					"level": "danger",
+					"msg": _("Document {0} was required on {1} ({2} day(s) overdue).").format(doc_type, date_required, days_overdue),
+				})
+			else:
+				days_until_required = date_diff(dr, today_date)
+				severity = alert_utils.get_severity_for_document_expiring(days_until_required)
+				if severity == "impending":
+					alerts.append({"level": "warning", "msg": _("Document {0} required on {1} (in {2} days).").format(doc_type, date_required, days_until_required)})
+				elif severity == "informational":
+					alerts.append({"level": "info", "msg": _("Document {0} required on {1} (in {2} days).").format(doc_type, date_required, days_until_required)})
+
+		# Expiry date: past = critical; future within Warning/Information days = warning/info
+		if expiry_date:
+			exp = getdate(expiry_date)
+			if exp >= today_date:
+				days_until = date_diff(exp, today_date)
+				severity = alert_utils.get_severity_for_document_expiring(days_until)
+				if severity == "impending":
+					alerts.append({"level": "warning", "msg": _("Document {0} expires on {1}.").format(doc_type, expiry_date)})
+				elif severity == "informational":
+					alerts.append({"level": "info", "msg": _("Document {0} expires on {1}.").format(doc_type, expiry_date)})
+			else:
+				alerts.append({"level": "danger", "msg": _("Document {0} expired on {1}.").format(doc_type, expiry_date)})
+
+	# 2. Milestone alerts (critical=delayed, warning=impending, info=informational)
+	for m in milestone_rows:
+		planned_end = m.get("planned_end")
+		actual_end = m.get("actual_end")
+		display_status, severity = alert_utils.get_severity_for_milestone(planned_end, actual_end)
+		milestone_name = m.get("milestone") or "—"
+		if severity == "critical":
+			alerts.append({
+				"level": "danger",
+				"msg": _("Milestone {0} is delayed (planned: {1}).").format(milestone_name, planned_end or "—"),
+			})
+		elif severity == "impending":
+			alerts.append({
+				"level": "warning",
+				"msg": _("Milestone {0} due soon (planned: {1}).").format(milestone_name, planned_end or "—"),
+			})
+		elif severity == "informational":
+			alerts.append({
+				"level": "info",
+				"msg": _("Milestone {0} upcoming (planned: {1}).").format(milestone_name, planned_end or "—"),
+			})
+
+	# 3. Estimated dates (ETD/ETA in the past) -> critical
+	for date_field, label in (("etd", "ETD"), ("eta", "ETA")):
+		val = getattr(doc, date_field, None)
+		if not val:
+			continue
+		dt = getdate(val)
+		if dt < today_date:
+			days_past = date_diff(today_date, dt)
+			alerts.append({
+				"level": "danger",
+				"msg": _("{0} ({1}) was {2} day(s) ago.").format(label, val, days_past),
+			})
+
+	return alerts
+
+
+def get_dashboard_alerts_html(doctype, docname):
+	"""Return HTML for dashboard alerts banner. Critical (red), Warning (yellow), Information (blue).
+	Collapsible per level; grouping is applied by JS (_group_and_collapse_dash_alerts).
+	Uses Logistics Settings day thresholds. Applies to documents, milestones, estimated dates."""
+	alerts = get_dashboard_alerts(doctype, docname)
+	if not alerts:
+		return ""
+
+	icons = {"danger": "fa-exclamation-circle", "warning": "fa-exclamation-triangle", "info": "fa-info-circle"}
+	items = []
+	for a in alerts:
+		level = a.get("level") or "info"
+		icon = icons.get(level, "fa-info-circle")
+		items.append(
+			'<div class="dash-alert-item {0}"><i class="fa {1}"></i><span>{2}</span></div>'.format(
+				level, icon, frappe.utils.escape_html(a.get("msg", ""))
+			)
+		)
+	return "\n".join(items)
 
 
 def _doc_alert_card(title, count, css_class, alert_type, category):
@@ -536,8 +873,13 @@ def get_document_list_for_category(doctype, docname, category):
 		if category == "expiring_soon":
 			if expiry_date:
 				exp = getdate(expiry_date)
-				if exp >= today_date and date_diff(exp, today_date) <= 7:
-					out.append(row)
+				if exp >= today_date:
+					try:
+						expiring_soon_days = alert_utils.get_document_expiring_soon_days()
+					except Exception:
+						expiring_soon_days = 7
+					if date_diff(exp, today_date) <= expiring_soon_days:
+						out.append(row)
 			continue
 		if category == "received":
 			if status in ("Received", "Verified", "Done"):

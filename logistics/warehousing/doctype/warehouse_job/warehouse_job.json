@@ -42,6 +42,7 @@
   "charges",
   "documents_tab",
   "documents_section",
+  "documents_html",
   "document_list_template",
   "documents",
   "operations_tab",
@@ -57,6 +58,7 @@
   "weight_qty_type",
   "accounts_tab",
   "company",
+  "billing_company",
   "branch",
   "cost_center",
   "profit_center",
@@ -79,9 +81,9 @@
   "date_costs_fully_paid",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
@@ -254,6 +256,14 @@
    "label": "Company",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "description": "Company that will bill the customer (from linked Sales Quote / shipment / contract). Used for intercompany.",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.type=='Stocktake'",
@@ -487,6 +497,12 @@
    "label": "Document Checklist"
   },
   {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
@@ -638,34 +654,38 @@
    "label": "Revenue & Cost Recognition"
   },
   {
+   "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
-   "fetch_from": "job_costing_number.recognition_date",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
-   "label": "Recognition Date",
-   "read_only": 1
+   "label": "Recognition Date"
   },
   {
    "fieldname": "column_break_recognition",
@@ -798,6 +818,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  },
   {
    "group": "Accounts",
    "link_doctype": "Periodic Billing",

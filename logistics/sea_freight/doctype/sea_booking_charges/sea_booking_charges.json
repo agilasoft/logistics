@@ -6,37 +6,29 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "charge_item",
-  "charge_name",
+  "column_break_other_svc",
+  "item_code",
+  "item_name",
   "charge_type",
   "charge_category",
-  "item_tax_template",
-  "invoice_type",
-  "column_break_ncht",
-  "charge_description",
+  "column_break_zxoy",
+  "description",
   "sales_quote_link",
+  "is_other_service",
   "section_break_wicx",
   "column_break_ruye",
   "bill_to",
-  "selling_currency",
-  "selling_amount",
   "estimated_revenue",
+  "use_tariff_in_revenue",
+  "revenue_tariff",
   "column_break_lday",
   "pay_to",
-  "buying_currency",
-  "buying_amount",
   "estimated_cost",
-  "calculation_notes_section",
-  "revenue_calc_notes",
-  "column_break_calc_notes",
-  "cost_calc_notes",
-  "selling_weight_break",
-  "cost_weight_break",
-  "selling_qty_break",
-  "cost_qty_break",
-  "section_break_calc",
+  "use_tariff_in_cost",
+  "cost_tariff",
+  "section_break_revenue_cost",
   "revenue_column",
-  "charge_basis",
+  "revenue_calculation_method",
   "quantity",
   "uom",
   "currency",
@@ -60,22 +52,76 @@
   "cost_minimum_charge",
   "cost_maximum_charge",
   "cost_base_amount",
-  "cost_base_quantity"
+  "cost_base_quantity",
+  "section_break_calculation_notes",
+  "revenue_calc_notes",
+  "column_break_vplm",
+  "cost_calc_notes",
+  "section_break_weight_breaks",
+  "selling_weight_break",
+  "selling_qty_break",
+  "column_break_calc_notes",
+  "cost_weight_break",
+  "cost_qty_break",
+  "other_services_section",
+  "other_service_type",
+  "date_started",
+  "date_ended",
+  "column_break_ncht",
+  "other_service_reference_no",
+  "other_service_notes"
  ],
  "fields": [
   {
-   "fieldname": "charge_item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Charge Item",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1]]",
-   "options": "Item"
+   "default": "0",
+   "description": "Automatically determined from the selected item. This field cannot be edited.",
+   "fetch_from": "charge_item.custom_is_other_service",
+   "fieldname": "is_other_service",
+   "fieldtype": "Check",
+   "label": "Other Services",
+   "read_only": 1
   },
   {
-   "fetch_from": "charge_item.item_name",
-   "fieldname": "charge_name",
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "other_services_section",
+   "fieldtype": "Section Break",
+   "label": "Other Services"
+  },
+  {
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "other_service_type",
+   "fieldtype": "Link",
+   "label": "Other Service Type",
+   "options": "Other Service"
+  },
+  {
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "date_started",
+   "fieldtype": "Date",
+   "label": "Date Started"
+  },
+  {
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "date_ended",
+   "fieldtype": "Date",
+   "label": "Date Ended"
+  },
+  {
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "column_break_other_svc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "other_service_reference_no",
    "fieldtype": "Data",
-   "label": "Charge Name"
+   "label": "Reference No"
+  },
+  {
+   "depends_on": "eval:doc.is_other_service",
+   "fieldname": "other_service_notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
   },
   {
    "fieldname": "charge_type",
@@ -92,26 +138,8 @@
    "options": "Freight\nFuel Surcharge\nSecurity Surcharge\nWar Risk Surcharge\nTerminal Handling\nPort Charges\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nDetention\nDemurrage\nOther"
   },
   {
-   "fieldname": "item_tax_template",
-   "fieldtype": "Link",
-   "label": "Item Tax Template",
-   "options": "Item Tax Template"
-  },
-  {
-   "fieldname": "invoice_type",
-   "fieldtype": "Link",
-   "label": "Invoice Type",
-   "options": "Invoice Type"
-  },
-  {
    "fieldname": "column_break_ncht",
    "fieldtype": "Column Break"
-  },
-  {
-   "fetch_from": "charge_item.description",
-   "fieldname": "charge_description",
-   "fieldtype": "Long Text",
-   "label": "Charge Description"
   },
   {
    "fieldname": "sales_quote_link",
@@ -138,20 +166,6 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "selling_currency",
-   "fieldtype": "Link",
-   "label": "Selling Currency",
-   "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
-  },
-  {
-   "fieldname": "selling_amount",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Selling Amount",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
-  },
-  {
    "fieldname": "column_break_lday",
    "fieldtype": "Column Break",
    "label": "Cost",
@@ -162,20 +176,6 @@
    "fieldtype": "Link",
    "label": "Pay To",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
-  },
-  {
-   "fieldname": "buying_currency",
-   "fieldtype": "Link",
-   "label": "Buying Currency",
-   "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
-  },
-  {
-   "fieldname": "buying_amount",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Buying Amount",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -191,15 +191,33 @@
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
-   "collapsible": 1,
-   "fieldname": "calculation_notes_section",
-   "fieldtype": "Section Break",
-   "label": "Calculation Notes"
+   "default": "0",
+   "fieldname": "use_tariff_in_revenue",
+   "fieldtype": "Check",
+   "label": "Use Tariff in Revenue"
+  },
+  {
+   "fieldname": "revenue_tariff",
+   "fieldtype": "Link",
+   "label": "Revenue Tariff",
+   "options": "Tariff"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_tariff_in_cost",
+   "fieldtype": "Check",
+   "label": "Use Tariff in Cost"
+  },
+  {
+   "fieldname": "cost_tariff",
+   "fieldtype": "Link",
+   "label": "Cost Tariff",
+   "options": "Tariff"
   },
   {
    "fieldname": "revenue_calc_notes",
-   "fieldtype": "Long Text",
-   "label": "Revenue",
+   "fieldtype": "Small Text",
+   "label": "Revenue Calc Notes",
    "read_only": 1
   },
   {
@@ -208,12 +226,12 @@
   },
   {
    "fieldname": "cost_calc_notes",
-   "fieldtype": "Long Text",
-   "label": "Cost",
+   "fieldtype": "Small Text",
+   "label": "Cost Calc Notes",
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.charge_basis=='Weight Break'",
+   "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
    "fieldname": "selling_weight_break",
    "fieldtype": "Button",
    "label": "Manage Selling Weight Breaks"
@@ -225,7 +243,7 @@
    "label": "Manage Cost Weight Breaks"
   },
   {
-   "depends_on": "eval:doc.charge_basis=='Qty Break'",
+   "depends_on": "eval:doc.revenue_calculation_method=='Qty Break'",
    "fieldname": "selling_qty_break",
    "fieldtype": "Button",
    "label": "Manage Selling Qty Breaks"
@@ -237,22 +255,16 @@
    "label": "Manage Cost Qty Breaks"
   },
   {
-   "collapsible": 1,
-   "fieldname": "section_break_calc",
-   "fieldtype": "Section Break",
-   "label": "Revenue & Cost"
-  },
-  {
    "fieldname": "revenue_column",
    "fieldtype": "Column Break",
    "label": "Revenue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "charge_basis",
+   "fieldname": "revenue_calculation_method",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Calculation Method",
+   "label": "Revenue Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -288,7 +300,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -376,7 +388,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -420,13 +432,56 @@
    "label": "Base Quantity",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "fieldname": "column_break_zxoy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_calculation_notes",
+   "fieldtype": "Section Break",
+   "label": "Calculation Notes"
+  },
+  {
+   "fieldname": "column_break_vplm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fetch_from": "charge_item.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_weight_breaks",
+   "fieldtype": "Section Break",
+   "label": "Weight Breaks"
+  },
+  {
+   "fieldname": "section_break_revenue_cost",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-02 22:52:28.496830",
+ "modified": "2026-03-18 15:49:32.822264",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking Charges",

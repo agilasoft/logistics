@@ -17,7 +17,7 @@ from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List, Tuple
 
 # Job types that can be intercompany legs (must have company and charges)
-INTERCOMPANY_JOB_TYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job")
+INTERCOMPANY_JOB_TYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Declaration Order")
 
 
 def is_intercompany_enabled() -> bool:
@@ -47,81 +47,14 @@ def get_invoice_items_from_job(
 	job_type: str, job_name: str, customer_for_sea: Optional[str] = None
 ) -> List[Dict[str, Any]]:
 	"""
-	Extract invoice line items from a job (selling/revenue side).
+	Extract invoice line items from a job (selling/revenue side). Unified with billing module.
 	Used for intercompany SI and PI so amounts match the customer invoice for that leg.
 	"""
-	items = []
-	doc = frappe.get_doc(job_type, job_name)
-
-	if job_type == "Transport Job":
-		charges = doc.get("charges") or []
-		for ch in charges:
-			item_code = getattr(ch, "item_code", None)
-			if not item_code:
-				continue
-			qty = flt(getattr(ch, "quantity", 1))
-			unit_rate = flt(getattr(ch, "unit_rate", 0))
-			est_rev = flt(getattr(ch, "estimated_revenue", 0))
-			rate = est_rev / qty if (est_rev > 0 and qty > 0) else unit_rate
-			items.append({
-				"item_code": item_code,
-				"item_name": getattr(ch, "item_name", None) or item_code,
-				"qty": qty,
-				"rate": rate,
-				"uom": getattr(ch, "uom", None),
-			})
-	elif job_type == "Sea Shipment":
-		from logistics.utils.charges_calculation import get_charge_bill_to_customers
-		charges = doc.get("charges") or []
-		for ch in charges:
-			if customer_for_sea and customer_for_sea not in get_charge_bill_to_customers(ch):
-				continue
-			items.append({
-				"item_code": getattr(ch, "charge_item", None),
-				"item_name": getattr(ch, "charge_name", None),
-				"description": getattr(ch, "charge_description", None),
-				"qty": 1,
-				"rate": flt(getattr(ch, "selling_amount", 0)),
-			})
-	elif job_type == "Air Shipment":
-		charges = doc.get("charges") or []
-		for ch in charges:
-			item_code = getattr(ch, "item_code", None)
-			if not item_code:
-				continue
-			qty = flt(getattr(ch, "quantity", 1))
-			rate = flt(getattr(ch, "rate", 0))
-			total = flt(getattr(ch, "total_amount", 0))
-			if total > 0 and qty > 0:
-				rate = total / qty
-			items.append({
-				"item_code": item_code,
-				"item_name": getattr(ch, "item_name", None) or item_code,
-				"qty": qty,
-				"rate": rate,
-			})
-	elif job_type == "Warehouse Job":
-		charges = doc.get("charges") or []
-		for ch in charges:
-			item_code = getattr(ch, "item_code", None) or getattr(ch, "item", None)
-			if not item_code:
-				continue
-			qty = flt(getattr(ch, "quantity", 1))
-			rate = flt(getattr(ch, "rate", 0))
-			est_rev = flt(getattr(ch, "estimated_revenue", 0))
-			if est_rev > 0 and qty > 0:
-				rate = est_rev / qty
-			items.append({
-				"item_code": item_code,
-				"item_name": getattr(ch, "item_name", None) or item_code,
-				"qty": qty,
-				"rate": rate,
-				"uom": getattr(ch, "uom", None),
-			})
-
-	return items
+	from logistics.billing.cross_module_billing import get_invoice_items_from_job as billing_get_items
+	return billing_get_items(job_type, job_name, customer=customer_for_sea)
 
 
+@frappe.whitelist()
 def create_intercompany_invoices_for_quote(
 	sales_quote_name: str,
 	billing_company: str,
@@ -146,20 +79,18 @@ def create_intercompany_invoices_for_quote(
 	created_logs = []
 	errors = []
 
-	for leg in legs:
-		job_type = getattr(leg, "job_type", None)
-		job_no = getattr(leg, "job_no", None)
-		if not job_type or not job_no:
-			continue
+	# Cross-module billing: include every job (anchor + contributors) from each leg
+	from logistics.billing.cross_module_billing import get_all_billing_jobs_from_sales_quote
+	all_jobs = get_all_billing_jobs_from_sales_quote(sales_quote)
+
+	for job_type, job_no in all_jobs:
 		if job_type not in INTERCOMPANY_JOB_TYPES:
 			continue
 
 		try:
 			job_doc = frappe.get_doc(job_type, job_no)
 		except Exception as e:
-			errors.append(_("Leg {0}: could not load {1} {2}: {3}").format(
-				getattr(leg, "idx", ""), job_type, job_no, str(e)
-			))
+			errors.append(_("Job {0} {1}: {2}").format(job_type, job_no, str(e)))
 			continue
 
 		operating_company = getattr(job_doc, "company", None)
@@ -168,12 +99,11 @@ def create_intercompany_invoices_for_quote(
 
 		rel = get_relationship(billing_company, operating_company)
 		if not rel or not rel.get("internal_customer") or not rel.get("internal_supplier"):
-			errors.append(_("Leg {0}: no Intercompany Relationship for Billing Company {1} and Operating Company {2}.").format(
-				getattr(leg, "idx", ""), billing_company, operating_company
+			errors.append(_("Job {0} {1}: no Intercompany Relationship for Billing Company {2} and Operating Company {3}.").format(
+				job_type, job_no, billing_company, operating_company
 			))
 			continue
 
-		# Already created for this leg?
 		existing = frappe.db.exists(
 			"Intercompany Invoice Log",
 			{
@@ -188,14 +118,26 @@ def create_intercompany_invoices_for_quote(
 
 		items = get_invoice_items_from_job(job_type, job_no, customer_for_sea=end_customer)
 		if not items:
-			errors.append(_("Leg {0}: no charge items in {1} {2}.").format(
-				getattr(leg, "idx", ""), job_type, job_no
-			))
+			errors.append(_("Job {0} {1}: no charge items.").format(job_type, job_no))
 			continue
+
+		# Leg for log/display (first leg that references this job, or None)
+		leg_for_log = next((l for l in legs if getattr(l, "job_type") == job_type and getattr(l, "job_no") == job_no), None)
+		if not leg_for_log:
+			for l in legs:
+				contrib = getattr(l, "bill_with_contributors", None) or []
+				for c in contrib:
+					if getattr(c, "contributor_job_type", None) == job_type and getattr(c, "contributor_job_no", None) == job_no:
+						leg_for_log = l
+						break
+				if leg_for_log:
+					break
+		if not leg_for_log and legs:
+			leg_for_log = legs[0]
 
 		try:
 			si_name, pi_name = _create_intercompany_pair(
-				leg=leg,
+				leg=leg_for_log,
 				job_doc=job_doc,
 				billing_company=billing_company,
 				operating_company=operating_company,
@@ -211,11 +153,11 @@ def create_intercompany_invoices_for_quote(
 				title="Intercompany Invoice Creation Failed",
 				message=frappe.get_traceback(),
 			)
-			errors.append(_("Leg {0}: {1}").format(getattr(leg, "idx", ""), str(e)))
+			errors.append(_("Job {0} {1}: {2}").format(job_type, job_no, str(e)))
 			_create_log_entry(
 				sales_quote_name=sales_quote_name,
 				trigger_si=trigger_si,
-				leg=leg,
+				leg=leg_for_log,
 				job_type=job_type,
 				job_no=job_no,
 				billing_company=billing_company,
@@ -227,7 +169,7 @@ def create_intercompany_invoices_for_quote(
 		_create_log_entry(
 			sales_quote_name=sales_quote_name,
 			trigger_si=trigger_si,
-			leg=leg,
+			leg=leg_for_log,
 			job_type=job_type,
 			job_no=job_no,
 			billing_company=billing_company,
@@ -236,7 +178,7 @@ def create_intercompany_invoices_for_quote(
 			intercompany_sales_invoice=si_name,
 			intercompany_purchase_invoice=pi_name,
 		)
-		created_logs.append({"leg": getattr(leg, "idx", ""), "si": si_name, "pi": pi_name})
+		created_logs.append({"job": f"{job_type} {job_no}", "si": si_name, "pi": pi_name})
 
 	if errors:
 		frappe.msgprint(

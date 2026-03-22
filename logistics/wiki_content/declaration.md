@@ -4,6 +4,8 @@
 
 To access: **Home > Customs > Declaration**
 
+For customs-related upgrades (status migrations, permit/exemption structure), see [Recent Platform Updates](welcome/recent-platform-updates).
+
 ## 1. Prerequisites
 
 - [Declaration Order](welcome/declaration-order) – Source order (or create manually)
@@ -106,15 +108,19 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 
 ## 7. Permits Tab
 
-- **Permit Requirements** – Declaration Permit Requirement child table
-- **Exemptions** – Declaration Exemption child table
+- **Permit Requirements** – Child table for permit lines (type, authority, dates, status); aligned with data created from the [Declaration Order](welcome/declaration-order) where applicable.
+- **Exemptions** – Child table for exemptions carried from the order or maintained on the declaration.
 - Track permits and exemptions for the declaration.
 
 ## 8. Charges Tab
 
 - **Charges** – Declaration Charges child table
-- Supports quantity breaks and weight breaks.
+- Supports quantity breaks and weight breaks (unified calculation engine). Each charge row has **Estimated Revenue** and **Estimated Cost** (from the Declaration Order; used for WIP and accrual) and **Actual Revenue** and **Actual Cost** (calculated on the declaration; used for Sales Invoice and Purchase Invoice when present). Use **Recalculate All Charges** to refresh actual amounts; estimated amounts are not changed.
 - **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
+
+## 8.1 Profitability (from GL)
+
+When **Job Costing Number** and **Company** are set, the form displays a Profitability section with revenue, cost, gross profit, WIP, and accrual from the General Ledger. See [Job Management Module](welcome/job-management-module).
 
 ## 9. Milestones Tab
 
@@ -146,10 +152,11 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 
 ## 13. Recognition (WIP / Accrual)
 
-- **WIP Recognition** – Work-in-progress recognition settings
-- **Accrual Recognition** – Cost accrual settings
+- **WIP Recognition** – Work-in-progress recognition settings (uses **Estimated Revenue** only)
+- **Accrual Recognition** – Cost accrual settings (uses **Estimated Cost** only)
 - **Estimated Revenue**, **WIP Amount**, **Recognized Revenue** – Revenue tracking
 - **Estimated Costs**, **Accrual Amount**, **Recognized Costs** – Cost tracking
+- **Sales Invoice** and **Purchase Invoice** creation use **Actual Revenue** and **Actual Cost** when present and &gt; 0; otherwise they fall back to estimated amounts.
 
 ## 14. Status Workflow
 
@@ -191,4 +198,5 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 - [Milestone Tracking](welcome/milestone-tracking)
 - [Document Management](welcome/document-management)
 - [Change Request](welcome/change-request)
+- [Job Management Module](welcome/job-management-module)
 - [Customs Module](welcome/customs-module)

@@ -6,11 +6,16 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "details_tab",
   "naming_series",
   "transport_template",
   "booking_date",
   "customer",
   "customer_ref_no",
+  "shipper",
+  "consignee",
   "scheduled_date",
   "column_break_5",
   "transport_job_type",
@@ -19,7 +24,7 @@
   "container",
   "load_type",
   "vehicle_type",
-  "hazardous",
+  "contains_dangerous_goods",
   "reefer",
   "consolidate",
   "column_break_xzix",
@@ -29,6 +34,8 @@
   "packing_tab",
   "section_break_ofjt",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "total_volume",
@@ -49,8 +56,14 @@
   "charges",
   "documents_tab",
   "documents_section",
+  "documents_html",
   "document_list_template",
   "documents",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
   "section_break_connections",
   "air_shipment",
   "sea_shipment",
@@ -73,11 +86,31 @@
   "profit_center",
   "column_break_jkpj",
   "job_costing_number",
+  "project",
   "quote_section",
   "sales_quote",
-  "project"
+  "billing_company",
+  "is_internal_job",
+  "main_job_type",
+  "main_job"
  ],
  "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
@@ -111,9 +144,21 @@
    "label": "Customer Ref No"
   },
   {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
    "default": "0",
    "description": "ADR/RID: Check if contains dangerous goods. Enables Dangerous Goods tab.",
-   "fieldname": "hazardous",
+   "fieldname": "contains_dangerous_goods",
    "fieldtype": "Check",
    "label": "Contains Dangerous Goods"
   },
@@ -163,7 +208,19 @@
    "options": "Transport Order Package"
   },
   {
-   "depends_on": "eval:doc.hazardous",
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "dangerous_goods_tab",
    "fieldtype": "Tab Break",
    "label": "Dangerous Goods"
@@ -261,23 +318,57 @@
    "label": "Documents"
   },
   {
-   "collapsible": 0,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
   },
   {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
-   "options": "Document List Template",
-   "description": "Override default template. Leave empty to use product default."
+   "options": "Document List Template"
   },
   {
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",
    "options": "Job Document"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type.",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Transport Order Milestone"
   },
   {
    "fieldname": "section_break_summary",
@@ -422,8 +513,38 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_transport\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
   },
   {
    "fieldname": "column_break_xzix",
@@ -498,7 +619,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-20 07:40:45.893133",
+ "modified": "2026-03-18 17:35:15.466361",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order",

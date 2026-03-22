@@ -71,14 +71,16 @@ def update_estimates_from_charges(doc):
     total_cost = 0
     
     for charge in doc.get(charges_table, []):
-        if hasattr(charge, 'estimated_revenue'):
+        if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
+            continue
+        if hasattr(charge, "estimated_revenue"):
             total_revenue += flt(charge.estimated_revenue)
-        elif hasattr(charge, 'amount'):
+        elif hasattr(charge, "amount"):
             total_revenue += flt(charge.amount)
-        
-        if hasattr(charge, 'estimated_cost'):
+
+        if hasattr(charge, "estimated_cost"):
             total_cost += flt(charge.estimated_cost)
-        elif hasattr(charge, 'cost'):
+        elif hasattr(charge, "cost"):
             total_cost += flt(charge.cost)
     
     if hasattr(doc, 'estimated_revenue'):

@@ -32,6 +32,21 @@
 })();
 
 frappe.ui.form.on('Warehouse Job', {
+    document_list_template: function (frm) {
+        if (!frm.doc.name || frm.doc.__islocal) return;
+        frm.save().then(function () {
+            frappe.call({
+                method: "logistics.document_management.api.populate_documents_from_template",
+                args: { doctype: frm.doctype, docname: frm.doc.name },
+                callback: function (r) {
+                    if (r.message) {
+                        frm.reload_doc();
+                        if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+                    }
+                }
+            });
+        });
+    },
     warehouse_contract: function(frm) {
         // Refresh charges table when warehouse contract changes
         if (frm.doc.warehouse_contract) {
@@ -222,9 +237,21 @@ frappe.ui.form.on('Warehouse Job', {
         };
     },
     refresh: function(frm) {
+        // Load documents summary HTML in Documents tab
+        if (window.logistics_load_documents_html) {
+            window.logistics_load_documents_html(frm, "Warehouse Job");
+        }
+        if (frm.layout && frm.layout.wrapper) {
+            frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+                if (window.logistics_load_documents_html) {
+                    window.logistics_load_documents_html(frm, "Warehouse Job");
+                }
+            });
+        }
+
         // Populate Documents from Template
         if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-            frm.add_custom_button(__('Populate from Template'), function() {
+            frm.add_custom_button(__('Get Documents'), function() {
                 frappe.call({
                     method: 'logistics.document_management.api.populate_documents_from_template',
                     args: { doctype: 'Warehouse Job', docname: frm.doc.name },
@@ -235,7 +262,7 @@ frappe.ui.form.on('Warehouse Job', {
                         }
                     }
                 });
-            }, __('Documents'));
+            }, __('Actions'));
         }
 
         calculate_job_totals(frm);
@@ -275,7 +302,7 @@ frappe.ui.form.on('Warehouse Job', {
         if (frm.doc.items && frm.doc.items.length > 0) {
             frm.add_custom_button(__('Create Operations'), function() {
                 create_operations(frm);
-            }, __('Actions'));
+            }, __('Create'));
         }
         
         
@@ -332,14 +359,14 @@ frappe.ui.form.on('Warehouse Job', {
         if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
             frm.add_custom_button(__('Fetch Count Sheet'), function() {
                 fetch_count_sheet(frm);
-            }, __('Stocktake'));
+            }, __('Actions'));
         }
         
         // Add Populate Stocktake Adjustments button for Stocktake jobs
         if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
             frm.add_custom_button(__('Populate Adjustments'), function() {
                 populate_stocktake_adjustments(frm);
-            }, __('Stocktake'));
+            }, __('Actions'));
         }
         
         // Add Post by Scan button for all job types (only when submitted)
@@ -357,7 +384,7 @@ frappe.ui.form.on('Warehouse Job', {
                 } else {
                     frappe.msgprint(__('No docking entries found. Please add docking entries first.'));
                 }
-            }, __('Actions'));
+            }, __('Create'));
             
             frm.add_custom_button(__('View Gate Passes'), function() {
                 frm.view_related_gate_passes();
@@ -368,29 +395,39 @@ frappe.ui.form.on('Warehouse Job', {
         if (frm.doc.warehouse_contract || frm.doc.customer) {
             frm.add_custom_button(__('Fetch Charges'), function() {
                 fetch_charges_from_contract(frm);
-            }, __('Charges'));
+            }, __('Actions'));
         }
         
         // Add Calculate Charges button - show when charges exist (to recalculate quantities/rates)
         if (frm.doc.charges && frm.doc.charges.length > 0) {
             frm.add_custom_button(__('Calculate Charges'), function() {
                 calculate_charges_from_contract(frm);
-            }, __('Charges'));
+            }, __('Actions'));
         }
 
         if (!frm.is_new()) {
             frm.add_custom_button(__('Get Additional Charges'), function() {
                 logistics_additional_charges_show_sales_quote_dialog(frm, 'Warehouse Job');
             }, __('Actions'));
-            frm.add_custom_button(__('Create Change Request'), function() {
-                frappe.call({
-                    method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
+			if (typeof show_create_sales_invoice_dialog === 'function') {
+				frm.add_custom_button(__('Sales Invoice'), function() {
+					show_create_sales_invoice_dialog(frm);
+				}, __('Create'));
+			}
+			if (typeof show_create_purchase_invoice_dialog === 'function') {
+				frm.add_custom_button(__('Purchase Invoice'), function() {
+					show_create_purchase_invoice_dialog(frm);
+				}, __('Create'));
+			}
+			frm.add_custom_button(__('Create Change Request'), function() {
+					frappe.call({
+						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
                     args: { job_type: 'Warehouse Job', job_name: frm.doc.name },
                     callback: function(r) {
                         if (r.message) frappe.set_route('Form', 'Change Request', r.message);
                     }
                 });
-            }, __('Actions'));
+            }, __('Create'));
         }
         
         // Add Post Standard Costs button - show only when submitted and has charges with standard costs that haven't been posted

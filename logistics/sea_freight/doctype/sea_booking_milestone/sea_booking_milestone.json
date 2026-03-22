@@ -16,7 +16,17 @@
   "actual_end",
   "column_break_3",
   "source",
-  "fetched_at"
+  "fetched_at",
+  "created_at",
+  "section_break_automation",
+  "automation_planned_date_basis",
+  "automation_update_trigger_type",
+  "automation_sync_parent_date_field",
+  "automation_sync_direction",
+  "automation_trigger_field",
+  "automation_trigger_condition",
+  "automation_trigger_value",
+  "automation_trigger_action"
  ],
  "fields": [
   {
@@ -33,7 +43,9 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Planned\nStarted\nCompleted"
+   "options": "Planned\nStarted\nCompleted\nDelayed",
+   "read_only": 1,
+   "description": "Set by system: Started when Actual Start is set, Completed when Actual End is set."
   },
   {
    "fieldname": "column_break_1",
@@ -76,12 +88,77 @@
    "fieldname": "source",
    "fieldtype": "Select",
    "label": "Source",
-   "options": "Manual\nFetched"
+   "options": "Manual\nFetched",
+   "read_only": 1
   },
   {
    "fieldname": "fetched_at",
    "fieldtype": "Datetime",
    "label": "Fetched At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "label": "Created At",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_automation",
+   "fieldtype": "Section Break",
+   "label": "Automation"
+  },
+  {
+   "fieldname": "automation_planned_date_basis",
+   "fieldtype": "Data",
+   "label": "Planned Date Basis",
+   "read_only": 1,
+   "description": "From Milestone Template: basis for planned_end"
+  },
+  {
+   "fieldname": "automation_update_trigger_type",
+   "fieldtype": "Data",
+   "label": "Update Trigger",
+   "read_only": 1,
+   "description": "From template: None / Date Based / Field Based"
+  },
+  {
+   "fieldname": "automation_sync_parent_date_field",
+   "fieldtype": "Data",
+   "label": "Sync Parent Date Field",
+   "read_only": 1,
+   "description": "Date Based: parent field synced with actual_end"
+  },
+  {
+   "fieldname": "automation_sync_direction",
+   "fieldtype": "Data",
+   "label": "Sync Direction",
+   "read_only": 1
+  },
+  {
+   "fieldname": "automation_trigger_field",
+   "fieldtype": "Data",
+   "label": "Trigger Field",
+   "read_only": 1,
+   "description": "Field Based: parent field for condition"
+  },
+  {
+   "fieldname": "automation_trigger_condition",
+   "fieldtype": "Data",
+   "label": "Trigger Condition",
+   "read_only": 1
+  },
+  {
+   "fieldname": "automation_trigger_value",
+   "fieldtype": "Data",
+   "label": "Trigger Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "automation_trigger_action",
+   "fieldtype": "Data",
+   "label": "Trigger Action",
    "read_only": 1
   }
  ],

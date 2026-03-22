@@ -73,7 +73,7 @@ def get_data(filters):
 		SELECT
 			COALESCE(SUM(sfc.total_amount), 0) as total_revenue
 		FROM `tabSea Shipment` sship
-		LEFT JOIN `tabSea Freight Charges` sfc ON sfc.parent = sship.name
+		LEFT JOIN `tabSea Shipment Charges` sfc ON sfc.parent = sship.name
 		WHERE sship.docstatus = 1 {conditions}
 		GROUP BY sship.name
 	""".format(conditions=conditions), filters, as_dict=1)

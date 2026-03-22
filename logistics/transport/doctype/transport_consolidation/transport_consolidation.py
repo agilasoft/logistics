@@ -8,6 +8,46 @@ from frappe.utils import flt
 
 
 class TransportConsolidation(Document):
+	@frappe.whitelist()
+	def get_dashboard_html(self):
+		"""Generate HTML for Dashboard tab: consolidation details and header alerts."""
+		try:
+			from logistics.document_management.api import get_dashboard_alerts_html
+			from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
+
+			status = self.get("status") or "Draft"
+			status_badge_html = f'<span class="dash-status-badge {(status or "draft").lower().replace(" ", "_")}">{frappe.utils.escape_html(status)}</span>'
+			header_items = [
+				("Status", status),
+				("Consolidation Date", str(self.consolidation_date) if self.consolidation_date else "—"),
+				("Type", self.consolidation_type or "—"),
+				("Load Type", self.load_type or "—"),
+				("Jobs", str(len(self.transport_jobs or []))),
+				("Total Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
+				("Total Volume", frappe.format_value(self.total_volume or 0, df=dict(fieldtype="Float"))),
+			]
+			alerts_html = get_dashboard_alerts_html("Transport Consolidation", self.name or "new")
+			cards_html = '<div class="text-muted">Transport jobs in this consolidation. Use Run Sheet tab to create run sheet.</div>'
+			return build_run_sheet_style_dashboard(
+				header_title=self.name or "Transport Consolidation",
+				header_subtitle="Transport Consolidation",
+				header_items=header_items,
+				status_badge_html=status_badge_html,
+				alerts_html=alerts_html,
+				cards_html=cards_html,
+				map_points=[],
+				map_id_prefix="tc-dash-map",
+				doc_alerts_html="",
+				straight_line=True,
+				origin_label="—",
+				destination_label="—",
+				hide_map=True,
+				cards_full_width=True,
+			)
+		except Exception as e:
+			frappe.log_error(f"Transport Consolidation get_dashboard_html: {str(e)}", "Transport Consolidation Dashboard")
+			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
 	def validate(self):
 		"""Validate consolidation rules and calculate totals"""
 		# Clear consolidation flags for removed jobs (must be done before other validations)
@@ -406,10 +446,12 @@ class TransportConsolidation(Document):
 		total_volume = 0
 		
 		for job in self.transport_jobs:
-			if job.weight:
-				total_weight += flt(job.weight)
-			if job.volume:
-				total_volume += flt(job.volume)
+			job_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None)
+			job_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None)
+			if job_weight:
+				total_weight += flt(job_weight)
+			if job_volume:
+				total_volume += flt(job_volume)
 		
 		self.total_weight = total_weight
 		self.total_volume = total_volume
@@ -855,7 +897,7 @@ def fetch_matching_jobs(consolidation_name: str):
 	- Within weight/volume limits
 	- Compatible vehicle types
 	- No conflicting requirements
-	- No conflicting checkbox between hazardous and refrigeration
+	- No conflicting checkbox between dangerous goods and refrigeration
 	
 	The system will automatically modify pick_consolidated=1 and drop_consolidated=1 on Transport Legs.
 	"""
@@ -923,7 +965,7 @@ def fetch_matching_jobs(consolidation_name: str):
 			"Transport Job",
 			filters=filters,
 			fields=["name", "transport_template", "transport_job_type", "load_type", 
-			        "vehicle_type", "hazardous", "refrigeration", "scheduled_date", "booking_date", "company"],
+			        "vehicle_type", "contains_dangerous_goods", "refrigeration", "scheduled_date", "booking_date", "company"],
 			order_by="creation desc"
 		)
 		
@@ -957,11 +999,11 @@ def fetch_matching_jobs(consolidation_name: str):
 		elif consolidation.consolidation_date:
 			reference_date = getdate(consolidation.consolidation_date)
 		
-		# Track reference hazardous/refrigeration values (from reference job or first valid job)
-		reference_hazardous = None
+		# Track reference dangerous goods / refrigeration values (from reference job or first valid job)
+		reference_contains_dg = None
 		reference_refrigeration = None
 		if reference_job:
-			reference_hazardous = reference_job.hazardous
+			reference_contains_dg = reference_job.contains_dangerous_goods
 			reference_refrigeration = reference_job.refrigeration
 		
 		for job_data in matching_jobs:
@@ -983,17 +1025,17 @@ def fetch_matching_jobs(consolidation_name: str):
 					# Allow different vehicle types but warn
 					pass  # Will be handled by validation
 			
-			# Check conflicting requirements (hazardous and refrigeration)
-			# Jobs with hazardous and refrigeration must match exactly
-			if reference_hazardous is None:
+			# Check conflicting requirements (dangerous goods and refrigeration)
+			# Jobs with dangerous goods and refrigeration must match exactly
+			if reference_contains_dg is None:
 				# No reference yet - use first job's values as reference
-				# This ensures all fetched jobs have the same hazardous/refrigeration requirements
-				reference_hazardous = job_data.hazardous
+				# This ensures all fetched jobs have the same dangerous goods / refrigeration requirements
+				reference_contains_dg = job_data.contains_dangerous_goods
 				reference_refrigeration = job_data.refrigeration
 			else:
 				# Compare with reference values
-				if reference_hazardous != job_data.hazardous:
-					continue  # Cannot mix hazardous and non-hazardous
+				if reference_contains_dg != job_data.contains_dangerous_goods:
+					continue  # Cannot mix dangerous goods and non-DG jobs
 				if reference_refrigeration != job_data.refrigeration:
 					continue  # Cannot mix refrigeration and non-refrigeration
 			
@@ -1961,7 +2003,7 @@ def get_consolidatable_legs(job_names: list = None, company: str = None, fetch_a
 		leg_fields = [
 			"name", "transport_job", "status", "pick_address", "drop_address",
 			"facility_type_from", "facility_from", "facility_type_to", "facility_to",
-			"date", "run_date", "order", "vehicle_type", "hazardous"
+			"date", "run_date", "order", "vehicle_type", "contains_dangerous_goods"
 		]
 		
 		# Add consolidation fields if they exist

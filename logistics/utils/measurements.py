@@ -187,6 +187,137 @@ def get_uom_conversion_factor(from_uom: str, to_uom: str) -> float:
 	)
 
 
+def _get_dimension_volume_uom_lookup_names(uom: str, kind: Literal["dimension", "volume"]) -> list:
+	"""Return list of UOM names to try when looking up Dimension Volume UOM Conversion (exact first, then aliases)."""
+	if not uom:
+		return []
+	uom = str(uom).strip()
+	uom_upper = uom.upper()
+	# Dimension UOMs: try exact, then common doc names used in conversion table
+	if kind == "dimension":
+		aliases = {
+			"CENTIMETER": ["Centimeter", "CM"],
+			"CM": ["CM", "Centimeter"],
+			"MILLIMETER": ["Millimeter", "MM"],
+			"MM": ["MM", "Millimeter"],
+			"METER": ["Meter", "M"],
+			"M": ["M", "Meter"],
+			"INCH": ["Inch", "IN"],
+			"IN": ["IN", "Inch"],
+			"FOOT": ["Foot", "FT"],
+			"FT": ["FT", "Foot"],
+		}
+	else:
+		# Volume UOMs
+		aliases = {
+			"CUBIC METER": ["Cubic Meter", "CBM", "M³", "M3", "CM3"],
+			"CBM": ["CBM", "Cubic Meter", "M³", "M3"],
+			"M³": ["M³", "CBM", "Cubic Meter", "M3"],
+			"M3": ["M3", "CBM", "Cubic Meter", "M³"],
+			"CUBIC FOOT": ["Cubic Foot", "CFT", "FT³"],
+			"CFT": ["CFT", "Cubic Foot", "FT³"],
+			"FT³": ["FT³", "CFT", "Cubic Foot"],
+		}
+	# Try exact first, then normalized key
+	for key, names in aliases.items():
+		if uom_upper == key or uom_upper in (k.upper() for k in names):
+			seen = set()
+			out = [uom]
+			for n in names:
+				if n and n.upper() not in seen:
+					seen.add(n.upper())
+					if n != uom:
+						out.append(n)
+			return out
+	return [uom]
+
+
+def _is_cm_dimension(uom: str) -> bool:
+	"""True if dimension UOM is centimeter (CM/Centimeter/Centimetre)."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	return u == "CM" or "CENTIMETER" in u or "CENTIMETRE" in u
+
+
+def _is_cbm_volume(uom: str) -> bool:
+	"""True if volume UOM is cubic meter (CBM/Cubic Meter/M³/M3)."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	return (
+		"CUBIC METER" in u or "CUBIC METRE" in u or u == "CBM" or "M³" in u or u == "M3"
+	)
+
+
+def _is_meter_dimension(uom: str) -> bool:
+	"""True if dimension UOM is meter (M/Meter), excluding centimeter/millimeter."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	if "CENTI" in u or "MILLI" in u:
+		return False
+	return u in ("M", "METER", "METRE") or (u and "METER" in u)
+
+
+def _is_mm_dimension(uom: str) -> bool:
+	"""True if dimension UOM is millimeter."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	return u == "MM" or "MILLIMETER" in u or "MILLIMETRE" in u
+
+
+def _is_inch_dimension(uom: str) -> bool:
+	"""True if dimension UOM is inch."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	return u == "IN" or "INCH" in u
+
+
+def _is_ft_dimension(uom: str) -> bool:
+	"""True if dimension UOM is foot."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	return u == "FT" or "FOOT" in u or "FEET" in u
+
+
+def _is_cft_volume(uom: str) -> bool:
+	"""True if volume UOM is cubic foot."""
+	if not uom:
+		return False
+	u = str(uom).strip().upper()
+	return "CUBIC FOOT" in u or "FT³" in u or u == "CFT" or "CU FT" in u
+
+
+def _get_builtin_dimension_volume_factor(dim_uom: str, vol_uom: str) -> Optional[float]:
+	"""
+	Return conversion factor from (dim_uom)³ to vol_uom for common pairs when no
+	Dimension Volume UOM Conversion record exists. Multiply raw_volume by this to get volume in vol_uom.
+	Returns None if no built-in applies.
+	"""
+	if not dim_uom or not vol_uom:
+		return None
+	# Centimeter -> Cubic Meter: 1 cm³ = 1e-6 m³
+	if _is_cm_dimension(dim_uom) and _is_cbm_volume(vol_uom):
+		return 0.000001
+	# Meter -> Cubic Meter: 1 m³ = 1 m³
+	if _is_meter_dimension(dim_uom) and _is_cbm_volume(vol_uom):
+		return 1.0
+	# Millimeter -> Cubic Meter: 1 mm³ = 1e-9 m³
+	if _is_mm_dimension(dim_uom) and _is_cbm_volume(vol_uom):
+		return 1e-9
+	# Inch -> Cubic Foot: 1 in³ = 0.000578704 ft³
+	if _is_inch_dimension(dim_uom) and _is_cft_volume(vol_uom):
+		return 0.000578704
+	# Foot -> Cubic Foot: 1 ft³ = 1 ft³
+	if _is_ft_dimension(dim_uom) and _is_cft_volume(vol_uom):
+		return 1.0
+	return None
+
+
 def get_volume_conversion_factor(
 	dimension_uom: str,
 	volume_uom: str,
@@ -195,6 +326,7 @@ def get_volume_conversion_factor(
 	"""
 	Conversion factor from (dimension_uom)³ to volume_uom from Dimension Volume UOM Conversion.
 	Multiply raw_volume (L×W×H in dimension_uom) by this to get volume in volume_uom.
+	Tries exact match first, then alternative UOM names (e.g. Centimeter/CM, Cubic Meter/CBM).
 	"""
 	if not dimension_uom or not volume_uom:
 		raise ConversionNotFoundError(_("Dimension UOM and Volume UOM are required"))
@@ -220,6 +352,30 @@ def get_volume_conversion_factor(
 		)
 	if conversion and conversion.get("conversion_factor"):
 		return flt(conversion.get("conversion_factor"))
+	# Try alternative UOM names (e.g. "Centimeter" -> "CM", "Cubic Meter" -> "CBM")
+	dim_candidates = _get_dimension_volume_uom_lookup_names(dim_uom, "dimension")
+	vol_candidates = _get_dimension_volume_uom_lookup_names(vol_uom, "volume")
+	for d in dim_candidates:
+		for v in vol_candidates:
+			if d == dim_uom and v == vol_uom:
+				continue
+			try:
+				conv = frappe.db.get_value(
+					"Dimension Volume UOM Conversion",
+					{"dimension_uom": d, "volume_uom": v, "enabled": 1},
+					"conversion_factor",
+					as_dict=True,
+				)
+				if conv and conv.get("conversion_factor"):
+					return flt(conv.get("conversion_factor"))
+			except (frappe.DoesNotExistError, frappe.ValidationError):
+				pass
+			except Exception:
+				pass
+	# Use built-in factors for common dimension→volume pairs when no DB record exists
+	builtin = _get_builtin_dimension_volume_factor(dim_uom, vol_uom)
+	if builtin is not None:
+		return builtin
 	raise ConversionNotFoundError(
 		_("No conversion factor found from {0} to {1}. Please create a Dimension Volume UOM Conversion record.").format(
 			dimension_uom, volume_uom

@@ -38,7 +38,7 @@ def _charge_row_for_air_shipment(row, _job_doc):
 		"item_code": row.item_code,
 		"charge_type": "Revenue",
 		"charge_category": "Other",
-		"charge_basis": "Fixed Amount",
+		"revenue_calculation_method": "Flat Rate",
 		"quantity": flt(row.quantity, 2) or 1,
 		"uom": row.uom,
 		"currency": row.currency,
@@ -54,7 +54,7 @@ def _charge_row_for_transport_job(row, _job_doc):
 		"item_code": row.item_code,
 		"charge_type": "Revenue",
 		"charge_category": "Other",
-		"charge_basis": "Fixed Amount",
+		"revenue_calculation_method": "Flat Rate",
 		"quantity": flt(row.quantity, 2) or 1,
 		"uom": row.uom,
 		"currency": row.currency,
@@ -79,8 +79,8 @@ def _charge_row_for_warehouse_job(row, _job_doc):
 
 
 def _charge_row_for_sea_shipment(row, job_doc):
-	"""Map Change Request Charge to Sea Freight Charges row (Sea Shipment)."""
-	# Sea Freight Charges may use charge_item/selling_amount or item_code/rate; try common names
+	"""Map Change Request Charge to Sea Shipment Charges row (Sea Shipment)."""
+	# Sea Shipment Charges may use charge_item/selling_amount or item_code/rate; try common names
 	item_name = ""
 	if row.item_code:
 		item_name = frappe.db.get_value("Item", row.item_code, "item_name") or ""
@@ -88,7 +88,7 @@ def _charge_row_for_sea_shipment(row, job_doc):
 		"item_code": row.item_code,
 		"charge_type": "Revenue",
 		"charge_category": "Other",
-		"charge_basis": "Fixed Amount",
+		"revenue_calculation_method": "Flat Rate",
 		"quantity": flt(row.quantity, 2) or 1,
 		"uom": row.uom,
 		"currency": row.currency,
@@ -181,77 +181,28 @@ def create_sales_quote_from_change_request(change_request_name):
 	customer = getattr(job_doc, "customer", None) or getattr(job_doc, "local_customer", None)
 	if customer:
 		sq.customer = customer
-	# Populate transport/warehousing/air/sea based on job_type and add items to the relevant child table
-	if cr.job_type == "Transport Job":
-		sq.is_transport = 1
-		for row in cr.charges:
-			sq.append(
-				"transport",
-				{
-					"item_code": row.item_code,
-					"quantity": flt(row.quantity, 2),
-					"uom": row.uom,
-					"currency": row.currency,
-					"unit_rate": flt(row.unit_cost, 2),
-					"estimated_revenue": flt(row.amount, 2),
-				},
-			)
-	elif cr.job_type == "Warehouse Job":
-		sq.is_warehousing = 1
-		for row in cr.charges:
-			sq.append(
-				"warehousing",
-				{
-					"item": row.item_code,
-					"quantity": flt(row.quantity, 2),
-					"uom": row.uom,
-					"selling_currency": row.currency,
-					"unit_rate": flt(row.unit_cost, 2),
-				},
-			)
-	elif cr.job_type == "Air Shipment":
-		sq.is_air = 1
-		for row in cr.charges:
-			sq.append(
-				"air_freight",
-				{
-					"item_code": row.item_code,
-					"quantity": flt(row.quantity, 2),
-					"uom": row.uom,
-					"currency": row.currency,
-					"unit_rate": flt(row.unit_cost, 2),
-					"estimated_revenue": flt(row.amount, 2),
-				},
-			)
-	elif cr.job_type == "Sea Shipment":
-		sq.is_sea = 1
-		for row in cr.charges:
-			sq.append(
-				"sea_freight",
-				{
-					"item_code": row.item_code,
-					"quantity": flt(row.quantity, 2),
-					"uom": row.uom,
-					"currency": row.currency,
-					"unit_rate": flt(row.unit_cost, 2),
-					"estimated_revenue": flt(row.amount, 2),
-				},
-			)
-	else:
-		# Declaration or other: use transport as fallback for charge items
-		sq.is_transport = 1
-		for row in cr.charges:
-			sq.append(
-				"transport",
-				{
-					"item_code": row.item_code,
-					"quantity": flt(row.quantity, 2),
-					"uom": row.uom,
-					"currency": row.currency,
-					"unit_rate": flt(row.unit_cost, 2),
-					"estimated_revenue": flt(row.amount, 2),
-				},
-			)
+	# Populate main_service and charges based on job_type
+	job_to_service = {
+		"Transport Job": "Transport",
+		"Warehouse Job": "Warehousing",
+		"Air Shipment": "Air",
+		"Sea Shipment": "Sea",
+		"Declaration Order": "Customs",
+	}
+	sq.main_service = job_to_service.get(cr.job_type, "Transport")
+	for row in cr.charges:
+		sq.append(
+			"charges",
+			{
+				"service_type": sq.main_service,
+				"item_code": row.item_code,
+				"quantity": flt(row.quantity, 2),
+				"uom": row.uom,
+				"currency": row.currency,
+				"unit_rate": flt(row.unit_cost, 2),
+				"estimated_revenue": flt(row.amount, 2),
+			},
+		)
 	sq.flags.ignore_mandatory = True
 	sq.insert(ignore_permissions=True)
 	# Link back

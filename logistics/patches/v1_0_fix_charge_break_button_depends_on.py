@@ -1,27 +1,25 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026, www.agilasoft.com and contributors
-"""Fix Weight Break/Qty Break button depends_on to support both calculation_method and charge_basis."""
+"""Fix Weight Break/Qty Break button depends_on to use calculation_method."""
 
 import frappe
 
-# doctypes that use charge_basis for selling (e.g. Air Booking Charges)
 CHARGE_DOCTYPES = [
 	"Air Booking Charges",
 	"Air Shipment Charges",
 	"Sea Booking Charges",
-	"Sea Freight Charges",
+	"Sea Shipment Charges",
 	"Transport Order Charges",
 	"Transport Job Charges",
 	"Declaration Charges",
 	"Declaration Order Charges",
 ]
 
-# depends_on that checks both calculation_method and charge_basis
 DEPENDS_ON_MAP = {
-	"selling_weight_break": "eval:(doc.calculation_method or doc.charge_basis) == 'Weight Break'",
-	"cost_weight_break": "eval:(doc.cost_calculation_method or doc.cost_charge_basis) == 'Weight Break'",
-	"selling_qty_break": "eval:(doc.calculation_method or doc.charge_basis) == 'Qty Break'",
-	"cost_qty_break": "eval:(doc.cost_calculation_method or doc.cost_charge_basis) == 'Qty Break'",
+	"selling_weight_break": "eval:doc.revenue_calculation_method == 'Weight Break'",
+	"cost_weight_break": "eval:doc.cost_calculation_method == 'Weight Break'",
+	"selling_qty_break": "eval:doc.revenue_calculation_method == 'Qty Break'",
+	"cost_qty_break": "eval:doc.cost_calculation_method == 'Qty Break'",
 }
 
 

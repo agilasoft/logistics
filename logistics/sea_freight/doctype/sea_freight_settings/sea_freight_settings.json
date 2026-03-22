@@ -41,7 +41,7 @@
   "volume_to_weight_factor",
   "chargeable_weight_calculation",
   "column_break_calculation",
-  "default_charge_basis",
+  "default_calculation_method",
   "default_weight_uom",
   "default_volume_uom",
   "default_chargeable_uom",
@@ -253,9 +253,9 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "default_charge_basis",
+   "fieldname": "default_calculation_method",
    "fieldtype": "Select",
-   "label": "Default Charge Basis",
+   "label": "Default Calculation Method",
    "options": "Per kg\nPer m³\nPer package\nPer container\nPer shipment\nFixed amount"
   },
   {

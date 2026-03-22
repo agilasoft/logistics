@@ -2,6 +2,22 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Warehouse Contract", {
+	setup(frm) {
+		frm.set_query("sales_quote", function() {
+			var filters = {
+				service_type: "Warehousing",
+				reference_doctype: "Warehouse Contract",
+				reference_name: frm.doc.name || ""
+			};
+			if (frm.doc.customer) {
+				filters.customer = frm.doc.customer;
+			}
+			return {
+				query: "logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search",
+				filters: filters
+			};
+		});
+	},
 	refresh(frm) {
 		// Add Get Rates action to the menu
 		if (frm.doc.sales_quote && !frm.is_new()) {
@@ -23,6 +39,28 @@ frappe.ui.form.on("Warehouse Contract", {
 					}
 				});
 			}, __("Actions"));
+		}
+
+		// Add Create menu buttons for linked doctypes (only when document is saved)
+		if (!frm.is_new() && frm.doc.name) {
+			frm.add_custom_button(__("Inbound Order"), function() {
+				frappe.new_doc("Inbound Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Release Order"), function() {
+				frappe.new_doc("Release Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Transfer Order"), function() {
+				frappe.new_doc("Transfer Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("VAS Order"), function() {
+				frappe.new_doc("VAS Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Stocktake Order"), function() {
+				frappe.new_doc("Stocktake Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
+			frm.add_custom_button(__("Warehouse Job"), function() {
+				frappe.new_doc("Warehouse Job", { warehouse_contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
 		}
 	},
 	

@@ -6,6 +6,8 @@ To access CargoNext, go to:
 
 **Home > [Module]** (Sea Freight, Air Freight, Transport, Customs, Warehousing, Job Management, Pricing Center, Special Projects)
 
+For a concise list of new behaviour and upgrade notes on the current release line, see [Recent Platform Updates](welcome/recent-platform-updates).
+
 ## 1. Prerequisites
 
 - **ERPNext** (v16+) installed and configured

@@ -50,6 +50,8 @@ From a submitted Sales Quote, you can create:
 - Declaration Order
 - Inbound Order, Release Order
 
+**Separate Billings per Service Type** (Routing tab): When **checked**, each Booking/Order gets only charges for its service type. When **unchecked**, all charges go to the main service; legs with no charges for their service are created as **Internal Jobs** linked to the Main Job (revenue = cost of main job, cost as per tariff). See [Sales Quote – Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job).
+
 ### 3.2 Change Request
 
 For additional charges on existing jobs (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration), use **Create Change Request** from the job form. The Change Request captures new charge lines; when approved, charges are applied to the job. You can also create a Sales Quote from a Change Request for billing.
@@ -60,7 +62,7 @@ Sales Quote can be linked to ERPNext Sales Order. When the order is confirmed, y
 
 ## 4. Calculation Methods
 
-Each charge line (Air Freight, Sea Freight, Transport) uses a **Calculation Method** to compute revenue and cost. Revenue uses **Calculation Method**; cost uses **Cost Calculation Method**, with the same options and formulas.
+Each charge line (Air Freight, Sea Freight, Transport) uses a **Calculation Method** to compute revenue and cost. Revenue uses **Calculation Method**; cost uses **Cost Calculation Method**, with the same options and formulas. The same unified calculation engine is used across Air Booking, Sea Booking, Transport Order, Transport Job, Air Shipment, Sea Shipment, Declaration, and Declaration Order charges. On Bookings and Orders, charges store **Estimated Revenue** and **Estimated Cost**; on Shipments and Jobs, **Actual Revenue** and **Actual Cost** are also calculated and used for invoicing when present (see [Job Management Module](welcome/job-management-module)).
 
 ### 4.1 Formula Summary
 
@@ -84,7 +86,9 @@ For full details, required fields, and examples, see [Sales Quote – Calculatio
 
 ## 5. Related Topics
 
+- [Recent Platform Updates](welcome/recent-platform-updates) – charge copy from quote to bookings/orders, billing, and recognition notes
 - [Sales Quote – Calculation Method Guide](welcome/sales-quote-calculation-method) – full formulas, required fields, and examples
+- [Sales Quote – Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job) – Separate Billings per Service Type, charge allocation, and Internal Job rules
 - [Sea Booking](welcome/sea-booking)
 - [Air Booking](welcome/air-booking)
 - [Transport Order](welcome/transport-order)

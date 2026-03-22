@@ -7,7 +7,7 @@ import frappe
 CHARGE_DOCTYPES = [
 	"Air Booking Charges",
 	"Sea Booking Charges",
-	"Sea Freight Charges",
+	"Sea Shipment Charges",
 	"Sales Quote Air Freight",
 	"Sales Quote Sea Freight",
 	"Sales Quote Transport",

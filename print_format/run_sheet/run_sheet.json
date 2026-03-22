@@ -1,0 +1,23 @@
+{
+ "align_labels_right": 0,
+ "creation": "2025-01-26 12:00:00.000000",
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Run Sheet",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "font_size": 9,
+ "html": "",
+ "idx": 0,
+ "line_breaks": 0,
+ "modified": "2025-01-26 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Run Sheet QR",
+ "owner": "Administrator",
+ "print_format_builder": 0,
+ "print_format_type": "Jinja",
+ "raw_printing": 0,
+ "show_section_headings": 0,
+ "standard": "No"
+}

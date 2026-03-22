@@ -101,7 +101,7 @@ class LalamoveMapper:
         
         # Add special requests
         special_requests = []
-        if doc.get("hazardous"):
+        if doc.get("contains_dangerous_goods"):
             special_requests.append("HAZMAT")
         if doc.get("reefer"):
             special_requests.append("REEFER")
@@ -160,7 +160,7 @@ class LalamoveMapper:
         
         # Special requests
         special_requests = []
-        if doc.get("hazardous"):
+        if doc.get("contains_dangerous_goods"):
             special_requests.append("HAZMAT")
         if doc.get("refrigeration"):
             special_requests.append("REEFER")

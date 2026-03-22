@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-06-01 14:29:31.454713",
@@ -123,7 +124,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-17 13:10:11.118730",
+ "make_attachments_public": 1,
+ "modified": "2026-03-17 10:40:10.733152",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container Freight Station",

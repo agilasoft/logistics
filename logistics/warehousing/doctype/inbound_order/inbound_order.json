@@ -33,6 +33,7 @@
   "charges",
   "documents_tab",
   "documents_section",
+  "documents_html",
   "document_list_template",
   "documents",
   "notes_tab",
@@ -196,6 +197,12 @@
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
   },
   {
    "description": "Override default template. Leave empty to use product default.",

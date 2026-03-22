@@ -6,7 +6,7 @@
 
 	window.open_weight_break_rate_dialog = function(frm, row, record_type) {
 		record_type = record_type || "Selling";
-		var reference_doctype = row.doctype || "Sales Quote Air Freight";
+		var reference_doctype = row.doctype || (row.parentfield === "charges" ? "Sales Quote Charge" : "Sales Quote Air Freight");
 		var reference_no = row.name;
 		if (!reference_no || reference_no === "new" || String(reference_no).startsWith("new-")) {
 			frappe.msgprint({
@@ -96,7 +96,7 @@
 											args: { reference_doctype: reference_doctype, reference_no: reference_no },
 											callback: function(refresh_r) {
 												if (refresh_r.message && refresh_r.message.success) {
-													["air_freight", "sea_freight", "transport", "customs", "charges"].forEach(function(fn) {
+													["charges"].forEach(function(fn) {
 														if (frm.fields_dict && frm.fields_dict[fn]) {
 															frm.refresh_field(fn);
 														}
@@ -150,7 +150,7 @@
 
 	window.open_qty_break_rate_dialog = function(frm, row, record_type) {
 		record_type = record_type || "Selling";
-		var reference_doctype = row.doctype || "Sales Quote Air Freight";
+		var reference_doctype = row.doctype || (row.parentfield === "charges" ? "Sales Quote Charge" : "Sales Quote Air Freight");
 		var reference_no = row.name;
 		if (!reference_no || reference_no === "new" || String(reference_no).startsWith("new-")) {
 			frappe.msgprint({
@@ -224,7 +224,7 @@
 									frappe.show_alert({ message: __("Qty breaks saved"), indicator: "green" });
 									dialog.hide();
 									if (frm && frm.doc) {
-										["charges", "air_freight", "sea_freight", "transport", "customs"].forEach(function(fn) {
+										["charges"].forEach(function(fn) {
 											if (frm.fields_dict && frm.fields_dict[fn]) {
 												frm.refresh_field(fn);
 											}

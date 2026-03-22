@@ -496,12 +496,10 @@ class SeaConsolidation(Document):
             frappe.log_error(f"Error updating related Sea Shipments: {str(e)}")
     
     def update_attached_shipments_table(self):
-        """Update attached shipments table with latest data"""
+        """Update attached shipments table with latest data from packages.
+        Preserves manually added rows that don't correspond to packages."""
         if not self.consolidation_packages:
             return
-        
-        # Clear existing attached shipments
-        self.attached_sea_shipments = []
         
         # Get unique shipments from packages
         unique_shipments = set()
@@ -509,12 +507,27 @@ class SeaConsolidation(Document):
             if package.sea_shipment:
                 unique_shipments.add(package.sea_shipment)
         
-        # Add shipments to attached table
+        # Create a map of existing attached shipments by sea_shipment
+        existing_attached = {}
+        for attached in self.attached_sea_shipments:
+            if attached.sea_shipment:
+                existing_attached[attached.sea_shipment] = attached
+        
+        # Update or add shipments from packages
         for shipment_name in unique_shipments:
             try:
                 shipment = frappe.get_doc("Sea Shipment", shipment_name)
-                attached = self.append("attached_sea_shipments", {})
-                attached.sea_shipment = shipment.name
+                
+                # Check if row already exists
+                if shipment_name in existing_attached:
+                    # Update existing row with latest data
+                    attached = existing_attached[shipment_name]
+                else:
+                    # Add new row
+                    attached = self.append("attached_sea_shipments", {})
+                    attached.sea_shipment = shipment.name
+                
+                # Update/sync all fields from shipment
                 attached.job_status = shipment.shipping_status
                 attached.booking_date = shipment.booking_date
                 attached.shipper = shipment.shipper
@@ -535,6 +548,8 @@ class SeaConsolidation(Document):
                     attached.cost_allocation_percentage = (shipment.total_weight / self.total_weight) * 100
             except Exception as e:
                 frappe.log_error(f"Error updating attached shipment {shipment_name}: {str(e)}")
+        
+        # Note: Manually added rows (those not in unique_shipments) are preserved
     
     def send_consolidation_notifications(self):
         """Send notifications for consolidation updates"""
@@ -600,7 +615,7 @@ class SeaConsolidation(Document):
     def get_dashboard_html(self):
         """Generate HTML for Dashboard tab: Run Sheet layout with map and milestones (aligned with Sea Shipment)."""
         try:
-            from logistics.document_management.api import get_document_alerts_html
+            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
             from logistics.document_management.dashboard_layout import (
                 build_run_sheet_style_dashboard,
                 build_map_segments_from_routing_legs,
@@ -650,6 +665,7 @@ class SeaConsolidation(Document):
                     map_points.append(o)
                 if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
                     map_points.append(d)
+            alerts_html = get_dashboard_alerts_html("Sea Consolidation", self.name or "new")
             return build_run_sheet_style_dashboard(
                 header_title=self.name or "Sea Consolidation",
                 header_subtitle="Sea Consolidation",
@@ -659,6 +675,7 @@ class SeaConsolidation(Document):
                 map_segments=map_segments,
                 map_id_prefix="sea-cons-dash-map",
                 doc_alerts_html=doc_alerts,
+                alerts_html=alerts_html,
                 straight_line=True,
                 origin_label=self.origin_port or None,
                 destination_label=self.destination_port or None,
@@ -682,8 +699,9 @@ class SeaConsolidation(Document):
             # Allocate based on weight
             total_weight = self.total_weight or 1
             for shipment in self.attached_sea_shipments:
-                if shipment.weight:
-                    allocation_pct = (shipment.weight / total_weight) * 100
+                if getattr(shipment, "total_weight", None) or getattr(shipment, "weight", None):
+                    sw = getattr(shipment, "total_weight", None) or getattr(shipment, "weight", None) or 0
+                    allocation_pct = (sw / total_weight) * 100
                     shipment.cost_allocation_percentage = allocation_pct
                     shipment.total_charge = (total_cost * allocation_pct) / 100
         
@@ -691,8 +709,9 @@ class SeaConsolidation(Document):
             # Allocate based on volume
             total_volume = self.total_volume or 1
             for shipment in self.attached_sea_shipments:
-                if shipment.volume:
-                    allocation_pct = (shipment.volume / total_volume) * 100
+                if getattr(shipment, "total_volume", None) or getattr(shipment, "volume", None):
+                    sv = getattr(shipment, "total_volume", None) or getattr(shipment, "volume", None) or 0
+                    allocation_pct = (sv / total_volume) * 100
                     shipment.cost_allocation_percentage = allocation_pct
                     shipment.total_charge = (total_cost * allocation_pct) / 100
         

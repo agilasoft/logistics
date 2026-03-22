@@ -37,7 +37,7 @@
   "cost_qty_break",
   "section_break_calc",
   "revenue_column",
-  "charge_basis",
+  "revenue_calculation_method",
   "quantity",
   "uom",
   "currency",
@@ -74,7 +74,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Charge Item",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1]]",
+   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
    "options": "Item"
   },
   {
@@ -226,7 +226,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.charge_basis=='Weight Break'",
+   "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
    "fieldname": "selling_weight_break",
    "fieldtype": "Button",
    "label": "Manage Selling Weight Breaks"
@@ -238,7 +238,7 @@
    "label": "Manage Cost Weight Breaks"
   },
   {
-   "depends_on": "eval:doc.charge_basis=='Qty Break'",
+   "depends_on": "eval:doc.revenue_calculation_method=='Qty Break'",
    "fieldname": "selling_qty_break",
    "fieldtype": "Button",
    "label": "Manage Selling Qty Breaks"
@@ -261,10 +261,10 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "charge_basis",
+   "fieldname": "revenue_calculation_method",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Calculation Method",
+   "label": "Revenue Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -300,7 +300,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -388,7 +388,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nOperation Time",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {

@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-05-22 10:34:19.845671",
@@ -161,7 +162,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-11 18:00:42.305138",
+ "modified": "2026-03-17 14:03:52.388969",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Commodity",

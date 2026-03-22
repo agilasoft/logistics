@@ -2,6 +2,21 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Special Project", {
+	document_list_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
 	refresh: function (frm) {
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
@@ -13,6 +28,11 @@ frappe.ui.form.on("Special Project", {
 					callback: function (r) {
 						if (r.message && frm.fields_dict.dashboard_html) {
 							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+							if (window.logistics_group_and_collapse_dash_alerts) {
+								setTimeout(function() {
+									window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+								}, 100);
+							}
 						}
 					}
 				});
@@ -38,7 +58,7 @@ frappe.ui.form.on("Special Project", {
 		if (frm.doc.project && frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Open Project"), function () {
 				frappe.set_route("Form", "Project", frm.doc.project);
-			});
+			}, __("Actions"));
 		}
 		if (frm.doc.status && ["Booked", "Approved", "Planning", "In Progress", "Completed"].includes(frm.doc.status)) {
 			frm.add_custom_button(__("Charge Scoping Costs"), function () {
@@ -49,11 +69,22 @@ frappe.ui.form.on("Special Project", {
 						frm.reload_doc();
 					},
 				});
-			});
+			}, __("Actions"));
 		}
 		_refresh_cost_revenue_summary(frm);
+		// Load documents summary HTML in Documents tab
+		if (window.logistics_load_documents_html) {
+			window.logistics_load_documents_html(frm, "Special Project");
+		}
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+				if (window.logistics_load_documents_html) {
+					window.logistics_load_documents_html(frm, "Special Project");
+				}
+			});
+		}
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__("Populate from Template"), function () {
+			frm.add_custom_button(__("Get Documents"), function () {
 				frappe.call({
 					method: "logistics.document_management.api.populate_documents_from_template",
 					args: { doctype: "Special Project", docname: frm.doc.name },
@@ -69,10 +100,11 @@ frappe.ui.form.on("Special Project", {
 						}
 					},
 				});
-			});
+			}, __("Actions"));
 		}
 	},
 });
+
 
 function _refresh_cost_revenue_summary(frm) {
 	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.cost_revenue_html) return;
@@ -109,6 +141,11 @@ function _refresh_dashboard_html(frm) {
 		callback: function (r) {
 			if (r.message && frm.fields_dict.dashboard_html) {
 				frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+				if (window.logistics_group_and_collapse_dash_alerts) {
+					setTimeout(function() {
+						window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+					}, 100);
+				}
 			}
 		}
 	});

@@ -9,6 +9,7 @@
   "dashboard_tab",
   "dashboard_html",
   "details_tab",
+  "section_break_main",
   "naming_series",
   "booking_date",
   "shipping_status",
@@ -20,20 +21,9 @@
   "local_customer",
   "freight_agent",
   "column_break_echy",
-  "house_type",
   "release_type",
   "entry_type",
-  "house_details_section",
-  "house_bl",
-  "incoterm",
-  "additional_terms",
-  "description",
-  "column_break_house",
-  "packs",
-  "inner",
-  "goods_value",
-  "insurance",
-  "marks_and_nos",
+  "house_type",
   "section_break_booking_control",
   "booking_party",
   "controlling_party",
@@ -53,21 +43,20 @@
   "column_break_entities_agents",
   "sending_agent",
   "receiving_agent",
+  "column_break_huzy",
   "broker",
   "freight_consolidator",
-  "contacts_and_addresses_section",
-  "shipper_address",
-  "shipper_address_display",
-  "shipper_contact",
-  "shipper_contact_display",
-  "column_break_addr",
-  "consignee_address",
-  "consignee_address_display",
-  "consignee_contact",
-  "consignee_contact_display",
-  "column_break_obdu",
-  "notify_party",
-  "notify_party_address",
+  "house_details_section",
+  "house_bl",
+  "incoterm",
+  "additional_terms",
+  "description",
+  "column_break_house",
+  "packs",
+  "inner",
+  "goods_value",
+  "insurance",
+  "marks_and_nos",
   "section_break_cutoffs",
   "cargo_cut_off",
   "document_cut_off",
@@ -90,31 +79,48 @@
   "containers",
   "packages_section",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_mene",
+  "override_volume_weight",
   "total_containers",
   "total_teus",
   "column_break_jpbm",
   "total_packages",
   "total_volume",
   "total_weight",
-  "column_break_situ",
-  "override_volume_weight",
   "chargeable",
+  "column_break_situ",
   "density_factor_html",
-  "services_tab",
-  "services",
+  "contacts_addresses",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_addr",
+  "consignee_address",
+  "consignee_address_display",
+  "consignee_contact",
+  "consignee_contact_display",
+  "section_break_hgck",
+  "column_break_hprd",
+  "notify_party",
+  "column_break_obdu",
+  "notify_party_address",
   "charges_tab",
   "section_break_cjyd",
   "charges",
-  "documents_tab",
-  "documents_section",
-  "document_list_template",
-  "documents",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
   "milestone_template",
   "milestones",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
   "accounts_tab",
   "company",
   "branch",
@@ -124,6 +130,10 @@
   "project",
   "job_costing_number",
   "sales_quote",
+  "billing_company",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
   "notes_tab",
   "notes_section",
   "internal_notes",
@@ -189,7 +199,7 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "SBK-.#########"
+   "options": "SBK.#########"
   },
   {
    "fieldname": "booking_date",
@@ -202,8 +212,38 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_sea\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
   },
   {
    "description": "ERPNext Project for Special Projects integration",
@@ -273,9 +313,9 @@
   },
   {
    "fieldname": "release_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Release Type",
-   "options": "Prepaid\nCollect"
+   "options": "Release Type"
   },
   {
    "fieldname": "entry_type",
@@ -302,7 +342,6 @@
    "label": "Service Level Details"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_booking_control",
    "fieldtype": "Section Break",
    "label": "Booking & Control"
@@ -324,7 +363,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "fieldname": "contacts_and_addresses_section",
    "fieldtype": "Section Break",
    "label": "Contacts & Addresses"
@@ -388,7 +426,6 @@
    "label": "Notify Party Address"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_parties",
    "fieldtype": "Section Break",
    "label": "Entities and Parties"
@@ -440,12 +477,14 @@
   {
    "fieldname": "atd",
    "fieldtype": "Date",
-   "label": "ATD"
+   "label": "ATD",
+   "read_only": 1
   },
   {
    "fieldname": "ata",
    "fieldtype": "Date",
-   "label": "ATA"
+   "label": "ATA",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_destination",
@@ -471,7 +510,7 @@
    "fieldname": "broker",
    "fieldtype": "Link",
    "label": "Broker",
-   "options": "Freight Agent"
+   "options": "Broker"
   },
   {
    "collapsible": 1,
@@ -521,7 +560,6 @@
    "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
   },
   {
-   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -533,7 +571,6 @@
    "options": "Sea Booking Containers"
   },
   {
-   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -546,6 +583,17 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
+  },
+  {
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -558,7 +606,6 @@
    "search_index": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "house_details_section",
    "fieldtype": "Section Break",
    "label": "House Details"
@@ -621,17 +668,6 @@
    "label": "Contains Dangerous Goods"
   },
   {
-   "fieldname": "services_tab",
-   "fieldtype": "Tab Break",
-   "label": "Services"
-  },
-  {
-   "fieldname": "services",
-   "fieldtype": "Table",
-   "label": "Services",
-   "options": "Sea Booking Services"
-  },
-  {
    "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
    "label": "Packing & Routing"
@@ -639,7 +675,7 @@
   {
    "fieldname": "section_break_mene",
    "fieldtype": "Section Break",
-   "label": "Summary"
+   "label": "Summary of Measurements"
   },
   {
    "fieldname": "total_containers",
@@ -724,6 +760,7 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
+   "no_copy": 1,
    "options": "Sea Booking Charges"
   },
   {
@@ -775,6 +812,12 @@
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
   },
   {
    "description": "Override default template. Leave empty to use product default.",
@@ -919,12 +962,34 @@
    "fieldtype": "Link",
    "label": "Freight Consolidator",
    "options": "Freight Consolidator"
+  },
+  {
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break",
+   "label": "Booking Details"
+  },
+  {
+   "fieldname": "contacts_addresses",
+   "fieldtype": "Tab Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "section_break_hgck",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_hprd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_huzy",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-03 13:28:32.854487",
+ "modified": "2026-03-16 20:31:16.827937",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking",

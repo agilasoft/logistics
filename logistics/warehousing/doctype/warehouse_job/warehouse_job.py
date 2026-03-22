@@ -177,8 +177,9 @@ class WarehouseJob(Document):
 			pass
 
 	def before_save(self):
-		from logistics.utils.module_integration import run_propagate_on_link
+		from logistics.utils.module_integration import run_propagate_on_link, set_billing_company_from_linked_freight
 		run_propagate_on_link(self)
+		set_billing_company_from_linked_freight(self)
 		# Calculate totals before saving the job
 		self.calculate_totals()
 
@@ -1791,12 +1792,23 @@ class WarehouseJob(Document):
 					margin-top: -2px;
 				}}
 
+				.warehouse-map-box {{
+					position: relative;
+					min-height: 120px;
+				}}
 				.warehouse-legend {{
+					position: absolute;
+					bottom: 10px;
+					left: 10px;
+					z-index: 1000;
 					display: flex;
-					justify-content: center;
 					gap: 10px;
-					margin-bottom: 15px;
+					flex-wrap: wrap;
 					font-size: 10px;
+					background: rgba(255,255,255,0.95);
+					padding: 8px 12px;
+					border-radius: 4px;
+					box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 				}}
 
 				.legend-item {{
@@ -2011,6 +2023,101 @@ class WarehouseJob(Document):
 						width: 20px;
 						height: 20px;
 						font-size: 9px;
+					}}
+				}}
+
+				/* Document alerts number cards */
+				.doc-alerts-cards-wrapper {{
+					background: #f8f9fa;
+					border: 1px solid #e9ecef;
+					border-radius: 8px;
+					padding: 16px;
+					margin-bottom: 16px;
+					min-width: 0;
+				}}
+				.doc-alerts-cards {{
+					display: flex;
+					flex-wrap: nowrap;
+					gap: 8px;
+					align-items: stretch;
+					min-width: 0;
+				}}
+				.doc-alert-card {{
+					flex: 1 1 0;
+					min-width: 0;
+					background: #fff;
+					border-radius: 6px;
+					border: 1px solid #e0e0e0;
+					padding: 12px 8px;
+					text-align: center;
+					box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+					transition: box-shadow 0.15s ease;
+				}}
+				.doc-alert-card:hover {{
+					box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+				}}
+				.doc-alert-card-value {{
+					font-size: 24px;
+					font-weight: 700;
+					line-height: 1.2;
+				}}
+				.doc-alert-card-title {{
+					font-size: 11px;
+					color: #6c757d;
+					text-transform: uppercase;
+					letter-spacing: 0.5px;
+					margin-top: 4px;
+					font-weight: 600;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+					max-width: 100%;
+				}}
+				.doc-alert-card-warning .doc-alert-card-value {{
+					color: #856404;
+				}}
+				.doc-alert-card-warning {{
+					border-left: 4px solid #ffc107;
+				}}
+				.doc-alert-card-danger .doc-alert-card-value {{
+					color: #721c24;
+				}}
+				.doc-alert-card-danger {{
+					border-left: 4px solid #dc3545;
+				}}
+				.doc-alert-card-info .doc-alert-card-value {{
+					color: #0c5460;
+				}}
+				.doc-alert-card-info {{
+					border-left: 4px solid #17a2b8;
+				}}
+				.doc-alert-card-success .doc-alert-card-value {{
+					color: #155724;
+				}}
+				.doc-alert-card-success {{
+					border-left: 4px solid #28a745;
+				}}
+				.doc-alert-card-secondary .doc-alert-card-value {{
+					color: #383d41;
+				}}
+				.doc-alert-card-secondary {{
+					border-left: 4px solid #6c757d;
+				}}
+				.doc-alert-card-permits {{
+					border-left: 4px solid #ff9800;
+				}}
+				.doc-alert-card-permits .doc-alert-card-value {{
+					color: #e65100;
+				}}
+				.doc-alert-card-exemptions {{
+					border-left: 4px solid #9c27b0;
+				}}
+				.doc-alert-card-exemptions .doc-alert-card-value {{
+					color: #7b1fa2;
+				}}
+				@media (max-width: 768px) {{
+					.doc-alert-card {{
+						min-width: 70px;
 					}}
 				}}
 			</style>
@@ -2717,8 +2824,8 @@ class WarehouseJob(Document):
 			</div>
 		""")
 		
-		# Add legend at the top
-		html_parts.append("""
+		# Legend HTML (positioned at bottom-left of map box via CSS)
+		legend_html = """
 			<div class="warehouse-legend">
 				<div class="legend-item">
 					<div class="legend-color" style="background: #e3f2fd;"></div>
@@ -2737,15 +2844,18 @@ class WarehouseJob(Document):
 					<span>Allocated</span>
 				</div>
 			</div>
-		""")
+		"""
 		
 		if not warehouse_map:
+			html_parts.append('<div class="warehouse-map-box">')
 			html_parts.append("""
 				<div style="text-align: center; padding: 40px; color: #6c757d;">
 					<p>No warehouse data available.</p>
 					<small>Create storage locations to see the warehouse floor.</small>
 				</div>
 			""")
+			html_parts.append(legend_html)
+			html_parts.append('</div>')
 			return "".join(html_parts)
 		
 		# Get allocated locations from job items
@@ -2831,7 +2941,9 @@ class WarehouseJob(Document):
 				html_parts.append('</div>')  # Close building-group
 			html_parts.append('</div>')  # Close site-group
 		
-		return "".join(html_parts)
+		# Wrap content in map box and add legend at bottom-left
+		content = "".join(html_parts)
+		return f'<div class="warehouse-map-box"><div class="warehouse-map-content">{content}</div>{legend_html}</div>'
 	
 	def _render_location_list(self, company, branch):
 		"""Render list of applicable locations with storage type and details"""
@@ -4555,48 +4667,40 @@ def _contract_item_applies_to_job_type(contract_item: dict, job_type: str) -> bo
 
 
 def _apply_calculation_method(billing_qty: float, rate: float, contract_item: dict) -> float:
-	"""Apply calculation method to calculate total charge amount."""
+	"""Apply calculation method using RateCalculationEngine."""
 	try:
-		calculation_method = contract_item.get("calculation_method", "Per Unit")
-		
-		if calculation_method == "Per Unit":
-			base_amount = rate * billing_qty
-			# Apply minimum/maximum charge
-			minimum_charge = flt(contract_item.get("minimum_charge", 0))
-			maximum_charge = flt(contract_item.get("maximum_charge", 0))
-			if minimum_charge > 0 and base_amount < minimum_charge:
-				base_amount = minimum_charge
-			if maximum_charge > 0 and base_amount > maximum_charge:
-				base_amount = maximum_charge
-			return base_amount
-			
-		elif calculation_method == "Fixed Amount":
-			return rate
-			
-		elif calculation_method == "Base Plus Additional":
-			base = flt(contract_item.get("base_amount", 0))
-			additional = rate * max(0, billing_qty - 1)
-			return base + additional
-			
-		elif calculation_method == "First Plus Additional":
-			min_qty = flt(contract_item.get("minimum_quantity", 1))
-			if billing_qty <= min_qty:
-				return rate
-			else:
-				additional = rate * (billing_qty - min_qty)
-				return rate + additional
-				
-		elif calculation_method == "Percentage":
-			# Percentage calculation - rate is the percentage, billing_qty is the base value
-			# For warehouse jobs, we'll use billing_qty as the base value
-			return (rate / 100) * billing_qty
-		else:
-			# Default to Per Unit if method not recognized
-			return rate * billing_qty
-			
+		from logistics.utils.rate_calculation_engine import RateCalculationEngine
+
+		calc_method = contract_item.get("calculation_method", "Per Unit")
+		rate_data = {
+			"calculation_method": calc_method,
+			"rate": flt(rate or 0),
+			"unit_type": contract_item.get("unit_type", "Weight"),
+			"minimum_charge": flt(contract_item.get("minimum_charge", 0)),
+			"maximum_charge": flt(contract_item.get("maximum_charge", 0)),
+			"base_amount": flt(contract_item.get("base_amount", 0)),
+			"base_quantity": flt(contract_item.get("base_quantity", 1)),
+			"minimum_quantity": flt(contract_item.get("minimum_quantity", 1)),
+			"minimum_unit_rate": flt(contract_item.get("minimum_unit_rate", 0)),
+			"currency": contract_item.get("currency", "USD"),
+		}
+		# For Percentage, warehouse uses billing_qty as base value when base_amount not set
+		if calc_method == "Percentage" and not rate_data["base_amount"]:
+			rate_data["base_amount"] = flt(billing_qty or 0)
+		engine = RateCalculationEngine()
+		result = engine.calculate_rate(
+			rate_data=rate_data,
+			actual_quantity=flt(billing_qty or 0),
+			actual_weight=flt(billing_qty or 0),
+			actual_volume=flt(billing_qty or 0),
+			actual_pieces=flt(billing_qty or 0),
+		)
+		if result.get("success"):
+			return flt(result.get("amount", 0))
+		# Fallback to simple calculation on error
+		return rate * billing_qty
 	except Exception as e:
 		frappe.logger().warning(f"Error applying calculation method: {e}")
-		# Fallback to simple calculation
 		return rate * billing_qty
 
 

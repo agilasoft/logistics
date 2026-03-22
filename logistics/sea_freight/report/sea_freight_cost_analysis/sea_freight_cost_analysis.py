@@ -155,7 +155,7 @@ def get_data(filters):
 		FROM
 			`tabSea Shipment` sship
 		LEFT JOIN
-			`tabSea Freight Charges` sfc ON sfc.parent = sship.name
+			`tabSea Shipment Charges` sfc ON sfc.parent = sship.name
 		WHERE
 			sship.docstatus = 1
 			{conditions}

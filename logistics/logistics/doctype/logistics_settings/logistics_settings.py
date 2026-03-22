@@ -11,6 +11,7 @@ class LogisticsSettings(Document):
 	def validate(self):
 		"""Validate temperature limits configuration"""
 		self.validate_temperature_limits()
+		self.validate_credit_control_rules()
 	
 	def validate_temperature_limits(self):
 		"""Validate that min_temp < max_temp if both are set"""
@@ -25,3 +26,14 @@ class LogisticsSettings(Document):
 					),
 					title=_("Temperature Limits Validation Error")
 				)
+
+	def validate_credit_control_rules(self):
+		rows = self.get("credit_control_rules") or []
+		seen = set()
+		for row in rows:
+			dt = row.get("controlled_doctype")
+			if not dt:
+				continue
+			if dt in seen:
+				frappe.throw(_("Duplicate credit rule for DocType {0}.").format(dt))
+			seen.add(dt)

@@ -31,6 +31,11 @@
   "release_type",
   "entry_type",
   "service_level",
+  "contains_dangerous_goods",
+  "section_break_consolidation",
+  "consolidation_reference",
+  "column_break_consolidation",
+  "consolidation_status",
   "section_break_booking_control",
   "booking_party",
   "controlling_party",
@@ -71,18 +76,22 @@
   "routing_legs",
   "packages_section",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
+  "override_volume_weight",
+  "column_break_zgif",
   "total_volume",
   "total_weight",
-  "override_volume_weight",
-  "volume",
-  "weight",
   "chargeable",
+  "column_break_dbui",
+  "total_volume_uom",
+  "total_weight_uom",
+  "chargeable_weight_uom",
   "column_break_zsxk",
   "density_factor_html",
   "excess_weight_volume",
-  "contains_dangerous_goods",
   "contacts_and_addresses_tab",
   "shipper_address",
   "shipper_address_display",
@@ -99,12 +108,31 @@
   "notify_party",
   "column_break_mzhi",
   "notify_party_address",
-  "other_services_tab",
-  "services_section",
-  "services",
   "charges_tab",
-  "sales_quote",
+  "charges_section",
   "charges",
+  "profitability_section_break",
+  "profitability_section_html",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "accrual_recognition_enabled",
+  "recognition_policy_reference",
+  "recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_adjustment_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_journal_entry",
+  "accrual_adjustment_journal_entry",
+  "accrual_closed",
   "documents_tab",
   "document_management_section",
   "documents_html",
@@ -140,32 +168,17 @@
   "recognized_revenue_amount",
   "revenue_reversal_date",
   "accounts_tab",
+  "section_break_vztz",
   "company",
   "branch",
   "cost_center",
   "profit_center",
+  "column_break_vzlm",
   "job_costing_number",
   "project",
-  "recognition_section",
-  "wip_recognition_enabled",
-  "wip_recognition_date_basis",
-  "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
-  "recognition_date",
-  "column_break_recognition",
-  "estimated_revenue",
-  "wip_amount",
-  "recognized_revenue",
-  "wip_journal_entry",
-  "wip_adjustment_journal_entry",
-  "wip_closed",
-  "column_break_accrual",
-  "estimated_costs",
-  "accrual_amount",
-  "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
-  "accrual_closed",
+  "section_break_quote_reference",
+  "sales_quote",
+  "billing_company",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -279,7 +292,7 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "AF.#########"
+   "options": "ASP-.#########"
   },
   {
    "fieldname": "booking_date",
@@ -373,7 +386,6 @@
    "options": "Logistics Service Level"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_booking_control",
    "fieldtype": "Section Break",
    "label": "Booking & Control"
@@ -455,25 +467,34 @@
   },
   {
    "default": "0",
-   "description": "When checked, header volume and weight are manual and will not be updated from package totals.",
+   "description": "When checked, Total Volume and Total Weight are manual and will not be updated from package totals.",
    "fieldname": "override_volume_weight",
    "fieldtype": "Check",
    "label": "Override Volume & Weight"
   },
   {
-   "fieldname": "volume",
-   "fieldtype": "Float",
-   "label": "Volume (cbm)"
-  },
-  {
-   "fieldname": "weight",
-   "fieldtype": "Float",
-   "label": "Weight (kg)"
-  },
-  {
    "fieldname": "chargeable",
    "fieldtype": "Float",
-   "label": "Chargeable (kg)"
+   "label": "Chargeable Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Total Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Total Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Wt. UOM",
+   "options": "UOM"
   },
   {
    "fieldname": "density_factor_html",
@@ -526,6 +547,29 @@
    "fieldname": "dg_emergency_email",
    "fieldtype": "Data",
    "label": "DG Emergency Email"
+  },
+  {
+   "fieldname": "section_break_consolidation",
+   "fieldtype": "Section Break",
+   "label": "Consolidation"
+  },
+  {
+   "fieldname": "consolidation_reference",
+   "fieldtype": "Link",
+   "label": "Consolidation Reference",
+   "options": "Air Consolidation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_consolidation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consolidation_status",
+   "fieldtype": "Select",
+   "label": "Consolidation Status",
+   "options": "\nPending\nAccepted\nIn Transit\nDelivered\nException",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -930,6 +974,15 @@
    "options": "Sales Quote"
   },
   {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
@@ -1293,11 +1346,6 @@
    "label": "Charges"
   },
   {
-   "fieldname": "services",
-   "fieldtype": "Table",
-   "options": "Air Shipment Services"
-  },
-  {
    "collapsible": 1,
    "fieldname": "notes_section",
    "fieldtype": "Section Break",
@@ -1399,28 +1447,33 @@
    "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date"
@@ -1512,9 +1565,34 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "packages",
    "fieldtype": "Table",
    "options": "Air Shipment Packages"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
   },
   {
    "fieldname": "dashboard_tab",
@@ -1591,11 +1669,6 @@
    "fieldname": "goods_value",
    "fieldtype": "Currency",
    "label": "Goods Value"
-  },
-  {
-   "fieldname": "services_section",
-   "fieldtype": "Section Break",
-   "label": "Services"
   },
   {
    "fieldname": "packing_tab",
@@ -1681,16 +1754,43 @@
    "label": "Document Management"
   },
   {
-   "fieldname": "other_services_tab",
-   "fieldtype": "Tab Break",
-   "label": "Other Services"
+   "fieldname": "column_break_zgif",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dbui",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_vztz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_vzlm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "section_break_quote_reference",
+   "fieldtype": "Section Break",
+   "label": "Quote Reference"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2026-02-28 12:33:11.845841",
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_costing_number"
+  }
+ ],
+ "modified": "2026-03-19 19:08:43.460611",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",
@@ -1712,6 +1812,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "origin_port, destination_port",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

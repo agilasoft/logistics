@@ -9,6 +9,8 @@ from frappe.utils import flt
 class AirShipment(Document):
 	def before_save(self):
 		"""Calculate sustainability metrics before saving"""
+		from logistics.utils.module_integration import set_billing_company_from_sales_quote
+		set_billing_company_from_sales_quote(self)
 		self.calculate_sustainability_metrics()
 	
 	def after_submit(self):
@@ -22,14 +24,14 @@ class AirShipment(Document):
 			if hasattr(self, 'weight') and hasattr(self, 'origin_port') and hasattr(self, 'destination_port'):
 				# Get distance between ports (simplified calculation)
 				distance = self._calculate_port_distance(self.origin_port, self.destination_port)
-				if distance and self.weight:
+				if distance and self.total_weight:
 					# Use air freight emission factor
 					emission_factor = 0.5  # kg CO2e per ton-km for air freight
-					carbon_footprint = (flt(self.weight) / 1000) * distance * emission_factor
+					carbon_footprint = (flt(self.total_weight) / 1000) * distance * emission_factor
 					self.estimated_carbon_footprint = carbon_footprint
 					
 					# Calculate fuel consumption estimate
-					fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.weight))
+					fuel_consumption = self._calculate_fuel_consumption(distance, flt(self.total_weight))
 					self.estimated_fuel_consumption = fuel_consumption
 				
 		except Exception as e:
@@ -1329,7 +1331,7 @@ class AirShipment(Document):
 	def get_dashboard_html(self):
 		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html
+			from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
 			from logistics.document_management.dashboard_layout import (
 				build_run_sheet_style_dashboard,
 				build_map_segments_from_routing_legs,
@@ -1388,7 +1390,10 @@ class AirShipment(Document):
 				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
 					map_points.append(d)
 
-			return build_run_sheet_style_dashboard(
+			alerts_html = get_dashboard_alerts_html("Air Shipment", self.name or "new")
+			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+			dash = build_run_sheet_style_dashboard(
 				header_title=self.name or "Air Shipment",
 				header_subtitle="Air Shipment",
 				header_items=header_items,
@@ -1397,11 +1402,13 @@ class AirShipment(Document):
 				map_segments=map_segments,
 				map_id_prefix="air-dash-map",
 				doc_alerts_html=doc_alerts,
+				alerts_html=alerts_html,
 				straight_line=True,
 				origin_label=self.origin_port or None,
 				destination_label=self.destination_port or None,
 				route_below_html=dg_route_below_html,
 			)
+			return get_sales_quote_validity_dashboard_html(self) + dash
 		except Exception as e:
 			frappe.log_error(f"Air Shipment get_dashboard_html: {str(e)}", "Air Shipment Dashboard")
 			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
@@ -1489,6 +1496,7 @@ class AirShipment(Document):
 			pass
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
+			self.aggregate_weight_from_packages()
 		self._update_packing_summary()
 		self.validate_weight_volume()
 		self.validate_packages()
@@ -1503,12 +1511,26 @@ class AirShipment(Document):
 		self.validate_eawb()
 		self.validate_revenue()
 		self.validate_billing()
-		self.validate_dangerous_goods()
-		self.validate_dg_compliance()
+		dg_errors = self._collect_dangerous_goods_validation_errors()
+		dg_errors.extend(self._collect_dg_compliance_errors())
+		if dg_errors:
+			frappe.throw(dg_errors, title=_("Dangerous goods validation"), as_list=True)
 		# Update DG compliance status automatically
 		self.update_dg_compliance_status()
 		self.validate_accounts()
-	
+		try:
+			from logistics.job_management.recognition_engine import (
+				sync_job_recognition_fields_from_policy,
+			)
+
+			sync_job_recognition_fields_from_policy(self)
+		except Exception:
+			pass
+
+		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+		msgprint_sales_quote_validity_warnings(self)
+
 	def aggregate_volume_from_packages(self):
 		"""Set header volume from sum of package volumes, converted to base/default volume UOM (used for chargeable weight)."""
 		if getattr(self, "override_volume_weight", False):
@@ -1541,7 +1563,43 @@ class AirShipment(Document):
 						company=getattr(self, "company", None),
 					)
 			if total > 0:
-				self.volume = total
+				self.total_volume = total
+		except Exception:
+			pass
+
+	def aggregate_weight_from_packages(self):
+		"""Set total_weight from sum of package weights, converted to default weight UOM."""
+		if getattr(self, "override_volume_weight", False):
+			return
+		packages = getattr(self, "packages", []) or []
+		if not packages:
+			return
+		try:
+			from logistics.utils.measurements import convert_weight, get_default_uoms
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			target_weight_uom = defaults.get("weight")
+			if not target_weight_uom:
+				return
+			target_normalized = str(target_weight_uom).strip().upper()
+			total = 0
+			for pkg in packages:
+				pkg_weight = flt(getattr(pkg, "weight", 0) or 0)
+				if pkg_weight <= 0:
+					continue
+				pkg_weight_uom = getattr(pkg, "weight_uom", None) or defaults.get("weight")
+				if not pkg_weight_uom:
+					continue
+				if str(pkg_weight_uom).strip().upper() == target_normalized:
+					total += pkg_weight
+				else:
+					total += convert_weight(
+						pkg_weight,
+						from_uom=pkg_weight_uom,
+						to_uom=target_weight_uom,
+						company=getattr(self, "company", None),
+					)
+			if total > 0:
+				self.total_weight = total
 		except Exception:
 			pass
 
@@ -1549,15 +1607,19 @@ class AirShipment(Document):
 		"""Update total_packages, total_volume, total_weight from packages."""
 		packages = getattr(self, "packages", []) or []
 		self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
-		self.total_volume = flt(self.volume) if self.volume else 0
-		self.total_weight = flt(self.weight) if self.weight else 0
-	
+		if not packages and not getattr(self, "override_volume_weight", False):
+			self.total_volume = 0
+			self.total_weight = 0
+		self.total_volume = flt(self.total_volume or 0)
+		self.total_weight = flt(self.total_weight or 0)
+
 	@frappe.whitelist()
 	def aggregate_volume_from_packages_api(self):
-		"""Whitelisted API: aggregate volume from packages for client-side refresh when override is unchecked."""
+		"""Whitelisted API: aggregate volume and weight from packages for client-side refresh when override is unchecked."""
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
-		return {"volume": getattr(self, "volume", 0)}
+			self.aggregate_weight_from_packages()
+		return {"total_volume": getattr(self, "total_volume", 0), "total_weight": getattr(self, "total_weight", 0)}
 	
 	def on_update(self):
 		"""Called after document is updated"""
@@ -1618,59 +1680,57 @@ class AirShipment(Document):
 				else:
 					raise
 	
-	def validate_dangerous_goods(self):
-		"""Validate dangerous goods requirements"""
+	def _collect_dangerous_goods_validation_errors(self):
+		"""Header-level DG checks; messages combined with package compliance in validate()."""
 		if not self.has_dg_fields():
-			return
+			return []
+		
+		from logistics.utils.dg_fields import package_indicates_dangerous_goods
 		
 		contains_dg = getattr(self, 'contains_dangerous_goods', False)
 		if not contains_dg:
-			return
+			return []
 		
-		# Check settings for require DG declaration
+		errors = []
 		settings = self.get_air_freight_settings()
 		if settings and settings.require_dg_declaration:
-			dg_declaration_complete = getattr(self, 'dg_declaration_complete', False)
-			if not dg_declaration_complete:
-				frappe.throw(_("Dangerous Goods Declaration is required for dangerous goods shipments as per company settings."), 
-					title=_("DG Declaration Required"))
+			if not getattr(self, 'dg_declaration_complete', False):
+				errors.append(
+					_("Dangerous Goods Declaration is required for dangerous goods shipments as per company settings.")
+				)
 		
-		# Check if any packages contain dangerous goods
-		has_dg_packages = False
-		for package in self.packages:
-			if (package.dg_substance or package.un_number or 
-				package.proper_shipping_name or package.dg_class):
-				has_dg_packages = True
-				break
+		if not any(package_indicates_dangerous_goods(p) for p in self.packages):
+			errors.append(
+				_(
+					"Dangerous goods flag is set but no dangerous goods packages found. Please add dangerous goods information to packages or uncheck the 'Contains Dangerous Goods' flag."
+				)
+			)
 		
-		if not has_dg_packages:
-			frappe.throw(_("Dangerous goods flag is set but no dangerous goods packages found. Please add dangerous goods information to packages or uncheck the 'Contains Dangerous Goods' flag."))
+		if not getattr(self, 'dg_emergency_contact', None):
+			errors.append(_("Emergency contact is required for dangerous goods shipments."))
 		
-		# Validate emergency contact information
-		dg_emergency_contact = getattr(self, 'dg_emergency_contact', None)
-		dg_emergency_phone = getattr(self, 'dg_emergency_phone', None)
+		if not getattr(self, 'dg_emergency_phone', None):
+			errors.append(_("Emergency phone number is required for dangerous goods shipments."))
 		
-		if not dg_emergency_contact:
-			frappe.throw(_("Emergency contact is required for dangerous goods shipments."))
-		
-		if not dg_emergency_phone:
-			frappe.throw(_("Emergency phone number is required for dangerous goods shipments."))
+		return errors
 	
-	def validate_dg_compliance(self):
-		"""Validate dangerous goods compliance"""
+	def _collect_dg_compliance_errors(self):
+		"""Per-package DG checks when shipment is marked as containing dangerous goods."""
 		if not self.has_dg_fields():
-			return
+			return []
 		
-		contains_dg = getattr(self, 'contains_dangerous_goods', False)
-		if not contains_dg:
-			return
+		from logistics.utils.dg_fields import dg_child_row_display_label, package_indicates_dangerous_goods
 		
-		# Validate each dangerous goods package
+		if not getattr(self, 'contains_dangerous_goods', False):
+			return []
+		
+		errors = []
 		for package in self.packages:
-			if not (package.dg_substance or package.un_number):
+			if not package_indicates_dangerous_goods(package):
 				continue
 			
-			# Required fields for dangerous goods
+			ref = dg_child_row_display_label(package)
+			
 			required_fields = [
 				('un_number', 'UN Number'),
 				('proper_shipping_name', 'Proper Shipping Name'),
@@ -1680,27 +1740,27 @@ class AirShipment(Document):
 			
 			for field, label in required_fields:
 				if not getattr(package, field, None):
-					frappe.throw(_("Field {0} is required for dangerous goods package: {1}").format(label, package.commodity or 'Unknown'))
+					errors.append(_("Field {0} is required for dangerous goods package: {1}").format(_(label), ref))
 			
-			# Validate emergency contact for each package
 			if not package.emergency_contact_name:
-				frappe.throw(_("Emergency contact name is required for dangerous goods package: {0}").format(package.commodity or 'Unknown'))
+				errors.append(_("Emergency contact name is required for dangerous goods package: {0}").format(ref))
 			
 			if not package.emergency_contact_phone:
-				frappe.throw(_("Emergency contact phone is required for dangerous goods package: {0}").format(package.commodity or 'Unknown'))
+				errors.append(_("Emergency contact phone is required for dangerous goods package: {0}").format(ref))
 			
-			# Validate radioactive materials
 			if package.is_radioactive:
 				if not package.transport_index:
-					frappe.throw(_("Transport Index is required for radioactive materials in package: {0}").format(package.commodity or 'Unknown'))
-				
+					errors.append(_("Transport Index is required for radioactive materials in package: {0}").format(ref))
 				if not package.radiation_level:
-					frappe.throw(_("Radiation Level is required for radioactive materials in package: {0}").format(package.commodity or 'Unknown'))
+					errors.append(_("Radiation Level is required for radioactive materials in package: {0}").format(ref))
 			
-			# Validate temperature controlled dangerous goods
 			if package.temp_controlled:
 				if not package.min_temperature and not package.max_temperature:
-					frappe.throw(_("Temperature range is required for temperature controlled dangerous goods in package: {0}").format(package.commodity or 'Unknown'))
+					errors.append(
+						_("Temperature range is required for temperature controlled dangerous goods in package: {0}").format(ref)
+					)
+		
+		return errors
 	
 	@frappe.whitelist()
 	def check_dg_compliance(self):
@@ -2063,26 +2123,45 @@ class AirShipment(Document):
 		"""Validate date fields"""
 		from frappe.utils import getdate, today
 		
+		from logistics.utils.validation_user_messages import (
+			atd_ata_freight_invalid_message,
+			atd_ata_freight_title,
+			etd_eta_freight_invalid_message,
+			etd_eta_freight_title,
+		)
+
 		# Validate ETD is not after ETA (allows same-day shipments)
 		if self.etd and self.eta:
 			if getdate(self.etd) > getdate(self.eta):
-				frappe.throw(_("ETD (Estimated Time of Departure) must be on or before ETA (Estimated Time of Arrival)"), 
-					title=_("Date Validation Error"))
+				frappe.throw(etd_eta_freight_invalid_message(), title=etd_eta_freight_title())
+
+		# Validate ATD is not after ATA (allows same-day)
+		if self.atd and self.ata:
+			if getdate(self.atd) > getdate(self.ata):
+				frappe.throw(atd_ata_freight_invalid_message(), title=atd_ata_freight_title())
 		
 		# Warn if booking date is in the future
 		if self.booking_date:
 			if getdate(self.booking_date) > getdate(today()):
-				frappe.msgprint(_("Booking date is in the future. Please verify this is correct."), 
-					indicator="orange", title=_("Date Warning"))
+				from logistics.utils.validation_user_messages import (
+					booking_date_future_warning_message,
+					booking_date_future_warning_title,
+				)
+
+				frappe.msgprint(
+					booking_date_future_warning_message(),
+					indicator="orange",
+					title=booking_date_future_warning_title(),
+				)
 	
 	def validate_weight_volume(self):
 		"""Validate weight and volume fields"""
 		# Validate weight is positive
-		if self.weight is not None and self.weight <= 0:
+		if self.total_weight is not None and self.total_weight <= 0:
 			frappe.throw(_("Weight must be greater than zero"), title=_("Validation Error"))
 		
 		# Validate volume is positive
-		if self.volume is not None and self.volume <= 0:
+		if self.total_volume is not None and self.total_volume <= 0:
 			frappe.throw(_("Volume must be greater than zero"), title=_("Validation Error"))
 		
 		# Get settings for volume to weight factor
@@ -2095,23 +2174,23 @@ class AirShipment(Document):
 			chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
 		
 		# Calculate chargeable weight based on settings
-		if self.weight and self.volume:
-			volume_weight = flt(self.volume) * volume_to_weight_factor
+		if self.total_weight and self.total_volume:
+			volume_weight = flt(self.total_volume) * volume_to_weight_factor
 			
 			if chargeable_weight_calculation == "Actual Weight":
-				chargeable_weight = flt(self.weight)
+				chargeable_weight = flt(self.total_weight)
 			elif chargeable_weight_calculation == "Volume Weight":
 				chargeable_weight = volume_weight
 			else:  # Higher of Both (default)
-				chargeable_weight = max(flt(self.weight), volume_weight)
+				chargeable_weight = max(flt(self.total_weight), volume_weight)
 			
 			# Update chargeable weight if not set or different
 			if not self.chargeable or abs(flt(self.chargeable) - chargeable_weight) > 0.01:
 				self.chargeable = chargeable_weight
-		elif self.weight:
+		elif self.total_weight:
 			# If only weight is provided, use it as chargeable
 			if not self.chargeable:
-				self.chargeable = self.weight
+				self.chargeable = self.total_weight
 	
 	def validate_packages(self):
 		"""Validate package data"""
@@ -2121,20 +2200,20 @@ class AirShipment(Document):
 			total_package_volume = sum(flt(p.volume or 0) for p in self.packages)
 			
 			# Warn if package weights don't match total weight (allow small tolerance)
-			if self.weight and abs(total_package_weight - flt(self.weight)) > 0.01:
+			if self.total_weight and abs(total_package_weight - flt(self.total_weight)) > 0.01:
 				frappe.msgprint(
 					_("Package weights ({0} kg) do not match total weight ({1} kg). Please verify.").format(
-						total_package_weight, self.weight
+						total_package_weight, self.total_weight
 					),
 					indicator="orange",
 					title=_("Weight Mismatch Warning")
 				)
 			
 			# Warn if package volumes don't match total volume (allow small tolerance)
-			if self.volume and abs(total_package_volume - flt(self.volume)) > 0.01:
+			if self.total_volume and abs(total_package_volume - flt(self.total_volume)) > 0.01:
 				frappe.msgprint(
 					_("Package volumes ({0} m³) do not match total volume ({1} m³). Please verify.").format(
-						total_package_volume, self.volume
+						total_package_volume, self.total_volume
 					),
 					indicator="orange",
 					title=_("Volume Mismatch Warning")
@@ -2212,11 +2291,11 @@ class AirShipment(Document):
 			# Validate weight doesn't exceed ULD capacity
 			# Re-fetch in case it was set above
 			uld_capacity_kg = getattr(self, 'uld_capacity_kg', uld_capacity_kg)
-			if uld_capacity_kg and self.weight:
-				if flt(self.weight) > flt(uld_capacity_kg):
+			if uld_capacity_kg and self.total_weight:
+				if flt(self.total_weight) > flt(uld_capacity_kg):
 					frappe.msgprint(
 						_("Cargo weight ({0} kg) exceeds ULD capacity ({1} kg). Please verify.").format(
-							self.weight, uld_capacity_kg
+							self.total_weight, uld_capacity_kg
 						),
 						indicator="orange",
 						title=_("ULD Capacity Warning")
@@ -2493,8 +2572,8 @@ class AirShipment(Document):
 			rate_params = {
 				"origin": self.origin_port,
 				"destination": self.destination_port,
-				"weight": self.weight,
-				"volume": self.volume,
+				"weight": self.total_weight,
+				"volume": self.total_volume,
 				"chargeable_weight": self.chargeable
 			}
 			
@@ -2713,54 +2792,35 @@ class AirShipment(Document):
 			# Get default currency from system settings
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Map unit_type to charge_basis
-			unit_type_to_charge_basis = {
-				"Weight": "Per kg",
-				"Volume": "Per m³",
-				"Package": "Per package",
-				"Piece": "Per package",
-				"Shipment": "Per shipment"
-			}
-			charge_basis = unit_type_to_charge_basis.get(sqaf_record.unit_type, "Fixed amount")
-			
-			# Get quantity based on charge basis
+			# Map unit_type to quantity
 			quantity = 0
-			if charge_basis == "Per kg":
-				quantity = flt(self.weight) or 0
-			elif charge_basis == "Per m³":
-				quantity = flt(self.volume) or 0
-			elif charge_basis == "Per package":
-				# Get package count from Air Shipment if available
-				if hasattr(self, 'packages') and self.packages:
-					quantity = len(self.packages)
-				else:
-					quantity = 1
-			elif charge_basis == "Per shipment":
+			if sqaf_record.unit_type == "Weight":
+				quantity = flt(self.total_weight) or 0
+			elif sqaf_record.unit_type == "Volume":
+				quantity = flt(self.total_volume) or 0
+			elif sqaf_record.unit_type in ("Package", "Piece"):
+				quantity = len(self.packages) if (hasattr(self, 'packages') and self.packages) else 1
+			else:
 				quantity = 1
 			
-			# Determine charge_type and charge_category from item or use defaults
 			charge_type = "Other"
 			charge_category = "Other"
-			
-			# Try to get charge type from item custom fields or item name
 			if hasattr(item_doc, 'custom_charge_type'):
 				charge_type = item_doc.custom_charge_type or "Other"
-			if hasattr(item_doc, 'custom_charge_category'):
-				charge_category = item_doc.custom_charge_category or "Other"
+				if hasattr(item_doc, 'custom_charge_category'):
+					charge_category = item_doc.custom_charge_category or "Other"
 			
-			# Map the fields from sales_quote_air_freight to air_shipment_charges
 			charge_data = {
 				"item_code": sqaf_record.item_code,
 				"item_name": sqaf_record.item_name or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_category": charge_category,
-				"charge_basis": charge_basis,
+				"revenue_calculation_method": sqaf_record.calculation_method or "Per Unit",
 				"rate": sqaf_record.unit_rate or 0,
 				"currency": sqaf_record.currency or default_currency,
 				"quantity": quantity,
-				"unit_of_measure": sqaf_record.uom or (charge_basis.replace("Per ", "").replace("kg", "kg").replace("m³", "m³")),
-				"calculation_method": sqaf_record.calculation_method or "Manual",
-				"billing_status": "Pending"
+				"unit_of_measure": sqaf_record.uom or None,
+				"billing_status": "To Bill"
 			}
 			
 			return charge_data
@@ -2888,6 +2948,20 @@ class AirShipment(Document):
 		# Apply document settings
 		if not self.uld_type and settings.default_uld_type:
 			self.uld_type = settings.default_uld_type
+
+		# Apply UOM defaults from Logistics Settings
+		try:
+			from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get("volume")
+			if not getattr(self, "total_volume_uom", None) and vol_uom:
+				self.total_volume_uom = vol_uom
+			if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
+				self.total_weight_uom = defaults["weight"]
+			if not getattr(self, "chargeable_weight_uom", None):
+				self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
+		except Exception:
+			pass
 		
 		# Mark as applied
 		self._settings_applied = True
@@ -3073,26 +3147,25 @@ def populate_charges_from_sales_quote(docname=None):
 		# Clear existing charges
 		self.set("charges", [])
 		
-		# Get Sales Quote Air Freight records
+		# Get from Sales Quote Charge (Air) or Sales Quote Air Freight (legacy)
+		charge_fields = [
+			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+			"maximum_charge", "base_amount", "estimated_revenue"
+		]
 		sales_quote_air_freight_records = frappe.get_all(
-			"Sales Quote Air Freight",
-			filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-			fields=[
-				"item_code",
-				"item_name", 
-				"calculation_method",
-				"uom",
-				"currency",
-				"unit_rate",
-				"unit_type",
-				"minimum_quantity",
-				"minimum_charge",
-				"maximum_charge",
-				"base_amount",
-				"estimated_revenue"
-			],
+			"Sales Quote Charge",
+			filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			fields=charge_fields,
 			order_by="idx"
 		)
+		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
+			sales_quote_air_freight_records = frappe.get_all(
+				"Sales Quote Air Freight",
+				filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
+				fields=charge_fields,
+				order_by="idx"
+			)
 		
 		if not sales_quote_air_freight_records:
 			frappe.msgprint(

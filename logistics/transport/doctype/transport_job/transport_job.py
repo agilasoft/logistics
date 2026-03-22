@@ -11,6 +11,8 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
+        from logistics.utils.module_integration import set_billing_company_from_sales_quote
+        set_billing_company_from_sales_quote(self)
         # DEBUG: Log all validation calls
         try:
             frappe.log_error(
@@ -40,6 +42,11 @@ class TransportJob(Document):
         
         # Prevent duplicate Transport Jobs for the same transport_order
         self._validate_no_duplicate_transport_order()
+        try:
+            from logistics.job_management.recognition_engine import sync_job_recognition_fields_from_policy
+            sync_job_recognition_fields_from_policy(self)
+        except Exception:
+            pass
         
         # Copy service level from Transport Order when transport_order is set
         self._copy_service_level_from_order()
@@ -56,7 +63,11 @@ class TransportJob(Document):
             pass
 
         self._update_packing_summary()
-        
+
+        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+        msgprint_sales_quote_validity_warnings(self)
+
         # DEBUG: Log after validation
         try:
             frappe.log_error(
@@ -65,7 +76,7 @@ class TransportJob(Document):
             )
         except Exception:
             pass
-    
+
     def before_save(self):
         """Calculate sustainability metrics and create job costing number before saving"""
         from logistics.utils.module_integration import run_propagate_on_link
@@ -820,7 +831,7 @@ class TransportJob(Document):
     def get_dashboard_html(self):
         """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
         try:
-            from logistics.document_management.api import get_document_alerts_html
+            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
             from logistics.document_management.dashboard_layout import (
                 build_run_sheet_style_dashboard,
                 get_dg_dashboard_html,
@@ -895,7 +906,10 @@ class TransportJob(Document):
                 if last_drop:
                     destination_label = frappe.db.get_value("Address", last_drop, "address_title") or last_drop
 
-            return build_run_sheet_style_dashboard(
+            alerts_html = get_dashboard_alerts_html("Transport Job", self.name or "new")
+            from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+            dash = build_run_sheet_style_dashboard(
                 header_title=self.name or "Transport Job",
                 header_subtitle="Transport Job",
                 header_items=header_items,
@@ -903,10 +917,12 @@ class TransportJob(Document):
                 map_points=map_points,
                 map_id_prefix="tj-dash-map",
                 doc_alerts_html=doc_alerts,
+                alerts_html=alerts_html,
                 origin_label=origin_label,
                 destination_label=destination_label,
                 route_below_html=dg_route_below_html,
             )
+            return get_sales_quote_validity_dashboard_html(self) + dash
         except Exception as e:
             frappe.log_error(f"Transport Job get_dashboard_html: {str(e)}", "Transport Job Dashboard")
             return "<div class='alert alert-warning'>Error loading dashboard.</div>"
@@ -1158,6 +1174,33 @@ class TransportJob(Document):
             frappe.log_error(f"Error releasing capacity: {str(e)}", "Capacity Release Error")
 
 ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider these "active"
+
+
+# --------------------------------------------------------------------
+# Recalculate Charges
+# --------------------------------------------------------------------
+
+@frappe.whitelist()
+def recalculate_all_charges(docname):
+    """Recalculate all charges based on current Transport Job data using RateCalculationEngine."""
+    doc = frappe.get_doc("Transport Job", docname)
+    if not doc.charges:
+        return {"success": False, "message": _("No charges found to recalculate")}
+    try:
+        charges_recalculated = 0
+        for charge in doc.charges:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=doc)
+                charges_recalculated += 1
+        doc.save()
+        return {
+            "success": True,
+            "message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+            "charges_recalculated": charges_recalculated,
+        }
+    except Exception as e:
+        frappe.log_error(str(e), "Transport Job - Recalculate Charges Error")
+        frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 
 # --------------------------------------------------------------------

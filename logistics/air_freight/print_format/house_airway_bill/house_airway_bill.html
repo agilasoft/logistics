@@ -532,7 +532,7 @@
             <tbody>
                 <tr style="height: 15mm;">
                     <td class="text-bold" style="text-align: center;">{{ doc.packs or '' }}</td>
-                    <td class="text-bold" style="text-align: right;">{{ "%.1f" | format(doc.weight or 0) }}</td>
+                    <td class="text-bold" style="text-align: right;">{{ "%.1f" | format(doc.total_weight or doc.weight or 0) }}</td>
                     <td class="text-bold" style="text-align: center;">K</td>
                     <td></td>
                     <td></td>

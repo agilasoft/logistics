@@ -20,7 +20,7 @@
   "transport_job",
   "transport_job_type",
   "vehicle_type",
-  "hazardous",
+  "contains_dangerous_goods",
   "refrigeration",
   "column_break_jewt",
   "status",
@@ -300,8 +300,8 @@
   },
   {
    "default": "0",
-   "fetch_from": "transport_job.hazardous",
-   "fieldname": "hazardous",
+   "fetch_from": "transport_job.contains_dangerous_goods",
+   "fieldname": "contains_dangerous_goods",
    "fieldtype": "Check",
    "label": "Hazardous",
    "read_only": 1

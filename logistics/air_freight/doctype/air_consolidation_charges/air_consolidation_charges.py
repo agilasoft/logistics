@@ -23,8 +23,8 @@ class AirConsolidationCharges(Document):
         if not self.charge_type:
             frappe.throw(_("Charge type is required"))
         
-        if not self.charge_basis:
-            frappe.throw(_("Charge basis is required"))
+        if not self.revenue_calculation_method:
+            frappe.throw(_("Revenue calculation method is required"))
         
         if not self.rate or self.rate <= 0:
             frappe.throw(_("Rate must be greater than 0"))
@@ -37,18 +37,12 @@ class AirConsolidationCharges(Document):
         if not self.rate or not self.quantity:
             return
         
-        # Calculate base amount based on charge basis
-        if self.charge_basis == "Per kg":
-            self.base_amount = self.rate * self.quantity
-        elif self.charge_basis == "Per m³":
-            self.base_amount = self.rate * self.quantity
-        elif self.charge_basis == "Per package":
-            self.base_amount = self.rate * self.quantity
-        elif self.charge_basis == "Per shipment":
+        # Calculate base amount based on revenue_calculation_method and unit_type
+        if self.revenue_calculation_method == "Per Unit":
+            self.base_amount = self.rate * (self.quantity or 0)
+        elif self.revenue_calculation_method == "Flat Rate":
             self.base_amount = self.rate
-        elif self.charge_basis == "Fixed amount":
-            self.base_amount = self.rate
-        elif self.charge_basis == "Percentage":
+        elif self.revenue_calculation_method == "Percentage":
             # For percentage, we need the base amount from parent consolidation
             if self.parent:
                 consolidation = frappe.get_doc("Air Consolidation", self.parent)
@@ -123,7 +117,7 @@ class AirConsolidationCharges(Document):
         return {
             "charge_type": self.charge_type,
             "charge_category": self.charge_category,
-            "charge_basis": self.charge_basis,
+            "revenue_calculation_method": self.revenue_calculation_method,
             "rate": self.rate,
             "currency": self.currency,
             "quantity": self.quantity,
@@ -180,12 +174,12 @@ class AirConsolidationCharges(Document):
             "charge_type": self.charge_type,
             "charge_category": self.charge_category,
             "description": self.description,
-            "charge_basis": self.charge_basis,
+            "revenue_calculation_method": self.revenue_calculation_method,
             "rate": self.rate,
             "currency": self.currency,
             "quantity": self.quantity,
             "unit_of_measure": self.unit_of_measure,
-            "calculation_method": self.calculation_method,
+            "revenue_calculation_method": self.revenue_calculation_method,
             "base_amount": self.base_amount,
             "discount_percentage": self.discount_percentage,
             "discount_amount": self.discount_amount,
@@ -211,7 +205,7 @@ class AirConsolidationCharges(Document):
         }
         
         # Check if base amount calculation is correct
-        if self.charge_basis in ["Per kg", "Per m³", "Per package"]:
+        if self.revenue_calculation_method == "Per Unit" and getattr(self, "unit_type", None):
             expected_base = self.rate * self.quantity
             if abs(self.base_amount - expected_base) > 0.01:
                 validation_result["valid"] = False

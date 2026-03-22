@@ -14,6 +14,8 @@
   "booking_date",
   "customer",
   "customer_ref_no",
+  "shipper",
+  "consignee",
   "scheduled_date",
   "column_break_5",
   "transport_job_type",
@@ -22,7 +24,7 @@
   "container",
   "load_type",
   "vehicle_type",
-  "hazardous",
+  "contains_dangerous_goods",
   "refrigeration",
   "consolidate",
   "column_break_tjia",
@@ -35,6 +37,8 @@
   "legs",
   "section_break_jozr",
   "packages",
+  "warehouse_items_section",
+  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "total_volume",
@@ -50,9 +54,9 @@
   "charges",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
@@ -82,6 +86,7 @@
   "job_costing_number",
   "project",
   "sales_quote",
+  "billing_company",
   "invoice_monitoring_section",
   "sales_invoice",
   "purchase_invoice",
@@ -174,6 +179,18 @@
    "label": "Customer Ref No"
   },
   {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
    "fieldname": "column_break_5",
    "fieldtype": "Column Break"
   },
@@ -193,7 +210,7 @@
   {
    "default": "0",
    "description": "ADR/RID: Check if contains dangerous goods. Enables Dangerous Goods tab.",
-   "fieldname": "hazardous",
+   "fieldname": "contains_dangerous_goods",
    "fieldtype": "Check",
    "label": "Contains Dangerous Goods"
   },
@@ -209,6 +226,18 @@
    "fieldtype": "Table",
    "label": "Packages",
    "options": "Transport Job Package"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "warehouse_items_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Items"
+  },
+  {
+   "fieldname": "warehouse_items",
+   "fieldtype": "Table",
+   "label": "Warehouse Items",
+   "options": "Shipment Warehouse Item"
   },
   {
    "collapsible": 1,
@@ -358,6 +387,7 @@
   },
   {
    "collapsible": 1,
+   "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
    "label": "Declaration & Emergency Response"
@@ -591,34 +621,39 @@
    "collapsible": 1,
    "fieldname": "recognition_section",
    "fieldtype": "Section Break",
-   "label": "Profitability"
+   "label": "Revenue & Cost Recognition"
   },
   {
    "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date"
@@ -848,6 +883,15 @@
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,

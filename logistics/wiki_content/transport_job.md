@@ -24,8 +24,9 @@ Before creating a Transport Job, it is advised to set up the following:
 3. Add **Legs** with pickup and delivery addresses, dates, times.
 4. Add **Packages** with weights and dimensions.
 5. Assign **Vehicle** and **Driver** if applicable.
-6. Add **Charges**.
-7. **Save** the document.
+6. Set **Contains Dangerous Goods** when applicable (inherited from the [Transport Order](welcome/transport-order) or editable on the job); dependent detail fields apply when this is set.
+7. Add **Charges** – Each charge row has **Estimated Revenue** and **Estimated Cost** (from the order; used for WIP and accrual) and **Actual Revenue** and **Actual Cost** (calculated on the job; used for Sales Invoice and Purchase Invoice when present). Use **Recalculate All Charges** to refresh actual amounts; estimated amounts are not changed.
+8. **Save** the document.
 
 ### 2.1 Creating from Transport Order
 
@@ -68,11 +69,21 @@ Link a Transport Job to a [Transport Consolidation](welcome/transport-consolidat
 
 Carbon emissions are calculated automatically based on distance, weight, and emission factors from Transport Settings.
 
+### 3.7 Charges Tab
+
+Charge rows support **Estimated Revenue/Cost** (from the Transport Order, basis for WIP and accrual) and **Actual Revenue/Cost** (calculated on the job, basis for invoicing when present). **Recalculate All Charges** updates only actual amounts.
+
+### 3.8 Profitability (from GL)
+
+When **Job Costing Number** and **Company** are set, the form displays a Profitability section with revenue, cost, gross profit, WIP, and accrual from the General Ledger. See [Job Management Module](welcome/job-management-module).
+
 ## 4. Related Topics
 
+- [Recent Platform Updates](welcome/recent-platform-updates)
 - [Transport Order](welcome/transport-order)
 - [Transport Leg](welcome/transport-leg)
 - [Run Sheet](welcome/run-sheet)
 - [Proof of Delivery](welcome/proof-of-delivery)
 - [Document Management](welcome/document-management)
 - [Milestone Tracking](welcome/milestone-tracking)
+- [Job Management Module](welcome/job-management-module)

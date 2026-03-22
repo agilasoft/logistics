@@ -327,8 +327,7 @@ def _create_sales_quote(company, customer, shipper, consignee, origin, dest, air
     sq.consignee = consignee
     sq.date = today()
     sq.valid_until = add_days(today(), 30)
-    sq.is_air = 1
-    sq.is_sea = 1
+    sq.main_service = "Air"  # Primary; charges can include both Air and Sea
     sq.origin_port = origin
     sq.destination_port = origin  # Will be overridden per tab
     sq.location_type = "UNLOCO"
@@ -344,12 +343,13 @@ def _create_sales_quote(company, customer, shipper, consignee, origin, dest, air
     if profit_center:
         sq.profit_center = profit_center
 
-    # Air freight line
-    sq.append("air_freight", {
+    # Air charge line
+    sq.append("charges", {
+        "service_type": "Air",
         "item_code": air_item,
         "origin_port": origin,
         "destination_port": dest,
-        "air_direction": "Export",
+        "direction": "Export",
         "calculation_method": "Fixed Amount",
         "estimated_revenue": 1500,
         "cost_calculation_method": "Fixed Amount",
@@ -369,12 +369,13 @@ def _create_sales_quote(company, customer, shipper, consignee, origin, dest, air
     except Exception:
         pass
 
-    # Sea freight line
+    # Sea charge line
     sea_row = {
+        "service_type": "Sea",
         "item_code": sea_item,
         "origin_port": origin,
         "destination_port": dest,
-        "sea_direction": "Export",
+        "direction": "Export",
         "calculation_method": "Fixed Amount",
         "unit_rate": 800,
         "estimated_revenue": 800,
@@ -385,7 +386,7 @@ def _create_sales_quote(company, customer, shipper, consignee, origin, dest, air
     }
     if shipping_line:
         sea_row["shipping_line"] = shipping_line
-    sq.append("sea_freight", sea_row)
+    sq.append("charges", sea_row)
 
     return sq
 
@@ -398,7 +399,7 @@ def _add_air_charges(doc, item_code):
         "item_code": item_code,
         "charge_type": "Freight",
         "charge_category": "Transportation",
-        "charge_basis": "Per shipment",
+        "revenue_calculation_method": "Flat Rate",
         "rate": 1500,
         "currency": "USD",
         "quantity": 1,

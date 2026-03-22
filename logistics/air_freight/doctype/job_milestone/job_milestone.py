@@ -8,6 +8,9 @@ from frappe.model.document import Document
 class JobMilestone(Document):
 	def validate(self):
 		"""Auto-update status based on actual dates"""
+		from logistics.utils.milestone_status_utils import validate_milestone_date_ranges
+
+		validate_milestone_date_ranges(self)
 		# If actual_start is set and status is not already started/completed, set to Started
 		if self.actual_start and self.status.lower() not in ['started', 'completed', 'finished', 'done']:
 			self.status = "Started"

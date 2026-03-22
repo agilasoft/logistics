@@ -8,12 +8,14 @@ from logistics.utils.charges_calculation import (
     calculate_charge_revenue,
     calculate_charge_cost,
 )
+from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
 
 
 class SeaBookingCharges(Document):
     """Sea Booking Charges child table - uses centralized charge calculation."""
 
     def validate(self):
+        validate_charge_item_not_manual_other_service(self, "Sea Booking Charges", "charge_item")
         self._calculate_charges()
 
     def _calculate_charges(self, parent_doc=None):

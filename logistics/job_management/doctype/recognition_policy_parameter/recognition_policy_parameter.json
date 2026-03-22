@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "creation": "2025-03-18 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_match",
+  "priority",
+  "branch",
+  "profit_center",
+  "cost_center",
+  "column_break_match",
+  "direction",
+  "transport_mode",
+  "section_dates",
+  "recognition_date_basis",
+  "section_accounts",
+  "wip_account",
+  "revenue_liability_account",
+  "column_break_acc",
+  "cost_accrual_account",
+  "accrued_cost_liability_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_match",
+   "fieldtype": "Section Break",
+   "label": "Match (blank = any)"
+  },
+  {
+   "default": "0",
+   "description": "Higher wins when specificity ties",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Priority"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "column_break_match",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "\nImport\nExport\nDomestic"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "label": "Mode",
+   "options": "Transport Mode"
+  },
+  {
+   "fieldname": "section_dates",
+   "fieldtype": "Section Break",
+   "label": "Recognition"
+  },
+  {
+   "default": "Job Booking Date",
+   "fieldname": "recognition_date_basis",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "fieldname": "section_accounts",
+   "fieldtype": "Section Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "wip_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "WIP Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "revenue_liability_account",
+   "fieldtype": "Link",
+   "label": "Revenue Liability Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_acc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_accrual_account",
+   "fieldtype": "Link",
+   "label": "Cost Accrual Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "accrued_cost_liability_account",
+   "fieldtype": "Link",
+   "label": "Accrued Cost Liability Account",
+   "options": "Account"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-03-18 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Job Management",
+ "name": "Recognition Policy Parameter",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

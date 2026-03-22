@@ -10,6 +10,8 @@ from __future__ import unicode_literals
 import frappe
 from datetime import datetime, timedelta
 
+from logistics.utils.alert_utils import get_penalty_impending_days as _get_penalty_impending_days
+
 
 def check_sea_shipment_delays():
 	"""
@@ -200,9 +202,9 @@ def check_impending_penalties():
 				if discharge_date:
 					today = getdate(now_datetime())
 					days_since_discharge = (today - discharge_date).days
-					
-					# Alert if approaching free time limit (within 2 days)
-					if days_since_discharge >= (free_time_days - 2) and days_since_discharge < free_time_days:
+					penalty_impending_days = _get_penalty_impending_days()
+					# Alert if approaching free time limit (within penalty_impending_days)
+					if days_since_discharge >= (free_time_days - penalty_impending_days) and days_since_discharge < free_time_days:
 						# Send impending penalty alert
 						doc._send_impending_penalty_alert(days_since_discharge, free_time_days)
 						impending_count += 1

@@ -100,8 +100,8 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 
 ## 5. Permits Tab
 
-- **Permit Requirements** – Declaration Order Permit Requirement child table
-- **Exemptions** – Declaration Order Exemption child table
+- **Permit Requirements** – Child table for permit lines (type, authority, dates, status); aligned with the **Permit Requirement** master where used.
+- **Exemptions** – Child table for declaration-specific exemptions, carried through to [Declaration](welcome/declaration) when the declaration is created.
 - Track permits and exemptions required for the declaration.
 
 ## 6. Milestones Tab
@@ -114,7 +114,7 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 
 - **Charges** – Declaration Order Charges child table
 - **Populate Charges from Sales Quote** – Load charges from linked Sales Quote
-- Supports quantity breaks and weight breaks.
+- Supports quantity breaks and weight breaks (unified calculation engine; revenue and cost calculation methods).
 
 ## 8. Accounts Tab
 

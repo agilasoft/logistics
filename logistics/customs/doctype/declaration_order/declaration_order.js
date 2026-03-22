@@ -1,6 +1,66 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _group_and_collapse_dash_alerts($container) {
+	if (window.logistics_group_and_collapse_dash_alerts) {
+		window.logistics_group_and_collapse_dash_alerts($container);
+		return;
+	}
+	if (!$container || !$container.length) return;
+	const $section = $container.find(".dash-alerts-section");
+	if (!$section.length) return;
+	const $items = $section.find(".dash-alert-item");
+	if (!$items.length) return;
+
+	const groups = { danger: [], warning: [], info: [] };
+	const order = ["danger", "warning", "info"];
+	const labels = {
+		danger: __("There are %s critical alerts"),
+		warning: __("There are %s warnings"),
+		info: __("There are %s information alerts")
+	};
+
+	$items.each(function() {
+		const $el = $(this);
+		const level = $el.hasClass("danger") ? "danger" : $el.hasClass("warning") ? "warning" : "info";
+		groups[level].push($el[0].outerHTML);
+	});
+
+	let groupsHtml = "";
+	order.forEach(function(level) {
+		const items = groups[level];
+		if (!items || items.length === 0) return;
+		const count = items.length;
+		const label = labels[level].replace("%s", count);
+		const groupClass = "dash-alert-group dash-alert-group-" + level + " collapsed";
+		groupsHtml += '<div class="' + groupClass + '">';
+		groupsHtml += '<div class="dash-alert-group-header" data-level="' + level + '">';
+		groupsHtml += '<i class="fa fa-chevron-right dash-alert-group-chevron"></i>';
+		groupsHtml += '<span class="dash-alert-group-title">' + label + '</span>';
+		groupsHtml += '</div>';
+		groupsHtml += '<div class="dash-alert-group-body">' + items.join("") + '</div>';
+		groupsHtml += "</div>";
+	});
+	$section.html(groupsHtml);
+
+	$section.find(".dash-alert-group-header").on("click", function() {
+		const $header = $(this);
+		const $group = $header.closest(".dash-alert-group");
+		const $body = $group.find(".dash-alert-group-body");
+		const $chevron = $header.find(".dash-alert-group-chevron");
+		const collapsed = $group.hasClass("collapsed");
+		if (collapsed) {
+			$body.slideDown(200);
+			$group.removeClass("collapsed");
+			$chevron.removeClass("fa-chevron-right").addClass("fa-chevron-down");
+		} else {
+			$body.slideUp(200);
+			$group.addClass("collapsed");
+			$chevron.removeClass("fa-chevron-down").addClass("fa-chevron-right");
+		}
+	});
+}
+
 function _load_milestone_html(frm) {
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._milestone_html_called) return;
@@ -21,6 +81,15 @@ function _load_milestone_html(frm) {
 function _populate_charges_from_sales_quote(frm) {
 	var sales_quote = frm.doc.sales_quote;
 	if (!sales_quote) return;
+	// Skip when sales_quote is a temporary name (unsaved document)
+	if (String(sales_quote).startsWith('new-')) {
+		frappe.msgprint({
+			title: __("Save Required"),
+			message: __("Please save the Sales Quote first before selecting it here."),
+			indicator: 'orange'
+		});
+		return;
+	}
 	frappe.call({
 		method: "logistics.customs.doctype.declaration_order.declaration_order.populate_charges_from_sales_quote",
 		args: { docname: frm.doc.name, sales_quote: sales_quote },
@@ -59,6 +128,52 @@ function _populate_charges_from_sales_quote(frm) {
 }
 
 frappe.ui.form.on("Declaration Order", {
+	document_list_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	milestone_template: function (frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_milestones_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+					}
+				}
+			});
+		});
+	},
+	setup(frm) {
+		frm.set_query('milestone_template', function() {
+			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
+				.then(function(r) { return r.message || { filters: [] }; });
+		});
+		frm.set_query('sales_quote', function() {
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
+				filters: {
+					service_type: 'Customs',
+					reference_doctype: 'Declaration Order',
+					reference_name: frm.doc.name || ''
+				}
+			};
+		});
+	},
 	refresh(frm) {
 		// Filter Declaration Product Code by importer/exporter for line items
 		frm.set_query("declaration_product_code", "commercial_invoice_line_items", function() {
@@ -75,14 +190,15 @@ frappe.ui.form.on("Declaration Order", {
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call("get_dashboard_html").then((r) => {
+				frm.call('get_dashboard_html').then(function(r) {
 					if (r.message && frm.fields_dict.dashboard_html) {
 						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
 						if (window.logistics_bind_document_alert_cards) {
 							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
 						}
 					}
-				}).catch(() => {}).always(() => {
+				}).always(() => {
 					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
 				});
 			}
@@ -95,8 +211,8 @@ frappe.ui.form.on("Declaration Order", {
 			});
 		}
 
-		// Get Milestones button
-		if (!frm.doc.__islocal && frm.fields_dict.milestones) {
+		// --- Actions menu ---
+		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__('Get Milestones'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
@@ -108,12 +224,8 @@ frappe.ui.form.on("Declaration Order", {
 						}
 					}
 				});
-			}, __('Milestones'));
-		}
-
-		// Populate Documents from Template
-		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__("Populate from Template"), function() {
+			}, __('Actions'));
+			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: "logistics.document_management.api.populate_documents_from_template",
 					args: { doctype: "Declaration Order", docname: frm.doc.name },
@@ -124,7 +236,26 @@ frappe.ui.form.on("Declaration Order", {
 						}
 					}
 				});
-			}, __("Documents"));
+			}, __('Actions'));
+			if (frm.doc.charges && frm.doc.charges.length > 0) {
+				frm.add_custom_button(__('Calculate Charges'), function() {
+					frm.call('recalculate_all_charges').then(function(r) {
+						if (r && r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: 'green' }, 3);
+						}
+					});
+				}, __('Actions'));
+				
+				// Revert Charges - clear all charges
+				frm.add_custom_button(__('Revert Charges'), function() {
+					frappe.confirm(__("Are you sure you want to clear all charges?"), function() {
+						frm.clear_table("charges");
+						frm.refresh_field("charges");
+						frappe.show_alert({ message: __("All charges have been cleared"), indicator: "blue" }, 3);
+					});
+				}, __('Actions'));
+			}
 		}
 
 		// View Sales Quote
@@ -134,34 +265,57 @@ frappe.ui.form.on("Declaration Order", {
 			}, __("View"));
 		}
 		// Create Declaration or View Declaration
-		if (!frm.doc.__islocal && frm.doc.sales_quote) {
-			frappe.db.get_value("Declaration", { declaration_order: frm.doc.name, docstatus: ["<", 2] }, "name", function(r) {
-				if (r && r.name) {
-					frm.add_custom_button(__("View Declaration"), function() {
-						frappe.set_route("Form", "Declaration", r.name);
-					}, __("Create"));
-				} else {
-					frm.add_custom_button(__("Create Declaration"), function() {
-						frappe.call({
-							method: "logistics.customs.doctype.declaration.declaration.create_declaration_from_declaration_order",
-							args: { declaration_order_name: frm.doc.name },
-							callback: function(res) {
-								if (res.exc) return;
-								if (res.message && res.message.success && res.message.declaration) {
-									frappe.msgprint({
-										title: __("Declaration Created"),
-										message: __("Declaration {0} created.", [res.message.declaration]),
-										indicator: "green"
-									});
-									setTimeout(function() {
-										frappe.set_route("Form", "Declaration", res.message.declaration);
-									}, 100);
+		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1 && frm.doc.sales_quote) {
+			setTimeout(function() {
+				frappe.db.get_value("Declaration", { declaration_order: frm.doc.name, docstatus: ["<", 2] }, "name", function(r) {
+					if (r && r.name) {
+						frm.add_custom_button(__("View Declaration"), function() {
+							frappe.set_route("Form", "Declaration", r.name);
+						}, __("Create"));
+					} else {
+						frm.add_custom_button(__("Create Declaration"), function() {
+							frappe.call({
+								method: "logistics.customs.doctype.declaration.declaration.create_declaration_from_declaration_order",
+								args: { declaration_order_name: frm.doc.name },
+								callback: function(res) {
+									if (res.exc) return;
+									if (res.message && res.message.success && res.message.declaration) {
+										frappe.msgprint({
+											title: __("Declaration Created"),
+											message: __("Declaration {0} created.", [res.message.declaration]),
+											indicator: "green"
+										});
+										setTimeout(function() {
+											frappe.set_route("Form", "Declaration", res.message.declaration);
+										}, 100);
+									}
 								}
-							}
-						});
-					}, __("Create"));
-				}
+							});
+						}, __("Create"));
+					}
+				});
+			}, 100);
+		}
+	},
+	before_submit(frm) {
+		// Validate required fields before submission and show clear error messages
+		if (!frm.doc.sales_quote) {
+			frappe.msgprint({
+				title: __("Validation Error"),
+				message: __("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."),
+				indicator: 'red'
 			});
+			return Promise.reject(__("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."));
+		}
+	},
+	after_save(frm) {
+		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and run_doc_method (e.g. get_dashboard_html) use the correct modified timestamp.
+		var new_name = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
+		if (new_name) {
+			frm.docname = new_name;
+			frm.doc = (locals[frm.doctype] && locals[frm.doctype][new_name])
+				? locals[frm.doctype][new_name]
+				: frappe.get_doc(frm.doctype, new_name);
 		}
 	},
 	sales_quote(frm) {
@@ -187,6 +341,7 @@ frappe.ui.form.on("Declaration Order", {
 				}
 			}
 		});
+		// Populate charges from Sales Quote
 		_populate_charges_from_sales_quote(frm);
 	}
 });

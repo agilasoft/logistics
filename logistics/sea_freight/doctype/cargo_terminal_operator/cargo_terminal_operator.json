@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:cto_name",
  "creation": "2025-05-24 18:47:42.479721",
@@ -60,7 +61,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-03 09:29:35.771304",
+ "modified": "2026-03-17 12:45:33.496266",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Cargo Terminal Operator",

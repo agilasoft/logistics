@@ -15,6 +15,7 @@
   "valid_until",
   "site",
   "sales_quote",
+  "billing_company",
   "shipper",
   "consignee",
   "section_break_cvch",
@@ -94,8 +95,16 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"customer\",\"=\",\"eval:doc.customer\"]]",
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "fieldname": "shipper",

@@ -24,7 +24,10 @@
   "issued_by",
   "overdue_days",
   "notes_section",
-  "notes"
+  "notes",
+  "column_break_meta",
+  "source",
+  "created_at"
  ],
  "fields": [
   {
@@ -136,6 +139,24 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Manual",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "Manual\nFetched",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "label": "Created At",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

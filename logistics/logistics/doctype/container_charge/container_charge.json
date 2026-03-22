@@ -7,7 +7,7 @@
  "field_order": [
   "container",
   "charge_type",
-  "charge_basis",
+  "revenue_calculation_method",
   "quantity",
   "unit_rate",
   "currency",
@@ -37,10 +37,10 @@
    "reqd": 1
   },
   {
-   "fieldname": "charge_basis",
+   "fieldname": "revenue_calculation_method",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Charge Basis",
+   "label": "Revenue Calculation Method",
    "options": "Per Day\nFixed\nPer TEU\nOther"
   },
   {

@@ -10,4 +10,8 @@ from frappe.model.document import Document
 class SeaBookingMilestone(Document):
 	"""Child table for milestones on Sea Booking."""
 
-	pass
+	def before_save(self):
+		if not self.get("created_at"):
+			self.created_at = frappe.utils.now()
+		from logistics.utils.milestone_status_utils import update_milestone_status
+		update_milestone_status(self)

@@ -10,13 +10,37 @@ This module provides the core functionality for:
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, today, flt, nowdate
+from frappe.utils import getdate, today, flt, nowdate, cint
 from datetime import datetime
+
+from logistics.job_management.gl_item_dimension import item_row_dict
 
 
 class RecognitionEngine:
     """Core engine for revenue and cost recognition."""
-    
+
+    # Journal Entry Account.reference_type only allows these ERPNext doctypes.
+    # Logistics jobs (Sea Shipment, Air Shipment, etc.) are not valid — leave ref blank.
+    _JE_ACCOUNT_REFERENCE_DOCTYPES = frozenset(
+        (
+            "Sales Invoice",
+            "Purchase Invoice",
+            "Journal Entry",
+            "Sales Order",
+            "Purchase Order",
+            "Expense Claim",
+            "Asset",
+            "Loan",
+            "Payroll Entry",
+            "Employee Advance",
+            "Exchange Rate Revaluation",
+            "Invoice Discounting",
+            "Fees",
+            "Full and Final Statement",
+            "Payment Entry",
+        )
+    )
+
     def __init__(self, job):
         """
         Initialize the Recognition Engine with a job document.
@@ -34,7 +58,17 @@ class RecognitionEngine:
         if not self.settings:
             self.settings = get_recognition_settings(self.job)
         return self.settings
-    
+
+    def _je_account_reference_fields(self):
+        """reference_type on JE rows must be an ERPNext-allowed doctype or empty."""
+        if self.job_type in self._JE_ACCOUNT_REFERENCE_DOCTYPES:
+            return {"reference_type": self.job_type, "reference_name": self.job.name}
+        return {"reference_type": "", "reference_name": ""}
+
+    def _item_dimension_je_row(self, item_code):
+        """Set the site Item accounting dimension on Journal Entry Account rows (if configured)."""
+        return item_row_dict("Journal Entry Account", item_code)
+
     # ==================== WIP Recognition ====================
     
     def recognize_wip(self, recognition_date=None):
@@ -89,8 +123,8 @@ class RecognitionEngine:
     def adjust_wip(self, adjustment_amount, adjustment_date=None):
         """
         Adjust WIP when actual revenue is recognized.
-        
-        Entry: Dr Revenue Liability, Cr WIP
+
+        Entry: Dr WIP Account, Cr Revenue Liability (reverses initial WIP recognition)
         
         Args:
             adjustment_amount: The amount to adjust (close out)
@@ -168,7 +202,12 @@ class RecognitionEngine:
         
         # Check minimum amount
         minimum_accrual = settings.get("minimum_accrual_amount", 0)
-        estimated_costs = self.calculate_estimated_costs()
+        accrual_lines = self._get_accrual_lines_from_charges()
+        estimated_costs = sum(flt(x.get("amount")) for x in accrual_lines)
+        if not accrual_lines or estimated_costs <= 0:
+            estimated_costs = self.calculate_estimated_costs()
+            if estimated_costs > 0:
+                accrual_lines = [{"amount": estimated_costs, "item_code": None}]
         
         if minimum_accrual > 0 and estimated_costs < minimum_accrual:
             frappe.msgprint(_("Estimated costs {0} is below minimum accrual amount {1}").format(
@@ -189,8 +228,8 @@ class RecognitionEngine:
         if self.job.get("accrual_journal_entry"):
             frappe.throw(_("Accruals have already been recognized. Use adjust_accruals() to make adjustments."))
         
-        # Create Journal Entry
-        je_name = self.create_accrual_recognition_je(recognition_date, estimated_costs)
+        # Create Journal Entry (one Dr/Cr pair per charge line when item/amounts are split)
+        je_name = self.create_accrual_recognition_je(recognition_date, accrual_lines)
         
         # Update job
         self.job.accrual_amount = estimated_costs
@@ -263,17 +302,17 @@ class RecognitionEngine:
     
     # ==================== Date Resolution ====================
     
+    def get_recognition_date(self):
+        """Single posting date for WIP and accrual (same recognition date basis)."""
+        settings = self.get_settings()
+        basis = settings.get("recognition_date_basis") or "Job Booking Date"
+        return self._resolve_date(basis)
+
     def get_wip_recognition_date(self):
-        """Get the WIP recognition date based on settings."""
-        settings = self.get_settings()
-        basis = settings.get("wip_recognition_date_basis", "Job Booking Date")
-        return self._resolve_date(basis)
-    
+        return self.get_recognition_date()
+
     def get_accrual_recognition_date(self):
-        """Get the accrual recognition date based on settings."""
-        settings = self.get_settings()
-        basis = settings.get("accrual_recognition_date_basis", "Job Booking Date")
-        return self._resolve_date(basis)
+        return self.get_recognition_date()
     
     def _resolve_date(self, basis):
         """Resolve date based on the specified basis."""
@@ -291,22 +330,29 @@ class RecognitionEngine:
     
     # ==================== Calculations ====================
     
+    def _charge_excluded_from_recognition(self, charge):
+        """Disbursement charges are not included in WIP/accrual recognition."""
+        ct = (getattr(charge, "charge_type", None) or "").strip().lower()
+        return ct == "disbursement"
+
     def calculate_estimated_revenue(self):
         """
         Calculate estimated revenue from charges table.
-        
+        Excludes Disbursement charge lines.
+
         Returns:
             float: Total estimated revenue
         """
         total = 0
         charges_table = self._get_charges_table_name()
-        
+
         if charges_table and hasattr(self.job, charges_table):
             for charge in self.job.get(charges_table, []):
-                if hasattr(charge, 'estimated_revenue') and charge.estimated_revenue:
+                if self._charge_excluded_from_recognition(charge):
+                    continue
+                if hasattr(charge, "estimated_revenue") and charge.estimated_revenue:
                     total += flt(charge.estimated_revenue)
-                elif hasattr(charge, 'amount') and charge.amount:
-                    # Fallback to amount if estimated_revenue not set
+                elif hasattr(charge, "amount") and charge.amount:
                     total += flt(charge.amount)
         
         # Also check job-level estimated_revenue field
@@ -327,10 +373,11 @@ class RecognitionEngine:
         
         if charges_table and hasattr(self.job, charges_table):
             for charge in self.job.get(charges_table, []):
-                if hasattr(charge, 'estimated_cost') and charge.estimated_cost:
+                if self._charge_excluded_from_recognition(charge):
+                    continue
+                if hasattr(charge, "estimated_cost") and charge.estimated_cost:
                     total += flt(charge.estimated_cost)
-                elif hasattr(charge, 'cost') and charge.cost:
-                    # Fallback to cost if estimated_cost not set
+                elif hasattr(charge, "cost") and charge.cost:
                     total += flt(charge.cost)
         
         # Also check job-level estimated_costs field
@@ -338,6 +385,33 @@ class RecognitionEngine:
             total = flt(self.job.estimated_costs)
         
         return total
+
+    def _get_accrual_lines_from_charges(self):
+        """
+        Build accrual JE lines from charge rows (amount + item_code for Item dimension).
+        Falls back to a single line from job-level estimated_costs when charge lines have no cost.
+        """
+        lines = []
+        charges_table = self._get_charges_table_name()
+
+        if charges_table and hasattr(self.job, charges_table):
+            for charge in self.job.get(charges_table, []):
+                if self._charge_excluded_from_recognition(charge):
+                    continue
+                amt = flt(getattr(charge, "estimated_cost", None) or getattr(charge, "cost", None) or 0)
+                if amt <= 0:
+                    continue
+                item_code = (
+                    getattr(charge, "item_code", None)
+                    or getattr(charge, "charge_item", None)
+                    or None
+                )
+                lines.append({"amount": amt, "item_code": item_code})
+
+        if not lines and hasattr(self.job, "estimated_costs") and flt(self.job.estimated_costs) > 0:
+            lines.append({"amount": flt(self.job.estimated_costs), "item_code": None})
+
+        return lines
     
     def _get_charges_table_name(self):
         """Get the name of the charges child table for this job type."""
@@ -355,10 +429,10 @@ class RecognitionEngine:
     
     def create_wip_recognition_je(self, recognition_date, amount):
         """
-        Create WIP recognition Journal Entry.
-        
-        Dr. WIP Account (Asset)
-        Cr. Revenue Liability Account (Liability)
+        WIP recognition Journal Entry.
+
+        Dr. Revenue Liability Account (WIP / deferred revenue liability)
+        Cr. WIP Account (Income, Job Profit WIP)
         """
         settings = self.get_settings()
         
@@ -367,40 +441,45 @@ class RecognitionEngine:
         je.company = self.company
         je.voucher_type = "Journal Entry"
         je.user_remark = f"WIP Recognition for {self.job_type} {self.job.name}"
-        
-        # Debit: WIP Account
-        je.append("accounts", {
-            "account": settings.get("wip_account"),
+        jcn = self.job.get("job_costing_number")
+
+        # Debit: Revenue Liability (WIP liability) Account
+        row = {
+            "account": settings.get("revenue_liability_account"),
             "debit_in_account_currency": amount,
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
-        # Credit: Revenue Liability Account
-        je.append("accounts", {
-            "account": settings.get("revenue_liability_account"),
+            **self._je_account_reference_fields(),
+        }
+        if jcn:
+            row["job_costing_number"] = jcn
+        je.append("accounts", row)
+
+        # Credit: WIP Account
+        row = {
+            "account": settings.get("wip_account"),
             "debit_in_account_currency": 0,
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
+            **self._je_account_reference_fields(),
+        }
+        if jcn:
+            row["job_costing_number"] = jcn
+        je.append("accounts", row)
+
         je.insert()
         je.submit()
-        
+
         return je.name
-    
+
     def create_wip_adjustment_je(self, amount, adjustment_date, is_closure=False):
         """
-        Create WIP adjustment Journal Entry.
-        
-        Dr. Revenue Liability Account (close out)
-        Cr. WIP Account (close out)
+        Create WIP adjustment Journal Entry (reverses WIP recognition).
+
+        Dr. WIP Account
+        Cr. Revenue Liability Account
         """
         settings = self.get_settings()
         remark_type = "Closure" if is_closure else "Adjustment"
@@ -410,76 +489,109 @@ class RecognitionEngine:
         je.company = self.company
         je.voucher_type = "Journal Entry"
         je.user_remark = f"WIP {remark_type} for {self.job_type} {self.job.name}"
-        
-        # Debit: Revenue Liability Account
-        je.append("accounts", {
-            "account": settings.get("revenue_liability_account"),
+        jcn = self.job.get("job_costing_number")
+
+        # Debit: WIP Account
+        row = {
+            "account": settings.get("wip_account"),
             "debit_in_account_currency": amount,
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
-        # Credit: WIP Account
-        je.append("accounts", {
-            "account": settings.get("wip_account"),
+            **self._je_account_reference_fields(),
+        }
+        if jcn:
+            row["job_costing_number"] = jcn
+        je.append("accounts", row)
+
+        # Credit: Revenue Liability Account
+        row = {
+            "account": settings.get("revenue_liability_account"),
             "debit_in_account_currency": 0,
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
+            **self._je_account_reference_fields(),
+        }
+        if jcn:
+            row["job_costing_number"] = jcn
+        je.append("accounts", row)
+
         je.insert()
         je.submit()
-        
+
         return je.name
-    
-    def create_accrual_recognition_je(self, recognition_date, amount):
+
+    def create_accrual_recognition_je(self, recognition_date, lines):
         """
         Create Accrual recognition Journal Entry.
-        
+
         Dr. Cost Accrual Account (Expense)
         Cr. Accrued Cost Liability Account (Liability)
+
+        :param lines: list of dicts ``{"amount": float, "item_code": str|None}`` (Item dimension when configured)
         """
         settings = self.get_settings()
-        
+
+        if isinstance(lines, (int, float)):
+            lines = [{"amount": flt(lines), "item_code": None}]
+        normalized = []
+        for row in lines or []:
+            if isinstance(row, (int, float)):
+                normalized.append({"amount": flt(row), "item_code": None})
+            else:
+                normalized.append(
+                    {
+                        "amount": flt(row.get("amount")),
+                        "item_code": row.get("item_code"),
+                    }
+                )
+        normalized = [x for x in normalized if flt(x.get("amount")) > 0]
+        if not normalized:
+            frappe.throw(_("No accrual amounts to post"))
+
         je = frappe.new_doc("Journal Entry")
         je.posting_date = recognition_date
         je.company = self.company
         je.voucher_type = "Journal Entry"
-        je.user_remark = f"Accrual Recognition for {self.job_type} {self.job.name}"
-        
-        # Debit: Cost Accrual Account
-        je.append("accounts", {
-            "account": settings.get("cost_accrual_account"),
-            "debit_in_account_currency": amount,
-            "credit_in_account_currency": 0,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
-        # Credit: Accrued Cost Liability Account
-        je.append("accounts", {
-            "account": settings.get("accrued_cost_liability_account"),
-            "debit_in_account_currency": 0,
-            "credit_in_account_currency": amount,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
+        je.user_remark = _("Accrual Recognition for {0} {1}").format(self.job_type, self.job.name)
+        jcn = self.job.get("job_costing_number")
+
+        for line in normalized:
+            amt = flt(line["amount"])
+            item_extra = self._item_dimension_je_row(line.get("item_code"))
+
+            row_dr = {
+                "account": settings.get("cost_accrual_account"),
+                "debit_in_account_currency": amt,
+                "credit_in_account_currency": 0,
+                "cost_center": self.job.get("cost_center"),
+                "profit_center": self.job.get("profit_center"),
+                **self._je_account_reference_fields(),
+                **item_extra,
+            }
+            if jcn:
+                row_dr["job_costing_number"] = jcn
+            je.append("accounts", row_dr)
+
+            row_cr = {
+                "account": settings.get("accrued_cost_liability_account"),
+                "debit_in_account_currency": 0,
+                "credit_in_account_currency": amt,
+                "cost_center": self.job.get("cost_center"),
+                "profit_center": self.job.get("profit_center"),
+                **self._je_account_reference_fields(),
+                **item_extra,
+            }
+            if jcn:
+                row_cr["job_costing_number"] = jcn
+            je.append("accounts", row_cr)
+
         je.insert()
         je.submit()
-        
+
         return je.name
-    
+
     def create_accrual_adjustment_je(self, amount, adjustment_date, is_closure=False):
         """
         Create Accrual adjustment Journal Entry.
@@ -495,207 +607,408 @@ class RecognitionEngine:
         je.company = self.company
         je.voucher_type = "Journal Entry"
         je.user_remark = f"Accrual {remark_type} for {self.job_type} {self.job.name}"
-        
+        jcn = self.job.get("job_costing_number")
+
         # Debit: Accrued Cost Liability Account
-        je.append("accounts", {
+        row = {
             "account": settings.get("accrued_cost_liability_account"),
             "debit_in_account_currency": amount,
             "credit_in_account_currency": 0,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
+            **self._je_account_reference_fields(),
+        }
+        if jcn:
+            row["job_costing_number"] = jcn
+        je.append("accounts", row)
+
         # Credit: Cost Accrual Account
-        je.append("accounts", {
+        row = {
             "account": settings.get("cost_accrual_account"),
             "debit_in_account_currency": 0,
             "credit_in_account_currency": amount,
             "cost_center": self.job.get("cost_center"),
             "profit_center": self.job.get("profit_center"),
-            "reference_type": self.job_type,
-            "reference_name": self.job.name
-        })
-        
+            **self._je_account_reference_fields(),
+        }
+        if jcn:
+            row["job_costing_number"] = jcn
+        je.append("accounts", row)
+
         je.insert()
         je.submit()
-        
+
         return je.name
 
 
 # ==================== Settings Resolution ====================
 
+def get_recognition_policy_document(company):
+    """Single Revenue Recognition Policy document per company (enabled preferred)."""
+    if not company:
+        return None
+    name = frappe.db.get_value(
+        "Recognition Policy Settings",
+        {"company": company, "enabled": 1},
+        "name",
+        order_by="modified desc",
+    )
+    if not name:
+        name = frappe.db.get_value(
+            "Recognition Policy Settings",
+            {"company": company},
+            "name",
+            order_by="modified desc",
+        )
+    if name:
+        return frappe.get_doc("Recognition Policy Settings", name)
+    return None
+
+
+def _job_dimensions_for_match(job):
+    """Resolve cost_center, profit_center, branch, direction, transport_mode for matching."""
+    cc = job.get("cost_center")
+    pc = job.get("profit_center")
+    br = job.get("branch")
+    jcn = job.get("job_costing_number")
+    if jcn and frappe.db.exists("Job Costing Number", jcn):
+        j = frappe.db.get_value(
+            "Job Costing Number",
+            jcn,
+            ["cost_center", "profit_center", "branch"],
+            as_dict=True,
+        )
+        if j:
+            cc = cc or j.cost_center
+            pc = pc or j.profit_center
+            br = br or j.branch
+    direction = (job.get("direction") or "").strip() or None
+    mode = job.get("transport_mode") or None
+    return cc, pc, br, direction, mode
+
+
+def _parameter_row_specificity(row):
+    n = 0
+    for f in ("branch", "profit_center", "cost_center", "direction", "transport_mode"):
+        if row.get(f):
+            n += 1
+    return n
+
+
+def _row_matches_dimensions(row, cc, pc, br, direction, mode):
+    if row.get("branch") and row.branch != br:
+        return False
+    if row.get("profit_center") and row.profit_center != pc:
+        return False
+    if row.get("cost_center") and row.cost_center != cc:
+        return False
+    if row.get("direction") and row.direction != direction:
+        return False
+    if row.get("transport_mode") and row.transport_mode != mode:
+        return False
+    return True
+
+
+def _basis_from_row(row):
+    if not row:
+        return "Job Booking Date"
+    b = (
+        row.get("recognition_date_basis")
+        or row.get("wip_recognition_date_basis")
+        or row.get("accrual_recognition_date_basis")
+    )
+    return (b or "Job Booking Date").strip() or "Job Booking Date"
+
+
+def _legacy_parameter_dict(policy_doc):
+    """Build virtual parameter row from pre–child-table header fields."""
+    if not policy_doc.get("wip_account"):
+        return None
+    return frappe._dict(
+        recognition_date_basis=_basis_from_row(policy_doc),
+        wip_account=policy_doc.wip_account,
+        revenue_liability_account=policy_doc.revenue_liability_account,
+        cost_accrual_account=policy_doc.cost_accrual_account,
+        accrued_cost_liability_account=policy_doc.accrued_cost_liability_account,
+        branch=policy_doc.get("branch"),
+        profit_center=policy_doc.get("profit_center"),
+        cost_center=policy_doc.get("cost_center"),
+        direction=None,
+        transport_mode=None,
+        priority=policy_doc.get("priority") or 0,
+    )
+
+
+def match_parameter_row_for_job(policy_doc, job):
+    """
+    Pick the best Recognition Policy Parameter row for this job.
+    More specific rows (more non-blank match fields) win; then higher priority.
+    """
+    rows = list(policy_doc.get("recognition_parameters") or [])
+    if not rows:
+        leg = _legacy_parameter_dict(policy_doc)
+        return leg
+
+    cc, pc, br, direction, mode = _job_dimensions_for_match(job)
+    candidates = []
+    for row in rows:
+        if _row_matches_dimensions(row, cc, pc, br, direction, mode):
+            spec = _parameter_row_specificity(row)
+            pri = row.priority or 0
+            candidates.append((spec, pri, row))
+
+    if not candidates:
+        blank = [r for r in rows if _parameter_row_specificity(r) == 0]
+        if blank:
+            row = max(blank, key=lambda r: (r.priority or 0, -rows.index(r)))
+            return row
+        return rows[0]
+
+    candidates.sort(key=lambda x: (-x[0], -x[1], rows.index(x[2])))
+    return candidates[0][2]
+
+
+def resolve_policy_row_for_job(job):
+    policy = get_recognition_policy_document(job.company)
+    if not policy:
+        return None, None
+    row = match_parameter_row_for_job(policy, job)
+    return policy, row
+
+
+def _row_to_settings_map(row):
+    if not row:
+        return None
+    return {
+        "recognition_date_basis": _basis_from_row(row),
+        "wip_account": row.get("wip_account"),
+        "revenue_liability_account": row.get("revenue_liability_account"),
+        "cost_accrual_account": row.get("cost_accrual_account"),
+        "accrued_cost_liability_account": row.get("accrued_cost_liability_account"),
+    }
+
+
 def get_recognition_settings(job):
     """
-    Get recognition settings for a job, applying hierarchy.
-    
-    Hierarchy (highest to lowest priority):
-    1. Job-level overrides
-    2. Recognition Policy Settings matched by Cost Center + Profit Center + Branch
-    3. Company default (Recognition Policy Settings with blank Cost Center/Profit Center/Branch)
-    
-    Args:
-        job: The job document
-    
-    Returns:
-        dict: Settings with all applicable overrides applied
+    Recognition settings for a job: company policy + best-matching parameter row.
     """
     company = job.company
-    
-    # Initialize result with empty defaults
     result = {
         "enable_wip_recognition": False,
         "enable_accrual_recognition": False,
-        "wip_recognition_date_basis": "Job Booking Date",
-        "accrual_recognition_date_basis": "Job Booking Date",
+        "recognition_date_basis": "Job Booking Date",
         "wip_account": None,
         "revenue_liability_account": None,
         "cost_accrual_account": None,
         "accrued_cost_liability_account": None,
         "minimum_wip_amount": 0,
-        "minimum_accrual_amount": 0
+        "minimum_accrual_amount": 0,
+        "recognition_policy_name": None,
+        "matched_parameter_label": None,
     }
-    
-    # Get settings via Job Costing Number (matched by Cost Center + Profit Center + Branch)
-    policy = None
-    if job.get("job_costing_number"):
-        policy = get_recognition_policy_for_job(job.job_costing_number)
-    
-    if not policy:
-        # Fallback: Try to match by job's own cost_center, profit_center, branch
-        policy = get_recognition_policy_by_dimensions(
-            company,
-            job.get("cost_center"),
-            job.get("profit_center"),
-            job.get("branch")
-        )
-    
-    if not policy:
-        # Fallback: Get company default (settings with blank Cost Center/Profit Center/Branch)
-        default_policies = frappe.get_all("Recognition Policy Settings", 
-            filters={
-                "company": company, 
-                "enabled": 1,
-                "cost_center": ["is", "not set"],
-                "profit_center": ["is", "not set"],
-                "branch": ["is", "not set"]
-            },
-            limit=1
-        )
-        if default_policies:
-            policy = frappe.get_doc("Recognition Policy Settings", default_policies[0].name)
-    
-    if policy:
-        result = {
-            "enable_wip_recognition": policy.enable_wip_recognition,
-            "enable_accrual_recognition": policy.enable_accrual_recognition,
-            "wip_recognition_date_basis": policy.wip_recognition_date_basis,
-            "accrual_recognition_date_basis": policy.accrual_recognition_date_basis,
-            "wip_account": policy.wip_account,
-            "revenue_liability_account": policy.revenue_liability_account,
-            "cost_accrual_account": policy.cost_accrual_account,
-            "accrued_cost_liability_account": policy.accrued_cost_liability_account,
-            "minimum_wip_amount": policy.minimum_wip_amount or 0,
-            "minimum_accrual_amount": policy.minimum_accrual_amount or 0
-        }
-    
-    # Apply job-level overrides (highest priority)
-    if hasattr(job, 'wip_recognition_enabled') and job.wip_recognition_enabled is not None:
-        result["enable_wip_recognition"] = job.wip_recognition_enabled
-    if hasattr(job, 'accrual_recognition_enabled') and job.accrual_recognition_enabled is not None:
-        result["enable_accrual_recognition"] = job.accrual_recognition_enabled
-    if hasattr(job, 'wip_recognition_date_basis') and job.wip_recognition_date_basis:
-        result["wip_recognition_date_basis"] = job.wip_recognition_date_basis
-    if hasattr(job, 'accrual_recognition_date_basis') and job.accrual_recognition_date_basis:
-        result["accrual_recognition_date_basis"] = job.accrual_recognition_date_basis
-    
+
+    policy, row = resolve_policy_row_for_job(job)
+    if policy and policy.enabled:
+        result["enable_wip_recognition"] = bool(policy.enable_wip_recognition)
+        result["enable_accrual_recognition"] = bool(policy.enable_accrual_recognition)
+        result["minimum_wip_amount"] = flt(policy.minimum_wip_amount) or 0
+        result["minimum_accrual_amount"] = flt(policy.minimum_accrual_amount) or 0
+        result["recognition_policy_name"] = policy.name
+        sm = _row_to_settings_map(row)
+        if sm:
+            result.update(sm)
+        parts = []
+        if row:
+            for label, f in (
+                ("Branch", "branch"),
+                ("PC", "profit_center"),
+                ("CC", "cost_center"),
+                ("Dir", "direction"),
+                ("Mode", "transport_mode"),
+            ):
+                v = row.get(f)
+                if v:
+                    parts.append(f"{label}:{v}")
+        result["matched_parameter_label"] = ", ".join(parts) if parts else _("Default parameters")
+
+    if hasattr(job, "wip_recognition_enabled") and job.wip_recognition_enabled is not None:
+        result["enable_wip_recognition"] = bool(job.wip_recognition_enabled)
+    if hasattr(job, "accrual_recognition_enabled") and job.accrual_recognition_enabled is not None:
+        result["enable_accrual_recognition"] = bool(job.accrual_recognition_enabled)
+    if getattr(job, "recognition_date_basis", None):
+        result["recognition_date_basis"] = job.recognition_date_basis
+    elif getattr(job, "wip_recognition_date_basis", None):
+        result["recognition_date_basis"] = job.wip_recognition_date_basis
+    elif getattr(job, "accrual_recognition_date_basis", None):
+        result["recognition_date_basis"] = job.accrual_recognition_date_basis
+
     return result
 
 
 def get_recognition_policy_for_job(job_costing_number):
     """
-    Get the best matching Recognition Policy Settings for a Job Costing Number.
-    Matches by combination of Cost Center, Profit Center, and Branch.
-    
-    Args:
-        job_costing_number: Name of the Job Costing Number document
-    
-    Returns:
-        Document or dict: The matching Recognition Policy Settings, or None
+    Parameter row + accounts for a Job Costing Number (JCN dimensions only;
+    Direction/Mode are not on JCN — matching uses wildcard for those).
     """
+    if not job_costing_number or not frappe.db.exists("Job Costing Number", job_costing_number):
+        return None
     jcn = frappe.get_doc("Job Costing Number", job_costing_number)
-    
-    return get_recognition_policy_by_dimensions(
-        jcn.company,
-        jcn.get("cost_center"),
-        jcn.get("profit_center"),
-        jcn.get("branch")
+    job = frappe._dict(
+        company=jcn.company,
+        cost_center=jcn.get("cost_center"),
+        profit_center=jcn.get("profit_center"),
+        branch=jcn.get("branch"),
+        job_costing_number=job_costing_number,
+        direction=None,
+        transport_mode=None,
+    )
+    policy, row = resolve_policy_row_for_job(job)
+    if not row:
+        return None
+    return frappe._dict(
+        name=policy.name if policy else None,
+        wip_account=row.get("wip_account"),
+        revenue_liability_account=row.get("revenue_liability_account"),
+        cost_accrual_account=row.get("cost_accrual_account"),
+        accrued_cost_liability_account=row.get("accrued_cost_liability_account"),
     )
 
 
 def get_recognition_policy_by_dimensions(company, cost_center=None, profit_center=None, branch=None):
-    """
-    Get the best matching Recognition Policy Settings by dimensions.
-    
-    Args:
-        company: Company name
-        cost_center: Cost Center name (optional)
-        profit_center: Profit Center name (optional)
-        branch: Branch name (optional)
-    
-    Returns:
-        Document: The matching Recognition Policy Settings, or None
-    """
-    # Get all potentially matching policies
-    policies = frappe.get_all("Recognition Policy Settings",
-        filters={"company": company, "enabled": 1},
-        fields=["name", "cost_center", "profit_center", "branch", "priority"],
-        order_by="priority desc"
+    """Backward-compatible: return a dict-like object with account fields from best row."""
+    job = frappe._dict(
+        company=company,
+        cost_center=cost_center,
+        profit_center=profit_center,
+        branch=branch,
+        job_costing_number=None,
+        direction=None,
+        transport_mode=None,
     )
-    
-    best_match = None
-    best_score = -1
-    
-    for policy in policies:
-        score = 0
-        matches = True
-        
-        # Check Cost Center match
-        if policy.cost_center:
-            if policy.cost_center == cost_center:
-                score += 10
-            else:
-                matches = False
-                continue
-        
-        # Check Profit Center match
-        if policy.profit_center:
-            if policy.profit_center == profit_center:
-                score += 10
-            else:
-                matches = False
-                continue
-        
-        # Check Branch match
-        if policy.branch:
-            if policy.branch == branch:
-                score += 10
-            else:
-                matches = False
-                continue
-        
-        # Add priority to score
-        score += (policy.priority or 0)
-        
-        if matches and score > best_score:
-            best_score = score
-            best_match = policy
-    
-    if best_match:
-        return frappe.get_doc("Recognition Policy Settings", best_match.name)
-    
-    return None
+    policy, row = resolve_policy_row_for_job(job)
+    if not policy or not row:
+        return None
+    return frappe._dict(
+        name=policy.name,
+        company=policy.company,
+        enable_wip_recognition=policy.enable_wip_recognition,
+        enable_accrual_recognition=policy.enable_accrual_recognition,
+        wip_account=row.get("wip_account"),
+        revenue_liability_account=row.get("revenue_liability_account"),
+        cost_accrual_account=row.get("cost_accrual_account"),
+        accrued_cost_liability_account=row.get("accrued_cost_liability_account"),
+    )
+
+
+@frappe.whitelist()
+def get_recognition_policy_display(
+    doctype=None,
+    docname=None,
+    company=None,
+    cost_center=None,
+    profit_center=None,
+    branch=None,
+    job_costing_number=None,
+    recognition_date_override=None,
+):
+    """Populate Revenue & Cost Recognition section (policy reference + resolved dates)."""
+    if doctype and docname and frappe.db.exists(doctype, docname):
+        job = frappe.get_doc(doctype, docname)
+    else:
+        job = frappe._dict(
+            doctype="General Job",
+            name="preview",
+            company=company,
+            cost_center=cost_center or None,
+            profit_center=profit_center or None,
+            branch=branch or None,
+            job_costing_number=job_costing_number or None,
+            direction=None,
+            transport_mode=None,
+            creation=nowdate(),
+        )
+    if recognition_date_override:
+        job.recognition_date = recognition_date_override
+
+    policy, row = resolve_policy_row_for_job(job)
+    out = {
+        "wip_recognition_enabled": 0,
+        "accrual_recognition_enabled": 0,
+        "recognition_date_basis": "Job Booking Date",
+        "recognition_policy_reference": "",
+        "recognition_date": None,
+    }
+
+    if not policy:
+        return out
+
+    out["wip_recognition_enabled"] = 1 if policy.enable_wip_recognition else 0
+    out["accrual_recognition_enabled"] = 1 if policy.enable_accrual_recognition else 0
+    if row:
+        out["recognition_date_basis"] = _basis_from_row(row)
+
+    label = get_recognition_settings(job).get("matched_parameter_label") or ""
+    out["recognition_policy_reference"] = f"{policy.name}"
+    if label:
+        out["recognition_policy_reference"] += f" — {label}"
+
+    try:
+        eng = RecognitionEngine(job)
+        rd = eng.get_recognition_date()
+        if rd:
+            out["recognition_date"] = str(getdate(rd))
+    except Exception:
+        pass
+
+    return out
+
+
+def sync_job_recognition_fields_from_policy(doc):
+    """
+    Persist Revenue & Cost Recognition fields from policy (same data as client
+    recognition_policy_fields.js). Keeps DB/list views aligned with policy.
+    """
+    if not doc:
+        return
+    try:
+        company = doc.get("company")
+        if not company:
+            doc.wip_recognition_enabled = 0
+            doc.accrual_recognition_enabled = 0
+            doc.recognition_date_basis = "Job Booking Date"
+            doc.recognition_policy_reference = ""
+            if doc.meta.has_field("recognition_date"):
+                doc.recognition_date = None
+            return
+
+        doctype_, docname_ = None, None
+        if doc.get("name") and frappe.db.exists(doc.doctype, doc.name):
+            doctype_, docname_ = doc.doctype, doc.name
+
+        override = None
+        if doc.get("recognition_date_basis") == "User Specified" and doc.get("recognition_date"):
+            override = doc.recognition_date
+
+        m = get_recognition_policy_display(
+            doctype=doctype_,
+            docname=docname_,
+            company=company,
+            cost_center=doc.get("cost_center") or "",
+            profit_center=doc.get("profit_center") or "",
+            branch=doc.get("branch") or "",
+            job_costing_number=doc.get("job_costing_number") or "",
+            recognition_date_override=override,
+        )
+        doc.wip_recognition_enabled = cint(m.get("wip_recognition_enabled"))
+        doc.accrual_recognition_enabled = cint(m.get("accrual_recognition_enabled"))
+        doc.recognition_date_basis = m.get("recognition_date_basis") or "Job Booking Date"
+        doc.recognition_policy_reference = m.get("recognition_policy_reference") or ""
+        if doc.get("recognition_date_basis") != "User Specified":
+            rd = m.get("recognition_date")
+            if rd:
+                doc.recognition_date = getdate(rd)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "sync_job_recognition_fields_from_policy")
 
 
 # ==================== Date Resolution Helpers ====================
@@ -803,6 +1116,38 @@ def adjust_accruals(doctype, docname, adjustment_amount, adjustment_date=None):
     return engine.adjust_accruals(flt(adjustment_amount), adjustment_date)
 
 
+def _get_nothing_to_recognize_reason(job, engine):
+    """Return a user-facing reason when neither WIP nor accrual was recognized."""
+    settings = engine.get_settings()
+    est_revenue = engine.calculate_estimated_revenue()
+    est_costs = engine.calculate_estimated_costs()
+
+    reasons = []
+    if job.get("wip_journal_entry"):
+        reasons.append(_("WIP already recognized"))
+    elif not settings.get("enable_wip_recognition"):
+        reasons.append(_("WIP recognition is disabled in Recognition Policy Settings"))
+    elif est_revenue <= 0:
+        reasons.append(_("Estimated revenue is zero (add charges with selling amount)"))
+    elif settings.get("minimum_wip_amount") and est_revenue < settings.get("minimum_wip_amount"):
+        reasons.append(_("Estimated revenue {0} is below minimum WIP {1}").format(
+            est_revenue, settings.get("minimum_wip_amount")))
+
+    if job.get("accrual_journal_entry"):
+        reasons.append(_("Accrual already recognized"))
+    elif not settings.get("enable_accrual_recognition"):
+        reasons.append(_("Accrual recognition is disabled in Recognition Policy Settings"))
+    elif est_costs <= 0:
+        reasons.append(_("Estimated costs are zero (add charges with cost)"))
+    elif settings.get("minimum_accrual_amount") and est_costs < settings.get("minimum_accrual_amount"):
+        reasons.append(_("Estimated costs {0} are below minimum accrual {1}").format(
+            est_costs, settings.get("minimum_accrual_amount")))
+
+    if not reasons:
+        return _("Nothing to recognize (already recognized or below minimum)")
+    return " ".join(reasons)
+
+
 @frappe.whitelist()
 def recognize(doctype, docname, recognition_date=None):
     """
@@ -818,9 +1163,7 @@ def recognize(doctype, docname, recognition_date=None):
         dict: Names of created Journal Entries and status
     """
     job = frappe.get_doc(doctype, docname)
-    if job.docstatus != 1:
-        frappe.throw(_("Document must be submitted to recognize WIP and accruals."))
-    
+    # Allow recognition on both draft (0) and submitted (1) documents
     engine = RecognitionEngine(job)
     result = {"wip_journal_entry": None, "accrual_journal_entry": None}
     
@@ -840,7 +1183,11 @@ def recognize(doctype, docname, recognition_date=None):
         if "already been recognized" not in str(e).lower():
             raise
         # Already recognized - skip
-    
+
+    # When nothing was recognized, return a clear reason for the user
+    if not result["wip_journal_entry"] and not result["accrual_journal_entry"]:
+        result["message"] = _get_nothing_to_recognize_reason(job, engine)
+
     return result
 
 

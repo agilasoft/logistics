@@ -10,7 +10,7 @@
   "description",
   "column_break_dwsh",
   "aircraft_compatibility",
-  "table_eeps",
+  "aircraft_compatibility_details",
   "dimensions_tab",
   "section_break_kgxc",
   "length",
@@ -97,10 +97,10 @@
    "label": "Aircraft Compatibility"
   },
   {
-   "fieldname": "table_eeps",
+   "fieldname": "aircraft_compatibility_details",
    "fieldtype": "Table",
-   "label": "null",
-   "options": "Air Booking Charges"
+   "label": "Compatible Aircraft",
+   "options": "ULD Type Aircraft Compatibility"
   },
   {
    "fieldname": "dimensions_tab",

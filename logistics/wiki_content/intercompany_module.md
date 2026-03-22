@@ -16,5 +16,7 @@ To access: **Home > Intercompany**
 
 ## 2. Related Topics
 
+- [Internal and Intercompany Billing](welcome/internal-and-intercompany-billing) – how logistics jobs bill each other (JV vs SI/PI)
+- [Recent Platform Updates](welcome/recent-platform-updates)
 - [Logistics Settings](welcome/logistics-settings)
 - [Getting Started](welcome/getting-started)

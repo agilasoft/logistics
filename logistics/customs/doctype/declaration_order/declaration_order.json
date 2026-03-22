@@ -8,19 +8,20 @@
  "field_order": [
   "dashboard_tab",
   "dashboard_html",
+  "details",
   "section_break_main",
   "naming_series",
   "order_date",
-  "sales_quote",
   "customer",
   "column_break_1",
   "customs_authority",
   "currency",
   "exchange_rate",
-  "status",
   "column_break_pemj",
   "customs_broker",
+  "freight_agent",
   "notify_party",
+  "status",
   "section_break_shipment_type",
   "exporter_shipper",
   "importer_consignee",
@@ -47,32 +48,24 @@
   "incoterm",
   "payment_terms",
   "trade_agreement",
+  "special_instructions",
   "column_break_trade",
   "country_of_origin",
   "country_of_destination",
   "priority_level",
-  "section_break_additional",
   "marks_and_numbers",
-  "special_instructions",
-  "column_break_additional",
   "external_reference",
-  "section_break_sla",
-  "service_level",
-  "sla_section",
-  "sla_target_date",
-  "sla_status",
-  "sla_target_source",
-  "column_break_sla",
-  "sla_notes",
   "commercial_invoice_tab",
   "section_break_commercial_invoice_headers",
+  "column_break_otwm",
   "invoice_no",
-  "supplier",
-  "supplier_name",
+  "exporter",
+  "exporter_name",
   "inv_date",
   "payment_date",
   "column_break_quah",
   "inv_importer",
+  "importer_name",
   "agreed_place",
   "incoterm_place",
   "inv_incoterm",
@@ -102,7 +95,6 @@
   "column_break_inv_bank",
   "exporters_bank_account_no",
   "exporters_bank_name",
-  "exporters_bank_name_copy",
   "exporters_bank_swift_code",
   "column_break_inv_lc",
   "letter_of_credit_number",
@@ -112,12 +104,13 @@
   "payment_number",
   "payment_amount",
   "payment_ex_rate",
-  "section_break_line_items",
-  "commercial_invoice_line_items",
   "section_break_invoice_charges",
   "commercial_invoice_charges",
+  "section_break_line_items",
+  "commercial_invoice_line_items",
   "documents_tab",
   "documents_section",
+  "documents_html",
   "document_list_template",
   "documents",
   "permits_tab",
@@ -141,11 +134,26 @@
   "column_break_accounts",
   "job_costing_number",
   "project",
+  "quote_reference",
+  "sales_quote",
+  "billing_company",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
   "more_info_tab",
   "notes_section",
   "internal_notes",
   "column_break_parties",
-  "external_notes"
+  "external_notes",
+  "amended_from",
+  "section_break_sla",
+  "service_level",
+  "column_break_xsrb",
+  "sla_target_date",
+  "sla_status",
+  "sla_target_source",
+  "column_break_sla",
+  "sla_notes"
  ],
  "fields": [
   {
@@ -160,7 +168,6 @@
    "label": "Dashboard"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_shipment_type",
    "fieldtype": "Section Break",
    "label": "Shipment Details"
@@ -187,8 +194,38 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_customs\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
   },
   {
    "fieldname": "customer",
@@ -228,14 +265,15 @@
   },
   {
    "default": "Draft",
+   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled",
-   "reqd": 1,
-   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released"
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "exporter_shipper",
@@ -256,8 +294,8 @@
   {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
-   "label": "Customs Broker/Agent",
-   "options": "Supplier"
+   "label": "Customs Broker",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
@@ -266,6 +304,7 @@
    "options": "Customer"
   },
   {
+   "depends_on": "eval:doc.transport_mode == 'Air'",
    "description": "Trace customs order to air freight",
    "fieldname": "air_shipment",
    "fieldtype": "Link",
@@ -273,6 +312,7 @@
    "options": "Air Shipment"
   },
   {
+   "depends_on": "eval:doc.transport_mode == 'Sea'",
    "description": "Trace customs order to sea freight",
    "fieldname": "sea_shipment",
    "fieldtype": "Link",
@@ -287,7 +327,6 @@
    "options": "Transport Order"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_transport",
    "fieldtype": "Section Break",
    "label": "Transport Information"
@@ -348,7 +387,6 @@
    "label": "Container Numbers"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_trade",
    "fieldtype": "Section Break",
    "label": "Trade Information"
@@ -366,7 +404,6 @@
    "options": "Payment Terms Template"
   },
   {
-   "description": "e.g., FTA, GSP, etc.",
    "fieldname": "trade_agreement",
    "fieldtype": "Data",
    "label": "Trade Agreement/Preference"
@@ -394,12 +431,6 @@
    "options": "Normal\nExpress\nUrgent"
   },
   {
-   "collapsible": 1,
-   "fieldname": "section_break_additional",
-   "fieldtype": "Section Break",
-   "label": "Additional Information"
-  },
-  {
    "fieldname": "marks_and_numbers",
    "fieldtype": "Long Text",
    "label": "Marks and Numbers"
@@ -408,10 +439,6 @@
    "fieldname": "special_instructions",
    "fieldtype": "Long Text",
    "label": "Special Instructions"
-  },
-  {
-   "fieldname": "column_break_additional",
-   "fieldtype": "Column Break"
   },
   {
    "description": "Reference from external systems or customs authority",
@@ -430,11 +457,6 @@
    "fieldtype": "Link",
    "label": "Service Level",
    "options": "Logistics Service Level"
-  },
-  {
-   "fieldname": "sla_section",
-   "fieldtype": "Section Break",
-   "label": "SLA Monitoring"
   },
   {
    "fieldname": "sla_target_date",
@@ -476,17 +498,6 @@
    "fieldname": "invoice_no",
    "fieldtype": "Data",
    "label": "Invoice No."
-  },
-  {
-   "fieldname": "supplier",
-   "fieldtype": "Link",
-   "label": "Supplier",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "supplier_name",
-   "fieldtype": "Data",
-   "label": "Supplier Name"
   },
   {
    "fieldname": "agreed_place",
@@ -663,11 +674,6 @@
    "options": "UOM"
   },
   {
-   "fieldname": "lc_ex_rate",
-   "fieldtype": "Float",
-   "label": "LC Ex Rate"
-  },
-  {
    "fieldname": "packages",
    "fieldtype": "Float",
    "label": "Packages"
@@ -679,6 +685,7 @@
    "options": "UOM"
   },
   {
+   "collapsible": 1,
    "fieldname": "section_break_line_items",
    "fieldtype": "Section Break",
    "label": "Line Items"
@@ -711,6 +718,12 @@
    "label": "Document Checklist"
   },
   {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
    "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
@@ -729,7 +742,6 @@
    "label": "Milestones"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_milestones",
    "fieldtype": "Section Break",
    "label": "Milestones"
@@ -835,6 +847,7 @@
    "fieldname": "job_costing_number",
    "fieldtype": "Link",
    "label": "Job Costing Number",
+   "no_copy": 1,
    "options": "Job Costing Number"
   },
   {
@@ -882,11 +895,6 @@
    "label": "Settlement Details"
   },
   {
-   "fieldname": "exporters_bank_name_copy",
-   "fieldtype": "Data",
-   "label": "Exporters Bank Name Copy"
-  },
-  {
    "fieldname": "column_break_quah",
    "fieldtype": "Column Break"
   },
@@ -917,11 +925,66 @@
    "fieldname": "external_notes",
    "fieldtype": "Text Editor",
    "label": "External Notes"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Declaration Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_xsrb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_otwm",
+   "fieldtype": "Column Break",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exporter",
+   "fieldtype": "Link",
+   "label": "Exporter",
+   "options": "Shipper"
+  },
+  {
+   "fetch_from": "exporter.shipper_name",
+   "fieldname": "exporter_name",
+   "fieldtype": "Data",
+   "label": "Exporter Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "inv_importer.consignee_name",
+   "fieldname": "importer_name",
+   "fieldtype": "Data",
+   "label": "Importer Name"
+  },
+  {
+   "fieldname": "quote_reference",
+   "fieldtype": "Section Break",
+   "label": "Quote Reference"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2026-03-03 22:16:15.724627",
+ "modified": "2026-03-19 18:52:11.586136",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",
@@ -938,6 +1001,7 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],

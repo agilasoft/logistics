@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "COS.#########",
  "creation": "2025-10-27 15:39:02.126894",
  "default_view": "List",
  "doctype": "DocType",
@@ -15,17 +16,9 @@
   "valid_from",
   "valid_to",
   "currency",
-  "service_tabs",
-  "air_freight_tab",
-  "air_freight_rates",
-  "sea_freight_tab",
-  "sea_freight_rates",
-  "transport_tab",
-  "transport_rates",
-  "warehouse_tab",
-  "warehouse_rates",
-  "customs_tab",
-  "customs_rates",
+  "charges_tab",
+  "charges_section",
+  "charges",
   "summary_tab",
   "total_rates",
   "notes",
@@ -67,64 +60,20 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "service_tabs",
+   "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
-   "label": "Service Rates"
+   "label": "Charges"
   },
   {
-   "fieldname": "air_freight_tab",
-   "fieldtype": "Tab Break",
-   "label": "Air Freight"
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Cost Rates"
   },
   {
-   "fieldname": "air_freight_rates",
+   "fieldname": "charges",
    "fieldtype": "Table",
-   "label": "Air Freight Rates",
-   "options": "Air Freight Rate"
-  },
-  {
-   "fieldname": "sea_freight_tab",
-   "fieldtype": "Tab Break",
-   "label": "Sea Freight"
-  },
-  {
-   "fieldname": "sea_freight_rates",
-   "fieldtype": "Table",
-   "label": "Sea Freight Rates",
-   "options": "Sea Freight Rate"
-  },
-  {
-   "fieldname": "transport_tab",
-   "fieldtype": "Tab Break",
-   "label": "Transport"
-  },
-  {
-   "fieldname": "transport_rates",
-   "fieldtype": "Table",
-   "label": "Transport Rates",
-   "options": "Transport Rate"
-  },
-  {
-   "fieldname": "warehouse_tab",
-   "fieldtype": "Tab Break",
-   "label": "Warehouse"
-  },
-  {
-   "fieldname": "warehouse_rates",
-   "fieldtype": "Table",
-   "label": "Warehouse Rates",
-   "options": "Warehouse Rate"
-  },
-  {
-   "fieldname": "customs_tab",
-   "fieldtype": "Tab Break",
-   "label": "Customs"
-  },
-  {
-   "fieldname": "customs_rates",
-   "fieldtype": "Table",
-   "label": "Customs Rates",
-   "options": "Customs Rate"
+   "label": "Charges",
+   "options": "Cost Sheet Charge"
   },
   {
    "fieldname": "summary_tab",
@@ -146,7 +95,7 @@
    "fieldname": "provider_type",
    "fieldtype": "Link",
    "label": "Provider Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipping Line\",\"Airline\",\"Freight Agent\"]]]",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipping Line\",\"Airline\",\"Freight Agent\",\"Transport Company\",\"Broker\"]]]",
    "options": "DocType",
    "reqd": 1
   },
@@ -171,11 +120,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-27 15:45:06.171286",
+ "modified": "2026-03-16 20:00:23.488910",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Cost Sheet",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

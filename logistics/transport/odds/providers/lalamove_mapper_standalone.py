@@ -92,7 +92,7 @@ class LalamoveMapperStandalone(ODDSMapper):
         
         # Add special requests
         special_requests = []
-        if doc.get("hazardous"):
+        if doc.get("contains_dangerous_goods"):
             special_requests.append("HAZMAT")
         if doc.get("reefer"):
             special_requests.append("REEFER")
@@ -146,7 +146,7 @@ class LalamoveMapperStandalone(ODDSMapper):
         }
         
         special_requests = []
-        if doc.get("hazardous"):
+        if doc.get("contains_dangerous_goods"):
             special_requests.append("HAZMAT")
         if doc.get("refrigeration"):
             special_requests.append("REEFER")

@@ -138,13 +138,14 @@ def _test_sales_quote_to_air_shipment(company, customer, shipper, consignee):
             "consignee": consignee,
             "origin_port": "USLAX",
             "destination_port": "USJFK",
-            "is_air": 1,
+            "main_service": "Air",
             "quotation_type": "One-off",
         })
-        sq.append("air_freight", {
+        sq.append("charges", {
+            "service_type": "Air",
             "origin_port": "USLAX",
             "destination_port": "USJFK",
-            "air_direction": "Export",
+            "direction": "Export",
         })
         sq.insert()
         frappe.db.commit()

@@ -4,6 +4,7 @@
  "autoname": "naming_series:",
  "creation": "2025-10-30 10:32:11.593633",
  "doctype": "DocType",
+ "document_type": "Setup",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
@@ -14,7 +15,6 @@
   "amended_from",
   "naming_series",
   "declaration_date",
-  "sales_quote",
   "customer",
   "column_break_1",
   "declaration_order",
@@ -24,7 +24,9 @@
   "status",
   "column_break_pemj",
   "customs_broker",
+  "freight_agent",
   "notify_party",
+  "notify_party_address",
   "section_break_customs",
   "declaration_number",
   "column_break_asec",
@@ -67,18 +69,19 @@
   "commercial_invoice_tab",
   "section_break_commercial_invoice_headers",
   "invoice_no",
-  "supplier",
-  "supplier_name",
+  "exporter",
+  "exporter_name",
   "inv_date",
   "payment_date",
   "column_break_quah",
   "inv_importer",
+  "importer_name",
   "agreed_place",
   "incoterm_place",
   "inv_incoterm",
   "column_break_zsjh",
-  "inv_total_amount",
   "inv_currency",
+  "inv_total_amount",
   "inv_exchange_rate",
   "balance",
   "invoice_details_section",
@@ -105,7 +108,6 @@
   "column_break_inv_bank",
   "exporters_bank_account_no",
   "exporters_bank_name",
-  "exporters_bank_name_copy",
   "exporters_bank_swift_code",
   "column_break_inv_lc",
   "letter_of_credit_number",
@@ -113,10 +115,8 @@
   "lc_ex_rate",
   "column_break_lirr",
   "payment_number",
-  "payment_amount",
   "payment_ex_rate",
-  "section_break_line_items",
-  "commercial_invoice_line_items",
+  "payment_amount",
   "section_break_invoice_charges",
   "commercial_invoice_charges",
   "section_break_processing",
@@ -136,58 +136,39 @@
   "column_break_financial",
   "total_payable",
   "payment_status",
-  "section_break_sla",
-  "service_level",
   "sla_section",
   "sla_target_date",
   "sla_status",
   "sla_target_source",
   "column_break_sla",
   "sla_notes",
+  "section_break_line_items",
+  "commercial_invoice_line_items",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
   "permits_tab",
   "permits_section",
   "permit_requirements",
   "exemptions_section",
   "exemptions",
-  "charges_tab",
-  "charges_section",
-  "charges",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
   "milestone_template",
   "milestones",
-  "documents_tab",
-  "documents_section",
-  "document_list_template",
-  "documents",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_accounts",
-  "job_costing_number",
-  "project",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
+  "charges_tab",
+  "charges_section",
+  "charges",
+  "profitability_section_break",
+  "profitability_section_html",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
@@ -203,17 +184,47 @@
   "accrual_journal_entry",
   "accrual_adjustment_journal_entry",
   "accrual_closed",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "job_costing_number",
+  "project",
+  "section_break_puec",
+  "sales_quote",
+  "billing_company",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "invoice_monitoring_section",
+  "sales_invoice",
+  "purchase_invoice",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "column_break_invoice_lifecycle",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
   "more_info_tab",
   "notes_section",
   "internal_notes",
-  "column_break_parties",
+  "column_break_kasq",
   "external_notes",
   "sustainability_section",
   "estimated_paper_usage",
   "estimated_carbon_footprint",
   "column_break_sustainability",
   "sustainability_notes",
-  "connections_tab"
+  "connections_tab",
+  "section_break_sla",
+  "service_level"
  ],
  "fields": [
   {
@@ -274,8 +285,37 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"is_customs\",\"=\",1]]",
    "options": "Sales Quote"
+  },
+  {
+   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
+   "fetch_from": "sales_quote.company",
+   "fieldname": "billing_company",
+   "fieldtype": "Link",
+   "label": "Billing Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
   },
   {
    "fieldname": "declaration_order",
@@ -293,14 +333,15 @@
   },
   {
    "default": "Draft",
+   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled",
-   "reqd": 1,
-   "description": "Draft=preparing, Submitted=to customs, Under Review=customs reviewing, Cleared=approved, Released=cargo released"
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "section_break_customs",
@@ -322,6 +363,7 @@
    "fieldname": "declaration_value",
    "fieldtype": "Currency",
    "label": "Total Declaration Value",
+   "options": "currency",
    "read_only": 1
   },
   {
@@ -363,20 +405,21 @@
    "options": "Consignee"
   },
   {
-   "fieldname": "column_break_parties",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
-   "label": "Customs Broker/Agent",
-   "options": "Supplier"
+   "label": "Customs Broker",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
    "fieldtype": "Link",
    "label": "Notify Party",
    "options": "Customer"
+  },
+  {
+   "fieldname": "notify_party_address",
+   "fieldtype": "Small Text",
+   "label": "Notify Party Address"
   },
   {
    "collapsible": 1,
@@ -642,10 +685,6 @@
    "label": "Internal Notes"
   },
   {
-   "fieldname": "column_break_parties",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "external_notes",
    "fieldtype": "Text Editor",
    "label": "External Notes"
@@ -665,17 +704,6 @@
    "label": "Invoice No."
   },
   {
-   "fieldname": "supplier",
-   "fieldtype": "Link",
-   "label": "Supplier",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "supplier_name",
-   "fieldtype": "Data",
-   "label": "Supplier Name"
-  },
-  {
    "fieldname": "agreed_place",
    "fieldtype": "Data",
    "label": "Agreed Place"
@@ -683,12 +711,13 @@
   {
    "fieldname": "inv_total_amount",
    "fieldtype": "Currency",
-   "label": "Invoice Total"
+   "label": "Invoice Total",
+   "options": "inv_currency"
   },
   {
    "fieldname": "inv_currency",
    "fieldtype": "Link",
-   "label": "Curr.",
+   "label": "Currency",
    "options": "Currency"
   },
   {
@@ -833,11 +862,6 @@
    "label": "Exporters Bank SWIFT Code"
   },
   {
-   "fieldname": "exporters_bank_name_copy",
-   "fieldtype": "Data",
-   "label": "Exporters Bank Name Copy"
-  },
-  {
    "fieldname": "column_break_inv_lc",
    "fieldtype": "Column Break"
   },
@@ -868,7 +892,8 @@
   {
    "fieldname": "payment_amount",
    "fieldtype": "Currency",
-   "label": "Payment Amount"
+   "label": "Payment Amount",
+   "options": "inv_currency"
   },
   {
    "fieldname": "payment_ex_rate",
@@ -898,11 +923,6 @@
    "options": "UOM"
   },
   {
-   "fieldname": "lc_ex_rate",
-   "fieldtype": "Float",
-   "label": "LC Ex Rate"
-  },
-  {
    "fieldname": "packages",
    "fieldtype": "Float",
    "label": "Packages"
@@ -914,6 +934,7 @@
    "options": "UOM"
   },
   {
+   "collapsible": 1,
    "fieldname": "section_break_line_items",
    "fieldtype": "Section Break",
    "label": "Line Items"
@@ -1100,28 +1121,33 @@
    "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date"
@@ -1221,6 +1247,12 @@
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
   },
   {
    "description": "Override default template. Leave empty to use product default.",
@@ -1383,6 +1415,51 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "exporter",
+   "fieldtype": "Link",
+   "label": "Exporter",
+   "options": "Shipper"
+  },
+  {
+   "fetch_from": "exporter.shipper_name",
+   "fieldname": "exporter_name",
+   "fieldtype": "Data",
+   "label": "Exporter Name"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability (from GL)"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fetch_from": "inv_importer.consignee_name",
+   "fieldname": "importer_name",
+   "fieldtype": "Data",
+   "label": "Importer Name"
+  },
+  {
+   "fieldname": "column_break_kasq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_puec",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
   }
  ],
  "grid_page_length": 50,
@@ -1400,7 +1477,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-03-03 23:10:35.145602",
+ "modified": "2026-03-20 23:06:04.483551",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",
@@ -1423,6 +1500,8 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
+ "search_fields": "customer,customs_authority",
+ "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

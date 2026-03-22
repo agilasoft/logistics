@@ -20,6 +20,8 @@ PAGE_MAP = {
     "document_list_template": "Document-List-Template",
     "logistics_document_type": "Logistics-Document-Type",
     "customer_portal": "Customer-Portal",
+    "recent_platform_updates": "Recent-Platform-Updates",
+    "cargonext_v1_astraea_press_release": "Cargonext-V1-Astraea-Press-Release",
     # Settings
     "logistics_settings": "Logistics-Settings",
     "sea_freight_settings": "Sea-Freight-Settings",
@@ -52,6 +54,7 @@ PAGE_MAP = {
     "transport_consolidation": "Transport-Consolidation",
     "transport_leg": "Transport-Leg",
     "transport_plan": "Transport-Plan",
+    "transport_order_intermodule_field_copy": "Transport-Order-Intermodule-Field-Copy",
     "run_sheet": "Run-Sheet",
     "proof_of_delivery": "Proof-of-Delivery",
     "transport_template": "Transport-Template",
@@ -76,6 +79,7 @@ PAGE_MAP = {
     "periodic_billing": "Periodic-Billing",
     # Pricing Center
     "sales_quote": "Sales-Quote",
+    "sales_quote_separate_billings_and_internal_job": "Sales-Quote-Separate-Billings-And-Internal-Job",
     "change_request": "Change-Request",
     "sales_quote_calculation_method": "Sales-Quote-Calculation-Method",
     "charges_tariff_revenue_cost_pattern": "Charges-Tariff-Revenue-Cost-Pattern",
@@ -84,10 +88,14 @@ PAGE_MAP = {
     "container_type": "Container-Type",
     # Job Management
     "job_management_module": "Job-Management-Module",
+    "revenue_recognition_policy_accounts_and_dates": "Revenue-Recognition-Policy-Accounts-And-Dates",
+    "proforma_gl_entries": "Proforma-Gl-Entries",
+    "wip_accrual_reversal_on_invoicing_design": "Wip-Accrual-Reversal-On-Invoicing-Design",
     # Sustainability
     "sustainability_module": "Sustainability-Module",
     # Intercompany
     "intercompany_module": "Intercompany-Module",
+    "internal_and_intercompany_billing": "Internal-And-Intercompany-Billing",
     # Special Projects
     "special_projects_module": "Special-Projects-Module",
     "uld_type": "ULD-Type",
@@ -136,6 +144,8 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Getting Started
 
 - [Getting Started](Getting-Started) – Initial setup and configuration
+- [Recent Platform Updates](Recent-Platform-Updates) – release-line behaviour and upgrade notes
+- [CargoNext v1 — Astraea Press Release](Cargonext-V1-Astraea-Press-Release)
 - [Document Management](Document-Management)
 - [Milestone Tracking](Milestone-Tracking)
 - [Customer Portal](Customer-Portal)
@@ -170,6 +180,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Transport Leg](Transport-Leg) | [Transport Plan](Transport-Plan) | [Run Sheet](Run-Sheet)
 - [Proof of Delivery](Proof-of-Delivery)
 - [Transport Template](Transport-Template) | [Load Type](Load-Type)
+- [Transport Order — Inter-module Field Copy](Transport-Order-Intermodule-Field-Copy)
 
 ## Customs
 
@@ -188,12 +199,16 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Pricing Center
 
 - [Sales Quote](Sales-Quote)
+- [Sales Quote — Separate Billings and Internal Job](Sales-Quote-Separate-Billings-And-Internal-Job)
 - [Change Request](Change-Request)
 - [Sales Quote – Calculation Method](Sales-Quote-Calculation-Method)
 
 ## Job Management
 
 - [Job Management Module](Job-Management-Module) – Job costing, recognition policies, cost centers
+- [Revenue Recognition Policy — Accounts, Dates, and Charges](Revenue-Recognition-Policy-Accounts-And-Dates)
+- [Proforma GL Entries](Proforma-Gl-Entries)
+- [WIP and Accrual Reversal on Invoicing](Wip-Accrual-Reversal-On-Invoicing-Design)
 
 ## Sustainability
 
@@ -202,6 +217,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Intercompany
 
 - [Intercompany Module](Intercompany-Module) – Intercompany invoicing and reconciliation
+- [Internal and Intercompany Billing](Internal-And-Intercompany-Billing) – logistics module billing rules
 
 ## Special Projects
 
@@ -240,6 +256,8 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Getting Started**
 - [Getting Started](Getting-Started)
+- [Recent Platform Updates](Recent-Platform-Updates)
+- [CargoNext v1 — Astraea Press Release](Cargonext-V1-Astraea-Press-Release)
 - [Document Management](Document-Management)
 - [Milestone Tracking](Milestone-Tracking)
 - [Customer Portal](Customer-Portal)
@@ -282,6 +300,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Proof of Delivery](Proof-of-Delivery)
 - [Transport Template](Transport-Template)
 - [Load Type](Load-Type)
+- [Transport Order — Inter-module Field Copy](Transport-Order-Intermodule-Field-Copy)
 
 **Customs**
 - [Customs Module](Customs-Module)
@@ -306,17 +325,22 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Pricing Center**
 - [Sales Quote](Sales-Quote)
+- [Sales Quote — Separate Billings and Internal Job](Sales-Quote-Separate-Billings-And-Internal-Job)
 - [Change Request](Change-Request)
 - [Sales Quote – Calculation Method](Sales-Quote-Calculation-Method)
 
 **Job Management**
 - [Job Management Module](Job-Management-Module)
+- [Revenue Recognition Policy — Accounts, Dates, and Charges](Revenue-Recognition-Policy-Accounts-And-Dates)
+- [Proforma GL Entries](Proforma-Gl-Entries)
+- [WIP and Accrual Reversal on Invoicing](Wip-Accrual-Reversal-On-Invoicing-Design)
 
 **Sustainability**
 - [Sustainability Module](Sustainability-Module)
 
 **Intercompany**
 - [Intercompany Module](Intercompany-Module)
+- [Internal and Intercompany Billing](Internal-And-Intercompany-Billing)
 
 **Special Projects**
 - [Special Projects Module](Special-Projects-Module)

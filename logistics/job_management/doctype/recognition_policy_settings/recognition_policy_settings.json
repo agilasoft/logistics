@@ -1,31 +1,32 @@
 {
  "actions": [],
- "autoname": "format:RPS-{cost_center}-{profit_center}-{branch}",
+ "autoname": "format:RRPS-{#####}",
  "creation": "2024-01-15 10:00:00.000000",
+ "description": "Revenue Recognition Policy — one document per company. Rules are defined in Recognition Parameters (Branch, Profit Center, Direction, Mode, accounts, date basis).",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "company",
+  "column_break_hdr",
+  "enabled",
+  "section_flags",
+  "enable_wip_recognition",
+  "enable_accrual_recognition",
+  "column_break_flags",
+  "minimum_wip_amount",
+  "minimum_accrual_amount",
+  "section_parameters",
+  "recognition_parameters",
+  "section_hidden_legacy",
+  "priority",
   "cost_center",
   "profit_center",
   "branch",
-  "column_break_1",
-  "enabled",
-  "priority",
-  "section_wip",
-  "enable_wip_recognition",
-  "wip_recognition_date_basis",
-  "column_break_wip",
+  "recognition_date_basis",
   "wip_account",
   "revenue_liability_account",
-  "minimum_wip_amount",
-  "section_accrual",
-  "enable_accrual_recognition",
-  "accrual_recognition_date_basis",
-  "column_break_accrual",
   "cost_accrual_account",
-  "accrued_cost_liability_account",
-  "minimum_accrual_amount"
+  "accrued_cost_liability_account"
  ],
  "fields": [
   {
@@ -37,31 +38,7 @@
    "reqd": 1
   },
   {
-   "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Cost Center",
-   "options": "Cost Center",
-   "description": "Leave blank to apply to all cost centers"
-  },
-  {
-   "fieldname": "profit_center",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Profit Center",
-   "options": "Profit Center",
-   "description": "Leave blank to apply to all profit centers"
-  },
-  {
-   "fieldname": "branch",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Branch",
-   "options": "Branch",
-   "description": "Leave blank to apply to all branches"
-  },
-  {
-   "fieldname": "column_break_1",
+   "fieldname": "column_break_hdr",
    "fieldtype": "Column Break"
   },
   {
@@ -71,16 +48,9 @@
    "label": "Enabled"
   },
   {
-   "default": "0",
-   "description": "Higher priority settings override lower priority (used when multiple settings match)",
-   "fieldname": "priority",
-   "fieldtype": "Int",
-   "label": "Priority"
-  },
-  {
-   "fieldname": "section_wip",
+   "fieldname": "section_flags",
    "fieldtype": "Section Break",
-   "label": "WIP Recognition Settings"
+   "label": "Company-wide toggles"
   },
   {
    "default": "1",
@@ -89,86 +59,116 @@
    "label": "Enable WIP Recognition"
   },
   {
-   "default": "Job Booking Date",
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
-  },
-  {
-   "fieldname": "column_break_wip",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Asset account for Work In Progress",
-   "fieldname": "wip_account",
-   "fieldtype": "Link",
-   "label": "WIP Account",
-   "options": "Account"
-  },
-  {
-   "description": "Liability account for deferred/unbilled revenue",
-   "fieldname": "revenue_liability_account",
-   "fieldtype": "Link",
-   "label": "Revenue Liability Account",
-   "options": "Account"
-  },
-  {
-   "description": "WIP recognition will be skipped if estimated revenue is below this amount",
-   "fieldname": "minimum_wip_amount",
-   "fieldtype": "Currency",
-   "label": "Minimum WIP Amount"
-  },
-  {
-   "fieldname": "section_accrual",
-   "fieldtype": "Section Break",
-   "label": "Accrual Recognition Settings"
-  },
-  {
    "default": "1",
    "fieldname": "enable_accrual_recognition",
    "fieldtype": "Check",
    "label": "Enable Accrual Recognition"
   },
   {
-   "default": "Job Booking Date",
-   "fieldname": "accrual_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
-  },
-  {
-   "fieldname": "column_break_accrual",
+   "fieldname": "column_break_flags",
    "fieldtype": "Column Break"
   },
   {
-   "description": "Expense account for accrued costs",
+   "description": "Skip WIP when estimated revenue is below this",
+   "fieldname": "minimum_wip_amount",
+   "fieldtype": "Currency",
+   "label": "Minimum WIP Amount"
+  },
+  {
+   "description": "Skip accrual when estimated cost is below this",
+   "fieldname": "minimum_accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Minimum Accrual Amount"
+  },
+  {
+   "fieldname": "section_parameters",
+   "fieldtype": "Section Break",
+   "label": "Recognition Parameters",
+   "description": "Match jobs by dimensions. More specific rows win. Use one row with all match fields empty as default."
+  },
+  {
+   "fieldname": "recognition_parameters",
+   "fieldtype": "Table",
+   "label": "Parameters",
+   "options": "Recognition Policy Parameter"
+  },
+  {
+   "depends_on": "eval:false",
+   "fieldname": "section_hidden_legacy",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Legacy"
+  },
+  {
+   "default": "0",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Priority"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "recognition_date_basis",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Recognition Date Basis (legacy)",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+  },
+  {
+   "fieldname": "wip_account",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "WIP Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "revenue_liability_account",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Revenue Liability Account",
+   "options": "Account"
+  },
+  {
    "fieldname": "cost_accrual_account",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Cost Accrual Account",
    "options": "Account"
   },
   {
-   "description": "Liability account for accrued costs payable",
    "fieldname": "accrued_cost_liability_account",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Accrued Cost Liability Account",
    "options": "Account"
-  },
-  {
-   "description": "Accrual recognition will be skipped if estimated cost is below this amount",
-   "fieldname": "minimum_accrual_amount",
-   "fieldtype": "Currency",
-   "label": "Minimum Accrual Amount"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-01-15 10:00:00.000000",
+ "modified": "2025-03-18 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Job Management",
  "name": "Recognition Policy Settings",
- "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

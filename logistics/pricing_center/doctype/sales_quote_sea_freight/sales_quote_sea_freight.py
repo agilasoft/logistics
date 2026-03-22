@@ -45,36 +45,40 @@ class SalesQuoteSeaFreight(Document):
             self._validate_cost_calculation_method_fields()
     
     def handle_tariff_data(self):
-        """Handle tariff data if tariff is selected"""
-        if self.tariff and (self.use_tariff_in_revenue or self.use_tariff_in_cost):
-            self._fetch_tariff_data()
-    
-    def _fetch_tariff_data(self):
-        """Fetch tariff data and populate fields"""
+        """Handle tariff data. Uses revenue_tariff for revenue fields, cost_tariff for cost fields (fallback: tariff)."""
+        rev_tariff = getattr(self, "revenue_tariff", None) or getattr(self, "tariff", None)
+        cost_tariff = getattr(self, "cost_tariff", None) or getattr(self, "tariff", None)
+        if not (self.use_tariff_in_revenue or self.use_tariff_in_cost):
+            return
+        if not rev_tariff and not cost_tariff:
+            return
+        self._fetch_tariff_data(rev_tariff, cost_tariff)
+
+    def _fetch_tariff_data(self, rev_tariff=None, cost_tariff=None):
+        """Fetch tariff data and populate fields. Uses revenue_tariff for revenue, cost_tariff for cost."""
         try:
-            if not self.tariff:
-                return
-            
-            # Get tariff document
-            tariff_doc = frappe.get_doc("Tariff", self.tariff)
-            if not tariff_doc:
-                frappe.msgprint(_("Tariff {0} not found").format(self.tariff), alert=True)
-                return
-            
-            # Find matching transport rate in tariff
-            matching_rate = self._find_matching_tariff_rate(tariff_doc)
-            if not matching_rate:
-                frappe.msgprint(_("No matching sea freight rate found in tariff {0}").format(self.tariff), alert=True)
-                return
-            
-            # Populate revenue fields if tariff is used for revenue
-            if self.use_tariff_in_revenue:
-                self._populate_revenue_from_tariff(matching_rate)
-            
-            # Populate cost fields if tariff is used for cost
-            if self.use_tariff_in_cost:
-                self._populate_cost_from_tariff(matching_rate)
-                    
+            if self.use_tariff_in_revenue and rev_tariff:
+                tariff_doc = frappe.get_doc("Tariff", rev_tariff)
+                if not tariff_doc:
+                    frappe.msgprint(_("Tariff {0} not found").format(rev_tariff), alert=True)
+                else:
+                    matching_rate = self._find_matching_tariff_rate(tariff_doc)
+                    if not matching_rate:
+                        frappe.msgprint(_("No matching sea freight rate found in tariff {0}").format(rev_tariff), alert=True)
+                    else:
+                        self._populate_revenue_from_tariff(matching_rate)
+
+            if self.use_tariff_in_cost and cost_tariff:
+                tariff_doc = frappe.get_doc("Tariff", cost_tariff)
+                if not tariff_doc:
+                    frappe.msgprint(_("Tariff {0} not found").format(cost_tariff), alert=True)
+                else:
+                    matching_rate = self._find_matching_tariff_rate(tariff_doc)
+                    if not matching_rate:
+                        frappe.msgprint(_("No matching sea freight rate found in tariff {0}").format(cost_tariff), alert=True)
+                    else:
+                        self._populate_cost_from_tariff(matching_rate)
+
         except Exception as e:
             frappe.log_error(f"Error fetching tariff data: {str(e)}")
             frappe.msgprint(_("Error fetching tariff data: {0}").format(str(e)), alert=True)
@@ -559,7 +563,9 @@ class SalesQuoteSeaFreight(Document):
             'cost_calculation_method': self.cost_calculation_method,
             'use_tariff_in_revenue': self.use_tariff_in_revenue,
             'use_tariff_in_cost': self.use_tariff_in_cost,
-            'tariff': self.tariff
+            'tariff': getattr(self, 'tariff', None),
+            'revenue_tariff': getattr(self, 'revenue_tariff', None),
+            'cost_tariff': getattr(self, 'cost_tariff', None)
         }
 
 

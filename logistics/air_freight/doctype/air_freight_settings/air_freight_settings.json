@@ -37,7 +37,7 @@
   "volume_to_weight_factor",
   "chargeable_weight_calculation",
   "column_break_calculation",
-  "default_charge_basis",
+  "default_calculation_method",
   "default_weight_uom",
   "default_volume_uom",
   "default_chargeable_uom",
@@ -120,15 +120,15 @@
   },
   {
    "fieldname": "default_incoterm",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Default Incoterm",
-   "options": "EXW\nFCA\nCPT\nCIP\nDAP\nDPU\nDDP\nFAS\nFOB\nCFR\nCIF"
+   "options": "Incoterm"
   },
   {
    "fieldname": "default_service_level",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Default Service Level",
-   "options": "Standard\nExpress\nEconomy\nPremium"
+   "options": "Service Level Agreement"
   },
   {
    "fieldname": "location_settings_section",
@@ -180,7 +180,7 @@
    "fieldname": "default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent",
-   "options": "User"
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_business",
@@ -252,9 +252,9 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "default_charge_basis",
+   "fieldname": "default_calculation_method",
    "fieldtype": "Select",
-   "label": "Default Charge Basis",
+   "label": "Default Calculation Method",
    "options": "Per kg\nPer m\u00b3\nPer package\nPer shipment\nFixed amount"
   },
   {
@@ -466,7 +466,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-27 15:30:34.238644",
+ "modified": "2026-03-05 13:44:02.013217",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight Settings",

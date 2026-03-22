@@ -8,6 +8,8 @@ Used by Declaration Order, Declaration, Transport Order, Transport Job, Inbound 
 
 import frappe
 
+from logistics.utils.dg_fields import copy_parent_dg_header, transport_order_package_row_from_shipment_pkg
+
 
 def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 	"""Populate doc fields from linked Air Shipment. Call from before_save when air_shipment is set."""
@@ -38,6 +40,9 @@ def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 		_set_if_empty(doc, "location_to", getattr(shipment, "destination_port", None))
 		_set_if_empty(doc, "booking_date", getattr(shipment, "booking_date", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
+		_set_if_empty(doc, "contains_dangerous_goods", getattr(shipment, "contains_dangerous_goods", None))
+		for fn in ("dg_declaration_complete", "dg_compliance_status", "dg_emergency_contact", "dg_emergency_phone", "dg_emergency_email"):
+			_set_if_empty(doc, fn, getattr(shipment, fn, None))
 	elif doctype == "Transport Job":
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 		_set_if_empty(doc, "booking_date", getattr(shipment, "booking_date", None))
@@ -55,6 +60,10 @@ def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 		_set_if_empty(doc, "shipper", getattr(shipment, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
+		_set_if_empty(doc, "billing_company", getattr(shipment, "billing_company", None))
+
+	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order"):
+		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 
 def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
@@ -84,6 +93,9 @@ def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 		_set_if_empty(doc, "location_to", getattr(shipment, "destination_port", None))
 		_set_if_empty(doc, "booking_date", getattr(shipment, "booking_date", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
+		_set_if_empty(doc, "contains_dangerous_goods", getattr(shipment, "contains_dangerous_goods", None))
+		for fn in ("dg_declaration_complete", "dg_compliance_status", "dg_emergency_contact", "dg_emergency_phone", "dg_emergency_email"):
+			_set_if_empty(doc, fn, getattr(shipment, fn, None))
 	elif doctype == "Transport Job":
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 		_set_if_empty(doc, "booking_date", getattr(shipment, "booking_date", None))
@@ -101,6 +113,10 @@ def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 		_set_if_empty(doc, "shipper", getattr(shipment, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
+		_set_if_empty(doc, "billing_company", getattr(shipment, "billing_company", None))
+
+	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order"):
+		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 
 def propagate_from_transport_job(doc, fieldname="transport_job"):
@@ -123,6 +139,10 @@ def propagate_from_transport_job(doc, fieldname="transport_job"):
 		_set_if_empty(doc, "shipper", getattr(job, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(job, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(job, "customer", None))
+		_set_if_empty(doc, "billing_company", getattr(job, "billing_company", None))
+
+	if doctype == "Declaration":
+		propagate_sales_quote_from_source_if_empty(job, doc)
 
 
 def propagate_from_transport_order(doc, fieldname="transport_order"):
@@ -140,8 +160,14 @@ def propagate_from_transport_order(doc, fieldname="transport_order"):
 		_set_if_empty(doc, "port_of_discharge", getattr(order, "location_to", None))
 		_set_if_empty(doc, "etd", getattr(order, "etd", None))
 		_set_if_empty(doc, "eta", getattr(order, "eta", None))
+		propagate_sales_quote_from_source_if_empty(order, doc)
 	elif doctype == "Release Order":
 		_set_if_empty(doc, "customer", getattr(order, "customer", None))
+	elif doctype == "Transport Job":
+		_set_if_empty(doc, "billing_company", getattr(order, "billing_company", None))
+
+	if doctype == "Declaration Order":
+		propagate_sales_quote_from_source_if_empty(order, doc)
 
 
 def run_propagate_on_link(doc):
@@ -170,6 +196,85 @@ def _set_if_empty(doc, fieldname, value):
 			setattr(doc, fieldname, value)
 		except Exception:
 			pass
+
+
+def set_billing_company_from_sales_quote(doc):
+	"""If doc has sales_quote set, copy billing company from the quote. Call from validate/before_save."""
+	sales_quote = getattr(doc, "sales_quote", None)
+	if not sales_quote or not frappe.db.exists("Sales Quote", sales_quote):
+		return
+	if not hasattr(doc, "billing_company"):
+		return
+	quote_company = frappe.db.get_value("Sales Quote", sales_quote, "company")
+	if quote_company:
+		_set_if_empty(doc, "billing_company", quote_company)
+
+
+def _resolve_sales_quote_from_doc(source_doc):
+	"""Return linked Sales Quote name from sales_quote or from quote (One-off / legacy) if it is a Sales Quote."""
+	sq = getattr(source_doc, "sales_quote", None)
+	if sq and frappe.db.exists("Sales Quote", sq):
+		return sq
+	q = getattr(source_doc, "quote", None)
+	if q and frappe.db.exists("Sales Quote", q):
+		return q
+	return None
+
+
+def copy_sales_quote_fields_to_target(source_doc, target_doc):
+	"""Copy Sales Quote link and billing company from source (shipment/booking/order/job) to a new target doc."""
+	sq = _resolve_sales_quote_from_doc(source_doc)
+	if sq and hasattr(target_doc, "sales_quote"):
+		target_doc.sales_quote = sq
+	if hasattr(target_doc, "billing_company"):
+		bc = getattr(source_doc, "billing_company", None)
+		if bc:
+			try:
+				target_doc.billing_company = bc
+			except Exception:
+				pass
+		set_billing_company_from_sales_quote(target_doc)
+
+
+def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
+	"""When user links air/sea shipment or similar, fill sales_quote and billing if still empty."""
+	sq = _resolve_sales_quote_from_doc(source_doc)
+	if sq and hasattr(target_doc, "sales_quote"):
+		_set_if_empty(target_doc, "sales_quote", sq)
+	if hasattr(target_doc, "billing_company"):
+		_set_if_empty(target_doc, "billing_company", getattr(source_doc, "billing_company", None))
+	set_billing_company_from_sales_quote(target_doc)
+
+
+def set_billing_company_from_declaration_order(doc):
+	"""If Declaration has declaration_order set, copy billing_company from the order. Call from validate."""
+	if doc.doctype != "Declaration":
+		return
+	order_name = getattr(doc, "declaration_order", None)
+	if not order_name or not frappe.db.exists("Declaration Order", order_name):
+		return
+	if not hasattr(doc, "billing_company"):
+		return
+	order_company = frappe.db.get_value("Declaration Order", order_name, "billing_company")
+	if order_company:
+		_set_if_empty(doc, "billing_company", order_company)
+
+
+def set_billing_company_from_linked_freight(doc):
+	"""If Warehouse Job has air_shipment, sea_shipment, warehouse_contract or transport_job, copy billing_company from first linked doc that has it. Call from validate."""
+	if doc.doctype != "Warehouse Job" or not hasattr(doc, "billing_company"):
+		return
+	for link_field in ("air_shipment", "sea_shipment", "warehouse_contract", "transport_job"):
+		link_name = getattr(doc, link_field, None)
+		if not link_name:
+			continue
+		doctype = {"air_shipment": "Air Shipment", "sea_shipment": "Sea Shipment", "warehouse_contract": "Warehouse Contract", "transport_job": "Transport Job"}[link_field]
+		if not frappe.db.exists(doctype, link_name):
+			continue
+		linked_company = frappe.db.get_value(doctype, link_name, "billing_company")
+		if linked_company:
+			_set_if_empty(doc, "billing_company", linked_company)
+			return
 
 
 # -------------------------------------------------------------------
@@ -232,6 +337,8 @@ def create_transport_order_from_air_shipment(air_shipment_name: str, routing_leg
 	order = frappe.new_doc("Transport Order")
 	order.air_shipment = air_shipment_name
 	order.customer = shipment.local_customer
+	order.shipper = getattr(shipment, "shipper", None)
+	order.consignee = getattr(shipment, "consignee", None)
 	order.booking_date = shipment.booking_date or frappe.utils.today()
 	order.scheduled_date = shipment.eta or shipment.etd or shipment.booking_date or frappe.utils.today()
 	order.location_type = "UNLOCO"
@@ -243,6 +350,7 @@ def create_transport_order_from_air_shipment(air_shipment_name: str, routing_leg
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
+	copy_sales_quote_fields_to_target(shipment, order)
 	# Add door-to-door leg (restriction already enforced above)
 	if shipment.shipper and shipment.consignee:
 		leg = {
@@ -258,6 +366,7 @@ def create_transport_order_from_air_shipment(air_shipment_name: str, routing_leg
 		if getattr(shipment, "consignee_address", None):
 			leg["drop_address"] = shipment.consignee_address
 		order.append("legs", leg)
+	copy_parent_dg_header(shipment, order)
 	# Copy packages
 	_copy_shipment_packages_to_transport_order(shipment, order)
 	order.insert(ignore_permissions=True)
@@ -282,6 +391,8 @@ def create_transport_order_from_sea_shipment(sea_shipment_name: str, routing_leg
 	order = frappe.new_doc("Transport Order")
 	order.sea_shipment = sea_shipment_name
 	order.customer = shipment.local_customer
+	order.shipper = getattr(shipment, "shipper", None)
+	order.consignee = getattr(shipment, "consignee", None)
 	order.booking_date = shipment.booking_date or frappe.utils.today()
 	order.scheduled_date = shipment.eta or shipment.etd or shipment.booking_date or frappe.utils.today()
 	order.location_type = "UNLOCO"
@@ -308,6 +419,7 @@ def create_transport_order_from_sea_shipment(sea_shipment_name: str, routing_leg
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
+	copy_sales_quote_fields_to_target(shipment, order)
 	# Add door-to-door leg (restriction already enforced above)
 	if shipment.shipper and shipment.consignee:
 		leg = {
@@ -323,6 +435,7 @@ def create_transport_order_from_sea_shipment(sea_shipment_name: str, routing_leg
 		if getattr(shipment, "consignee_address", None):
 			leg["drop_address"] = shipment.consignee_address
 		order.append("legs", leg)
+	copy_parent_dg_header(shipment, order)
 	_copy_sea_packages_to_transport_order(shipment, order)
 	order.insert(ignore_permissions=True)
 	frappe.db.commit()
@@ -331,15 +444,9 @@ def create_transport_order_from_sea_shipment(sea_shipment_name: str, routing_leg
 
 def _copy_shipment_packages_to_transport_order(shipment, order):
 	"""Copy packages from Air Shipment to Transport Order."""
-	from frappe.utils import flt
 	packages = getattr(shipment, "packages", []) or []
-	to_meta = frappe.get_meta("Transport Order Package")
-	common = ["commodity", "description", "uom", "no_of_packs", "weight", "weight_uom", "volume", "volume_uom", "chargeable_weight", "chargeable_weight_uom", "length", "width", "height", "dimension_uom", "goods_description"]
 	for pkg in packages:
-		row = {}
-		for f in common:
-			if to_meta.has_field(f) and hasattr(pkg, f) and getattr(pkg, f) is not None:
-				row[f] = getattr(pkg, f)
+		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
 		if row:
 			order.append("packages", row)
 
@@ -347,13 +454,8 @@ def _copy_shipment_packages_to_transport_order(shipment, order):
 def _copy_sea_packages_to_transport_order(shipment, order):
 	"""Copy packages from Sea Shipment to Transport Order."""
 	packages = getattr(shipment, "packages", []) or []
-	to_meta = frappe.get_meta("Transport Order Package")
-	common = ["commodity", "description", "uom", "no_of_packs", "weight", "weight_uom", "volume", "volume_uom", "chargeable_weight", "chargeable_weight_uom", "length", "width", "height", "dimension_uom", "goods_description"]
 	for pkg in packages:
-		row = {}
-		for f in common:
-			if to_meta.has_field(f) and hasattr(pkg, f) and getattr(pkg, f) is not None:
-				row[f] = getattr(pkg, f)
+		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
 		if row:
 			order.append("packages", row)
 
@@ -481,6 +583,21 @@ def _get_default_warehouse_item(customer=None):
 
 def _copy_shipment_packages_to_inbound_order(shipment, order):
 	"""Copy packages from Air Shipment to Inbound Order items. Inbound Order Item requires item (Warehouse Item)."""
+	# Check if warehouse_items exist first
+	warehouse_items = getattr(shipment, "warehouse_items", []) or []
+	if warehouse_items:
+		# Use warehouse_items to populate inbound order items
+		for wi in warehouse_items:
+			item = getattr(wi, "item", None)
+			if item:
+				order.append("items", {
+					"item": item,
+					"quantity": getattr(wi, "quantity", 1) or 1,
+					"uom": getattr(wi, "uom", None),
+				})
+		return
+	
+	# Fall back to packages with default item
 	packages = getattr(shipment, "packages", []) or []
 	default_item = _get_default_warehouse_item(getattr(shipment, "local_customer", None))
 	for pkg in packages:
@@ -500,6 +617,21 @@ def _copy_shipment_packages_to_inbound_order(shipment, order):
 
 def _copy_sea_packages_to_inbound_order(shipment, order):
 	"""Copy packages from Sea Shipment to Inbound Order items."""
+	# Check if warehouse_items exist first
+	warehouse_items = getattr(shipment, "warehouse_items", []) or []
+	if warehouse_items:
+		# Use warehouse_items to populate inbound order items
+		for wi in warehouse_items:
+			item = getattr(wi, "item", None)
+			if item:
+				order.append("items", {
+					"item": item,
+					"quantity": getattr(wi, "quantity", 1) or 1,
+					"uom": getattr(wi, "uom", None),
+				})
+		return
+	
+	# Fall back to packages with default item
 	packages = getattr(shipment, "packages", []) or []
 	default_item = _get_default_warehouse_item(getattr(shipment, "local_customer", None))
 	for pkg in packages:
@@ -519,14 +651,31 @@ def _copy_sea_packages_to_inbound_order(shipment, order):
 def _copy_transport_packages_to_inbound_order(job, order):
 	"""Copy packages from Transport Job to Inbound Order items."""
 	from frappe import _
+	# Check if warehouse_items exist first
+	warehouse_items = getattr(job, "warehouse_items", []) or []
+	if warehouse_items:
+		# Use warehouse_items to populate inbound order items
+		for wi in warehouse_items:
+			item = getattr(wi, "item", None)
+			if item:
+				order.append("items", {
+					"item": item,
+					"quantity": getattr(wi, "quantity", 1) or 1,
+					"uom": getattr(wi, "uom", None),
+				})
+		return
+	
+	# Fall back to packages with default item
 	packages = getattr(job, "packages", []) or []
 	default_item = _get_default_warehouse_item(getattr(job, "customer", None))
 	if not default_item:
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from Transport Job."))
 	
 	for pkg in packages:
+		# Use item from package if available, otherwise fall back to default_item
+		pkg_item = getattr(pkg, "item", None) or default_item
 		order.append("items", {
-			"item": default_item,
+			"item": pkg_item,
 			"quantity": getattr(pkg, "no_of_packs", 1) or getattr(pkg, "quantity", 1) or 1,
 			"uom": getattr(pkg, "uom", None),
 			"weight": getattr(pkg, "weight", None),
