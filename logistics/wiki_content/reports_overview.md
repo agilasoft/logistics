@@ -83,6 +83,15 @@ To access reports, go to:
 - **Trend Analysis Report** – Trends over time
 - **Cross Module Summary Report** – Cross-module summary
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Reports read submitted transactions; each source DocType is documented on its wiki page (**Complete field reference**), e.g. [Sea Shipment](welcome/sea-shipment), [Air Shipment](welcome/air-shipment), [Declaration](welcome/declaration), [Warehouse Job](welcome/warehouse-job)._
+
+<!-- wiki-field-reference:end -->
+
 ## 8. Related Topics
 
 - [Sea Freight Settings](welcome/sea-freight-settings)

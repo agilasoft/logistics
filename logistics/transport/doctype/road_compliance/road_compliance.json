@@ -206,7 +206,8 @@
    "fieldname": "penalty_currency",
    "fieldtype": "Link",
    "label": "Penalty Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "penalty_description",

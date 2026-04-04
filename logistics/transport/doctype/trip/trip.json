@@ -41,7 +41,8 @@
    "fieldname": "transport_company",
    "fieldtype": "Link",
    "label": "Transport Company",
-   "options": "Transport Company"
+   "options": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_5",

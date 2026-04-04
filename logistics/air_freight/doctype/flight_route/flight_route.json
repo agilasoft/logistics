@@ -50,7 +50,8 @@
    "in_standard_filter": 1,
    "label": "Airline",
    "options": "Airline",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fetch_from": "airline.code",
@@ -69,7 +70,8 @@
    "in_standard_filter": 1,
    "label": "Origin Airport",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_airport",
@@ -78,7 +80,8 @@
    "in_standard_filter": 1,
    "label": "Destination Airport",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "1",
@@ -221,5 +224,3 @@
  "states": [],
  "track_changes": 1
 }
-
-

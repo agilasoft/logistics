@@ -46,7 +46,7 @@ class ExemptionCertificate(Document):
 		"""Update status based on validity and remaining values"""
 		if self.status == "Active":
 			# Check if expired
-			if self.valid_to and getdate(self.valid_to) < nowdate():
+			if self.valid_to and getdate(self.valid_to) < getdate(nowdate()):
 				self.status = "Expired"
 			# Check if fully used
 			elif self.exemption_value and self.remaining_value <= 0:

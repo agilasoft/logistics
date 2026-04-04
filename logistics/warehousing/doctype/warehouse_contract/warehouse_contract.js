@@ -38,7 +38,7 @@ frappe.ui.form.on("Warehouse Contract", {
 						}
 					}
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 
 		// Add Create menu buttons for linked doctypes (only when document is saved)

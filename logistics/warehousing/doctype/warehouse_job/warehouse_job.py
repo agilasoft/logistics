@@ -176,10 +176,13 @@ class WarehouseJob(Document):
 		except Exception:
 			pass
 
+		from logistics.job_management.logistics_job_status import validate_warehouse_job_defaults
+
+		validate_warehouse_job_defaults(self)
+
 	def before_save(self):
-		from logistics.utils.module_integration import run_propagate_on_link, set_billing_company_from_linked_freight
+		from logistics.utils.module_integration import run_propagate_on_link
 		run_propagate_on_link(self)
-		set_billing_company_from_linked_freight(self)
 		# Calculate totals before saving the job
 		self.calculate_totals()
 
@@ -210,13 +213,13 @@ class WarehouseJob(Document):
 		except Exception as e:
 			frappe.logger().warning(f"[WarehouseJob.before_save] charges autofill warning: {e}")
 
-		# Job Costing Number will be created in after_insert method
+		# Job Number will be created in after_insert method
 
 	def after_insert(self):
-		"""Create Job Costing Number after document is inserted"""
-		self.create_job_costing_number_if_needed()
-		# Save the document to persist the job_costing_number field
-		if self.job_costing_number:
+		"""Create Job Number after document is inserted"""
+		self.create_job_number_if_needed()
+		# Save the document to persist the job_number field
+		if self.job_number:
 			self.save(ignore_permissions=True)
 
 	def after_submit(self):
@@ -3103,31 +3106,31 @@ class WarehouseJob(Document):
 		self.total_weight = total_weight
 		self.total_handling_units = len(unique_handling_units)
 
-	def create_job_costing_number_if_needed(self):
-		"""Create Job Costing Number when document is first saved"""
-		# Only create if job_costing_number is not set
-		if not self.job_costing_number:
+	def create_job_number_if_needed(self):
+		"""Create Job Number when document is first saved"""
+		# Only create if job_number is not set
+		if not self.job_number:
 			# Since autoname is format:{job_no}, the name will be the same as job_no
-			# Check if a Job Costing Number with this name already exists
+			# Check if a Job Number with this name already exists
 			if self.name:
 				# First check by name (most reliable since autoname uses job_no)
-				existing_job_ref = frappe.db.exists("Job Costing Number", self.name)
+				existing_job_ref = frappe.db.exists("Job Number", self.name)
 				if existing_job_ref:
-					self.job_costing_number = existing_job_ref
+					self.job_number = existing_job_ref
 					return
 				
 				# Also check by job_type and job_no as fallback
-				existing_job_ref = frappe.db.get_value("Job Costing Number", {
+				existing_job_ref = frappe.db.get_value("Job Number", {
 					"job_type": "Warehouse Job",
 					"job_no": self.name
 				})
 				if existing_job_ref:
-					self.job_costing_number = existing_job_ref
+					self.job_number = existing_job_ref
 					return
 			
-			# Create Job Costing Number if it doesn't exist
+			# Create Job Number if it doesn't exist
 			try:
-				job_ref = frappe.new_doc("Job Costing Number")
+				job_ref = frappe.new_doc("Job Number")
 				job_ref.job_type = "Warehouse Job"
 				job_ref.job_no = self.name
 				job_ref.company = self.company
@@ -3139,40 +3142,40 @@ class WarehouseJob(Document):
 				job_ref.job_open_date = self.job_open_date
 				job_ref.insert(ignore_permissions=True)
 				
-				# Set the job_costing_number field
-				self.job_costing_number = job_ref.name
+				# Set the job_number field
+				self.job_number = job_ref.name
 				
-				frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+				frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
 			except frappe.DuplicateEntryError as e:
 				# If duplicate entry error occurs, the record was created (possibly by another process or race condition)
 				# Try to get the existing one - use fresh query to find it
 				if self.name:
 					# Force a fresh query by using sql directly to bypass any caching
 					existing = frappe.db.sql("""
-						SELECT name FROM `tabJob Costing Number` 
+						SELECT name FROM `tabJob Number` 
 						WHERE name = %s 
 						LIMIT 1
 					""", (self.name,), as_dict=True)
 					
 					if existing:
-						self.job_costing_number = existing[0].name
+						self.job_number = existing[0].name
 						return
 					
 					# Try by job_type and job_no as fallback
 					existing = frappe.db.sql("""
-						SELECT name FROM `tabJob Costing Number` 
+						SELECT name FROM `tabJob Number` 
 						WHERE job_type = 'Warehouse Job' AND job_no = %s 
 						LIMIT 1
 					""", (self.name,), as_dict=True)
 					
 					if existing:
-						self.job_costing_number = existing[0].name
+						self.job_number = existing[0].name
 						return
 				
 				# If we still can't find it, log and re-raise
 				frappe.log_error(
-					f"Duplicate Job Costing Number error for Warehouse Job {self.name}, but could not find existing record: {str(e)}",
-					"Job Costing Number Duplicate Error"
+					f"Duplicate Job Number error for Warehouse Job {self.name}, but could not find existing record: {str(e)}",
+					"Job Number Duplicate Error"
 				)
 				raise
 
@@ -5146,7 +5149,7 @@ def post_standard_costs(warehouse_job: str) -> dict:
 		je.branch = job.branch
 		je.cost_center = job.cost_center
 		je.profit_center = job.profit_center
-		je.job_costing_number = job.job_costing_number
+		je.job_number = job.job_number
 		
 		# Set reference to warehouse job
 		je.user_remark = f"Standard Costs for Warehouse Job: {job.name}"
@@ -5182,7 +5185,7 @@ def post_standard_costs(warehouse_job: str) -> dict:
 				"credit_in_account_currency": 0,
 				"cost_center": job.cost_center,
 				"profit_center": job.profit_center,
-				"job_costing_number": job.job_costing_number,
+				"job_number": job.job_number,
 				"item": charge.item_code,
 				"reference_type": "",
 				"reference_name": "",
@@ -5199,7 +5202,7 @@ def post_standard_costs(warehouse_job: str) -> dict:
 				"credit_in_account_currency": amount,
 				"cost_center": job.cost_center,
 				"profit_center": job.profit_center,
-				"job_costing_number": job.job_costing_number,
+				"job_number": job.job_number,
 				"item": charge.item_code,
 				"reference_type": "",
 				"reference_name": "",

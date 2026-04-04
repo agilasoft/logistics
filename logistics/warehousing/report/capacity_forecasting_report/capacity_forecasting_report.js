@@ -223,7 +223,7 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Export Forecast"), function() {
 			frappe.call({
@@ -237,7 +237,7 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("View Forecast Chart"), function() {
 			frappe.call({
@@ -276,7 +276,7 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Forecast Insights"), function() {
 			frappe.call({
@@ -294,6 +294,6 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 	}
 };

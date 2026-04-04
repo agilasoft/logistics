@@ -72,7 +72,7 @@
   "branch",
   "cost_center",
   "profit_center",
-  "job_costing_number"
+  "job_number"
  ],
  "fields": [
   {
@@ -206,7 +206,8 @@
    "fieldname": "consolidation_agent",
    "fieldtype": "Link",
    "label": "Consolidation Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_route",
@@ -218,14 +219,16 @@
    "fieldtype": "Link",
    "label": "Origin Airport",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_airport",
    "fieldtype": "Link",
    "label": "Destination Airport",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "departure_date",
@@ -248,7 +251,8 @@
    "fieldtype": "Link",
    "label": "Airline",
    "options": "Airline",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "flight_number",
@@ -285,13 +289,15 @@
    "fieldname": "total_volume_uom",
    "fieldtype": "Link",
    "label": "Total Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "total_weight_uom",
    "fieldtype": "Link",
    "label": "Total Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_3",
@@ -308,7 +314,8 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "consolidation_ratio",
@@ -450,7 +457,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -463,10 +470,10 @@
   },
   {
    "description": "This will be used when posting financial transactions to this job.",
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
    "fieldname": "details_tab",
@@ -476,7 +483,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-17 09:45:07.494684",
+ "modified": "2026-03-23 07:49:00.465601",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",
@@ -549,5 +556,7 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
 }

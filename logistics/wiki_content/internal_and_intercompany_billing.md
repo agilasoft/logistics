@@ -119,13 +119,9 @@ When creating **Sales Invoice from Sales Quote** (customer-facing):
 
 The **cross-module logic** (`get_billing_set_items`, `_get_contributors_for_leg`) is used to build invoice items from the Main Job and contributors.
 
-### 3.5 Billing Company (Same Company)
+### 3.5 Main Job company (no separate “billing company” field on jobs)
 
-Jobs have a **billing_company** field (company that bills the end customer, from Sales Quote). For **internal billing**, `job.company == billing_company` for all jobs (same company). No intercompany SI/PI is created. Set by:
-
-- **Sales Quote**: `set_billing_company_from_sales_quote`.
-- **Declaration**: from Declaration Order’s `billing_company`.
-- **Warehouse Job**: from linked Air Shipment, Sea Shipment, Warehouse Contract, or Transport Job.
+Internal and intercompany logic use **`company` on the Main Job** (via `main_job_type` / `main_job` on internal jobs), not a copied **Billing Company** field on each job. Same-company internal billing: internal job `company` equals Main Job `company`. Intercompany: they differ.
 
 ---
 
@@ -145,17 +141,18 @@ Location: `logistics/intercompany/intercompany_invoice.py` and Intercompany Sett
 
 ### 4.2 When Intercompany Invoices Are Created
 
-- **Automatic**: On **Sales Invoice submit**, if the Sales Invoice is linked to a **Sales Quote** (`quotation_no`) and Intercompany Settings has **Enable Intercompany Invoicing** checked, the app calls `create_intercompany_invoices_for_quote`. For every job from that quote where `job.company != billing_company`, it creates one intercompany SI (operating company → billing company) and one PI (billing company ← operating company).
-- **Manual**: User can run **Intercompany Transactions** from the UI (e.g. on Air Shipment, Sea Shipment, Declaration). That calls the same `create_intercompany_invoices_for_quote` with the quote and billing company.
+- **Automatic**: On **Sales Invoice submit**, if the Sales Invoice is linked to a **Sales Quote** (`quotation_no`) and Intercompany Settings has **Enable Intercompany Invoicing** checked, the app calls `create_intercompany_invoices_for_quote`. For every internal job from that quote where `job.company` ≠ **Main Job `company`**, it creates one intercompany SI (operating company → Main Job company) and one PI (Main Job company ← operating company).
+- **Manual**: User can run **Intercompany Transactions** from the UI (e.g. on Air Shipment, Sea Shipment, Declaration). That calls the same `create_intercompany_invoices_for_quote` with the sales quote name (Main Job company is resolved in code).
 
 ### 4.3 Job Set Considered for Intercompany
 
 - All jobs that should be billed from the quote are taken from **`get_all_billing_jobs_from_sales_quote(sales_quote)`**: each routing leg’s anchor + each leg’s contributors.
 - Only jobs whose **DocType** is in **INTERCOMPANY_JOB_TYPES** are processed: Transport Job, Air Shipment, Sea Shipment, Warehouse Job, Declaration, Declaration Order.
-- For each such job:
+- For each such job (that resolves as an internal job with a Main Job link):
   - **operating_company** = `job.company`.
-  - If `operating_company` is empty or equals **billing_company**, the job is **skipped** (same-company leg).
-  - If `operating_company != billing_company`, an **Intercompany Relationship** must exist for `(billing_company, operating_company)` with **Internal Customer** (in operating company’s books) and **Internal Supplier** (in billing company’s books).
+  - **main_job_company** = `company` on the linked Main Job document.
+  - If `operating_company` is empty or equals **main_job_company**, the job is **skipped** (same-company leg).
+  - If `operating_company != main_job_company`, an **Intercompany Relationship** must exist for **(Billing Company = main_job_company, Operating Company = operating_company)** with **Internal Customer** (in operating company’s books) and **Internal Supplier** (in Main Job company’s books).
 
 ### 4.4 Intercompany Relationship
 
@@ -170,20 +167,19 @@ So: Operating company sells to “Internal Customer” (= billing company), and 
 
 ### 4.5 One SI/PI Pair per Intercompany Job
 
-For each job with `company != billing_company` and a valid relationship:
+For each job with `company != main_job_company` (Main Job’s `company`) and a valid relationship:
 
 1. **Items** are taken from **`get_invoice_items_from_job(job_type, job_no, customer_for_sea=end_customer)`** (implemented via cross_module_billing so amounts match what would be on the customer invoice for that leg).
 2. **Intercompany Sales Invoice**:  
    - Company = operating_company, Customer = internal_customer, items from the job, linked to Sales Quote and trigger SI.
 3. **Intercompany Purchase Invoice**:  
-   - Company = billing_company, Supplier = internal_supplier, same items/rates.
+   - Company = main_job_company, Supplier = internal_supplier, same items/rates.
 
-Each such pair is logged in **Intercompany Invoice Log** (sales_quote, job_type, job_no, billing_company, operating_company, status, intercompany_sales_invoice, intercompany_purchase_invoice). Duplicate creation for the same quote+job is avoided by checking for an existing “Created” log.
+Each such pair is logged in **Intercompany Invoice Log** (sales_quote, job_type, job_no, **main_job_company**, operating_company, status, intercompany_sales_invoice, intercompany_purchase_invoice). Duplicate creation for the same quote+job is avoided by checking for an existing “Created” log.
 
-### 4.6 Where Billing Company Comes From
+### 4.6 Where the Main Job company comes from
 
-- **billing_company** = Main Job’s operating company (quote’s company or company of the customer Sales Invoice).
-- On **jobs**, `billing_company` is set as in §3.5 (from Sales Quote, Declaration Order, or linked freight). The comparison `job.company != billing_company` decides if the job is billed via intercompany SI/PI (different company) or via Journal Entry (same company).
+- Resolved in code: **`get_main_job_company(main_job_type, main_job)`** reads **`company`** on the Main Job document linked from each internal job (`resolve_internal_job_main_job`). No per-job **Billing Company** field is used.
 
 ---
 
@@ -198,7 +194,7 @@ Each such pair is logged in **Intercompany Invoice Log** (sales_quote, job_type,
 | **Main Job** | Holds all customer charges; customer SI from Main Job. | Same; billing company = Main Job’s operating company. |
 | **Internal Job** | Service-specific charges only; revenue = cost of Main Job (allocated); cost = tariff/actual; billed via JV. | Same logic; billed using Sales Invoice to Main Job’s company (SI + PI). |
 | **Configuration** | Sales Quote (Main Job, routing legs); same company. | Intercompany Settings (enable, Intercompany Relationship: internal_customer / internal_supplier). |
-| **Trigger** | Create customer SI from Sales Quote; internal allocation via Journal Entry. | SI submit (if from quote) or “Intercompany Transactions” button → create intercompany SI/PI per job where company ≠ billing_company. |
+| **Trigger** | Create customer SI from Sales Quote; internal allocation via Journal Entry. | SI submit (if from quote) or “Intercompany Transactions” button → create intercompany SI/PI per internal job where job `company` ≠ Main Job `company`. |
 
 ---
 
@@ -207,10 +203,23 @@ Each such pair is logged in **Intercompany Invoice Log** (sales_quote, job_type,
 - **Cross-module billing**: `logistics/billing/cross_module_billing.py` (BILLING_CONTRIBUTOR_QUERIES, BILLING_JOB_TYPES, get_invoice_items_from_job, get_all_billing_jobs_from_sales_quote, get_billing_set_items).
 - **Intercompany**: `logistics/intercompany/intercompany_invoice.py` (create_intercompany_invoices_for_quote, _create_intercompany_pair, get_relationship); `invoice_integration/invoice_hooks.py` (on_sales_invoice_submit).
 - **Sales Quote invoice creation**: `pricing_center/doctype/sales_quote/sales_quote.py` (_create_consolidated_invoice, _create_separate_invoices_per_leg, _get_contributors_for_leg).
-- **Billing company propagation**: `utils/module_integration.py` (set_billing_company_from_sales_quote, set_billing_company_from_linked_freight, set_billing_company_from_declaration_order).
-- **DocTypes**: Intercompany Settings, Intercompany Relationship, Intercompany Invoice Log; Sales Quote (routing_legs, Main Job, Separate Billings); job DocTypes with `billing_company` and (where applicable) Internal Job / Main Job.
+- **Module integration**: `utils/module_integration.py` (propagate `sales_quote` from linked freight; no job-level billing company field).
+- **DocTypes**: Intercompany Settings, Intercompany Relationship (child row **Billing Company** = customer-invoicing entity, must match Main Job `company` for the pair), Intercompany Invoice Log (**main_job_company**); Sales Quote (routing_legs, Main Job, Separate Billings); job DocTypes with Internal Job / Main Job links.
 
 ---
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Billing uses fields on customer/supplier invoices and on logistics jobs/shipments. Full schemas on:_
+
+- [Sales Quote](welcome/sales-quote), [Change Request](welcome/change-request)
+- [Air Shipment](welcome/air-shipment), [Sea Shipment](welcome/sea-shipment), [Transport Job](welcome/transport-job), [Warehouse Job](welcome/warehouse-job), [Declaration](welcome/declaration)
+- [Intercompany Module](welcome/intercompany-module) _(overview)_
+
+<!-- wiki-field-reference:end -->
 
 ## 7. Related Documentation
 

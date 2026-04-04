@@ -126,7 +126,8 @@
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "default": "3",
@@ -138,14 +139,16 @@
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_chargeable_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable UOM",
    "options": "UOM",
-   "description": "Default UOM for chargeable weight in Sales Quote Warehousing tab and warehousing-related doctypes"
+   "description": "Default UOM for chargeable weight in Sales Quote Warehousing tab and warehousing-related doctypes",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_2",
@@ -308,7 +311,7 @@
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval.doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"company\", \"=\", \"eval.doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
@@ -322,7 +325,8 @@
    "fieldname": "default_dimension_uom",
    "fieldtype": "Link",
    "label": "Default Dimension UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_cwga",
@@ -337,7 +341,7 @@
    "fieldname": "warehouse_contract_address",
    "fieldtype": "Link",
    "label": "Warehouse Contract Address",
-   "link_filters": "[[\"Address\",\"link_doctype\",\"=\",\"Company\"],[\"Address\",\"link_name\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Address\", \"link_doctype\", \"=\", \"Company\"], [\"Address\", \"link_name\", \"=\", \"eval:doc.company\"], [\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   }
  ],

@@ -725,9 +725,9 @@
                 <div class="field-row">
                     <div class="field-label">JOB NUMBER:</div>
                     <div class="field-value">
-                        {% if doc.job_costing_number %}
-                            {% set job_costing_doc = frappe.get_doc("Job Costing Number", doc.job_costing_number) %}
-                            {{ job_costing_doc.job_no if job_costing_doc.job_no else doc.job_costing_number }}
+                        {% if doc.job_number %}
+                            {% set job_costing_doc = frappe.get_doc("Job Number", doc.job_number) %}
+                            {{ job_costing_doc.job_no if job_costing_doc.job_no else doc.job_number }}
                         {% endif %}
                     </div>
                 </div>

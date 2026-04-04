@@ -184,7 +184,8 @@
    "fieldname": "pick_address",
    "fieldtype": "Link",
    "label": "Pick Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "pick_address_format",
@@ -194,7 +195,8 @@
    "fieldname": "drop_address",
    "fieldtype": "Link",
    "label": "Drop Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "drop_address_html",
@@ -320,7 +322,8 @@
    "fieldtype": "Link",
    "label": "Vehicle Type",
    "options": "Vehicle Type",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_srly",

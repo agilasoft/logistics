@@ -29,7 +29,8 @@
    "in_list_view": 1,
    "label": "Customer",
    "options": "Customer",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_1",
@@ -54,14 +55,16 @@
    "fieldtype": "Link",
    "label": "Pick Address",
    "options": "Address",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "drop_address",
    "fieldtype": "Link",
    "label": "Drop Address",
    "options": "Address",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   }
  ],
  "istable": 1,

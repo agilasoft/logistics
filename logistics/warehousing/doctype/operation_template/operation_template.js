@@ -7,13 +7,13 @@ frappe.ui.form.on('Operation Template', {
 		if (frm.is_new()) {
 			frm.add_custom_button(__('Create Default Templates'), function() {
 				create_default_templates(frm);
-			}, __('Actions'));
+			}, __('Action'));
 		}
 		
 		// Add button to create default templates for all job types
 		frm.add_custom_button(__('Create All Defaults'), function() {
 			create_all_default_templates(frm);
-		}, __('Actions'));
+		}, __('Action'));
 	},
 	
 	job_type: function(frm) {

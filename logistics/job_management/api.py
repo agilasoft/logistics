@@ -4,7 +4,7 @@
 """
 Job profitability from General Ledger (GL).
 
-All figures are computed from GL Entry using job_costing_number (accounting dimension).
+All figures are computed from GL Entry using job_number (accounting dimension).
 """
 
 from __future__ import unicode_literals
@@ -153,27 +153,28 @@ def aggregate_gl_entries_by_item(entries):
 	return out
 
 
-def get_job_profitability_from_gl(job_costing_number, company, to_date=None, from_date=None):
+def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=None):
 	"""
 	Get revenue, cost, profit, WIP, and accrual for a job from the General Ledger.
 
-	Uses job_costing_number as the accounting dimension on GL Entry.
+	Uses job_number as the accounting dimension on GL Entry.
 
-	:param job_costing_number: Job Costing Number name (Link)
+	:param job_number: Job Number name (Link)
 	:param company: Company
 	:param to_date: Optional; limit GL entries on or before this date
 	:param from_date: Optional; limit GL entries on or after this date
-	:return: dict with revenue, cost, gross_profit, profit_margin_pct, wip_amount, accrual_amount (always 0; Accrued Cost Liability excluded), currency
+	:return: dict with revenue, cost, gross_profit, profit_margin_pct, wip_amount,
+	         accrual_amount (open accrued cost liability from GL), currency
 	"""
-	if not job_costing_number or not company:
+	if not job_number or not company:
 		return _empty_profitability(company)
 
 	conditions = [
-		"gle.job_costing_number = %(job_costing_number)s",
+		"gle.job_number = %(job_number)s",
 		"gle.company = %(company)s",
 		"gle.docstatus = 1",
 	]
-	values = {"job_costing_number": job_costing_number, "company": company}
+	values = {"job_number": job_number, "company": company}
 	if to_date:
 		conditions.append("gle.posting_date <= %(to_date)s")
 		values["to_date"] = to_date
@@ -185,7 +186,7 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 	policy = None
 	try:
 		from logistics.job_management.recognition_engine import get_recognition_policy_for_job
-		policy = get_recognition_policy_for_job(job_costing_number)
+		policy = get_recognition_policy_for_job(job_number)
 	except Exception:
 		pass
 
@@ -252,7 +253,7 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 		)
 		disbursements_amount = flt(disb_row[0].amount, 2) if disb_row else 0
 
-	# WIP from policy; accrual KPI excludes Accrued Cost Liability (balance-sheet) by design
+	# WIP / Accrual summary tiles: same GL basis as recognition JEs (policy accounts, job_number)
 	wip_amount = 0
 	accrual_amount = 0
 	if policy:
@@ -261,18 +262,49 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 			wip_row = frappe.db.sql("""
 				SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as balance
 				FROM `tabGL Entry` gle
-				WHERE gle.job_costing_number = %(job_costing_number)s
+				WHERE gle.job_number = %(job_number)s
 				AND gle.company = %(company)s
 				AND gle.account = %(wip_account)s
 				AND gle.docstatus = 1
 			""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
-				"job_costing_number": job_costing_number,
+				"job_number": job_number,
 				"company": company,
 				"wip_account": policy.wip_account,
 				**({"to_date": to_date} if to_date else {})
 			}, as_dict=True)
 			wip_amount = flt(wip_row[0].balance, 2) if wip_row else 0
-		# Accrued Cost Liability Account is excluded from profitability (not in KPI or classified GL tables).
+		if policy.get("accrued_cost_liability_account"):
+			# Accrual recognition JEs credit Accrued Cost Liability; open accrual = (credit - debit) on that account
+			accr_row = frappe.db.sql("""
+				SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as balance
+				FROM `tabGL Entry` gle
+				WHERE gle.job_number = %(job_number)s
+				AND gle.company = %(company)s
+				AND gle.account = %(accrued_cost_liability_account)s
+				AND gle.docstatus = 1
+			""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
+				"job_number": job_number,
+				"company": company,
+				"accrued_cost_liability_account": policy.accrued_cost_liability_account,
+				**({"to_date": to_date} if to_date else {})
+			}, as_dict=True)
+			accrual_amount = flt(accr_row[0].balance, 2) if accr_row else 0
+		elif policy.get("cost_accrual_account"):
+			# Fallback if liability account missing: expense leg (debit - credit) matches open accrual balance
+			accr_row = frappe.db.sql("""
+				SELECT COALESCE(SUM(gle.debit - gle.credit), 0) as balance
+				FROM `tabGL Entry` gle
+				WHERE gle.job_number = %(job_number)s
+				AND gle.company = %(company)s
+				AND gle.account = %(cost_accrual_account)s
+				AND gle.docstatus = 1
+			""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
+				"job_number": job_number,
+				"company": company,
+				"cost_accrual_account": policy.cost_accrual_account,
+				**({"to_date": to_date} if to_date else {})
+			}, as_dict=True)
+			accrual_amount = flt(accr_row[0].balance, 2) if accr_row else 0
 
 	currency = frappe.get_cached_value("Company", company, "default_currency") or "USD"
 
@@ -289,7 +321,7 @@ def get_job_profitability_from_gl(job_costing_number, company, to_date=None, fro
 
 
 def _get_job_gl_entries_classified(
-	job_costing_number,
+	job_number,
 	company,
 	to_date=None,
 	from_date=None,
@@ -299,14 +331,14 @@ def _get_job_gl_entries_classified(
 	Fetch GL rows for the job, classify into Revenue/Cost/WIP/Accrual/Disbursements, drop unclassified lines.
 	Returns all matching rows up to max_fetch (posting date desc).
 	"""
-	if not job_costing_number or not company:
+	if not job_number or not company:
 		return []
 
 	wip_account = None
 	cost_accrual_account = None
 	try:
 		from logistics.job_management.recognition_engine import get_recognition_policy_for_job
-		policy = get_recognition_policy_for_job(job_costing_number)
+		policy = get_recognition_policy_for_job(job_number)
 		if policy:
 			wip_account = policy.get("wip_account")
 			cost_accrual_account = policy.get("cost_accrual_account")
@@ -319,12 +351,12 @@ def _get_job_gl_entries_classified(
 		item_select = "gle.`{0}` AS dimension_item".format(item_link_fn)
 
 	conditions = [
-		"gle.job_costing_number = %(job_costing_number)s",
+		"gle.job_number = %(job_number)s",
 		"gle.company = %(company)s",
 		"gle.docstatus = 1",
 	]
 	fetch_cap = max_fetch if max_fetch is not None else 5000
-	values = {"job_costing_number": job_costing_number, "company": company, "limit": int(fetch_cap)}
+	values = {"job_number": job_number, "company": company, "limit": int(fetch_cap)}
 	if to_date:
 		conditions.append("gle.posting_date <= %(to_date)s")
 		values["to_date"] = to_date
@@ -465,7 +497,7 @@ def _get_job_gl_entries_classified(
 
 
 def get_job_gl_entries(
-	job_costing_number,
+	job_number,
 	company,
 	to_date=None,
 	from_date=None,
@@ -476,7 +508,7 @@ def get_job_gl_entries(
 	Public API: classified GL lines for the job, capped for list display (default 100).
 	"""
 	all_rows = _get_job_gl_entries_classified(
-		job_costing_number,
+		job_number,
 		company,
 		to_date=to_date,
 		from_date=from_date,
@@ -502,12 +534,12 @@ def _empty_profitability(company):
 
 
 @frappe.whitelist()
-def get_job_profitability_html(job_costing_number, company, to_date=None, from_date=None):
+def get_job_profitability_html(job_number, company, to_date=None, from_date=None):
 	"""
 	Return HTML snippet for the Profitability section on job/shipment forms.
 	Includes summary (revenue, cost, profit, WIP, accrual) and a table of related GL entries with View buttons.
 
-	:param job_costing_number: Job Costing Number name
+	:param job_number: Job Number name
 	:param company: Company
 	:param to_date: Optional
 	:param from_date: Optional
@@ -515,13 +547,13 @@ def get_job_profitability_html(job_costing_number, company, to_date=None, from_d
 	"""
 	try:
 		data = get_job_profitability_from_gl(
-			job_costing_number=job_costing_number,
+			job_number=job_number,
 			company=company,
 			to_date=to_date,
 			from_date=from_date,
 		)
 		all_classified = _get_job_gl_entries_classified(
-			job_costing_number=job_costing_number,
+			job_number=job_number,
 			company=company,
 			to_date=to_date,
 			from_date=from_date,
@@ -646,7 +678,7 @@ def _build_profitability_html(data):
 		chart_title=_("Revenue vs Cost"),
 		rev_pct=rev_pct,
 		cost_pct=cost_pct,
-		source_note=_("Figures from General Ledger by Job Costing Number."),
+		source_note=_("Figures from General Ledger by Job Number."),
 	)
 
 	# Column header = Accounting Dimension label (matches GL Entry form), else "Item"
@@ -799,7 +831,7 @@ def _build_profitability_html(data):
 		</div>
 		""".format(
 			title=_("Job GL (classified)"),
-			no_entries=_("No GL entries in Revenue, Cost, WIP, Accrual, or Disbursements for this Job Costing Number."),
+			no_entries=_("No GL entries in Revenue, Cost, WIP, Accrual, or Disbursements for this Job Number."),
 		)
 
 	return (summary_html + tables_html).strip()

@@ -1,6 +1,6 @@
 /**
  * Profitability (from GL) section on job/shipment forms.
- * Loads HTML from General Ledger by job_costing_number and displays in profitability_section_html field.
+ * Loads HTML from General Ledger by job_number and displays in profitability_section_html field.
  */
 frappe.provide("logistics.profitability");
 
@@ -73,8 +73,8 @@ logistics.profitability.load_profitability_html = function(frm) {
 		}
 	}
 
-	if (!frm.doc.job_costing_number || !frm.doc.company) {
-		set_html("<p class=\"text-muted\">" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
+	if (!frm.doc.job_number || !frm.doc.company) {
+		set_html("<p class=\"text-muted\">" + __("Set Job Number and Company to load profitability from General Ledger.") + "</p>");
 		return;
 	}
 
@@ -84,7 +84,7 @@ logistics.profitability.load_profitability_html = function(frm) {
 	frappe.call({
 		method: "logistics.job_management.api.get_job_profitability_html",
 		args: {
-			job_costing_number: frm.doc.job_costing_number,
+			job_number: frm.doc.job_number,
 			company: frm.doc.company
 		},
 		callback: function(r) {
@@ -117,7 +117,7 @@ var form_handlers = {
 	refresh: function(frm) {
 		setTimeout(function() { logistics.profitability.load_profitability_html(frm); }, 150);
 	},
-	job_costing_number: function(frm) {
+	job_number: function(frm) {
 		logistics.profitability.load_profitability_html(frm);
 	},
 	company: function(frm) {

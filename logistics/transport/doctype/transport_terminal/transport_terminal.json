@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "terminal_name",
+  "is_active",
   "addresses_tab",
   "addresses_and_contacts",
   "address_html",
@@ -33,6 +34,13 @@
    "label": "Terminal Name"
   },
   {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
    "fieldname": "connections_tab",
    "fieldtype": "Tab Break",
    "label": "Connections",
@@ -52,7 +60,8 @@
    "fieldname": "transportterminal_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "addresses_and_contacts",

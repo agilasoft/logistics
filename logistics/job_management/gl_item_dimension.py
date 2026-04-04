@@ -36,6 +36,16 @@ def item_row_dict(doctype, item_code):
 	"""Return {fieldname: item_code} for use on GL Entry / Journal Entry Account rows."""
 	if not item_code:
 		return {}
+	# Prefer the active Item Accounting Dimension field when present — JE Account / GL Entry
+	# can have more than one Link to Item; the wrong one leaves profitability dimensions blank.
+	if doctype in ("Journal Entry Account", "GL Entry"):
+		fn_ad = get_item_accounting_dimension_fieldname()
+		if fn_ad:
+			try:
+				if frappe.get_meta(doctype).get_field(fn_ad):
+					return {fn_ad: item_code}
+			except Exception:
+				pass
 	fn = get_item_link_fieldname(doctype)
 	if not fn:
 		return {}

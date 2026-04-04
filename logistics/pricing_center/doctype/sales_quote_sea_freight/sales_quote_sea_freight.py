@@ -332,6 +332,8 @@ class SalesQuoteSeaFreight(Document):
             return flt(parent_doc.get('total_distance', 0))
         elif self.unit_type == "Weight":
             return flt(parent_doc.get('weight', 0) or parent_doc.get('total_weight', 0))
+        elif self.unit_type == "Chargeable Weight":
+            return flt(parent_doc.get('chargeable', 0) or parent_doc.get('chargeable_weight', 0))
         elif self.unit_type == "Volume":
             return flt(parent_doc.get('volume', 0) or parent_doc.get('total_volume', 0))
         elif self.unit_type in ["Package", "Piece"]:
@@ -403,6 +405,7 @@ class SalesQuoteSeaFreight(Document):
             return {
                 'actual_quantity': flt(self.cost_quantity or 0),
                 'actual_weight': flt(self.cost_quantity or 0) if self.cost_unit_type == 'Weight' else 0,
+                'actual_chargeable_weight': flt(self.cost_quantity or 0) if self.cost_unit_type == 'Chargeable Weight' else 0,
                 'actual_volume': flt(self.cost_quantity or 0) if self.cost_unit_type == 'Volume' else 0,
                 'actual_distance': flt(self.cost_quantity or 0) if self.cost_unit_type == 'Distance' else 0,
                 'actual_pieces': flt(self.cost_quantity or 0) if self.cost_unit_type in ['Package', 'Piece'] else 0,
@@ -414,6 +417,7 @@ class SalesQuoteSeaFreight(Document):
         return {
             'actual_quantity': flt(self.cost_quantity or 0),
             'actual_weight': flt(parent_doc.get('weight', 0) or parent_doc.get('total_weight', 0)),
+            'actual_chargeable_weight': flt(parent_doc.get('chargeable', 0) or parent_doc.get('chargeable_weight', 0)),
             'actual_volume': flt(parent_doc.get('volume', 0) or parent_doc.get('total_volume', 0)),
             'actual_distance': flt(parent_doc.get('total_distance', 0)),
             'actual_pieces': flt(parent_doc.get('total_pieces', 0)),
@@ -433,6 +437,7 @@ class SalesQuoteSeaFreight(Document):
         actual_data = {
             'actual_quantity': line_quantity,
             'actual_weight': line_quantity if self.unit_type == 'Weight' else 0,
+            'actual_chargeable_weight': line_quantity if self.unit_type == 'Chargeable Weight' else 0,
             'actual_volume': line_quantity if self.unit_type == 'Volume' else 0,
             'actual_distance': line_quantity if self.unit_type == 'Distance' else 0,
             'actual_pieces': line_quantity if self.unit_type in ['Package', 'Piece'] else 0,
@@ -445,6 +450,7 @@ class SalesQuoteSeaFreight(Document):
         if parent_doc:
             actual_data.update({
                 'actual_weight': flt(parent_doc.get('weight', 0) or parent_doc.get('total_weight', actual_data['actual_weight'])),
+                'actual_chargeable_weight': flt(parent_doc.get('chargeable', 0) or parent_doc.get('chargeable_weight', 0)),
                 'actual_volume': flt(parent_doc.get('volume', 0) or parent_doc.get('total_volume', actual_data['actual_volume'])),
                 'actual_distance': flt(parent_doc.get('total_distance', actual_data['actual_distance'])),
                 'actual_pieces': flt(parent_doc.get('total_pieces', actual_data['actual_pieces'])),

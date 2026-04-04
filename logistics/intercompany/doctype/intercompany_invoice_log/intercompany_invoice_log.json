@@ -13,7 +13,7 @@
   "job_type",
   "job_no",
   "column_break_log",
-  "billing_company",
+  "main_job_company",
   "operating_company",
   "status",
   "section_invoices",
@@ -72,10 +72,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "billing_company",
+   "fieldname": "main_job_company",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Billing Company",
+   "label": "Main Job Company",
    "options": "Company",
    "read_only": 1
   },

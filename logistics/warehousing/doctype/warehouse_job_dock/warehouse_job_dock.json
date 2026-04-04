@@ -39,14 +39,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Transport Company",
-   "options": "Transport Company"
+   "options": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Vehicle Type",
-   "options": "Vehicle Type"
+   "options": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "plate_no",
@@ -59,7 +61,8 @@
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
-   "options": "Container Type"
+   "options": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:parent.type=='Putaway' || parent.type=='Pick'",

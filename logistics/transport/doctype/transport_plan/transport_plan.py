@@ -833,7 +833,7 @@ def _create_transport_consolidation(load_type: str, legs: List[Dict[str, Any]], 
             consolidation.branch = getattr(first_job, "branch", None)
             consolidation.cost_center = getattr(first_job, "cost_center", None)
             consolidation.profit_center = getattr(first_job, "profit_center", None)
-            consolidation.job_costing_number = getattr(first_job, "job_costing_number", None)
+            consolidation.job_number = getattr(first_job, "job_number", None)
         
         # Add transport jobs
         for job_name in transport_jobs:

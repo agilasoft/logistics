@@ -4,7 +4,18 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt, today, getdate
+from frappe.utils import cint, flt, today, getdate
+
+from logistics.utils.charge_service_type import (
+	customs_charges_rows_from_sales_quote_doc,
+	throw_if_missing_destination_service_charge,
+)
+from logistics.utils.internal_job_charge_copy import (
+	apply_internal_job_main_charge_overlay,
+	build_internal_job_declaration_charge_dicts,
+	populate_internal_job_charges_from_main_service,
+	should_apply_internal_job_main_charge_overlay,
+)
 
 
 class DeclarationOrder(Document):
@@ -231,6 +242,8 @@ class DeclarationOrder(Document):
 
 		msgprint_sales_quote_validity_warnings(self)
 
+		apply_internal_job_main_charge_overlay(self)
+
 	def _validate_etd_eta(self):
 		"""Departure must not be after arrival (same calendar day allowed)."""
 		if not self.etd or not self.eta:
@@ -251,10 +264,25 @@ class DeclarationOrder(Document):
 		pass
 
 	def before_save(self):
-		from logistics.utils.module_integration import run_propagate_on_link, set_billing_company_from_sales_quote
+		from logistics.utils.module_integration import (
+			apply_internal_job_declaration_order_from_shipment,
+			run_propagate_on_link,
+		)
+		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
 		run_propagate_on_link(self)
-		set_billing_company_from_sales_quote(self)
+		apply_internal_job_declaration_order_from_shipment(self)
+		apply_shipper_consignee_defaults(self)
 		self.calculate_exemptions()
+		# First save only: pull charges from Sales Quote (or internal-job main service) when the grid is still empty.
+		# Covers API/quick entry and cases where the form did not run the client fetch (e.g. pre-filled sales_quote).
+		if self.is_new() and not (self.get("charges") or []):
+			if self.sales_quote:
+				self._populate_charges_from_sales_quote()
+			elif cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(
+				self
+			):
+				self._populate_charges_from_sales_quote()
 
 	def before_submit(self):
 		"""Prevent submission if no Sales Quote is linked to this Declaration Order.
@@ -264,6 +292,7 @@ class DeclarationOrder(Document):
 		"""
 		if not self.sales_quote:
 			frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."))
+		throw_if_missing_destination_service_charge(self)
 
 	def on_submit(self):
 		if self.sales_quote:
@@ -281,6 +310,18 @@ class DeclarationOrder(Document):
 				reset_one_off_quote_on_cancel(self.sales_quote)
 			except Exception as e:
 				frappe.log_error(f"Reset Sales Quote on Declaration Order cancel: {e}", "Declaration Order Cancel")
+
+	def on_trash(self):
+		"""Remove Internal Job Detail back-link on Air/Sea Shipment when this order is deleted."""
+		try:
+			from logistics.utils.internal_job_detail_copy import unlink_declaration_order_from_shipment
+
+			if getattr(self, "air_shipment", None) and frappe.db.exists("Air Shipment", self.air_shipment):
+				unlink_declaration_order_from_shipment("Air Shipment", self.air_shipment, self.name)
+			if getattr(self, "sea_shipment", None) and frappe.db.exists("Sea Shipment", self.sea_shipment):
+				unlink_declaration_order_from_shipment("Sea Shipment", self.sea_shipment, self.name)
+		except Exception as e:
+			frappe.log_error(f"Declaration Order on_trash clear shipment link: {e}", "Declaration Order Trash")
 
 	@frappe.whitelist()
 	def calculate_total_charges(self):
@@ -327,6 +368,38 @@ class DeclarationOrder(Document):
 			)
 			frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
+	@frappe.whitelist()
+	def revert_charges_to_source(self):
+		"""Revert charges to their source baseline (Main Job overlay or Sales Quote)."""
+		if self.docstatus == 1:
+			frappe.throw(
+				_("Cannot revert charges after submission. Please cancel/amend the document or use a Draft Declaration Order."),
+				title=_("Cannot Update After Submit"),
+			)
+		if not self.sales_quote and not should_apply_internal_job_main_charge_overlay(self):
+			return {"success": False, "message": _("No source charges available to revert.")}
+		try:
+			self.set("charges", [])
+			self._populate_charges_from_sales_quote()
+			self.save()
+
+			source = "sales_quote"
+			if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+				source = "main_job"
+
+			return {
+				"success": True,
+				"source": source,
+				"charges_count": len(self.get("charges") or []),
+				"message": _("Charges reverted successfully."),
+			}
+		except Exception as e:
+			frappe.log_error(
+				"Error reverting Declaration Order charges: {0}".format(str(e)),
+				"Declaration Order - Revert Charges Error",
+			)
+			frappe.throw(_("Error reverting charges: {0}").format(str(e)))
+
 	def calculate_exemptions(self):
 		"""Calculate total_exempted amount for each exemption in the declaration order"""
 		if not self.exemptions:
@@ -350,46 +423,37 @@ class DeclarationOrder(Document):
 
 	def _populate_charges_from_sales_quote(self):
 		"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
+		overlay_populated = False
+		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+			try:
+				n, st = populate_internal_job_charges_from_main_service(self)
+				if n:
+					frappe.msgprint(
+						_("Populated {0} charge rows from Main Job (Service Type: {1}).").format(n, st),
+						title=_("Charges Updated"),
+						indicator="green",
+					)
+					overlay_populated = True
+				else:
+					frappe.msgprint(
+						_("No Customs charge lines on the Main Job; loading charges from Sales Quote if available."),
+						title=_("Charges"),
+						indicator="orange",
+					)
+			except Exception as e:
+				frappe.log_error(f"Error populating Declaration Order charges from Main Job: {str(e)}")
+				frappe.msgprint(str(e), title=_("Error"), indicator="red")
+
+		if overlay_populated:
+			return
+
 		if not self.sales_quote:
 			return
 		try:
 			if not frappe.db.exists("Sales Quote", self.sales_quote):
 				return
 			sq = frappe.get_doc("Sales Quote", self.sales_quote)
-			
-			# Check separate_billings_per_service_type setting and if this is the main job
-			separate_billings = True  # Default to separate (current behavior)
-			is_main_job = False
-			
-			try:
-				separate_billings = getattr(sq, "separate_billings_per_service_type", 0) or False
-				
-				# Check if this Declaration Order is the main job by checking routing legs
-				if hasattr(sq, "routing_legs") and sq.routing_legs:
-					for leg in sq.routing_legs:
-						if (getattr(leg, "is_main_job", 0) and 
-							getattr(leg, "job_type", None) in ["Declaration", "Declaration Order"] and
-							getattr(leg, "job_no", None) == self.name):
-							is_main_job = True
-							break
-				
-				# Fallback: check if main_service matches and no routing legs exist
-				if not is_main_job and (not hasattr(sq, "routing_legs") or not sq.routing_legs):
-					if getattr(sq, "main_service", None) == "Customs":
-						is_main_job = True
-			except Exception:
-				# If we can't check, default to separate billings (current behavior)
-				pass
-			
-			# Prefer Sales Quote Charge (service_type=Customs)
-			sq_charges = []
-			if hasattr(sq, "charges") and sq.charges:
-				# If separate_billings is unchecked AND this is the main job, get ALL charges
-				# Otherwise, filter by service_type="Customs"
-				if not separate_billings and is_main_job:
-					sq_charges = list(sq.charges)  # Get all charges
-				else:
-					sq_charges = [c for c in sq.charges if c.get("service_type") == "Customs"]
+			sq_charges = customs_charges_rows_from_sales_quote_doc(self, sq)
 			if not sq_charges and hasattr(sq, "customs") and sq.customs:
 				sq_charges = list(sq.customs)
 			if not sq_charges:
@@ -397,7 +461,7 @@ class DeclarationOrder(Document):
 			meta = frappe.get_meta("Declaration Order Charges")
 			charge_fields = [f.fieldname for f in meta.fields]
 			common_fields = [
-				"item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+				"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
 				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 				"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 				"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
@@ -453,50 +517,49 @@ def get_sales_quote_details(sales_quote):
 
 
 @frappe.whitelist()
-def populate_charges_from_sales_quote(docname=None, sales_quote=None):
+def populate_charges_from_sales_quote(
+	docname=None,
+	sales_quote=None,
+	is_internal_job=None,
+	main_job_type=None,
+	main_job=None,
+):
 	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
-	if not sales_quote:
-		return {"charges": [], "charges_count": 0}
 	try:
+		parent = (
+			frappe.get_doc("Declaration Order", docname)
+			if docname and frappe.db.exists("Declaration Order", docname)
+			else frappe._dict(
+				doctype="Declaration Order", name=docname, is_internal_job=0, is_main_service=0
+			)
+		)
+		if is_internal_job is not None:
+			parent.is_internal_job = cint(is_internal_job)
+		if main_job_type is not None:
+			parent.main_job_type = main_job_type
+		if main_job is not None:
+			parent.main_job = main_job
+
+		if should_apply_internal_job_main_charge_overlay(parent):
+			charges = build_internal_job_declaration_charge_dicts(parent)
+			if charges:
+				return {
+					"charges": charges,
+					"charges_count": len(charges),
+					"internal_job_charge_overlay_applied": True,
+					"source": "main_service",
+				}
+			# No Customs rows on main job: use Sales Quote customs charges if available
+
+		if not sales_quote:
+			return {"charges": [], "charges_count": 0}
 		# Temporary names (unsaved documents) cannot be fetched
 		if sales_quote.startswith("new-"):
 			return {"charges": [], "charges_count": 0, "error": _("Please save the Sales Quote first before selecting it here.")}
 		if not frappe.db.exists("Sales Quote", sales_quote):
 			return {"charges": [], "error": _("Sales Quote {0} does not exist.").format(sales_quote)}
 		sq = frappe.get_doc("Sales Quote", sales_quote)
-		
-		# Check separate_billings_per_service_type setting and if this is the main job
-		separate_billings = True  # Default to separate (current behavior)
-		is_main_job = False
-		
-		try:
-			separate_billings = getattr(sq, "separate_billings_per_service_type", 0) or False
-			
-			# Check if this Declaration Order is the main job by checking routing legs
-			if docname and hasattr(sq, "routing_legs") and sq.routing_legs:
-				for leg in sq.routing_legs:
-					if (getattr(leg, "is_main_job", 0) and 
-						getattr(leg, "job_type", None) in ["Declaration", "Declaration Order"] and
-						getattr(leg, "job_no", None) == docname):
-						is_main_job = True
-						break
-			
-			# Fallback: check if main_service matches and no routing legs exist
-			if not is_main_job and (not hasattr(sq, "routing_legs") or not sq.routing_legs):
-				if getattr(sq, "main_service", None) == "Customs":
-					is_main_job = True
-		except Exception:
-			# If we can't check, default to separate billings (current behavior)
-			pass
-		
-		sq_charges = []
-		if hasattr(sq, "charges") and sq.charges:
-			# If separate_billings is unchecked AND this is the main job, get ALL charges
-			# Otherwise, filter by service_type="Customs"
-			if not separate_billings and is_main_job:
-				sq_charges = list(sq.charges)  # Get all charges
-			else:
-				sq_charges = [c for c in sq.charges if c.get("service_type") == "Customs"]
+		sq_charges = customs_charges_rows_from_sales_quote_doc(parent, sq)
 		if not sq_charges and hasattr(sq, "customs") and sq.customs:
 			sq_charges = list(sq.customs)
 		if not sq_charges:
@@ -504,7 +567,7 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 		meta = frappe.get_meta("Declaration Order Charges")
 		charge_fields = [f.fieldname for f in meta.fields]
 		common_fields = [
-			"item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+			"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
 			"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 			"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 			"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
@@ -545,7 +608,11 @@ def populate_charges_from_sales_quote(docname=None, sales_quote=None):
 				row["charge_type"] = "Revenue"
 			if row:
 				charges.append(row)
-		return {"charges": charges, "charges_count": len(charges)}
+		return {
+			"charges": charges,
+			"charges_count": len(charges),
+			"internal_job_charge_overlay_applied": False,
+		}
 	except Exception as e:
 		frappe.log_error(f"Error populating Declaration Order charges: {str(e)}")
 		return {"charges": [], "error": str(e)}

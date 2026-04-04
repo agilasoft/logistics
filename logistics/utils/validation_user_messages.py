@@ -62,6 +62,21 @@ def milestone_actual_range_invalid_message():
 	)
 
 
+def milestone_actual_end_without_start_message():
+	return _(
+		"Actual End is set but Actual Start is empty. A milestone cannot be completed before it starts.\n\n"
+		"What to do: Enter Actual Start first (or at the same time), then set Actual End."
+	)
+
+
+def milestone_completed_before_planned_start_message():
+	return _(
+		"Actual End is earlier than Planned Start. This records the milestone as completed before the planned timeline begins.\n\n"
+		"What to do: Adjust Planned Start and/or Actual End so completion is on or after the planned start, "
+		"or disable strict milestone schedule validation in Logistics Settings if early completion should be allowed."
+	)
+
+
 def milestone_date_validation_title():
 	return _("Invalid milestone dates")
 

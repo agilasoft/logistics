@@ -16,7 +16,8 @@
    "in_list_view": 1,
    "label": "Address",
    "options": "Address",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "default": "0",

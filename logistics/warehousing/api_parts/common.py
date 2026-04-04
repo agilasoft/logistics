@@ -1213,7 +1213,7 @@ def create_sales_invoice_from_periodic_billing(
     branch   = branch   or (getattr(pb, "branch",   None) if "branch"   in pbf else None)
     profit_center = getattr(pb, "profit_center", None) if "profit_center" in pbf else None
     cost_center = cost_center or (getattr(pb, "cost_center", None) if "cost_center" in pbf else None)
-    job_costing_number = getattr(pb, "job_costing_number", None) if "job_costing_number" in pbf else None
+    job_number = getattr(pb, "job_number", None) if "job_number" in pbf else None
 
     if not customer:
         frappe.throw(_("Customer is required (set it on Periodic Billing or pass it here)."))
@@ -1287,7 +1287,7 @@ def create_sales_invoice_from_periodic_billing(
     si.company  = company
     if posting_date: si.posting_date = posting_date
 
-    # Set company, branch, profit_center, cost_center, and job_costing_number on header if fields exist
+    # Set company, branch, profit_center, cost_center, and job_number on header if fields exist
     sif = _safe_meta_fieldnames("Sales Invoice")
     if branch and "branch" in sif:
         setattr(si, "branch", branch)
@@ -1295,8 +1295,8 @@ def create_sales_invoice_from_periodic_billing(
         setattr(si, "profit_center", profit_center)
     if cost_center and "cost_center" in sif:
         setattr(si, "cost_center", cost_center)
-    if job_costing_number and "job_costing_number" in sif:
-        setattr(si, "job_costing_number", job_costing_number)
+    if job_number and "job_number" in sif:
+        setattr(si, "job_number", job_number)
 
     # Link back to PB or add remark
     if "periodic_billing" in sif:
@@ -1309,12 +1309,12 @@ def create_sales_invoice_from_periodic_billing(
     if chosen_currency and "currency" in sif:
         si.currency = chosen_currency
 
-    # Append items (also set branch, profit_center, cost_center, and job_costing_number per row if fields exist)
+    # Append items (also set branch, profit_center, cost_center, and job_number per row if fields exist)
     sif_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
     item_has_branch = "branch" in sif_item_fields
     item_has_profit_center = "profit_center" in sif_item_fields
     item_has_cost_center = "cost_center" in sif_item_fields
-    item_has_job_costing_number = "job_costing_number" in sif_item_fields
+    item_has_job_number = "job_number" in sif_item_fields
 
     for r in valid_rows:
         row_payload = {"item_code": r["item_code"], "qty": r["qty"] or 0.0, "rate": r["rate"] or 0.0}
@@ -1323,8 +1323,8 @@ def create_sales_invoice_from_periodic_billing(
         if cost_center and item_has_cost_center: row_payload["cost_center"] = cost_center
         if item_has_branch and branch: row_payload["branch"] = branch
         if profit_center and item_has_profit_center: row_payload["profit_center"] = profit_center
-        # Tag job_costing_number to storage charges (all items from periodic billing are storage charges)
-        if job_costing_number and item_has_job_costing_number: row_payload["job_costing_number"] = job_costing_number
+        # Tag job_number to storage charges (all items from periodic billing are storage charges)
+        if job_number and item_has_job_number: row_payload["job_number"] = job_number
         si.append("items", row_payload)
 
     si.insert()

@@ -88,7 +88,8 @@
    "label": "Default Dimension UOM",
    "options": "UOM",
    "description": "Default unit for length, width, height (e.g., CM, M, FT). Configure this in Transport Capacity Settings after installation.",
-   "reqd": 0
+   "reqd": 0,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_volume_uom",
@@ -96,7 +97,8 @@
    "label": "Default Volume UOM",
    "options": "UOM",
    "description": "Default unit for volume (e.g., CBM, CFT, L). Configure this in Transport Capacity Settings after installation.",
-   "reqd": 0
+   "reqd": 0,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_weight_uom",
@@ -104,7 +106,8 @@
    "label": "Default Weight UOM",
    "options": "UOM",
    "description": "Default unit for weight (e.g., KG, TON, LB). Configure this in Transport Capacity Settings after installation.",
-   "reqd": 0
+   "reqd": 0,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_uom",

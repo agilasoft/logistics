@@ -125,19 +125,11 @@ def get_job_recognition_fields():
                 "insert_after": "recognized_revenue"
             },
             {
-                "fieldname": "wip_adjustment_journal_entry",
-                "fieldtype": "Link",
-                "label": "WIP Adjustment JE",
-                "options": "Journal Entry",
-                "read_only": 1,
-                "insert_after": "wip_journal_entry"
-            },
-            {
                 "fieldname": "wip_closed",
                 "fieldtype": "Check",
                 "label": "WIP Closed",
                 "read_only": 1,
-                "insert_after": "wip_adjustment_journal_entry"
+                "insert_after": "wip_journal_entry"
             },
             {
                 "fieldname": "column_break_accrual",
@@ -166,27 +158,11 @@ def get_job_recognition_fields():
                 "insert_after": "accrual_amount"
             },
             {
-                "fieldname": "accrual_journal_entry",
-                "fieldtype": "Link",
-                "label": "Accrual Journal Entry",
-                "options": "Journal Entry",
-                "read_only": 1,
-                "insert_after": "recognized_costs"
-            },
-            {
-                "fieldname": "accrual_adjustment_journal_entry",
-                "fieldtype": "Link",
-                "label": "Accrual Adjustment JE",
-                "options": "Journal Entry",
-                "read_only": 1,
-                "insert_after": "accrual_journal_entry"
-            },
-            {
                 "fieldname": "accrual_closed",
                 "fieldtype": "Check",
                 "label": "Accrual Closed",
                 "read_only": 1,
-                "insert_after": "accrual_adjustment_journal_entry"
+                "insert_after": "recognized_costs"
             }
         ]
     

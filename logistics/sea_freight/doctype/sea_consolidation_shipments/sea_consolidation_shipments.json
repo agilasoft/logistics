@@ -104,7 +104,8 @@
    "in_list_view": 1,
    "label": "Origin Port",
    "options": "UNLOCO",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fetch_from": "sea_shipment.destination_port",
@@ -113,7 +114,8 @@
    "in_list_view": 1,
    "label": "Destination Port",
    "options": "UNLOCO",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_cargo",
@@ -132,7 +134,8 @@
    "fieldtype": "Link",
    "label": "Weight UOM",
    "options": "UOM",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "volume",
@@ -146,7 +149,8 @@
    "fieldtype": "Link",
    "label": "Volume UOM",
    "options": "UOM",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "packs",

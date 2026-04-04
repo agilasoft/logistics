@@ -43,7 +43,7 @@ frappe.ui.form.on('Transfer Order', {
             }
           }
         });
-      }, __('Actions'));
+      }, __('Action'));
     }
 
     // Create → Warehouse Job (available for draft/submitted TO; adjust as you prefer)

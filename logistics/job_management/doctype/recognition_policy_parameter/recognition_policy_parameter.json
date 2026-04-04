@@ -54,7 +54,8 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_match",
@@ -70,7 +71,8 @@
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "label": "Mode",
-   "options": "Transport Mode"
+   "options": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_dates",
@@ -95,13 +97,15 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "WIP Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "revenue_liability_account",
    "fieldtype": "Link",
    "label": "Revenue Liability Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_acc",
@@ -111,13 +115,15 @@
    "fieldname": "cost_accrual_account",
    "fieldtype": "Link",
    "label": "Cost Accrual Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "accrued_cost_liability_account",
    "fieldtype": "Link",
    "label": "Accrued Cost Liability Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   }
  ],
  "index_web_pages_for_search": 1,

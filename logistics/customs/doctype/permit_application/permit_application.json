@@ -60,7 +60,8 @@
    "in_list_view": 1,
    "label": "Permit Type",
    "options": "Permit Type",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Permit Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "status",
@@ -121,7 +122,8 @@
    "fieldname": "issuing_authority",
    "fieldtype": "Link",
    "label": "Issuing Authority",
-   "options": "Customs Authority"
+   "options": "Issuing Authority",
+   "link_filters": "[[\"Issuing Authority\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_dates",
@@ -198,7 +200,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "attachments_tab",
@@ -275,4 +278,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

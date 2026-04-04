@@ -34,7 +34,8 @@
    "in_list_view": 1,
    "label": "Vehicle",
    "options": "Transport Vehicle",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Transport Vehicle\", \"is_active\", \"=\", 1]]"
   },
   {
    "fetch_from": "run_sheet.driver",

@@ -30,12 +30,13 @@
   },
   {
    "depends_on": "eval:!doc.permit_application",
-   "description": "Set on Declaration Order / Declaration before a Permit Application is linked. Copied to Declaration. Default for Create \u003e Permit Application.",
+   "description": "Set on Declaration Order / Declaration before a Permit Application is linked. Copied to Declaration. Default for Create > Permit Application.",
    "fieldname": "planned_permit_type",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Permit Type",
-   "options": "Permit Type"
+   "options": "Permit Type",
+   "link_filters": "[[\"Permit Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "description": "From linked Permit Application (code). Virtual: evaluated if controller property is absent.",

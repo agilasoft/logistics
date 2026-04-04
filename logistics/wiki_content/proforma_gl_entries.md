@@ -1,6 +1,6 @@
-# Proforma GL Entries (Job Costing)
+# Proforma GL Entries (Job Number)
 
-This document describes the **proforma** (expected) General Ledger entries that appear under a job when **Job Costing Number** is set. All such entries are linked via the `job_costing_number` accounting dimension on GL Entry. The **Profitability (from GL)** section on job/shipment forms reads these entries to show Revenue, Cost, WIP, and Accrual.
+This document describes the **proforma** (expected) General Ledger entries that appear under a job when **Job Number** is set. All such entries are linked via the `job_number` accounting dimension on GL Entry. The **Profitability (from GL)** section on job/shipment forms reads these entries to show Revenue, Cost, WIP, and Accrual.
 
 ---
 
@@ -8,7 +8,7 @@ This document describes the **proforma** (expected) General Ledger entries that 
 
 **Source:** Sales Invoice (created from or linked to the job).
 
-When a Sales Invoice has **Job Costing Number** set, ERPNext posts GL entries with that dimension. Income account entries determine **Revenue** in the Profitability section.
+When a Sales Invoice has **Job Number** set, ERPNext posts GL entries with that dimension. Income account entries determine **Revenue** in the Profitability section.
 
 | Account (Root Type) | Debit | Credit | Effect on Revenue |
 |---------------------|-------|--------|-------------------|
@@ -22,7 +22,7 @@ When a Sales Invoice has **Job Costing Number** set, ERPNext posts GL entries wi
 | Sales - Jobs   | Income    | 0     | X      |
 | Debtors        | Asset     | X     | 0      |
 
-Revenue = sum of **(credit − debit)** for all GL rows where the account’s **Root Type = Income** and `job_costing_number` matches the job.
+Revenue = sum of **(credit − debit)** for all GL rows where the account’s **Root Type = Income** and `job_number` matches the job.
 
 ---
 
@@ -30,7 +30,7 @@ Revenue = sum of **(credit − debit)** for all GL rows where the account’s **
 
 **Source:** Purchase Invoice (created from or linked to the job).
 
-When a Purchase Invoice has **Job Costing Number** set, ERPNext posts GL entries with that dimension. Expense account entries determine **Cost** in the Profitability section.
+When a Purchase Invoice has **Job Number** set, ERPNext posts GL entries with that dimension. Expense account entries determine **Cost** in the Profitability section.
 
 | Account (Root Type) | Debit | Credit | Effect on Cost |
 |---------------------|-------|--------|----------------|
@@ -44,7 +44,7 @@ When a Purchase Invoice has **Job Costing Number** set, ERPNext posts GL entries
 | Cost of Goods / Expense | Expense | X     | 0      |
 | Creditors         | Liability | 0    | X      |
 
-Cost = sum of **(debit − credit)** for all GL rows where the account’s **Root Type = Expense** and `job_costing_number` matches the job, **excluding** the policy **Cost Accrual Account** (that expense is treated as part of the accrual story, not “realized” job cost in the summary).
+Cost = sum of **(debit − credit)** for all GL rows where the account’s **Root Type = Expense** and `job_number` matches the job, **excluding** the policy **Cost Accrual Account** (that expense is treated as part of the accrual story, not “realized” job cost in the summary).
 
 ---
 
@@ -61,7 +61,7 @@ Cost = sum of **(debit − credit)** for all GL rows where the account’s **Roo
 
 \*Policy validation uses **Asset** for Revenue Liability Account (e.g. contract asset / unbilled); your COA label may say “WIP Liability”.
 
-**Profitability:** WIP amount = sum of **(credit − debit)** for the **WIP Account** only (from the job’s recognition policy), for the job’s `job_costing_number`.
+**Profitability:** WIP amount = sum of **(credit − debit)** for the **WIP Account** only (from the job’s recognition policy), for the job’s `job_number`.
 
 ### 3.2 WIP Adjustment / Closure
 
@@ -87,7 +87,7 @@ This unwinds the WIP (Income) credit from recognition for the adjusted/closed am
 
 Accrual recognition may post **one Dr/Cr pair per charge line**, with the **Item** accounting dimension set on both rows when the site has an Item dimension on Journal Entry Account (same value as on charge `item_code` / `charge_item` when present).
 
-**Profitability:** The summary tile **Accrual amount** = sum of **(credit − debit)** for the **Accrued Cost Liability Account** only (from the job’s recognition policy), for the job’s `job_costing_number`.
+**Profitability:** The summary tile **Accrual amount** = sum of **(credit − debit)** for the **Accrued Cost Liability Account** only (from the job’s recognition policy), for the job’s `job_number`.
 
 In the **Related GL Entries** table, rows on the **Cost Accrual Account** appear under the **Accrual** column (debit − credit), not under **Cost**, so accrual expense is visually grouped with accrual activity.
 
@@ -102,7 +102,7 @@ This reduces the accrued cost liability balance for the job.
 
 ### 4.3 Accrual reversal when Purchase Invoice is posted
 
-When a **Purchase Invoice** is submitted with the same **Job Costing Number** as the job, and the job still has **open accrual** (`accrual_amount`), logistics posts an **Accrual reversal** Journal Entry: **Dr Accrued Cost Liability**, **Cr Cost Accrual**, up to each PI line amount (and capped by open accrual). The job’s `accrual_amount` and `recognized_costs` are updated. Where GL supports it, reversal lines use the same **Item** dimension as the PI line so accrual can be matched per item.
+When a **Purchase Invoice** is submitted with the same **Job Number** as the job, and the job still has **open accrual** (`accrual_amount`), logistics posts an **Accrual reversal** Journal Entry: **Dr Accrued Cost Liability**, **Cr Cost Accrual**, up to each PI line amount (and capped by open accrual). The job’s `accrual_amount` and `recognized_costs` are updated. Where GL supports it, reversal lines use the same **Item** dimension as the PI line so accrual can be matched per item.
 
 ---
 
@@ -110,8 +110,8 @@ When a **Purchase Invoice** is submitted with the same **Job Costing Number** as
 
 | Column   | GL basis |
 |----------|----------|
-| **Revenue** | Sum of (credit − debit) for **Income** and `job_costing_number` = job, **excluding** the policy **WIP Account** and accounts whose **Job Profit Account Type** is **Disbursements**, **WIP**, or **Accrual**. |
-| **Cost**    | Sum of (debit − credit) for **Expense** and `job_costing_number` = job, **excluding** the policy **Cost Accrual Account** and the same **Job Profit Account Type** tags as above. |
+| **Revenue** | Sum of (credit − debit) for **Income** and `job_number` = job, **excluding** the policy **WIP Account** and accounts whose **Job Profit Account Type** is **Disbursements**, **WIP**, or **Accrual**. |
+| **Cost**    | Sum of (debit − credit) for **Expense** and `job_number` = job, **excluding** the policy **Cost Accrual Account** and the same **Job Profit Account Type** tags as above. |
 | **WIP**     | Summary tile: **(credit − debit)** for the policy **WIP Account** only. The GL table also classifies accounts tagged **WIP** (Job Profit Account Type). |
 | **Accrual** | Summary tile: **(credit − debit)** on the policy **Accrued Cost Liability Account** only. The GL table includes **Cost Accrual** (policy) and accounts tagged **Accrual** (Job Profit Account Type). |
 | **Disbursements** | Sum of signed GL on accounts with **Job Profit Account Type = Disbursements** (by root type). |
@@ -131,3 +131,15 @@ On **Account**, the custom field **Job Profit Account Type** (`job_profit_accoun
 The profitability section uses **tabs** (**Summary** | **Details**): **Summary** totals **per Item Code** (up to 5000 classified GL rows); **Details** lists each classified GL entry (up to 100 rows). Switching tabs uses native label/radio behaviour (no desk JS required). GL lines that do not map to Revenue, Cost, WIP, Accrual, or Disbursements (including untagged Asset/Liability lines that are not policy accrual/WIP accounts) are **hidden**.
 
 All figures are from **posted** GL entries (`docstatus = 1`) and optional date filters. See [Job Management Module](welcome/job-management-module) and the **Profitability (from GL)** section on job/shipment forms.
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_GL rows use standard ERPNext **Journal Entry** / **GL Entry** structures plus logistics dimensions. Operational sources (with full field references on their wiki pages):_
+
+- [General Job](welcome/general-job), [Air Shipment](welcome/air-shipment), [Sea Shipment](welcome/sea-shipment), [Transport Job](welcome/transport-job), [Warehouse Job](welcome/warehouse-job), [Declaration](welcome/declaration)
+
+<!-- wiki-field-reference:end -->
+

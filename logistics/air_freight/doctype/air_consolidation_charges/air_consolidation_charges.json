@@ -80,7 +80,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Weight\nVolume\nPackage\nPiece"
+   "options": "Weight\nChargeable Weight\nVolume\nPackage\nPiece"
   },
   {
    "fieldname": "rate",
@@ -94,7 +94,8 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_calculation",
@@ -111,7 +112,7 @@
    "fieldname": "unit_of_measure",
    "fieldtype": "Select",
    "label": "Unit of Measure",
-   "options": "kg\nm³\npackage\nshipment\nhour\nday"
+   "options": "kg\nm\u00b3\npackage\nshipment\nhour\nday"
   },
   {
    "fieldname": "column_break_2",

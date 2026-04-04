@@ -106,7 +106,8 @@
    "in_list_view": 1,
    "label": "Project",
    "options": "Project",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "project_name",
@@ -119,7 +120,8 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_1",
@@ -345,7 +347,8 @@
    "fieldname": "tc_name",
    "fieldtype": "Link",
    "label": "Terms",
-   "options": "Terms and Conditions"
+   "options": "Terms and Conditions",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
   },
   {
    "fetch_from": "tc_name.terms",

@@ -13,8 +13,8 @@ def execute():
     # Define dimensions to create
     dimensions = [
         {
-            "name": "Job Costing Number",
-            "document_type": "Job Costing Number",
+            "name": "Job Number",
+            "document_type": "Job Number",
             "disabled": 0,
             "is_mandatory": 0,
             "default_dimension": None,

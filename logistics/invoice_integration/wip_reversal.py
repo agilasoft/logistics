@@ -8,7 +8,7 @@ up to each line amount, capped by the job's wip_amount / open GL balances.
 
 Intercompany Sales Invoices use the same DocType and hooks — no separate path.
 
-Line → Job Costing Number: header ``job_costing_number`` if set; otherwise ``reference_doctype`` /
+Line → Job Number: header ``job_number`` if set; otherwise ``reference_doctype`` /
 ``reference_name`` on the line when they point to a logistics job with a JCN.
 """
 
@@ -20,9 +20,14 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.job_management.charge_recognition_je import set_wip_adjustment_je_on_charges
 from logistics.job_management.gl_item_dimension import get_item_dimension_fieldname_on_gl_entry, item_row_dict
-from logistics.job_management.recognition_engine import get_recognition_policy_for_job
-from logistics.invoice_integration.recognition_voucher_reversal import reversal_journal_entry_exists
+from logistics.job_management.recognition_engine import resolve_policy_row_for_job
+from logistics.invoice_integration.lifecycle import get_jobs_linked_to_sales_invoice
+from logistics.invoice_integration.recognition_voucher_reversal import (
+	append_logistics_reversal_marker,
+	reversal_journal_entry_exists_for_voucher,
+)
 
 # Jobs that may appear on Sales Invoice Item reference
 LINE_REFERENCE_JOB_TYPES = (
@@ -32,6 +37,7 @@ LINE_REFERENCE_JOB_TYPES = (
 	"Warehouse Job",
 	"Declaration",
 	"Declaration Order",
+	"General Job",
 )
 
 
@@ -42,7 +48,7 @@ def _paired_wip_open_for_item(jcn, company, wip_acc, liab_acc, item_fn, item_cod
 		SELECT COALESCE(SUM(credit - debit), 0)
 		FROM `tabGL Entry`
 		WHERE docstatus = 1 AND company = %(company)s
-		  AND job_costing_number = %(jcn)s AND account = %(acc)s
+		  AND job_number = %(jcn)s AND account = %(acc)s
 		  AND `{item_fn}` = %(item)s
 		""".format(item_fn=item_fn),
 		{"company": company, "jcn": jcn, "acc": wip_acc, "item": item_code or ""},
@@ -52,7 +58,7 @@ def _paired_wip_open_for_item(jcn, company, wip_acc, liab_acc, item_fn, item_cod
 		SELECT COALESCE(SUM(debit - credit), 0)
 		FROM `tabGL Entry`
 		WHERE docstatus = 1 AND company = %(company)s
-		  AND job_costing_number = %(jcn)s AND account = %(acc)s
+		  AND job_number = %(jcn)s AND account = %(acc)s
 		  AND `{item_fn}` = %(item)s
 		""".format(item_fn=item_fn),
 		{"company": company, "jcn": jcn, "acc": liab_acc, "item": item_code or ""},
@@ -63,10 +69,40 @@ def _paired_wip_open_for_item(jcn, company, wip_acc, liab_acc, item_fn, item_cod
 def _resolve_jcn_for_si_line(si_doc, row, header_jcn):
 	if header_jcn:
 		return header_jcn
+	line_jcn = row.get("job_number")
+	if line_jcn:
+		return line_jcn
 	rdt = row.get("reference_doctype")
 	rn = row.get("reference_name")
 	if rdt and rn and rdt in LINE_REFERENCE_JOB_TYPES and frappe.db.exists(rdt, rn):
-		return frappe.db.get_value(rdt, rn, "job_costing_number")
+		return frappe.db.get_value(rdt, rn, "job_number")
+	return None
+
+
+def _si_item_amount_for_wip_reversal(row):
+	"""Company-currency line amount to cap WIP reversal (ERPNext / custom field variance)."""
+	for key in ("base_net_amount", "base_amount", "amount", "net_amount"):
+		v = flt(row.get(key))
+		if v:
+			return v
+	qty = flt(row.get("qty") or row.get("stock_qty") or 0)
+	rate = flt(row.get("rate") or row.get("price_list_rate") or 0)
+	if qty and rate:
+		return qty * rate
+	return 0
+
+
+def _fallback_jcn_from_linked_sales_invoice(si_name):
+	"""When SI lines have no JCN, use the job's JCN if exactly one logistics job links to this SI."""
+	jcns = []
+	seen = set()
+	for dt, nm in get_jobs_linked_to_sales_invoice(si_name):
+		jcn = frappe.db.get_value(dt, nm, "job_number")
+		if jcn and jcn not in seen:
+			seen.add(jcn)
+			jcns.append(jcn)
+	if len(jcns) == 1:
+		return jcns[0]
 	return None
 
 
@@ -75,8 +111,6 @@ def post_wip_reversal_journal(
 	je_pairs,
 	posting_date,
 	company,
-	reference_type,
-	reference_name,
 	user_remark,
 ):
 	"""
@@ -86,8 +120,6 @@ def post_wip_reversal_journal(
 		[(job, je_pairs)],
 		posting_date,
 		company,
-		reference_type,
-		reference_name,
 		user_remark,
 	)
 
@@ -96,8 +128,6 @@ def post_wip_reversal_journal_multi(
 	segments,
 	posting_date,
 	company,
-	reference_type,
-	reference_name,
 	user_remark,
 ):
 	"""
@@ -119,12 +149,12 @@ def post_wip_reversal_journal_multi(
 	for job, je_pairs in segments:
 		if not je_pairs:
 			continue
-		jcn = job.get("job_costing_number")
-		policy = get_recognition_policy_for_job(jcn)
-		if not policy:
+		jcn = job.get("job_number")
+		_policy, param_row = resolve_policy_row_for_job(job)
+		if not param_row:
 			continue
-		wip_acc = policy.get("wip_account")
-		liab_acc = policy.get("revenue_liability_account")
+		wip_acc = param_row.get("wip_account")
+		liab_acc = param_row.get("revenue_liability_account")
 		if not wip_acc or not liab_acc:
 			continue
 
@@ -133,15 +163,17 @@ def post_wip_reversal_journal_multi(
 		for rev_amt, item_code in je_pairs:
 			seg_total += flt(rev_amt)
 			item_extra = item_row_dict("Journal Entry Account", item_code)
+			# Do not set reference_type to Sales Invoice / PI on rows: ERPNext requires
+			# account + party to match invoice receivable/payable; WIP/liability rows would fail validate_reference_doc.
 			base_row = {
 				"cost_center": job.get("cost_center"),
 				"profit_center": job.get("profit_center"),
-				"reference_type": reference_type,
-				"reference_name": reference_name,
+				"reference_type": "",
+				"reference_name": "",
 				**item_extra,
 			}
 			if jcn_val:
-				base_row["job_costing_number"] = jcn_val
+				base_row["job_number"] = jcn_val
 
 			je.append(
 				"accounts",
@@ -177,41 +209,58 @@ def post_wip_reversal_journal_multi(
 			{
 				"wip_amount": max(0, flt(job.wip_amount) - seg_total),
 				"recognized_revenue": flt(job.get("recognized_revenue")) + seg_total,
-				"wip_adjustment_journal_entry": je.name,
 			},
 			update_modified=False,
 		)
+
+	jobs_posted = {job.name for job, _ in totals_per_job}
+	for job, je_pairs in segments:
+		if not je_pairs or job.name not in jobs_posted:
+			continue
+		item_codes = {ic for _, ic in je_pairs if ic}
+		restrict = item_codes if item_codes else None
+		set_wip_adjustment_je_on_charges(job.doctype, job.name, je.name, restrict)
 
 	return je.name
 
 
 def reverse_wip_for_sales_invoice(si_doc):
 	"""
-	Reverse WIP for each distinct Job Costing Number represented on the invoice.
+	Reverse WIP for each distinct Job Number represented on the invoice.
 
 	Idempotent: skips if a submitted JE already references this Sales Invoice.
 	"""
 	if not si_doc or getattr(si_doc, "docstatus", None) != 1:
 		return None
 
-	existing_je = reversal_journal_entry_exists("Sales Invoice", si_doc.name)
+	existing_je = reversal_journal_entry_exists_for_voucher("Sales Invoice", si_doc.name)
 	if existing_je:
 		return existing_je
 
 	meta_si = frappe.get_meta("Sales Invoice")
-	header_jcn = getattr(si_doc, "job_costing_number", None)
-	if not header_jcn and meta_si.get_field("job_costing_number"):
-		header_jcn = frappe.db.get_value("Sales Invoice", si_doc.name, "job_costing_number")
+	header_jcn = getattr(si_doc, "job_number", None)
+	if not header_jcn and meta_si.get_field("job_number"):
+		header_jcn = frappe.db.get_value("Sales Invoice", si_doc.name, "job_number")
 
 	buckets = defaultdict(list)
 	for row in si_doc.get("items") or []:
-		amt = flt(row.get("base_net_amount")) or flt(row.get("amount")) or 0
+		amt = _si_item_amount_for_wip_reversal(row)
 		if amt <= 0:
 			continue
 		jcn = _resolve_jcn_for_si_line(si_doc, row, header_jcn)
 		if not jcn:
 			continue
 		buckets[jcn].append((amt, row.get("item_code")))
+
+	# Lines often lack job_number / reference; job may still point to this SI (logistics flow).
+	if not buckets:
+		fb_jcn = _fallback_jcn_from_linked_sales_invoice(si_doc.name)
+		if fb_jcn:
+			for row in si_doc.get("items") or []:
+				amt = _si_item_amount_for_wip_reversal(row)
+				if amt <= 0:
+					continue
+				buckets[fb_jcn].append((amt, row.get("item_code")))
 
 	if not buckets:
 		return None
@@ -221,9 +270,9 @@ def reverse_wip_for_sales_invoice(si_doc):
 	segments = []
 
 	for jcn, line_amts in buckets.items():
-		if not frappe.db.exists("Job Costing Number", jcn):
+		if not frappe.db.exists("Job Number", jcn):
 			continue
-		jcn_doc = frappe.get_doc("Job Costing Number", jcn)
+		jcn_doc = frappe.get_doc("Job Number", jcn)
 		job_dt = jcn_doc.job_type
 		job_no = jcn_doc.job_no
 		if not job_dt or not job_no or not frappe.db.exists(job_dt, job_no):
@@ -234,11 +283,11 @@ def reverse_wip_for_sales_invoice(si_doc):
 			continue
 
 		job = frappe.get_doc(job_dt, job_no)
-		policy = get_recognition_policy_for_job(jcn)
-		if not policy:
+		_policy, param_row = resolve_policy_row_for_job(job)
+		if not param_row:
 			continue
-		wip_acc = policy.get("wip_account")
-		liab_acc = policy.get("revenue_liability_account")
+		wip_acc = param_row.get("wip_account")
+		liab_acc = param_row.get("revenue_liability_account")
 		if not wip_acc or not liab_acc:
 			continue
 
@@ -266,11 +315,14 @@ def reverse_wip_for_sales_invoice(si_doc):
 	if not segments:
 		return None
 
+	user_remark = append_logistics_reversal_marker(
+		_("WIP reversal for Sales Invoice {0}").format(si_doc.name),
+		"Sales Invoice",
+		si_doc.name,
+	)
 	return post_wip_reversal_journal_multi(
 		segments,
 		si_doc.posting_date,
 		company,
-		"Sales Invoice",
-		si_doc.name,
-		_("WIP reversal for Sales Invoice {0}").format(si_doc.name),
+		user_remark,
 	)

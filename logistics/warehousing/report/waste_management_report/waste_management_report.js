@@ -229,7 +229,7 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Export Report"), function() {
 			frappe.call({
@@ -243,7 +243,7 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("View Waste Chart"), function() {
 			frappe.call({
@@ -282,7 +282,7 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Waste Insights"), function() {
 			frappe.call({
@@ -300,7 +300,7 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Circular Economy Analysis"), function() {
 			frappe.call({
@@ -318,7 +318,7 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Reduction Recommendations"), function() {
 			frappe.call({
@@ -336,7 +336,7 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Compliance Check"), function() {
 			frappe.call({
@@ -354,6 +354,6 @@ frappe.query_reports["Waste Management Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 	}
 };

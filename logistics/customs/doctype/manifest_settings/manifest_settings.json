@@ -52,13 +52,15 @@
    "fieldname": "default_carrier",
    "fieldtype": "Link",
    "label": "Default Carrier",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "default_forwarder",
    "fieldtype": "Link",
    "label": "Default Forwarder",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_general",
@@ -199,4 +201,3 @@
  "states": [],
  "singles": 1
 }
-

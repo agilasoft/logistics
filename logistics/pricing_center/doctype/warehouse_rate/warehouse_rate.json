@@ -44,7 +44,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Charge",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_logistics_charge_item\", \"=\", 1], [\"Item\", \"custom_warehousing_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
    "reqd": 1
   },
@@ -162,7 +162,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Handling Unit\nWeight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
+   "options": "Handling Unit\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
   },
   {
    "default": "Daily Volume",
@@ -181,7 +181,8 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "rate",
@@ -195,7 +196,8 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "minimum_charge",

@@ -81,14 +81,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Pick Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "drop_address",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Drop Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "pick_address_html",
@@ -109,7 +111,8 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type"
+   "options": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "transport_job_type",

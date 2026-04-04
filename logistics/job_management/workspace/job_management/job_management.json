@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"Fhw0Wv1KaN\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Shortcuts</span>\",\"col\":12}},{\"id\":\"IgVKg6MeaQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Costing Number\",\"col\":3}},{\"id\":\"Y5hjYWjEJH\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"jiqzPTDUlc\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"Pzjs7LNlZQ\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"YjSG51XOEx\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"mYMZf4EgeW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"gRz1Gdlv2C\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"c8GcGp15d0\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}}]",
+ "content": "[{\"id\":\"Fhw0Wv1KaN\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Shortcuts</span>\",\"col\":12}},{\"id\":\"IgVKg6MeaQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Number\",\"col\":3}},{\"id\":\"Y5hjYWjEJH\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"jiqzPTDUlc\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"Pzjs7LNlZQ\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"YjSG51XOEx\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"mYMZf4EgeW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"gRz1Gdlv2C\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"c8GcGp15d0\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}}]",
  "creation": "2026-01-15 15:39:25.269822",
  "custom_blocks": [],
  "docstatus": 0,
@@ -116,8 +116,8 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Job Costing Number",
-   "link_to": "Job Costing Number",
+   "label": "Job Number",
+   "link_to": "Job Number",
    "stats_filter": "[]",
    "type": "DocType"
   }

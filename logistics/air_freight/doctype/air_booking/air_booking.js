@@ -38,7 +38,56 @@ function _load_documents_html(frm) {
 	});
 }
 
+function _warn_if_missing_service_charges(frm, service_type) {
+	var charges = frm.doc.charges || [];
+	var has_match = charges.some(function(row) {
+		return (row.service_type || '').trim() === service_type;
+	});
+	if (!has_match) {
+		frappe.msgprint({
+			title: __("Charges Warning"),
+			message: __("No {0} charges found yet. You can continue in draft, but submit will be blocked.", [service_type]),
+			indicator: "orange"
+		});
+	}
+}
+
+function _apply_air_booking_settings_defaults(frm, force_reload) {
+	if (!frm.is_new() && !frm.doc.__islocal) return;
+	if (frm._applying_air_booking_defaults) return;
+	if (frm._air_booking_defaults_applied && !force_reload) return;
+
+	var company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	if (!company) return;
+
+	frm._applying_air_booking_defaults = true;
+	frappe.call({
+		method: "logistics.air_freight.doctype.air_booking.air_booking.get_air_booking_settings_defaults",
+		args: { company: company },
+		callback: function(r) {
+			var defaults = (r && r.message) || {};
+			var fields = [
+				"branch", "cost_center", "profit_center", "incoterm", "service_level",
+				"origin_port", "destination_port", "airline", "freight_agent",
+				"house_type", "direction", "release_type", "entry_type", "uld_type"
+			];
+			fields.forEach(function(fieldname) {
+				if (!frm.doc[fieldname] && defaults[fieldname]) {
+					frm.set_value(fieldname, defaults[fieldname]);
+				}
+			});
+			frm._air_booking_defaults_applied = true;
+		},
+		always: function() {
+			frm._applying_air_booking_defaults = false;
+		}
+	});
+}
+
 frappe.ui.form.on('Air Booking', {
+	onload: function(frm) {
+		_apply_air_booking_settings_defaults(frm, false);
+	},
 	packages_on_form_rendered: function(frm) {
 		if (window.logistics_attach_packages_change_listener) {
 			window.logistics_attach_packages_change_listener(frm, 'Air Booking Packages', 'packages', 'air_booking_volume');
@@ -121,6 +170,18 @@ frappe.ui.form.on('Air Booking', {
 		});
 		// Sales Quote: main Air OR Air charges; exclude used One-off quotes (server-side in link search).
 		_setup_sales_quote_query(frm);
+		frm.set_query('warehouse_item', 'packages', function(doc) {
+			const filters = {};
+			if (doc.local_customer) {
+				filters.customer = doc.local_customer;
+			}
+			return { filters: filters };
+		});
+	},
+	company: function(frm) {
+		// Re-run defaults on company selection for new docs.
+		frm._air_booking_defaults_applied = false;
+		_apply_air_booking_settings_defaults(frm, true);
 	},
 
 	shipper: function(frm) {
@@ -139,6 +200,9 @@ frappe.ui.form.on('Air Booking', {
 			if (r && r.shipper_primary_contact) {
 				frm.set_value('shipper_contact', r.shipper_primary_contact);
 				frm.trigger('shipper_contact');
+			}
+			if (logistics.party_defaults) {
+				logistics.party_defaults.apply(frm);
 			}
 		});
 	},
@@ -159,6 +223,9 @@ frappe.ui.form.on('Air Booking', {
 			if (r && r.consignee_primary_contact) {
 				frm.set_value('consignee_contact', r.consignee_primary_contact);
 				frm.trigger('consignee_contact');
+			}
+			if (logistics.party_defaults) {
+				logistics.party_defaults.apply(frm);
 			}
 		});
 	},
@@ -239,6 +306,23 @@ frappe.ui.form.on('Air Booking', {
 		}
 	},
 
+	sales_quote: function(frm) {
+		// Avoid duplicate runs while server-side fetch_quotations is in progress.
+		if (frm._fetching_quotations) {
+			return;
+		}
+		// Match Sea Booking behavior: populate on first set, and only repopulate on actual change.
+		if (!frm.doc.charges || frm.doc.charges.length === 0) {
+			_populate_charges_from_quote(frm);
+		} else {
+			var previous_sales_quote = frm._previous_sales_quote;
+			if (previous_sales_quote !== frm.doc.sales_quote && frm.doc.sales_quote) {
+				_populate_charges_from_quote(frm);
+			}
+		}
+		frm._previous_sales_quote = frm.doc.sales_quote;
+	},
+
 	quote_type: function(frm) {
 		// Don't clear quote fields if document is already submitted
 		if (frm.doc.docstatus === 1) {
@@ -313,6 +397,9 @@ frappe.ui.form.on('Air Booking', {
 	},
 
 	refresh: function(frm) {
+		if (frm.is_new() || frm.doc.__islocal) {
+			_apply_air_booking_settings_defaults(frm, false);
+		}
 		_update_measurement_fields_readonly(frm);
 		// Tab click handlers (safe to bind immediately)
 		if (frm.layout && frm.layout.wrapper) {
@@ -327,6 +414,15 @@ frappe.ui.form.on('Air Booking', {
 		// Defer HTML field loading so the new doc is visible on the server (avoids "Air Booking ... not found")
 		var docname = frm.doc.name;
 		var isNew = !docname || frm.doc.__islocal;
+		// For docs opened from Sales Quote connections, populate charges even before first save.
+		if (isNew
+			&& (frm.doc.sales_quote || (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote))
+			&& (!frm.doc.charges || frm.doc.charges.length === 0)
+			&& !frm._auto_fetched_from_sales_quote
+			&& !frm._fetching_quotations) {
+			frm._auto_fetched_from_sales_quote = true;
+			_populate_charges_from_quote(frm);
+		}
 		if (isNew) return;
 
 		function load_html_fields() {
@@ -365,6 +461,40 @@ frappe.ui.form.on('Air Booking', {
 		}
 
 		setTimeout(load_html_fields, 400);
+
+		// Auto-populate charges from linked quote once on first load
+		if (!frm.is_new() && !frm.doc.__islocal
+			&& (frm.doc.sales_quote || (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote))
+			&& (!frm.doc.charges || frm.doc.charges.length === 0)
+			&& !frm._auto_fetched_from_sales_quote
+			&& !frm._fetching_quotations) {
+			frm._auto_fetched_from_sales_quote = true;
+			// Prefer the same client-side population used by quote/one-off handlers to avoid server save timing
+			try {
+				_populate_charges_from_quote(frm);
+			} catch (e) {
+				// Fallback to server method if client helper is unavailable
+				frm._fetching_quotations = true;
+				frm.call({
+					method: 'fetch_quotations',
+					doc: frm.doc,
+					freeze: false,
+					callback: function(r) {
+						if (r && r.message && r.message.success) {
+							frm.reload_doc().then(function() {
+								if (frm.fields_dict.charges) frm.refresh_field('charges');
+								setTimeout(function() { frm._fetching_quotations = false; }, 300);
+							});
+						} else {
+							frm._fetching_quotations = false;
+						}
+					},
+					error: function() {
+						frm._fetching_quotations = false;
+					}
+				});
+			}
+		}
 
 		// Recalculate package volumes from dimensions (fixes stale/wrong values on load)
 		if (frm.doc.packages && frm.doc.packages.length > 0) {
@@ -416,7 +546,7 @@ frappe.ui.form.on('Air Booking', {
 						}
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
@@ -428,7 +558,7 @@ frappe.ui.form.on('Air Booking', {
 						}
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 			if (frm.doc.charges && frm.doc.charges.length > 0) {
 				frm.add_custom_button(__('Calculate Charges'), function() {
 					frappe.call({
@@ -441,7 +571,7 @@ frappe.ui.form.on('Air Booking', {
 							}
 						}
 					});
-				}, __('Actions'));
+				}, __('Action'));
 			}
 		}
 
@@ -482,7 +612,7 @@ frappe.ui.form.on('Air Booking', {
 						frm._fetching_quotations = false;
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 		}
 
 		// --- Create menu ---
@@ -498,6 +628,7 @@ frappe.ui.form.on('Air Booking', {
 					} else {
 						// No Air Shipment exists - show convert button
 						frm.add_custom_button(__('Shipment'), function() {
+							_warn_if_missing_service_charges(frm, "Air");
 							frappe.confirm(
 								__('Are you sure you want to convert this Air Booking to an Air Shipment?'),
 								function() {
@@ -567,6 +698,22 @@ function _setup_quote_query(frm) {
 	});
 }
 
+function _apply_routing_legs_from_sales_quote_response(frm, r) {
+	if (!r.message || !r.message.routing_legs || !r.message.routing_legs.length) {
+		return;
+	}
+	frm.clear_table('routing_legs');
+	r.message.routing_legs.forEach(function(leg) {
+		var row = frm.add_child('routing_legs');
+		Object.keys(leg).forEach(function(key) {
+			if (leg[key] !== null && leg[key] !== undefined) {
+				row[key] = leg[key];
+			}
+		});
+	});
+	frm.refresh_field('routing_legs');
+}
+
 // Populate charges from quote (handles both Sales Quote and One-Off Quote)
 function _populate_charges_from_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
@@ -615,7 +762,12 @@ function _populate_charges_from_quote(frm) {
 	}
 	
 	// Determine which parameter to pass based on the method being called
-	var args = { docname: docname };
+	var args = {
+		docname: docname,
+		is_internal_job: frm.doc.is_internal_job || 0,
+		main_job_type: frm.doc.main_job_type || "",
+		main_job: frm.doc.main_job || ""
+	};
 	if (method_name.includes('populate_charges_from_sales_quote')) {
 		args.sales_quote = target_quote;
 	} else if (method_name.includes('populate_charges_from_one_off_quote')) {
@@ -629,6 +781,9 @@ function _populate_charges_from_quote(frm) {
 		freeze_message: freeze_message,
 		callback: function(r) {
 			if (r.message) {
+				if (!frm.doc.local_customer && r.message.customer) {
+					frm.set_value('local_customer', r.message.customer);
+				}
 				if (r.message.error) {
 					frappe.msgprint({
 						title: __("Error"),
@@ -637,6 +792,7 @@ function _populate_charges_from_quote(frm) {
 					});
 					return;
 				}
+				_apply_routing_legs_from_sales_quote_response(frm, r);
 				if (r.message.message) {
 					frappe.msgprint({
 						title: __("No Charges Found"),
@@ -673,6 +829,13 @@ function _populate_charges_from_quote(frm) {
 				} else {
 					frm.clear_table('charges');
 					frm.refresh_field('charges');
+					if (
+						target_quote &&
+						method_name.includes('populate_charges_from_sales_quote') &&
+						!_air_internal_job_dialog_handled(frm, target_quote)
+					) {
+						_prompt_internal_air_job_dialog(frm, target_quote);
+					}
 				}
 			}
 		},
@@ -683,6 +846,53 @@ function _populate_charges_from_quote(frm) {
 				indicator: 'red'
 			});
 		}
+	});
+}
+
+function _air_internal_job_dialog_handled(frm, sales_quote) {
+	if (!frm._internal_job_dialog_shown_for_quote) {
+		frm._internal_job_dialog_shown_for_quote = {};
+	}
+	return !!frm._internal_job_dialog_shown_for_quote[sales_quote];
+}
+
+function _prompt_internal_air_job_dialog(frm, sales_quote) {
+	frm._internal_job_dialog_shown_for_quote = frm._internal_job_dialog_shown_for_quote || {};
+	frm._internal_job_dialog_shown_for_quote[sales_quote] = true;
+	frappe.db.get_doc("Sales Quote", sales_quote).then(function(sq) {
+		var dialog = new frappe.ui.Dialog({
+			title: __("Create Internal Job - Air"),
+			fields: [
+				{ fieldtype: "HTML", fieldname: "context_html" },
+				{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), default: 1, read_only: 1 },
+				{ fieldtype: "Link", fieldname: "main_job_type", label: __("Main Job Type"), options: "DocType", reqd: 1, default: frm.doc.main_job_type || "" },
+				{ fieldtype: "Dynamic Link", fieldname: "main_job", label: __("Main Job"), options: "main_job_type", reqd: 1, default: frm.doc.main_job || "" },
+				{ fieldtype: "Link", fieldname: "company", label: __("Company"), options: "Company", default: frm.doc.company || sq.company || "" },
+				{ fieldtype: "Link", fieldname: "branch", label: __("Branch"), options: "Branch", default: frm.doc.branch || sq.branch || "" },
+				{ fieldtype: "Link", fieldname: "cost_center", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || sq.cost_center || "" },
+				{ fieldtype: "Link", fieldname: "profit_center", label: __("Profit Center"), options: "Profit Center", default: frm.doc.profit_center || sq.profit_center || "" },
+				{ fieldtype: "Date", fieldname: "booking_date", label: __("Booking Date"), reqd: 1, default: frm.doc.booking_date || sq.date || frappe.datetime.get_today() }
+			],
+			primary_action_label: __("Create Internal Job"),
+			primary_action: function(values) {
+				frm.set_value("is_internal_job", 1);
+				frm.set_value("main_job_type", values.main_job_type);
+				frm.set_value("main_job", values.main_job);
+				frm.set_value("company", values.company || "");
+				frm.set_value("branch", values.branch || "");
+				frm.set_value("cost_center", values.cost_center || "");
+				frm.set_value("profit_center", values.profit_center || "");
+				frm.set_value("booking_date", values.booking_date);
+				dialog.hide();
+				_populate_charges_from_quote(frm);
+			}
+		});
+		dialog.fields_dict.context_html.$wrapper.html(
+			'<div class="text-muted">' +
+			__("No Air charges were found on Sales Quote <b>{0}</b>. Continue as Internal Job and provide additional details.", [sales_quote]) +
+			"</div>"
+		);
+		dialog.show();
 	});
 }
 

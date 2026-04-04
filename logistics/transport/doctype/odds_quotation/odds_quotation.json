@@ -142,7 +142,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "service_type",
@@ -231,4 +232,3 @@
  "states": [],
  "track_changes": 1
 }
-

@@ -70,6 +70,15 @@ For a concise list of new behaviour and upgrade notes on the current release lin
 5. **Milestones** – Track progress in the Milestones tab
 6. **Billing** – Create Sales Invoice from the job
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Setup and transaction **DocTypes** each have a dedicated wiki page with a **Complete field reference** section (generated from JSON). Start from [Logistics Settings](welcome/logistics-settings), module settings (e.g. [Sea Freight Settings](welcome/sea-freight-settings)), then open the transaction or master page for the document you use._
+
+<!-- wiki-field-reference:end -->
+
 ## 4. Related Topics
 
 - [Document Management](welcome/document-management)

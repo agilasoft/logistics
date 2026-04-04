@@ -53,7 +53,8 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_rate",

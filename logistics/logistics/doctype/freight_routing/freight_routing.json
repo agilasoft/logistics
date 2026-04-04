@@ -51,14 +51,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Origin",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Destination",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "routing_details_section",

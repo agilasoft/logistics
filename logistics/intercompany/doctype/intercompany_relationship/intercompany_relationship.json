@@ -39,7 +39,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Internal Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "description": "In the billing company's books: the operating company as Supplier.",
@@ -47,7 +48,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Internal Supplier",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   }
  ],
  "index_web_pages_for_search": 1,

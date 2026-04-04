@@ -61,13 +61,15 @@
    "fieldname": "customer_link",
    "fieldtype": "Link",
    "label": "Customer Link",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "supplier_link",
    "fieldtype": "Link",
    "label": "Supplier Link",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "sea_ctostevedore_tab",

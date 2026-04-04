@@ -6,9 +6,9 @@ To access: **Home > Job Management**
 
 ## 1. Key Concepts
 
-### 1.1 Job Costing Number
+### 1.1 Job Number
 
-**Job Costing Number** is a master that defines costing series and defaults for jobs. Used when creating jobs to assign cost centers and profit centers.
+**Job Number** is a master that defines costing series and defaults for jobs. Used when creating jobs to assign cost centers and profit centers.
 
 ### 1.2 Revenue Recognition Policy Settings
 
@@ -34,7 +34,7 @@ On charge child tables (Air Shipment Charges, Sea Shipment Charges, Transport Jo
 
 ## 3. Profitability (from GL)
 
-Job Management provides a **Profitability** section on job and shipment forms. When a document has **Job Costing Number** and **Company** set, the section loads revenue, cost, gross profit, profit margin, WIP amount, and accrual amount from the General Ledger (GL Entry by job_costing_number). It also shows a table of related GL entries with links to view the source vouchers (Sales Invoice, Purchase Invoice, Journal Entry, etc.).
+Job Management provides a **Profitability** section on job and shipment forms. When a document has **Job Number** and **Company** set, the section loads revenue, cost, gross profit, profit margin, WIP amount, and accrual amount from the General Ledger (GL Entry by job_number). It also shows a table of related GL entries with links to view the source vouchers (Sales Invoice, Purchase Invoice, Journal Entry, etc.).
 
 **Supported doctypes:** Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration, General Job
 
@@ -45,6 +45,19 @@ For a description of the **proforma GL entries** (expected vouchers and account 
 ## 4. Reports
 
 - **Recognition Status** – WIP and revenue recognition status across jobs
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Recognition, jobs, and GL behaviour use fields on operational documents and settings. See **Complete field reference** on:_
+
+- [General Job](welcome/general-job), [Logistics Settings](welcome/logistics-settings)
+- [Air Shipment](welcome/air-shipment), [Sea Shipment](welcome/sea-shipment), [Transport Job](welcome/transport-job), [Warehouse Job](welcome/warehouse-job), [Declaration](welcome/declaration)
+- [Sales Quote](welcome/sales-quote)
+
+<!-- wiki-field-reference:end -->
 
 ## 5. Related Topics
 

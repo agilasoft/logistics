@@ -32,7 +32,7 @@
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "job_costing_number"
+  "job_number"
  ],
  "fields": [
   {
@@ -66,13 +66,15 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper"
+   "options": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee"
+   "options": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "type",
@@ -90,14 +92,16 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
    "options": "Project",
-   "description": "ERPNext Project for Special Projects integration"
+   "description": "ERPNext Project for Special Projects integration",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "cust_reference",
@@ -178,7 +182,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -194,10 +198,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number",
+   "label": "Job Number",
+   "options": "Job Number",
    "description": "For revenue/cost recognition"
   }
  ],

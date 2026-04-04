@@ -40,7 +40,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Mode",
-   "options": "Transport Mode"
+   "options": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
   },
   {
    "columns": 1,
@@ -92,7 +93,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Loading Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "columns": 1,
@@ -129,7 +131,8 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "options": "Cargo Terminal Operator"
+   "options": "Cargo Terminal Operator",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_details",
@@ -141,13 +144,15 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Discharge Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "options": "Cargo Terminal Operator"
+   "options": "Cargo Terminal Operator",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]"
   },
   {
    "columns": 1,

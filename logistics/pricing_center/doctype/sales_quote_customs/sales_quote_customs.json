@@ -67,7 +67,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_customs_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_customs_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
    "reqd": 1
   },
@@ -109,7 +109,8 @@
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
-   "options": "Customs Authority"
+   "options": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
@@ -123,7 +124,8 @@
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
@@ -142,14 +144,16 @@
    "fieldname": "port_of_loading",
    "fieldtype": "Link",
    "label": "Port of Loading",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "port_of_discharge",
    "fieldtype": "Link",
    "label": "Port of Discharge",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
@@ -173,7 +177,8 @@
    "fieldname": "tariff",
    "fieldtype": "Link",
    "label": "Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "revenue_column",
@@ -198,13 +203,15 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_rate",
@@ -216,7 +223,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "depends_on": "eval:doc.calculation_method == \"First Plus Additional\"",
@@ -285,13 +292,15 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_cost",
@@ -303,7 +312,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
@@ -377,14 +386,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Bill To",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Pay To",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_sujg",

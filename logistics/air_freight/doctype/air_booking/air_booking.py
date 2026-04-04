@@ -8,7 +8,15 @@ from frappe.utils import today, flt
 from frappe.contacts.doctype.address.address import get_address_display
 from typing import Dict, Any
 
-from logistics.utils.module_integration import copy_sales_quote_fields_to_target, set_billing_company_from_sales_quote
+from logistics.utils.module_integration import copy_sales_quote_fields_to_target
+from logistics.utils.charge_service_type import (
+	sales_quote_charge_filters,
+	throw_if_missing_destination_service_charge,
+)
+from logistics.utils.sales_quote_routing import (
+	apply_sales_quote_routing_to_booking,
+	routing_legs_for_api_response,
+)
 
 
 def _sync_quote_and_sales_quote(doc):
@@ -22,8 +30,37 @@ def _sync_quote_and_sales_quote(doc):
 		doc.quote = doc.sales_quote
 
 
+def _normalize_service_type_value(value):
+	"""Normalize legacy/case-variant service_type values to canonical options."""
+	raw = (value or "").strip()
+	if not raw:
+		return ""
+	key = raw.lower().replace("_", " ").replace("-", " ")
+	key = " ".join(key.split())
+	mapping = {
+		"air": "Air",
+		"air freight": "Air",
+		"airfreight": "Air",
+		"sea": "Sea",
+		"sea freight": "Sea",
+		"seafreight": "Sea",
+		"transport": "Transport",
+		"customs": "Customs",
+		"warehousing": "Warehousing",
+	}
+	return mapping.get(key, raw)
+
+
+def _service_type_matches(value, allowed_values):
+	"""Case/alias-insensitive service_type check."""
+	normalized_value = _normalize_service_type_value(value)
+	normalized_allowed = {_normalize_service_type_value(v) for v in (allowed_values or set())}
+	return normalized_value in normalized_allowed
+
+
 # Fields to copy from Air Booking Charges to Air Shipment Charges (all copyable data fields)
 _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
+	"service_type",
 	"item_code", "item_name", "charge_type", "charge_category", "description",
 	"bill_to", "estimated_revenue", "use_tariff_in_revenue", "revenue_tariff",
 	"pay_to", "estimated_cost", "use_tariff_in_cost", "cost_tariff",
@@ -54,7 +91,12 @@ def _normalize_packing_group_for_shipment(value):
 class AirBooking(Document):
 	def validate(self):
 		"""Validate Air Booking data"""
-		set_billing_company_from_sales_quote(self)
+		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+		apply_shipper_consignee_defaults(self)
+		# Apply settings-derived defaults before required-field checks.
+		if self.is_new():
+			self.apply_settings_defaults()
 		# Get original sales_quote from database if document exists
 		original_sales_quote = None
 		if not self.is_new():
@@ -207,6 +249,67 @@ class AirBooking(Document):
 				# If Branch doesn't have company field, skip validation
 				pass
 
+	def get_air_freight_settings(self):
+		"""Get Air Freight Settings for the booking company."""
+		if not self.company:
+			return None
+
+		try:
+			from logistics.air_freight.doctype.air_freight_settings.air_freight_settings import AirFreightSettings
+			return AirFreightSettings.get_settings(self.company)
+		except Exception as e:
+			frappe.log_error(f"Error getting Air Freight Settings: {str(e)}", "Air Booking - Get Settings")
+			return None
+
+	def _set_link_default_if_exists(self, fieldname, doctype, value):
+		"""Set a Link field from defaults only if target is empty and linked doc exists."""
+		if getattr(self, fieldname, None) or not value:
+			return
+		if frappe.db.exists(doctype, value):
+			setattr(self, fieldname, value)
+
+	def apply_settings_defaults(self):
+		"""Apply default values from Air Freight Settings to new Air Booking records."""
+		if hasattr(self, "_settings_applied"):
+			return
+
+		settings = self.get_air_freight_settings()
+		if not settings:
+			return
+
+		# General settings
+		self._set_link_default_if_exists("branch", "Branch", settings.default_branch)
+		self._set_link_default_if_exists("cost_center", "Cost Center", settings.default_cost_center)
+		self._set_link_default_if_exists("profit_center", "Profit Center", settings.default_profit_center)
+		self._set_link_default_if_exists("incoterm", "Incoterm", settings.default_incoterm)
+		# Settings stores Service Level Agreement while booking uses Logistics Service Level.
+		self._set_link_default_if_exists("service_level", "Logistics Service Level", settings.default_service_level)
+
+		# Location settings
+		self._set_link_default_if_exists("origin_port", "UNLOCO", settings.default_origin_port)
+		self._set_link_default_if_exists("destination_port", "UNLOCO", settings.default_destination_port)
+
+		# Business settings
+		self._set_link_default_if_exists("airline", "Airline", settings.default_airline)
+		self._set_link_default_if_exists("freight_agent", "Freight Agent", settings.default_freight_agent)
+		if not self.house_type and settings.default_house_type:
+			self.house_type = settings.default_house_type
+		if self.house_type == "Direct":
+			self.house_type = "Standard House"
+		elif self.house_type == "Consolidation":
+			self.house_type = "Co-load Master"
+		if not self.direction and settings.default_direction:
+			self.direction = settings.default_direction
+		if not self.entry_type and settings.default_entry_type:
+			self.entry_type = settings.default_entry_type
+		# Booking.release_type is a Link; set only if matching master exists.
+		self._set_link_default_if_exists("release_type", "Release Type", settings.default_release_type)
+
+		# Document settings
+		self._set_link_default_if_exists("uld_type", "ULD Type", settings.default_uld_type)
+
+		self._settings_applied = True
+
 	def after_insert(self):
 		"""Commit so the new document is visible when the client navigates to the form (avoids 'Air Booking ... not found').
 		Without this, the next request (form load after redirect) may not see the row if the transaction is not yet committed."""
@@ -232,10 +335,13 @@ class AirBooking(Document):
 		# Handle Sales Quote changes
 		if self.has_value_changed("sales_quote"):
 			if self.sales_quote:
+				sq = frappe.get_doc("Sales Quote", self.sales_quote)
+				apply_sales_quote_routing_to_booking(self, sq)
 				self._populate_charges_from_sales_quote(self.sales_quote)
 			else:
 				# Clear charges if sales_quote is removed
 				self.set("charges", [])
+				self.set("routing_legs", [])
 				frappe.msgprint(
 					"Charges cleared as Sales Quote was removed",
 					title="Charges Updated",
@@ -276,6 +382,7 @@ class AirBooking(Document):
 		charges = getattr(self, 'charges', []) or []
 		if not charges:
 			frappe.throw(_("Charges are required. Please add at least one charge before submitting the Air Booking."))
+		throw_if_missing_destination_service_charge(self)
 		
 		# Validate packages is not empty
 		packages = getattr(self, 'packages', []) or []
@@ -687,6 +794,9 @@ class AirBooking(Document):
 				self.tc_name = sales_quote_data.get("tc_name")
 			if not self.terms:
 				self.terms = sales_quote_data.get("terms")
+
+			sq_for_routing = frappe.get_doc("Sales Quote", self.sales_quote)
+			apply_sales_quote_routing_to_booking(self, sq_for_routing)
 			
 			# Sync quote_type and quote with sales_quote to prevent them from being cleared on reload
 			# This ensures the quotation fields stay in sync after fetch_quotations
@@ -822,32 +932,10 @@ class AirBooking(Document):
 			# Clear existing charges
 			self.set("charges", [])
 			
-			# Check separate_billings_per_service_type setting and if this is the main job
-			separate_billings = True  # Default to separate (current behavior)
-			is_main_job = False
-			
-			try:
-				sales_quote = frappe.get_doc("Sales Quote", sq_name)
-				separate_billings = getattr(sales_quote, "separate_billings_per_service_type", 0) or False
-				
-				# Check if this Air Booking is the main job by checking routing legs
-				if hasattr(sales_quote, "routing_legs") and sales_quote.routing_legs:
-					for leg in sales_quote.routing_legs:
-						if (getattr(leg, "is_main_job", 0) and 
-							getattr(leg, "job_type", None) == "Air Booking" and
-							getattr(leg, "job_no", None) == self.name):
-							is_main_job = True
-							break
-				
-				# Fallback: check if main_service matches and no routing legs exist
-				if not is_main_job and not sales_quote.routing_legs:
-					if getattr(sales_quote, "main_service", None) == "Air":
-						is_main_job = True
-			except Exception:
-				# If we can't get the sales quote, default to separate billings (current behavior)
-				pass
-			
-			# Get records from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
+			sales_quote = frappe.get_doc("Sales Quote", sq_name)
+			filters = sales_quote_charge_filters(self, sales_quote)
+
+			# Get records from Sales Quote Charge (filtered by main service / internal job) or Sales Quote Air Freight (legacy)
 			# Full field list for legacy Sales Quote Air Freight (has cost_minimum_unit_rate, cost_base_quantity)
 			charge_fields_legacy = [
 				"item_code", "item_name", "calculation_method", "uom", "currency",
@@ -865,22 +953,44 @@ class AirBooking(Document):
 				if f not in ("cost_minimum_unit_rate", "cost_base_quantity")
 			]
 
-			# Build filters based on separate_billings_per_service_type setting
-			filters = {"parent": sq_name, "parenttype": "Sales Quote"}
-
-			# If separate_billings is unchecked AND this is the main job, get ALL charges
-			# Otherwise, filter by service_type="Air"
-			if not separate_billings and is_main_job:
-				pass  # No service_type filter
-			else:
-				filters["service_type"] = "Air"
-
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Charge",
 				filters=filters,
 				fields=charge_fields_sales_quote_charge,
 				order_by="idx"
 			)
+			# Backward-compatible fallback: when separate billing is ON, quotes may have blank service_type.
+			# If nothing was returned, retry by fetching all quote charges and filtering in Python by
+			# allowed service types (Air or blank), so Air Booking still receives its rows.
+			if not sales_quote_air_freight_records:
+				try:
+					separate = frappe.utils.cint(getattr(sales_quote, "separate_billings_per_service_type", 0))
+				except Exception:
+					separate = 0
+				implied_service = "Air"
+				try:
+					# Try to infer implied service from the filter if present
+					if isinstance(filters, dict) and "service_type" in filters and filters.get("service_type"):
+						implied_service = filters.get("service_type") or "Air"
+				except Exception:
+					pass
+				if separate:
+					base_filters = {k: v for k, v in (filters or {}).items() if k not in ("service_type",)}
+					# Fetch all quote charges for this Sales Quote, then filter locally
+					all_sq_charges = frappe.get_all(
+						"Sales Quote Charge",
+						filters=base_filters,
+						fields=charge_fields_sales_quote_charge,
+						order_by="idx"
+					)
+					allowed_aliases = {implied_service, "", None}
+					# Common alias used historically
+					if implied_service == "Air":
+						allowed_aliases.update({"Air Freight", "air", "airfreight"})
+					sales_quote_air_freight_records = [
+						row for row in all_sq_charges
+						if _service_type_matches(row.get("service_type"), allowed_aliases)
+					]
 			if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
 				sales_quote_air_freight_records = frappe.get_all(
 					"Sales Quote Air Freight",
@@ -1124,7 +1234,7 @@ class AirBooking(Document):
 		"""
 		if not uom_value:
 			# If no UOM provided, try to infer from unit_type
-			if unit_type == "Weight":
+			if unit_type in ("Weight", "Chargeable Weight"):
 				return "kg"
 			elif unit_type == "Volume":
 				return "m³"
@@ -1184,7 +1294,7 @@ class AirBooking(Document):
 		
 		# If no match found, try to infer from unit_type
 		if unit_type:
-			if unit_type == "Weight":
+			if unit_type in ("Weight", "Chargeable Weight"):
 				return "kg"
 			elif unit_type == "Volume":
 				return "m³"
@@ -1370,7 +1480,12 @@ class AirBooking(Document):
 			# Get quantity based on unit_type
 			quantity = 0
 			unit_type = sqaf_record.get("unit_type")
-			if unit_type == "Weight":
+			if unit_type == "Chargeable Weight":
+				chargeable_qty = getattr(self, "chargeable", None)
+				if chargeable_qty in (None, ""):
+					chargeable_qty = getattr(self, "chargeable_weight", None)
+				quantity = flt(chargeable_qty or 0)
+			elif unit_type == "Weight":
 				quantity = flt(self.weight) or 0
 			elif unit_type == "Volume":
 				quantity = flt(self.volume) or 0
@@ -1542,10 +1657,14 @@ class AirBooking(Document):
 					sqaf_record.unit_type
 				)
 			
-			# STEP 4: Convert normalized UOM string to actual UOM record name
-			# The uom field is a Link field that requires an actual UOM DocType record name
+			# STEP 4: Resolve UOM record name for the Link field.
+			# Keep the exact Sales Quote UOM when it exists, so conversion does not
+			# rewrite values like "Kilogram"/"Cubic Meter"/"Trip" to "Kg"/"CBM"/"Nos".
 			uom_record_name = None
-			if normalized_uom:
+			source_uom = sqaf_record.get("uom")
+			if source_uom and frappe.db.exists("UOM", source_uom):
+				uom_record_name = source_uom
+			elif normalized_uom:
 				uom_record_name = self._convert_normalized_uom_to_record_name(normalized_uom)
 				if not uom_record_name:
 					frappe.log_error(
@@ -1572,7 +1691,11 @@ class AirBooking(Document):
 			)
 			
 			# Map the fields (use uom for Air Booking Charges; unit_of_measure for legacy)
+			service_type = _normalize_service_type_value(
+				(sqaf_record.get("service_type") if isinstance(sqaf_record, dict) else getattr(sqaf_record, "service_type", None))
+			) or "Air"
 			charge_data = {
+				"service_type": service_type,
 				"item_code": sqaf_record.item_code,
 				"item_name": sqaf_record.item_name or item_doc.item_name,
 				"charge_type": charge_type,
@@ -1774,6 +1897,14 @@ class AirBooking(Document):
 			air_shipment.booking_date = self.booking_date or today()
 			air_shipment.air_booking = self.name
 			copy_sales_quote_fields_to_target(self, air_shipment)
+			if getattr(self, "transport_mode", None):
+				air_shipment.transport_mode = self.transport_mode
+			if getattr(self, "load_type", None):
+				air_shipment.load_type = self.load_type
+			air_shipment.is_main_service = self.is_main_service
+			air_shipment.is_internal_job = self.is_internal_job
+			air_shipment.main_job_type = self.main_job_type
+			air_shipment.main_job = self.main_job
 			air_shipment.shipper = self.shipper
 			air_shipment.consignee = self.consignee
 			if hasattr(self, "sending_agent") and self.sending_agent:
@@ -1928,8 +2059,8 @@ class AirBooking(Document):
 				air_shipment.override_volume_weight = self.override_volume_weight or 0
 			if hasattr(self, "project") and self.project:
 				air_shipment.project = self.project
-			if hasattr(self, "job_costing_number") and self.job_costing_number:
-				air_shipment.job_costing_number = self.job_costing_number
+			if hasattr(self, "job_number") and self.job_number:
+				air_shipment.job_number = self.job_number
 			# Copy DG fields
 			if hasattr(self, "contains_dangerous_goods"):
 				air_shipment.contains_dangerous_goods = self.contains_dangerous_goods or 0
@@ -1992,6 +2123,7 @@ class AirBooking(Document):
 				for package in self.packages:
 					air_shipment.append("packages", {
 						"commodity": getattr(package, "commodity", None),
+						"warehouse_item": getattr(package, "warehouse_item", None),
 						"hs_code": getattr(package, "hs_code", None),
 						"reference_no": getattr(package, "reference_no", None),
 						"goods_description": getattr(package, "goods_description", None),
@@ -2013,16 +2145,6 @@ class AirBooking(Document):
 						"packing_group": _normalize_packing_group_for_shipment(getattr(package, "packing_group", None)),
 						"emergency_contact_name": getattr(package, "emergency_contact_name", None),
 						"emergency_contact_phone": getattr(package, "emergency_contact_phone", None),
-					})
-			
-			# Copy warehouse_items if they exist
-			if hasattr(self, 'warehouse_items') and self.warehouse_items:
-				for warehouse_item in self.warehouse_items:
-					air_shipment.append("warehouse_items", {
-						"item": getattr(warehouse_item, "item", None),
-						"item_name": getattr(warehouse_item, "item_name", None),
-						"uom": getattr(warehouse_item, "uom", None),
-						"quantity": getattr(warehouse_item, "quantity", None),
 					})
 			
 			# Fetch charges from Sales Quote if Air Booking has quote but no charges
@@ -2062,6 +2184,10 @@ class AirBooking(Document):
 						"eta": getattr(leg, 'eta', None),
 						"ata": getattr(leg, 'ata', None)
 					})
+
+			from logistics.utils.internal_job_detail_copy import copy_internal_job_details_to_doc
+
+			copy_internal_job_details_to_doc(self, air_shipment)
 			
 			# Final validation check before insert - ensure all link fields are valid
 			# This prevents errors during insert/after_insert hooks
@@ -2261,6 +2387,39 @@ def get_air_booking_dashboard_html(docname):
 
 
 @frappe.whitelist()
+def get_air_booking_settings_defaults(company: str = None):
+	"""Return Air Freight Settings defaults for Air Booking form prefill."""
+	company = company or frappe.defaults.get_user_default("Company")
+	if not company:
+		return {}
+
+	try:
+		from logistics.air_freight.doctype.air_freight_settings.air_freight_settings import AirFreightSettings
+		settings = AirFreightSettings.get_settings(company)
+		if not settings:
+			return {}
+		return {
+			"branch": settings.default_branch,
+			"cost_center": settings.default_cost_center,
+			"profit_center": settings.default_profit_center,
+			"incoterm": settings.default_incoterm,
+			"service_level": settings.default_service_level,
+			"origin_port": settings.default_origin_port,
+			"destination_port": settings.default_destination_port,
+			"airline": settings.default_airline,
+			"freight_agent": settings.default_freight_agent,
+			"house_type": settings.default_house_type,
+			"direction": settings.default_direction,
+			"release_type": settings.default_release_type,
+			"entry_type": settings.default_entry_type,
+			"uld_type": settings.default_uld_type,
+		}
+	except Exception as e:
+		frappe.log_error(f"Error getting Air Booking defaults: {str(e)}", "Air Booking - Settings Defaults")
+		return {}
+
+
+@frappe.whitelist()
 def aggregate_volume_from_packages_api(doc=None):
 	"""Module-level wrapper so full-path RPC (e.g. from Air Booking Packages) can call the doc method."""
 	if doc is None:
@@ -2303,62 +2462,56 @@ def recalculate_all_charges(docname):
 
 @frappe.whitelist()
 def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]:
-	"""Get list of One-Off Quotes that are not yet linked to an Air Booking and not converted.
+	"""Get Link filters for One-off Sales Quotes usable on Air Booking (single-use rules preserved).
 
-	Excludes One-Off Quotes that are:
-	1. Already linked to another Air Booking
-	2. Already converted (status = "Converted" or converted_to_doc is set)
+	Eligible quotes must have **Air** charge lines (unified or legacy), not only ``main_service`` = Air,
+	so a multi-service one-off can be selected here when air is priced.
 
-	This prevents users from selecting quotes that have already been converted or used.
+	Excludes quotes already linked to another Air Booking or already converted.
 	"""
 	try:
-		# Get all One-Off Quotes already linked to Air Bookings (excluding current booking)
-		used_quotes = frappe.get_all(
+		from logistics.utils.sales_quote_service_eligibility import (
+			converted_one_off_sales_quote_names,
+			one_off_sales_quote_link_filters_for_service,
+		)
+
+		# Quotes already linked to another Air Booking (One-Off path: ``quote`` or ``sales_quote``)
+		used_rows = frappe.get_all(
 			"Air Booking",
 			filters={
 				"quote_type": "One-Off Quote",
-				"quote": ["is", "set"],
-				"name": ["!=", air_booking_name or ""]
+				"name": ["!=", air_booking_name or ""],
+				"docstatus": ["!=", 2],
 			},
-			pluck="quote"
+			or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
+			fields=["quote", "sales_quote"],
 		)
+		used_quotes = []
+		for row in used_rows:
+			ref = (row.get("quote") or row.get("sales_quote") or "").strip()
+			if ref:
+				used_quotes.append(ref)
 
-		# Get all converted One-Off Quotes (status = "Converted" or converted_to_doc is set)
-		converted_quotes = frappe.get_all(
-			"One-Off Quote",
-			filters={
-				"status": "Converted"
-			},
-			pluck="name"
-		)
-
-		# Also get quotes with converted_to_doc set (in case status wasn't updated)
-		quotes_with_conversion = frappe.get_all(
-			"One-Off Quote",
-			filters={
-				"converted_to_doc": ["is", "set"]
-			},
-			pluck="name"
-		)
-
-		# Combine all excluded quotes
-		excluded_quotes = list(set(used_quotes + converted_quotes + quotes_with_conversion))
-
-		# Return filter to exclude used and converted quotes
-		filters = {}
-		if excluded_quotes:
-			filters["name"] = ["not in", excluded_quotes]
-
-		# Also filter to only show One-Off Quotes that have air enabled
-		def _has_field(doctype: str, fieldname: str) -> bool:
+		converted_legacy: list[str] = []
+		if frappe.db.exists("DocType", "One-Off Quote"):
 			try:
-				return frappe.get_meta(doctype).has_field(fieldname)
+				converted_legacy = frappe.get_all(
+					"One-Off Quote",
+					filters={"status": "Converted"},
+					pluck="name",
+				) + frappe.get_all(
+					"One-Off Quote",
+					filters={"converted_to_doc": ["is", "set"]},
+					pluck="name",
+				)
 			except Exception:
-				return False
+				converted_legacy = []
 
-		if _has_field("Sales Quote", "main_service"):
-			filters["main_service"] = "Air"
+		excluded_quotes = list(
+			set(used_quotes + converted_legacy + converted_one_off_sales_quote_names())
+		)
 
+		filters = one_off_sales_quote_link_filters_for_service("Air", excluded_quotes)
 		return {"filters": filters}
 	except Exception as e:
 		frappe.log_error(
@@ -2369,7 +2522,13 @@ def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]
 
 
 @frappe.whitelist()
-def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
+def populate_charges_from_sales_quote(
+	docname: str = None,
+	sales_quote: str = None,
+	is_internal_job: int = None,
+	main_job_type: str = None,
+	main_job: str = None,
+):
 	"""Populate charges from sales_quote. Called from frontend when sales_quote field changes.
 	
 	Returns charge data that can be populated in the frontend.
@@ -2399,32 +2558,19 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 			except Exception:
 				pass
 		
-		# Check separate_billings_per_service_type setting and if this is the main job
-		separate_billings = True  # Default to separate (current behavior)
-		is_main_job = False
-		
-		try:
-			sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
-			separate_billings = getattr(sales_quote_doc, "separate_billings_per_service_type", 0) or False
-			
-			# Check if this Air Booking is the main job by checking routing legs
-			if docname and hasattr(sales_quote_doc, "routing_legs") and sales_quote_doc.routing_legs:
-				for leg in sales_quote_doc.routing_legs:
-					if (getattr(leg, "is_main_job", 0) and 
-						getattr(leg, "job_type", None) == "Air Booking" and
-						getattr(leg, "job_no", None) == docname):
-						is_main_job = True
-						break
-			
-			# Fallback: check if main_service matches and no routing legs exist
-			if not is_main_job and (not hasattr(sales_quote_doc, "routing_legs") or not sales_quote_doc.routing_legs):
-				if getattr(sales_quote_doc, "main_service", None) == "Air":
-					is_main_job = True
-		except Exception:
-			# If we can't get the sales quote, default to separate billings (current behavior)
-			pass
-		
-		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
+		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
+		parent = doc if doc else frappe._dict(
+			doctype="Air Booking", name=docname, is_internal_job=0, is_main_service=0
+		)
+		if is_internal_job is not None:
+			parent.is_internal_job = frappe.utils.cint(is_internal_job)
+		if main_job_type is not None:
+			parent.main_job_type = main_job_type
+		if main_job is not None:
+			parent.main_job = main_job
+		filters = sales_quote_charge_filters(parent, sales_quote_doc)
+
+		# Fetch charges from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
 			"item_code", "item_name", "calculation_method", "uom", "currency",
@@ -2439,24 +2585,41 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 			"service_type"  # Include service_type to identify charge types
 		]
 		
-		# Build filters based on separate_billings_per_service_type setting
-		filters = {"parent": sales_quote, "parenttype": "Sales Quote"}
-		
-		# If separate_billings is unchecked AND this is the main job, get ALL charges
-		# Otherwise, filter by service_type="Air"
-		if not separate_billings and is_main_job:
-			# Main job gets all charges regardless of service_type
-			pass  # No service_type filter
-		else:
-			# Each service gets only its own charges
-			filters["service_type"] = "Air"
-		
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters=filters,
 			fields=charge_fields,
 			order_by="idx"
 		)
+		# Backward-compatible fallback for quotes where Air rows have blank/legacy service_type.
+		# When separate billing is ON and strict filtering returns nothing, fetch all rows for
+		# the quote and keep only Air-compatible rows (Air, Air Freight, or blank).
+		if not sales_quote_air_freight_records:
+			try:
+				separate = frappe.utils.cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
+			except Exception:
+				separate = 0
+			implied_service = "Air"
+			try:
+				if isinstance(filters, dict) and filters.get("service_type"):
+					implied_service = filters.get("service_type") or "Air"
+			except Exception:
+				pass
+			if separate:
+				base_filters = {k: v for k, v in (filters or {}).items() if k not in ("service_type",)}
+				all_sq_charges = frappe.get_all(
+					"Sales Quote Charge",
+					filters=base_filters,
+					fields=charge_fields,
+					order_by="idx"
+				)
+				allowed_aliases = {implied_service, "", None}
+				if implied_service == "Air":
+					allowed_aliases.update({"Air Freight", "air", "airfreight"})
+				sales_quote_air_freight_records = [
+					row for row in all_sq_charges
+					if _service_type_matches(row.get("service_type"), allowed_aliases)
+				]
 		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Air Freight",
@@ -2468,7 +2631,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 		if not sales_quote_air_freight_records:
 			return {
 				"charges": [],
-				"message": f"No air freight charges found in Sales Quote: {sales_quote}"
+				"message": f"No air freight charges found in Sales Quote: {sales_quote}",
+				"customer": sales_quote_doc.customer,
+				"routing_legs": routing_legs_for_api_response(sales_quote, doc),
 			}
 		
 		# Create a temporary document instance for mapping
@@ -2493,7 +2658,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 		
 		return {
 			"charges": charges,
-			"charges_count": len(charges)
+			"charges_count": len(charges),
+			"customer": sales_quote_doc.customer,
+			"routing_legs": routing_legs_for_api_response(sales_quote, doc),
 		}
 		
 	except Exception as e:

@@ -6,6 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "service_type",
   "item_code",
   "item_name",
   "charge_type",
@@ -58,12 +59,20 @@
  ],
  "fields": [
   {
+   "columns": 1,
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+  },
+  {
    "columns": 2,
    "fieldname": "item_code",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_land_transport_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_land_transport_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
    "reqd": 1
   },
@@ -121,13 +130,15 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_rate",
@@ -140,7 +151,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "depends_on": "eval:doc.revenue_calculation_method == \"First Plus Additional\"",
@@ -198,7 +209,8 @@
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_pndm",
@@ -221,13 +233,15 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_cost",
@@ -239,7 +253,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method == \"First Plus Additional\"",
@@ -297,7 +311,8 @@
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "hidden": 1,
@@ -305,7 +320,8 @@
    "fieldtype": "Link",
    "label": "Tariff",
    "options": "Tariff",
-   "description": "Fallback when revenue_tariff/cost_tariff not set (backward compat)"
+   "description": "Fallback when revenue_tariff/cost_tariff not set (backward compat)",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "calculation_notes_section",

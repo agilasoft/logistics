@@ -142,7 +142,8 @@
    "fieldname": "verified_by",
    "fieldtype": "Link",
    "label": "Verified By",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "verification_date",

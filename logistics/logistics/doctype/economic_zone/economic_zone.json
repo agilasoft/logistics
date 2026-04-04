@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "zone_name",
+  "is_active",
   "column_break_tred"
  ],
  "fields": [
@@ -23,6 +24,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Zone Name"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   },
   {
    "fieldname": "column_break_tred",

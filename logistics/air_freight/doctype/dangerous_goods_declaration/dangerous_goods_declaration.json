@@ -53,14 +53,16 @@
    "fieldtype": "Link",
    "label": "Origin Port",
    "options": "UNLOCO",
-   "fetch_from": "air_shipment.origin_port"
+   "fetch_from": "air_shipment.origin_port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
    "options": "UNLOCO",
-   "fetch_from": "air_shipment.destination_port"
+   "fetch_from": "air_shipment.destination_port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_emergency",

@@ -5,6 +5,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from logistics.utils.charges_calculation import (
+    apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
 )
@@ -20,6 +21,10 @@ class AirBookingCharges(Document):
 
     def _calculate_charges(self, parent_doc=None):
         """Calculate estimated revenue and cost using centralized charges module."""
+        if apply_disbursement_charge_calculation_if_applicable(self, parent_doc):
+            if hasattr(self, "total_amount"):
+                self.total_amount = flt(self.estimated_revenue) or 0
+            return
         rev = calculate_charge_revenue(self, parent_doc)
         self.estimated_revenue = rev.get("amount", 0)
         if hasattr(self, "revenue_calc_notes"):

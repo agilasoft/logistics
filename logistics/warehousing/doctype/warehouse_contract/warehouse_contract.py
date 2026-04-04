@@ -8,8 +8,6 @@ from frappe.model.document import Document
 class WarehouseContract(Document):
 	def validate(self):
 		"""Validate Warehouse Contract data"""
-		from logistics.utils.module_integration import set_billing_company_from_sales_quote
-		set_billing_company_from_sales_quote(self)
 		# Get original sales_quote from database if document exists
 		original_sales_quote = None
 		if not self.is_new():

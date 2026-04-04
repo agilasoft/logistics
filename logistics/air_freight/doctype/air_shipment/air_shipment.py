@@ -5,12 +5,31 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
+from logistics.utils.document_date_validation import (
+	throw_if_left_date_after_right,
+	is_future_date,
+)
+
+# Virtual MAWB display fields: (fieldname on Air Shipment, column on Master Air Waybill)
+_MAWB_VIRTUAL_FIELD_SOURCES = (
+	("mawb_airline", "airline"),
+	("mawb_flight_no", "flight_no"),
+	("mawb_flight_date", "flight_date"),
+	("mawb_flight_status", "flight_status"),
+	("mawb_booking_reference_no", "booking_reference_no"),
+	("mawb_agent_reference", "agent_reference"),
+	("mawb_origin_airport", "origin_airport"),
+	("mawb_destination_airport", "destination_airport"),
+	("mawb_scheduled_departure", "scheduled_departure"),
+	("mawb_scheduled_arrival", "scheduled_arrival"),
+	("mawb_etd_local", "etd_local"),
+	("mawb_eta_local", "eta_local"),
+)
+
 
 class AirShipment(Document):
 	def before_save(self):
 		"""Calculate sustainability metrics before saving"""
-		from logistics.utils.module_integration import set_billing_company_from_sales_quote
-		set_billing_company_from_sales_quote(self)
 		self.calculate_sustainability_metrics()
 	
 	def after_submit(self):
@@ -1485,6 +1504,9 @@ class AirShipment(Document):
 	
 	def validate(self):
 		"""Validate Air Shipment document"""
+		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+		apply_shipper_consignee_defaults(self)
 		# Normalize legacy house_type values
 		self._normalize_house_type()
 		self.validate_dates()
@@ -1506,9 +1528,7 @@ class AirShipment(Document):
 		self.validate_insurance()
 		self.validate_temperature()
 		self.validate_documents()
-		self.validate_casslink()
-		self.validate_tact()
-		self.validate_eawb()
+		self.validate_iata_transaction_link()
 		self.validate_revenue()
 		self.validate_billing()
 		dg_errors = self._collect_dangerous_goods_validation_errors()
@@ -1530,6 +1550,14 @@ class AirShipment(Document):
 		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
 
 		msgprint_sales_quote_validity_warnings(self)
+
+		from logistics.job_management.logistics_job_status import (
+			sync_air_shipment_job_status,
+			validate_job_status_field,
+		)
+
+		sync_air_shipment_job_status(self)
+		validate_job_status_field(self)
 
 	def aggregate_volume_from_packages(self):
 		"""Set header volume from sum of package volumes, converted to base/default volume UOM (used for chargeable weight)."""
@@ -1634,16 +1662,16 @@ class AirShipment(Document):
 		
 		# Update DG compliance status before saving
 		self.update_dg_compliance_status()
-		# Job Costing Number will be created in after_insert method
+		# Job Number will be created in after_insert method
 	
 	def after_insert(self):
-		"""Create Job Costing Number after document is inserted"""
+		"""Create Job Number after document is inserted"""
 		# Apply settings defaults if not already applied
 		if not hasattr(self, '_settings_applied'):
 			self.apply_settings_defaults()
 		
 		# Create job costing (method will check settings internally)
-		self.create_job_costing_number_if_needed()
+		self.create_job_number_if_needed()
 		
 		# Auto-generate AWB numbers if enabled in settings
 		settings = self.get_air_freight_settings()
@@ -1663,7 +1691,7 @@ class AirShipment(Document):
 				self.release_type = None
 		
 		# Save the document to persist changes
-		if self.job_costing_number or self.house_awb_no or self.master_awb:
+		if self.job_number or self.house_awb_no or self.master_awb:
 			try:
 				self.save(ignore_permissions=True)
 			except Exception as e:
@@ -1764,7 +1792,7 @@ class AirShipment(Document):
 	
 	@frappe.whitelist()
 	def check_dg_compliance(self):
-		"""Check dangerous goods compliance status"""
+		"""Check dangerous goods compliance status (aligned with save validation rules)."""
 		if not self.has_dg_fields():
 			return {"status": "Not Available", "message": "Dangerous goods fields not available"}
 		
@@ -1772,69 +1800,74 @@ class AirShipment(Document):
 		if not contains_dg:
 			return {"status": "Compliant", "message": "No dangerous goods in this shipment"}
 		
+		from logistics.utils.dg_fields import dg_child_row_display_label, package_indicates_dangerous_goods
+		
 		compliance_issues = []
+		settings = self.get_air_freight_settings()
+		if settings and getattr(settings, "require_dg_declaration", False):
+			if not getattr(self, "dg_declaration_complete", False):
+				compliance_issues.append("DG declaration not complete")
 		
-		# Check main document compliance
-		dg_emergency_contact = getattr(self, 'dg_emergency_contact', None)
-		dg_emergency_phone = getattr(self, 'dg_emergency_phone', None)
-		dg_declaration_complete = getattr(self, 'dg_declaration_complete', False)
+		packages = self.packages or []
+		if not any(package_indicates_dangerous_goods(p) for p in packages):
+			compliance_issues.append("No dangerous goods package details")
 		
-		if not dg_emergency_contact:
+		if not getattr(self, "dg_emergency_contact", None):
 			compliance_issues.append("Emergency contact not specified")
 		
-		if not dg_emergency_phone:
+		if not getattr(self, "dg_emergency_phone", None):
 			compliance_issues.append("Emergency phone not specified")
 		
-		if not dg_declaration_complete:
-			compliance_issues.append("DG declaration not complete")
-		
-		# Check package compliance
-		for package in self.packages:
-			if not (package.dg_substance or package.un_number):
+		for package in packages:
+			if not package_indicates_dangerous_goods(package):
 				continue
-			
-			package_issues = []
-			if not package.un_number:
-				package_issues.append("UN Number missing")
-			if not package.proper_shipping_name:
-				package_issues.append("Proper Shipping Name missing")
-			if not package.dg_class:
-				package_issues.append("DG Class missing")
-			if not package.emergency_contact_name:
-				package_issues.append("Emergency contact missing")
-			
-			if package_issues:
-				compliance_issues.append(f"Package {package.commodity or 'Unknown'}: {', '.join(package_issues)}")
+			ref = dg_child_row_display_label(package)
+			for fn, label in (
+				("un_number", "UN Number"),
+				("proper_shipping_name", "Proper Shipping Name"),
+				("dg_class", "DG Class"),
+				("packing_group", "Packing Group"),
+			):
+				if not getattr(package, fn, None):
+					compliance_issues.append(f"{label} missing for {ref}")
+			if not getattr(package, "emergency_contact_name", None):
+				compliance_issues.append(f"Emergency contact name missing for {ref}")
+			if not getattr(package, "emergency_contact_phone", None):
+				compliance_issues.append(f"Emergency contact phone missing for {ref}")
+			if getattr(package, "is_radioactive", False):
+				if not getattr(package, "transport_index", None):
+					compliance_issues.append(f"Transport Index required for radioactive materials in {ref}")
+				if not getattr(package, "radiation_level", None):
+					compliance_issues.append(f"Radiation Level required for radioactive materials in {ref}")
+			if getattr(package, "temp_controlled", False):
+				if not getattr(package, "min_temperature", None) and not getattr(package, "max_temperature", None):
+					compliance_issues.append(f"Temperature range required for temperature controlled goods in {ref}")
 		
 		if compliance_issues:
 			return {
 				"status": "Non-Compliant",
 				"message": "Compliance issues found",
-				"issues": compliance_issues
+				"issues": compliance_issues,
 			}
-		else:
-			return {
-				"status": "Compliant",
-				"message": "All dangerous goods requirements met"
-			}
+		return {
+			"status": "Compliant",
+			"message": "All dangerous goods requirements met",
+		}
 	
 	def update_dg_compliance_status(self):
-		"""Update DG compliance status based on current data"""
+		"""Set ``dg_compliance_status`` from :meth:`check_dg_compliance` whenever DG applies."""
 		if not self.has_dg_fields():
 			return
 		
 		contains_dg = getattr(self, 'contains_dangerous_goods', False)
 		if not contains_dg:
-			# No dangerous goods, clear the status field
 			if hasattr(self, 'dg_compliance_status'):
 				setattr(self, 'dg_compliance_status', '')
 			return
-		
-		# Check compliance using existing method
+
 		compliance_result = self.check_dg_compliance()
 		compliance_status = compliance_result.get('status', 'Unknown')
 		
-		# Update the compliance status field
 		if hasattr(self, 'dg_compliance_status'):
 			setattr(self, 'dg_compliance_status', compliance_status)
 	
@@ -1881,7 +1914,7 @@ class AirShipment(Document):
 		try:
 			# Create DG declaration document
 			dg_declaration = frappe.new_doc("Dangerous Goods Declaration")
-			dg_declaration.air_freight_job = self.name
+			dg_declaration.air_shipment = self.name
 			dg_declaration.shipper = self.shipper
 			dg_declaration.consignee = self.consignee
 			dg_declaration.origin_port = self.origin_port
@@ -2121,8 +2154,6 @@ class AirShipment(Document):
 	
 	def validate_dates(self):
 		"""Validate date fields"""
-		from frappe.utils import getdate, today
-		
 		from logistics.utils.validation_user_messages import (
 			atd_ata_freight_invalid_message,
 			atd_ata_freight_title,
@@ -2130,29 +2161,25 @@ class AirShipment(Document):
 			etd_eta_freight_title,
 		)
 
-		# Validate ETD is not after ETA (allows same-day shipments)
-		if self.etd and self.eta:
-			if getdate(self.etd) > getdate(self.eta):
-				frappe.throw(etd_eta_freight_invalid_message(), title=etd_eta_freight_title())
-
-		# Validate ATD is not after ATA (allows same-day)
-		if self.atd and self.ata:
-			if getdate(self.atd) > getdate(self.ata):
-				frappe.throw(atd_ata_freight_invalid_message(), title=atd_ata_freight_title())
+		throw_if_left_date_after_right(
+			self.etd, self.eta, etd_eta_freight_invalid_message, etd_eta_freight_title
+		)
+		throw_if_left_date_after_right(
+			self.atd, self.ata, atd_ata_freight_invalid_message, atd_ata_freight_title
+		)
 		
 		# Warn if booking date is in the future
-		if self.booking_date:
-			if getdate(self.booking_date) > getdate(today()):
-				from logistics.utils.validation_user_messages import (
-					booking_date_future_warning_message,
-					booking_date_future_warning_title,
-				)
+		if self.booking_date and is_future_date(self.booking_date):
+			from logistics.utils.validation_user_messages import (
+				booking_date_future_warning_message,
+				booking_date_future_warning_title,
+			)
 
-				frappe.msgprint(
-					booking_date_future_warning_message(),
-					indicator="orange",
-					title=booking_date_future_warning_title(),
-				)
+			frappe.msgprint(
+				booking_date_future_warning_message(),
+				indicator="orange",
+				title=booking_date_future_warning_title(),
+			)
 	
 	def validate_weight_volume(self):
 		"""Validate weight and volume fields"""
@@ -2426,79 +2453,15 @@ class AirShipment(Document):
 					title=_("Document Information")
 				)
 	
-	def validate_casslink(self):
-		"""Validate CASSLink integration fields"""
-		# If CASS settlement status is set, validate participant code
-		if self.cass_settlement_status and self.cass_settlement_status != "Pending":
-			if not self.cass_participant_code:
-				frappe.msgprint(
-					_("CASS participant code should be set when settlement status is not 'Pending'."),
-					indicator="blue",
-					title=_("CASSLink Information")
-				)
-			
-			# If settled, validate settlement date
-			if self.cass_settlement_status == "Settled":
-				if not self.cass_settlement_date:
-					frappe.msgprint(
-						_("CASS settlement date should be set when status is 'Settled'."),
-						indicator="blue",
-						title=_("CASSLink Information")
-					)
-		
-		# Validate settlement amount is positive
-		if self.cass_settlement_amount and flt(self.cass_settlement_amount) < 0:
-			frappe.throw(_("CASS settlement amount cannot be negative"), title=_("Validation Error"))
-	
-	def validate_tact(self):
-		"""Validate TACT integration fields"""
-		# If TACT rate lookup is enabled, validate rate reference
-		if self.tact_rate_lookup:
-			if not self.tact_rate_reference:
-				frappe.msgprint(
-					_("TACT rate reference should be set when TACT rate lookup is enabled."),
-					indicator="blue",
-					title=_("TACT Information")
-				)
-			
-			# Validate rate validity date
-			if self.tact_rate_validity:
-				from frappe.utils import getdate, today
-				if getdate(self.tact_rate_validity) < today():
-					frappe.msgprint(
-						_("TACT rate validity date is in the past. Rate may no longer be valid."),
-						indicator="orange",
-						title=_("TACT Rate Warning")
-					)
-		
-		# Validate TACT rate amount is positive
-		if self.tact_rate_amount and flt(self.tact_rate_amount) <= 0:
-			frappe.throw(_("TACT rate amount must be greater than zero"), title=_("Validation Error"))
-	
-	def validate_eawb(self):
-		"""Validate e-AWB fields"""
-		if self.eawb_enabled:
-			# If e-AWB is enabled, validate status progression
-			if self.eawb_status:
-				status_order = ["Not Created", "Created", "Signed", "Submitted", "Accepted", "Rejected"]
-				current_index = status_order.index(self.eawb_status) if self.eawb_status in status_order else -1
-				
-				# If signed, validate signature fields
-				if self.eawb_status in ["Signed", "Submitted", "Accepted"]:
-					if not self.eawb_digital_signature:
-						frappe.msgprint(
-							_("Digital signature should be set when e-AWB status is 'Signed' or later."),
-							indicator="blue",
-							title=_("e-AWB Information")
-						)
-					
-					if not self.eawb_signed_date:
-						frappe.msgprint(
-							_("e-AWB signed date should be set when e-AWB is signed."),
-							indicator="blue",
-							title=_("e-AWB Information")
-						)
-	
+	def validate_iata_transaction_link(self):
+		name = frappe.db.get_value("Air Shipment IATA Transaction", {"air_shipment": self.name}, "name")
+		if not name:
+			return
+		tx = frappe.get_doc("Air Shipment IATA Transaction", name)
+		tx.validate_casslink()
+		tx.validate_tact()
+		tx.validate_eawb()
+
 	def validate_revenue(self):
 		"""Validate revenue recognition fields"""
 		# Validate revenue amount is positive
@@ -2555,112 +2518,35 @@ class AirShipment(Document):
 		if self.billing_amount and flt(self.billing_amount) <= 0:
 			frappe.throw(_("Billing amount must be greater than zero"), title=_("Validation Error"))
 	
+	def _require_iata_transaction(self):
+		name = frappe.db.get_value("Air Shipment IATA Transaction", {"air_shipment": self.name}, "name")
+		if not name:
+			frappe.throw(
+				_("Create an IATA Transaction first (Integrations \u2192 IATA / e-AWB)."),
+				title=_("IATA"),
+			)
+		return frappe.get_doc("Air Shipment IATA Transaction", name)
+
+	@frappe.whitelist()
+	def create_iata_transaction(self):
+		"""Create the 1:1 IATA / e-AWB / CASS / TACT document for this shipment (if missing)."""
+		return create_air_shipment_iata_transaction(self.name)
+
 	@frappe.whitelist()
 	def lookup_tact_rate(self):
-		"""Lookup TACT rate for this shipment"""
-		try:
-			# Get IATA Settings
-			iata_settings = frappe.get_single("IATA Settings")
-			
-			if not iata_settings.tact_subscription:
-				frappe.throw(_("TACT subscription is not enabled in IATA Settings"))
-			
-			if not iata_settings.tact_api_key:
-				frappe.throw(_("TACT API key is not configured in IATA Settings"))
-			
-			# Build rate lookup request
-			rate_params = {
-				"origin": self.origin_port,
-				"destination": self.destination_port,
-				"weight": self.total_weight,
-				"volume": self.total_volume,
-				"chargeable_weight": self.chargeable
-			}
-			
-			# Call TACT API (placeholder - actual implementation would call TACT API)
-			# This is a placeholder for the actual TACT API integration
-			frappe.msgprint(
-				_("TACT rate lookup functionality requires TACT API integration. Please configure TACT API endpoint."),
-				indicator="blue",
-				title=_("TACT Integration")
-			)
-			
-			return {
-				"status": "info",
-				"message": "TACT rate lookup requires API integration"
-			}
-			
-		except Exception as e:
-			frappe.log_error(f"TACT rate lookup error: {str(e)}", "Air Shipment - TACT Rate Lookup")
-			frappe.throw(_("Error looking up TACT rate: {0}").format(str(e)))
-	
+		tx = self._require_iata_transaction()
+		return tx.lookup_tact_rate()
+
 	@frappe.whitelist()
 	def create_eawb(self):
-		"""Create e-AWB for this shipment"""
-		try:
-			if not self.eawb_enabled:
-				frappe.throw(_("e-AWB is not enabled for this shipment"))
-			
-			# Validate required fields for e-AWB
-			if not self.house_awb_no:
-				frappe.throw(_("House AWB number is required to create e-AWB"))
-			
-			if not self.shipper or not self.consignee:
-				frappe.throw(_("Shipper and Consignee are required to create e-AWB"))
-			
-			# Create e-AWB (placeholder - actual implementation would create e-AWB via IATA API)
-			self.eawb_status = "Created"
-			self.save()
-			
-			frappe.msgprint(_("e-AWB created successfully. Please sign and submit."), indicator="green")
-			
-			return {
-				"status": "success",
-				"message": "e-AWB created successfully",
-				"eawb_status": self.eawb_status
-			}
-			
-		except Exception as e:
-			frappe.log_error(f"e-AWB creation error: {str(e)}", "Air Shipment - e-AWB Creation")
-			frappe.throw(_("Error creating e-AWB: {0}").format(str(e)))
-	
+		tx = self._require_iata_transaction()
+		return tx.create_eawb()
+
 	@frappe.whitelist()
 	def sign_eawb(self):
-		"""Sign e-AWB digitally"""
-		try:
-			if not self.eawb_enabled:
-				frappe.throw(_("e-AWB is not enabled for this shipment"))
-			
-			if self.eawb_status not in ["Created", "Not Created"]:
-				frappe.throw(_("e-AWB must be in 'Created' status to sign"))
-			
-			# Generate digital signature (placeholder - actual implementation would use digital signature service)
-			from frappe.utils import now_datetime
-			import hashlib
-			
-			# Create a simple hash-based signature (in production, use proper digital signature)
-			signature_data = f"{self.name}{self.house_awb_no}{now_datetime()}"
-			digital_signature = hashlib.sha256(signature_data.encode()).hexdigest()
-			
-			self.eawb_digital_signature = digital_signature
-			self.eawb_signed_date = now_datetime()
-			self.eawb_signed_by = frappe.session.user
-			self.eawb_status = "Signed"
-			self.save()
-			
-			frappe.msgprint(_("e-AWB signed successfully"), indicator="green")
-			
-			return {
-				"status": "success",
-				"message": "e-AWB signed successfully",
-				"eawb_status": self.eawb_status,
-				"signed_date": self.eawb_signed_date
-			}
-			
-		except Exception as e:
-			frappe.log_error(f"e-AWB signing error: {str(e)}", "Air Shipment - e-AWB Signing")
-			frappe.throw(_("Error signing e-AWB: {0}").format(str(e)))
-	
+		tx = self._require_iata_transaction()
+		return tx.sign_eawb()
+
 	@frappe.whitelist()
 	def update_tracking_status(self):
 		"""Update tracking status from tracking provider"""
@@ -2794,7 +2680,12 @@ class AirShipment(Document):
 			
 			# Map unit_type to quantity
 			quantity = 0
-			if sqaf_record.unit_type == "Weight":
+			if sqaf_record.unit_type == "Chargeable Weight":
+				chargeable_qty = getattr(self, "chargeable", None)
+				if chargeable_qty in (None, ""):
+					chargeable_qty = getattr(self, "chargeable_weight", None)
+				quantity = flt(chargeable_qty or 0)
+			elif sqaf_record.unit_type == "Weight":
 				quantity = flt(self.total_weight) or 0
 			elif sqaf_record.unit_type == "Volume":
 				quantity = flt(self.total_volume) or 0
@@ -2820,9 +2711,9 @@ class AirShipment(Document):
 				"currency": sqaf_record.currency or default_currency,
 				"quantity": quantity,
 				"unit_of_measure": sqaf_record.uom or None,
-				"billing_status": "To Bill"
+				"billing_status": "To Bill",
 			}
-			
+
 			return charge_data
 			
 		except Exception as e:
@@ -3071,24 +2962,41 @@ class AirShipment(Document):
 				frappe.throw(_("Branch {0} does not belong to Company {1}").format(
 					self.branch, self.company), title=_("Validation Error"))
 	
-	def create_job_costing_number_if_needed(self):
-		"""Create Job Costing Number when document is first saved"""
+	def _get_mawb_row(self):
+		"""Single-row cache from Master Air Waybill for virtual MAWB fields."""
+		key = self.get("master_awb")
+		if not key:
+			self._air_mawb_row_cache_key = None
+			self._air_mawb_row_cache = None
+			return None
+		if getattr(self, "_air_mawb_row_cache_key", None) != key:
+			self._air_mawb_row_cache = frappe.db.get_value(
+				"Master Air Waybill",
+				key,
+				[src for _, src in _MAWB_VIRTUAL_FIELD_SOURCES],
+				as_dict=True,
+			)
+			self._air_mawb_row_cache_key = key
+		return self._air_mawb_row_cache
+
+	def create_job_number_if_needed(self):
+		"""Create Job Number when document is first saved"""
 		# Check settings for auto-create job costing
 		settings = self.get_air_freight_settings()
 		if settings and not settings.auto_create_job_costing:
 			return
 		
-		# Only create if job_costing_number is not set
-		if not self.job_costing_number:
-			# Check if this is the first save (no existing Job Costing Number)
-			existing_job_ref = frappe.db.get_value("Job Costing Number", {
+		# Only create if job_number is not set
+		if not self.job_number:
+			# Check if this is the first save (no existing Job Number)
+			existing_job_ref = frappe.db.get_value("Job Number", {
 				"job_type": "Air Shipment",
 				"job_no": self.name
 			})
 			
 			if not existing_job_ref:
-				# Create Job Costing Number
-				job_ref = frappe.new_doc("Job Costing Number")
+				# Create Job Number
+				job_ref = frappe.new_doc("Job Number")
 				job_ref.job_type = "Air Shipment"
 				job_ref.job_no = self.name
 				job_ref.company = self.company
@@ -3100,10 +3008,56 @@ class AirShipment(Document):
 				job_ref.job_open_date = self.booking_date
 				job_ref.insert(ignore_permissions=True)
 				
-				# Set the job_costing_number field
-				self.job_costing_number = job_ref.name
+				# Set the job_number field
+				self.job_number = job_ref.name
 				
-				frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+				frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
+
+
+for _fname, _src in _MAWB_VIRTUAL_FIELD_SOURCES:
+	setattr(
+		AirShipment,
+		_fname,
+		property(lambda self, s=_src: (self._get_mawb_row() or {}).get(s)),
+	)
+
+
+@frappe.whitelist()
+def get_master_awb_virtuals(master_awb=None):
+	"""Desk: values for virtual MAWB fields when Master AWB link changes (no DB columns)."""
+	if not master_awb:
+		return {fk: None for fk, _ in _MAWB_VIRTUAL_FIELD_SOURCES}
+	row = frappe.db.get_value(
+		"Master Air Waybill",
+		master_awb,
+		[src for _, src in _MAWB_VIRTUAL_FIELD_SOURCES],
+		as_dict=True,
+	)
+	row = row or {}
+	return {fk: row.get(src) for fk, src in _MAWB_VIRTUAL_FIELD_SOURCES}
+
+
+@frappe.whitelist()
+def create_air_shipment_iata_transaction(air_shipment):
+	"""Create the 1:1 Air Shipment IATA Transaction (Desk: Integrations → IATA / e-AWB).
+
+	Implemented at module level so the desk can call a stable API path; the controller
+	method delegates here.
+	"""
+	if not air_shipment:
+		frappe.throw(_("Air Shipment is required"))
+	doc = frappe.get_doc("Air Shipment", air_shipment)
+	doc.check_permission("write")
+	existing = frappe.db.get_value(
+		"Air Shipment IATA Transaction", {"air_shipment": doc.name}, "name"
+	)
+	if existing:
+		return existing
+	tx = frappe.get_doc(
+		{"doctype": "Air Shipment IATA Transaction", "air_shipment": doc.name}
+	)
+	tx.insert()
+	return tx.name
 
 
 # Whitelisted API methods for client-side calls (module-level functions, same pattern as run sheet)
@@ -3147,15 +3101,22 @@ def populate_charges_from_sales_quote(docname=None):
 		# Clear existing charges
 		self.set("charges", [])
 		
-		# Get from Sales Quote Charge (Air) or Sales Quote Air Freight (legacy)
+		from logistics.utils.charge_service_type import sales_quote_charge_filters
+
+		sq_doc = frappe.get_doc("Sales Quote", self.sales_quote)
+		filters = sales_quote_charge_filters(self, sq_doc)
+
+		# Get from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)
+		from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+
 		charge_fields = [
 			"item_code", "item_name", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-			"maximum_charge", "base_amount", "estimated_revenue"
-		]
+			"maximum_charge", "base_amount", "estimated_revenue", "service_type",
+		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
-			filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			filters=filters,
 			fields=charge_fields,
 			order_by="idx"
 		)

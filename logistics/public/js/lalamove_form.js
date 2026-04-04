@@ -25,7 +25,7 @@ logistics.lalamove.form = {
 		if (!frm.fields_dict.lalamove_section) {
 			frm.add_custom_button(__('Lalamove Integration'), function() {
 				logistics.lalamove.form.showLalamoveDialog(frm);
-			}, __('Actions'));
+			}, __('Action'));
 		}
 	},
 	
@@ -246,7 +246,7 @@ logistics.lalamove.form = {
 					},
 					{
 						fieldtype: 'Section Break',
-						label: __('Actions')
+						label: __('Action')
 					},
 					{
 						fieldtype: 'Button',

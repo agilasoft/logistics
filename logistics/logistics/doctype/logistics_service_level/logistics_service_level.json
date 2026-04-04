@@ -64,7 +64,8 @@
    "fieldname": "sla_escalation_contact",
    "fieldtype": "Link",
    "label": "Escalation Contact",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "sla_notes",

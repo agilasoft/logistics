@@ -26,7 +26,8 @@
    "in_list_view": 1,
    "label": "Container",
    "options": "Container",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "charge_type",
@@ -57,7 +58,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "total_amount",

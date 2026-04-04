@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # Licensed under the MIT License. See license.txt
 
-"""Link search for Sales Quote: allow quotes where main_service matches OR charges include the service type."""
+"""Link search for Sales Quote: quotes that include charge lines for the requested service type (unified + legacy)."""
 
 from __future__ import annotations
 
@@ -12,13 +12,7 @@ import frappe
 from frappe.desk.reportview import get_match_cond
 from frappe.utils import cint
 
-SERVICE_LEGACY_TABLE: dict[str, str] = {
-	"Transport": "Sales Quote Transport",
-	"Air": "Sales Quote Air Freight",
-	"Sea": "Sales Quote Sea Freight",
-	"Customs": "Sales Quote Customs",
-	"Warehousing": "Sales Quote Warehouse",
-}
+from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
 
 
 def _parse_filters(filters: Any) -> dict:
@@ -78,7 +72,7 @@ def _legacy_exists_clause(service_type: str) -> str:
 def sales_quote_by_service_link_search(
 	doctype, txt, searchfield, start, page_len, filters, as_dict=False, **kwargs
 ):
-	"""Link query: Sales Quote eligible for a job type (main_service OR Sales Quote Charge / legacy row).
+	"""Link query: Sales Quote eligible for a job type only if it has charge rows for that service (not main_service alone).
 
 	filters (dict):
 	- service_type (required): Transport | Air | Sea | Customs | Warehousing
@@ -104,8 +98,7 @@ def sales_quote_by_service_link_search(
 
 	legacy_sql = _legacy_exists_clause(service_type)
 
-	eligibility = f"""( sq.main_service = %(service_type)s
-		OR EXISTS (
+	eligibility = f"""( EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type = %(service_type)s

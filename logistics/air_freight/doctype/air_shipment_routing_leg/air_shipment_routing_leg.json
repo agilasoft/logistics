@@ -35,7 +35,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Mode",
-   "options": "Transport Mode"
+   "options": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "type",
@@ -92,7 +93,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Shipping Line",
-   "options": "Shipping Line"
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.mode === 'Air'",
@@ -113,7 +115,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Airline",
-   "options": "Airline"
+   "options": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_origin",
@@ -125,7 +128,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Load Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "etd",
@@ -148,7 +152,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Discharge Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "eta",

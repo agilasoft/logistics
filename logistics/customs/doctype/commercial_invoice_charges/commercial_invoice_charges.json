@@ -35,7 +35,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Curr.",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",

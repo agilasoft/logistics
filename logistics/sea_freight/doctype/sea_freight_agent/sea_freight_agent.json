@@ -18,7 +18,8 @@
    "in_list_view": 1,
    "label": "Freight Agent",
    "options": "Freight Agent",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "agent_type",

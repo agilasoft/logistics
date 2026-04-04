@@ -27,7 +27,8 @@
    "fieldname": "deposit_currency",
    "fieldtype": "Link",
    "label": "Deposit Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "deposit_date",
@@ -83,8 +84,6 @@
  "name": "Container Deposit",
  "owner": "Administrator",
  "permissions": [],
- "sort_field": "idx",
- "sort_order": "ASC",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

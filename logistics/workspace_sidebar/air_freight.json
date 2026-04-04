@@ -19,18 +19,6 @@
    "type": "Link"
   },
   {
-   "child": 1,
-   "collapsible": 1,
-   "icon": "file-input",
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "Air Booking",
-   "link_to": "Air Booking",
-   "link_type": "DocType",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
    "child": 0,
    "collapsible": 1,
    "icon": "file-pen-line",
@@ -354,8 +342,8 @@
    "type": "Link"
   }
  ],
- "modified": "2026-02-26 09:43:14.470359",
- "modified_by": "richardjohn.delarosa@agilasoft.com",
+ "modified": "2026-03-24 17:31:05.710217",
+ "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight",
  "owner": "Administrator",

@@ -106,6 +106,7 @@ def transport_order_package_row_from_shipment_pkg(shipment, pkg):
 	to_meta = frappe.get_meta("Transport Order Package")
 	common = (
 		"commodity",
+		"warehouse_item",
 		"description",
 		"uom",
 		"no_of_packs",

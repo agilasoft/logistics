@@ -45,3 +45,16 @@ Profit, WIP, and Accrual recognition apply only to non-disbursement charge lines
 ## Migration note
 
 If you previously used different account types (e.g. Asset WIP), update **Recognition Parameters** to match the table above before saving the policy document; validation enforces these rules on each parameter row.
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Policy fields live on **Logistics Settings** (and related operational documents). Full column lists:_
+
+- [Logistics Settings](welcome/logistics-settings)
+- [General Job](welcome/general-job), [Warehouse Job](welcome/warehouse-job)
+
+<!-- wiki-field-reference:end -->
+

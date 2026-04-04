@@ -6,7 +6,8 @@ Parses incoming XML messages and updates system records
 import frappe
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from .base_connector import IATAConnector
 
 
@@ -199,6 +200,16 @@ class MessageParser(IATAConnector):
             frappe.log_error(f"Find MAWB by flight error: {str(e)}")
             return None
     
+    def _get_or_create_iata_tx(self, job):
+        """1:1 IATA / e-AWB / CASS / TACT document for this Air Shipment (child stores `air_shipment` link)."""
+        name = frappe.db.get_value("Air Shipment IATA Transaction", {"air_shipment": job.name}, "name")
+        if name:
+            return frappe.get_doc("Air Shipment IATA Transaction", name)
+        tx = frappe.get_doc({"doctype": "Air Shipment IATA Transaction", "air_shipment": job.name})
+        tx.flags.ignore_permissions = True
+        tx.insert()
+        return tx
+
     def _update_job_status(self, job: frappe.Document, status_code: str, status_description: str):
         """Update job status based on FSU status"""
         try:
@@ -213,15 +224,11 @@ class MessageParser(IATAConnector):
             }
             
             new_status = status_mapping.get(status_code, status_description)
-            
-            # Update job with status information
-            if not hasattr(job, 'iata_status'):
-                frappe.msgprint("IATA Status field not found. Please add the field to Air Shipment doctype.")
-                return
-            
-            job.iata_status = new_status
-            job.last_status_update = datetime.now()
-            job.save()
+            tx = self._get_or_create_iata_tx(job)
+            tx.iata_status = new_status
+            tx.last_status_update = datetime.now()
+            tx.flags.ignore_permissions = True
+            tx.save()
             
         except Exception as e:
             frappe.log_error(f"Update job status error: {str(e)}")
@@ -254,11 +261,16 @@ class MessageParser(IATAConnector):
                 "origin_port": self._find_location_by_iata(message_data.get("origin_airport")),
                 "destination_port": self._find_location_by_iata(message_data.get("destination_airport")),
                 "booking_date": datetime.now().date(),
-                "iata_status": "Received from IATA",
-                "iata_message_id": message_data.get("message_id")
             })
             
             job.insert(ignore_permissions=True)
+            tx = self._get_or_create_iata_tx(job)
+            tx.iata_status = "Received from IATA"
+            if message_data.get("message_id"):
+                tx.iata_message_id = message_data.get("message_id")
+            tx.last_status_update = datetime.now()
+            tx.flags.ignore_permissions = True
+            tx.save()
             return job
             
         except Exception as e:
@@ -275,9 +287,13 @@ class MessageParser(IATAConnector):
             if message_data.get("destination_airport"):
                 job.destination_port = self._find_location_by_iata(message_data.get("destination_airport"))
             
-            job.iata_status = "Confirmed via IATA"
+            tx = self._get_or_create_iata_tx(job)
+            tx.iata_status = "Confirmed via IATA"
             if message_data.get("message_id"):
-                job.iata_message_id = message_data.get("message_id")
+                tx.iata_message_id = message_data.get("message_id")
+            tx.last_status_update = datetime.now()
+            tx.flags.ignore_permissions = True
+            tx.save()
             job.save()
             
         except Exception as e:

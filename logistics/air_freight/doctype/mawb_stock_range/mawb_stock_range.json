@@ -38,7 +38,8 @@
    "fieldtype": "Link",
    "label": "Airline",
    "options": "Airline",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "description": "IATA 3-digit AWB prefix (e.g. 176)",

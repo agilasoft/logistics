@@ -110,7 +110,7 @@ WIKI_PAGES_CONFIG = {
         "Revenue Recognition Policy — Accounts, Dates, and Charges",
         "Job Management",
     ),
-    "proforma_gl_entries": ("Proforma GL Entries (Job Costing)", "Job Management"),
+    "proforma_gl_entries": ("Proforma GL Entries (Job Number)", "Job Management"),
     "wip_accrual_reversal_on_invoicing_design": (
         "WIP and Accrual Reversal on Invoicing",
         "Job Management",

@@ -36,7 +36,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customs Authority",
-   "options": "Customs Authority"
+   "options": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
   }
  ],
  "grid_page_length": 50,

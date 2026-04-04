@@ -46,7 +46,8 @@
    "fieldname": "assigned_to",
    "fieldtype": "Link",
    "label": "Assigned To",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost",
@@ -58,7 +59,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "default": "0",

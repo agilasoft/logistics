@@ -44,7 +44,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_air_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_air_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
    "reqd": 1
   },
@@ -93,7 +93,8 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "minimum_charge",
@@ -118,19 +119,22 @@
    "fieldname": "origin_airport",
    "fieldtype": "Link",
    "label": "Origin Airport",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_airport",
    "fieldtype": "Link",
    "label": "Destination Airport",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
-   "options": "Airline"
+   "options": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "flight_type",
@@ -186,7 +190,7 @@
    "fieldname": "item",
    "fieldtype": "Link",
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_air_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_logistics_charge_item\", \"=\", 1], [\"Item\", \"custom_air_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {

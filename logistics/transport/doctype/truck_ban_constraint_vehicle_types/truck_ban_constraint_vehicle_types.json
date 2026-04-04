@@ -15,7 +15,8 @@
    "in_list_view": 1,
    "label": "Vehicle Type",
    "options": "Vehicle Type",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   }
  ],
  "index_web_pages_for_search": 1,

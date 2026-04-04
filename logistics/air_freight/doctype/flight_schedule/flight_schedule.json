@@ -85,7 +85,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Airline",
-   "options": "Airline"
+   "options": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "airline_iata",
@@ -133,7 +134,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Departure Airport",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "departure_iata",
@@ -192,7 +194,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Arrival Airport",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "arrival_iata",
@@ -431,5 +434,3 @@
  "title_field": "flight_number",
  "track_changes": 1
 }
-
-

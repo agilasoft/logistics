@@ -256,9 +256,10 @@ def update_job_document_status_on_parent_before_save(doc, method=None):
 		validate_job_document_status_aligned,
 	)
 	for row in doc.documents:
-		# Validate status aligns with dates/fields (child validate never runs on parent save)
-		validate_job_document_status_aligned(row)
+		# Apply date/status realignment and activity rules first; then validate. Validating first
+		# blocked saves when e.g. Overdue + user extended date_required (status still old until apply).
 		apply_job_document_status_updates(row)
+		validate_job_document_status_aligned(row)
 
 
 def ensure_documents_and_milestones_from_template(doc, method=None):
@@ -663,13 +664,18 @@ def get_document_alerts_html(doctype, docname):
 	cards.append(_doc_alert_card("Expiring Soon", expiring_soon, "doc-alert-card-expiring", "info", "expiring_soon"))
 	# Received/Verified/Done
 	cards.append(_doc_alert_card("Received", received, "doc-alert-card-received", "success", "received"))
-	# Total documents
-	cards.append(_doc_alert_card("Total", total, "doc-alert-card-total", "secondary", "total"))
+	# Total documents — on customs doctypes, swap accent with Exemptions (purple ↔ gray)
+	total_css, total_alert = "doc-alert-card-total", "secondary"
+	if doctype in ("Declaration", "Declaration Order"):
+		total_css, total_alert = "doc-alert-card-exemptions", "info"
+	cards.append(_doc_alert_card("Total", total, total_css, total_alert, "total"))
 
 	# Declaration and Declaration Order: Pending Permits and Exemptions cards
 	if doctype in ("Declaration", "Declaration Order"):
 		cards.append(_doc_alert_card("Pending Permits", pending_permits, "doc-alert-card-permits", "warning", "pending_permits"))
-		cards.append(_doc_alert_card("Exemptions", exemptions_count, "doc-alert-card-exemptions", "info", "exemptions"))
+		cards.append(
+			_doc_alert_card("Exemptions", exemptions_count, "doc-alert-card-total", "secondary", "exemptions")
+		)
 
 	cards_html = "\n".join(cards)
 	return f'''

@@ -130,11 +130,11 @@ frappe.query_reports["Sustainability Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Export to Excel"), function() {
 			// Export functionality
 			frappe.msgprint(__("Export functionality will be implemented"));
-		}, __("Actions"));
+		}, __("Action"));
 	}
 };

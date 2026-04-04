@@ -98,7 +98,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Container Transport Mode",
-   "options": "Transport Mode"
+   "options": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "container_make",
@@ -110,7 +111,8 @@
    "fieldname": "iata_rate_class",
    "fieldtype": "Link",
    "label": "IATA Rate Class",
-   "options": "IATA Rate Class"
+   "options": "IATA Rate Class",
+   "link_filters": "[[\"IATA Rate Class\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "customs_container_codes_tab",
@@ -179,7 +181,8 @@
    "fieldname": "length_uom",
    "fieldtype": "Link",
    "label": "Length UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_kizv",
@@ -194,7 +197,8 @@
    "fieldname": "width_uom",
    "fieldtype": "Link",
    "label": "Width UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_mnpb",
@@ -209,7 +213,8 @@
    "fieldname": "height_uom",
    "fieldtype": "Link",
    "label": "Height UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_bghy",
@@ -233,7 +238,8 @@
    "fieldname": "max_gross_weight_uom",
    "fieldtype": "Link",
    "label": "Max Gross Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_qabd",
@@ -248,7 +254,8 @@
    "fieldname": "tare_weight_uom",
    "fieldtype": "Link",
    "label": "Tare Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "container_class_tab",

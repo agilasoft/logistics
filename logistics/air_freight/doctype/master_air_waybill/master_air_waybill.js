@@ -7,7 +7,7 @@ frappe.ui.form.on("Master Air Waybill", {
 		if (frm.doc.__islocal) {
 			frm.add_custom_button(__("Issue from Stock"), function () {
 				issue_mawb_from_stock_and_open(frm);
-			}, __("Actions"));
+			}, __("Action"));
 		}
 	},
 });

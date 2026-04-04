@@ -1,32 +1,43 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-28 15:43:37.349503",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "consolidator_name"
+  "consolidator_name",
+  "is_active"
  ],
  "fields": [
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "consolidator_name",
    "fieldtype": "Data",
    "label": "Consolidator Name"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-24 13:52:09.972835",
+ "modified": "2026-03-30 21:57:08.217622",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Freight Consolidator",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

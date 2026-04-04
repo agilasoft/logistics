@@ -104,14 +104,17 @@
   {
    "fieldname": "master_awb_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Master AWB No",
    "unique": 1
   },
   {
    "fieldname": "airline",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Airline",
-   "options": "Airline"
+   "options": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "mawb_stock_range",
@@ -134,6 +137,7 @@
   {
    "fieldname": "flight_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Flight No"
   },
   {
@@ -145,11 +149,13 @@
   {
    "fieldname": "aircraft_type",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Aircraft Type"
   },
   {
    "fieldname": "aircraft_registration_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Aircraft Registration No"
   },
   {
@@ -175,7 +181,6 @@
    "label": "Cargo Flight"
   },
   {
-   "collapsible": 1,
    "fieldname": "iata_section",
    "fieldtype": "Section Break",
    "label": "IATA Integration"
@@ -198,7 +203,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "flight_schedule_section",
    "fieldtype": "Section Break",
    "label": "Flight Schedule Integration"
@@ -237,9 +241,11 @@
   {
    "fieldname": "origin_airport",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Origin Airport",
    "options": "UNLOCO",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "origin_airport_iata",
@@ -251,6 +257,7 @@
   {
    "fieldname": "departure_terminal",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Departure Terminal",
    "read_only": 1
   },
@@ -267,9 +274,11 @@
   {
    "fieldname": "destination_airport",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Destination Airport",
    "options": "UNLOCO",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_airport_iata",
@@ -281,6 +290,7 @@
   {
    "fieldname": "arrival_terminal",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Arrival Terminal",
    "read_only": 1
   },
@@ -291,7 +301,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "flight_times_section",
    "fieldtype": "Section Break",
    "label": "Flight Times"
@@ -299,17 +308,20 @@
   {
    "fieldname": "scheduled_departure",
    "fieldtype": "Datetime",
+   "in_list_view": 1,
    "label": "Scheduled Departure (UTC)"
   },
   {
    "fieldname": "actual_departure",
    "fieldtype": "Datetime",
+   "in_list_view": 1,
    "label": "Actual Departure (UTC)",
    "read_only": 1
   },
   {
    "fieldname": "etd_local",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "ETD (Local Time)",
    "read_only": 1
   },
@@ -320,6 +332,7 @@
   {
    "fieldname": "scheduled_arrival",
    "fieldtype": "Datetime",
+   "in_list_view": 1,
    "label": "Scheduled Arrival (UTC)"
   },
   {
@@ -331,11 +344,11 @@
   {
    "fieldname": "eta_local",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "ETA (Local Time)",
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "flight_details_section",
    "fieldtype": "Section Break",
    "label": "Flight Details"
@@ -378,7 +391,6 @@
    "precision": "2"
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.flight_status=='Active' || doc.flight_status=='EnRoute'",
    "fieldname": "realtime_tracking_section",
    "fieldtype": "Section Break",
@@ -441,8 +453,10 @@
   {
    "fieldname": "sending_agent",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Sending Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_gkum",
@@ -451,17 +465,21 @@
   {
    "fieldname": "receiving_agent",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Receiving Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "booking_reference_no",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Booking Reference No"
   },
   {
    "fieldname": "agent_reference",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Agent Reference"
   },
   {
@@ -481,15 +499,16 @@
   {
    "fieldname": "origin_cto",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\",\"air\",\"=\",1]]",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"air\", \"=\", 1], [\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "origin_cfs",
    "fieldtype": "Link",
    "label": "Origin CFS",
-   "link_filters": "[[\"Container Freight Station\",\"air_cfs\",\"=\",1]]",
+   "link_filters": "[[\"Container Freight Station\", \"air_cfs\", \"=\", 1], [\"Container Freight Station\", \"is_active\", \"=\", 1]]",
    "options": "Container Freight Station"
   },
   {
@@ -515,13 +534,15 @@
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "options": "Cargo Terminal Operator"
+   "options": "Cargo Terminal Operator",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_cfs",
    "fieldtype": "Link",
    "label": "Destination CFS",
-   "options": "Container Freight Station"
+   "options": "Container Freight Station",
+   "link_filters": "[[\"Container Freight Station\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_ejdt",
@@ -553,7 +574,7 @@
    "link_fieldname": "master_awb"
   }
  ],
- "modified": "2026-03-02 23:27:02.592097",
+ "modified": "2026-03-26 16:50:41.040503",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Master Air Waybill",
@@ -578,5 +599,8 @@
  "search_fields": "airline,flight_no",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
 }

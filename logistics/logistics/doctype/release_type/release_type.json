@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "description",
+  "is_active",
   "notes",
   "risk_level"
  ],
@@ -26,6 +27,13 @@
    "in_list_view": 1,
    "label": "Description",
    "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   },
   {
    "fieldname": "notes",

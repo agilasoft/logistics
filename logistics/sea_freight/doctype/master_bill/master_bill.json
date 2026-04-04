@@ -122,7 +122,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Shipping Line",
-   "options": "Shipping Line"
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "vessel",
@@ -165,19 +166,22 @@
    "fieldname": "consolidator",
    "fieldtype": "Link",
    "label": "Consolidator",
-   "options": "Freight Consolidator"
+   "options": "Freight Consolidator",
+   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "sending_agent",
    "fieldtype": "Link",
    "label": "Sending Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "receiving_agent",
    "fieldtype": "Link",
    "label": "Receiving Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "collapsible": 1,
@@ -234,7 +238,8 @@
    "in_list_view": 1,
    "label": "Origin Port",
    "options": "UNLOCO",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "departure_berth",
@@ -252,7 +257,8 @@
    "in_list_view": 1,
    "label": "Destination Port",
    "options": "UNLOCO",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "arrival_berth",
@@ -400,14 +406,14 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"sea\", \"=\", 1], [\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "origin_cfs",
    "fieldtype": "Link",
    "label": "Origin CFS",
-   "link_filters": "[[\"Container Freight Station\",\"sea_cfs\",\"=\",1]]",
+   "link_filters": "[[\"Container Freight Station\", \"sea_cfs\", \"=\", 1], [\"Container Freight Station\", \"is_active\", \"=\", 1]]",
    "options": "Container Freight Station"
   },
   {
@@ -444,14 +450,14 @@
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"sea\", \"=\", 1], [\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "destination_cfs",
    "fieldtype": "Link",
    "label": "Destination CFS",
-   "link_filters": "[[\"Container Freight Station\",\"sea_cfs\",\"=\",1]]",
+   "link_filters": "[[\"Container Freight Station\", \"sea_cfs\", \"=\", 1], [\"Container Freight Station\", \"is_active\", \"=\", 1]]",
    "options": "Container Freight Station"
   },
   {

@@ -5,6 +5,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from logistics.utils.charges_calculation import (
+    apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
 )
@@ -20,6 +21,10 @@ class SeaShipmentCharges(Document):
 
     def _calculate_charges(self, parent_doc=None):
         """Recalculate only actual revenue and cost (basis for SI/PI). Estimated revenue/cost come from Booking and are not changed."""
+        if apply_disbursement_charge_calculation_if_applicable(self, parent_doc):
+            if hasattr(self, "total_amount"):
+                self.total_amount = flt(self.estimated_revenue) or 0
+            return
         rev = calculate_charge_revenue(self, parent_doc)
         cost = calculate_charge_cost(self, parent_doc)
         if hasattr(self, "actual_revenue"):

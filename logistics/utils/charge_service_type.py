@@ -1,0 +1,186 @@
+# Copyright (c) 2026, www.agilasoft.com and contributors
+# For license information, please see license.txt
+
+"""
+Sales Quote Charge rows are scoped by service_type (Air, Sea, Transport, Customs, Warehousing).
+Operational charge tables mirror this. Helpers build filters when copying quote → booking/shipment/job.
+
+Internal jobs do not take line items from the Sales Quote; they take charge rows from the Main Job
+document whose **service_type** matches the internal job (e.g. Transport / Customs).
+Main service documents can receive all quote charges when separate_billings_per_service_type is off
+and the document is the main job (routing leg, or quote main_service fallback with no legs) or
+is_main_service is set.
+"""
+
+from __future__ import unicode_literals
+
+import frappe
+from frappe import _
+from frappe.utils import cint
+
+# Same options as Sales Quote Charge.service_type
+SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing"
+
+IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
+	"Air Booking": "Air",
+	"Air Shipment": "Air",
+	"Sea Booking": "Sea",
+	"Sea Shipment": "Sea",
+	"Transport Order": "Transport",
+	"Transport Job": "Transport",
+	"Declaration": "Customs",
+	"Declaration Order": "Customs",
+	"Warehouse Job": "Warehousing",
+}
+
+# Routing leg job_type values that identify the same operational leg as the parent document
+ROUTING_LEG_JOB_TYPES = {
+	"Air Booking": ("Air Booking",),
+	"Air Shipment": ("Air Shipment", "Air Booking"),
+	"Sea Booking": ("Sea Booking",),
+	"Sea Shipment": ("Sea Shipment", "Sea Booking"),
+	"Transport Order": ("Transport Order",),
+	"Transport Job": ("Transport Job", "Transport Order"),
+	"Declaration": ("Declaration", "Declaration Order"),
+	"Declaration Order": ("Declaration", "Declaration Order"),
+	"Warehouse Job": ("Warehouse Job",),
+	"General Job": ("General Job",),
+}
+
+
+def implied_service_type_for_doctype(doctype):
+	return IMPLIED_SERVICE_TYPE_BY_DOCTYPE.get(doctype)
+
+
+def on_validate_main_service_internal_job(doc, method=None):
+	"""Doc event: internal jobs cannot be tagged as main service."""
+	if not hasattr(doc, "is_internal_job") or not hasattr(doc, "is_main_service"):
+		return
+	if cint(getattr(doc, "is_internal_job", 0)):
+		doc.is_main_service = 0
+
+
+def is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc):
+	"""
+	Whether parent_doc should be treated as the quote's main job for charge expansion
+	(all service types when separate billings is off).
+	"""
+	sq = sales_quote_doc
+	acceptable = ROUTING_LEG_JOB_TYPES.get(parent_doc.doctype)
+	legs = getattr(sq, "routing_legs", None) or []
+	if legs and acceptable:
+		my_name = getattr(parent_doc, "name", None)
+		for leg in legs:
+			if not cint(getattr(leg, "is_main_job", 0)):
+				continue
+			if getattr(leg, "job_type", None) not in acceptable:
+				continue
+			leg_job_no = getattr(leg, "job_no", None)
+			if my_name:
+				if leg_job_no == my_name:
+					return True
+			else:
+				if not leg_job_no or leg_job_no == my_name:
+					return True
+		return False
+	# No routing legs: same fallback as legacy (main_service on quote)
+	if not legs:
+		ms = getattr(sq, "main_service", None)
+		return implied_service_type_for_doctype(parent_doc.doctype) == ms
+	return False
+
+
+def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type=None):
+	"""
+	Build filters dict for frappe.get_all("Sales Quote Charge", filters=..., ...).
+
+	When the result has no service_type key, fetch all charge rows for the quote (subject to caller
+	also handling legacy child tables without service_type).
+	"""
+	from logistics.utils.routing_quote_context import routing_leg_service_type_for_parent
+
+	implied_service_type = implied_service_type or implied_service_type_for_doctype(parent_doc.doctype)
+	base = {"parent": sales_quote_doc.name, "parenttype": "Sales Quote"}
+	if cint(getattr(parent_doc, "is_internal_job", 0)):
+		# Quote filters are not used to populate internal job charges (see internal_job_charge_copy);
+		# kept for any legacy callers that still query Sales Quote Charge for internal jobs.
+		if implied_service_type:
+			base["service_type"] = implied_service_type
+		return base
+	rt_st = routing_leg_service_type_for_parent(parent_doc, sales_quote_doc)
+	if rt_st:
+		base["service_type"] = rt_st
+		return base
+	separate = cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
+	# When separate billing is OFF, always fetch all charges regardless of routing/main-job
+	if not separate:
+		return base
+	if implied_service_type:
+		base["service_type"] = implied_service_type
+	return base
+
+
+def _sq_charge_service_type(row):
+	return getattr(row, "service_type", None) or (row.get("service_type") if isinstance(row, dict) else None)
+
+
+def _is_customs_sq_charge_row(row) -> bool:
+	"""True if this Sales Quote Charge row is Customs (case-insensitive)."""
+	st = (_sq_charge_service_type(row) or "").strip().lower()
+	return st == "customs"
+
+
+def customs_charges_rows_from_sales_quote_doc(parent_doc, sales_quote_doc):
+	"""
+	List of Sales Quote Charge child rows for Customs-type population,
+	respecting internal job + main service + separate billings.
+	"""
+	rows = list(getattr(sales_quote_doc, "charges", None) or [])
+	customs_only = [c for c in rows if _is_customs_sq_charge_row(c)]
+	if cint(getattr(parent_doc, "is_internal_job", 0)):
+		return customs_only
+	separate = cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
+	main_like = is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc) or cint(
+		getattr(parent_doc, "is_main_service", 0)
+	)
+	# Declaration Order / Declaration are Customs jobs: never return all quote lines here.
+	# Doing so replaces e.g. shipment-sourced Customs charges with Air/Handling rows when separate billing is off.
+	if getattr(parent_doc, "doctype", None) in ("Declaration Order", "Declaration"):
+		return customs_only
+	if not separate and main_like:
+		return rows
+	return customs_only
+
+
+def _row_service_type(row):
+	return (getattr(row, "service_type", None) or (row.get("service_type") if isinstance(row, dict) else None) or "").strip()
+
+
+def destination_service_charge_validation(doc, required_service_type=None):
+	"""
+	Build a standard validation payload for destination-specific service charges.
+	Used for both warning (conversion/create) and hard block (submit) flows.
+	"""
+	required = (required_service_type or implied_service_type_for_doctype(getattr(doc, "doctype", None)) or "").strip()
+	charges = list(getattr(doc, "charges", None) or [])
+	matching = [row for row in charges if _row_service_type(row) == required] if required else charges
+	label = getattr(doc, "doctype", "Document")
+	return {
+		"required_service_type": required,
+		"total_charges": len(charges),
+		"matching_charges": len(matching),
+		"is_valid": bool(required and matching),
+		"warning_message": _(
+			"No {0} charges found yet. You can continue in draft, but submit will be blocked."
+		).format(required or _("required service")),
+		"block_message": _(
+			"Cannot submit {0}: add at least one {1} charge."
+		).format(label, required or _("required service")),
+	}
+
+
+def throw_if_missing_destination_service_charge(doc, required_service_type=None):
+	"""Hard-block submit when destination-specific charges are missing."""
+	payload = destination_service_charge_validation(doc, required_service_type=required_service_type)
+	if not payload.get("is_valid"):
+		frappe.throw(payload.get("block_message"))

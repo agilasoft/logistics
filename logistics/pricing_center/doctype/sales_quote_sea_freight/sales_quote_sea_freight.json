@@ -68,7 +68,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -103,14 +103,15 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nOperation Time"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "quantity",
@@ -144,7 +145,8 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_revenue",
@@ -175,13 +177,14 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Cost Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nShipment\nContainer\nTEU\nOperation Time"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Cost Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_quantity",
@@ -215,7 +218,8 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "Cost UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_cost",
@@ -234,19 +238,22 @@
    "fieldname": "tariff",
    "fieldtype": "Link",
    "label": "Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",
@@ -264,13 +271,15 @@
    "fieldname": "bill_to",
    "fieldtype": "Link",
    "label": "Bill To",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "label": "Pay To",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "sea_house_type",
@@ -318,14 +327,16 @@
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
-   "options": "Shipping Line"
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
@@ -355,35 +366,40 @@
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "chargeable_uom",
    "fieldtype": "Link",
    "label": "Chargeable UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_hkku",

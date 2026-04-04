@@ -7,52 +7,117 @@
 frappe.provide("logistics.recognition");
 
 logistics.recognition = {
+    row_charge_disbursement: function(r) {
+        return (r.charge_type || '').toLowerCase() === 'disbursement';
+    },
+    row_wip_amount: function(r) {
+        return (
+            flt(r.estimated_revenue) ||
+            flt(r.base_amount) ||
+            flt(r.actual_revenue) ||
+            flt(r.amount) ||
+            flt(r.total) ||
+            0
+        );
+    },
+    row_accrual_cost: function(r) {
+        return (
+            flt(r.estimated_cost) ||
+            flt(r.cost_base_amount) ||
+            flt(r.actual_cost) ||
+            flt(r.cost) ||
+            0
+        );
+    },
+    needs_wip_recognition: function(doc) {
+        var rows = doc.charges || [];
+        var eligible = false;
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            if (logistics.recognition.row_charge_disbursement(r)) {
+                continue;
+            }
+            var er = logistics.recognition.row_wip_amount(r);
+            if (er <= 0) {
+                continue;
+            }
+            eligible = true;
+            if (!r.wip_recognition_journal_entry) {
+                return true;
+            }
+        }
+        if (eligible) {
+            return false;
+        }
+        return flt(doc.estimated_revenue) > flt(doc.wip_amount);
+    },
+    needs_accrual_recognition: function(doc) {
+        var rows = doc.charges || [];
+        var eligible = false;
+        for (var k = 0; k < rows.length; k++) {
+            var row = rows[k];
+            if (logistics.recognition.row_charge_disbursement(row)) {
+                continue;
+            }
+            var c = logistics.recognition.row_accrual_cost(row);
+            if (c <= 0) {
+                continue;
+            }
+            eligible = true;
+            if (!row.accrual_recognition_journal_entry) {
+                return true;
+            }
+        }
+        if (eligible) {
+            return false;
+        }
+        return flt(doc.estimated_costs) > flt(doc.accrual_amount);
+    },
     /**
      * Setup recognition buttons on a job form
      * @param {Object} frm - The form object
      */
     setup_form: function(frm) {
         // Show recognition buttons for both draft and submitted documents
-        // Add Recognize button under Post (runs both WIP and accruals)
-        var needs_recognition = (!frm.doc.wip_journal_entry && !frm.doc.wip_closed) ||
-            (!frm.doc.accrual_journal_entry && !frm.doc.accrual_closed);
-        if (needs_recognition) {
+        // Post > Recognize: charge-line JE links + open balances vs job estimates (no header JE checks)
+        var needs_wip = logistics.recognition.needs_wip_recognition(frm.doc);
+        var needs_accrual = logistics.recognition.needs_accrual_recognition(frm.doc);
+        if (needs_wip || needs_accrual) {
             frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
                 logistics.recognition.recognize(frm);
             }, __('Post'));
         }
         
         // Add WIP Recognition button (individual)
-        if (!frm.doc.wip_journal_entry && !frm.doc.wip_closed) {
+        if (needs_wip) {
             frm.add_custom_button(__('Recognize WIP'), function() {
                 logistics.recognition.recognize_wip(frm);
             }, __('Recognition'));
         }
         
         // Add Accrual Recognition button (individual)
-        if (!frm.doc.accrual_journal_entry && !frm.doc.accrual_closed) {
+        if (needs_accrual) {
             frm.add_custom_button(__('Recognize Accruals'), function() {
                 logistics.recognition.recognize_accruals(frm);
             }, __('Recognition'));
         }
         
-        // Add WIP Adjustment button if WIP is recognized
-        if (frm.doc.wip_journal_entry && frm.doc.wip_amount > 0 && !frm.doc.wip_closed) {
+        // Add WIP Adjustment button if there is open WIP balance
+        if (frm.doc.wip_amount > 0) {
             frm.add_custom_button(__('Adjust WIP'), function() {
                 logistics.recognition.adjust_wip(frm);
             }, __('Recognition'));
         }
         
-        // Add Accrual Adjustment button if accrual is recognized
-        if (frm.doc.accrual_journal_entry && frm.doc.accrual_amount > 0 && !frm.doc.accrual_closed) {
+        // Add Accrual Adjustment button if there is open accrual balance
+        if (frm.doc.accrual_amount > 0) {
             frm.add_custom_button(__('Adjust Accruals'), function() {
                 logistics.recognition.adjust_accruals(frm);
             }, __('Recognition'));
         }
         
         // Add Close Recognition button if there are open WIP or accruals
-        if ((frm.doc.wip_amount > 0 && !frm.doc.wip_closed) || 
-            (frm.doc.accrual_amount > 0 && !frm.doc.accrual_closed)) {
+        if (frm.doc.wip_amount > 0 || frm.doc.accrual_amount > 0) {
             frm.add_custom_button(__('Close Recognition'), function() {
                 logistics.recognition.close_recognition(frm);
             }, __('Recognition'));
@@ -302,8 +367,9 @@ logistics.recognition = {
 };
 
 // Register form refresh for job doctypes
+// Transport Job adds the same actions in transport_job.js (deferred with Create/Post menu); skip here to avoid duplicates.
 frappe.ui.form.on([
-    'Air Shipment', 'Sea Shipment', 'Transport Job',
+    'Air Shipment', 'Sea Shipment',
     'Warehouse Job', 'Declaration', 'General Job'
 ], {
     refresh: function(frm) {

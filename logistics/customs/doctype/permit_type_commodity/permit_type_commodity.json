@@ -17,7 +17,8 @@
    "in_list_view": 1,
    "label": "Commodity",
    "options": "Commodity",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",
@@ -45,4 +46,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

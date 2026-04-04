@@ -71,6 +71,10 @@
 				});
 				var table_html = header + rows.join("") + "</tbody></table>";
 
+				function normalize_supplier(value) {
+					return (value || "").toString().trim();
+				}
+
 				var dialog = new frappe.ui.Dialog({
 					title: __("Create Purchase Invoice"),
 					size: "large",
@@ -131,11 +135,62 @@
 					}
 				});
 
+				function apply_supplier_filter(selectedSupplier) {
+					var supplier = normalize_supplier(selectedSupplier);
+					var hasVisibleRows = false;
+
+					dialog.$wrapper.find("#pi_dialog_charges_tbody tr").each(function() {
+						var row = $(this);
+						var idx = parseInt(row.attr("data-index"), 10);
+						var charge = charges[idx] || {};
+						var payTo = normalize_supplier(charge.pay_to);
+						var matches = !supplier || payTo === supplier;
+						var checkbox = row.find("input.pi-charge-cb");
+
+						row.toggle(matches);
+						checkbox.prop("disabled", !matches);
+						if (!matches) checkbox.prop("checked", false);
+						if (matches) hasVisibleRows = true;
+					});
+
+					var allVisibleChecked = true;
+					var visibleCount = 0;
+					dialog.$wrapper.find("input.pi-charge-cb:visible").each(function() {
+						visibleCount += 1;
+						if (!$(this).prop("checked")) allVisibleChecked = false;
+					});
+					dialog.$wrapper.find("#pi_dialog_select_all").prop("checked", visibleCount > 0 && allVisibleChecked);
+
+					return hasVisibleRows;
+				}
+
+				var noChargesMessage = $('<div class="text-muted small mt-2" id="pi_dialog_no_supplier_rows" style="display:none;"></div>');
+				noChargesMessage.text(__("No charges found for the selected supplier."));
+				dialog.fields_dict.charges_html.$wrapper.append(noChargesMessage);
+
+				var supplierField = dialog.get_field("supplier");
+				if (supplierField) {
+					supplierField.df.onchange = function() {
+						var selected = dialog.get_value("supplier");
+						var hasVisibleRows = apply_supplier_filter(selected);
+						noChargesMessage.toggle(!hasVisibleRows);
+					};
+				}
+
 				// Select all / deselect all
 				dialog.$wrapper.find("#pi_dialog_select_all").on("change", function() {
 					var checked = $(this).prop("checked");
-					dialog.$wrapper.find("input.pi-charge-cb").prop("checked", checked);
+					dialog.$wrapper.find("input.pi-charge-cb:visible:not(:disabled)").prop("checked", checked);
 				});
+
+				dialog.$wrapper.on("change", "input.pi-charge-cb", function() {
+					var visible = dialog.$wrapper.find("input.pi-charge-cb:visible:not(:disabled)");
+					var checkedVisible = dialog.$wrapper.find("input.pi-charge-cb:visible:not(:disabled):checked");
+					dialog.$wrapper.find("#pi_dialog_select_all").prop("checked", visible.length > 0 && visible.length === checkedVisible.length);
+				});
+
+				var initialHasRows = apply_supplier_filter(data.default_supplier || "");
+				noChargesMessage.toggle(!initialHasRows);
 
 				dialog.show();
 			}

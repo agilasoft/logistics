@@ -28,7 +28,6 @@ Reference implementation: `logistics.utils.module_integration` — `create_trans
 | `profit_center` | `profit_center` | |
 | `project` | `project` | |
 | `sales_quote` | `sales_quote` | When set on shipment |
-| `billing_company` | `billing_company` | From shipment or from Sales Quote company |
 | `contains_dangerous_goods` | `contains_dangerous_goods` | Same name as freight |
 | `dg_declaration_complete` | `dg_declaration_complete` | |
 | `dg_compliance_status` | `dg_compliance_status` | |
@@ -70,3 +69,17 @@ When a doc is saved with `air_shipment` / `sea_shipment` set, **Transport Order*
 ## Migration
 
 `logistics.patches.v1_0_rename_transport_hazardous_to_contains_dangerous_goods` renames DB column `hazardous` → `contains_dangerous_goods` on Transport Order, Transport Job, and Transport Leg **before** schema sync.
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Header and package fields are on the transport and freight DocTypes. Full schemas:_
+
+- [Transport Order](welcome/transport-order), [Transport Job](welcome/transport-job)
+- [Air Shipment](welcome/air-shipment), [Sea Shipment](welcome/sea-shipment)
+- [Inbound Order](welcome/inbound-order) _(when created from shipment)_
+
+<!-- wiki-field-reference:end -->
+

@@ -33,6 +33,19 @@ Customers can view their Warehouse Jobs, see operation status, and documents.
 
 Customers can view their stock balance by warehouse and item.
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Portal list views use the same DocTypes as desk. Full field lists:_
+
+- [Transport Job](welcome/transport-job)
+- [Warehouse Job](welcome/warehouse-job)
+- _Stock balance views use standard ERPNext stock data (Item, Warehouse, Bin); see ERPNext documentation for those masters._
+
+<!-- wiki-field-reference:end -->
+
 ## 4. Related Topics
 
 - [Transport Job](welcome/transport-job)

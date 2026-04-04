@@ -7,20 +7,24 @@
  "engine": "InnoDB",
  "field_order": [
   "service_type",
+  "column_break_ldaa",
   "charge_group",
   "item_code",
   "item_name",
+  "change_request_charge",
   "charge_type",
   "charge_category",
   "column_break_core",
   "tariff",
-  "revenue_tariff",
-  "cost_tariff",
-  "use_tariff_in_revenue",
-  "use_tariff_in_cost",
-  "bill_to",
-  "pay_to",
   "quotation_type",
+  "section_break_summary",
+  "bill_to",
+  "use_tariff_in_revenue",
+  "revenue_tariff",
+  "column_break_fktp",
+  "pay_to",
+  "use_tariff_in_cost",
+  "cost_tariff",
   "section_break_air_params",
   "air_house_type",
   "airline",
@@ -53,28 +57,28 @@
   "section_break_revenue_cost",
   "revenue_column",
   "calculation_method",
+  "quantity",
+  "uom",
+  "currency",
   "unit_rate",
   "unit_type",
-  "currency",
-  "quantity",
   "minimum_quantity",
   "minimum_charge",
   "maximum_charge",
   "base_amount",
-  "uom",
   "estimated_revenue",
   "revenue_calc_notes",
   "cost_column",
   "cost_calculation_method",
+  "cost_quantity",
+  "cost_uom",
+  "cost_currency",
   "unit_cost",
   "cost_unit_type",
-  "cost_currency",
-  "cost_quantity",
   "cost_minimum_quantity",
   "cost_minimum_charge",
   "cost_maximum_charge",
   "cost_base_amount",
-  "cost_uom",
   "estimated_cost",
   "cost_calc_notes",
   "cost_sheet_source"
@@ -100,6 +104,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -110,10 +115,19 @@
    "read_only": 1
   },
   {
+   "fieldname": "change_request_charge",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Change Request Charge Row",
+   "read_only": 1
+  },
+  {
+   "default": "Margin",
    "fieldname": "charge_type",
    "fieldtype": "Select",
    "label": "Charge Type",
-   "options": "Revenue\nCost\nMargin\nDisbursement\nOther"
+   "options": "Revenue\nCost\nMargin\nDisbursement\nOther",
+   "reqd": 1
   },
   {
    "fieldname": "charge_category",
@@ -129,18 +143,21 @@
    "fieldname": "tariff",
    "fieldtype": "Link",
    "label": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
    "options": "Tariff"
   },
   {
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
    "options": "Tariff"
   },
   {
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
    "options": "Tariff"
   },
   {
@@ -159,12 +176,14 @@
    "fieldname": "bill_to",
    "fieldtype": "Link",
    "label": "Bill To",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
   },
   {
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier"
   },
   {
@@ -192,6 +211,7 @@
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
    "options": "Airline"
   },
   {
@@ -199,6 +219,7 @@
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
@@ -219,6 +240,7 @@
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
@@ -226,14 +248,17 @@
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
    "options": "Shipping Line"
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
    "fieldname": "transport_mode",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
+   "hidden": 1,
    "label": "Transport Mode",
-   "options": "FCL\nLCL"
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Mode"
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
@@ -260,6 +285,7 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
@@ -267,6 +293,7 @@
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
@@ -287,6 +314,7 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
    "options": "Vehicle Type"
   },
   {
@@ -294,6 +322,7 @@
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
    "options": "Container Type"
   },
   {
@@ -348,6 +377,7 @@
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
    "options": "Customs Authority"
   },
   {
@@ -362,7 +392,8 @@
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
-   "options": "Supplier"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "depends_on": "eval:doc.service_type == \"Customs\"",
@@ -387,7 +418,7 @@
    "in_list_view": 1,
    "label": "Calculation Method",
    "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "unit_rate",
@@ -395,62 +426,66 @@
    "in_list_view": 1,
    "label": "Unit Rate",
    "options": "currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "reqd": 1
   },
   {
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "reqd": 1
   },
   {
    "fieldname": "minimum_quantity",
    "fieldtype": "Float",
    "label": "Minimum Quantity",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "minimum_charge",
    "fieldtype": "Currency",
    "label": "Minimum Charge",
    "options": "currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "maximum_charge",
    "fieldtype": "Currency",
    "label": "Maximum Charge",
    "options": "currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
    "options": "currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == \"Cost\""
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "estimated_revenue",
@@ -482,19 +517,21 @@
    "fieldtype": "Currency",
    "label": "Unit Cost",
    "options": "cost_currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
+   "reqd": 1
   },
   {
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
@@ -502,7 +539,8 @@
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
+   "reqd": 1
   },
   {
    "fieldname": "cost_minimum_quantity",
@@ -535,6 +573,7 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
@@ -556,15 +595,28 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Cost Sheet Source",
+   "link_filters": "[[\"Cost Sheet\", \"is_active\", \"=\", 1]]",
    "options": "Cost Sheet",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ldaa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_summary",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_fktp",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-19 12:05:49.828849",
+ "modified": "2026-04-04 13:54:02.636396",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Charge",

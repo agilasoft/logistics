@@ -58,7 +58,7 @@ frappe.ui.form.on("Special Project", {
 		if (frm.doc.project && frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Open Project"), function () {
 				frappe.set_route("Form", "Project", frm.doc.project);
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		if (frm.doc.status && ["Booked", "Approved", "Planning", "In Progress", "Completed"].includes(frm.doc.status)) {
 			frm.add_custom_button(__("Charge Scoping Costs"), function () {
@@ -69,7 +69,7 @@ frappe.ui.form.on("Special Project", {
 						frm.reload_doc();
 					},
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		_refresh_cost_revenue_summary(frm);
 		// Load documents summary HTML in Documents tab
@@ -100,7 +100,7 @@ frappe.ui.form.on("Special Project", {
 						}
 					},
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 	},
 });

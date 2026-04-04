@@ -5,7 +5,7 @@
  "creation": "2025-10-12 16:24:16.334696",
  "doctype": "DocType",
  "engine": "InnoDB",
-  "field_order": [
+ "field_order": [
   "section_break_co9p",
   "amended_from",
   "naming_series",
@@ -18,7 +18,7 @@
   "cost_center",
   "profit_center",
   "column_break_zmfn",
-  "job_costing_number",
+  "job_number",
   "recognition_section",
   "wip_recognition_enabled",
   "accrual_recognition_enabled",
@@ -30,15 +30,15 @@
   "wip_amount",
   "recognized_revenue",
   "wip_journal_entry",
-  "wip_adjustment_journal_entry",
   "wip_closed",
   "column_break_accrual",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
   "accrual_closed",
+  "internal_job_details_tab",
+  "internal_job_details_section",
+  "internal_job_details",
   "sustainability_tab",
   "sustainability_section",
   "estimated_energy_consumption",
@@ -85,7 +85,8 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "accounts_tab",
@@ -121,7 +122,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -130,10 +131,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
    "collapsible": 1,
@@ -174,7 +175,8 @@
    "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
-   "label": "Recognition Date"
+   "label": "Recognition Date",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_recognition",
@@ -202,13 +204,6 @@
    "fieldname": "wip_journal_entry",
    "fieldtype": "Link",
    "label": "WIP Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "wip_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "WIP Adjustment JE",
    "options": "Journal Entry",
    "read_only": 1
   },
@@ -241,24 +236,27 @@
    "read_only": 1
   },
   {
-   "fieldname": "accrual_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Adjustment JE",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
    "fieldname": "accrual_closed",
    "fieldtype": "Check",
    "label": "Accrual Closed",
    "read_only": 1
+  },
+  {
+   "fieldname": "internal_job_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Job Details"
+  },
+  {
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal jobs & parameters"
+  },
+  {
+   "description": "Linked operational jobs and service parameters (same fields as Sales Quote Charge parameter sections).",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Job Details",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "sustainability_tab",

@@ -2,12 +2,46 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Sales Quote", {
+	_lock_naming_series(frm) {
+		// Keep naming series non-editable in UI; it is controlled by quotation_type logic.
+		frm.set_df_property("naming_series", "read_only", 1);
+		frm.toggle_enable("naming_series", false);
+		frm.refresh_field("naming_series");
+	},
+
 	setup(frm) {
 		// Initialize cache for allowed vehicle types
 		frm.allowed_vehicle_types_cache = {};
+		// If grid pagination is missing but the grid DOM exists, init pagination only (see documents_tab_utils.js).
+		// Do NOT call Grid.make() here: make() runs before GridPagination expects grid.data (set in refresh()),
+		// which throws ".length of undefined" in grid_pagination.js and breaks render / toggle_view.
+		(frm.grids || []).forEach((grid_ctrl) => {
+			const grid = grid_ctrl && grid_ctrl.grid;
+			if (!grid || grid.grid_pagination || !grid.wrapper) return;
+			if (typeof grid.setup_grid_pagination !== "function") return;
+			try {
+				grid.setup_grid_pagination();
+			} catch (e) {
+				console.error("Sales Quote: grid pagination init", e);
+			}
+		});
+		frm.events._lock_naming_series(frm);
+	},
+	
+	date(frm) {
+		// When date changes, compute valid_until using company-specific offset
+		_set_valid_until_from_settings(frm);
+	},
+	
+	company(frm) {
+		// When company changes, recompute if date exists
+		if (frm.doc.date) {
+			_set_valid_until_from_settings(frm);
+		}
 	},
 	
 	onload(frm) {
+		frm.events._clear_default_empty_charge_row(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		// Preload vehicle types cache for load_types in Transport charges
 		const transport_charges = (frm.doc.charges || []).filter(c => c.service_type === "Transport");
@@ -33,10 +67,10 @@ frappe.ui.form.on("Sales Quote", {
 			}
 		}
 		
-		// Set naming_series and quotation_type read-only for existing documents (name already generated)
-		// Allow editing for new documents and draft documents that haven't been saved yet
+		// Keep naming_series locked in all states.
+		frm.events._lock_naming_series(frm);
+		// quotation_type is still locked only after the document exists.
 		if (!frm.is_new() && frm.doc.name) {
-			frm.set_df_property("naming_series", "read_only", 1);
 			frm.set_df_property("quotation_type", "read_only", 1);
 		}
 		
@@ -51,6 +85,24 @@ frappe.ui.form.on("Sales Quote", {
 		});
 		// Sync quotation_type to child table rows so Charge Parameters show when Regular
 		frm.events._sync_quotation_type_to_children(frm);
+	},
+
+	_clear_default_empty_charge_row(frm) {
+		// New Sales Quotes may render with a placeholder row in charges; keep table empty until user adds a real row.
+		if (!frm.is_new() || !Array.isArray(frm.doc.charges) || frm.doc.charges.length !== 1) {
+			return;
+		}
+		const row = frm.doc.charges[0] || {};
+		const has_meaningful_data = [
+			"service_type", "item_code", "charge_type", "charge_group", "charge_category",
+			"unit_rate", "unit_cost", "quantity", "cost_quantity", "currency", "cost_currency"
+		].some((field) => {
+			const value = row[field];
+			return value !== undefined && value !== null && String(value).trim() !== "";
+		});
+		if (!has_meaningful_data) {
+			frm.set_value("charges", []);
+		}
 	},
 
 	quotation_type(frm) {
@@ -170,12 +222,12 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
-		// Set naming_series and quotation_type read-only for existing documents (name already generated)
+		// Keep naming_series locked in all states.
+		frm.events._lock_naming_series(frm);
+		// Lock quotation_type only for existing documents.
 		if (!frm.is_new() && frm.doc.name) {
-			frm.set_df_property("naming_series", "read_only", 1);
 			frm.set_df_property("quotation_type", "read_only", 1);
 		} else {
-			frm.set_df_property("naming_series", "read_only", 0);
 			frm.set_df_property("quotation_type", "read_only", 0);
 		}
 		
@@ -262,9 +314,18 @@ frappe.ui.form.on("Sales Quote", {
 					frm.add_custom_button(__("View Warehouse Contracts"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Warehouse Contract");
-					}, __("Actions"));
+					}, __("Action"));
 				}
 			});
+
+			// Inbound Order is not created directly from Sales Quote.
+			frm.add_custom_button(__("Inbound Order"), function() {
+				frappe.msgprint({
+					title: __("Create > Inbound Order"),
+					message: __("Inbound Order is created from Shipment/Job (Air Shipment, Sea Shipment, Transport Job, or Declaration), not directly from Sales Quote."),
+					indicator: "blue"
+				});
+			}, __("Create"));
 		}
 		
 		// Add custom button to create Declaration Order if quote is One-Off and submitted (unified or legacy)
@@ -280,7 +341,7 @@ frappe.ui.form.on("Sales Quote", {
 					frm.add_custom_button(__("View Declaration Orders"), function() {
 						frappe.route_options = {"sales_quote": frm.doc.name};
 						frappe.set_route("List", "Declaration Order");
-					}, __("Actions"));
+					}, __("Action"));
 				}
 			});
 		}
@@ -342,7 +403,7 @@ frappe.ui.form.on("Sales Quote", {
 					__("Extend Validity"),
 					__("Update")
 				);
-			}, __("Actions"));
+			}, __("Action"));
 		}
 
 		// Recalculate Charges - show when quote has any charge lines
@@ -361,14 +422,14 @@ frappe.ui.form.on("Sales Quote", {
 						}
 					}
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 
 		// Get Rates from Cost Sheet - prompt for charge params, show charge list, fetch selected
 		if (has_charges && !frm.is_new()) {
 			frm.add_custom_button(__("Get Rates from Cost Sheet"), function() {
 				show_get_rates_from_cost_sheet_dialog(frm);
-			}, __("Actions"));
+			}, __("Action"));
 		}
 
 		// Add custom button to create Sales Invoice from multimodal quote (when routing legs exist and Main Job has job_no)
@@ -461,12 +522,12 @@ frappe.ui.form.on("Sales Quote", {
 				const row = frappe.get_doc(cdt, cdn);
 				if (row.service_type !== "Transport") return { filters: {} };
 				const load_type = row.load_type;
-				if (!load_type) return { filters: {} };
+				if (!load_type) return { filters: { is_active: 1 } };
 				
 				if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
 				const allowed = frm.allowed_vehicle_types_cache[load_type];
 				if (allowed && allowed.length > 0) {
-					return { filters: { name: ["in", allowed] } };
+					return { filters: { is_active: 1, name: ["in", allowed] } };
 				}
 				
 				if (!frm._loading_vehicle_types) frm._loading_vehicle_types = {};
@@ -477,7 +538,7 @@ frappe.ui.form.on("Sales Quote", {
 						if (frm._loading_vehicle_types) delete frm._loading_vehicle_types[load_type];
 					});
 				}
-				return { filters: { name: ["in", []] } };
+				return { filters: { is_active: 1, name: ["in", []] } };
 			});
 		}
 	},
@@ -614,6 +675,33 @@ frappe.ui.form.on("Sales Quote", {
 	}
 	
 });
+
+// Compute valid_until from date using Pricing Center Settings (per company)
+function _set_valid_until_from_settings(frm) {
+	if (!frm.doc || !frm.doc.date) return;
+	const company = frm.doc.company || null;
+	// Cache key per company to avoid repeated calls
+	if (!frm._pricing_center_cache) frm._pricing_center_cache = {};
+	const set_with_offset = function(offsetDays) {
+		const base = frm.doc.date;
+		const days = (typeof offsetDays === "number" && !isNaN(offsetDays)) ? offsetDays : 30;
+		const vu = frappe.datetime.add_days(base, days);
+		frm.set_value("valid_until", vu);
+	};
+	if (company && frm._pricing_center_cache[company] != null) {
+		set_with_offset(frm._pricing_center_cache[company]);
+		return;
+	}
+	frappe.call({
+		method: "logistics.pricing_center.doctype.pricing_center_settings.pricing_center_settings.get_valid_until_offset",
+		args: { company: company },
+		callback: function(r) {
+			const days = (r && r.message != null) ? r.message : 30;
+			if (company) frm._pricing_center_cache[company] = days;
+			set_with_offset(days);
+		}
+	});
+}
 
 // Get Rates from Cost Sheet: Step 1 = params prompt, Step 2 = charge selection dialog
 function show_get_rates_from_cost_sheet_dialog(frm) {
@@ -855,9 +943,9 @@ function add_create_button(frm, config) {
 		create_function    // e.g., create_transport_order_from_sales_quote
 	} = config;
 
-	// Check if main_service matches (buttons only show for the main service)
-	const mainMatches = frm.doc.main_service === main_service;
-	if (!mainMatches) return;
+	// Only charge lines for this service authorize creating the related job (not main_service alone)
+	const hasChargesForService = (frm.doc.charges || []).some((c) => c.service_type === main_service);
+	if (!hasChargesForService) return;
 	
 	// Common conditions
 	const isSubmitted = !frm.doc.__islocal && frm.doc.docstatus === 1;
@@ -877,7 +965,7 @@ function add_create_button(frm, config) {
 			frm.add_custom_button(__(view_label), function() {
 				frappe.route_options = {"sales_quote": frm.doc.name};
 				frappe.set_route("List", doctype);
-			}, __("Actions"));
+			}, __("Action"));
 		}
 	});
 }
@@ -911,6 +999,7 @@ frappe.ui.form.on('Sales Quote Charge', {
 						if (field) {
 							return {
 								filters: {
+									disabled: 0,
 									[field]: 1
 								}
 							};
@@ -936,6 +1025,7 @@ frappe.ui.form.on('Sales Quote Charge', {
 						if (field) {
 							return {
 								filters: {
+									disabled: 0,
 									[field]: 1
 								}
 							};
@@ -949,6 +1039,10 @@ frappe.ui.form.on('Sales Quote Charge', {
 	charge_type: function(frm, cdt, cdn) {
 		// Refresh charges so Revenue/Cost fields show/hide based on charge_type
 		frm.refresh_field('charges');
+		const row = frappe.get_doc(cdt, cdn);
+		if (row && row.charge_type === 'Disbursement') {
+			_calculate_sales_quote_charge_row(frm, cdt, cdn);
+		}
 	},
 	load_type: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
@@ -1007,6 +1101,9 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 				}
 				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
 				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
+				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
+				}
 			}
 		}
 	});
@@ -1035,111 +1132,198 @@ function create_transport_order_from_sales_quote(frm) {
 	}
 }
 
+function show_precreate_review_dialog(frm, config) {
+	const title = config.title || __("Review details");
+	const intro = config.intro || __("Review data before creating document.");
+	const fields = (config.fields || []).slice();
+
+	fields.unshift({
+		fieldname: "review_info_html",
+		fieldtype: "HTML"
+	});
+
+	const dialog = new frappe.ui.Dialog({
+		title: title,
+		fields: fields,
+		primary_action_label: config.primary_label || __("Continue"),
+		primary_action: function(values) {
+			const apply = config.apply_values || function() {};
+			apply(values || {});
+			dialog.hide();
+			(config.on_continue || function() {})();
+		},
+		secondary_action_label: __("Cancel"),
+		secondary_action: function() {
+			dialog.hide();
+		}
+	});
+
+	dialog.fields_dict.review_info_html.$wrapper.html(
+		`<div class="text-muted">${intro}</div>`
+	);
+	dialog.show();
+}
+
 function show_transport_order_confirmation(frm) {
-	// Show confirmation dialog
-	frappe.confirm(
-		__("Are you sure you want to create a Transport Order from this Sales Quote?"),
-		function() {
+	show_precreate_review_dialog(frm, {
+		title: __("Create > Transport Order"),
+		intro: __("Review and update the data that will be passed from Sales Quote to Transport Order."),
+		primary_label: __("Create Transport Order"),
+		fields: [
+			{ fieldname: "company", fieldtype: "Link", label: __("Company"), options: "Company", default: frm.doc.company || "" },
+			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
+			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" },
+			{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: frm.doc.profit_center || "" },
+			{ fieldname: "location_type", fieldtype: "Select", label: __("Location Type"), options: "\nUNLOCO\nAddress\nEconomic Zone", default: frm.doc.location_type || "UNLOCO" },
+			{ fieldname: "location_from", fieldtype: "Dynamic Link", options: "location_type", label: __("Location From"), default: frm.doc.location_from || frm.doc.origin_port || "" },
+			{ fieldname: "location_to", fieldtype: "Dynamic Link", options: "location_type", label: __("Location To"), default: frm.doc.location_to || frm.doc.destination_port || "" }
+		],
+		apply_values: function(values) {
+			frm.set_value("company", values.company || "");
+			frm.set_value("branch", values.branch || "");
+			frm.set_value("cost_center", values.cost_center || "");
+			frm.set_value("profit_center", values.profit_center || "");
+			frm.set_value("location_type", values.location_type || "");
+			frm.set_value("location_from", values.location_from || "");
+			frm.set_value("location_to", values.location_to || "");
+		},
+		on_continue: function() {
 			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Transport Order..."));
-			
-			// Call the server method
-			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_transport_order_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.transport_order) {
-						frappe.msgprint({
-							title: __("Transport Order Created"),
-							message: __("Transport Order {0} has been created successfully.", [r.message.transport_order]),
-							indicator: "green"
-						});
-						frappe.route_options = { "__clear_scheduled_date": true };
-						setTimeout(function() {
-							frappe.set_route("Form", "Transport Order", r.message.transport_order);
-						}, 100);
-					} else if (r.message && r.message.message) {
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-						if (r.message.transport_order) {
+			const run_create = function() {
+				frm.dashboard.set_headline_alert(__("Creating Transport Order..."));
+				frappe.call({
+					method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_transport_order_from_sales_quote",
+					args: {
+						sales_quote_name: frm.doc.name
+					},
+					callback: function(r) {
+						frm.dashboard.clear_headline();
+						if (r.exc) return;
+						if (r.message && r.message.success && r.message.transport_order) {
+							frappe.msgprint({
+								title: __("Transport Order Created"),
+								message: __("Transport Order {0} has been created successfully.", [r.message.transport_order]),
+								indicator: "green"
+							});
+							frappe.route_options = { "__clear_scheduled_date": true };
 							setTimeout(function() {
 								frappe.set_route("Form", "Transport Order", r.message.transport_order);
 							}, 100);
+						} else if (r.message && r.message.message) {
+							frappe.msgprint({
+								title: __("Information"),
+								message: r.message.message,
+								indicator: "blue"
+							});
+							if (r.message.transport_order) {
+								setTimeout(function() {
+									frappe.set_route("Form", "Transport Order", r.message.transport_order);
+								}, 100);
+							}
 						}
+					},
+					error: function() {
+						frm.dashboard.clear_headline();
+						frappe.msgprint({
+							title: __("Error"),
+							message: __("Failed to create Transport Order. Please try again."),
+							indicator: "red"
+						});
 					}
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to create Transport Order. Please try again."),
-						indicator: "red"
-					});
-				}
-			});
+				});
+			};
+			if (frm.is_dirty()) {
+				frm.save().then(function() { run_create(); });
+			} else {
+				run_create();
+			}
 		}
-	);
+	});
 }
 
-function create_warehouse_contract_from_sales_quote(frm) {
-	// Show confirmation dialog
-	frappe.confirm(
-		__("Are you sure you want to create a Warehouse Contract from this Sales Quote?"),
-		function() {
-			// Show loading indicator
-			frm.dashboard.set_headline_alert(__("Creating Warehouse Contract..."));
-			
-			// Call the server method
-			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_warehouse_contract_from_sales_quote",
-				args: {
-					sales_quote_name: frm.doc.name
-				},
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-					
-					if (r.message && r.message.success && r.message.warehouse_contract) {
-						frappe.msgprint({
-							title: __("Warehouse Contract Created"),
-							message: __("Warehouse Contract {0} has been created successfully.", [r.message.warehouse_contract]),
-							indicator: "green"
+function show_air_booking_confirmation(frm) {
+	show_precreate_review_dialog(frm, {
+		title: __("Create > Air Booking"),
+		intro: __("Review and update the data that will be passed from Sales Quote to Air Booking."),
+		primary_label: __("Create Air Booking"),
+		fields: [
+			{ fieldname: "shipper", fieldtype: "Link", label: __("Shipper"), options: "Shipper", default: frm.doc.shipper || "" },
+			{ fieldname: "consignee", fieldtype: "Link", label: __("Consignee"), options: "Consignee", default: frm.doc.consignee || "" },
+			{ fieldname: "origin_port", fieldtype: "Link", label: __("Origin Port"), options: "UNLOCO", default: frm.doc.origin_port || "" },
+			{ fieldname: "destination_port", fieldtype: "Link", label: __("Destination Port"), options: "UNLOCO", default: frm.doc.destination_port || "" },
+			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
+			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" }
+		],
+		apply_values: function(values) {
+			frm.set_value("shipper", values.shipper || "");
+			frm.set_value("consignee", values.consignee || "");
+			frm.set_value("origin_port", values.origin_port || "");
+			frm.set_value("destination_port", values.destination_port || "");
+			frm.set_value("branch", values.branch || "");
+			frm.set_value("cost_center", values.cost_center || "");
+		},
+		on_continue: function() {
+			frappe.confirm(
+				__("Are you sure you want to create an Air Booking from this Sales Quote?"),
+				function() {
+					// Save first if there are unsaved changes so the server sees all charges (fixes charges not populating)
+					function do_create() {
+						frm.dashboard.set_headline_alert(__("Creating Air Booking..."));
+						frappe.call({
+							method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_booking_from_sales_quote",
+							args: { sales_quote_name: frm.doc.name },
+							callback: function(r) {
+								frm.dashboard.clear_headline();
+								if (r.exc) return;
+								var air_booking_name = (r.message && r.message.air_booking) ? r.message.air_booking : null;
+								if (!air_booking_name) {
+									if (r.message && r.message.success) {
+										frappe.msgprint({ title: __("Air Booking Created"), message: __("Air Booking has been created successfully."), indicator: "green" });
+									} else if (r.message && r.message.message) {
+										frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+									}
+									return;
+								}
+								if (r.message && r.message.success) {
+									frappe.msgprint({ title: __("Air Booking Created"), message: __("Air Booking {0} has been created successfully.", [air_booking_name]), indicator: "green" });
+								} else if (r.message && r.message.message) {
+									frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+								}
+								function try_navigate(attempt) {
+									if (attempt > 15) {
+										frappe.set_route("Form", "Air Booking", air_booking_name);
+										return;
+									}
+									frappe.call({
+										method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
+										args: { docname: air_booking_name },
+										callback: function(res) {
+											if (res.message === true) {
+												frappe.set_route("Form", "Air Booking", air_booking_name);
+											} else {
+												setTimeout(function() { try_navigate(attempt + 1); }, 300);
+											}
+										},
+										error: function() { setTimeout(function() { try_navigate(attempt + 1); }, 300); }
+									});
+								}
+								try_navigate(1);
+							},
+							error: function() {
+								frm.dashboard.clear_headline();
+								frappe.msgprint({ title: __("Error"), message: __("Failed to create Air Booking. Please try again."), indicator: "red" });
+							}
 						});
-						setTimeout(function() {
-							frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
-						}, 100);
-					} else if (r.message && r.message.message) {
-						frappe.msgprint({
-							title: __("Information"),
-							message: r.message.message,
-							indicator: "blue"
-						});
-						if (r.message.warehouse_contract) {
-							setTimeout(function() {
-								frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
-							}, 100);
-						}
 					}
-				},
-				error: function(r) {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to create Warehouse Contract. Please try again."),
-						indicator: "red"
-					});
+					if (frm.is_dirty() || frm.is_new()) {
+						frm.save(function() { do_create(); });
+					} else {
+						do_create();
+					}
 				}
-			});
+			);
 		}
-	);
+	});
 }
 
 function suggest_contributors_for_leg(frm, legs_with_job) {
@@ -1250,68 +1434,6 @@ function create_air_booking_from_sales_quote(frm) {
 	}
 }
 
-function show_air_booking_confirmation(frm) {
-	frappe.confirm(
-		__("Are you sure you want to create an Air Booking from this Sales Quote?"),
-		function() {
-			// Save first if there are unsaved changes so the server sees all charges (fixes charges not populating)
-			function do_create() {
-				frm.dashboard.set_headline_alert(__("Creating Air Booking..."));
-				frappe.call({
-					method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_air_booking_from_sales_quote",
-					args: { sales_quote_name: frm.doc.name },
-					callback: function(r) {
-						frm.dashboard.clear_headline();
-						if (r.exc) return;
-						var air_booking_name = (r.message && r.message.air_booking) ? r.message.air_booking : null;
-						if (!air_booking_name) {
-							if (r.message && r.message.success) {
-								frappe.msgprint({ title: __("Air Booking Created"), message: __("Air Booking has been created successfully."), indicator: "green" });
-							} else if (r.message && r.message.message) {
-								frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
-							}
-							return;
-						}
-						if (r.message && r.message.success) {
-							frappe.msgprint({ title: __("Air Booking Created"), message: __("Air Booking {0} has been created successfully.", [air_booking_name]), indicator: "green" });
-						} else if (r.message && r.message.message) {
-							frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
-						}
-						function try_navigate(attempt) {
-							if (attempt > 15) {
-								frappe.set_route("Form", "Air Booking", air_booking_name);
-								return;
-							}
-							frappe.call({
-								method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
-								args: { docname: air_booking_name },
-								callback: function(res) {
-									if (res.message === true) {
-										frappe.set_route("Form", "Air Booking", air_booking_name);
-									} else {
-										setTimeout(function() { try_navigate(attempt + 1); }, 300);
-									}
-								},
-								error: function() { setTimeout(function() { try_navigate(attempt + 1); }, 300); }
-							});
-						}
-						try_navigate(1);
-					},
-					error: function() {
-						frm.dashboard.clear_headline();
-						frappe.msgprint({ title: __("Error"), message: __("Failed to create Air Booking. Please try again."), indicator: "red" });
-					}
-				});
-			}
-			if (frm.is_dirty() || frm.is_new()) {
-				frm.save(function() { do_create(); });
-			} else {
-				do_create();
-			}
-		}
-	);
-}
-
 function create_sea_booking_from_sales_quote(frm) {
 	// Check if one-off and booking already exists
 	if (frm.doc.quotation_type === "One-off") {
@@ -1336,9 +1458,30 @@ function create_sea_booking_from_sales_quote(frm) {
 }
 
 function show_sea_booking_confirmation(frm) {
-	frappe.confirm(
-		__("Are you sure you want to create a Sea Booking from this Sales Quote?"),
-		function() {
+	show_precreate_review_dialog(frm, {
+		title: __("Create > Sea Booking"),
+		intro: __("Review and update the data that will be passed from Sales Quote to Sea Booking."),
+		primary_label: __("Create Sea Booking"),
+		fields: [
+			{ fieldname: "shipper", fieldtype: "Link", label: __("Shipper"), options: "Shipper", default: frm.doc.shipper || "" },
+			{ fieldname: "consignee", fieldtype: "Link", label: __("Consignee"), options: "Consignee", default: frm.doc.consignee || "" },
+			{ fieldname: "origin_port", fieldtype: "Link", label: __("Origin Port"), options: "UNLOCO", default: frm.doc.origin_port || "" },
+			{ fieldname: "destination_port", fieldtype: "Link", label: __("Destination Port"), options: "UNLOCO", default: frm.doc.destination_port || "" },
+			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
+			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" }
+		],
+		apply_values: function(values) {
+			frm.set_value("shipper", values.shipper || "");
+			frm.set_value("consignee", values.consignee || "");
+			frm.set_value("origin_port", values.origin_port || "");
+			frm.set_value("destination_port", values.destination_port || "");
+			frm.set_value("branch", values.branch || "");
+			frm.set_value("cost_center", values.cost_center || "");
+		},
+		on_continue: function() {
+			frappe.confirm(
+				__("Are you sure you want to create a Sea Booking from this Sales Quote?"),
+				function() {
 			function do_create() {
 				frm.dashboard.set_headline_alert(__("Creating Sea Booking..."));
 				frappe.call({
@@ -1369,7 +1512,9 @@ function show_sea_booking_confirmation(frm) {
 				do_create();
 			}
 		}
-	);
+			);
+		}
+	});
 }
 
 function create_declaration_order_from_sales_quote(frm) {
@@ -1392,9 +1537,30 @@ function create_declaration_order_from_sales_quote(frm) {
 }
 
 function show_declaration_order_confirmation(frm) {
-	frappe.confirm(
-		__("Create a Declaration Order from this Sales Quote?"),
-		function() {
+	show_precreate_review_dialog(frm, {
+		title: __("Create > Declaration Order"),
+		intro: __("Review and update the data that will be passed from Sales Quote to Declaration Order."),
+		primary_label: __("Create Declaration Order"),
+		fields: [
+			{ fieldname: "company", fieldtype: "Link", label: __("Company"), options: "Company", default: frm.doc.company || "" },
+			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
+			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" },
+			{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: frm.doc.profit_center || "" },
+			{ fieldname: "customs_authority", fieldtype: "Link", label: __("Customs Authority"), options: "Customs Authority", default: frm.doc.customs_authority || "" },
+			{ fieldname: "declaration_type", fieldtype: "Select", label: __("Declaration Type"), options: "\nImport\nExport\nTransit", default: frm.doc.declaration_type || "" }
+		],
+		apply_values: function(values) {
+			frm.set_value("company", values.company || "");
+			frm.set_value("branch", values.branch || "");
+			frm.set_value("cost_center", values.cost_center || "");
+			frm.set_value("profit_center", values.profit_center || "");
+			frm.set_value("customs_authority", values.customs_authority || "");
+			frm.set_value("declaration_type", values.declaration_type || "");
+		},
+		on_continue: function() {
+			frappe.confirm(
+				__("Create a Declaration Order from this Sales Quote?"),
+				function() {
 			frm.dashboard.set_headline_alert(__("Creating Declaration Order..."));
 			frappe.call({
 				method: "logistics.customs.doctype.declaration_order.declaration_order.create_declaration_order_from_sales_quote",
@@ -1425,6 +1591,61 @@ function show_declaration_order_confirmation(frm) {
 					frappe.msgprint({
 						title: __("Error"),
 						message: __("Failed to create Declaration Order. Please try again."),
+						indicator: "red"
+					});
+				}
+			});
+		}
+			);
+		}
+	});
+}
+
+function create_warehouse_contract_from_sales_quote(frm) {
+	// Show confirmation dialog
+	frappe.confirm(
+		__("Are you sure you want to create a Warehouse Contract from this Sales Quote?"),
+		function() {
+			// Show loading indicator
+			frm.dashboard.set_headline_alert(__("Creating Warehouse Contract..."));
+			
+			// Call the server method
+			frappe.call({
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_warehouse_contract_from_sales_quote",
+				args: {
+					sales_quote_name: frm.doc.name
+				},
+				callback: function(r) {
+					frm.dashboard.clear_headline();
+					if (r.exc) return;
+					
+					if (r.message && r.message.success && r.message.warehouse_contract) {
+						frappe.msgprint({
+							title: __("Warehouse Contract Created"),
+							message: __("Warehouse Contract {0} has been created successfully.", [r.message.warehouse_contract]),
+							indicator: "green"
+						});
+						setTimeout(function() {
+							frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+						}, 100);
+					} else if (r.message && r.message.message) {
+						frappe.msgprint({
+							title: __("Information"),
+							message: r.message.message,
+							indicator: "blue"
+						});
+						if (r.message.warehouse_contract) {
+							setTimeout(function() {
+								frappe.set_route("Form", "Warehouse Contract", r.message.warehouse_contract);
+							}, 100);
+						}
+					}
+				},
+				error: function() {
+					frm.dashboard.clear_headline();
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Failed to create Warehouse Contract. Please try again."),
 						indicator: "red"
 					});
 				}

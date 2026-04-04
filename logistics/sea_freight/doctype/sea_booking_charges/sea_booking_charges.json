@@ -6,6 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "service_type",
   "column_break_other_svc",
   "item_code",
   "item_name",
@@ -72,6 +73,14 @@
   "other_service_notes"
  ],
  "fields": [
+  {
+   "columns": 1,
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+  },
   {
    "default": "0",
    "description": "Automatically determined from the selected item. This field cannot be edited.",
@@ -163,7 +172,8 @@
    "in_list_view": 1,
    "label": "Bill To",
    "options": "Customer",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_lday",
@@ -176,7 +186,8 @@
    "fieldtype": "Link",
    "label": "Pay To",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "estimated_revenue",
@@ -200,7 +211,8 @@
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",
@@ -212,7 +224,8 @@
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "revenue_calc_notes",
@@ -264,7 +277,7 @@
    "fieldname": "revenue_calculation_method",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Revenue Calculation Method",
+   "label": "Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -280,14 +293,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "rate",
@@ -300,7 +315,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -368,14 +383,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_cost",
@@ -388,7 +405,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -451,7 +468,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -481,7 +498,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 15:49:32.822264",
+ "modified": "2026-03-24 09:27:26.193991",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking Charges",

@@ -54,7 +54,8 @@
    "fieldname": "unit_of_measure",
    "fieldtype": "Link",
    "label": "Unit of Measure",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "reduction_percentage",

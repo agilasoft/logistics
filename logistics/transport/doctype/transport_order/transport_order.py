@@ -11,8 +11,6 @@ from frappe.utils import add_days, cint, flt, getdate
 from pymysql.err import ProgrammingError
 
 from logistics.utils.dg_fields import copy_parent_dg_header
-from logistics.utils.module_integration import set_billing_company_from_sales_quote
-
 # keep these exactly as requested
 ORDER_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
@@ -92,8 +90,6 @@ class TransportOrder(Document):
             original_sales_quote = getattr(self, 'sales_quote', None)
         
         _sync_quote_and_sales_quote(self)
-        from logistics.utils.module_integration import set_billing_company_from_sales_quote
-        set_billing_company_from_sales_quote(self)
 
         # Ensure quote field is preserved - restore original values if they were cleared
         # This ensures the quote field remains after submission
@@ -1369,6 +1365,23 @@ class TransportOrder(Document):
             return "<div class='alert alert-warning'>Error loading dashboard.</div>"
 
 
+@frappe.whitelist()
+def get_dashboard_html_by_name(docname):
+    """
+    Return Dashboard tab HTML for a saved Transport Order.
+
+    Standalone whitelisted method (see transport_order.js) avoids run_doc_method / check_if_latest
+    so we do not get TimestampMismatchError or \"not found\" right after save when the client
+    is slightly ahead of the DB.
+    """
+    if not docname or str(docname).startswith("new-"):
+        return ""
+    if not frappe.db.exists("Transport Order", docname):
+        return ""
+    doc = frappe.get_doc("Transport Order", docname)
+    return doc.get_dashboard_html()
+
+
 # -------------------------------------------------------------------
 # Internal helpers
 # -------------------------------------------------------------------
@@ -1986,6 +1999,7 @@ def action_create_transport_job(docname: str):
             "consignee": getattr(doc, "consignee", None),
             "refrigeration": getattr(doc, "reefer", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
+            "transport_mode": getattr(doc, "transport_mode", None),
             "load_type": getattr(doc, "load_type", None),
             "container_type": getattr(doc, "container_type", None),
             "container_no": getattr(doc, "container_no", None),
@@ -1999,13 +2013,11 @@ def action_create_transport_job(docname: str):
             "document_list_template": getattr(doc, "document_list_template", None),
             "milestone_template": getattr(doc, "milestone_template", None),
             "sales_quote": getattr(doc, "sales_quote", None),
-            "billing_company": getattr(doc, "billing_company", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):
                 job.set(k, v)
         copy_parent_dg_header(doc, job)
-        set_billing_company_from_sales_quote(job)
 
         # ---- Packages (TO -> TJ) by common fields
         _copy_child_rows_by_common_fields(
@@ -2424,56 +2436,55 @@ def get_cost_estimation(transport_job_type: str, base_cost: float = 1000) -> Dic
 
 @frappe.whitelist()
 def get_available_one_off_quotes(transport_order_name: str = None) -> Dict[str, Any]:
-    """Get list of One-Off Quotes that are not yet linked to a Transport Order and not converted.
-    
-    Excludes One-Off Quotes that are:
-    1. Already linked to another Transport Order
-    2. Already converted (status = "Converted" or converted_to_doc is set)
-    
-    This prevents users from selecting quotes that have already been converted or used.
+    """Get Link filters for One-off Sales Quotes usable on Transport Order (single-use rules preserved).
+
+    Eligible quotes must have **Transport** charge lines (unified or legacy), not only ``main_service``
+    = Transport, so a multi-service one-off can be selected here when transport is priced.
+
+    Excludes quotes already linked to another Transport Order or already converted.
     """
     try:
-        # Get all One-Off Quotes already linked to Transport Orders (excluding current order)
-        used_quotes = frappe.get_all(
+        from logistics.utils.sales_quote_service_eligibility import (
+            converted_one_off_sales_quote_names,
+            one_off_sales_quote_link_filters_for_service,
+        )
+
+        used_rows = frappe.get_all(
             "Transport Order",
             filters={
                 "quote_type": "One-Off Quote",
-                "quote": ["is", "set"],
-                "name": ["!=", transport_order_name or ""]
+                "name": ["!=", transport_order_name or ""],
+                "docstatus": ["!=", 2],
             },
-            pluck="quote"
+            or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
+            fields=["quote", "sales_quote"],
         )
-        
-        # Get all converted One-Off Quotes (status = "Converted" or converted_to_doc is set)
-        converted_quotes = frappe.get_all(
-            "One-Off Quote",
-            filters={
-                "status": "Converted"
-            },
-            pluck="name"
+        used_quotes = []
+        for row in used_rows:
+            ref = (row.get("quote") or row.get("sales_quote") or "").strip()
+            if ref:
+                used_quotes.append(ref)
+
+        converted_legacy: list[str] = []
+        if frappe.db.exists("DocType", "One-Off Quote"):
+            try:
+                converted_legacy = frappe.get_all(
+                    "One-Off Quote",
+                    filters={"status": "Converted"},
+                    pluck="name",
+                ) + frappe.get_all(
+                    "One-Off Quote",
+                    filters={"converted_to_doc": ["is", "set"]},
+                    pluck="name",
+                )
+            except Exception:
+                converted_legacy = []
+
+        excluded_quotes = list(
+            set(used_quotes + converted_legacy + converted_one_off_sales_quote_names())
         )
-        
-        # Also get quotes with converted_to_doc set (in case status wasn't updated)
-        quotes_with_conversion = frappe.get_all(
-            "One-Off Quote",
-            filters={
-                "converted_to_doc": ["is", "set"]
-            },
-            pluck="name"
-        )
-        
-        # Combine all excluded quotes
-        excluded_quotes = list(set(used_quotes + converted_quotes + quotes_with_conversion))
-        
-        # Return filter to exclude used and converted quotes
-        filters = {}
-        if excluded_quotes:
-            filters["name"] = ["not in", excluded_quotes]
-        
-        # Also filter to only show Sales Quotes that have transport enabled
-        if _has_field("Sales Quote", "main_service"):
-            filters["main_service"] = "Transport"
-        
+
+        filters = one_off_sales_quote_link_filters_for_service("Transport", excluded_quotes)
         return {"filters": filters}
     except Exception as e:
         frappe.log_error(

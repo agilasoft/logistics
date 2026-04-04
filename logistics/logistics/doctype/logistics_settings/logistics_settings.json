@@ -51,6 +51,7 @@
   "milestones_section",
   "milestone_impending_days",
   "milestone_informational_days",
+  "strict_milestone_schedule_validation",
   "penalties_section",
   "penalty_impending_days",
   "delays_section",
@@ -239,21 +240,24 @@
    "fieldtype": "Link",
    "label": "Base Dimension UOM",
    "options": "UOM",
-   "description": "Pivot UOM for length/width/height (e.g. CM)."
+   "description": "Pivot UOM for length/width/height (e.g. CM).",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "base_volume_uom",
    "fieldtype": "Link",
    "label": "Base Volume UOM",
    "options": "UOM",
-   "description": "Pivot UOM for volume (e.g. CBM)."
+   "description": "Pivot UOM for volume (e.g. CBM).",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "base_weight_uom",
    "fieldtype": "Link",
    "label": "Base Weight UOM",
    "options": "UOM",
-   "description": "Pivot UOM for weight and chargeable weight (e.g. KG)."
+   "description": "Pivot UOM for weight and chargeable weight (e.g. KG).",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_measurements",
@@ -264,28 +268,32 @@
    "fieldtype": "Link",
    "label": "Default Dimension UOM",
    "options": "UOM",
-   "description": "Default for dimension_uom on new lines."
+   "description": "Default for dimension_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
    "options": "UOM",
-   "description": "Default for volume_uom on new lines."
+   "description": "Default for volume_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
    "options": "UOM",
-   "description": "Default for weight_uom on new lines."
+   "description": "Default for weight_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable Weight UOM",
    "options": "UOM",
-   "description": "Default for chargeable_weight_uom on new lines."
+   "description": "Default for chargeable_weight_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "alerts_and_delays_tab",
@@ -345,6 +353,13 @@
    "description": "Milestones due within this many days show as Information (blue). Must be greater than Warning (Days) for Information alerts to appear."
   },
   {
+   "default": "1",
+   "fieldname": "strict_milestone_schedule_validation",
+   "fieldtype": "Check",
+   "label": "Strict Milestone Schedule Validation",
+   "description": "When enabled, Actual End cannot be earlier than Planned Start. Disable only if early completion before planned start is part of your process."
+  },
+  {
    "fieldname": "penalties_section",
    "fieldtype": "Section Break",
    "label": "Penalties",
@@ -386,7 +401,7 @@
    "fieldname": "credit_control_intro",
    "fieldtype": "Section Break",
    "label": "Hold conditions",
-   "description": "A customer is under credit hold when any enabled condition is true: manual status (Customer \u003e Credit tab), credit limit exceeded, or overdue sales invoices (payment terms deviation)."
+   "description": "A customer is under credit hold when any enabled condition is true: manual status (Customer > Credit tab), credit limit exceeded, or overdue sales invoices (payment terms deviation)."
   },
   {
    "default": "1",
@@ -425,7 +440,8 @@
    "fieldtype": "Link",
    "label": "Bypass role",
    "options": "Role",
-   "description": "Users with this role skip credit blocks (optional)."
+   "description": "Users with this role skip credit blocks (optional).",
+   "link_filters": "[[\"Role\", \"disabled\", \"=\", 0]]"
   },
   {
    "default": "0",

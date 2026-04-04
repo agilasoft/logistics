@@ -16,3 +16,13 @@
 
     **About the partners**  
     **Agilasoft Cloud Technologies Inc.** and **BlueCore Solutions Corp.** collaborate on product vision, implementation, and delivery of the CargoNext platform.
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Product announcement only. For schema documentation see [Getting Started](welcome/getting-started) and module transaction pages._
+
+<!-- wiki-field-reference:end -->
+

@@ -28,7 +28,8 @@
    "fieldtype": "Link",
    "label": "Container",
    "options": "Container",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "seal_no",
@@ -41,7 +42,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Container Type"
+   "options": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "mode",

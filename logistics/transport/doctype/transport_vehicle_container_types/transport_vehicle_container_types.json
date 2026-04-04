@@ -13,7 +13,8 @@
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
-   "options": "Container Type"
+   "options": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
   }
  ],
  "grid_page_length": 50,

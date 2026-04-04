@@ -54,6 +54,18 @@ CargoNext supports country-specific manifests: US AMS, US ISF, CA eManifest Forw
 - **Compliance:** Customs Compliance Report, Filing Compliance Report
 - **Value:** Declaration Value Report
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Module transactions and masters:_
+
+- [Declaration Order](welcome/declaration-order), [Declaration](welcome/declaration)
+- [Commodity](welcome/commodity), [Customs Authority](welcome/customs-authority), [Customs Settings](welcome/customs-settings)
+
+<!-- wiki-field-reference:end -->
+
 ## 4. Related Topics
 
 - [Getting Started](welcome/getting-started)

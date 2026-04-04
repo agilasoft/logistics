@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "column_break_other_svc",
+  "service_type",
   "item_code",
   "item_name",
   "charge_type",
@@ -16,6 +17,8 @@
   "column_break_crpu",
   "charge_description",
   "sales_quote_link",
+  "change_request",
+  "change_request_charge",
   "is_other_service",
   "section_break_wicx",
   "column_break_ruye",
@@ -75,6 +78,10 @@
   "column_break_uheq",
   "purchase_invoice",
   "purchase_invoice_status",
+  "wip_recognition_journal_entry",
+  "accrual_recognition_journal_entry",
+  "wip_adjustment_journal_entry",
+  "accrual_adjustment_journal_entry",
   "other_services_section",
   "other_service_type",
   "date_started",
@@ -84,6 +91,14 @@
   "other_service_notes"
  ],
  "fields": [
+  {
+   "columns": 1,
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+  },
   {
    "default": "0",
    "description": "Indicates if this charge is linked to an Other Service. This is automatically set from the selected item and cannot be edited.",
@@ -140,7 +155,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Charge Item",
-   "link_filters": "[[\"Item\",\"custom_customs_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_customs_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -167,7 +182,8 @@
    "fieldname": "item_tax_template",
    "fieldtype": "Link",
    "label": "Item Tax Template",
-   "options": "Item Tax Template"
+   "options": "Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "invoice_type",
@@ -188,6 +204,20 @@
    "options": "Sales Quote"
   },
   {
+   "fieldname": "change_request",
+   "fieldtype": "Link",
+   "label": "Change Request",
+   "options": "Change Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "change_request_charge",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Change Request Charge Row",
+   "read_only": 1
+  },
+  {
    "fieldname": "section_break_wicx",
    "fieldtype": "Section Break"
   },
@@ -203,14 +233,16 @@
    "in_list_view": 1,
    "label": "Bill To",
    "options": "Customer",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_revenue",
@@ -235,14 +267,16 @@
    "fieldtype": "Link",
    "label": "Pay To",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "buying_currency",
    "fieldtype": "Link",
    "label": "Buying Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_cost",
@@ -266,7 +300,8 @@
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",
@@ -278,7 +313,8 @@
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "calculation_notes_section",
@@ -356,14 +392,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "rate",
@@ -444,14 +482,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_cost",
@@ -523,6 +563,42 @@
    "fieldtype": "Link",
    "label": "Sales Invoice",
    "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that posted WIP for this charge line (if any).",
+   "fieldname": "wip_recognition_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Recognition JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that posted cost accrual for this charge line (if any).",
+   "fieldname": "accrual_recognition_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Recognition JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that adjusted or reversed WIP for this charge line (if any).",
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that adjusted or reversed cost accrual for this charge line (if any).",
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
    "read_only": 1
   },
   {

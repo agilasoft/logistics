@@ -96,7 +96,7 @@ class TestRecognitionEngine(unittest.TestCase):
                 self.cost_center = None
                 self.profit_center = None
                 self.branch = None
-                self.job_costing_number = None
+                self.job_number = None
             
             def get(self, key, default=None):
                 return getattr(self, key, default)

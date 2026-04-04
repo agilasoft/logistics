@@ -11,8 +11,9 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
-        from logistics.utils.module_integration import set_billing_company_from_sales_quote
-        set_billing_company_from_sales_quote(self)
+        from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+        apply_shipper_consignee_defaults(self)
         # DEBUG: Log all validation calls
         try:
             frappe.log_error(
@@ -100,7 +101,7 @@ class TransportJob(Document):
                     frappe.log_error("Transport Job container sync error: {0}".format(str(e)), "Container Management")
         
         self.calculate_sustainability_metrics()
-        self.create_job_costing_number_if_needed()
+        self.create_job_number_if_needed()
         
         # Derive SLA target date from Logistics Service Level when applicable
         self._derive_sla_target_from_service_level()
@@ -152,7 +153,7 @@ class TransportJob(Document):
     
     def after_insert(self):
         """Create job costing number for new documents"""
-        self.create_job_costing_number_if_needed()
+        self.create_job_number_if_needed()
     
     def before_submit(self):
         """Mark document as submitting and set status to Submitted"""
@@ -255,6 +256,18 @@ class TransportJob(Document):
             )
             frappe.db.commit()
         
+        self.reload()
+        try:
+            from logistics.container_management.api import sync_transport_job_container
+
+            sync_transport_job_container(self)
+        except Exception as e:
+            if not getattr(frappe.flags, "skip_container_sync", False):
+                frappe.log_error(
+                    "Transport Job container sync after submit: {0}".format(str(e)),
+                    "Container Management",
+                )
+
         self.record_sustainability_metrics()
         
         # Reserve capacity if vehicle is assigned
@@ -735,13 +748,22 @@ class TransportJob(Document):
         
         if old_status == new_status:
             return
+
+        if getattr(self.flags, "allow_charge_reopen_transition", False):
+            if (old_status, new_status) in (("Completed", "Reopened"), ("Closed", "Reopened")):
+                return
+        if getattr(self.flags, "allow_charge_close_transition", False):
+            if (old_status, new_status) == ("Reopened", "Closed"):
+                return
         
         # Define allowed transitions
         allowed_transitions = {
             "Draft": ["Submitted", "Cancelled"],
             "Submitted": ["In Progress", "Cancelled"],
             "In Progress": ["Completed", "Cancelled"],
-            "Completed": [],  # Cannot change from Completed
+            "Completed": [],  # Reopened only via reopen_job_for_charges (flags)
+            "Closed": [],  # Reopened only via reopen_job_for_charges (flags)
+            "Reopened": [],  # Closed only via close_job_for_charges (flags)
             "Cancelled": []  # Cannot change from Cancelled
         }
         
@@ -778,6 +800,9 @@ class TransportJob(Document):
         # If submitted (docstatus = 1), check leg statuses to determine job status
         # Default to "Submitted" unless legs indicate "In Progress" or "Completed"
         if self.docstatus == 1:
+            # Do not override manual Reopened / Closed (charge entry workflow)
+            if getattr(self, "status", None) in ("Reopened", "Closed"):
+                return
             legs_field = _get_job_legs_fieldname(self)
             job_legs = self.get(legs_field) or []
             
@@ -945,9 +970,9 @@ class TransportJob(Document):
         except Exception as e:
             frappe.log_error(f"Error triggering auto-billing for Transport Job {self.name}: {str(e)}", "Auto Billing Error")
     
-    def create_job_costing_number_if_needed(self):
-        """Create Job Costing Number if it doesn't exist"""
-        if self.job_costing_number:
+    def create_job_number_if_needed(self):
+        """Create Job Number if it doesn't exist"""
+        if self.job_number:
             return
         
         if not self.name:
@@ -955,14 +980,14 @@ class TransportJob(Document):
             return
         
         try:
-            # Check if Job Costing Number already exists for this job
-            existing_jcn = frappe.db.exists("Job Costing Number", {"job_no": self.name})
+            # Check if Job Number already exists for this job
+            existing_jcn = frappe.db.exists("Job Number", {"job_no": self.name})
             if existing_jcn:
-                self.job_costing_number = existing_jcn
+                self.job_number = existing_jcn
                 return
             
-            # Create new Job Costing Number
-            jcn = frappe.new_doc("Job Costing Number")
+            # Create new Job Number
+            jcn = frappe.new_doc("Job Number")
             jcn.job_type = "Transport Job"  # Must be set before job_no (Dynamic Link)
             jcn.job_no = self.name
             jcn.job_name = self.name
@@ -970,9 +995,9 @@ class TransportJob(Document):
             jcn.customer = self.customer
             jcn.insert(ignore_permissions=True)
             
-            self.job_costing_number = jcn.name
+            self.job_number = jcn.name
         except Exception as e:
-            frappe.log_error(f"Error creating Job Costing Number for Transport Job {self.name}: {str(e)}", "Job Costing Number Creation Error")
+            frappe.log_error(f"Error creating Job Number for Transport Job {self.name}: {str(e)}", "Job Number Creation Error")
     
     # ==================== Capacity Management ====================
     
@@ -1595,9 +1620,9 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     if getattr(job, "profit_center", None):
         si.profit_center = job.profit_center
     
-    # Add reference to Job Costing Number if it exists
-    if getattr(job, "job_costing_number", None):
-        si.job_costing_number = job.job_costing_number
+    # Add reference to Job Number if it exists
+    if getattr(job, "job_number", None):
+        si.job_number = job.job_number
     
     # Add reference to Sales Quote if it exists
     if hasattr(job, "sales_quote") and job.sales_quote:
@@ -1632,12 +1657,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             item_name = getattr(charge, "item_name", None) or "Transport Service"
             qty = flt(getattr(charge, "quantity", 1))
             
-            # Transport Job Charges uses 'unit_rate' and 'estimated_revenue'
-            # Use estimated_revenue if available, otherwise use unit_rate
-            unit_rate = flt(getattr(charge, "unit_rate", 0))
+            # Transport Job Charges: rate (aligned with Air Shipment Charges); legacy unit_rate supported
+            unit_rate = flt(getattr(charge, "rate", 0) or getattr(charge, "unit_rate", 0))
             estimated_revenue = flt(getattr(charge, "estimated_revenue", 0))
             
-            # Calculate rate: prefer estimated_revenue, fallback to unit_rate
+            # Calculate rate: prefer estimated_revenue, fallback to unit rate field
             # If estimated_revenue exists, calculate rate from it
             if estimated_revenue > 0:
                 rate = estimated_revenue / qty if qty > 0 else estimated_revenue
@@ -1733,6 +1757,75 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
         "sales_invoice": si.name,
         "charges_used": valid_charges_count,
         "items_created": items_created
+    }
+
+
+@frappe.whitelist()
+def create_sales_invoice_from_transport_job(job_name, posting_date=None, customer=None):
+    """Create Sales Invoice from Transport Job charges (fallback when Create Sales Invoice dialog script is not loaded)."""
+    from frappe.utils import today
+
+    if not job_name:
+        frappe.throw(_("Transport Job name is required."))
+    job = frappe.get_doc("Transport Job", job_name)
+    if job.docstatus != 1:
+        frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
+    customer = customer or job.customer
+    if not customer:
+        frappe.throw(_("Customer is required to create Sales Invoice."))
+    if not job.charges:
+        frappe.throw(_("No charges found on Transport Job."))
+    invoice = frappe.new_doc("Sales Invoice")
+    invoice.customer = customer
+    invoice.company = job.company
+    invoice.posting_date = posting_date or today()
+    if getattr(job, "branch", None):
+        invoice.branch = job.branch
+    if getattr(job, "cost_center", None):
+        invoice.cost_center = job.cost_center
+    if getattr(job, "profit_center", None):
+        invoice.profit_center = job.profit_center
+    base_remarks = invoice.remarks or ""
+    note = _("Auto-created from Transport Job {0}").format(job.name)
+    invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+    for ch in job.charges:
+        line_rate = flt(getattr(ch, "rate", 0) or getattr(ch, "unit_rate", 0))
+        rev = flt(
+            getattr(ch, "estimated_revenue", 0)
+            or line_rate * flt(getattr(ch, "quantity", 1) or 1)
+        )
+        if rev <= 0:
+            continue
+        item_code = getattr(ch, "item_code", None)
+        if not item_code:
+            continue
+        invoice.append("items", {"item_code": item_code, "qty": 1, "rate": rev})
+    if not invoice.items:
+        frappe.throw(_("No charge items with revenue found."))
+    invoice.set_missing_values()
+    invoice.insert(ignore_permissions=True)
+    if frappe.get_meta("Transport Job").get_field("sales_invoice"):
+        frappe.db.set_value("Transport Job", job_name, "sales_invoice", invoice.name, update_modified=False)
+    return {"sales_invoice": invoice.name}
+
+
+@frappe.whitelist()
+def post_standard_costs(docname):
+    """Post standard costs on Transport Job charge lines (same pattern as Air Shipment)."""
+    job = frappe.get_doc("Transport Job", docname)
+    posted = 0
+    for ch in job.charges or []:
+        if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(
+            ch, "standard_cost_posted", False
+        ):
+            if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
+                ch.standard_cost_posted = 1
+                ch.standard_cost_posted_at = frappe.utils.now()
+                posted += 1
+    if posted > 0:
+        job.save()
+    return {
+        "message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")
     }
 
 

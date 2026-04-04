@@ -2,7 +2,7 @@
  "actions": [],
  "autoname": "format:RRPS-{#####}",
  "creation": "2024-01-15 10:00:00.000000",
- "description": "Revenue Recognition Policy — one document per company. Rules are defined in Recognition Parameters (Branch, Profit Center, Direction, Mode, accounts, date basis).",
+ "description": "Revenue Recognition Policy \u2014 one document per company. Rules are defined in Recognition Parameters (Branch, Profit Center, Direction, Mode, accounts, date basis).",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -111,7 +111,8 @@
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "profit_center",
@@ -139,28 +140,32 @@
    "fieldtype": "Link",
    "hidden": 1,
    "label": "WIP Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "revenue_liability_account",
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Revenue Liability Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "cost_accrual_account",
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Cost Accrual Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "accrued_cost_liability_account",
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Accrued Cost Liability Account",
-   "options": "Account"
+   "options": "Account",
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   }
  ],
  "index_web_pages_for_search": 1,

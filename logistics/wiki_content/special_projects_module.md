@@ -212,6 +212,15 @@ The sidebar is organized into sections:
 - **Setup** – Handling Type, Equipment Type
 - **Settings** – Special Project Settings
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Special projects use [General Job](welcome/general-job) and related logistics documents; open the relevant doc wiki page for the full field table._
+
+<!-- wiki-field-reference:end -->
+
 ## 6. Related Topics
 
 - [Getting Started](welcome/getting-started)

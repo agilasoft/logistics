@@ -65,6 +65,15 @@ Database patches in `logistics/patches.txt` cover charge break buttons, sales qu
 - One-off converted quotes and charge lines on existing bookings/orders
 - Transport documents for **Contains Dangerous Goods**
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Features listed here touch many DocTypes. Open the relevant guide; each includes a **Complete field reference** where the document is a logistics DocType (e.g. [Sales Quote](welcome/sales-quote), [Air Booking](welcome/air-booking), [Transport Order](welcome/transport-order))._
+
+<!-- wiki-field-reference:end -->
+
 ## 10. Related articles
 
 | Topic | Article |

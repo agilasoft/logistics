@@ -22,7 +22,7 @@ def on_sales_invoice_submit(doc, method=None):
     if doc.docstatus != 1:
         return
     update_job_on_sales_invoice_submit(doc)
-    # Intercompany: when customer SI is from a Sales Quote, create intercompany SI/PI for legs where job company != quote company
+    # Intercompany: when customer SI is from a Sales Quote, create intercompany SI/PI where internal job company != Main Job company
     try:
         from logistics.intercompany.intercompany_invoice import (
             is_intercompany_enabled,
@@ -32,7 +32,6 @@ def on_sales_invoice_submit(doc, method=None):
             if frappe.db.exists("Sales Quote", doc.quotation_no):
                 create_intercompany_invoices_for_quote(
                     sales_quote_name=doc.quotation_no,
-                    billing_company=doc.company,
                     trigger_si=doc.name,
                     posting_date=doc.posting_date,
                 )
@@ -52,11 +51,10 @@ def on_sales_invoice_submit(doc, method=None):
         if getattr(doc, "quotation_no", None) and frappe.db.exists("Sales Quote", doc.quotation_no):
             result = create_internal_billing_journal_entries_for_quote(
                 sales_quote_name=doc.quotation_no,
-                billing_company=doc.company,
                 trigger_si=doc.name,
                 posting_date=doc.posting_date,
             )
-            if result.get("created") and result.get("journal_entry"):
+            if result.get("created") and (result.get("journal_entries") or result.get("journal_entry")):
                 frappe.msgprint(
                     _("Internal billing: {0}").format(result.get("message", "")),
                     indicator="blue",

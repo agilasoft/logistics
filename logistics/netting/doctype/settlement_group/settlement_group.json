@@ -37,14 +37,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Settlement Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "settlement_supplier",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Settlement Supplier",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_info",
@@ -131,4 +133,3 @@
  "states": [],
  "title_field": "settlement_group_name"
 }
-

@@ -134,7 +134,7 @@ frappe.ui.form.on('Air Consolidation', {
                         }
                     }
                 });
-            }, __('Actions'));
+            }, __('Action'));
             frm.add_custom_button(__('Get Documents'), function() {
                 frappe.call({
                     method: 'logistics.document_management.api.populate_documents_from_template',
@@ -146,7 +146,7 @@ frappe.ui.form.on('Air Consolidation', {
                         }
                     }
                 });
-            }, __('Actions'));
+            }, __('Action'));
         }
 
         // Add custom buttons
@@ -316,7 +316,7 @@ function add_consolidation_buttons(frm) {
     if (frm.doc.status === 'Draft' || frm.doc.status === 'Planning') {
         frm.add_custom_button(__('Add Air Shipment'), function() {
             add_air_freight_job(frm);
-        }, __('Actions'));
+        }, __('Action'));
 
         if (!frm.doc.master_awb) {
             frm.add_custom_button(__('Assign MAWB from Stock'), function() {
@@ -334,31 +334,31 @@ function add_consolidation_buttons(frm) {
                         }
                     }
                 });
-            }, __('Actions'));
+            }, __('Action'));
         }
         
         frm.add_custom_button(__('Optimize Routes'), function() {
             optimize_routes(frm);
-        }, __('Actions'));
+        }, __('Action'));
         
         frm.add_custom_button(__('Check Capacity'), function() {
             check_capacity_availability(frm);
-        }, __('Actions'));
+        }, __('Action'));
     }
     
     if (frm.doc.status === 'Planning' || frm.doc.status === 'Ready for Departure') {
         frm.add_custom_button(__('Generate Report'), function() {
             generate_consolidation_report(frm);
-        }, __('Actions'));
+        }, __('Action'));
         
         frm.add_custom_button(__('Cost Breakdown'), function() {
             show_cost_breakdown(frm);
-        }, __('Actions'));
+        }, __('Action'));
     }
     
     frm.add_custom_button(__('Consolidation Summary'), function() {
         show_consolidation_summary(frm);
-    }, __('Actions'));
+    }, __('Action'));
 }
 
 function add_air_freight_job(frm) {

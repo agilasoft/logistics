@@ -44,26 +44,26 @@ class DangerousGoodsDeclaration(Document):
 				frappe.throw(_("Emergency phone is required for all packages"))
 	
 	def on_submit(self):
-		"""Actions when declaration is submitted"""
-		# Update the Air Freight Job with declaration status
-		if self.air_freight_job:
-			air_freight_job = frappe.get_doc("Air Freight Job", self.air_freight_job)
-			if hasattr(air_freight_job, 'dg_declaration_complete'):
-				air_freight_job.dg_declaration_complete = 1
-			if hasattr(air_freight_job, 'dg_declaration_number'):
-				air_freight_job.dg_declaration_number = self.name
-			air_freight_job.save()
-	
+		"""Sync declaration status back to the linked Air Shipment."""
+		if not self.air_shipment:
+			return
+		shipment = frappe.get_doc("Air Shipment", self.air_shipment)
+		if hasattr(shipment, "dg_declaration_complete"):
+			shipment.dg_declaration_complete = 1
+		if hasattr(shipment, "dg_declaration_number"):
+			shipment.dg_declaration_number = self.name
+		shipment.save(ignore_permissions=True)
+
 	def on_cancel(self):
-		"""Actions when declaration is cancelled"""
-		# Update the Air Freight Job with declaration status
-		if self.air_freight_job:
-			air_freight_job = frappe.get_doc("Air Freight Job", self.air_freight_job)
-			if hasattr(air_freight_job, 'dg_declaration_complete'):
-				air_freight_job.dg_declaration_complete = 0
-			if hasattr(air_freight_job, 'dg_declaration_number'):
-				air_freight_job.dg_declaration_number = None
-			air_freight_job.save()
+		"""Clear declaration status on the linked Air Shipment when declaration is cancelled."""
+		if not self.air_shipment:
+			return
+		shipment = frappe.get_doc("Air Shipment", self.air_shipment)
+		if hasattr(shipment, "dg_declaration_complete"):
+			shipment.dg_declaration_complete = 0
+		if hasattr(shipment, "dg_declaration_number"):
+			shipment.dg_declaration_number = None
+		shipment.save(ignore_permissions=True)
 	
 	@frappe.whitelist()
 	def generate_pdf(self):

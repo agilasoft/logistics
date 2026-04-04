@@ -8,7 +8,8 @@
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "description"
+  "description",
+  "is_active"
  ],
  "fields": [
   {
@@ -21,6 +22,13 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   }
  ],
  "grid_page_length": 50,

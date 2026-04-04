@@ -1,6 +1,12 @@
 // Sync Revenue & Cost Recognition from policy (read-only except Recognition Date when User Specified).
 frappe.provide('logistics.recognition_policy');
 
+logistics.recognition_policy._set_recognition_date_read_only = function (frm) {
+	if (!frm || !frm.doc || !frm.fields_dict.recognition_date) return;
+	var basis = frm.doc.recognition_date_basis || 'Job Booking Date';
+	frm.set_df_property('recognition_date', 'read_only', basis === 'User Specified' ? 0 : 1);
+};
+
 logistics.recognition_policy._apply = function (frm, m) {
 	if (!frm || !m) return;
 	var basis = m.recognition_date_basis || 'Job Booking Date';
@@ -13,10 +19,7 @@ logistics.recognition_policy._apply = function (frm, m) {
 	frm.refresh_field('recognition_date_basis');
 	frm.refresh_field('recognition_policy_reference');
 
-	var userSpecified = basis === 'User Specified';
-	if (frm.fields_dict.recognition_date) {
-		frm.set_df_property('recognition_date', 'read_only', userSpecified ? 0 : 1);
-	}
+	logistics.recognition_policy._set_recognition_date_read_only(frm);
 	if (m.recognition_date) {
 		frm.doc.recognition_date = m.recognition_date;
 		frm.refresh_field('recognition_date');
@@ -25,6 +28,7 @@ logistics.recognition_policy._apply = function (frm, m) {
 
 logistics.recognition_policy.sync_from_policy = function (frm) {
 	if (!frm || !frm.doc) return;
+	logistics.recognition_policy._set_recognition_date_read_only(frm);
 	var d = frm.doc;
 	if (!d.company) {
 		logistics.recognition_policy._apply(frm, {
@@ -41,7 +45,7 @@ logistics.recognition_policy.sync_from_policy = function (frm) {
 		cost_center: d.cost_center || '',
 		profit_center: d.profit_center || '',
 		branch: d.branch || '',
-		job_costing_number: d.job_costing_number || '',
+		job_number: d.job_number || '',
 	};
 	if (d.recognition_date && d.recognition_date_basis === 'User Specified') {
 		args.recognition_date_override = d.recognition_date;
@@ -75,9 +79,10 @@ logistics.recognition_policy.sync_from_policy = function (frm) {
 		'cost_center',
 		'profit_center',
 		'branch',
-		'job_costing_number',
+		'job_number',
 		'direction',
 		'transport_mode',
+		'recognition_date_basis',
 		'recognition_date',
 	];
 	DOCTYPES.forEach(function (dt) {

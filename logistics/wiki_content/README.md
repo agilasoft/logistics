@@ -119,7 +119,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | logistics_milestone.md | Logistics Milestone | Logistics |
 | job_management_module.md | Job Management Module | Job Management |
 | revenue_recognition_policy_accounts_and_dates.md | Revenue Recognition Policy — Accounts, Dates, and Charges | Job Management |
-| proforma_gl_entries.md | Proforma GL Entries (Job Costing) | Job Management |
+| proforma_gl_entries.md | Proforma GL Entries (Job Number) | Job Management |
 | wip_accrual_reversal_on_invoicing_design.md | WIP and Accrual Reversal on Invoicing | Job Management |
 | sustainability_module.md | Sustainability Module | Sustainability |
 | intercompany_module.md | Intercompany Module | Intercompany |

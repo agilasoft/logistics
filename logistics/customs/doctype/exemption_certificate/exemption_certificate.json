@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:certificate_number",
- "creation": "2025-01-27 00:00:00.000000",
+ "creation": "2025-01-27 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -62,7 +62,8 @@
    "in_list_view": 1,
    "label": "Exemption Type",
    "options": "Exemption Type",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Exemption Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "status",
@@ -71,6 +72,7 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Active\nExpired\nRevoked\nSuspended",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -122,7 +124,8 @@
    "fieldname": "issued_by",
    "fieldtype": "Link",
    "label": "Issued By",
-   "options": "Customs Authority"
+   "options": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_limits",
@@ -191,7 +194,8 @@
    "fieldname": "verified_by",
    "fieldtype": "Link",
    "label": "Verified By",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "depends_on": "eval:doc.verification_status == 'Verified'",
@@ -246,7 +250,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-27 00:00:00.000000",
+ "modified": "2026-03-25 13:07:52.744508",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Exemption Certificate",
@@ -268,8 +272,8 @@
   {
    "create": 1,
    "read": 1,
-   "write": 1,
-   "role": "Customs User"
+   "role": "Customs User",
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
@@ -277,4 +281,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

@@ -36,12 +36,13 @@
   },
   {
    "depends_on": "eval:!doc.exemption_certificate",
-   "description": "Set before a certificate is linked. Copied to Declaration. Default for Create \u003e Exemption Certificate.",
+   "description": "Set before a certificate is linked. Copied to Declaration. Default for Create > Exemption Certificate.",
    "fieldname": "planned_exemption_type",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Exemption Type",
-   "options": "Exemption Type"
+   "options": "Exemption Type",
+   "link_filters": "[[\"Exemption Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",

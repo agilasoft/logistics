@@ -161,7 +161,8 @@
    "fieldname": "responsible_person",
    "fieldtype": "Link",
    "label": "Responsible Person",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "notes",

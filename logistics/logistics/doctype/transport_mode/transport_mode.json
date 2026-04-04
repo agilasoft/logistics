@@ -6,10 +6,16 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "mode_code",
   "mode_name",
   "primary_document",
+  "is_active",
   "column_break_hycw",
-  "mode_code",
+  "air",
+  "sea",
+  "transport",
+  "customs",
+  "warehousing",
   "section_break_vqar",
   "description"
  ],
@@ -29,8 +35,16 @@
    "unique": 1
   },
   {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
    "fieldname": "column_break_hycw",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "label": "Used in Module"
   },
   {
    "fieldname": "mode_code",
@@ -47,12 +61,42 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
+  },
+  {
+   "default": "0",
+   "fieldname": "air",
+   "fieldtype": "Check",
+   "label": "Air"
+  },
+  {
+   "default": "0",
+   "fieldname": "sea",
+   "fieldtype": "Check",
+   "label": "Sea"
+  },
+  {
+   "default": "0",
+   "fieldname": "transport",
+   "fieldtype": "Check",
+   "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "customs",
+   "fieldtype": "Check",
+   "label": "Customs"
+  },
+  {
+   "default": "0",
+   "fieldname": "warehousing",
+   "fieldtype": "Check",
+   "label": "Warehousing"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-28 14:59:07.747172",
+ "modified": "2026-04-04 09:40:17.243319",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Transport Mode",

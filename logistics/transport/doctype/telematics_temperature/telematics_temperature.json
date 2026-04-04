@@ -19,13 +19,15 @@
    "fieldname": "vehicle",
    "fieldtype": "Link",
    "label": "Vehicle",
-   "options": "Transport Vehicle"
+   "options": "Transport Vehicle",
+   "link_filters": "[[\"Transport Vehicle\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "provider",
    "fieldtype": "Link",
    "label": "Provider",
-   "options": "Telematics Provider"
+   "options": "Telematics Provider",
+   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "external_id",

@@ -403,6 +403,7 @@ function setup_vehicle_type_query_for_transport(frm) {
             var hazardous = (doc.contains_dangerous_goods || doc.hazardous) ? 1 : 0;
             var reefer = doc.reefer ? 1 : 0;
             var filters = {
+                is_active: 1,
                 hazardous: hazardous,
                 reefer: reefer
             };

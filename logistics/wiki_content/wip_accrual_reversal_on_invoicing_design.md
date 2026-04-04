@@ -26,11 +26,11 @@ This design **extends** the PI accrual pattern to **SI → WIP**, **intercompany
 ## 2. Design principles
 
 1. **Same policy, same accounts**  
-   Reversal JEs must use the job’s **Recognition Policy** (WIP account, revenue liability, cost accrual, accrued liability) resolved via **Job Costing Number** on the voucher (same as today for PI accrual).
+   Reversal JEs must use the job’s **Recognition Policy** (WIP account, revenue liability, cost accrual, accrued liability) resolved via **Job Number** on the voucher (same as today for PI accrual).
 
 2. **Resolve the job**  
    For each posting, determine `(job_doctype, job_name)` and **JCN** from:
-   - header `job_costing_number` → Job Costing Number → job; and/or  
+   - header `job_number` → Job Number → job; and/or  
    - `Sales Invoice Item` / `Purchase Invoice Item` `reference_doctype` / `reference_name` when they point to a logistics job or charge row’s parent job; and/or  
    - intercompany log: `(job_type, job_no)` stored on **Intercompany Invoice Log** for the intercompany SI/PI.
 
@@ -56,7 +56,7 @@ This design **extends** the PI accrual pattern to **SI → WIP**, **intercompany
 
 **Preconditions**
 
-- SI has **Job Costing Number** (or resolvable job references on lines).
+- SI has **Job Number** (or resolvable job references on lines).
 - Job has **open WIP** (`wip_amount` > 0 or open balance on policy **WIP account** in GL for that JCN).
 - Policy has **WIP account** and **revenue liability account**.
 
@@ -64,7 +64,7 @@ This design **extends** the PI accrual pattern to **SI → WIP**, **intercompany
 
 - For each SI line (in sequence):
   - Compute **reversal amount** per §2.3 (WIP branch).
-  - Post **one consolidated WIP reversal JE** per SI (or one per job if multi-job SI is ever allowed): for each slice, **Dr WIP account**, **Cr Revenue liability**, with **job_costing_number**, cost/profit centers, and **Item** dimension when present (mirror `create_wip_adjustment_je` in `recognition_engine.py`).
+  - Post **one consolidated WIP reversal JE** per SI (or one per job if multi-job SI is ever allowed): for each slice, **Dr WIP account**, **Cr Revenue liability**, with **job_number**, cost/profit centers, and **Item** dimension when present (mirror `create_wip_adjustment_je` in `recognition_engine.py`).
 - Update job: `wip_amount -= total_reversed`, set `wip_adjustment_journal_entry` (append or last pointer per product decision), increment `recognized_revenue` analogously to `adjust_wip`.
 
 **Fully invoiced**  
@@ -79,7 +79,7 @@ Optional: when cumulative reversed WIP ≥ original recognized WIP, set flags co
 **Design refinement**
 
 - Keep current behavior as the **baseline**.
-- Ensure **intercompany Purchase Invoice** (billing company) is **included**: same hook on submit; resolve JCN and job; if the PI is the mirror of an intercompany SI, **job_costing_number** and items should match the leg so **per-item** accrual reversal applies.
+- Ensure **intercompany Purchase Invoice** (billing company) is **included**: same hook on submit; resolve JCN and job; if the PI is the mirror of an intercompany SI, **job_number** and items should match the leg so **per-item** accrual reversal applies.
 - If billing-company PI uses a **different JCN** than the operating job’s recognition, document a **mapping rule** (e.g. same logical shipment ID on both companies) or restrict v1 to **JCN on PI equals recognition job**.
 
 ---
@@ -123,7 +123,7 @@ Today each internal job produces **aggregates**:
 - **Accrual reversal**: the JV’s “internal cost accrual” leg is **not** the same accounts as **policy cost accrual** (it uses `default_payable_account`). So policy accrual reversal should still be **Dr Liability / Cr Cost Accrual** for **min(cost_total, open accrual on job)** when the job had **enable_accrual_recognition** and open `accrual_amount`.
 
 **v2 (item-level)**  
-Extend internal billing JV construction to add **one JE row pair per charge item** (item_code + amount) with `job_costing_number`, then reuse the same per-item reversal logic as invoices.
+Extend internal billing JV construction to add **one JE row pair per charge item** (item_code + amount) with `job_number`, then reuse the same per-item reversal logic as invoices.
 
 **Idempotency**  
 Use `user_remark` / custom field **Internal Billing – Sales Quote {name} – Trigger SI {si}** (already present) to detect already-processed JVs before posting reversal JEs.
@@ -150,6 +150,18 @@ Errors should **log** and **msgprint** (orange) like today’s accrual reversal,
 - **Migration**: no schema change strictly required for v1 if reversal references stored in existing `wip_adjustment_journal_entry` / `accrual_adjustment_journal_entry` or new optional **child table** “Recognition Reversal Log” on job (voucher_type, voucher_no, amount_wip, amount_accrual).
 
 ---
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Design doc; implementation fields are on invoices and jobs. See:_
+
+- [Logistics Settings](welcome/logistics-settings)
+- [Air Shipment](welcome/air-shipment), [Sea Shipment](welcome/sea-shipment), [Transport Job](welcome/transport-job), [Declaration](welcome/declaration), [General Job](welcome/general-job)
+
+<!-- wiki-field-reference:end -->
 
 ## 9. Related documentation and code
 

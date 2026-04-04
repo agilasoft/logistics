@@ -9,10 +9,35 @@ import frappe
 from frappe.utils import get_datetime, now_datetime
 
 from logistics.utils.validation_user_messages import (
+	milestone_actual_end_without_start_message,
 	milestone_actual_range_invalid_message,
+	milestone_completed_before_planned_start_message,
 	milestone_date_validation_title,
 	milestone_planned_range_invalid_message,
 )
+
+
+def _is_strict_milestone_schedule_validation_enabled():
+	"""Use strict mode by default; admins can relax it from Logistics Settings."""
+	try:
+		value = frappe.db.get_single_value("Logistics Settings", "strict_milestone_schedule_validation")
+		if value in (None, ""):
+			return True
+		return bool(int(value))
+	except Exception:
+		return True
+
+
+def _show_non_blocking_schedule_warning(message):
+	"""Show at most one identical warning per request to avoid repetitive popups."""
+	cache = getattr(frappe.flags, "_milestone_schedule_warnings_shown", None)
+	if cache is None:
+		cache = set()
+		frappe.flags._milestone_schedule_warnings_shown = cache
+	if message in cache:
+		return
+	cache.add(message)
+	frappe.msgprint(message=message, title=milestone_date_validation_title(), indicator="orange", alert=True)
 
 
 def validate_milestone_date_ranges(milestone_doc):
@@ -39,11 +64,28 @@ def validate_milestone_date_ranges(milestone_doc):
 
 	actual_start = _dt(milestone_doc.get("actual_start"))
 	actual_end = _dt(milestone_doc.get("actual_end"))
+
+	if actual_end and not actual_start:
+		frappe.throw(
+			milestone_actual_end_without_start_message(),
+			title=milestone_date_validation_title(),
+		)
+
 	if actual_start and actual_end and actual_start > actual_end:
 		frappe.throw(
 			milestone_actual_range_invalid_message(),
 			title=milestone_date_validation_title(),
 		)
+
+	if planned_start and actual_end and actual_end < planned_start:
+		message = milestone_completed_before_planned_start_message()
+		if _is_strict_milestone_schedule_validation_enabled():
+			frappe.throw(
+				message,
+				title=milestone_date_validation_title(),
+			)
+		else:
+			_show_non_blocking_schedule_warning(message)
 
 
 def update_milestone_status(milestone_doc):
@@ -56,10 +98,6 @@ def update_milestone_status(milestone_doc):
 	Call from child milestone doctype before_save.
 	"""
 	validate_milestone_date_ranges(milestone_doc)
-
-	status = (milestone_doc.status or "").strip().lower()
-	if status in ("completed", "finished", "done"):
-		return  # Already completed, don't override
 
 	# Actual End entered -> Completed
 	if milestone_doc.actual_end:

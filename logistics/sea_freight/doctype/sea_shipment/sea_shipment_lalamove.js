@@ -20,7 +20,7 @@ frappe.ui.form.on('Sea Shipment', {
 				} else {
 					logistics.lalamove.form.showLalamoveDialog(frm);
 				}
-			}, __('Actions'));
+			}, __('Action'));
 			
 			// Show order status indicator if order exists
 			if (frm.doc.lalamove_order) {

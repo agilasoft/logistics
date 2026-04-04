@@ -125,6 +125,7 @@
   {
    "fieldname": "commodity_expiry",
    "fieldtype": "Date",
+   "hidden": 1,
    "label": "Commodity Expiry"
   },
   {
@@ -162,7 +163,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-17 14:03:52.388969",
+ "modified": "2026-03-25 16:37:12.843550",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Commodity",

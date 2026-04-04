@@ -8,26 +8,23 @@
  "field_order": [
   "dashboard_tab",
   "dashboard_html",
-  "milestones_tab",
-  "section_break_milestones",
-  "milestone_html",
-  "milestone_template",
-  "milestones",
   "details_tab",
   "section_break_main",
   "transport_mode_column",
   "amended_from",
   "naming_series",
-  "air_booking",
   "booking_date",
   "house_type",
   "direction",
+  "transport_mode",
   "column_break_lzrh",
+  "air_booking",
   "airline",
   "local_customer",
   "freight_agent",
-  "uld_type",
+  "load_type",
   "column_break_vfbr",
+  "job_status",
   "release_type",
   "entry_type",
   "service_level",
@@ -36,30 +33,30 @@
   "consolidation_reference",
   "column_break_consolidation",
   "consolidation_status",
-  "section_break_booking_control",
-  "booking_party",
-  "controlling_party",
-  "column_break_booking_control",
   "section_break_parties",
   "column_break_origin",
   "shipper",
   "origin_port",
   "etd",
   "atd",
+  "sending_agent",
   "column_break_destination",
   "consignee",
   "destination_port",
   "eta",
   "ata",
-  "column_break_entities_agents",
-  "sending_agent",
   "receiving_agent",
   "column_break_entities_broker",
+  "controlling_party",
+  "booking_party",
   "broker",
   "master_details_section",
   "master_awb",
   "house_details_section",
   "house_awb",
+  "house_awb_no",
+  "booking_reference",
+  "agent_reference",
   "incoterm",
   "additional_terms",
   "column_break_house",
@@ -76,8 +73,6 @@
   "routing_legs",
   "packages_section",
   "packages",
-  "warehouse_items_section",
-  "warehouse_items",
   "section_break_summary",
   "total_packages",
   "override_volume_weight",
@@ -109,76 +104,54 @@
   "column_break_mzhi",
   "notify_party_address",
   "charges_tab",
+  "section_break_vztz",
+  "company",
+  "branch",
+  "column_break_vzlm",
+  "cost_center",
+  "profit_center",
+  "column_break_eusz",
+  "job_number",
+  "project",
   "charges_section",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
-  "wip_recognition_enabled",
-  "accrual_recognition_enabled",
-  "recognition_policy_reference",
   "recognition_date_basis",
   "recognition_date",
+  "recognition_policy_reference",
   "column_break_recognition",
+  "wip_recognition_enabled",
+  "wip_closed",
   "estimated_revenue",
   "wip_amount",
   "recognized_revenue",
-  "wip_journal_entry",
-  "wip_adjustment_journal_entry",
-  "wip_closed",
   "column_break_accrual",
+  "accrual_closed",
+  "accrual_recognition_enabled",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
-  "accrual_closed",
+  "section_break_job_details",
+  "is_main_service",
+  "main_job_type",
+  "main_job",
+  "column_break_mmyx",
+  "is_internal_job",
+  "sales_quote",
+  "internal_job_details_section",
+  "internal_job_details",
   "documents_tab",
   "document_management_section",
   "documents_html",
   "document_list_template",
   "documents",
-  "billing_automation_section",
-  "auto_billing_enabled",
-  "billing_status",
-  "sales_invoice",
-  "column_break_billing",
-  "billing_date",
-  "billing_amount",
-  "billing_currency",
-  "invoice_monitoring_section",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
-  "revenue_section",
-  "revenue_recognition_date",
-  "revenue_recognition_method",
-  "revenue_amount",
-  "column_break_revenue",
-  "partial_revenue_enabled",
-  "recognized_revenue_amount",
-  "revenue_reversal_date",
-  "accounts_tab",
-  "section_break_vztz",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_vzlm",
-  "job_costing_number",
-  "project",
-  "section_break_quote_reference",
-  "sales_quote",
-  "billing_company",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -187,18 +160,6 @@
   "terms_and_conditions_section",
   "tc_name",
   "terms",
-  "customs_section",
-  "customs_declaration_number",
-  "export_license",
-  "import_permit",
-  "commercial_invoice_number",
-  "customs_status",
-  "customs_broker",
-  "column_break_customs",
-  "duty_amount",
-  "tax_amount",
-  "customs_clearance_date",
-  "customs_notes",
   "dangerous_goods_section",
   "dg_declaration_complete",
   "dg_compliance_status",
@@ -241,35 +202,6 @@
   "sla_target_source",
   "column_break_sla",
   "sla_notes",
-  "eawb_section",
-  "eawb_enabled",
-  "eawb_status",
-  "eawb_digital_signature",
-  "column_break_eawb",
-  "eawb_signed_date",
-  "eawb_signed_by",
-  "iata_section",
-  "iata_status",
-  "iata_message_id",
-  "last_status_update",
-  "column_break_iata",
-  "house_awb_no",
-  "booking_reference",
-  "agent_reference",
-  "casslink_section",
-  "cass_participant_code",
-  "cass_settlement_status",
-  "cass_settlement_date",
-  "column_break_cass",
-  "cass_billing_reference",
-  "cass_settlement_amount",
-  "tact_section",
-  "tact_rate_lookup",
-  "tact_rate_reference",
-  "tact_rate_amount",
-  "column_break_tact",
-  "tact_currency",
-  "tact_rate_validity",
   "connections_tab"
  ],
  "fields": [
@@ -299,6 +231,18 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Booking Date",
+   "reqd": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Draft",
+   "fieldname": "job_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Status",
+   "length": 20,
+   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nClosed\nReopened\nCancelled",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -362,12 +306,6 @@
    "options": "Freight Agent"
   },
   {
-   "fieldname": "uld_type",
-   "fieldtype": "Link",
-   "label": "ULD Type",
-   "options": "ULD Type"
-  },
-  {
    "fieldname": "release_type",
    "fieldtype": "Link",
    "label": "Release Type",
@@ -386,11 +324,6 @@
    "options": "Logistics Service Level"
   },
   {
-   "fieldname": "section_break_booking_control",
-   "fieldtype": "Section Break",
-   "label": "Booking & Control"
-  },
-  {
    "fieldname": "booking_party",
    "fieldtype": "Link",
    "label": "Booking Party",
@@ -401,10 +334,6 @@
    "fieldtype": "Select",
    "label": "Controlling Party",
    "options": "Customer Controlled\nAgent Controlled"
-  },
-  {
-   "fieldname": "column_break_booking_control",
-   "fieldtype": "Column Break"
   },
   {
    "collapsible": 1,
@@ -534,18 +463,18 @@
   {
    "description": "24-hour emergency response contact per IATA DGR",
    "fieldname": "dg_emergency_contact",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "DG Emergency Contact"
   },
   {
    "description": "24-hour emergency response phone number",
    "fieldname": "dg_emergency_phone",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "DG Emergency Phone"
   },
   {
    "fieldname": "dg_emergency_email",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "DG Emergency Email"
   },
   {
@@ -591,7 +520,7 @@
   },
   {
    "fieldname": "additional_terms",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Additional Terms"
   },
   {
@@ -657,34 +586,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
-   "fieldname": "iata_section",
-   "fieldtype": "Section Break",
-   "label": "IATA Integration"
-  },
-  {
-   "fieldname": "iata_status",
-   "fieldtype": "Select",
-   "label": "IATA Status",
-   "options": "\nPending\nAccepted\nDeparted\nIn Transit\nArrived\nDelivered\nReady for Collection\nCustoms Cleared\nException"
-  },
-  {
-   "fieldname": "iata_message_id",
-   "fieldtype": "Data",
-   "label": "IATA Message ID",
-   "read_only": 1
-  },
-  {
-   "fieldname": "last_status_update",
-   "fieldtype": "Datetime",
-   "label": "Last Status Update",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_iata",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "house_awb_no",
    "fieldtype": "Data",
    "label": "House AWB Number"
@@ -707,7 +608,6 @@
   {
    "fieldname": "transport_mode_column",
    "fieldtype": "Column Break",
-   "label": "Transport Mode",
    "options": "Air"
   },
   {
@@ -738,7 +638,7 @@
   },
   {
    "fieldname": "notify_party",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Notify Party"
   },
   {
@@ -813,68 +713,6 @@
   },
   {
    "collapsible": 1,
-   "fieldname": "customs_section",
-   "fieldtype": "Section Break",
-   "label": "Customs Information"
-  },
-  {
-   "fieldname": "customs_declaration_number",
-   "fieldtype": "Data",
-   "label": "Customs Declaration Number"
-  },
-  {
-   "fieldname": "export_license",
-   "fieldtype": "Data",
-   "label": "Export License"
-  },
-  {
-   "fieldname": "import_permit",
-   "fieldtype": "Data",
-   "label": "Import Permit"
-  },
-  {
-   "fieldname": "commercial_invoice_number",
-   "fieldtype": "Data",
-   "label": "Commercial Invoice Number"
-  },
-  {
-   "fieldname": "customs_status",
-   "fieldtype": "Select",
-   "label": "Customs Status",
-   "options": "\nNot Submitted\nSubmitted\nUnder Review\nCleared\nHeld\nRejected"
-  },
-  {
-   "fieldname": "customs_broker",
-   "fieldtype": "Link",
-   "label": "Customs Broker",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "column_break_customs",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "duty_amount",
-   "fieldtype": "Currency",
-   "label": "Duty Amount"
-  },
-  {
-   "fieldname": "tax_amount",
-   "fieldtype": "Currency",
-   "label": "Tax Amount"
-  },
-  {
-   "fieldname": "customs_clearance_date",
-   "fieldtype": "Date",
-   "label": "Customs Clearance Date"
-  },
-  {
-   "fieldname": "customs_notes",
-   "fieldtype": "Text",
-   "label": "Customs Notes"
-  },
-  {
-   "collapsible": 1,
    "fieldname": "insurance_section",
    "fieldtype": "Section Break",
    "label": "Cargo Insurance Information"
@@ -887,7 +725,7 @@
   },
   {
    "fieldname": "insurance_policy_number",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Insurance Policy Number"
   },
   {
@@ -902,7 +740,7 @@
   },
   {
    "fieldname": "insurance_claim_number",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Insurance Claim Number"
   },
   {
@@ -971,16 +809,54 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "options": "Sales Quote"
+   "options": "Sales Quote",
+   "read_only": 1,
+   "search_index": 1
   },
   {
-   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
-   "fetch_from": "sales_quote.company",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service"
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Job Details",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "charges",
@@ -1014,126 +890,6 @@
   },
   {
    "collapsible": 1,
-   "fieldname": "casslink_section",
-   "fieldtype": "Section Break",
-   "label": "CASSLink Integration"
-  },
-  {
-   "description": "IATA CASS participant code for billing and settlement",
-   "fieldname": "cass_participant_code",
-   "fieldtype": "Data",
-   "label": "CASS Participant Code"
-  },
-  {
-   "fieldname": "cass_settlement_status",
-   "fieldtype": "Select",
-   "label": "CASS Settlement Status",
-   "options": "\nPending\nSubmitted\nSettled\nDisputed\nRejected"
-  },
-  {
-   "fieldname": "cass_settlement_date",
-   "fieldtype": "Date",
-   "label": "CASS Settlement Date"
-  },
-  {
-   "fieldname": "column_break_cass",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "cass_billing_reference",
-   "fieldtype": "Data",
-   "label": "CASS Billing Reference"
-  },
-  {
-   "fieldname": "cass_settlement_amount",
-   "fieldtype": "Currency",
-   "label": "CASS Settlement Amount"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "tact_section",
-   "fieldtype": "Section Break",
-   "label": "TACT Integration"
-  },
-  {
-   "default": "0",
-   "fieldname": "tact_rate_lookup",
-   "fieldtype": "Check",
-   "label": "Use TACT Rate Lookup"
-  },
-  {
-   "description": "Reference number from TACT rate lookup",
-   "fieldname": "tact_rate_reference",
-   "fieldtype": "Data",
-   "label": "TACT Rate Reference"
-  },
-  {
-   "fieldname": "tact_rate_amount",
-   "fieldtype": "Currency",
-   "label": "TACT Rate Amount"
-  },
-  {
-   "fieldname": "column_break_tact",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "tact_currency",
-   "fieldtype": "Link",
-   "label": "TACT Currency",
-   "options": "Currency"
-  },
-  {
-   "fieldname": "tact_rate_validity",
-   "fieldtype": "Date",
-   "label": "TACT Rate Validity Date"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "eawb_section",
-   "fieldtype": "Section Break",
-   "label": "e-AWB (Electronic Air Waybill)"
-  },
-  {
-   "default": "0",
-   "fieldname": "eawb_enabled",
-   "fieldtype": "Check",
-   "label": "e-AWB Enabled"
-  },
-  {
-   "depends_on": "eval:doc.eawb_enabled==1",
-   "fieldname": "eawb_status",
-   "fieldtype": "Select",
-   "label": "e-AWB Status",
-   "options": "\nNot Created\nCreated\nSigned\nSubmitted\nAccepted\nRejected"
-  },
-  {
-   "depends_on": "eval:doc.eawb_enabled==1",
-   "fieldname": "eawb_digital_signature",
-   "fieldtype": "Data",
-   "label": "Digital Signature",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_eawb",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.eawb_enabled==1",
-   "fieldname": "eawb_signed_date",
-   "fieldtype": "Datetime",
-   "label": "e-AWB Signed Date",
-   "read_only": 1
-  },
-  {
-   "depends_on": "eval:doc.eawb_enabled==1",
-   "fieldname": "eawb_signed_by",
-   "fieldtype": "Link",
-   "label": "Signed By",
-   "options": "User",
-   "read_only": 1
-  },
-  {
-   "collapsible": 1,
    "fieldname": "tracking_section",
    "fieldtype": "Section Break",
    "label": "Real-time Tracking"
@@ -1146,13 +902,13 @@
   },
   {
    "fieldname": "tracking_number",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Tracking Number"
   },
   {
    "description": "URL for customer tracking portal",
    "fieldname": "tracking_url",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Tracking URL"
   },
   {
@@ -1179,168 +935,7 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
-   "fieldname": "revenue_section",
-   "fieldtype": "Section Break",
-   "label": "Revenue Recognition"
-  },
-  {
-   "fieldname": "revenue_recognition_date",
-   "fieldtype": "Date",
-   "label": "Revenue Recognition Date"
-  },
-  {
-   "fieldname": "revenue_recognition_method",
-   "fieldtype": "Select",
-   "label": "Recognition Method",
-   "options": "\nOn Delivery\nOn Departure\nOn Booking\nPercentage Complete\nMilestone Based"
-  },
-  {
-   "fieldname": "revenue_amount",
-   "fieldtype": "Currency",
-   "label": "Total Revenue Amount"
-  },
-  {
-   "fieldname": "column_break_revenue",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "partial_revenue_enabled",
-   "fieldtype": "Check",
-   "label": "Partial Revenue Recognition"
-  },
-  {
-   "fieldname": "recognized_revenue_amount",
-   "fieldtype": "Currency",
-   "label": "Recognized Revenue Amount",
-   "read_only": 1
-  },
-  {
-   "description": "Date when revenue was reversed (if applicable)",
-   "fieldname": "revenue_reversal_date",
-   "fieldtype": "Date",
-   "label": "Revenue Reversal Date"
-  },
-  {
-   "default": "0",
-   "fieldname": "auto_billing_enabled",
-   "fieldtype": "Check",
-   "label": "Auto Billing Enabled"
-  },
-  {
-   "fieldname": "billing_status",
-   "fieldtype": "Select",
-   "label": "Billing Status",
-   "options": "\nNot Billed\nPending\nBilled\nPartially Billed\nOverdue\nCancelled"
-  },
-  {
-   "fieldname": "sales_invoice",
-   "fieldtype": "Link",
-   "label": "Sales Invoice",
-   "options": "Sales Invoice"
-  },
-  {
-   "fieldname": "column_break_billing",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "billing_date",
-   "fieldtype": "Date",
-   "label": "Billing Date"
-  },
-  {
-   "fieldname": "billing_amount",
-   "fieldtype": "Currency",
-   "label": "Billing Amount"
-  },
-  {
-   "fieldname": "billing_currency",
-   "fieldtype": "Link",
-   "label": "Billing Currency",
-   "options": "Currency"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "invoice_monitoring_section",
-   "fieldtype": "Section Break",
-   "label": "Invoice Monitoring"
-  },
-  {
-   "fieldname": "purchase_invoice",
-   "fieldtype": "Link",
-   "label": "Purchase Invoice",
-   "options": "Purchase Invoice",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_invoiced",
-   "fieldtype": "Check",
-   "label": "Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_invoiced",
-   "fieldtype": "Date",
-   "label": "Date Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_paid",
-   "fieldtype": "Check",
-   "label": "Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_invoice_lifecycle",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "date_sales_invoice_requested",
-   "fieldtype": "Date",
-   "label": "SI Requested",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_sales_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "SI Submitted",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_purchase_invoice_requested",
-   "fieldtype": "Date",
-   "label": "PI Requested",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_purchase_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "PI Submitted",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "costs_fully_paid",
-   "fieldtype": "Check",
-   "label": "Costs Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_costs_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Costs Paid",
-   "read_only": 1
-  },
-  {
+   "depends_on": "eval:doc.is_main_service",
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
@@ -1390,11 +985,6 @@
    "show_dashboard": 1
   },
   {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
-  },
-  {
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
@@ -1424,14 +1014,12 @@
    "reqd": 1
   },
   {
-   "description": "This will be used when posting financial transactions to this job.",
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
-   "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
@@ -1501,20 +1089,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "wip_journal_entry",
-   "fieldtype": "Link",
-   "label": "WIP Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "wip_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "WIP Adjustment JE",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
    "default": "0",
    "fieldname": "wip_closed",
    "fieldtype": "Check",
@@ -1544,20 +1118,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "accrual_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Adjustment JE",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
    "default": "0",
    "fieldname": "accrual_closed",
    "fieldtype": "Check",
@@ -1581,18 +1141,6 @@
    "fieldname": "packages",
    "fieldtype": "Table",
    "options": "Air Shipment Packages"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "warehouse_items_section",
-   "fieldtype": "Section Break",
-   "label": "Warehouse Items"
-  },
-  {
-   "fieldname": "warehouse_items",
-   "fieldtype": "Table",
-   "label": "Warehouse Items",
-   "options": "Shipment Warehouse Item"
   },
   {
    "fieldname": "dashboard_tab",
@@ -1643,12 +1191,6 @@
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "billing_automation_section",
-   "fieldtype": "Section Break",
-   "label": "Billing Automation"
   },
   {
    "collapsible": 1,
@@ -1709,10 +1251,6 @@
    "label": "ATA"
   },
   {
-   "fieldname": "column_break_entities_agents",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "sending_agent",
    "fieldtype": "Link",
    "label": "Sending Agent",
@@ -1770,14 +1308,37 @@
    "fieldtype": "Column Break"
   },
   {
+   "collapsible": 1,
+   "fieldname": "section_break_job_details",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
    "fieldname": "charges_section",
    "fieldtype": "Section Break",
    "label": "Charges"
   },
   {
-   "fieldname": "section_break_quote_reference",
-   "fieldtype": "Section Break",
-   "label": "Quote Reference"
+   "fieldname": "column_break_mmyx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_eusz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "label": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\",\"is_active\",\"=\",1],[\"Transport Mode\",\"air\",\"=\",1]]",
+   "options": "Transport Mode"
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"air\",\"=\",1],[\"Load Type\",\"name\",\"=\",\"Yes\"]]",
+   "options": "Load Type"
   }
  ],
  "grid_page_length": 50,
@@ -1787,10 +1348,15 @@
   {
    "group": "Accounts",
    "link_doctype": "Sales Invoice",
-   "link_fieldname": "job_costing_number"
+   "link_fieldname": "job_number"
+  },
+  {
+   "group": "Bookings",
+   "link_doctype": "Transport Order",
+   "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-03-19 19:08:43.460611",
+ "modified": "2026-04-04 14:35:36.743191",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

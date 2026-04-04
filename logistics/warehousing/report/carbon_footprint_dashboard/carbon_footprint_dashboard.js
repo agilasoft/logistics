@@ -213,7 +213,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Export Dashboard"), function() {
 			frappe.call({
@@ -227,7 +227,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("View Carbon Chart"), function() {
 			frappe.call({
@@ -266,7 +266,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Carbon Insights"), function() {
 			frappe.call({
@@ -284,7 +284,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Reduction Recommendations"), function() {
 			frappe.call({
@@ -302,7 +302,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Offset Calculator"), function() {
 			frappe.call({
@@ -320,7 +320,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Compliance Check"), function() {
 			frappe.call({
@@ -338,7 +338,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		// Add Dashboard Integration button
 		report.page.add_inner_button(__("Show Dashboard"), function() {

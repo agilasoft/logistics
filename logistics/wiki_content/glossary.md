@@ -99,3 +99,13 @@ Common terms used in CargoNext and the logistics industry.
 **VAS (Value-Added Services)** – Services beyond basic storage (labeling, kitting, etc.).
 
 **Volumetric Weight** – Volume-based weight for air freight (L×W×H/6000).
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_This page is a term index only. For every column on a form, open the DocType’s wiki page (e.g. from the module intro links); those pages include **Complete field reference** generated from the app._
+
+<!-- wiki-field-reference:end -->
+

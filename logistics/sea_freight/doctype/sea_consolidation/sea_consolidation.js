@@ -126,7 +126,7 @@ frappe.ui.form.on("Sea Consolidation", {
 						}
 					},
 				});
-			}, __("Actions"));
+			}, __("Action"));
 			frm.add_custom_button(__("Get Documents"), function () {
 				frappe.call({
 					method: "logistics.document_management.api.populate_documents_from_template",
@@ -138,7 +138,7 @@ frappe.ui.form.on("Sea Consolidation", {
 						}
 					},
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		if (frm.doc.consolidation_charges && frm.doc.consolidation_charges.length > 0) {
 			frm.add_custom_button(__("Calculate Charges"), function () {
@@ -152,7 +152,7 @@ frappe.ui.form.on("Sea Consolidation", {
 						}
 					},
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		if (frm.doc.origin_port && frm.doc.destination_port) {
 			frm.add_custom_button(__("Populate from Ports"), function () {
@@ -166,7 +166,7 @@ frappe.ui.form.on("Sea Consolidation", {
 						}
 					},
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 	},
 });

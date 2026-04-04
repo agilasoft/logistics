@@ -31,7 +31,8 @@
    "fieldtype": "Link",
    "label": "Vehicle",
    "options": "Transport Vehicle",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Transport Vehicle\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "reservation_date",
@@ -63,7 +64,8 @@
    "fieldname": "reserved_weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "reserved_volume",
@@ -75,7 +77,8 @@
    "fieldname": "reserved_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "reserved_pallets",
@@ -125,7 +128,8 @@
    "fieldname": "reserved_by",
    "fieldtype": "Link",
    "label": "Reserved By",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "released_at",

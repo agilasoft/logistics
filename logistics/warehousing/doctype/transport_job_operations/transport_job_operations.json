@@ -40,7 +40,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "notes",

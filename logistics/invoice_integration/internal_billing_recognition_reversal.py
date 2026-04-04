@@ -15,7 +15,9 @@ from frappe.utils import flt
 from logistics.billing.cross_module_billing import get_internal_job_revenue_and_cost
 from logistics.billing.internal_billing import INTERNAL_BILLING_JOB_TYPES
 from logistics.invoice_integration.accrual_reversal import post_cost_accrual_reversal_journal_multi
-from logistics.invoice_integration.recognition_voucher_reversal import reversal_journal_entry_exists
+from logistics.invoice_integration.recognition_voucher_reversal import (
+	reversal_journal_entry_exists_by_remark_locate,
+)
 from logistics.invoice_integration.wip_reversal import post_wip_reversal_journal_multi
 
 
@@ -57,30 +59,24 @@ def reverse_recognition_for_internal_billing_je(je_doc, end_customer):
 			accrual_segments.append((job, [(acc_amt, None)]))
 
 	out = {}
-	ref_type = "Journal Entry"
-	ref_name = je_doc.name
 	posting_date = je_doc.posting_date
 	company = je_doc.company
 
 	wip_marker = "WIP recognition reversal (Internal Billing JV {0})".format(je_doc.name)
-	if wip_segments and not reversal_journal_entry_exists(ref_type, ref_name, wip_marker):
+	if wip_segments and not reversal_journal_entry_exists_by_remark_locate(wip_marker):
 		out["wip_journal_entry"] = post_wip_reversal_journal_multi(
 			wip_segments,
 			posting_date,
 			company,
-			ref_type,
-			ref_name,
 			wip_marker,
 		)
 
 	accrual_marker = "Accrual recognition reversal (Internal Billing JV {0})".format(je_doc.name)
-	if accrual_segments and not reversal_journal_entry_exists(ref_type, ref_name, accrual_marker):
+	if accrual_segments and not reversal_journal_entry_exists_by_remark_locate(accrual_marker):
 		out["accrual_journal_entry"] = post_cost_accrual_reversal_journal_multi(
 			accrual_segments,
 			posting_date,
 			company,
-			ref_type,
-			ref_name,
 			accrual_marker,
 		)
 

@@ -267,6 +267,11 @@ def calculate_job_billing_quantity(job: Dict, job_doc, unit_type: str, contract_
             return calculate_job_handling_unit_quantity(job_doc)
         elif unit_type == "Volume":
             return calculate_job_volume_quantity(job_doc)
+        elif unit_type == "Chargeable Weight":
+            return flt(
+                getattr(job_doc, "chargeable", 0)
+                or getattr(job_doc, "chargeable_weight", 0)
+            )
         elif unit_type == "Weight":
             return calculate_job_weight_quantity(job_doc)
         elif unit_type == "Package":

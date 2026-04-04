@@ -1,6 +1,17 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _declaration_order_name_from_internal_job_details(frm) {
+	var rows = frm.doc.internal_job_details || [];
+	for (var i = 0; i < rows.length; i++) {
+		var r = rows[i];
+		if (String(r.job_type || "").trim() === "Declaration Order" && String(r.job_no || "").trim()) {
+			return String(r.job_no).trim();
+		}
+	}
+	return "";
+}
+
 function _load_milestone_html(frm) {
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._milestone_html_called) return;
@@ -46,15 +57,15 @@ function _load_profitability_html(frm) {
 			control.$wrapper.html(html || '');
 		}
 	}
-	if (!frm.doc.job_costing_number || !frm.doc.company) {
-		set_html("<p class=\"text-muted\">" + __("Set Job Costing Number and Company to load profitability from General Ledger.") + "</p>");
+	if (!frm.doc.job_number || !frm.doc.company) {
+		set_html("<p class=\"text-muted\">" + __("Set Job Number and Company to load profitability from General Ledger.") + "</p>");
 		return;
 	}
 	set_html("<p class=\"text-muted\"><i class=\"fa fa-spinner fa-spin\"></i> " + __("Loading profitability...") + "</p>");
 	frappe.call({
 		method: 'logistics.job_management.api.get_job_profitability_html',
 		args: {
-			job_costing_number: frm.doc.job_costing_number,
+			job_number: frm.doc.job_number,
 			company: frm.doc.company
 		},
 		callback: function(r) {
@@ -74,6 +85,78 @@ function _load_profitability_html(frm) {
 function _air_shipment_volume_fallback(frm, cdt, cdn, grid_row) {
 	var fn = window.logistics_volume_from_dimensions_fallback;
 	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
+}
+
+function _show_create_from_shipment_review_dialog(frm, target_label, on_continue) {
+	var is_internal = !!frm.doc.is_internal_job;
+	var message = is_internal
+		? __("This source is an Internal Job. The new {0} will also be created as an Internal Job linked to this source.", [target_label])
+		: __("Review source data that will be passed to {0}.", [target_label]);
+	var dialog = new frappe.ui.Dialog({
+		title: __("Create > {0}", [target_label]),
+		fields: [
+			{ fieldtype: "HTML", fieldname: "info_html" },
+			{ fieldtype: "Section Break", label: __("Source Context") },
+			{ fieldtype: "Data", fieldname: "source_doc", label: __("Source Document"), read_only: 1, default: frm.doc.name || "" },
+			{ fieldtype: "Data", fieldname: "customer", label: __("Customer"), read_only: 1, default: frm.doc.local_customer || "" },
+			{ fieldtype: "Data", fieldname: "company", label: __("Company"), read_only: 1, default: frm.doc.company || "" },
+			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), read_only: 1, default: is_internal ? 1 : 0 },
+			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Job Type"), read_only: 1, default: frm.doc.main_job_type || "" },
+			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Job"), read_only: 1, default: frm.doc.main_job || "" },
+		],
+		primary_action_label: __("Continue"),
+		primary_action: function() {
+			dialog.hide();
+			if (typeof on_continue === "function") {
+				on_continue();
+			}
+		},
+	});
+	dialog.fields_dict.info_html.$wrapper.html('<div class="text-muted">' + message + "</div>");
+	dialog.show();
+}
+
+var _AIR_SHIPMENT_MAWB_VIRTUAL_FIELDS = [
+	'mawb_airline',
+	'mawb_flight_no',
+	'mawb_flight_date',
+	'mawb_flight_status',
+	'mawb_booking_reference_no',
+	'mawb_agent_reference',
+	'mawb_origin_airport',
+	'mawb_destination_airport',
+	'mawb_scheduled_departure',
+	'mawb_scheduled_arrival',
+	'mawb_etd_local',
+	'mawb_eta_local'
+];
+
+function _set_mawb_virtual_values(frm, values) {
+	var payload = {};
+	_AIR_SHIPMENT_MAWB_VIRTUAL_FIELDS.forEach(function(fieldname) {
+		payload[fieldname] = values && Object.prototype.hasOwnProperty.call(values, fieldname)
+			? values[fieldname]
+			: null;
+	});
+	frm.set_value(payload);
+}
+
+function _refresh_mawb_virtuals(frm) {
+	if (!frm.doc.master_awb) {
+		_set_mawb_virtual_values(frm, null);
+		return;
+	}
+	if (frm._refreshing_mawb_virtuals) return;
+	frm._refreshing_mawb_virtuals = true;
+	frappe.call({
+		method: 'logistics.air_freight.doctype.air_shipment.air_shipment.get_master_awb_virtuals',
+		args: { master_awb: frm.doc.master_awb },
+		callback: function(r) {
+			_set_mawb_virtual_values(frm, (r && r.message) || {});
+		}
+	}).always(function() {
+		frm._refreshing_mawb_virtuals = false;
+	});
 }
 
 frappe.ui.form.on('Air Shipment', {
@@ -201,8 +284,13 @@ frappe.ui.form.on('Air Shipment', {
 		}
 	},
 
+	master_awb: function(frm) {
+		_refresh_mawb_virtuals(frm);
+	},
+
 	refresh: function(frm) {
 		_update_measurement_fields_readonly(frm);
+		_refresh_mawb_virtuals(frm);
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
@@ -249,6 +337,38 @@ frappe.ui.form.on('Air Shipment', {
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
+			if (frappe.model.can_create('Air Shipment IATA Transaction')) {
+				frm.add_custom_button(__('IATA / e-AWB'), function() {
+					function open_or_create_iata(txName) {
+						if (txName) {
+							frappe.set_route('Form', 'Air Shipment IATA Transaction', txName);
+							return;
+						}
+						frappe.confirm(
+							__('Create an IATA Transaction for IATA status, e-AWB, CASSLink, and TACT?'),
+							function() {
+								frappe.call({
+									method: 'logistics.air_freight.doctype.air_shipment.air_shipment.create_air_shipment_iata_transaction',
+									args: { air_shipment: frm.doc.name },
+									freeze: true,
+									freeze_message: __('Creating IATA Transaction...'),
+								}).then(function(r) {
+									if (r.message) {
+										frappe.set_route('Form', 'Air Shipment IATA Transaction', r.message);
+									}
+								});
+							}
+						);
+					}
+					frappe.db.get_value(
+						'Air Shipment IATA Transaction',
+						{ air_shipment: frm.doc.name },
+						'name'
+					).then(function(r) {
+						open_or_create_iata(r && r.name);
+					});
+				}, __('Integrations'));
+			}
 			frm.add_custom_button(__('Get Milestones'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
@@ -260,7 +380,7 @@ frappe.ui.form.on('Air Shipment', {
 						}
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
@@ -272,7 +392,7 @@ frappe.ui.form.on('Air Shipment', {
 						}
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 			if (frm.doc.charges && frm.doc.charges.length > 0) {
 				frm.add_custom_button(__('Calculate Charges'), function() {
 					frm.call('recalculate_all_charges').then(function(r) {
@@ -281,12 +401,12 @@ frappe.ui.form.on('Air Shipment', {
 							frappe.show_alert({ message: __(r.message.message), indicator: 'green' }, 3);
 						}
 					});
-				}, __('Actions'));
+				}, __('Action'));
 			}
 			if (typeof logistics_additional_charges_show_sales_quote_dialog === 'function') {
 				frm.add_custom_button(__('Get Additional Charges from Quote'), function() {
 					logistics_additional_charges_show_sales_quote_dialog(frm, 'Air Shipment');
-				}, __('Actions'));
+				}, __('Action'));
 			}
 		}
 
@@ -306,59 +426,83 @@ frappe.ui.form.on('Air Shipment', {
 						show_create_purchase_invoice_dialog(frm);
 					}, __('Create'));
 				}
-				frm.add_custom_button(__('Inbound Order'), function() {
-					// Check if warehouse_items is empty
-					const warehouse_items = frm.doc.warehouse_items || [];
-					if (warehouse_items.length === 0) {
-						frappe.confirm(
-							__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
-							function() {
-								// User confirmed - proceed with conversion
-								frappe.call({
-									method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
-									args: { air_shipment_name: frm.doc.name },
-									freeze: true,
-									freeze_message: __('Creating Inbound Order...'),
-									callback: function(r) {
-										if (r.message && r.message.inbound_order) {
-											frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-										}
-									}
-								});
-							}
-							// User cancelled - do nothing
-						);
+				frm.add_custom_button(__('Internal Job'), function() {
+					function _openInternalJobDlg() {
+						if (window.logistics_show_create_internal_job_dialog) {
+							window.logistics_show_create_internal_job_dialog(frm);
+						} else {
+							frappe.msgprint({
+								title: __('Not available'),
+								message: __(
+									'Internal job dialog failed to load. Run bench build --app logistics, bench clear-cache, hard-refresh (Ctrl+Shift+R), or check the browser console for errors.'
+								),
+								indicator: 'red',
+							});
+						}
+					}
+					if (window.logistics_show_create_internal_job_dialog) {
+						_openInternalJobDlg();
 					} else {
-						// warehouse_items exist - proceed directly
-						frappe.call({
-							method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
-							args: { air_shipment_name: frm.doc.name },
-							freeze: true,
-							freeze_message: __('Creating Inbound Order...'),
-							callback: function(r) {
-								if (r.message && r.message.inbound_order) {
-									frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-								}
-							}
-						});
+						frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=5', _openInternalJobDlg);
 					}
 				}, __('Create'));
-				frm.add_custom_button(__('Transport Order'), function() {
-					frappe.call({
-						method: 'logistics.utils.module_integration.create_transport_order_from_air_shipment',
-						args: { air_shipment_name: frm.doc.name },
-						freeze: true,
-						freeze_message: __('Creating Transport Order...'),
-						callback: function(r) {
-							if (r.message && r.message.transport_order) {
-								frappe.set_route('Form', 'Transport Order', r.message.transport_order);
-							}
-						}
-					});
-				}, __('Create'));
-				frm.add_custom_button(__('Declaration Order'), function() {
-					frappe.new_doc('Declaration Order', { air_shipment: frm.doc.name });
-				}, __('Create'));
+				function _air_shipment_add_inbound_declaration_buttons(flags) {
+					const f = flags || {};
+					if (f.allow_inbound) {
+						frm.add_custom_button(__('Inbound Order'), function() {
+							_show_create_from_shipment_review_dialog(frm, "Inbound Order", function() {
+								const warehouse_items = frm.doc.warehouse_items || [];
+								if (warehouse_items.length === 0) {
+									frappe.confirm(
+										__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
+										function() {
+											frappe.call({
+												method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+												args: { air_shipment_name: frm.doc.name },
+												freeze: true,
+												freeze_message: __('Creating Inbound Order...'),
+												callback: function(r) {
+													if (r.message && r.message.inbound_order) {
+														frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+													}
+												}
+											});
+										}
+									);
+								} else {
+									frappe.call({
+										method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
+										args: { air_shipment_name: frm.doc.name },
+										freeze: true,
+										freeze_message: __('Creating Inbound Order...'),
+										callback: function(r) {
+											if (r.message && r.message.inbound_order) {
+												frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
+											}
+										}
+									});
+								}
+							});
+						}, __('Create'));
+					}
+				}
+				frappe.call({
+					method: 'logistics.utils.sales_quote_service_eligibility.get_quote_module_flags',
+					args: {
+						sales_quote: frm.doc.sales_quote,
+						source_doctype: 'Air Shipment',
+						source_name: frm.doc.name
+					},
+					callback: function(r) {
+						_air_shipment_add_inbound_declaration_buttons(r.message || {});
+					}
+				});
+				var _do_from_ij = _declaration_order_name_from_internal_job_details(frm);
+				if (_do_from_ij) {
+					frm.add_custom_button(__('View Declaration Order'), function() {
+						frappe.set_route('Form', 'Declaration Order', _do_from_ij);
+					}, __('View'));
+				}
 				frm.add_custom_button(__('Create Change Request'), function() {
 					frappe.call({
 						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
@@ -370,10 +514,6 @@ frappe.ui.form.on('Air Shipment', {
 						}
 					});
 				}, __('Create'));
-				frm.add_custom_button(__('Sea Booking'), function() {
-					frappe.new_doc('Sea Booking');
-				}, __('Create'));
-
 				// Post menu
 				frm.add_custom_button(__('Standard Costs'), function() {
 					frappe.call({
@@ -390,7 +530,6 @@ frappe.ui.form.on('Air Shipment', {
 							method: 'logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote',
 							args: {
 								sales_quote_name: frm.doc.sales_quote,
-								billing_company: frm.doc.company,
 								posting_date: frappe.datetime.get_today()
 							},
 							callback: function(r) {
@@ -415,7 +554,9 @@ frappe.ui.form.on('Air Shipment', {
 							callback: function(r) {
 								if (r.message) {
 									var msg = r.message.message || __('Internal billing processed');
-									if (r.message.journal_entry) {
+									if (r.message.journal_entries && r.message.journal_entries.length) {
+										msg = __('Created Journal Entries: {0}.', [r.message.journal_entries.join(', ')]);
+									} else if (r.message.journal_entry) {
 										msg = __('Created Journal Entry {0}.', [r.message.journal_entry]);
 									}
 									frappe.show_alert({ message: msg, indicator: 'blue' }, 5);
@@ -427,6 +568,10 @@ frappe.ui.form.on('Air Shipment', {
 				}
 				// WIP & Accrual recognition (Post > Recognize WIP & Accrual, Recognition menu)
 				_air_shipment_add_recognition_buttons(frm);
+				// Reopen/Close Job (charges) after deferred Post/Recognition — same ordering concern as Sea Shipment
+				if (window.logistics && logistics.job_charge_reopen && logistics.job_charge_reopen.setup) {
+					logistics.job_charge_reopen.setup(frm);
+				}
 			}, 100);
 		}
 	},
@@ -469,8 +614,30 @@ function _update_measurement_fields_readonly(frm) {
  */
 function _air_shipment_add_recognition_buttons(frm) {
 	var d = frm.doc;
-	var needs_wip = !d.wip_journal_entry && !d.wip_closed;
-	var needs_accrual = !d.accrual_journal_entry && !d.accrual_closed;
+	var needs_wip = (typeof logistics !== 'undefined' && logistics.recognition && logistics.recognition.needs_wip_recognition)
+		? logistics.recognition.needs_wip_recognition(d)
+		: ((function() {
+			var rows = d.charges || [];
+			for (var iw = 0; iw < rows.length; iw++) {
+				var rw = rows[iw];
+				if ((rw.charge_type || '').toLowerCase() === 'disbursement') continue;
+				var erw = flt(rw.estimated_revenue) || flt(rw.base_amount) || flt(rw.actual_revenue) || flt(rw.amount) || flt(rw.total) || 0;
+				if (erw > 0 && !rw.wip_recognition_journal_entry) return true;
+			}
+			return flt(d.estimated_revenue) > flt(d.wip_amount);
+		})());
+	var needs_accrual = (typeof logistics !== 'undefined' && logistics.recognition && logistics.recognition.needs_accrual_recognition)
+		? logistics.recognition.needs_accrual_recognition(d)
+		: ((function() {
+			var rowsa = d.charges || [];
+			for (var ia = 0; ia < rowsa.length; ia++) {
+				var ra = rowsa[ia];
+				if ((ra.charge_type || '').toLowerCase() === 'disbursement') continue;
+				var ca = flt(ra.estimated_cost) || flt(ra.cost_base_amount) || flt(ra.actual_cost) || flt(ra.cost) || 0;
+				if (ca > 0 && !ra.accrual_recognition_journal_entry) return true;
+			}
+			return flt(d.estimated_costs) > flt(d.accrual_amount);
+		})());
 	if (needs_wip || needs_accrual) {
 		frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
 			frappe.call({
@@ -525,7 +692,7 @@ function _air_shipment_add_recognition_buttons(frm) {
 			}, __('Recognize Accruals'), __('Create'));
 		}, __('Recognition'));
 	}
-	if (d.wip_journal_entry && d.wip_amount > 0 && !d.wip_closed) {
+	if (d.wip_amount > 0) {
 		frm.add_custom_button(__('Adjust WIP'), function() {
 			frappe.prompt([
 				{ fieldname: 'adjustment_amount', fieldtype: 'Currency', label: __('Adjustment Amount'), description: __('Current WIP: {0}', [d.wip_amount]), reqd: 1 },
@@ -541,7 +708,7 @@ function _air_shipment_add_recognition_buttons(frm) {
 			}, __('Adjust WIP'), __('Create'));
 		}, __('Recognition'));
 	}
-	if (d.accrual_journal_entry && d.accrual_amount > 0 && !d.accrual_closed) {
+	if (d.accrual_amount > 0) {
 		frm.add_custom_button(__('Adjust Accruals'), function() {
 			frappe.prompt([
 				{ fieldname: 'adjustment_amount', fieldtype: 'Currency', label: __('Adjustment Amount'), description: __('Current Accrual: {0}', [d.accrual_amount]), reqd: 1 },
@@ -557,7 +724,7 @@ function _air_shipment_add_recognition_buttons(frm) {
 			}, __('Adjust Accruals'), __('Create'));
 		}, __('Recognition'));
 	}
-	if ((d.wip_amount > 0 && !d.wip_closed) || (d.accrual_amount > 0 && !d.accrual_closed)) {
+	if (d.wip_amount > 0 || d.accrual_amount > 0) {
 		frm.add_custom_button(__('Close Recognition'), function() {
 			frappe.confirm(__('This will close all remaining WIP and Accruals. Continue?'), function() {
 				frappe.prompt([

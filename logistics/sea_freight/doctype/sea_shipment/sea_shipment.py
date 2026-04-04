@@ -5,12 +5,40 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 from frappe import _
+from logistics.utils.document_date_validation import (
+    throw_if_left_date_after_right,
+    is_future_date,
+)
+
+# Virtual MBL display fields: (fieldname on Sea Shipment, column on Master Bill)
+_MBL_VIRTUAL_FIELD_SOURCES = (
+    ("mbl_master_type", "master_type"),
+    ("mbl_shipping_line", "shipping_line"),
+    ("mbl_vessel", "vessel"),
+    ("mbl_voyage_no", "voyage_no"),
+    ("mbl_voyage_status", "voyage_status"),
+    ("mbl_vessel_date", "vessel_date"),
+    ("mbl_origin_port", "origin_port"),
+    ("mbl_destination_port", "destination_port"),
+    ("mbl_scheduled_departure", "scheduled_departure"),
+    ("mbl_scheduled_arrival", "scheduled_arrival"),
+    ("mbl_booking_reference_no", "booking_reference_no"),
+    ("mbl_agent_reference", "agent_reference"),
+)
+
 
 class SeaShipment(Document):
     def validate(self):
         """Validate Sea Shipment data"""
-        from logistics.utils.module_integration import set_billing_company_from_sales_quote
-        set_billing_company_from_sales_quote(self)
+        from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+        apply_shipper_consignee_defaults(self)
+        if self.is_new():
+            from logistics.sea_freight.sea_freight_settings_defaults import (
+                apply_accounting_defaults_from_sea_freight_settings,
+            )
+
+            apply_accounting_defaults_from_sea_freight_settings(self)
         # Normalize legacy house_type values
         self._normalize_house_type()
         self.validate_accounts()
@@ -32,6 +60,7 @@ class SeaShipment(Document):
         self.validate_packages()
         self.validate_containers()
         self.validate_master_bill()
+        self.validate_main_routing_legs_by_entry_type()
         try:
             from logistics.job_management.recognition_engine import (
                 sync_job_recognition_fields_from_policy,
@@ -44,6 +73,57 @@ class SeaShipment(Document):
         from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
 
         msgprint_sales_quote_validity_warnings(self)
+
+        from logistics.job_management.logistics_job_status import sync_sea_shipment_job_status
+
+        sync_sea_shipment_job_status(self)
+
+    def validate_main_routing_legs_by_entry_type(self):
+        """Allow additional Main leg for Transit/Transshipment while keeping Direct capped at one."""
+        entry_type = (getattr(self, "entry_type", "") or "").strip()
+        if not entry_type:
+            return
+
+        main_leg_count = sum(
+            1
+            for leg in (getattr(self, "routing_legs", None) or [])
+            if (getattr(leg, "type", "") or "").strip() == "Main"
+        )
+
+        if entry_type in {"Transit", "Transshipment"} and main_leg_count > 2:
+            frappe.throw(
+                _("For {0}, you can define at most two Main routing legs.").format(entry_type),
+                title=_("Invalid Routing Legs"),
+            )
+
+        if entry_type == "Direct" and main_leg_count > 1:
+            frappe.throw(
+                _("For Direct entry type, only one Main routing leg is allowed."),
+                title=_("Invalid Routing Legs"),
+            )
+    
+    def before_submit(self):
+        """Block submission when DG is Non-Compliant and shipment contains dangerous goods."""
+        try:
+            contains_dg = bool(getattr(self, "contains_dangerous_goods", 0))
+            dg_status = (getattr(self, "dg_compliance_status", "") or "").strip()
+            if contains_dg and dg_status == "Non-Compliant":
+                frappe.throw(
+                    _(
+                        "Cannot submit Sea Shipment: DG Compliance Status is Non-Compliant while "
+                        "this shipment contains dangerous goods. Please resolve compliance first."
+                    ),
+                    title=_("Dangerous Goods Non-Compliant"),
+                )
+        except Exception:
+            # If any unexpected error occurs while checking, fail safe by throwing a clear message
+            frappe.throw(
+                _(
+                    "Submission blocked due to Dangerous Goods compliance validation error. "
+                    "Please review DG fields."
+                ),
+                title=_("Dangerous Goods Validation"),
+            )
 
     def aggregate_volume_from_packages(self):
         """Set header volume from sum of package volumes, converted to m³."""
@@ -171,12 +251,12 @@ class SeaShipment(Document):
         }
     
     def after_insert(self):
-        """Create Job Costing Number when document is first created. Defer to avoid 'not found' during conversion."""
+        """Create Job Number when document is first created. Defer to avoid 'not found' during conversion."""
         settings = frappe.get_single("Sea Freight Settings")
         if settings and not getattr(settings, "auto_create_job_costing", True):
             return
         frappe.enqueue(
-            "logistics.sea_freight.doctype.sea_shipment.sea_shipment.create_job_costing_for_shipment",
+            "logistics.sea_freight.doctype.sea_shipment.sea_shipment.create_job_number_for_shipment",
             queue="default",
             shipment_name=self.name,
             company=self.company,
@@ -204,15 +284,15 @@ class SeaShipment(Document):
                     "Container Management"
                 )
         
-        # Create Job Costing Number if missing and auto-create is enabled
+        # Create Job Number if missing and auto-create is enabled
         # Only create for existing documents (updates), not during insert
         # For new documents, after_insert will handle creation via background job
-        if self.name and not self.job_costing_number and frappe.db.exists("Sea Shipment", self.name):
-            self.create_job_costing_number_if_needed()
+        if self.name and not self.job_number and frappe.db.exists("Sea Shipment", self.name):
+            self.create_job_number_if_needed()
         
-        # Sync Job Costing Number to Booking if it was manually changed
-        if self.name and self.job_costing_number and self.has_value_changed("job_costing_number"):
-            self.sync_job_costing_to_booking()
+        # Sync Job Number to Booking if it was manually changed
+        if self.name and self.job_number and self.has_value_changed("job_number"):
+            self.sync_job_number_to_booking()
     
     def after_submit(self):
         """Record sustainability metrics after shipment submission"""
@@ -392,24 +472,24 @@ class SeaShipment(Document):
                 else:
                     raise
     
-    def create_job_costing_number_if_needed(self):
-        """Create Job Costing Number when document is first saved"""
+    def create_job_number_if_needed(self):
+        """Create Job Number when document is first saved"""
         # Check settings for auto-create job costing
         settings = frappe.get_single("Sea Freight Settings")
         if settings and not getattr(settings, "auto_create_job_costing", True):
             return
         
-        # Only create if job_costing_number is not set
-        if not self.job_costing_number:
-            # Check if this is the first save (no existing Job Costing Number)
-            existing_job_ref = frappe.db.get_value("Job Costing Number", {
+        # Only create if job_number is not set
+        if not self.job_number:
+            # Check if this is the first save (no existing Job Number)
+            existing_job_ref = frappe.db.get_value("Job Number", {
                 "job_type": "Sea Shipment",
                 "job_no": self.name
             })
             
             if not existing_job_ref:
-                # Create Job Costing Number
-                job_ref = frappe.new_doc("Job Costing Number")
+                # Create Job Number
+                job_ref = frappe.new_doc("Job Number")
                 job_ref.job_type = "Sea Shipment"
                 job_ref.job_no = self.name
                 job_ref.company = self.company
@@ -421,35 +501,35 @@ class SeaShipment(Document):
                 job_ref.job_open_date = self.booking_date
                 job_ref.insert(ignore_permissions=True)
                 
-                # Set the job_costing_number field
-                self.job_costing_number = job_ref.name
+                # Set the job_number field
+                self.job_number = job_ref.name
                 
-                frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+                frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
                 
                 # Sync to related Sea Booking if it exists
-                self.sync_job_costing_to_booking()
+                self.sync_job_number_to_booking()
     
-    def sync_job_costing_to_booking(self):
-        """Sync Job Costing Number from Shipment to related Sea Booking"""
-        if not self.job_costing_number:
+    def sync_job_number_to_booking(self):
+        """Sync Job Number from Shipment to related Sea Booking"""
+        if not self.job_number:
             return
         
         if not getattr(self, "sea_booking", None):
             return
         
         try:
-            # Check if Booking exists and get its current Job Costing Number
-            booking_jcn = frappe.db.get_value("Sea Booking", self.sea_booking, "job_costing_number")
+            # Check if Booking exists and get its current Job Number
+            booking_jcn = frappe.db.get_value("Sea Booking", self.sea_booking, "job_number")
             
-            # Update Booking if it doesn't have a Job Costing Number or if it's different
-            if booking_jcn != self.job_costing_number:
-                frappe.db.set_value("Sea Booking", self.sea_booking, "job_costing_number", self.job_costing_number)
+            # Update Booking if it doesn't have a Job Number or if it's different
+            if booking_jcn != self.job_number:
+                frappe.db.set_value("Sea Booking", self.sea_booking, "job_number", self.job_number)
                 frappe.db.commit()
         except Exception as e:
             # Log error but don't fail the shipment save
             frappe.log_error(
-                f"Error syncing Job Costing Number to Sea Booking {self.sea_booking}: {str(e)}",
-                "Job Costing Number Sync Error"
+                f"Error syncing Job Number to Sea Booking {self.sea_booking}: {str(e)}",
+                "Job Number Sync Error"
             )
 
     def validate_required_fields(self):
@@ -484,8 +564,6 @@ class SeaShipment(Document):
     
     def validate_dates(self):
         """Validate date logic for Sea Shipment"""
-        from frappe.utils import getdate, today
-        
         from logistics.utils.validation_user_messages import (
             atd_ata_freight_invalid_message,
             atd_ata_freight_title,
@@ -493,32 +571,28 @@ class SeaShipment(Document):
             etd_eta_freight_title,
         )
 
-        # Validate ETD is not after ETA (allows same-day)
-        if self.etd and self.eta:
-            if getdate(self.etd) > getdate(self.eta):
-                frappe.throw(etd_eta_freight_invalid_message(), title=etd_eta_freight_title())
-
-        # Validate ATD is not after ATA (allows same-day)
-        if self.atd and self.ata:
-            if getdate(self.atd) > getdate(self.ata):
-                frappe.throw(atd_ata_freight_invalid_message(), title=atd_ata_freight_title())
+        throw_if_left_date_after_right(
+            self.etd, self.eta, etd_eta_freight_invalid_message, etd_eta_freight_title
+        )
+        throw_if_left_date_after_right(
+            self.atd, self.ata, atd_ata_freight_invalid_message, atd_ata_freight_title
+        )
         
         # Warn if booking date is in the future (only once per document lifecycle)
-        if self.booking_date:
-            if getdate(self.booking_date) > getdate(today()):
-                # Use a flag to prevent duplicate messages during insert/save
-                if not hasattr(self, '_booking_date_warning_shown'):
-                    from logistics.utils.validation_user_messages import (
-                        booking_date_future_warning_message,
-                        booking_date_future_warning_title,
-                    )
+        if self.booking_date and is_future_date(self.booking_date):
+            # Use a flag to prevent duplicate messages during insert/save
+            if not hasattr(self, '_booking_date_warning_shown'):
+                from logistics.utils.validation_user_messages import (
+                    booking_date_future_warning_message,
+                    booking_date_future_warning_title,
+                )
 
-                    frappe.msgprint(
-                        booking_date_future_warning_message(),
-                        indicator="orange",
-                        title=booking_date_future_warning_title(),
-                    )
-                    self._booking_date_warning_shown = True
+                frappe.msgprint(
+                    booking_date_future_warning_message(),
+                    indicator="orange",
+                    title=booking_date_future_warning_title(),
+                )
+                self._booking_date_warning_shown = True
     
     def validate_weight_volume(self):
         """Validate weight and volume for Sea Shipment"""
@@ -784,6 +858,23 @@ class SeaShipment(Document):
                         self.shipping_line, master_bill.shipping_line
                     ), indicator="orange")
 
+    def _get_mbl_row(self):
+        """Single-row cache from Master Bill for virtual MBL fields."""
+        key = self.get("master_bill")
+        if not key:
+            self._sea_mbl_row_cache_key = None
+            self._sea_mbl_row_cache = None
+            return None
+        if getattr(self, "_sea_mbl_row_cache_key", None) != key:
+            self._sea_mbl_row_cache = frappe.db.get_value(
+                "Master Bill",
+                key,
+                [src for _, src in _MBL_VIRTUAL_FIELD_SOURCES],
+                as_dict=True,
+            )
+            self._sea_mbl_row_cache_key = key
+        return self._sea_mbl_row_cache
+
     @frappe.whitelist()
     def get_dashboard_html(self):
         """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
@@ -993,6 +1084,11 @@ class SeaShipment(Document):
             
             today = getdate(now_datetime())
             days_since_discharge = (today - discharge_date).days
+
+            # Reset penalty flags/values on each run to avoid stale results.
+            self.has_penalties = 0
+            self.detention_days = 0
+            self.demurrage_days = 0
             
             # Calculate free time
             self.free_time_days = free_time_days
@@ -1023,7 +1119,8 @@ class SeaShipment(Document):
                     self.demurrage_days = 0
             
             # Calculate estimated penalty amount
-            self.estimated_penalty_amount = self._calculate_penalty_amount()
+            per_container_amount = self._calculate_penalty_amount()
+            self.estimated_penalty_amount = per_container_amount * self._get_penalty_container_count()
             
             # Update last penalty check
             self.last_penalty_check = now_datetime()
@@ -1035,6 +1132,12 @@ class SeaShipment(Document):
                 
         except Exception as e:
             frappe.log_error(f"Error calculating penalties for Sea Shipment {self.name}: {str(e)}", "Sea Shipment Penalty Calculation")
+
+    def _get_penalty_container_count(self):
+        """Count valid container rows for penalty total calculation."""
+        containers = self.get("containers") or []
+        count = sum(1 for row in containers if getattr(row, "container_no", None))
+        return count if count > 0 else 1
     
     def _calculate_penalty_amount(self):
         """Calculate estimated penalty amount based on detention and demurrage days"""
@@ -1232,15 +1335,22 @@ class SeaShipment(Document):
             # Clear existing charges
             self.set("charges", [])
             
-            # Get from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+            from logistics.utils.charge_service_type import sales_quote_charge_filters
+
+            sq_doc = frappe.get_doc("Sales Quote", self.sales_quote)
+            filters = sales_quote_charge_filters(self, sq_doc)
+
+            # Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
+            from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+
             charge_fields = [
                 "item_code", "item_name", "calculation_method", "uom", "currency",
                 "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-                "maximum_charge", "base_amount", "estimated_revenue"
-            ]
+                "maximum_charge", "base_amount", "estimated_revenue", "service_type",
+            ] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
             sales_quote_sea_freight_records = frappe.get_all(
                 "Sales Quote Charge",
-                filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Sea"},
+                filters=filters,
                 fields=charge_fields,
                 order_by="idx"
             )
@@ -1291,6 +1401,29 @@ class SeaShipment(Document):
                 "Sea Shipment - Populate Charges Error"
             )
             frappe.throw(_("Error populating charges: {0}").format(str(e)))
+
+
+for _fname, _src in _MBL_VIRTUAL_FIELD_SOURCES:
+    setattr(
+        SeaShipment,
+        _fname,
+        property(lambda self, s=_src: (self._get_mbl_row() or {}).get(s)),
+    )
+
+
+@frappe.whitelist()
+def get_master_bill_virtuals(master_bill=None):
+    """Desk: values for virtual MBL fields when Master BL link changes (no DB columns)."""
+    if not master_bill:
+        return {fk: None for fk, _ in _MBL_VIRTUAL_FIELD_SOURCES}
+    row = frappe.db.get_value(
+        "Master Bill",
+        master_bill,
+        [src for _, src in _MBL_VIRTUAL_FIELD_SOURCES],
+        as_dict=True,
+    )
+    row = row or {}
+    return {fk: row.get(src) for fk, src in _MBL_VIRTUAL_FIELD_SOURCES}
 
 
 @frappe.whitelist()
@@ -1365,9 +1498,9 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
     if getattr(shipment, "profit_center", None):
         invoice.profit_center = shipment.profit_center
     
-    # Add reference to Job Costing Number if it exists
-    if getattr(shipment, "job_costing_number", None):
-        invoice.job_costing_number = shipment.job_costing_number
+    # Add reference to Job Number if it exists
+    if getattr(shipment, "job_number", None):
+        invoice.job_number = shipment.job_number
     
     # Add reference in remarks
     base_remarks = invoice.remarks or ""
@@ -1505,7 +1638,7 @@ def _get_chargeable_weight_calculation_method():
     # Default to "Higher of Both" (common sea freight standard)
     return "Higher of Both"
 
-def create_job_costing_for_shipment(
+def create_job_number_for_shipment(
 	shipment_name,
 	company,
 	branch=None,
@@ -1513,14 +1646,14 @@ def create_job_costing_for_shipment(
 	profit_center=None,
 	booking_date=None,
 ):
-	"""Deferred: create Job Costing Number for Sea Shipment after commit (avoids 'not found' during conversion)."""
+	"""Deferred: create Job Number for Sea Shipment after commit (avoids 'not found' during conversion)."""
 	if not frappe.db.exists("Sea Shipment", shipment_name):
 		return
-	if frappe.db.get_value("Sea Shipment", shipment_name, "job_costing_number"):
+	if frappe.db.get_value("Sea Shipment", shipment_name, "job_number"):
 		return
-	if frappe.db.get_value("Job Costing Number", {"job_type": "Sea Shipment", "job_no": shipment_name}):
+	if frappe.db.get_value("Job Number", {"job_type": "Sea Shipment", "job_no": shipment_name}):
 		return
-	job_ref = frappe.new_doc("Job Costing Number")
+	job_ref = frappe.new_doc("Job Number")
 	job_ref.job_type = "Sea Shipment"
 	job_ref.job_no = shipment_name
 	job_ref.company = company
@@ -1529,14 +1662,14 @@ def create_job_costing_for_shipment(
 	job_ref.profit_center = profit_center
 	job_ref.job_open_date = booking_date
 	job_ref.insert(ignore_permissions=True)
-	frappe.db.set_value("Sea Shipment", shipment_name, "job_costing_number", job_ref.name)
+	frappe.db.set_value("Sea Shipment", shipment_name, "job_number", job_ref.name)
 	
 	# Sync to related Sea Booking if it exists
 	sea_booking = frappe.db.get_value("Sea Shipment", shipment_name, "sea_booking")
 	if sea_booking:
-		booking_jcn = frappe.db.get_value("Sea Booking", sea_booking, "job_costing_number")
+		booking_jcn = frappe.db.get_value("Sea Booking", sea_booking, "job_number")
 		if booking_jcn != job_ref.name:
-			frappe.db.set_value("Sea Booking", sea_booking, "job_costing_number", job_ref.name)
+			frappe.db.set_value("Sea Booking", sea_booking, "job_number", job_ref.name)
 	
 	frappe.db.commit()
 

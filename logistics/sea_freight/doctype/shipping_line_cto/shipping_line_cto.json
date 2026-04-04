@@ -15,14 +15,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "sea_cto",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Sea CTO",
-   "options": "Cargo Terminal Operator"
+   "options": "Cargo Terminal Operator",
+   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "direction",

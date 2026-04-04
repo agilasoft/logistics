@@ -33,7 +33,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Container Type"
+   "options": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "mode",
@@ -79,4 +80,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

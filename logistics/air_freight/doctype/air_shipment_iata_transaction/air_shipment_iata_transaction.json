@@ -1,0 +1,234 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-02 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_main",
+  "naming_series",
+  "air_shipment",
+  "column_break_hdr",
+  "iata_status",
+  "iata_message_id",
+  "last_status_update",
+  "section_break_eawb",
+  "eawb_enabled",
+  "eawb_status",
+  "eawb_digital_signature",
+  "column_break_eawb",
+  "eawb_signed_date",
+  "eawb_signed_by",
+  "section_break_cass",
+  "cass_participant_code",
+  "cass_settlement_status",
+  "cass_settlement_date",
+  "column_break_cass",
+  "cass_billing_reference",
+  "cass_settlement_amount",
+  "section_break_tact",
+  "tact_rate_lookup",
+  "tact_rate_reference",
+  "tact_rate_amount",
+  "column_break_tact",
+  "tact_currency",
+  "tact_rate_validity"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break",
+   "label": "Shipment Link"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "ASIATA-.#########",
+   "reqd": 1
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Air Shipment",
+   "options": "Air Shipment",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_hdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "iata_status",
+   "fieldtype": "Select",
+   "label": "IATA Status",
+   "options": "\nPending\nAccepted\nDeparted\nIn Transit\nArrived\nDelivered\nReady for Collection\nCustoms Cleared\nException\nReceived from IATA\nConfirmed via IATA"
+  },
+  {
+   "fieldname": "iata_message_id",
+   "fieldtype": "Data",
+   "label": "IATA Message ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_status_update",
+   "fieldtype": "Datetime",
+   "label": "Last Status Update",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_eawb",
+   "fieldtype": "Section Break",
+   "label": "e-AWB (Electronic Air Waybill)"
+  },
+  {
+   "default": "0",
+   "fieldname": "eawb_enabled",
+   "fieldtype": "Check",
+   "label": "e-AWB Enabled"
+  },
+  {
+   "depends_on": "eval:doc.eawb_enabled==1",
+   "fieldname": "eawb_status",
+   "fieldtype": "Select",
+   "label": "e-AWB Status",
+   "options": "\nNot Created\nCreated\nSigned\nSubmitted\nAccepted\nRejected"
+  },
+  {
+   "depends_on": "eval:doc.eawb_enabled==1",
+   "fieldname": "eawb_digital_signature",
+   "fieldtype": "Data",
+   "label": "Digital Signature",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_eawb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.eawb_enabled==1",
+   "fieldname": "eawb_signed_date",
+   "fieldtype": "Datetime",
+   "label": "e-AWB Signed Date",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.eawb_enabled==1",
+   "fieldname": "eawb_signed_by",
+   "fieldtype": "Link",
+   "label": "Signed By",
+   "options": "User",
+   "read_only": 1,
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_cass",
+   "fieldtype": "Section Break",
+   "label": "CASSLink Integration"
+  },
+  {
+   "description": "IATA CASS participant code for billing and settlement",
+   "fieldname": "cass_participant_code",
+   "fieldtype": "Data",
+   "label": "CASS Participant Code"
+  },
+  {
+   "fieldname": "cass_settlement_status",
+   "fieldtype": "Select",
+   "label": "CASS Settlement Status",
+   "options": "\nPending\nSubmitted\nSettled\nDisputed\nRejected"
+  },
+  {
+   "fieldname": "cass_settlement_date",
+   "fieldtype": "Date",
+   "label": "CASS Settlement Date"
+  },
+  {
+   "fieldname": "column_break_cass",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cass_billing_reference",
+   "fieldtype": "Data",
+   "label": "CASS Billing Reference"
+  },
+  {
+   "fieldname": "cass_settlement_amount",
+   "fieldtype": "Currency",
+   "label": "CASS Settlement Amount"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_tact",
+   "fieldtype": "Section Break",
+   "label": "TACT Integration"
+  },
+  {
+   "default": "0",
+   "fieldname": "tact_rate_lookup",
+   "fieldtype": "Check",
+   "label": "Use TACT Rate Lookup"
+  },
+  {
+   "description": "Reference number from TACT rate lookup",
+   "fieldname": "tact_rate_reference",
+   "fieldtype": "Data",
+   "label": "TACT Rate Reference"
+  },
+  {
+   "fieldname": "tact_rate_amount",
+   "fieldtype": "Currency",
+   "label": "TACT Rate Amount"
+  },
+  {
+   "fieldname": "column_break_tact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tact_currency",
+   "fieldtype": "Link",
+   "label": "TACT Currency",
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "tact_rate_validity",
+   "fieldtype": "Date",
+   "label": "TACT Rate Validity Date"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Shipment IATA Transaction",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "air_shipment",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

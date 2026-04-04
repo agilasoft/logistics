@@ -148,6 +148,33 @@ flowchart TD
   H -->|yes| X[Throw or deny print]
 ```
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_All fields from DocType **Credit Hold Lift Request** and nested child tables, in form order (including layout breaks). Columns: **Label** with technical **field name** in backticks, **Type**, and **Description** (from the DocType definition and standard freight/ERP semantics)._
+
+| Label (Field name) | Type | Description |
+| --- | --- | --- |
+| Series (`naming_series`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: CHL-.YYYY.-, CHL-.#####. |
+| Request (`section_request`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
+| Company (`company`) | Link | **From definition:** If set, the lift applies only to documents for this company. Leave blank for all companies. **Purpose:** Creates a controlled reference to **Company** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Company**. Create the master first if it does not exist. |
+| Customer (`customer`) | Link | **Purpose:** Creates a controlled reference to **Customer** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Customer**. Create the master first if it does not exist. |
+| `column_break_rq` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
+| Relieved DocType (`relieved_doctype`) | Link | **From definition:** DocType for which credit blocks are temporarily lifted (e.g. Air Shipment). **Purpose:** Creates a controlled reference to **DocType** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **DocType**. Create the master first if it does not exist. |
+| Scope (`scope`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: All Documents, Single Document. |
+| Reference (`reference_name`) | Dynamic Link | **From definition:** Required when scope is Single Document. **Purpose:** References another document whose **DocType** is chosen in field **relieved_doctype** (same pattern as ERPNext Dynamic Link). **What to enter:** First set the DocType field, then pick the document **name** for that type. |
+| Validity (`section_validity`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
+| Valid From (`valid_from`) | Date | **Purpose:** Calendar date for the business event described by the label. **What to enter:** Choose the date from the picker; must reflect operational truth. |
+| Valid To (`valid_to`) | Date | **Purpose:** Calendar date for the business event described by the label. **What to enter:** Choose the date from the picker; must reflect operational truth. |
+| `column_break_v` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
+| Justification (`justification`) | Small Text | **Purpose:** Short note or identifier where a full **Text** field is not needed. **What to enter:** One line of text; keep it brief for list views. |
+
+_Customer credit-tab logistics fields (`logistics_credit_status`, etc.) are custom fields on ERPNext **Customer** (see app fixtures). Credit-control toggles and subject DocTypes are on **Logistics Settings** — see [Logistics Settings](welcome/logistics-settings)._
+
+<!-- wiki-field-reference:end -->
+
 ## Related topics
 
 - [Logistics Settings](welcome/logistics-settings) — **Credit Control** tab (hold conditions, bypass role, **Apply hold to all DocTypes**, **Subject DocTypes**)
