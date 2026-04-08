@@ -97,7 +97,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-26 17:51:59.582270",
+ "modified": "2026-04-08 11:34:35.405392",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Change Request",
@@ -112,6 +112,18 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Change Request Approver",
    "share": 1,
    "write": 1
   }

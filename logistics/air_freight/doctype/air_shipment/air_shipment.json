@@ -104,54 +104,58 @@
   "column_break_mzhi",
   "notify_party_address",
   "charges_tab",
-  "section_break_vztz",
+  "column_break_logistics_reps",
   "company",
   "branch",
-  "column_break_vzlm",
   "cost_center",
   "profit_center",
-  "column_break_eusz",
-  "job_number",
+  "column_break_accounts",
   "project",
-  "charges_section",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_vztz",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
+  "wip_recognition_enabled",
+  "accrual_recognition_enabled",
+  "recognition_policy_reference",
   "recognition_date_basis",
   "recognition_date",
-  "recognition_policy_reference",
   "column_break_recognition",
-  "wip_recognition_enabled",
-  "wip_closed",
   "estimated_revenue",
   "wip_amount",
   "recognized_revenue",
+  "wip_journal_entry",
+  "wip_closed",
   "column_break_accrual",
-  "accrual_closed",
-  "accrual_recognition_enabled",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
-  "section_break_job_details",
+  "accrual_closed",
+  "quote_reference_section",
   "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
   "main_job_type",
   "main_job",
-  "column_break_mmyx",
-  "is_internal_job",
-  "sales_quote",
   "internal_job_details_section",
   "internal_job_details",
-  "documents_tab",
-  "document_management_section",
-  "documents_html",
-  "document_list_template",
-  "documents",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
   "milestone_template",
   "milestones",
+  "documents_tab",
+  "document_management_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -846,16 +850,24 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
    "label": "Internal Jobs"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
   },
   {
@@ -868,6 +880,11 @@
    "fieldname": "documents_tab",
    "fieldtype": "Tab Break",
    "label": "Documents"
+  },
+  {
+   "fieldname": "document_management_section",
+   "fieldtype": "Section Break",
+   "label": "Document Management"
   },
   {
    "fieldname": "documents_html",
@@ -935,10 +952,86 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.is_main_service",
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
+  },
+  {
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
+   "description": "This will be used when posting financial transactions to this job.",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
    "collapsible": 1,
@@ -983,47 +1076,6 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
-   "fieldname": "branch",
-   "fieldtype": "Link",
-   "label": "Branch",
-   "options": "Branch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
-   "options": "Cost Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "profit_center",
-   "fieldtype": "Link",
-   "label": "Profit Center",
-   "options": "Profit Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "job_number",
-   "fieldtype": "Link",
-   "label": "Job Number",
-   "options": "Job Number"
-  },
-  {
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "label": "Project",
-   "options": "Project"
   },
   {
    "collapsible": 1,
@@ -1086,6 +1138,13 @@
    "fieldname": "recognized_revenue",
    "fieldtype": "Currency",
    "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
    "read_only": 1
   },
   {
@@ -1287,11 +1346,6 @@
    "label": "More Info"
   },
   {
-   "fieldname": "document_management_section",
-   "fieldtype": "Section Break",
-   "label": "Document Management"
-  },
-  {
    "fieldname": "column_break_zgif",
    "fieldtype": "Column Break"
   },
@@ -1304,29 +1358,6 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "column_break_vzlm",
-   "fieldtype": "Column Break"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_job_details",
-   "fieldtype": "Section Break",
-   "label": "Job Details"
-  },
-  {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break",
-   "label": "Charges"
-  },
-  {
-   "fieldname": "column_break_mmyx",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_eusz",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "label": "Transport Mode",
@@ -1337,7 +1368,7 @@
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"air\",\"=\",1],[\"Load Type\",\"name\",\"=\",\"Yes\"]]",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"air\",\"=\",1]]",
    "options": "Load Type"
   }
  ],
@@ -1356,7 +1387,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-04 14:35:36.743191",
+ "modified": "2026-04-08 15:03:57.969890",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

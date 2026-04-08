@@ -159,6 +159,7 @@
    "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Is Active"
   }
  ],

@@ -94,7 +94,8 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 
 	// Build filters based on job type
 	var filters = {
-		transport: 1
+		transport: 1,
+		is_active: 1,
 	};
 	
 	// Map transport_job_type to Load Type boolean field
@@ -662,66 +663,6 @@ frappe.ui.form.on('Transport Job', {
 		// Create / Post / recognition — same deferred pattern as Air Shipment (charges + invoicing toolbar)
 		if (frm.doc.name && !frm.doc.__islocal) {
 			setTimeout(function() {
-				function _transport_job_add_inbound_declaration_buttons(flags) {
-					var f = flags || {};
-					if (f.allow_inbound) {
-						frm.add_custom_button(__('Inbound Order'), function() {
-							_show_create_from_job_review_dialog(frm, "Inbound Order", function() {
-								var pkgs = frm.doc.packages || [];
-								var needs_default = !pkgs.length || pkgs.every(function(p) { return !p.warehouse_item; });
-								var run_create = function() {
-									frappe.call({
-										method: 'logistics.utils.module_integration.create_inbound_order_from_transport_job',
-										args: { transport_job_name: frm.doc.name },
-										freeze: true,
-										freeze_message: __('Creating Inbound Order...'),
-										callback: function(r) {
-											if (r.exc) {
-												frappe.msgprint({
-													title: __('Error'),
-													message: r.exc || __('An error occurred while creating Inbound Order. Please check the error log for details.'),
-													indicator: 'red'
-												});
-												return;
-											}
-											if (r.message && r.message.inbound_order) {
-												frappe.show_alert({
-													message: r.message.message || __('Inbound Order {0} created successfully', [r.message.inbound_order]),
-													indicator: 'green'
-												}, 5);
-												setTimeout(function() {
-													frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-												}, 100);
-											} else {
-												frappe.msgprint({
-													title: __('Error'),
-													message: __('Unexpected response from server. Please check the error log for details.'),
-													indicator: 'red'
-												});
-											}
-										},
-										error: function(r) {
-											var error_msg = (r && r.message) ? (typeof r.message === 'string' ? r.message : r.message.message || r.message.exc || '') : __('Unknown error occurred');
-											frappe.msgprint({
-												title: __('Error Creating Inbound Order'),
-												message: error_msg,
-												indicator: 'red'
-											});
-										}
-									});
-								};
-								if (needs_default) {
-									frappe.confirm(
-										__('No Warehouse Item set on packages. The default warehouse item will be used where missing. Continue?'),
-										function() { run_create(); }
-									);
-								} else {
-									run_create();
-								}
-							});
-						}, __('Create'));
-					}
-				}
 				function _transport_job_add_rest_of_create_toolbar() {
 					frm.add_custom_button(__('Create Change Request'), function() {
 						frappe.call({
@@ -742,7 +683,7 @@ frappe.ui.form.on('Transport Job', {
 								frappe.msgprint({
 									title: __('Not available'),
 									message: __(
-										'Internal job dialog failed to load. Run bench build --app logistics, bench clear-cache, hard-refresh (Ctrl+Shift+R), or check the browser console for errors.'
+										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
 									),
 									indicator: 'red',
 								});
@@ -751,7 +692,7 @@ frappe.ui.form.on('Transport Job', {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=5', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=14', _openInternalJobDlg);
 						}
 					}, __('Create'));
 					frm.add_custom_button(__('Sales Invoice'), function() {
@@ -837,25 +778,7 @@ frappe.ui.form.on('Transport Job', {
 					}
 					_transport_job_add_recognition_buttons(frm);
 				}
-				function _transport_job_finish_create_toolbar(flags) {
-					_transport_job_add_inbound_declaration_buttons(flags || {});
-					_transport_job_add_rest_of_create_toolbar();
-				}
-				if (frm.doc.sales_quote) {
-					frappe.call({
-						method: 'logistics.utils.sales_quote_service_eligibility.get_quote_module_flags',
-						args: {
-							sales_quote: frm.doc.sales_quote,
-							source_doctype: 'Transport Job',
-							source_name: frm.doc.name
-						},
-						callback: function(r) {
-							_transport_job_finish_create_toolbar(r.message || {});
-						}
-					});
-				} else {
-					_transport_job_finish_create_toolbar({});
-				}
+				_transport_job_add_rest_of_create_toolbar();
 			}, 100);
 		}
 

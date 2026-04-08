@@ -152,50 +152,9 @@ function logistics_declaration_show_purchase_invoice_dialog(frm) {
 	});
 }
 
-function _warn_if_missing_service_charges(frm, service_type) {
-	var charges = frm.doc.charges || [];
-	var has_match = charges.some(function(row) {
-		return (row.service_type || '').trim() === service_type;
-	});
-	if (!has_match) {
-		frappe.msgprint({
-			title: __("Charges Warning"),
-			message: __("No {0} charges found yet. You can continue in draft, but submit will be blocked.", [service_type]),
-			indicator: "orange"
-		});
-	}
-}
-
 function _to_num(value) {
 	var n = parseFloat(value);
 	return isNaN(n) ? 0 : n;
-}
-
-function _show_create_from_job_review_dialog(frm, target_label, on_continue) {
-	var is_internal = !!frm.doc.is_internal_job;
-	var message = is_internal
-		? __("This source is an Internal Job. The new {0} will also be created as an Internal Job linked to this source.", [target_label])
-		: __("Review source data that will be passed to {0}.", [target_label]);
-	var dialog = new frappe.ui.Dialog({
-		title: __("Create > {0}", [target_label]),
-		fields: [
-			{ fieldtype: "HTML", fieldname: "info_html" },
-			{ fieldtype: "Section Break", label: __("Source Context") },
-			{ fieldtype: "Data", fieldname: "source_doc", label: __("Source Document"), read_only: 1, default: frm.doc.name || "" },
-			{ fieldtype: "Data", fieldname: "customer", label: __("Customer"), read_only: 1, default: frm.doc.customer || "" },
-			{ fieldtype: "Data", fieldname: "company", label: __("Company"), read_only: 1, default: frm.doc.company || "" },
-			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), read_only: 1, default: is_internal ? 1 : 0 },
-			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Job Type"), read_only: 1, default: frm.doc.main_job_type || "" },
-			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Job"), read_only: 1, default: frm.doc.main_job || "" }
-		],
-		primary_action_label: __("Continue"),
-		primary_action: function() {
-			dialog.hide();
-			if (typeof on_continue === "function") on_continue();
-		}
-	});
-	dialog.fields_dict.info_html.$wrapper.html('<div class="text-muted">' + message + '</div>');
-	dialog.show();
 }
 
 function _auto_set_payment_status(frm) {
@@ -217,6 +176,15 @@ function _auto_set_payment_status(frm) {
 		return;
 	}
 	frm.set_value("payment_status", "Pending");
+}
+
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
 frappe.ui.form.on("Declaration", {
@@ -258,6 +226,9 @@ frappe.ui.form.on("Declaration", {
 				}
 			});
 		});
+	},
+	onload(frm) {
+		_logistics_set_charges_cannot_add_rows(frm);
 	},
 	setup(frm) {
 		frm.set_query('milestone_template', function() {
@@ -305,6 +276,12 @@ frappe.ui.form.on("Declaration", {
 	},
 	
 	refresh(frm) {
+		_logistics_set_charges_cannot_add_rows(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+			}
+		}, 0);
 		// Filter Declaration Product Code by importer/exporter for line items
 		frm.set_query("declaration_product_code", "commercial_invoice_line_items", function() {
 			const filters = [["Declaration Product Code", "active", "=", 1]];
@@ -455,6 +432,26 @@ frappe.ui.form.on("Declaration", {
 					}
 				});
 			}, __('Create'));
+			frm.add_custom_button(__('Internal Job'), function() {
+				function _openInternalJobDlg() {
+					if (window.logistics_show_create_internal_job_dialog) {
+						window.logistics_show_create_internal_job_dialog(frm);
+					} else {
+						frappe.msgprint({
+							title: __('Not available'),
+							message: __(
+								'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
+							),
+							indicator: 'red',
+						});
+					}
+				}
+				if (window.logistics_show_create_internal_job_dialog) {
+					_openInternalJobDlg();
+				} else {
+					frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=14', _openInternalJobDlg);
+				}
+			}, __('Create'));
 		}
 		// Create > Declaration Order from linked Sales Quote (same eligibility as Air/Sea Shipment)
 		if (frm.doc.name && !frm.doc.__islocal && frm.doc.sales_quote && !frm.doc.declaration_order) {
@@ -496,57 +493,6 @@ frappe.ui.form.on("Declaration", {
 								});
 							}
 						);
-					}, __("Create"));
-				},
-			});
-		}
-		// Create > Transport Order from Main Service Declaration (internal job; link on Declaration)
-		if (
-			frm.doc.name &&
-			!frm.doc.__islocal &&
-			frm.doc.is_main_service &&
-			!frm.doc.is_internal_job &&
-			frm.doc.sales_quote &&
-			!frm.doc.transport_order
-		) {
-			frm.add_custom_button(__("Transport Order"), function () {
-				_show_create_from_job_review_dialog(frm, "Transport Order", function() {
-					_warn_if_missing_service_charges(frm, "Transport");
-					frappe.call({
-						method: "logistics.utils.module_integration.create_transport_order_from_declaration",
-						args: { declaration_name: frm.doc.name },
-						freeze: true,
-						freeze_message: __("Creating Transport Order..."),
-						callback: function (r) {
-							if (r.message && r.message.transport_order) {
-								frappe.set_route("Form", "Transport Order", r.message.transport_order);
-							}
-						},
-					});
-				});
-			}, __("Create"));
-		}
-		if (frm.doc.name && !frm.doc.__islocal && frm.doc.sales_quote) {
-			frappe.call({
-				method: "logistics.utils.sales_quote_service_eligibility.get_quote_module_flags",
-				args: { sales_quote: frm.doc.sales_quote },
-				callback: function (r) {
-					const f = r.message || {};
-					if (!f.allow_inbound) return;
-					frm.add_custom_button(__("Inbound Order"), function () {
-						_show_create_from_job_review_dialog(frm, "Inbound Order", function() {
-							frappe.call({
-								method: "logistics.utils.module_integration.create_inbound_order_from_declaration",
-								args: { declaration_name: frm.doc.name },
-								freeze: true,
-								freeze_message: __("Creating Inbound Order..."),
-								callback: function (r2) {
-									if (r2.message && r2.message.inbound_order) {
-										frappe.set_route("Form", "Inbound Order", r2.message.inbound_order);
-									}
-								},
-							});
-						});
 					}, __("Create"));
 				},
 			});

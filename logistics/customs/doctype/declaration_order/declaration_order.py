@@ -222,8 +222,19 @@ class DeclarationOrder(Document):
 			original_sales_quote = getattr(self, "sales_quote", None)
 
 		if self.sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-			validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				resolve_allow_linked_freight_bookings_for_internal_job,
+				validate_one_off_quote_not_converted,
+			)
+
+			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			validate_one_off_quote_not_converted(
+				self.sales_quote,
+				self.doctype,
+				self.name,
+				allow_linked_sea_booking=allow_sea,
+				allow_linked_air_booking=allow_air,
+			)
 
 		# Handle sales_quote field clearing - reset One-off quote if cleared
 		if not self.is_new() and original_sales_quote and not self.sales_quote:

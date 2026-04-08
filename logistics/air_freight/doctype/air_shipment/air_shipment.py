@@ -1551,6 +1551,33 @@ class AirShipment(Document):
 
 		msgprint_sales_quote_validity_warnings(self)
 
+		if getattr(self, "sales_quote", None):
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				resolve_allow_linked_freight_bookings_for_internal_job,
+				resolve_single_main_air_booking_for_sales_quote,
+				resolve_single_main_sea_booking_for_sales_quote,
+				validate_one_off_quote_not_converted,
+			)
+
+			allow_air = (getattr(self, "air_booking", None) or "").strip() or None
+			allow_sea = None
+			r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			if r_sea:
+				allow_sea = (r_sea or "").strip() or None
+			if r_air:
+				allow_air = allow_air or (r_air or "").strip() or None
+			if not allow_sea:
+				allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+			if not allow_air:
+				allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+			validate_one_off_quote_not_converted(
+				self.sales_quote,
+				self.doctype,
+				self.name,
+				allow_linked_sea_booking=allow_sea,
+				allow_linked_air_booking=allow_air,
+			)
+
 		from logistics.job_management.logistics_job_status import (
 			sync_air_shipment_job_status,
 			validate_job_status_field,
@@ -2302,22 +2329,17 @@ class AirShipment(Document):
 				)
 	
 	def validate_uld(self):
-		"""Validate ULD (Unit Load Device) fields"""
-		if self.uld_type:
-			# Fetch ULD capacity if ULD type is set
-			# Use getattr to safely access uld_capacity_kg in case the field doesn't exist
-			uld_capacity_kg = getattr(self, 'uld_capacity_kg', None)
+		"""Validate ULD / load-type capacity against total weight (legacy Unit Load Device link or Load Type max weight)."""
+		uld_type = getattr(self, "uld_type", None)
+		if uld_type:
+			uld_capacity_kg = getattr(self, "uld_capacity_kg", None)
 			if not uld_capacity_kg:
-				uld_capacity = frappe.get_cached_value("Unit Load Device", self.uld_type, "capacity_kg")
+				uld_capacity = frappe.get_cached_value("Unit Load Device", uld_type, "capacity_kg")
 				if uld_capacity:
-					# Only set if the field exists in the doctype
-					if 'uld_capacity_kg' in self.meta.get_fieldnames():
+					if self.meta.has_field("uld_capacity_kg"):
 						self.uld_capacity_kg = uld_capacity
 					uld_capacity_kg = uld_capacity
-			
-			# Validate weight doesn't exceed ULD capacity
-			# Re-fetch in case it was set above
-			uld_capacity_kg = getattr(self, 'uld_capacity_kg', uld_capacity_kg)
+			uld_capacity_kg = getattr(self, "uld_capacity_kg", uld_capacity_kg)
 			if uld_capacity_kg and self.total_weight:
 				if flt(self.total_weight) > flt(uld_capacity_kg):
 					frappe.msgprint(
@@ -2325,30 +2347,40 @@ class AirShipment(Document):
 							self.total_weight, uld_capacity_kg
 						),
 						indicator="orange",
-						title=_("ULD Capacity Warning")
+						title=_("ULD Capacity Warning"),
+					)
+			return
+
+		load_type = getattr(self, "load_type", None)
+		if load_type and frappe.db.exists("Load Type", load_type):
+			max_weight = frappe.db.get_value("Load Type", load_type, "max_weight")
+			if max_weight and self.total_weight and flt(max_weight) > 0:
+				if flt(self.total_weight) > flt(max_weight):
+					frappe.msgprint(
+						_("Cargo weight ({0} kg) exceeds Load Type max weight ({1} kg). Please verify.").format(
+							self.total_weight, max_weight
+						),
+						indicator="orange",
+						title=_("Load Type Weight Warning"),
 					)
 	
 	def validate_customs(self):
-		"""Validate customs fields"""
-		# Validate customs status progression
-		if self.customs_status:
-			status_order = ["Not Submitted", "Submitted", "Under Review", "Cleared", "Held", "Rejected"]
-			current_index = status_order.index(self.customs_status) if self.customs_status in status_order else -1
-			
-			# If cleared, validate clearance date
-			if self.customs_status == "Cleared":
-				if not self.customs_clearance_date:
-					frappe.msgprint(
-						_("Customs clearance date should be set when status is 'Cleared'."),
-						indicator="blue",
-						title=_("Customs Information")
-					)
-		
-		# Validate duty and tax amounts are positive
-		if self.duty_amount and flt(self.duty_amount) < 0:
+		"""Validate customs fields when those columns exist on the DocType."""
+		customs_status = getattr(self, "customs_status", None)
+		if customs_status:
+			if customs_status == "Cleared" and not getattr(self, "customs_clearance_date", None):
+				frappe.msgprint(
+					_("Customs clearance date should be set when status is 'Cleared'."),
+					indicator="blue",
+					title=_("Customs Information"),
+				)
+
+		duty_amount = getattr(self, "duty_amount", None)
+		if duty_amount is not None and flt(duty_amount) < 0:
 			frappe.throw(_("Duty amount cannot be negative"), title=_("Validation Error"))
-		
-		if self.tax_amount and flt(self.tax_amount) < 0:
+
+		tax_amount = getattr(self, "tax_amount", None)
+		if tax_amount is not None and flt(tax_amount) < 0:
 			frappe.throw(_("Tax amount cannot be negative"), title=_("Validation Error"))
 	
 	def validate_insurance(self):
@@ -2404,54 +2436,55 @@ class AirShipment(Document):
 				)
 	
 	def validate_documents(self):
-		"""Validate document requirements based on direction"""
-		if not self.direction:
+		"""Validate document requirements based on direction (only if those fields exist)."""
+		if not getattr(self, "direction", None):
 			return
-		
-		# Check settings for require customs declaration
+
 		settings = self.get_air_freight_settings()
 		require_customs = settings and settings.require_customs_declaration if settings else False
-		
-		# Export direction requires export license
-		if self.direction == "Export":
-			if not self.export_license:
+
+		if self.direction == "Export" and self.meta.has_field("export_license"):
+			if not getattr(self, "export_license", None):
 				if require_customs:
-					frappe.throw(_("Export license is required for export shipments as per company settings."), 
-						title=_("Document Required"))
+					frappe.throw(
+						_("Export license is required for export shipments as per company settings."),
+						title=_("Document Required"),
+					)
 				else:
 					frappe.msgprint(
 						_("Export license is typically required for export shipments."),
 						indicator="blue",
-						title=_("Document Information")
+						title=_("Document Information"),
 					)
-		
-		# Import direction requires import permit
-		if self.direction == "Import":
-			if not self.import_permit:
+
+		if self.direction == "Import" and self.meta.has_field("import_permit"):
+			if not getattr(self, "import_permit", None):
 				if require_customs:
-					frappe.throw(_("Import permit is required for import shipments as per company settings."), 
-						title=_("Document Required"))
+					frappe.throw(
+						_("Import permit is required for import shipments as per company settings."),
+						title=_("Document Required"),
+					)
 				else:
 					frappe.msgprint(
 						_("Import permit is typically required for import shipments."),
 						indicator="blue",
-						title=_("Document Information")
+						title=_("Document Information"),
 					)
-		
-		# Both directions typically require commercial invoice
-		if not self.commercial_invoice_number:
-			if require_customs:
-				frappe.msgprint(
-					_("Commercial invoice is required for international shipments as per company settings."),
-					indicator="orange",
-					title=_("Document Required")
-				)
-			else:
-				frappe.msgprint(
-					_("Commercial invoice is typically required for international shipments."),
-					indicator="blue",
-					title=_("Document Information")
-				)
+
+		if self.meta.has_field("commercial_invoice_number"):
+			if not getattr(self, "commercial_invoice_number", None):
+				if require_customs:
+					frappe.msgprint(
+						_("Commercial invoice is required for international shipments as per company settings."),
+						indicator="orange",
+						title=_("Document Required"),
+					)
+				else:
+					frappe.msgprint(
+						_("Commercial invoice is typically required for international shipments."),
+						indicator="blue",
+						title=_("Document Information"),
+					)
 	
 	def validate_iata_transaction_link(self):
 		name = frappe.db.get_value("Air Shipment IATA Transaction", {"air_shipment": self.name}, "name")
@@ -2463,59 +2496,59 @@ class AirShipment(Document):
 		tx.validate_eawb()
 
 	def validate_revenue(self):
-		"""Validate revenue recognition fields"""
-		# Validate revenue amount is positive
-		if self.revenue_amount and flt(self.revenue_amount) <= 0:
+		"""Validate revenue recognition fields when present on the form."""
+		revenue_amount = getattr(self, "revenue_amount", None)
+		if revenue_amount and flt(revenue_amount) <= 0:
 			frappe.throw(_("Revenue amount must be greater than zero"), title=_("Validation Error"))
-		
-		# If partial revenue is enabled, validate recognized amount
-		if self.partial_revenue_enabled:
-			if self.revenue_amount and self.recognized_revenue_amount:
-				if flt(self.recognized_revenue_amount) > flt(self.revenue_amount):
-					frappe.throw(
-						_("Recognized revenue amount cannot exceed total revenue amount."),
-						title=_("Validation Error")
-					)
-		
-		# If revenue recognition date is set, validate it's not in the future
-		if self.revenue_recognition_date:
+
+		if getattr(self, "partial_revenue_enabled", None):
+			recognized = getattr(self, "recognized_revenue_amount", None)
+			if revenue_amount and recognized and flt(recognized) > flt(revenue_amount):
+				frappe.throw(
+					_("Recognized revenue amount cannot exceed total revenue amount."),
+					title=_("Validation Error"),
+				)
+
+		revenue_recognition_date = getattr(self, "revenue_recognition_date", None)
+		if revenue_recognition_date:
 			from frappe.utils import getdate, today
-			if getdate(self.revenue_recognition_date) > today():
+
+			if getdate(revenue_recognition_date) > today():
 				frappe.msgprint(
 					_("Revenue recognition date is in the future. Please verify this is correct."),
 					indicator="orange",
-					title=_("Revenue Recognition Warning")
+					title=_("Revenue Recognition Warning"),
 				)
 	
 	def validate_billing(self):
-		"""Validate billing automation fields"""
-		# If auto billing is enabled, validate billing status
-		if self.auto_billing_enabled:
-			if not self.billing_status or self.billing_status == "Not Billed":
+		"""Validate billing automation fields when present on the form."""
+		if getattr(self, "auto_billing_enabled", None):
+			billing_status = getattr(self, "billing_status", None)
+			if not billing_status or billing_status == "Not Billed":
 				frappe.msgprint(
 					_("Billing status should be updated when auto billing is enabled."),
 					indicator="blue",
-					title=_("Billing Information")
+					title=_("Billing Information"),
 				)
-		
-		# If billed, validate sales invoice link
-		if self.billing_status in ["Billed", "Partially Billed"]:
-			if not self.sales_invoice:
+
+		billing_status = getattr(self, "billing_status", None)
+		if billing_status in ("Billed", "Partially Billed"):
+			if not getattr(self, "sales_invoice", None):
 				frappe.msgprint(
 					_("Sales invoice should be linked when billing status is 'Billed' or 'Partially Billed'."),
 					indicator="blue",
-					title=_("Billing Information")
+					title=_("Billing Information"),
 				)
-			
-			if not self.billing_date:
+
+			if not getattr(self, "billing_date", None):
 				frappe.msgprint(
 					_("Billing date should be set when billing status is 'Billed' or 'Partially Billed'."),
 					indicator="blue",
-					title=_("Billing Information")
+					title=_("Billing Information"),
 				)
-		
-		# Validate billing amount is positive
-		if self.billing_amount and flt(self.billing_amount) <= 0:
+
+		billing_amount = getattr(self, "billing_amount", None)
+		if billing_amount and flt(billing_amount) <= 0:
 			frappe.throw(_("Billing amount must be greater than zero"), title=_("Validation Error"))
 	
 	def _require_iata_transaction(self):
@@ -2836,9 +2869,10 @@ class AirShipment(Document):
 		if not self.entry_type and settings.default_entry_type:
 			self.entry_type = settings.default_entry_type
 		
-		# Apply document settings
-		if not self.uld_type and settings.default_uld_type:
-			self.uld_type = settings.default_uld_type
+		# Apply document settings (legacy field only if still on the form)
+		if self.meta.has_field("uld_type"):
+			if not self.get("uld_type") and getattr(settings, "default_uld_type", None):
+				self.uld_type = settings.default_uld_type
 
 		# Apply UOM defaults from Logistics Settings
 		try:
@@ -3134,6 +3168,10 @@ def populate_charges_from_sales_quote(docname=None):
 				title="No Charges Found",
 				indicator="orange"
 			)
+			from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
+
+			sync_internal_job_details_from_sales_quote(self, sq_doc)
+			self.save(ignore_permissions=True)
 			return
 		
 		# Import the mapping function from Sales Quote
@@ -3146,6 +3184,10 @@ def populate_charges_from_sales_quote(docname=None):
 			if charge_row:
 				self.append("charges", charge_row)
 				charges_added += 1
+
+		from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
+
+		sync_internal_job_details_from_sales_quote(self, sq_doc)
 		
 		# Save the document
 		self.save(ignore_permissions=True)

@@ -6,10 +6,10 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "service_type",
+  "column_break_ident",
   "job_type",
   "job_no",
-  "column_break_ident",
-  "service_type",
   "section_break_air_params",
   "air_house_type",
   "airline",
@@ -42,30 +42,32 @@
  ],
  "fields": [
   {
-   "fieldname": "job_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Job Type",
-   "options": "\nTransport Job\nAir Shipment\nSea Shipment\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nGeneral Job"
-  },
-  {
-   "fieldname": "job_no",
-   "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
-   "label": "Job No",
-   "options": "job_type"
-  },
-  {
-   "fieldname": "column_break_ident",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "service_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
    "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ident",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job No",
+   "options": "job_type",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.service_type == \"Air\"",
@@ -145,6 +147,7 @@
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1]]",
    "options": "Load Type"
   },
   {

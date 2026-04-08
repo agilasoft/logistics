@@ -12,6 +12,8 @@
   "item_name",
   "charge_type",
   "charge_category",
+  "item_tax_template",
+  "invoice_type",
   "column_break_jlde",
   "description",
   "sales_quote_link",
@@ -20,12 +22,14 @@
   "is_other_service",
   "section_break_mzrh",
   "bill_to",
+  "selling_currency",
   "estimated_revenue",
   "actual_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_tzln",
   "pay_to",
+  "buying_currency",
   "estimated_cost",
   "actual_cost",
   "use_tariff_in_cost",
@@ -176,7 +180,20 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Charge Category",
-   "options": "Freight\nFuel Surcharge\nSecurity Surcharge\nWar Risk Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
+   "options": "Freight\nFuel Surcharge\nSecurity Surcharge\nWar Risk Surcharge\nTerminal Handling\nPort Charges\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nDetention\nDemurrage\nOther"
+  },
+  {
+   "fieldname": "item_tax_template",
+   "fieldtype": "Link",
+   "label": "Item Tax Template",
+   "options": "Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fieldname": "invoice_type",
+   "fieldtype": "Link",
+   "label": "Invoice Type",
+   "options": "Invoice Type"
   },
   {
    "fieldname": "sales_quote_link",
@@ -325,7 +342,16 @@
    "in_list_view": 1,
    "label": "Bill To",
    "options": "Customer",
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fieldname": "selling_currency",
+   "fieldtype": "Link",
+   "label": "Selling Currency",
+   "options": "Currency",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_cost",
@@ -438,7 +464,16 @@
    "in_list_view": 1,
    "label": "Pay To",
    "options": "Supplier",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fieldname": "buying_currency",
+   "fieldtype": "Link",
+   "label": "Buying Currency",
+   "options": "Currency",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "revenue_calc_notes",

@@ -865,29 +865,12 @@ _SALES_QUOTE_DISBURSEMENT_PAIRS = (
     ("cost_tariff", "revenue_tariff"),
 )
 
-# Transport Order/Job: revenue uses unit_rate (not rate); must mirror all editable cost inputs listed in UI.
-_TRANSPORT_DISBURSEMENT_PAIRS = (
-    ("cost_calculation_method", "revenue_calculation_method"),
-    ("unit_cost", "unit_rate"),
-    ("cost_unit_type", "unit_type"),
-    ("cost_quantity", "quantity"),
-    ("cost_uom", "uom"),
-    ("cost_currency", "currency"),
-    ("cost_minimum_quantity", "minimum_quantity"),
-    ("cost_minimum_unit_rate", "minimum_unit_rate"),
-    ("cost_minimum_charge", "minimum_charge"),
-    ("cost_maximum_charge", "maximum_charge"),
-    ("cost_base_amount", "base_amount"),
-    ("cost_base_quantity", "base_quantity"),
-    ("use_tariff_in_cost", "use_tariff_in_revenue"),
-    ("cost_tariff", "revenue_tariff"),
-)
-
 DISBURSEMENT_FIELD_MAP = {
     "Sales Quote Charge": _SALES_QUOTE_DISBURSEMENT_PAIRS,
     "Change Request Charge": _SALES_QUOTE_DISBURSEMENT_PAIRS,
-    "Transport Order Charges": _TRANSPORT_DISBURSEMENT_PAIRS,
-    "Transport Job Charges": _TRANSPORT_DISBURSEMENT_PAIRS,
+    "Transport Order Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
+    "Transport Job Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
+    + (("buying_currency", "selling_currency"),),
     "Air Booking Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
     "Air Shipment Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
     "Sea Booking Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
@@ -972,7 +955,7 @@ def apply_disbursement_charge_calculation_if_applicable(doc: Any, parent_doc: Op
 def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: str):
     """
     Recalculate estimated_revenue, estimated_cost, actual_revenue, and actual_cost for a charge row.
-    Used by client-side form events when user changes unit_rate, calculation_method, etc.
+    Used by client-side form events when user changes rate (or unit_rate on quote rows), calculation_method, etc.
     Actual amounts use the same calculation method; when separate actual-value inputs exist they are used.
 
     Args:

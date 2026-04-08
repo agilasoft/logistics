@@ -9,6 +9,7 @@ Used by Declaration Order, Declaration, Transport Order, Transport Job, Inbound 
 import frappe
 
 from logistics.utils.dg_fields import copy_parent_dg_header, transport_order_package_row_from_shipment_pkg
+from logistics.utils.operational_rep_fields import REP_FIELD_NAMES, copy_operational_rep_fields_from_chain
 from logistics.utils.internal_job_detail_copy import (
 	get_declaration_order_job_no_from_shipment_doc,
 	persist_internal_job_detail_job_link,
@@ -17,6 +18,9 @@ from logistics.utils.internal_job_from_source import (
 	apply_internal_job_detail_row_to_operational_doc,
 	coerce_internal_job_detail_idx,
 	resolve_internal_job_detail_row_for_create,
+)
+from logistics.transport.doctype.transport_order.transport_order import (
+	append_transport_order_charges_from_sales_quote_if_empty,
 )
 
 
@@ -242,17 +246,30 @@ def _resolve_sales_quote_from_doc(source_doc):
 
 
 def copy_sales_quote_fields_to_target(source_doc, target_doc):
-	"""Copy Sales Quote link from source (shipment/booking/order/job) to a new target doc."""
+	"""Copy Sales Quote link and operational rep fields from source (shipment/booking/order/job) to a new target doc."""
 	sq = _resolve_sales_quote_from_doc(source_doc)
 	if sq and hasattr(target_doc, "sales_quote"):
 		target_doc.sales_quote = sq
+	copy_operational_rep_fields_from_chain(target_doc, source_doc=source_doc)
 
 
 def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
-	"""When user links air/sea shipment or similar, fill sales_quote if still empty."""
+	"""When user links air/sea shipment or similar, fill sales_quote and rep fields if still empty."""
 	sq = _resolve_sales_quote_from_doc(source_doc)
 	if sq and hasattr(target_doc, "sales_quote"):
 		_set_if_empty(target_doc, "sales_quote", sq)
+	for fn in REP_FIELD_NAMES:
+		if hasattr(target_doc, fn):
+			_set_if_empty(target_doc, fn, getattr(source_doc, fn, None))
+	if sq:
+		try:
+			sqdoc = frappe.get_cached_doc("Sales Quote", sq)
+		except Exception:
+			sqdoc = None
+		if sqdoc:
+			for fn in REP_FIELD_NAMES:
+				if hasattr(target_doc, fn):
+					_set_if_empty(target_doc, fn, getattr(sqdoc, fn, None))
 
 
 # -------------------------------------------------------------------
@@ -340,6 +357,9 @@ def create_transport_order_from_air_shipment(
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
 	ij, mjt, mj = _transport_order_job_context_from_freight_shipment(shipment, "Air Shipment", air_shipment_name)
+	ij, mjt, mj = _one_off_transport_order_job_context_from_shipment(
+		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
+	)
 	order.is_internal_job = ij
 	if ij:
 		order.main_job_type = mjt
@@ -368,6 +388,7 @@ def create_transport_order_from_air_shipment(
 	# Copy packages
 	_copy_shipment_packages_to_transport_order(shipment, order)
 	_copy_transport_charges_from_shipment_to_transport_order(order, shipment)
+	append_transport_order_charges_from_sales_quote_if_empty(order)
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Air Shipment", air_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
@@ -433,6 +454,9 @@ def create_transport_order_from_sea_shipment(
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
 	ij, mjt, mj = _transport_order_job_context_from_freight_shipment(shipment, "Sea Shipment", sea_shipment_name)
+	ij, mjt, mj = _one_off_transport_order_job_context_from_shipment(
+		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
+	)
 	order.is_internal_job = ij
 	if ij:
 		order.main_job_type = mjt
@@ -460,6 +484,7 @@ def create_transport_order_from_sea_shipment(
 	copy_parent_dg_header(shipment, order)
 	_copy_sea_packages_to_transport_order(shipment, order)
 	_copy_transport_charges_from_shipment_to_transport_order(order, shipment)
+	append_transport_order_charges_from_sales_quote_if_empty(order)
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Sea Shipment", sea_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
@@ -528,6 +553,26 @@ def _transport_order_job_context_from_freight_shipment(shipment, shipment_doctyp
 	return (0, None, None)
 
 
+def _one_off_transport_order_job_context_from_shipment(
+	shipment, shipment_doctype: str, shipment_name: str, ij, mjt, mj
+):
+	"""One-off Sales Quote: TO created from this freight shipment is always a satellite of that leg."""
+	sqn = getattr(shipment, "sales_quote", None)
+	if not sqn or not frappe.db.exists("Sales Quote", sqn):
+		return ij, mjt, mj
+	try:
+		sq = frappe.get_cached_doc("Sales Quote", sqn)
+		if getattr(sq, "quotation_type", None) != "One-off":
+			return ij, mjt, mj
+		if not ij:
+			return 1, shipment_doctype, shipment_name
+		if ij and not (mj or "").strip():
+			return ij, shipment_doctype, shipment_name
+	except Exception:
+		return ij, mjt, mj
+	return ij, mjt, mj
+
+
 def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) -> None:
 	"""Append Transport Order Charges from freight shipment rows where service_type is Transport."""
 	rows = [
@@ -546,6 +591,18 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 		"item_name",
 		"charge_type",
 		"charge_category",
+		"item_tax_template",
+		"invoice_type",
+		"description",
+		"sales_quote_link",
+		"change_request",
+		"change_request_charge",
+		"is_other_service",
+		"other_service_type",
+		"date_started",
+		"date_ended",
+		"other_service_reference_no",
+		"other_service_notes",
 		"revenue_calculation_method",
 		"quantity",
 		"uom",
@@ -558,6 +615,7 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 		"base_amount",
 		"base_quantity",
 		"estimated_revenue",
+		"selling_currency",
 		"cost_calculation_method",
 		"cost_quantity",
 		"cost_uom",
@@ -571,6 +629,7 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 		"cost_base_amount",
 		"cost_base_quantity",
 		"estimated_cost",
+		"buying_currency",
 		"revenue_calc_notes",
 		"cost_calc_notes",
 		"bill_to",
@@ -595,8 +654,8 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 		rate_val = getattr(src, "rate", None)
 		if rate_val is None:
 			rate_val = getattr(src, "unit_rate", None)
-		if rate_val is not None and "unit_rate" in tfields:
-			row.set("unit_rate", rate_val)
+		if rate_val is not None and "rate" in tfields:
+			row.set("rate", rate_val)
 
 
 @frappe.whitelist()
@@ -931,12 +990,21 @@ def _copy_sea_packages_to_transport_order(shipment, order):
 
 
 @frappe.whitelist()
-def create_inbound_order_from_air_shipment(air_shipment_name: str):
+def create_inbound_order_from_air_shipment(
+	air_shipment_name: str, internal_job_detail_idx: int | None = None
+):
 	"""Create an Inbound Order from an Air Shipment to receive goods into warehouse."""
 	from frappe import _
 	if not _get_default_warehouse_item():
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from shipment."))
 	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			shipment, "Inbound Order", detail_idx
+		)
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Air Shipment must have Local Customer to create Inbound Order."))
@@ -954,19 +1022,38 @@ def create_inbound_order_from_air_shipment(air_shipment_name: str):
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_shipment_packages_to_inbound_order(shipment, order)
 	order.insert(ignore_permissions=True)
+	if resolved_detail_idx:
+		persist_internal_job_detail_job_link(
+			"Air Shipment",
+			air_shipment_name,
+			"Inbound Order",
+			order.name,
+			detail_idx=resolved_detail_idx,
+		)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
 
 @frappe.whitelist()
-def create_inbound_order_from_sea_shipment(sea_shipment_name: str):
+def create_inbound_order_from_sea_shipment(
+	sea_shipment_name: str, internal_job_detail_idx: int | None = None
+):
 	"""Create an Inbound Order from a Sea Shipment to receive goods into warehouse."""
 	from frappe import _
 	if not _get_default_warehouse_item():
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from shipment."))
 	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			shipment, "Inbound Order", detail_idx
+		)
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Sea Shipment must have Local Customer to create Inbound Order."))
@@ -984,19 +1071,38 @@ def create_inbound_order_from_sea_shipment(sea_shipment_name: str):
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_sea_packages_to_inbound_order(shipment, order)
 	order.insert(ignore_permissions=True)
+	if resolved_detail_idx:
+		persist_internal_job_detail_job_link(
+			"Sea Shipment",
+			sea_shipment_name,
+			"Inbound Order",
+			order.name,
+			detail_idx=resolved_detail_idx,
+		)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
 
 @frappe.whitelist()
-def create_inbound_order_from_transport_job(transport_job_name: str):
+def create_inbound_order_from_transport_job(
+	transport_job_name: str, internal_job_detail_idx: int | None = None
+):
 	"""Create an Inbound Order from a Transport Job to receive goods into warehouse."""
 	from frappe import _
 	if not _get_default_warehouse_item():
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from Transport Job."))
 	job = frappe.get_doc("Transport Job", transport_job_name)
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			job, "Inbound Order", detail_idx
+		)
 	customer = job.customer
 	if not customer:
 		frappe.throw(_("Transport Job must have Customer to create Inbound Order."))
@@ -1014,8 +1120,247 @@ def create_inbound_order_from_transport_job(transport_job_name: str):
 	order.cost_center = getattr(job, "cost_center", None)
 	order.profit_center = getattr(job, "profit_center", None)
 	order.project = getattr(job, "project", None)
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_transport_packages_to_inbound_order(job, order)
 	order.insert(ignore_permissions=True)
+	if resolved_detail_idx:
+		persist_internal_job_detail_job_link(
+			"Transport Job",
+			transport_job_name,
+			"Inbound Order",
+			order.name,
+			detail_idx=resolved_detail_idx,
+		)
+	frappe.db.commit()
+	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
+
+
+def _copy_transport_charges_from_declaration_to_transport_order(order, declaration) -> None:
+	"""Append Transport Order Charges from Declaration charge rows where service_type is Transport."""
+	rows = [
+		r
+		for r in (getattr(declaration, "charges", None) or [])
+		if (getattr(r, "service_type", None) or "").strip().lower() == "transport"
+	]
+	if not rows:
+		return
+
+	target_meta = frappe.get_meta("Transport Order Charges")
+	tfields = {f.fieldname for f in target_meta.fields}
+	common_fields = [
+		"service_type",
+		"item_code",
+		"item_name",
+		"charge_type",
+		"charge_category",
+		"item_tax_template",
+		"invoice_type",
+		"description",
+		"sales_quote_link",
+		"change_request",
+		"change_request_charge",
+		"is_other_service",
+		"other_service_type",
+		"date_started",
+		"date_ended",
+		"other_service_reference_no",
+		"other_service_notes",
+		"revenue_calculation_method",
+		"quantity",
+		"uom",
+		"currency",
+		"unit_type",
+		"minimum_quantity",
+		"minimum_unit_rate",
+		"minimum_charge",
+		"maximum_charge",
+		"base_amount",
+		"base_quantity",
+		"estimated_revenue",
+		"selling_currency",
+		"cost_calculation_method",
+		"cost_quantity",
+		"cost_uom",
+		"cost_currency",
+		"unit_cost",
+		"cost_unit_type",
+		"cost_minimum_quantity",
+		"cost_minimum_unit_rate",
+		"cost_minimum_charge",
+		"cost_maximum_charge",
+		"cost_base_amount",
+		"cost_base_quantity",
+		"estimated_cost",
+		"buying_currency",
+		"revenue_calc_notes",
+		"cost_calc_notes",
+		"bill_to",
+		"pay_to",
+		"use_tariff_in_revenue",
+		"use_tariff_in_cost",
+		"revenue_tariff",
+		"cost_tariff",
+		"tariff",
+		"selling_weight_break",
+		"selling_qty_break",
+		"cost_weight_break",
+		"cost_qty_break",
+	]
+	for src in rows:
+		row = order.append("charges", {})
+		for fn in common_fields:
+			if fn in tfields and hasattr(src, fn):
+				val = getattr(src, fn, None)
+				if val is not None:
+					row.set(fn, val)
+		rate_val = getattr(src, "rate", None)
+		if rate_val is None:
+			rate_val = getattr(src, "unit_rate", None)
+		if rate_val is not None and "rate" in tfields:
+			row.set("rate", rate_val)
+
+
+@frappe.whitelist()
+def create_transport_order_from_declaration(
+	declaration_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a Transport Order from a Declaration (main-service or internal-job); link on Declaration."""
+	from frappe import _
+	from frappe.utils import cint
+
+	if not declaration_name:
+		frappe.throw(_("Declaration is required."))
+	dec = frappe.get_doc("Declaration", declaration_name)
+	dec.check_permission("write")
+	if not getattr(dec, "sales_quote", None):
+		frappe.throw(_("Link a Sales Quote on this Declaration before creating a Transport Order."))
+	if (getattr(dec, "transport_order", None) or "").strip():
+		frappe.throw(_("This Declaration already has a linked Transport Order."))
+
+	is_ij = cint(getattr(dec, "is_internal_job", 0))
+	is_main = cint(getattr(dec, "is_main_service", 0))
+	if not ((is_main and not is_ij) or is_ij):
+		frappe.throw(
+			_("Transport Order can only be created from a Main Service declaration or an Internal Job declaration.")
+		)
+
+	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row, resolved_idx = resolve_internal_job_detail_row_for_create(dec, "Transport Order", idx)
+
+	order = frappe.new_doc("Transport Order")
+	order.customer = dec.customer
+	order.shipper = getattr(dec, "exporter_shipper", None)
+	order.consignee = getattr(dec, "importer_consignee", None)
+	order.sales_quote = dec.sales_quote
+	order.booking_date = frappe.utils.today()
+	order.scheduled_date = (
+		getattr(dec, "eta", None) or getattr(dec, "etd", None) or order.booking_date
+	)
+	order.company = getattr(dec, "company", None) or frappe.defaults.get_defaults().get("company")
+	order.branch = getattr(dec, "branch", None)
+	order.cost_center = getattr(dec, "cost_center", None)
+	order.profit_center = getattr(dec, "profit_center", None)
+	order.project = getattr(dec, "project", None)
+	order.location_type = "UNLOCO"
+	order.location_from = getattr(dec, "port_of_loading", None)
+	order.location_to = getattr(dec, "port_of_discharge", None)
+	order.transport_job_type = "Non-Container"
+	copy_sales_quote_fields_to_target(dec, order)
+	if is_ij:
+		order.is_internal_job = 1
+		order.main_job_type = "Declaration"
+		order.main_job = dec.name
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	if getattr(dec, "exporter_shipper", None) and getattr(dec, "importer_consignee", None):
+		order.append(
+			"legs",
+			{
+				"facility_type_from": "Shipper",
+				"facility_from": dec.exporter_shipper,
+				"facility_type_to": "Consignee",
+				"facility_to": dec.importer_consignee,
+				"scheduled_date": order.scheduled_date,
+				"transport_job_type": "Non-Container",
+			},
+		)
+	copy_parent_dg_header(dec, order)
+	_copy_transport_charges_from_declaration_to_transport_order(order, dec)
+	order.insert(ignore_permissions=True)
+	persist_internal_job_detail_job_link(
+		"Declaration", declaration_name, "Transport Order", order.name, detail_idx=resolved_idx
+	)
+	frappe.db.set_value("Declaration", declaration_name, "transport_order", order.name)
+	frappe.db.commit()
+	return {"transport_order": order.name, "message": _("Transport Order {0} created.").format(order.name)}
+
+
+@frappe.whitelist()
+def create_inbound_order_from_declaration(
+	declaration_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create an Inbound Order from a Declaration when the quote allows warehousing."""
+	from frappe import _
+
+	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
+
+	if not declaration_name:
+		frappe.throw(_("Declaration is required."))
+	if not _get_default_warehouse_item():
+		frappe.throw(
+			_("No Warehouse Item found. Please create at least one Warehouse Item before creating an Inbound Order.")
+		)
+	dec = frappe.get_doc("Declaration", declaration_name)
+	dec.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			dec, "Inbound Order", detail_idx
+		)
+	if not getattr(dec, "sales_quote", None):
+		frappe.throw(_("Link a Sales Quote on this Declaration before creating an Inbound Order."))
+	flags = get_quote_module_flags(
+		dec.sales_quote, source_doctype="Declaration", source_name=declaration_name
+	)
+	if not flags.get("allow_inbound"):
+		frappe.throw(_("Inbound Order is not allowed for this Sales Quote."))
+
+	customer = dec.customer
+	if not customer:
+		frappe.throw(_("Declaration must have a Customer to create an Inbound Order."))
+
+	order = frappe.new_doc("Inbound Order")
+	order.customer = customer
+	order.contract = _get_customer_warehouse_contract(customer) or ""
+	order.shipper = getattr(dec, "exporter_shipper", None)
+	order.consignee = getattr(dec, "importer_consignee", None)
+	order.order_date = frappe.utils.today()
+	order.planned_date = getattr(dec, "eta", None) or getattr(dec, "etd", None)
+	order.due_date = getattr(dec, "eta", None) or getattr(dec, "etd", None)
+	order.company = getattr(dec, "company", None) or frappe.defaults.get_defaults().get("company")
+	order.branch = getattr(dec, "branch", None)
+	order.cost_center = getattr(dec, "cost_center", None)
+	order.profit_center = getattr(dec, "profit_center", None)
+	order.project = getattr(dec, "project", None)
+	if getattr(dec, "job_number", None):
+		order.job_number = dec.job_number
+	default_item = _get_default_warehouse_item(customer)
+	if default_item:
+		order.append("items", {"item": default_item, "quantity": 1})
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	order.insert(ignore_permissions=True)
+	if resolved_detail_idx:
+		persist_internal_job_detail_job_link(
+			"Declaration",
+			declaration_name,
+			"Inbound Order",
+			order.name,
+			detail_idx=resolved_detail_idx,
+		)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
@@ -1041,10 +1386,6 @@ def _get_default_warehouse_item(customer=None):
 					return wi_list[0].name
 	try:
 		return frappe.db.get_value("Warehouse Item", {"is_default": 1}, "name")
-	except Exception:
-		pass
-	try:
-		return frappe.db.get_single_value("Warehouse Settings", "default_inbound_item")
 	except Exception:
 		pass
 	wi_list = frappe.get_all("Warehouse Item", limit=1, pluck="name")

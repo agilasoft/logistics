@@ -655,6 +655,22 @@ function _apply_routing_legs_from_sales_quote_response(frm, r) {
 	frm.refresh_field('routing_legs');
 }
 
+function _apply_internal_job_details_from_sales_quote_response(frm, r) {
+	if (!r.message || !r.message.internal_job_details || !r.message.internal_job_details.length) {
+		return;
+	}
+	frm.clear_table('internal_job_details');
+	r.message.internal_job_details.forEach(function(row) {
+		var d = frm.add_child('internal_job_details');
+		Object.keys(row).forEach(function(key) {
+			if (row[key] !== null && row[key] !== undefined) {
+				d[key] = row[key];
+			}
+		});
+	});
+	frm.refresh_field('internal_job_details');
+}
+
 function _populate_charges_from_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
 	var quote_type = frm.doc.quote_type;
@@ -732,6 +748,7 @@ function _populate_charges_from_quote(frm) {
 					return;
 				}
 				_apply_routing_legs_from_sales_quote_response(frm, r);
+				_apply_internal_job_details_from_sales_quote_response(frm, r);
 				if (r.message.message) {
 					frappe.msgprint({
 						title: __("No Charges Found"),

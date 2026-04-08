@@ -98,17 +98,35 @@ class SeaBooking(Document):
 		if original_sales_quote and getattr(self, 'quote_type', None) == 'Sales Quote' and not getattr(self, 'sales_quote', None):
 			self.sales_quote = original_sales_quote
 		
-		# Validate One-off Sales Quote not already converted
-		if self.sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-			validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
-		
-		# Validate quote field when quote_type is One-Off Quote (quote might reference Sales Quote)
-		if getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
-			# Check if quote is a Sales Quote (new system) and validate it
-			if frappe.db.exists("Sales Quote", self.quote):
-				from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-				validate_one_off_quote_not_converted(self.quote, self.doctype, self.name)
+		# Validate One-off Sales Quote not already converted (internal satellite bookings may share the main leg's quote)
+		_quote_is_sales_quote = (
+			getattr(self, "quote_type", None) == "One-Off Quote"
+			and getattr(self, "quote", None)
+			and frappe.db.exists("Sales Quote", self.quote)
+		)
+		if self.sales_quote or _quote_is_sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				resolve_allow_linked_freight_bookings_for_internal_job,
+				validate_one_off_quote_not_converted,
+			)
+
+			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			if self.sales_quote:
+				validate_one_off_quote_not_converted(
+					self.sales_quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
+			if _quote_is_sales_quote:
+				validate_one_off_quote_not_converted(
+					self.quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
 		
 		# Handle sales_quote field clearing - reset One-off quote if cleared
 		if not self.is_new() and original_sales_quote and not self.sales_quote:
@@ -2280,6 +2298,7 @@ def get_available_one_off_quotes(sea_booking_name: str = None) -> Dict[str, Any]
 				"quote_type": "One-Off Quote",
 				"name": ["!=", sea_booking_name or ""],
 				"docstatus": ["!=", 2],
+				"is_main_service": 1,
 			},
 			or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
 			fields=["quote", "sales_quote"],
@@ -2351,12 +2370,23 @@ def populate_charges_from_sales_quote(
 
 		if should_apply_internal_job_main_charge_overlay(parent):
 			charges = build_internal_job_sea_booking_charge_dicts(parent)
+			ij_detail_payload = []
+			if sales_quote and frappe.db.exists("Sales Quote", sales_quote):
+				sq_doc = frappe.get_doc("Sales Quote", sales_quote)
+				from logistics.utils.sync_internal_job_details_from_sales_quote import (
+					build_internal_job_details_payload_for_quote_response,
+				)
+
+				ij_detail_payload = build_internal_job_details_payload_for_quote_response(
+					"Sea Booking", doc, sq_doc
+				)
 			return {
 				"charges": charges,
 				"charges_count": len(charges),
 				"internal_job_charge_overlay_applied": True,
 				"source": "main_service",
 				"routing_legs": routing_legs_for_api_response(sales_quote, doc) if sales_quote else [],
+				"internal_job_details": ij_detail_payload,
 			}
 
 		if not sales_quote:
@@ -2376,6 +2406,13 @@ def populate_charges_from_sales_quote(
 			}
 
 		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
+		from logistics.utils.sync_internal_job_details_from_sales_quote import (
+			build_internal_job_details_payload_for_quote_response,
+		)
+
+		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
+			"Sea Booking", doc, sales_quote_doc
+		)
 		filters = sales_quote_charge_filters(parent, sales_quote_doc)
 
 		# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
@@ -2437,6 +2474,7 @@ def populate_charges_from_sales_quote(
 				"message": f"No sea freight charges found in Sales Quote: {sales_quote}",
 				"customer": sales_quote_doc.customer,
 				"routing_legs": routing_legs_for_api_response(sales_quote, doc),
+				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Map and populate charges
@@ -2466,6 +2504,7 @@ def populate_charges_from_sales_quote(
 			"charges_count": len(charges),
 			"customer": sales_quote_doc.customer,
 			"routing_legs": routing_legs_for_api_response(sales_quote, doc),
+			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:

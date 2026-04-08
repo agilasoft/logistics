@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from frappe import append_hook
+
 from logistics.utils.credit_management import merge_credit_hooks
 
 # App dependencies
@@ -24,8 +26,9 @@ fixtures = ["role.json"]
 # include js, css files in header of desk.html
 app_include_css = "/assets/logistics/css/print_footer_fix.css"
 app_include_js = [
+	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/internal_job_create_from_source.js?v=5",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=14",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
@@ -45,6 +48,7 @@ app_include_js = [
 
 # include js in doctype views
 doctype_js = {
+	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
 	# Sales Quote: dialogs first, then air/sea freight scripts
 	"Sales Quote": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -111,6 +115,8 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Declaration": [
+		"logistics/public/js/internal_job_create_from_source.js",
+		"logistics/public/js/transport_mode_default_document_type.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
@@ -124,6 +130,7 @@ doctype_js = {
 		"logistics/job_management/job_charge_reopen.js",
 	],
 	"Declaration Order": [
+		"logistics/public/js/transport_mode_default_document_type.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -332,6 +339,12 @@ for _dt in (
 			doc_events[_dt]["validate"] = list(_v) + [_CHARGE_REOPEN_VALIDATE]
 	elif _v != _CHARGE_REOPEN_VALIDATE:
 		doc_events[_dt]["validate"] = [_v, _CHARGE_REOPEN_VALIDATE]
+
+append_hook(
+	doc_events,
+	"*",
+	{"validate": "logistics.utils.load_type_active.validate_load_type_links_on_doc"},
+)
 
 merge_credit_hooks(doc_events)
 

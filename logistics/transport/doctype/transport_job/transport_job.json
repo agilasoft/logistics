@@ -50,15 +50,19 @@
   "milestone_template",
   "milestones",
   "charges_tab",
-  "section_break_job_details",
-  "sales_quote",
-  "is_main_service",
-  "is_internal_job",
-  "main_job_type",
-  "main_job",
-  "internal_job_details_tab",
-  "internal_job_details_section",
-  "internal_job_details",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_xphe",
+  "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_cjyd",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
@@ -79,33 +83,20 @@
   "accrual_amount",
   "recognized_costs",
   "accrual_closed",
+  "quote_reference_section",
+  "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "documents_tab",
   "documents_section",
   "documents_html",
   "document_list_template",
   "documents",
-  "accounts_tab",
-  "company",
-  "branch",
-  "profit_center",
-  "cost_center",
-  "column_break_xphe",
-  "job_number",
-  "project",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -167,9 +158,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "reqd": 1,
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "reqd": 1
   },
   {
    "fieldname": "booking_date",
@@ -188,15 +179,15 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper",
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee",
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
   },
   {
    "fieldname": "column_break_5",
@@ -206,8 +197,8 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
   },
   {
    "fieldname": "transport_mode",
@@ -220,7 +211,7 @@
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"transport\",\"=\",1]]",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"transport\",\"=\",1]]",
    "options": "Load Type"
   },
   {
@@ -273,9 +264,85 @@
    "label": "Charges"
   },
   {
-   "fieldname": "section_break_job_details",
-   "fieldtype": "Section Break",
-   "label": "Job Details"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_xphe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
+   "description": "This will be used when posting financial transactions to this job.",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_break_cjyd",
+   "fieldtype": "Section Break"
   },
   {
    "allow_on_submit": 1,
@@ -486,8 +553,8 @@
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Container Type",
-   "options": "Container Type",
-   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
   },
   {
    "fieldname": "container_no",
@@ -500,133 +567,8 @@
    "fieldname": "container",
    "fieldtype": "Link",
    "label": "Container",
+   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]",
    "options": "Container",
-   "read_only": 1,
-   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]"
-  },
-  {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
-   "fieldname": "branch",
-   "fieldtype": "Link",
-   "label": "Branch",
-   "options": "Branch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_xphe",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "This will be used when posting financial transactions to this job.",
-   "fieldname": "job_number",
-   "fieldtype": "Link",
-   "label": "Job Number",
-   "options": "Job Number"
-  },
-  {
-   "description": "ERPNext Project for Special Projects integration",
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "label": "Project",
-   "options": "Project",
-   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "invoice_monitoring_section",
-   "fieldtype": "Section Break",
-   "label": "Invoice Monitoring"
-  },
-  {
-   "fieldname": "sales_invoice",
-   "fieldtype": "Link",
-   "label": "Sales Invoice",
-   "options": "Sales Invoice",
-   "read_only": 1
-  },
-  {
-   "fieldname": "purchase_invoice",
-   "fieldtype": "Link",
-   "label": "Purchase Invoice",
-   "options": "Purchase Invoice",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_invoiced",
-   "fieldtype": "Check",
-   "label": "Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_invoiced",
-   "fieldtype": "Date",
-   "label": "Date Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_paid",
-   "fieldtype": "Check",
-   "label": "Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_invoice_lifecycle",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "date_sales_invoice_requested",
-   "fieldtype": "Date",
-   "label": "SI Requested",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_sales_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "SI Submitted",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_purchase_invoice_requested",
-   "fieldtype": "Date",
-   "label": "PI Requested",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_purchase_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "PI Submitted",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "costs_fully_paid",
-   "fieldtype": "Check",
-   "label": "Costs Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_costs_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Costs Paid",
    "read_only": 1
   },
   {
@@ -750,19 +692,64 @@
    "read_only": 1
   },
   {
-   "fieldname": "profit_center",
-   "fieldtype": "Link",
-   "label": "Profit Center",
-   "options": "Profit Center",
-   "reqd": 1
+   "collapsible": 1,
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
   },
   {
-   "fieldname": "cost_center",
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service"
+  },
+  {
+   "fieldname": "sales_quote",
    "fieldtype": "Link",
-   "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
-   "options": "Cost Center",
-   "reqd": 1
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "collapsible": 1,
@@ -882,63 +869,6 @@
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing"
-  },
-  {
-   "fieldname": "sales_quote",
-   "fieldtype": "Link",
-   "label": "Sales Quote",
-   "options": "Sales Quote",
-   "search_index": 1
-  },
-  {
-   "default": "0",
-   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
-   "fieldname": "is_main_service",
-   "fieldtype": "Check",
-   "label": "Main Service"
-  },
-  {
-   "default": "0",
-   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
-   "fieldname": "is_internal_job",
-   "fieldtype": "Check",
-   "label": "Internal Job",
-   "read_only": 1
-  },
-  {
-   "depends_on": "eval:doc.is_internal_job",
-   "fieldname": "main_job_type",
-   "fieldtype": "Select",
-   "label": "Main Job Type",
-   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only": 1
-  },
-  {
-   "depends_on": "eval:doc.is_internal_job",
-   "fieldname": "main_job",
-   "fieldtype": "Dynamic Link",
-   "label": "Main Job",
-   "options": "main_job_type",
-   "read_only": 1
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Job Details"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_section",
-   "fieldtype": "Section Break",
-   "label": "Internal jobs & parameters"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details",
-   "fieldtype": "Table",
-   "label": "Job Details",
-   "options": "Internal Job Detail"
   }
  ],
  "is_submittable": 1,
@@ -959,7 +889,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2026-02-28 21:24:46.134536",
+ "modified": "2026-04-08 15:06:06.560272",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

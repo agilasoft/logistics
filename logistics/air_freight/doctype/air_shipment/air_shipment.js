@@ -5,7 +5,12 @@ function _declaration_order_name_from_internal_job_details(frm) {
 	var rows = frm.doc.internal_job_details || [];
 	for (var i = 0; i < rows.length; i++) {
 		var r = rows[i];
-		if (String(r.job_type || "").trim() === "Declaration Order" && String(r.job_no || "").trim()) {
+		var st = String(r.service_type || "").trim();
+		var jt = String(r.job_type || "").trim();
+		var isDecl =
+			st === "Customs" ||
+			jt === "Declaration Order";
+		if (isDecl && String(r.job_no || "").trim()) {
 			return String(r.job_no).trim();
 		}
 	}
@@ -434,7 +439,7 @@ frappe.ui.form.on('Air Shipment', {
 							frappe.msgprint({
 								title: __('Not available'),
 								message: __(
-									'Internal job dialog failed to load. Run bench build --app logistics, bench clear-cache, hard-refresh (Ctrl+Shift+R), or check the browser console for errors.'
+									'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
 								),
 								indicator: 'red',
 							});
@@ -443,60 +448,9 @@ frappe.ui.form.on('Air Shipment', {
 					if (window.logistics_show_create_internal_job_dialog) {
 						_openInternalJobDlg();
 					} else {
-						frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=5', _openInternalJobDlg);
+						frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=14', _openInternalJobDlg);
 					}
 				}, __('Create'));
-				function _air_shipment_add_inbound_declaration_buttons(flags) {
-					const f = flags || {};
-					if (f.allow_inbound) {
-						frm.add_custom_button(__('Inbound Order'), function() {
-							_show_create_from_shipment_review_dialog(frm, "Inbound Order", function() {
-								const warehouse_items = frm.doc.warehouse_items || [];
-								if (warehouse_items.length === 0) {
-									frappe.confirm(
-										__('No warehouse items specified. Using default warehouse item. Do you want to continue?'),
-										function() {
-											frappe.call({
-												method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
-												args: { air_shipment_name: frm.doc.name },
-												freeze: true,
-												freeze_message: __('Creating Inbound Order...'),
-												callback: function(r) {
-													if (r.message && r.message.inbound_order) {
-														frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-													}
-												}
-											});
-										}
-									);
-								} else {
-									frappe.call({
-										method: 'logistics.utils.module_integration.create_inbound_order_from_air_shipment',
-										args: { air_shipment_name: frm.doc.name },
-										freeze: true,
-										freeze_message: __('Creating Inbound Order...'),
-										callback: function(r) {
-											if (r.message && r.message.inbound_order) {
-												frappe.set_route('Form', 'Inbound Order', r.message.inbound_order);
-											}
-										}
-									});
-								}
-							});
-						}, __('Create'));
-					}
-				}
-				frappe.call({
-					method: 'logistics.utils.sales_quote_service_eligibility.get_quote_module_flags',
-					args: {
-						sales_quote: frm.doc.sales_quote,
-						source_doctype: 'Air Shipment',
-						source_name: frm.doc.name
-					},
-					callback: function(r) {
-						_air_shipment_add_inbound_declaration_buttons(r.message || {});
-					}
-				});
 				var _do_from_ij = _declaration_order_name_from_internal_job_details(frm);
 				if (_do_from_ij) {
 					frm.add_custom_button(__('View Declaration Order'), function() {

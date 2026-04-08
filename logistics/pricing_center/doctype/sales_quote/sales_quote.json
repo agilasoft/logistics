@@ -140,9 +140,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "reqd": 1,
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "reqd": 1
   },
   {
    "fieldname": "date",
@@ -165,18 +165,18 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper",
-   "reqd": 1,
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee",
-   "reqd": 1,
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "incoterm",
@@ -196,24 +196,25 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && (doc.main_service == \"Air\" || doc.main_service == \"Sea\")",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "options": "UNLOCO"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\"",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && (doc.main_service == \"Air\" || doc.main_service == \"Sea\")",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "options": "UNLOCO"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\"",
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1]]",
    "options": "Load Type"
   },
   {
@@ -221,8 +222,8 @@
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "label": "Transport Mode",
-   "options": "Transport Mode",
-   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Mode"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\"",
@@ -241,33 +242,33 @@
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
    "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
-   "options": "Airline",
-   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
+   "options": "Airline"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Sea\"",
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
-   "options": "Shipping Line",
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Sea\"",
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
@@ -306,16 +307,16 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
-   "options": "Container Type",
-   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Project\"",
@@ -414,6 +415,7 @@
    "fieldname": "additional_charge",
    "fieldtype": "Check",
    "label": "Additional Charge",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -421,20 +423,25 @@
    "fieldname": "job_type",
    "fieldtype": "Select",
    "label": "Job Type",
-   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration"
+   "no_copy": 1,
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.additional_charge",
    "fieldname": "job",
    "fieldtype": "Dynamic Link",
    "label": "Job",
-   "options": "job_type"
+   "no_copy": 1,
+   "options": "job_type",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.additional_charge",
    "fieldname": "change_request",
    "fieldtype": "Link",
    "label": "Change Request",
+   "no_copy": 1,
    "options": "Change Request",
    "read_only": 1
   },
@@ -517,8 +524,8 @@
    "fieldname": "tc_name",
    "fieldtype": "Link",
    "label": "Terms",
-   "options": "Terms and Conditions",
-   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
   },
   {
    "fetch_from": "tc_name.terms",
@@ -626,7 +633,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-03-25 13:57:16.571891",
+ "modified": "2026-04-08 11:46:10.604563",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

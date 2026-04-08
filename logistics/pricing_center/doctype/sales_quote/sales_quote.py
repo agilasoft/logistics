@@ -6,6 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import format_date, today, flt, getdate
 
+from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
 from logistics.utils.charge_service_type import sales_quote_charge_filters
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
@@ -491,7 +492,8 @@ class SalesQuote(Document):
 			air_shipment.cost_center = self.cost_center
 			air_shipment.profit_center = self.profit_center
 			air_shipment.is_main_service = 1
-			
+			copy_sales_quote_fields_to_target(self, air_shipment)
+
 			# Insert the Air Shipment
 			air_shipment.insert(ignore_permissions=True)
 			
@@ -984,6 +986,7 @@ def _create_transport_order_from_sales_quote(sales_quote):
 		container_type=transport_order.container_type,
 	)
 	transport_order.is_main_service = 1
+	copy_sales_quote_fields_to_target(sales_quote, transport_order)
 
 	transport_order.flags.skip_container_no_validation = True
 	transport_order.flags.skip_container_type_validation = True
@@ -1097,6 +1100,7 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	air_booking.cost_center = sales_quote.cost_center
 	air_booking.profit_center = sales_quote.profit_center
 	air_booking.is_main_service = 1
+	copy_sales_quote_fields_to_target(sales_quote, air_booking)
 
 	# Set weight/volume from Sales Quote so charge quantities can be calculated when populating
 	weight = getattr(first, "weight", None) or getattr(sales_quote, "weight", None)
@@ -1178,6 +1182,7 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	sea_booking.cost_center = sales_quote.cost_center
 	sea_booking.profit_center = sales_quote.profit_center
 	sea_booking.is_main_service = 1
+	copy_sales_quote_fields_to_target(sales_quote, sea_booking)
 
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
 
@@ -1788,11 +1793,103 @@ def reset_one_off_quote_on_cancel(sales_quote_name: str):
 		)
 
 
+def resolve_allow_linked_freight_bookings_for_internal_job(doc):
+	"""For internal-job satellites (e.g. Transport Order) sharing the main job's one-off quote, return
+	Sea Booking / Air Booking names that may hold that quote on the main leg — they must not count as a
+	separate consumer of the one-off.
+
+	Uses Main Job Type + Main Job (Sea Shipment → parent Sea Booking; Air Shipment → parent Air Booking;
+	Transport Job / Declaration → freight links on that job).
+	"""
+	from frappe.utils import cint
+
+	if not cint(getattr(doc, "is_internal_job", 0)):
+		return None, None
+	mjt = (getattr(doc, "main_job_type", None) or "").strip()
+	mj = (getattr(doc, "main_job", None) or "").strip()
+	if not mj:
+		return None, None
+	allow_sea = None
+	allow_air = None
+	try:
+		if mjt == "Sea Shipment":
+			allow_sea = frappe.db.get_value("Sea Shipment", mj, "sea_booking")
+		elif mjt == "Air Shipment":
+			allow_air = frappe.db.get_value("Air Shipment", mj, "air_booking")
+		elif mjt == "Transport Job":
+			tj = frappe.db.get_value(
+				"Transport Job",
+				mj,
+				["sea_shipment", "air_shipment"],
+				as_dict=True,
+			)
+			if tj:
+				if tj.get("sea_shipment"):
+					allow_sea = frappe.db.get_value("Sea Shipment", tj["sea_shipment"], "sea_booking")
+				if tj.get("air_shipment"):
+					allow_air = frappe.db.get_value("Air Shipment", tj["air_shipment"], "air_booking")
+		elif mjt == "Declaration":
+			dec = frappe.db.get_value(
+				"Declaration",
+				mj,
+				["sea_shipment", "air_shipment"],
+				as_dict=True,
+			)
+			if dec:
+				if dec.get("sea_shipment"):
+					allow_sea = frappe.db.get_value("Sea Shipment", dec["sea_shipment"], "sea_booking")
+				if dec.get("air_shipment"):
+					allow_air = frappe.db.get_value("Air Shipment", dec["air_shipment"], "air_booking")
+	except Exception:
+		return None, None
+	return allow_sea, allow_air
+
+
+def resolve_single_main_sea_booking_for_sales_quote(sales_quote_name):
+	"""If exactly one non-cancelled main Sea Booking references this Sales Quote, return its name.
+
+	Mirrors ``validate_one_off`` link fields (``sales_quote`` or legacy ``quote``). Used when a Sea
+	Shipment carries the quote but ``sea_booking`` is not set yet.
+	"""
+	if not sales_quote_name:
+		return None
+	cand = frappe.get_all(
+		"Sea Booking",
+		filters={"docstatus": ["!=", 2], "is_main_service": 1},
+		or_filters=[
+			["sales_quote", "=", sales_quote_name],
+			["quote", "=", sales_quote_name],
+		],
+		pluck="name",
+		limit=2,
+	)
+	return cand[0] if len(cand) == 1 else None
+
+
+def resolve_single_main_air_booking_for_sales_quote(sales_quote_name):
+	"""If exactly one non-cancelled main Air Booking references this Sales Quote, return its name."""
+	if not sales_quote_name:
+		return None
+	cand = frappe.get_all(
+		"Air Booking",
+		filters={"docstatus": ["!=", 2], "is_main_service": 1},
+		or_filters=[
+			["sales_quote", "=", sales_quote_name],
+			["quote", "=", sales_quote_name],
+		],
+		pluck="name",
+		limit=2,
+	)
+	return cand[0] if len(cand) == 1 else None
+
+
 def validate_one_off_quote_not_converted(
 	sales_quote_name: str,
 	current_doctype: str = None,
 	current_docname: str = None,
 	allow_if_quote_converted_to: str = None,
+	allow_linked_sea_booking: str = None,
+	allow_linked_air_booking: str = None,
 ):
 	"""
 	Validate that One-off Sales Quote is not already converted or linked to another document.
@@ -1804,6 +1901,8 @@ def validate_one_off_quote_not_converted(
 		current_docname: Name of the current document (to exclude from check)
 		allow_if_quote_converted_to: If the quote was converted to this doc ref (e.g. "Declaration Order DCO-001"),
 			allow use — used when the current document is the next step in the same chain (e.g. Declaration from that Order).
+		allow_linked_sea_booking: Sea Booking name that may hold the same quote as this doc (e.g. Sea Shipment's parent booking, or main Sea leg for an internal-job Transport Order).
+		allow_linked_air_booking: Air Booking name for the same job chain (e.g. Air Shipment's parent booking).
 		
 	Raises:
 		frappe.ValidationError: If quote is already converted or linked to another document
@@ -1841,12 +1940,14 @@ def validate_one_off_quote_not_converted(
 		# This prevents the same quote from being used in multiple documents
 		linked_documents = []
 		
-		# Check Air Booking - can use sales_quote or quote field depending on quote_type
+		# Check Air Booking - can use sales_quote or quote field depending on quote_type.
+		# Only main-service bookings "consume" the one-off link; internal/satellite jobs may still carry a copied quote.
 		air_bookings = frappe.get_all(
 			"Air Booking",
 			filters={
 				"name": ["!=", current_docname or ""],
-				"docstatus": ["!=", 2]  # Exclude cancelled documents
+				"docstatus": ["!=", 2],  # Exclude cancelled documents
+				"is_main_service": 1,
 			},
 			or_filters=[
 				["sales_quote", "=", sales_quote_name],
@@ -1856,14 +1957,20 @@ def validate_one_off_quote_not_converted(
 			limit=1
 		)
 		if air_bookings:
-			linked_documents.append(f"Air Booking: {air_bookings[0].name}")
+			abn = (air_bookings[0].name or "").strip()
+			if allow_linked_air_booking and abn == (allow_linked_air_booking or "").strip():
+				pass  # Same quote on parent booking + shipment is one job chain
+			else:
+				linked_documents.append(f"Air Booking: {abn}")
 		
-		# Check Sea Booking - can use sales_quote or quote field depending on quote_type
+		# Check Sea Booking - can use sales_quote or quote field depending on quote_type.
+		# Only main-service bookings "consume" the one-off link; internal/satellite jobs may still carry a copied quote.
 		sea_bookings = frappe.get_all(
 			"Sea Booking",
 			filters={
 				"name": ["!=", current_docname or ""],
-				"docstatus": ["!=", 2]  # Exclude cancelled documents
+				"docstatus": ["!=", 2],  # Exclude cancelled documents
+				"is_main_service": 1,
 			},
 			or_filters=[
 				["sales_quote", "=", sales_quote_name],
@@ -1873,15 +1980,20 @@ def validate_one_off_quote_not_converted(
 			limit=1
 		)
 		if sea_bookings:
-			linked_documents.append(f"Sea Booking: {sea_bookings[0].name}")
+			sbn = (sea_bookings[0].name or "").strip()
+			if allow_linked_sea_booking and sbn == (allow_linked_sea_booking or "").strip():
+				pass  # Same quote on parent booking + shipment is one job chain
+			else:
+				linked_documents.append(f"Sea Booking: {sbn}")
 		
-		# Check Transport Order
+		# Check Transport Order (main service only — same one-off exclusivity rule as freight bookings)
 		transport_orders = frappe.get_all(
 			"Transport Order",
 			filters={
 				"sales_quote": sales_quote_name,
 				"name": ["!=", current_docname or ""],
-				"docstatus": ["!=", 2]  # Exclude cancelled documents
+				"docstatus": ["!=", 2],  # Exclude cancelled documents
+				"is_main_service": 1,
 			},
 			fields=["name", "docstatus"],
 			limit=1
@@ -1903,13 +2015,14 @@ def validate_one_off_quote_not_converted(
 		if warehouse_contracts:
 			linked_documents.append(f"Warehouse Contract: {warehouse_contracts[0].name}")
 		
-		# Check Declaration
+		# Check Declaration (main service only)
 		declarations = frappe.get_all(
 			"Declaration",
 			filters={
 				"sales_quote": sales_quote_name,
 				"name": ["!=", current_docname or ""],
-				"docstatus": ["!=", 2]  # Exclude cancelled documents
+				"docstatus": ["!=", 2],  # Exclude cancelled documents
+				"is_main_service": 1,
 			},
 			fields=["name", "docstatus"],
 			limit=1

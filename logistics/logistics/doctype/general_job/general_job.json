@@ -244,18 +244,18 @@
   {
    "fieldname": "internal_job_details_tab",
    "fieldtype": "Tab Break",
-   "label": "Job Details"
+   "label": "Internal Jobs"
   },
   {
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
-   "label": "Internal jobs & parameters"
+   "label": "Internal Jobs"
   },
   {
    "description": "Linked operational jobs and service parameters (same fields as Sales Quote Charge parameter sections).",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
   },
   {

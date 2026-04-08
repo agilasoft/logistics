@@ -74,6 +74,33 @@ class SeaShipment(Document):
 
         msgprint_sales_quote_validity_warnings(self)
 
+        if getattr(self, "sales_quote", None):
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                resolve_allow_linked_freight_bookings_for_internal_job,
+                resolve_single_main_air_booking_for_sales_quote,
+                resolve_single_main_sea_booking_for_sales_quote,
+                validate_one_off_quote_not_converted,
+            )
+
+            allow_sea = (getattr(self, "sea_booking", None) or "").strip() or None
+            allow_air = None
+            r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+            if r_sea:
+                allow_sea = allow_sea or (r_sea or "").strip() or None
+            if r_air:
+                allow_air = (r_air or "").strip() or None
+            if not allow_sea:
+                allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+            if not allow_air:
+                allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+            validate_one_off_quote_not_converted(
+                self.sales_quote,
+                self.doctype,
+                self.name,
+                allow_linked_sea_booking=allow_sea,
+                allow_linked_air_booking=allow_air,
+            )
+
         from logistics.job_management.logistics_job_status import sync_sea_shipment_job_status
 
         sync_sea_shipment_job_status(self)
@@ -1369,6 +1396,10 @@ class SeaShipment(Document):
                     title="No Charges Found",
                     indicator="orange"
                 )
+                from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
+
+                sync_internal_job_details_from_sales_quote(self, sq_doc)
+                self.save(ignore_permissions=True)
                 return
             
             # Import the mapping function from Sales Quote
@@ -1381,6 +1412,12 @@ class SeaShipment(Document):
                 if charge_row:
                     self.append("charges", charge_row)
                     charges_added += 1
+
+            from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
+
+            sync_internal_job_details_from_sales_quote(self, sq_doc)
+
+            self.save(ignore_permissions=True)
             
             if charges_added > 0:
                 frappe.msgprint(

@@ -106,9 +106,11 @@ def create_sales_quote_from_change_request(change_request_name):
 		sq.append("charges", row_dict)
 	sq.flags.ignore_mandatory = True
 	sq.insert(ignore_permissions=True)
-	# Link back
-	cr.sales_quote = sq.name
-	cr.status = "Sales Quote Created"
-	cr.flags.ignore_permissions = True
-	cr.save()
+	# Link back (submitted doc: avoid save(); status/sales_quote are not allow_on_submit)
+	frappe.db.set_value(
+		"Change Request",
+		cr.name,
+		{"sales_quote": sq.name, "status": "Sales Quote Created"},
+		update_modified=False,
+	)
 	return sq.name

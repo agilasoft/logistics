@@ -23,7 +23,6 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "quantity",
     "uom",
     "currency",
-    "unit_rate",
     "unit_type",
     "minimum_quantity",
     "minimum_charge",
@@ -52,6 +51,9 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "revenue_calc_notes",
     "cost_calc_notes",
 ]
+
+# Include unit_rate from Sales Quote Transport / Sales Quote Charge rows (mapped to rate on charges)
+SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + ["unit_rate"]
 
 
 def _sync_quote_and_sales_quote(doc):
@@ -115,10 +117,30 @@ class TransportOrder(Document):
                 )
                 self.set(legs_field, [])
         
-        # Validate One-off Sales Quote not already converted
+        # Validate One-off Sales Quote not already converted (internal-job TO may share quote with main Sea/Air leg)
         if self.sales_quote:
-            from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-            validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
+            from frappe.utils import cint
+
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                resolve_allow_linked_freight_bookings_for_internal_job,
+                resolve_single_main_air_booking_for_sales_quote,
+                resolve_single_main_sea_booking_for_sales_quote,
+                validate_one_off_quote_not_converted,
+            )
+
+            allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+            if cint(getattr(self, "is_internal_job", 0)):
+                if not allow_sea:
+                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+                if not allow_air:
+                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+            validate_one_off_quote_not_converted(
+                self.sales_quote,
+                self.doctype,
+                self.name,
+                allow_linked_sea_booking=allow_sea,
+                allow_linked_air_booking=allow_air,
+            )
         
         # Handle sales_quote field clearing - reset One-off quote if cleared
         if not self.is_new() and original_sales_quote and not self.sales_quote:
@@ -1055,7 +1077,7 @@ class TransportOrder(Document):
                 pass
 
             # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-            fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_FIELDS  # Include service_type
+            fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
             
             # Build filters based on separate_billings_per_service_type setting
             filters = {"parent": self.sales_quote, "parenttype": "Sales Quote"}
@@ -1142,7 +1164,7 @@ class TransportOrder(Document):
             self.set("charges", [])
 
             # Fetch one_off_quote_transport records from the selected one_off_quote
-            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
             one_off_quote_transport_records = frappe.get_all(
                 "One-Off Quote Transport",
                 filters={"parent": self.quote, "parenttype": "One-Off Quote"},
@@ -1241,8 +1263,7 @@ class TransportOrder(Document):
             if not charge_data.get("invoice_type") and item_doc and hasattr(item_doc, 'invoice_type'):
                 charge_data["invoice_type"] = item_doc.invoice_type
 
-            if charge_data.get("unit_rate") is None:
-                charge_data["unit_rate"] = 0
+            charge_data["rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
 
             if not charge_data.get("quantity"):
                 charge_data["quantity"] = 1
@@ -1613,7 +1634,7 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
             pass
         
         # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-        fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_FIELDS  # Include service_type
+        fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
         
         # Build filters based on separate_billings_per_service_type setting
         filters = {"parent": sales_quote, "parenttype": "Sales Quote"}
@@ -1672,6 +1693,38 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
             "error": str(e),
             "charges": []
         }
+
+
+def append_transport_order_charges_from_sales_quote_if_empty(order):
+    """
+    When the charge table is empty, load Transport lines from the linked Sales Quote
+    (same rules as populate_charges_from_sales_quote). Used after create Transport Order
+    from Air/Sea Shipment: shipment copy only brings Transport-tagged rows from the shipment,
+    which are often absent when Separate Billings per Service Type is on.
+    """
+    if not getattr(order, "sales_quote", None):
+        return
+    if getattr(order, "charges", None) and len(order.charges) > 0:
+        return
+    sq = order.sales_quote
+    if isinstance(sq, str) and sq.startswith("new-"):
+        return
+    try:
+        payload = populate_charges_from_sales_quote(
+            docname=getattr(order, "name", None),
+            sales_quote=sq,
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Transport Order Charges From Quote Fallback",
+        )
+        return
+    if not payload or payload.get("error") or not payload.get("charges"):
+        return
+    order.set("charges", [])
+    for row in payload["charges"]:
+        order.append("charges", row)
 
 
 @frappe.whitelist()
@@ -1747,8 +1800,7 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
         if not charge_data.get("invoice_type") and item_doc and hasattr(item_doc, 'invoice_type'):
             charge_data["invoice_type"] = item_doc.invoice_type
         
-        if charge_data.get("unit_rate") is None:
-            charge_data["unit_rate"] = 0
+        charge_data["rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
         
         if not charge_data.get("quantity"):
             charge_data["quantity"] = 1
@@ -1787,7 +1839,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
             }
         
         # Fetch one_off_quote_transport records from the selected one_off_quote
-        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
         one_off_quote_transport_records = frappe.get_all(
             "One-Off Quote Transport",
             filters={"parent": one_off_quote, "parenttype": "One-Off Quote"},
@@ -2013,6 +2065,9 @@ def action_create_transport_job(docname: str):
             "document_list_template": getattr(doc, "document_list_template", None),
             "milestone_template": getattr(doc, "milestone_template", None),
             "sales_quote": getattr(doc, "sales_quote", None),
+            "sales_rep": getattr(doc, "sales_rep", None),
+            "operations_rep": getattr(doc, "operations_rep", None),
+            "customer_service_rep": getattr(doc, "customer_service_rep", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):
@@ -2455,6 +2510,7 @@ def get_available_one_off_quotes(transport_order_name: str = None) -> Dict[str, 
                 "quote_type": "One-Off Quote",
                 "name": ["!=", transport_order_name or ""],
                 "docstatus": ["!=", 2],
+                "is_main_service": 1,
             },
             or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
             fields=["quote", "sales_quote"],

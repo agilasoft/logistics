@@ -324,19 +324,19 @@
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_tab",
    "fieldtype": "Tab Break",
-   "label": "Job Details"
+   "label": "Internal Jobs"
   },
   {
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
-   "label": "Internal jobs & parameters"
+   "label": "Internal Jobs"
   },
   {
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
   },
   {

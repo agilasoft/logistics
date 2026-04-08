@@ -91,7 +91,7 @@ def _map_cr_charge_to_transport_cost(row, cr_name, charge_row_name):
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
-		"unit_rate": 0,
+		"rate": 0,
 		"unit_type": _row_val(row, "unit_type"),
 		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
 		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
@@ -334,7 +334,9 @@ def _apply_sq_revenue_to_transport_job_row(job_row, sq_row):
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
-	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	if hasattr(job_row, "selling_currency"):
+		job_row.selling_currency = _row_val(sq_row, "currency")
+	job_row.rate = flt(_row_val(sq_row, "unit_rate"), 2)
 	job_row.unit_type = _row_val(sq_row, "unit_type")
 	job_row.minimum_quantity = flt(_row_val(sq_row, "minimum_quantity"), 2)
 	job_row.minimum_charge = flt(_row_val(sq_row, "minimum_charge"), 2)
@@ -343,6 +345,9 @@ def _apply_sq_revenue_to_transport_job_row(job_row, sq_row):
 	job_row.estimated_revenue = flt(_row_val(sq_row, "estimated_revenue"), 2)
 	job_row.bill_to = _row_val(sq_row, "bill_to")
 	job_row.revenue_calc_notes = _row_val(sq_row, "revenue_calc_notes") or ""
+	ic = _row_val(sq_row, "item_code")
+	if ic:
+		job_row.description = frappe.db.get_value("Item", ic, "item_name") or job_row.description
 
 
 def _apply_sq_revenue_to_warehouse_job_row(job_row, sq_row):
@@ -483,7 +488,8 @@ def clear_sales_quote_revenue_from_change_request_job_rows(sq_doc):
 			job_row.revenue_calc_notes = ""
 		elif job_type == "Transport Job":
 			job_row.estimated_revenue = 0
-			job_row.unit_rate = 0
+			if hasattr(job_row, "rate"):
+				job_row.rate = 0
 			job_row.revenue_calc_notes = ""
 		elif job_type == "Warehouse Job":
 			job_row.estimated_revenue = 0

@@ -8,6 +8,7 @@
  "field_order": [
   "load_type_name",
   "description",
+  "is_active",
   "column_break_ljsj",
   "air",
   "sea",
@@ -41,6 +42,13 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "label": "Description"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
   },
   {
    "fieldname": "transport_tab",

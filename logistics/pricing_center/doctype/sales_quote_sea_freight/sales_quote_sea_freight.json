@@ -305,7 +305,7 @@
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"sea\",\"=\",1]]",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
    "options": "Load Type"
   },
   {

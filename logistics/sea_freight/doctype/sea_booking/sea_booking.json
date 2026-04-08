@@ -104,8 +104,29 @@
   "column_break_obdu",
   "notify_party_address",
   "charges_tab",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_cofx",
+  "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
   "section_break_cjyd",
   "charges",
+  "quote_reference_section",
+  "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -116,22 +137,6 @@
   "documents_html",
   "document_list_template",
   "documents",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_accounts",
-  "project",
-  "job_number",
-  "sales_quote",
-  "is_main_service",
-  "is_internal_job",
-  "main_job_type",
-  "main_job",
-  "internal_job_details_tab",
-  "internal_job_details_section",
-  "internal_job_details",
   "notes_tab",
   "notes_section",
   "internal_notes",
@@ -243,23 +248,18 @@
    "options": "main_job_type"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Job Details"
-  },
-  {
+   "collapsible": 1,
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
-   "label": "Internal jobs & parameters"
+   "label": "Internal Jobs"
   },
   {
    "depends_on": "eval:doc.is_main_service",
    "description": "Service parameters for linked internal jobs (same fields as Sales Quote Charge parameter sections).",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
   },
   {
@@ -759,6 +759,41 @@
    "label": "Charges"
   },
   {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
    "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
@@ -836,11 +871,6 @@
    "options": "Job Document"
   },
   {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
-  },
-  {
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
@@ -865,10 +895,6 @@
    "fieldtype": "Link",
    "label": "Profit Center",
    "options": "Profit Center"
-  },
-  {
-   "fieldname": "column_break_accounts",
-   "fieldtype": "Column Break"
   },
   {
    "description": "For revenue/cost recognition",
@@ -1000,12 +1026,20 @@
    "label": "Load Type",
    "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
    "options": "Load Type"
+  },
+  {
+   "fieldname": "column_break_cofx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-04 09:51:30.000133",
+ "modified": "2026-04-08 12:01:49.747825",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking",

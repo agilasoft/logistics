@@ -120,26 +120,30 @@
   "milestone_html",
   "milestone_template",
   "milestones",
-  "internal_job_details_tab",
-  "internal_job_details_section",
-  "internal_job_details",
   "charges_tab",
-  "charges_section",
-  "charges",
-  "accounts_tab",
+  "column_break_logistics_reps",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "job_number",
   "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "charges_section",
+  "charges",
   "quote_reference",
-  "sales_quote",
   "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
   "is_internal_job",
   "main_job_type",
   "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -228,22 +232,15 @@
    "options": "main_job_type"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Job Details"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
+   "collapsible": 1,
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
-   "label": "Internal jobs & parameters"
+   "label": "Internal Jobs"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
   },
   {
@@ -371,9 +368,9 @@
   },
   {
    "fieldname": "transport_document_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Transport Document Type",
-   "options": "Bill of Lading\nAir Waybill\nCMR\nRailway Bill\nCourier Receipt\nOther"
+   "options": "Transport Document Type"
   },
   {
    "fieldname": "etd",
@@ -811,20 +808,8 @@
    "label": "Charges"
   },
   {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break",
-   "label": "Charges"
-  },
-  {
-   "fieldname": "charges",
-   "fieldtype": "Table",
-   "label": "Charges",
-   "options": "Declaration Order Charges"
-  },
-  {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "company",
@@ -856,6 +841,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
    "description": "For revenue/cost recognition",
    "fieldname": "job_number",
    "fieldtype": "Link",
@@ -864,12 +857,47 @@
    "options": "Job Number"
   },
   {
-   "description": "ERPNext Project for Special Projects integration",
-   "fieldname": "project",
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
    "fieldtype": "Link",
-   "label": "Project",
-   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
-   "options": "Project"
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "allow_bulk_edit": 0,
+   "cannot_add_rows": 1,
+   "description": "New charges must be added via Create Change Request. You can still adjust Estimated Revenue and Estimated Cost on existing lines.",
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Declaration Order Charges"
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
   },
   {
    "collapsible": 1,
@@ -981,9 +1009,10 @@
    "label": "Importer Name"
   },
   {
+   "collapsible": 1,
    "fieldname": "quote_reference",
    "fieldtype": "Section Break",
-   "label": "Quote Reference"
+   "label": "Job Details"
   },
   {
    "fieldname": "freight_agent",

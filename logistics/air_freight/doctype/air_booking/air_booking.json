@@ -87,7 +87,21 @@
   "notify_party",
   "column_break_notify",
   "notify_party_address",
-  "internal_job_details_tab",
+  "charges_tab",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_charges_table",
+  "charges",
   "quote_reference_section",
   "is_main_service",
   "sales_quote",
@@ -97,17 +111,6 @@
   "main_job",
   "internal_job_details_section",
   "internal_job_details",
-  "charges_tab",
-  "company",
-  "branch",
-  "column_break_accounts",
-  "cost_center",
-  "profit_center",
-  "column_break_olgm",
-  "project",
-  "job_number",
-  "charges_section",
-  "charges",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -233,31 +236,17 @@
    "options": "main_job_type"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Job Details"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
+   "collapsible": 1,
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
    "label": "Internal Jobs"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
    "description": "Service parameters for linked internal jobs (same fields as Sales Quote Charge parameter sections).",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
-  },
-  {
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "label": "Project",
-   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
-   "options": "Project"
   },
   {
    "fieldname": "house_type",
@@ -703,40 +692,8 @@
    "label": "Charges"
   },
   {
-   "allow_on_submit": 1,
-   "fieldname": "charges",
-   "fieldtype": "Table",
-   "label": "Charges",
-   "options": "Air Booking Charges"
-  },
-  {
-   "fieldname": "documents_tab",
-   "fieldtype": "Tab Break",
-   "label": "Documents"
-  },
-  {
-   "fieldname": "document_management_section",
-   "fieldtype": "Section Break",
-   "label": "Document Management"
-  },
-  {
-   "fieldname": "documents_html",
-   "fieldtype": "HTML",
-   "is_virtual": 1,
-   "label": "Document Summary"
-  },
-  {
-   "description": "Override default template. Leave empty to use product default.",
-   "fieldname": "document_list_template",
-   "fieldtype": "Link",
-   "label": "Document Template",
-   "options": "Document List Template"
-  },
-  {
-   "fieldname": "documents",
-   "fieldtype": "Table",
-   "label": "Documents",
-   "options": "Job Document"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "company",
@@ -772,10 +729,83 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
    "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_break_charges_table",
+   "fieldtype": "Section Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "no_copy": 1,
+   "options": "Air Booking Charges"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "document_management_section",
+   "fieldtype": "Section Break",
+   "label": "Document Management"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
   },
   {
    "fieldname": "internal_notes",
@@ -835,8 +865,10 @@
    "fieldtype": "Column Break"
   },
   {
+   "collapsible": 1,
    "fieldname": "quote_reference_section",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Job Details"
   },
   {
    "fieldname": "contacts_addresses",
@@ -871,15 +903,7 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "column_break_pbmx",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_olgm",
    "fieldtype": "Column Break"
   },
   {

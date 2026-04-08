@@ -126,9 +126,9 @@ def _scrub_main_row_to_child_dict(main_ch, child_doctype, forced_service_type):
 		if k in valid and k not in _SKIP_AS_DICT_KEYS:
 			d[k] = v
 	if "Transport Order Charges" == child_doctype:
-		ur = flt(raw.get("unit_rate")) or flt(raw.get("rate"))
-		if ur and "unit_rate" in valid:
-			d["unit_rate"] = ur
+		ur = flt(raw.get("rate")) or flt(raw.get("unit_rate"))
+		if ur and "rate" in valid:
+			d["rate"] = ur
 		rm = raw.get("revenue_calculation_method") or raw.get("calculation_method")
 		if rm and "revenue_calculation_method" in valid:
 			d["revenue_calculation_method"] = rm
@@ -221,7 +221,7 @@ def _clear_transport_order_charge_amounts(row):
 	for fn in (
 		"estimated_revenue",
 		"estimated_cost",
-		"unit_rate",
+		"rate",
 		"unit_cost",
 		"base_amount",
 		"cost_base_amount",
@@ -280,8 +280,8 @@ def _apply_main_to_transport_row(row, main_ch):
 	row.estimated_revenue = rev
 	row.estimated_cost = cst
 	ur = flt(getattr(main_ch, "rate", 0)) or flt(getattr(main_ch, "unit_rate", 0))
-	if ur and hasattr(row, "unit_rate"):
-		row.unit_rate = ur
+	if ur and hasattr(row, "rate"):
+		row.rate = ur
 	uc = flt(getattr(main_ch, "unit_cost", 0))
 	if uc and hasattr(row, "unit_cost"):
 		row.unit_cost = uc

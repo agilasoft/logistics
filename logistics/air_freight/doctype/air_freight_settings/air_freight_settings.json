@@ -62,6 +62,7 @@
   "require_dg_declaration",
   "require_customs_declaration",
   "default_uld_type",
+  "default_load_type",
   "consolidation_settings_section",
   "default_consolidation_type",
   "auto_assign_to_consolidation",
@@ -408,6 +409,13 @@
    "fieldtype": "Link",
    "label": "Default ULD Type",
    "options": "Unit Load Device"
+  },
+  {
+   "fieldname": "default_load_type",
+   "fieldtype": "Link",
+   "label": "Default Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"air\",\"=\",1]]",
+   "options": "Load Type"
   },
   {
    "fieldname": "consolidation_settings_section",

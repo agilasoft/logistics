@@ -77,7 +77,7 @@ def _map_sq_charge_to_transport(row, sales_quote_name):
 		"quantity": qty,
 		"uom": _row_val(row, "uom"),
 		"currency": _row_val(row, "currency"),
-		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
+		"rate": flt(_row_val(row, "unit_rate"), 2),
 		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
 		"description": "",
 		"sales_quote_link": sales_quote_name,

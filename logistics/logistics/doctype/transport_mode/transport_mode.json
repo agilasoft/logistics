@@ -9,6 +9,7 @@
   "mode_code",
   "mode_name",
   "primary_document",
+  "default_transport_document_type",
   "is_active",
   "column_break_hycw",
   "air",
@@ -33,6 +34,13 @@
    "in_list_view": 1,
    "label": "Primary Document",
    "unique": 1
+  },
+  {
+   "description": "Pre-filled on customs declarations when this mode is selected, if the document type field is empty or still the previous mode default.",
+   "fieldname": "default_transport_document_type",
+   "fieldtype": "Link",
+   "label": "Default Transport Document Type",
+   "options": "Transport Document Type"
   },
   {
    "default": "1",

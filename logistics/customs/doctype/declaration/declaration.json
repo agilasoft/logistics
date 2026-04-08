@@ -161,6 +161,18 @@
   "milestone_template",
   "milestones",
   "charges_tab",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
   "charges_locked",
   "charges_reopen_mode",
   "charges_section",
@@ -184,37 +196,15 @@
   "accrual_amount",
   "recognized_costs",
   "accrual_closed",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_accounts",
-  "job_number",
-  "project",
   "section_break_puec",
-  "sales_quote",
   "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
   "is_internal_job",
   "main_job_type",
   "main_job",
-  "internal_job_details_tab",
   "internal_job_details_section",
   "internal_job_details",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -266,9 +256,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "reqd": 1,
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "reqd": 1
   },
   {
    "fieldname": "declaration_date",
@@ -291,6 +281,10 @@
    "label": "Sales Quote",
    "options": "Sales Quote",
    "search_index": 1
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
   },
   {
    "default": "0",
@@ -321,22 +315,15 @@
    "options": "main_job_type"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Job Details"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
+   "collapsible": 1,
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
-   "label": "Internal jobs & parameters"
+   "label": "Internal Jobs"
   },
   {
-   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
-   "label": "Job Details",
+   "label": "Internal Jobs",
    "options": "Internal Job Detail"
   },
   {
@@ -350,9 +337,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
    "options": "Customs Authority",
-   "reqd": 1,
-   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "default": "Draft",
@@ -406,8 +393,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "description": "Exchange rate if different from base currency",
@@ -433,29 +420,29 @@
    "fieldname": "exporter_shipper",
    "fieldtype": "Link",
    "label": "Exporter/Shipper",
-   "options": "Shipper",
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
   },
   {
    "fieldname": "importer_consignee",
    "fieldtype": "Link",
    "label": "Importer/Consignee",
-   "options": "Consignee",
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
   },
   {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
-   "options": "Broker",
-   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
    "fieldtype": "Link",
    "label": "Notify Party",
-   "options": "Customer",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
   },
   {
    "fieldname": "notify_party_address",
@@ -499,15 +486,15 @@
    "fieldname": "port_of_loading",
    "fieldtype": "Link",
    "label": "Port of Loading/Entry",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "port_of_discharge",
    "fieldtype": "Link",
    "label": "Port of Discharge/Exit",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_transport",
@@ -534,9 +521,9 @@
   },
   {
    "fieldname": "transport_document_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Transport Document Type",
-   "options": "Bill of Lading\nAir Waybill\nCMR\nRailway Bill\nCourier Receipt\nOther"
+   "options": "Transport Document Type"
   },
   {
    "fieldname": "etd",
@@ -641,8 +628,8 @@
    "fieldname": "processing_officer",
    "fieldtype": "Link",
    "label": "Processing Officer",
-   "options": "User",
-   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
+   "options": "User"
   },
   {
    "fieldname": "expected_clearance_date",
@@ -763,8 +750,8 @@
    "fieldname": "inv_currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "fieldname": "inv_exchange_rate",
@@ -829,8 +816,8 @@
    "fieldname": "inv_importer",
    "fieldtype": "Link",
    "label": "Importer",
-   "options": "Consignee",
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
   },
   {
    "fieldname": "inv_volume",
@@ -841,8 +828,8 @@
    "fieldname": "inv_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "inv_incoterm",
@@ -957,8 +944,8 @@
    "fieldname": "inv_gross_weight_uom",
    "fieldtype": "Link",
    "label": "Inv. Gross Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "inv_net_weight",
@@ -969,8 +956,8 @@
    "fieldname": "inv_net_weight_uom",
    "fieldtype": "Link",
    "label": "Inv. Net Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "packages",
@@ -981,8 +968,8 @@
    "fieldname": "packages_uom",
    "fieldtype": "Link",
    "label": "Packages UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "collapsible": 1,
@@ -1013,38 +1000,8 @@
    "label": "Charges"
   },
   {
-   "default": "0",
-   "allow_on_submit": 1,
-   "description": "Legacy. Charge lock uses Job Status (Completed/Closed).",
-   "fieldname": "charges_locked",
-   "fieldtype": "Check",
-   "label": "Charges Locked"
-  },
-  {
-   "default": "0",
-   "allow_on_submit": 1,
-   "description": "Internal: set after Reopen Job; cleared with Close Job.",
-   "fieldname": "charges_reopen_mode",
-   "fieldtype": "Check",
-   "hidden": 1,
-   "label": "Charges Reopen Mode"
-  },
-  {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break",
-   "label": "Charges"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "charges",
-   "fieldtype": "Table",
-   "label": "Charges",
-   "options": "Declaration Charges"
-  },
-  {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "company",
@@ -1080,6 +1037,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
    "description": "This will be used when posting financial transactions to this declaration.",
    "fieldname": "job_number",
    "fieldtype": "Link",
@@ -1087,99 +1052,59 @@
    "options": "Job Number"
   },
   {
-   "description": "ERPNext Project for Special Projects integration",
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "label": "Project",
-   "options": "Project",
-   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "invoice_monitoring_section",
-   "fieldtype": "Section Break",
-   "label": "Invoice Monitoring"
-  },
-  {
-   "fieldname": "sales_invoice",
-   "fieldtype": "Link",
-   "label": "Sales Invoice",
-   "options": "Sales Invoice",
-   "read_only": 1
-  },
-  {
-   "fieldname": "purchase_invoice",
-   "fieldtype": "Link",
-   "label": "Purchase Invoice",
-   "options": "Purchase Invoice",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_invoiced",
-   "fieldtype": "Check",
-   "label": "Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_invoiced",
-   "fieldtype": "Date",
-   "label": "Date Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_paid",
-   "fieldtype": "Check",
-   "label": "Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_invoice_lifecycle",
+   "fieldname": "column_break_yhuu",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "date_sales_invoice_requested",
-   "fieldtype": "Date",
-   "label": "SI Requested",
-   "read_only": 1
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
-   "fieldname": "date_sales_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "SI Submitted",
-   "read_only": 1
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
-   "fieldname": "date_purchase_invoice_requested",
-   "fieldtype": "Date",
-   "label": "PI Requested",
-   "read_only": 1
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
-   "fieldname": "date_purchase_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "PI Submitted",
-   "read_only": 1
-  },
-  {
+   "allow_on_submit": 1,
    "default": "0",
-   "fieldname": "costs_fully_paid",
+   "description": "Legacy. Charge lock uses Job Status (Completed/Closed).",
+   "fieldname": "charges_locked",
    "fieldtype": "Check",
-   "label": "Costs Fully Paid",
-   "read_only": 1
+   "label": "Charges Locked"
   },
   {
-   "fieldname": "date_costs_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Costs Paid",
-   "read_only": 1
+   "allow_on_submit": 1,
+   "default": "0",
+   "description": "Internal: set after Reopen Job; cleared with Close Job.",
+   "fieldname": "charges_reopen_mode",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Charges Reopen Mode"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "New charges must be added via Create Change Request. You can still adjust Estimated Revenue and Estimated Cost on existing lines.",
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Declaration Charges"
   },
   {
    "collapsible": 1,
@@ -1470,8 +1395,8 @@
    "fieldname": "exporter",
    "fieldtype": "Link",
    "label": "Exporter",
-   "options": "Shipper",
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
   },
   {
    "fetch_from": "exporter.shipper_name",
@@ -1503,15 +1428,17 @@
    "fieldtype": "Column Break"
   },
   {
+   "collapsible": 1,
    "fieldname": "section_break_puec",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Job Details"
   },
   {
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   }
  ],
  "grid_page_length": 50,
@@ -1529,7 +1456,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-03-26 11:08:55.272669",
+ "modified": "2026-04-08 15:04:47.935768",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",

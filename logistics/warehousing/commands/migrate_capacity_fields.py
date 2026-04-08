@@ -44,9 +44,8 @@ def add_storage_location_fields():
     
     print("📦 Adding Storage Location capacity fields...")
     
-    # Check if fields already exist
-    existing_fields = frappe.get_meta("Storage Location").get_fieldnames()
-    
+    meta = frappe.get_meta("Storage Location")
+
     fields_to_add = [
         ("capacity_tab", "VARCHAR(140) DEFAULT 'Capacity Management'"),
         ("max_volume", "DECIMAL(20,3) DEFAULT 0"),
@@ -67,7 +66,7 @@ def add_storage_location_fields():
     ]
     
     for field_name, field_definition in fields_to_add:
-        if field_name not in existing_fields:
+        if not meta.has_field(field_name):
             try:
                 frappe.db.sql(f"""
                     ALTER TABLE `tabStorage Location` 
@@ -85,9 +84,8 @@ def add_handling_unit_fields():
     
     print("📦 Adding Handling Unit capacity fields...")
     
-    # Check if fields already exist
-    existing_fields = frappe.get_meta("Handling Unit").get_fieldnames()
-    
+    meta = frappe.get_meta("Handling Unit")
+
     fields_to_add = [
         ("capacity_tab", "VARCHAR(140) DEFAULT 'Capacity Management'"),
         ("max_volume", "DECIMAL(20,3) DEFAULT 0"),
@@ -108,7 +106,7 @@ def add_handling_unit_fields():
     ]
     
     for field_name, field_definition in fields_to_add:
-        if field_name not in existing_fields:
+        if not meta.has_field(field_name):
             try:
                 frappe.db.sql(f"""
                     ALTER TABLE `tabHandling Unit` 

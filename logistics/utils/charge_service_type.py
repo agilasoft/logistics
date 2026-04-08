@@ -31,6 +31,16 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Declaration": "Customs",
 	"Declaration Order": "Customs",
 	"Warehouse Job": "Warehousing",
+	"Inbound Order": "Warehousing",
+}
+
+# Internal Job Detail: user selects Service Type; Job Type is set automatically to the target DocType.
+INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE = {
+	"Air": "Air Booking",
+	"Sea": "Sea Booking",
+	"Transport": "Transport Order",
+	"Customs": "Declaration Order",
+	"Warehousing": "Inbound Order",
 }
 
 # Routing leg job_type values that identify the same operational leg as the parent document
@@ -50,6 +60,24 @@ ROUTING_LEG_JOB_TYPES = {
 
 def implied_service_type_for_doctype(doctype):
 	return IMPLIED_SERVICE_TYPE_BY_DOCTYPE.get(doctype)
+
+
+def default_job_type_for_internal_job_service_type(service_type):
+	"""Operational DocType created from an Internal Job Detail row for this service type."""
+	if not service_type:
+		return ""
+	return INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE.get((service_type or "").strip(), "")
+
+
+def effective_internal_job_detail_job_type(row):
+	"""Operational job type for matching and create flows: mapped service_type wins over stored job_type."""
+	if not row:
+		return ""
+	st = (getattr(row, "service_type", None) or "").strip()
+	mapped = default_job_type_for_internal_job_service_type(st)
+	if mapped:
+		return mapped
+	return (getattr(row, "job_type", None) or "").strip()
 
 
 def on_validate_main_service_internal_job(doc, method=None):
@@ -132,8 +160,11 @@ def _is_customs_sq_charge_row(row) -> bool:
 
 def customs_charges_rows_from_sales_quote_doc(parent_doc, sales_quote_doc):
 	"""
-	List of Sales Quote Charge child rows for Customs-type population,
-	respecting internal job + main service + separate billings.
+	List of Sales Quote Charge child rows for Declaration / Declaration Order charge population.
+
+	- Internal jobs: Customs lines only (from the quote).
+	- Separate billings on, or not the quote main job: Customs lines only.
+	- Separate billings off and main job: all quote charge rows (same rule as Sea/Air main jobs).
 	"""
 	rows = list(getattr(sales_quote_doc, "charges", None) or [])
 	customs_only = [c for c in rows if _is_customs_sq_charge_row(c)]
@@ -143,10 +174,6 @@ def customs_charges_rows_from_sales_quote_doc(parent_doc, sales_quote_doc):
 	main_like = is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc) or cint(
 		getattr(parent_doc, "is_main_service", 0)
 	)
-	# Declaration Order / Declaration are Customs jobs: never return all quote lines here.
-	# Doing so replaces e.g. shipment-sourced Customs charges with Air/Handling rows when separate billing is off.
-	if getattr(parent_doc, "doctype", None) in ("Declaration Order", "Declaration"):
-		return customs_only
 	if not separate and main_like:
 		return rows
 	return customs_only

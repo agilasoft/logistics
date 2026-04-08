@@ -69,7 +69,7 @@ function _apply_air_booking_settings_defaults(frm, force_reload) {
 			var fields = [
 				"branch", "cost_center", "profit_center", "incoterm", "service_level",
 				"origin_port", "destination_port", "airline", "freight_agent",
-				"house_type", "direction", "release_type", "entry_type", "uld_type"
+				"house_type", "direction", "release_type", "entry_type", "load_type"
 			];
 			fields.forEach(function(fieldname) {
 				if (!frm.doc[fieldname] && defaults[fieldname]) {
@@ -714,6 +714,22 @@ function _apply_routing_legs_from_sales_quote_response(frm, r) {
 	frm.refresh_field('routing_legs');
 }
 
+function _apply_internal_job_details_from_sales_quote_response(frm, r) {
+	if (!r.message || !r.message.internal_job_details || !r.message.internal_job_details.length) {
+		return;
+	}
+	frm.clear_table('internal_job_details');
+	r.message.internal_job_details.forEach(function(row) {
+		var d = frm.add_child('internal_job_details');
+		Object.keys(row).forEach(function(key) {
+			if (row[key] !== null && row[key] !== undefined) {
+				d[key] = row[key];
+			}
+		});
+	});
+	frm.refresh_field('internal_job_details');
+}
+
 // Populate charges from quote (handles both Sales Quote and One-Off Quote)
 function _populate_charges_from_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
@@ -793,6 +809,7 @@ function _populate_charges_from_quote(frm) {
 					return;
 				}
 				_apply_routing_legs_from_sales_quote_response(frm, r);
+				_apply_internal_job_details_from_sales_quote_response(frm, r);
 				if (r.message.message) {
 					frappe.msgprint({
 						title: __("No Charges Found"),

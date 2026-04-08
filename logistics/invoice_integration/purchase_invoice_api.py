@@ -30,7 +30,7 @@ CHARGE_CONFIG = {
     # Sea Shipment Charges primarily use item_code (legacy rows may still have charge_item).
     "Sea Shipment": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
     "Warehouse Job": ("charges", "total", "rate", "quantity", "item_code", None),
-    "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", None),
+    "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", "pay_to"),
 }
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)

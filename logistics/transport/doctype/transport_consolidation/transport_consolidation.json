@@ -71,7 +71,7 @@
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"transport\",\"=\",1],[\"Load Type\",\"can_handle_consolidation\",\"=\",1]]",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"transport\",\"=\",1],[\"Load Type\",\"can_handle_consolidation\",\"=\",1]]",
    "options": "Load Type"
   },
   {

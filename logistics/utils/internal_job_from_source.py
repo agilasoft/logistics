@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any
 
 import frappe
 from frappe import _
 
+from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
 from logistics.utils.internal_job_detail_copy import (
 	get_declaration_order_job_no_from_shipment_doc,
 	persist_internal_job_detail_job_link,
@@ -18,7 +20,7 @@ from logistics.utils.sales_quote_charge_parameters import extract_sales_quote_ch
 
 
 CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
-	{"Transport Order", "Declaration Order", "Air Booking", "Sea Booking"}
+	{"Transport Order", "Declaration Order", "Air Booking", "Sea Booking", "Inbound Order"}
 )
 
 _SERVICE_LOWER_FOR_JOB_TYPE: dict[str, str] = {
@@ -26,14 +28,57 @@ _SERVICE_LOWER_FOR_JOB_TYPE: dict[str, str] = {
 	"Declaration Order": "customs",
 	"Air Booking": "air",
 	"Sea Booking": "sea",
+	"Inbound Order": "warehousing",
 }
 
-_ROUTING_LABEL_FOR_JOB_TYPE: dict[str, str] = {
-	"Transport Order": "Transport",
-	"Declaration Order": "Customs",
-	"Air Booking": "Air",
-	"Sea Booking": "Sea",
-}
+_LOGISTICS_IJ_CLIENT_ROWS = "_logistics_ij_client_rows"
+
+
+def _coerce_client_internal_job_details(client_value: Any) -> list | None:
+	"""List of Internal Job Detail row dicts from the desk form, or None to use the saved document."""
+	if client_value is None or client_value == "":
+		return None
+	if isinstance(client_value, str):
+		try:
+			client_value = frappe.parse_json(client_value)
+		except Exception:
+			return None
+	if not isinstance(client_value, list):
+		return None
+	return client_value
+
+
+@contextmanager
+def internal_job_details_client_rows(client_value: Any):
+	"""Use grid rows from the form (including unsaved lines) for resolve/create while this block runs."""
+	key = _LOGISTICS_IJ_CLIENT_ROWS
+	parsed = _coerce_client_internal_job_details(client_value)
+	had_before = hasattr(frappe.local, key)
+	old_val = getattr(frappe.local, key, None) if had_before else None
+	try:
+		if parsed is not None:
+			setattr(
+				frappe.local,
+				key,
+				[frappe._dict(r) if isinstance(r, dict) else r for r in parsed],
+			)
+		yield
+	finally:
+		if parsed is not None:
+			if had_before:
+				setattr(frappe.local, key, old_val)
+			else:
+				try:
+					delattr(frappe.local, key)
+				except AttributeError:
+					pass
+
+
+def _ij_rows_list(parent_doc: Any) -> list[Any]:
+	ov = getattr(frappe.local, _LOGISTICS_IJ_CLIENT_ROWS, None)
+	if ov is not None:
+		return list(ov)
+	return list(getattr(parent_doc, "internal_job_details", None) or [])
 
 
 def coerce_internal_job_detail_idx(value: Any) -> int | None:
@@ -53,6 +98,8 @@ def resolve_internal_job_detail_row_for_create(
 ) -> tuple[Any | None, int | None]:
 	"""Resolve the Internal Job Detail row used for create: explicit idx, else first open line for this job type.
 
+	Does not match rows using sales quote routing; only explicit index or open lines in ``internal_job_details``.
+
 	Returns (row, 1-based idx) for persisting job_no after create.
 	"""
 	jt = (job_type or "").strip()
@@ -60,25 +107,14 @@ def resolve_internal_job_detail_row_for_create(
 	if idx is not None:
 		return resolve_internal_job_detail_row(parent_doc, idx, jt), idx
 
-	rows = list(getattr(parent_doc, "internal_job_details", None) or [])
+	rows = _ij_rows_list(parent_doc)
 	for i, r in enumerate(rows, start=1):
-		if (getattr(r, "job_type", None) or "").strip() != jt:
+		if effective_internal_job_detail_job_type(r) != jt:
 			continue
 		if (getattr(r, "job_no", None) or "").strip():
 			continue
 		return r, i
 
-	st_label = _ROUTING_LABEL_FOR_JOB_TYPE.get(jt)
-	if not st_label:
-		return None, None
-	from logistics.utils.routing_quote_context import get_internal_job_detail_by_service_type
-
-	match = get_internal_job_detail_by_service_type(parent_doc, st_label)
-	if not match or (getattr(match, "job_no", None) or "").strip():
-		return None, None
-	for i, r in enumerate(rows, start=1):
-		if getattr(r, "name", None) and getattr(match, "name", None) and r.name == match.name:
-			return match, i
 	return None, None
 
 
@@ -88,17 +124,17 @@ def resolve_internal_job_detail_row(
 	"""Return the child row at 1-based idx or None. Validates job_type when idx is set."""
 	if internal_job_detail_idx is None:
 		return None
-	rows = list(getattr(parent_doc, "internal_job_details", None) or [])
+	rows = _ij_rows_list(parent_doc)
 	if internal_job_detail_idx < 1 or internal_job_detail_idx > len(rows):
 		frappe.throw(_("Invalid Internal Job Detail row."))
 	row = rows[internal_job_detail_idx - 1]
-	jt = (getattr(row, "job_type", None) or "").strip()
-	if jt != (expected_job_type or "").strip():
+	row_jt = effective_internal_job_detail_job_type(row)
+	if row_jt != (expected_job_type or "").strip():
 		frappe.throw(_("The selected line is not for {0}.").format(expected_job_type))
 	jn = (getattr(row, "job_no", None) or "").strip()
 	if jn:
 		frappe.throw(
-			_("This Internal Job Detail line already references {0} {1}.").format(jt, jn),
+			_("This Internal Job Detail line already references {0} {1}.").format(row_jt, jn),
 			title=_("Already linked"),
 		)
 	return row
@@ -170,43 +206,169 @@ def _shipment_charge_matches_service(shipment: Any, *service_lower: str) -> bool
 	return False
 
 
-def _detail_rows_for_creation(parent_doc: Any) -> list[tuple[int, Any]]:
-	"""1-based indices of internal_job_details rows that describe a creatable job and have no job_no yet."""
+def _open_internal_job_detail_rows(parent_doc: Any) -> list[tuple[int, Any]]:
+	"""1-based indices of internal_job_details rows with no Job No yet (any job type)."""
 	out: list[tuple[int, Any]] = []
 	for i, row in enumerate(getattr(parent_doc, "internal_job_details", None) or [], start=1):
-		jt = (getattr(row, "job_type", None) or "").strip()
-		if jt not in CREATABLE_INTERNAL_JOB_TYPES:
-			continue
 		if (getattr(row, "job_no", None) or "").strip():
 			continue
 		out.append((i, row))
 	return out
 
 
-def _choice_label(job_type: str, row: Any | None, idx: int | None, *, generic: bool = False) -> str:
-	"""Dropdown label; detail lines lead with 1-based child row idx."""
-	if generic:
-		return "{0} — {1}".format(_(job_type), _("default routing"))
+def _open_internal_job_detail_rows_for_form(
+	parent_doc: Any, client_internal_job_details: Any
+) -> list[tuple[int, Any]]:
+	"""Open rows for Create > Internal Job: prefer the desk grid (unsaved) when the client sends it."""
+	parsed = _coerce_client_internal_job_details(client_internal_job_details)
+	if parsed is None:
+		return _open_internal_job_detail_rows(parent_doc)
+	# Client often sends JSON "[]" when the child table is not yet in memory; use saved rows for named docs.
+	if (
+		not parsed
+		and getattr(parent_doc, "name", None)
+		and not getattr(parent_doc, "__islocal", False)
+	):
+		return _open_internal_job_detail_rows(parent_doc)
+	out: list[tuple[int, Any]] = []
+	for i, rowd in enumerate(parsed, start=1):
+		rw = frappe._dict(rowd) if isinstance(rowd, dict) else rowd
+		if (getattr(rw, "job_no", None) or "").strip():
+			continue
+		out.append((i, rw))
+	return out
+
+
+def _all_internal_job_detail_rows_for_form(
+	parent_doc: Any, client_internal_job_details: Any
+) -> list[tuple[int, Any]]:
+	"""All Internal Job Detail rows for the dialog, including lines that already have Job No (read-only cards)."""
+	parsed = _coerce_client_internal_job_details(client_internal_job_details)
+	if parsed is None:
+		rows = getattr(parent_doc, "internal_job_details", None) or []
+		return [(i, r) for i, r in enumerate(rows, start=1)]
+	if (
+		not parsed
+		and getattr(parent_doc, "name", None)
+		and not getattr(parent_doc, "__islocal", False)
+	):
+		rows = getattr(parent_doc, "internal_job_details", None) or []
+		return [(i, r) for i, r in enumerate(rows, start=1)]
+	out: list[tuple[int, Any]] = []
+	for i, rowd in enumerate(parsed, start=1):
+		rw = frappe._dict(rowd) if isinstance(rowd, dict) else rowd
+		out.append((i, rw))
+	return out
+
+
+def _job_type_allowed_for_source(
+	source_doctype: str, parent_doc: Any, job_type: str, flags: dict[str, Any]
+) -> bool:
+	"""Whether Create > Internal Job can create this document type from this source."""
+	jt = (job_type or "").strip()
+	if jt not in CREATABLE_INTERNAL_JOB_TYPES:
+		return False
+	sq = getattr(parent_doc, "sales_quote", None)
+	if source_doctype in ("Air Shipment", "Sea Shipment"):
+		if jt == "Transport Order":
+			return True
+		if jt == "Declaration Order":
+			return bool(sq and not get_declaration_order_job_no_from_shipment_doc(parent_doc))
+		if jt == "Sea Booking":
+			return source_doctype == "Air Shipment"
+		if jt == "Air Booking":
+			return source_doctype == "Sea Shipment" and _shipment_charge_matches_service(parent_doc, "air")
+		if jt == "Inbound Order":
+			return bool(flags.get("allow_inbound"))
+		return False
+	if source_doctype == "Transport Job":
+		if jt == "Transport Order":
+			return True
+		if jt == "Declaration Order":
+			return bool(flags.get("allow_declaration"))
+		if jt in ("Air Booking", "Sea Booking"):
+			return True
+		if jt == "Inbound Order":
+			return bool(flags.get("allow_inbound"))
+		return False
+	if source_doctype == "Declaration":
+		from frappe.utils import cint
+
+		sq = getattr(parent_doc, "sales_quote", None)
+		if jt == "Transport Order":
+			if not sq:
+				return False
+			if (getattr(parent_doc, "transport_order", None) or "").strip():
+				return False
+			is_ij = cint(getattr(parent_doc, "is_internal_job", 0))
+			is_main = cint(getattr(parent_doc, "is_main_service", 0))
+			return bool((is_main and not is_ij) or is_ij)
+		if jt == "Inbound Order":
+			return bool(flags.get("allow_inbound")) and bool(sq)
+		return False
+	return False
+
+
+def _choice_label(job_type: str, row: Any | None, idx: int | None) -> str:
+	"""Choice label for an Internal Job Detail row."""
 	st = (getattr(row, "service_type", None) or "").strip() if row else ""
-	parts = []
+	jt_label = (job_type or "").strip()
+	parts: list[str] = []
 	if idx is not None:
-		parts.append(_("[idx {0}] {1}").format(idx, _(job_type)))
+		if st:
+			parts.append(_("[idx {0}] {1}").format(idx, _(st)))
+		elif jt_label:
+			parts.append(_("[idx {0}] {1}").format(idx, _(jt_label)))
+		else:
+			parts.append(_("[idx {0}] — {1}").format(idx, _("(no service type)")))
 	else:
-		parts.append(_(job_type))
-	if st:
+		parts.append(_(jt_label) if jt_label else _("(no job type)"))
+	if st and idx is None:
 		parts.append(st)
 	return " — ".join(parts)
+
+
+def _choice_header_fields(
+	job_type: str,
+	row: Any | None,
+	idx: int | None,
+) -> dict[str, str]:
+	"""Structured card header (title, pill, subtitle) for Create Internal Job UI."""
+	jt_label = (job_type or "").strip()
+	st = (getattr(row, "service_type", None) or "").strip() if row else ""
+	jn = (getattr(row, "job_no", None) or "").strip() if row else ""
+	title = _(st) if st else (_(jt_label) if jt_label else _("(no service type)"))
+	if jn:
+		badge = jn
+	elif idx is not None:
+		badge = _("Pending")
+	else:
+		badge = _("Job Details")
+	if jn:
+		subtitle = _("Already linked — open the job from Job No above.")
+	elif not st:
+		subtitle = _("Select a service type on this line to set the target document type.")
+	elif not jt_label:
+		subtitle = _("Could not resolve target document type for this service.")
+	else:
+		subtitle = _("Creates {0}. Row parameters are applied on create.").format(_(jt_label))
+	return {
+		"header_title": title,
+		"header_badge": badge,
+		"header_subtitle": subtitle,
+	}
 
 
 @frappe.whitelist()
 def get_internal_job_creation_choices(
 	source_doctype: str,
 	source_name: str,
+	internal_job_details: Any = None,
 ):
-	"""Build Create > Internal Job dropdown: Internal Job Detail lines first, then generic eligible types without a matching open line."""
+	"""Build Create > Internal Job options: all Internal Job Detail rows; lines with Job No stay visible (not creatable)."""
 	if not source_name or not frappe.db.exists(source_doctype, source_name):
 		frappe.throw(_("Invalid source document."))
-	if source_doctype not in ("Air Shipment", "Sea Shipment", "Transport Job"):
+	if source_doctype not in ("Air Shipment", "Sea Shipment", "Transport Job", "Declaration"):
 		frappe.throw(_("Unsupported source type."))
 
 	doc = frappe.get_doc(source_doctype, source_name)
@@ -221,45 +383,29 @@ def get_internal_job_creation_choices(
 	)
 
 	choices: list[dict[str, Any]] = []
-	detail_by_type: dict[str, list[tuple[int, Any]]] = {}
-	for idx, row in _detail_rows_for_creation(doc):
-		jt = (getattr(row, "job_type", None) or "").strip()
-		detail_by_type.setdefault(jt, []).append((idx, row))
+	for idx, row in _all_internal_job_detail_rows_for_form(doc, internal_job_details):
+		st = (getattr(row, "service_type", None) or "").strip()
+		jt = effective_internal_job_detail_job_type(row)
+		jn = (getattr(row, "job_no", None) or "").strip()
+		if jn:
+			creatable = False
+		else:
+			creatable = bool(st) and bool(jt) and _job_type_allowed_for_source(source_doctype, doc, jt, flags)
+		label = _choice_label(jt, row, idx)
+		if jt and not creatable and not jn:
+			label = "{0} — {1}".format(label, _("cannot create from here"))
 		choices.append(
 			{
 				"mode": "detail",
 				"detail_idx": idx,
 				"job_type": jt,
-				"label": _choice_label(jt, row, idx, generic=False),
+				"service_type": st or None,
+				"job_no": jn or None,
+				"label": label,
+				"creatable": creatable,
+				**_choice_header_fields(jt, row, idx),
 			}
 		)
-
-	def add_generic(job_type: str) -> None:
-		if job_type in detail_by_type:
-			return
-		choices.append(
-			{
-				"mode": "generic",
-				"detail_idx": None,
-				"job_type": job_type,
-				"label": _choice_label(job_type, None, None, generic=True),
-			}
-		)
-
-	if source_doctype in ("Air Shipment", "Sea Shipment"):
-		add_generic("Transport Order")
-		sq = getattr(doc, "sales_quote", None)
-		if sq and not get_declaration_order_job_no_from_shipment_doc(doc):
-			add_generic("Declaration Order")
-		if source_doctype == "Air Shipment":
-			add_generic("Sea Booking")
-		if source_doctype == "Sea Shipment" and _shipment_charge_matches_service(doc, "air"):
-			add_generic("Air Booking")
-	elif source_doctype == "Transport Job":
-		if flags.get("allow_declaration"):
-			add_generic("Declaration Order")
-		add_generic("Air Booking")
-		add_generic("Sea Booking")
 
 	return {"choices": choices}
 
@@ -304,23 +450,138 @@ def get_internal_job_creation_preview(
 	source_name: str,
 	job_type: str,
 	internal_job_detail_idx: int | None = None,
+	internal_job_details: Any = None,
 ):
 	"""Job-detail parameters and parent charge rows that will be copied into the new internal job."""
+	if not source_name or not frappe.db.exists(source_doctype, source_name):
+		frappe.throw(_("Invalid source document."))
+	if source_doctype not in ("Air Shipment", "Sea Shipment", "Transport Job", "Declaration"):
+		frappe.throw(_("Unsupported source type."))
+
+	doc = frappe.get_doc(source_doctype, source_name)
+	doc.check_permission("read")
+
+	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
+
+	flags = get_quote_module_flags(
+		getattr(doc, "sales_quote", None),
+		source_doctype=source_doctype,
+		source_name=source_name,
+	)
+
+	jt = (job_type or "").strip()
+	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+
+	with internal_job_details_client_rows(internal_job_details):
+		return _get_internal_job_creation_preview_body(
+			source_doctype,
+			source_name,
+			doc,
+			flags,
+			jt,
+			idx,
+		)
+
+
+def _get_internal_job_creation_preview_body(
+	source_doctype: str,
+	source_name: str,
+	doc: Any,
+	flags: dict[str, Any],
+	jt: str,
+	idx: int | None,
+) -> dict[str, Any]:
 	from frappe.utils import cint
 
 	from logistics.utils import module_integration as mi
 
-	jt = (job_type or "").strip()
-	if jt not in CREATABLE_INTERNAL_JOB_TYPES:
-		frappe.throw(_("Invalid job type."))
-	if not source_name or not frappe.db.exists(source_doctype, source_name):
-		frappe.throw(_("Invalid source document."))
-	if source_doctype not in ("Air Shipment", "Sea Shipment", "Transport Job"):
-		frappe.throw(_("Unsupported source type."))
+	def _line_only_preview(
+		row: Any, res_idx: int, *, message: str, job_type_label: str | None = None
+	) -> dict[str, Any]:
+		params = extract_sales_quote_charge_parameters(row) if row else {}
+		preview_params = _job_preview_parameters_for_display(params)
+		customer = getattr(doc, "local_customer", None) or getattr(doc, "customer", None)
+		jtl = (job_type_label if job_type_label is not None else jt) or ""
+		if not jtl and row is not None:
+			jtl = effective_internal_job_detail_job_type(row)
+		return {
+			"job_type": jtl,
+			"detail_idx": res_idx,
+			"uses_job_detail_row": True,
+			"creatable": False,
+			"not_creatable_message": message,
+			"source_context": {
+				"source_doctype": source_doctype,
+				"source_name": source_name,
+				"customer": customer,
+				"company": getattr(doc, "company", None),
+				"sales_quote": getattr(doc, "sales_quote", None),
+				"source_is_internal_job": bool(cint(getattr(doc, "is_internal_job", 0))),
+				"source_main_job_type": getattr(doc, "main_job_type", None),
+				"source_main_job": getattr(doc, "main_job", None),
+				"from_main_service_shipment": False,
+			},
+			"target_internal_job": None,
+			"job_detail_parameters": preview_params,
+			"charges": [],
+		}
 
-	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
-	doc = frappe.get_doc(source_doctype, source_name)
-	doc.check_permission("read")
+	if idx is not None:
+		rows_ij = _ij_rows_list(doc)
+		if 1 <= idx <= len(rows_ij):
+			row_linked = rows_ij[idx - 1]
+			jn_linked = (getattr(row_linked, "job_no", None) or "").strip()
+			if jn_linked:
+				row_jt = effective_internal_job_detail_job_type(row_linked)
+				jtl = (jt or "").strip() or row_jt
+				return _line_only_preview(
+					row_linked,
+					idx,
+					message=_("This line is already linked to {0}.").format(jn_linked),
+					job_type_label=jtl or row_jt,
+				)
+
+	if not jt:
+		if idx is None:
+			frappe.throw(_("Invalid selection."))
+		rows = _ij_rows_list(doc)
+		if idx < 1 or idx > len(rows):
+			frappe.throw(_("Invalid Internal Job Detail row."))
+		row = rows[idx - 1]
+		if (getattr(row, "job_no", None) or "").strip():
+			frappe.throw(_("This Internal Job Detail line already has a Job No."))
+		return _line_only_preview(
+			row,
+			idx,
+			message=_("Set Service Type on this line before creating."),
+			job_type_label="",
+		)
+
+	if jt not in CREATABLE_INTERNAL_JOB_TYPES:
+		if idx is None:
+			frappe.throw(_("Invalid job type."))
+		row = resolve_internal_job_detail_row(doc, idx, jt)
+		return _line_only_preview(
+			row,
+			idx,
+			message=_(
+				"This job type cannot be created from this screen. Create or link the job another way, or choose a supported type."
+			),
+		)
+
+	if (
+		idx is not None
+		and jt in CREATABLE_INTERNAL_JOB_TYPES
+		and not _job_type_allowed_for_source(source_doctype, doc, jt, flags)
+	):
+		row = resolve_internal_job_detail_row(doc, idx, jt)
+		return _line_only_preview(
+			row,
+			idx,
+			message=_(
+				"This option is not available for the current source (for example, sales quote, linked declaration, or module flags)."
+			),
+		)
 
 	svc = _SERVICE_LOWER_FOR_JOB_TYPE[jt]
 
@@ -353,6 +614,19 @@ def get_internal_job_creation_preview(
 				"main_job_type": "Transport Job",
 				"main_job": doc.name,
 			}
+	elif source_doctype == "Declaration":
+		if jt == "Transport Order" and cint(getattr(doc, "is_internal_job", 0)):
+			target_internal = {
+				"is_internal_job": True,
+				"main_job_type": "Declaration",
+				"main_job": doc.name,
+			}
+		elif jt == "Inbound Order":
+			target_internal = {
+				"is_internal_job": True,
+				"main_job_type": "Declaration",
+				"main_job": doc.name,
+			}
 
 	customer = getattr(doc, "local_customer", None) or getattr(doc, "customer", None)
 	charges = _charges_preview_list(doc, svc, routing_params)
@@ -363,6 +637,7 @@ def get_internal_job_creation_preview(
 		"job_type": jt,
 		"detail_idx": res_idx,
 		"uses_job_detail_row": ij_row is not None,
+		"creatable": True,
 		"source_context": {
 			"source_doctype": source_doctype,
 			"source_name": source_name,
@@ -386,6 +661,7 @@ def create_internal_job_from_operational_source(
 	source_name: str,
 	job_type: str,
 	internal_job_detail_idx: int | None = None,
+	internal_job_details: Any = None,
 ):
 	"""Dispatch create by source + job type; optional 1-based Internal Job Detail row index applies row defaults."""
 	jt = (job_type or "").strip()
@@ -396,37 +672,59 @@ def create_internal_job_from_operational_source(
 
 	from logistics.utils import module_integration as mi
 
-	if source_doctype == "Air Shipment":
-		if jt == "Transport Order":
-			return mi.create_transport_order_from_air_shipment(
-				source_name, internal_job_detail_idx=idx
-			)
-		if jt == "Declaration Order":
-			return mi.create_declaration_order_from_air_shipment(
-				source_name, internal_job_detail_idx=idx
-			)
-		if jt == "Sea Booking":
-			return _create_sea_booking_from_air_shipment(source_name, internal_job_detail_idx=idx)
-	if source_doctype == "Sea Shipment":
-		if jt == "Transport Order":
-			return mi.create_transport_order_from_sea_shipment(
-				source_name, internal_job_detail_idx=idx
-			)
-		if jt == "Declaration Order":
-			return mi.create_declaration_order_from_sea_shipment(
-				source_name, internal_job_detail_idx=idx
-			)
-		if jt == "Air Booking":
-			return _create_air_booking_from_sea_shipment(source_name, internal_job_detail_idx=idx)
-	if source_doctype == "Transport Job":
-		if jt == "Transport Order":
-			return _create_transport_order_from_transport_job(source_name, internal_job_detail_idx=idx)
-		if jt == "Declaration Order":
-			return _create_declaration_order_from_transport_job(source_name, internal_job_detail_idx=idx)
-		if jt == "Air Booking":
-			return _create_air_booking_from_transport_job(source_name, internal_job_detail_idx=idx)
-		if jt == "Sea Booking":
-			return _create_sea_booking_from_transport_job(source_name, internal_job_detail_idx=idx)
+	with internal_job_details_client_rows(internal_job_details):
+		if source_doctype == "Air Shipment":
+			if jt == "Transport Order":
+				return mi.create_transport_order_from_air_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
+			if jt == "Declaration Order":
+				return mi.create_declaration_order_from_air_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
+			if jt == "Sea Booking":
+				return _create_sea_booking_from_air_shipment(source_name, internal_job_detail_idx=idx)
+			if jt == "Inbound Order":
+				return mi.create_inbound_order_from_air_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
+		if source_doctype == "Sea Shipment":
+			if jt == "Transport Order":
+				return mi.create_transport_order_from_sea_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
+			if jt == "Declaration Order":
+				return mi.create_declaration_order_from_sea_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
+			if jt == "Air Booking":
+				return _create_air_booking_from_sea_shipment(source_name, internal_job_detail_idx=idx)
+			if jt == "Inbound Order":
+				return mi.create_inbound_order_from_sea_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
+		if source_doctype == "Transport Job":
+			if jt == "Transport Order":
+				return _create_transport_order_from_transport_job(source_name, internal_job_detail_idx=idx)
+			if jt == "Declaration Order":
+				return _create_declaration_order_from_transport_job(source_name, internal_job_detail_idx=idx)
+			if jt == "Air Booking":
+				return _create_air_booking_from_transport_job(source_name, internal_job_detail_idx=idx)
+			if jt == "Sea Booking":
+				return _create_sea_booking_from_transport_job(source_name, internal_job_detail_idx=idx)
+			if jt == "Inbound Order":
+				return mi.create_inbound_order_from_transport_job(
+					source_name, internal_job_detail_idx=idx
+				)
+		if source_doctype == "Declaration":
+			if jt == "Transport Order":
+				return mi.create_transport_order_from_declaration(
+					source_name, internal_job_detail_idx=idx
+				)
+			if jt == "Inbound Order":
+				return mi.create_inbound_order_from_declaration(
+					source_name, internal_job_detail_idx=idx
+				)
 
 	frappe.throw(_("Unsupported source type."))
 
@@ -455,6 +753,9 @@ def _create_air_booking_from_sea_shipment(sea_shipment_name: str, internal_job_d
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(shipment, doc)
+	doc.is_internal_job = 1
+	doc.main_job_type = "Sea Shipment"
+	doc.main_job = sea_shipment_name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	doc.insert(ignore_permissions=True)
@@ -485,6 +786,9 @@ def _create_sea_booking_from_air_shipment(air_shipment_name: str, internal_job_d
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(shipment, doc)
+	doc.is_internal_job = 1
+	doc.main_job_type = "Air Shipment"
+	doc.main_job = air_shipment_name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	doc.insert(ignore_permissions=True)
@@ -512,6 +816,9 @@ def _create_air_booking_from_transport_job(transport_job_name: str, internal_job
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(job, doc)
+	doc.is_internal_job = 1
+	doc.main_job_type = "Transport Job"
+	doc.main_job = job.name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	doc.insert(ignore_permissions=True)
@@ -539,6 +846,9 @@ def _create_sea_booking_from_transport_job(transport_job_name: str, internal_job
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(job, doc)
+	doc.is_internal_job = 1
+	doc.main_job_type = "Transport Job"
+	doc.main_job = job.name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	doc.insert(ignore_permissions=True)

@@ -6,26 +6,50 @@
 
 	var IJ_PREVIEW_CLASS = "logistics-ij-preview";
 
+	function _internalJobDetailsPayload(frm) {
+		return JSON.stringify((frm && frm.doc && frm.doc.internal_job_details) || []);
+	}
+
 	function _encodeInternalJobChoice(c) {
+		var cr = c.creatable === false ? "0" : "1";
 		if (c.mode === "detail") {
-			return "d|" + String(c.detail_idx) + "|" + String(c.job_type || "");
+			return "d|" + String(c.detail_idx) + "|" + String(c.job_type || "") + "|" + cr;
 		}
-		return "g||" + String(c.job_type || "");
+		return "g||" + String(c.job_type || "") + "|" + cr;
 	}
 
 	function _decodeInternalJobChoice(s) {
 		var parts = String(s || "").split("|");
 		if (parts[0] === "d" && parts.length >= 3) {
 			var idx = parseInt(parts[1], 10);
+			var last = parts[parts.length - 1];
+			var creatable = true;
+			var end = parts.length;
+			if (last === "0" || last === "1") {
+				creatable = last === "1";
+				end = parts.length - 1;
+			}
 			return {
 				detail_idx: isNaN(idx) ? null : idx,
-				job_type: parts.slice(2).join("|"),
+				job_type: parts.slice(2, end).join("|"),
+				creatable: creatable,
 			};
 		}
-		if (parts[0] === "g" && parts.length >= 3) {
-			return { detail_idx: null, job_type: parts.slice(2).join("|") };
+		if (parts[0] === "g" && parts.length >= 2) {
+			var lastg = parts[parts.length - 1];
+			var crg = true;
+			var endg = parts.length;
+			if (lastg === "0" || lastg === "1") {
+				crg = lastg === "1";
+				endg = parts.length - 1;
+			}
+			return {
+				detail_idx: null,
+				job_type: parts.slice(2, endg).join("|"),
+				creatable: crg,
+			};
 		}
-		return { detail_idx: null, job_type: "" };
+		return { detail_idx: null, job_type: "", creatable: true };
 	}
 
 	function _ijStyles() {
@@ -42,30 +66,6 @@
 			"--ij-radius:10px;" +
 			"font-size:13px;line-height:1.5;color:var(--ij-text);" +
 			"}" +
-			"." +
-			IJ_PREVIEW_CLASS +
-			" .ij-hero{" +
-			"display:flex;align-items:flex-start;gap:12px;padding:12px 14px;" +
-			"border:1px solid var(--ij-border);border-radius:var(--ij-radius);" +
-			"background:linear-gradient(135deg,rgba(92,106,196,0.06) 0%,transparent 55%);" +
-			"margin-bottom:14px;" +
-			"}" +
-			"." +
-			IJ_PREVIEW_CLASS +
-			" .ij-hero-mark{" +
-			"flex-shrink:0;width:36px;height:36px;border-radius:9px;" +
-			"background:var(--ij-accent);color:#fff;display:flex;align-items:center;justify-content:center;" +
-			"font-size:15px;font-weight:700;" +
-			"}" +
-			"." +
-			IJ_PREVIEW_CLASS +
-			" .ij-hero-body{min-width:0}" +
-			"." +
-			IJ_PREVIEW_CLASS +
-			" .ij-hero-title{font-weight:600;font-size:14px;margin:0 0 4px}" +
-			"." +
-			IJ_PREVIEW_CLASS +
-			" .ij-hero-meta{font-size:12px;color:var(--ij-muted);margin:0}" +
 			"." +
 			IJ_PREVIEW_CLASS +
 			" .ij-badge{" +
@@ -170,6 +170,31 @@
 			"border-top-color:var(--ij-accent);border-radius:50%;animation:ijspin 0.7s linear infinite" +
 			"}" +
 			"@keyframes ijspin{to{transform:rotate(360deg)}}" +
+			".lij-cards-wrap{font-size:13px;color:var(--text-color,#0f172a);}" +
+			".lij-cards-scroll{max-height:min(58vh,520px);overflow-y:auto;overflow-x:hidden;min-height:0;padding:2px 2px 6px 0;-webkit-overflow-scrolling:touch;}" +
+			".lij-cards{display:flex;flex-direction:column;gap:10px;}" +
+			".lij-card{border:1px solid var(--border-color,#e2e8f0);border-radius:10px;overflow:hidden;background:var(--control-bg,#fff);}" +
+			".lij-card.open{border-color:var(--primary,#5c6ac4);box-shadow:0 0 0 1px rgba(92,106,196,0.12);}" +
+			".lij-card-hd{display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:600;font-size:13px;flex-wrap:wrap;}" +
+			".lij-card-toggle{cursor:pointer;display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;user-select:none;border-radius:6px;margin:-4px;padding:4px 6px 4px 4px;}" +
+			".lij-card-toggle .lij-card-chevron{align-self:center;margin-top:8px;}" +
+			".lij-card-head-block{display:flex;align-items:flex-start;gap:12px;min-width:0;flex:1;}" +
+			".lij-card-mono-icon{flex-shrink:0;width:36px;height:36px;border-radius:8px;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;line-height:1;}" +
+			".lij-card-mono-icon.lij-card-mono-icon--compact{font-size:11px;letter-spacing:-0.02em;}" +
+			".lij-card-head-text{min-width:0;flex:1;}" +
+			".lij-card-head-title{font-weight:600;font-size:14px;color:var(--text-color,#0f172a);line-height:1.3;margin:0 0 6px;}" +
+			".lij-card-head-row2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;line-height:1.45;}" +
+			".lij-card-pill{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;background:rgba(92,106,196,0.14);color:var(--primary,#5c6ac4);font-size:11px;font-weight:600;white-space:nowrap;max-width:100%;}" +
+			".lij-card-sub{color:var(--text-muted,#64748b);font-weight:400;min-width:0;word-break:break-word;}" +
+			".lij-card-toggle:hover{background:var(--fg-color,#f8fafc);}" +
+			".lij-card-toggle:focus{outline:2px solid var(--primary);outline-offset:2px;}" +
+			".lij-card-chevron{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--text-muted,#64748b);transition:transform .18s ease;font-size:11px;}" +
+			".lij-card.open .lij-card-chevron{transform:rotate(90deg);}" +
+			".lij-card-hd .lij-card-create{flex-shrink:0;margin-left:auto;cursor:pointer;}" +
+			".lij-card-bd{display:none;border-top:1px solid var(--border-color,#e2e8f0);padding:12px 14px;background:var(--modal-bg,#fafafa);max-height:min(45vh,380px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}" +
+			".lij-card.open .lij-card-bd{display:block;}" +
+			".lij-card-preview{min-height:8px;}" +
+			".lij-chip-na{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--fill-color,#fef3c7);color:#b45309;flex-shrink:0;margin-left:auto;}" +
 			"</style>"
 		);
 	}
@@ -280,44 +305,15 @@
 		}
 		var esc = frappe.utils.escape_html;
 		var sc = p.source_context || {};
-		var jobLabel = esc(String(p.job_type || "—"));
-		var markLetter = esc(String((p.job_type || "?").trim().charAt(0) || "?").toUpperCase());
 
-		var heroSub = [];
-		if (p.uses_job_detail_row) {
-			heroSub.push(
-				"<span class='ij-badge'>" +
-					__("Job Details idx {0}", [String(p.detail_idx || "")]) +
-					"</span> " +
-					__("Row parameters override default routing.")
-			);
-		} else {
-			heroSub.push(
-				"<span class='ij-badge ij-badge-muted'>" + __("Default routing") + "</span> " +
-					__("From first matching Job Details line or quote context.")
-			);
+		var uncreatableBanner = "";
+		if (p.not_creatable_message) {
+			uncreatableBanner =
+				"<div class='ij-section' style='margin-bottom:12px;border-color:var(--orange-500,#ed6c02)'>" +
+				"<div class='ij-section-bd' style='font-size:12px;line-height:1.45'>" +
+				esc(String(p.not_creatable_message)) +
+				"</div></div>";
 		}
-		if (sc.from_main_service_shipment) {
-			heroSub.push(
-				"<br><span style='margin-top:6px;display:inline-block'>" +
-					__("Main-service shipment: the new document will be an internal job linked here.") +
-					"</span>"
-			);
-		}
-
-		var hero =
-			"<div class='ij-hero'>" +
-			"<div class='ij-hero-mark'>" +
-			markLetter +
-			"</div>" +
-			"<div class='ij-hero-body'>" +
-			"<p class='ij-hero-title'>" +
-			jobLabel +
-			"</p>" +
-			"<p class='ij-hero-meta'>" +
-			heroSub.join(" ") +
-			"</p>" +
-			"</div></div>";
 
 		var ctxRows = [
 			["dt", __("Source"), esc((sc.source_doctype || "") + " · " + (sc.source_name || ""))],
@@ -382,7 +378,17 @@
 			_formatChargesPreviewHtml(p.charges) +
 			"</div></section>";
 
-		return _ijStyles() + "<div class='" + IJ_PREVIEW_CLASS + "'>" + hero + secContext + secParams + secCharges + "</div>";
+		return (
+			_ijStyles() +
+			"<div class='" +
+			IJ_PREVIEW_CLASS +
+			"'>" +
+			uncreatableBanner +
+			secContext +
+			secParams +
+			secCharges +
+			"</div>"
+		);
 	}
 
 	function _routeAfterInternalJobCreate(frm, jobType, r) {
@@ -406,63 +412,21 @@
 			frappe.set_route("Form", "Sea Booking", msg.sea_booking);
 			return;
 		}
+		if (msg.inbound_order) {
+			frappe.show_alert(
+				{
+					message: msg.message || __("Inbound Order {0} created.", [msg.inbound_order]),
+					indicator: "green",
+				},
+				5
+			);
+			frappe.set_route("Form", "Inbound Order", msg.inbound_order);
+			return;
+		}
 		frappe.msgprint({
 			title: __("Create Internal Job"),
 			message: __("Unexpected response while creating {0}.", [jobType]),
 			indicator: "orange",
-		});
-	}
-
-	function _refreshInternalJobPreview(d, frm, choiceVal) {
-		var wrap = d.fields_dict.preview_html && d.fields_dict.preview_html.$wrapper;
-		if (!wrap) {
-			return;
-		}
-		var dec = _decodeInternalJobChoice(choiceVal);
-		if (!dec.job_type) {
-			wrap.html(
-				_ijStyles() +
-					"<div class='" +
-					IJ_PREVIEW_CLASS +
-					"'><div class='ij-empty'>" +
-					__("Select an option above to see the preview.") +
-					"</div></div>"
-			);
-			return;
-		}
-		wrap.html(_renderInternalJobPreviewHtml(null));
-		frappe.call({
-			method: "logistics.utils.internal_job_from_source.get_internal_job_creation_preview",
-			args: {
-				source_doctype: frm.doctype,
-				source_name: frm.doc.name,
-				job_type: dec.job_type,
-				internal_job_detail_idx: dec.detail_idx,
-			},
-			callback: function (r) {
-				if (r.exc) {
-					wrap.html(
-						_ijStyles() +
-							"<div class='" +
-							IJ_PREVIEW_CLASS +
-							"'><div class='ij-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
-							__("Preview could not be loaded. You can still use Create.") +
-							"</div></div>"
-					);
-					return;
-				}
-				wrap.html(_renderInternalJobPreviewHtml(r.message || {}));
-			},
-			error: function () {
-				wrap.html(
-					_ijStyles() +
-						"<div class='" +
-						IJ_PREVIEW_CLASS +
-						"'><div class='ij-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
-						__("Preview could not be loaded. You can still use Create.") +
-						"</div></div>"
-				);
-			},
 		});
 	}
 
@@ -479,9 +443,293 @@
 			"</strong> " +
 			ref +
 			"<br>" +
-			__("Pick what to create. The preview updates with source links, header fields, and charge lines.") +
+			__(
+				"Scroll the list below. Expand a card for details; Create is in each card header."
+			) +
 			"</div></div>"
 		);
+	}
+
+	function _loadCardPreview($pv, frm, choiceEnc, onLoaded) {
+		var dec = _decodeInternalJobChoice(choiceEnc);
+		if (!dec.job_type && dec.detail_idx == null) {
+			$pv.html(
+				_ijStyles() +
+					"<div class='" +
+					IJ_PREVIEW_CLASS +
+					"'><div class='ij-empty'>" +
+					__("Nothing to preview for this option.") +
+					"</div></div>"
+			);
+			if (onLoaded) {
+				onLoaded();
+			}
+			return;
+		}
+		$pv.html(_renderInternalJobPreviewHtml(null));
+		frappe.call({
+			method: "logistics.utils.internal_job_from_source.get_internal_job_creation_preview",
+			args: {
+				source_doctype: frm.doctype,
+				source_name: frm.doc.name,
+				job_type: dec.job_type != null && dec.job_type !== undefined ? dec.job_type : "",
+				internal_job_detail_idx: dec.detail_idx,
+				internal_job_details: _internalJobDetailsPayload(frm),
+			},
+			callback: function (r) {
+				if (r.exc) {
+					$pv.html(
+						_ijStyles() +
+							"<div class='" +
+							IJ_PREVIEW_CLASS +
+							"'><div class='ij-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
+							__("Preview could not be loaded.") +
+							"</div></div>"
+					);
+				} else {
+					$pv.html(_renderInternalJobPreviewHtml(r.message || {}));
+				}
+				if (onLoaded) {
+					onLoaded();
+				}
+			},
+			error: function () {
+				$pv.html(
+					_ijStyles() +
+						"<div class='" +
+						IJ_PREVIEW_CLASS +
+						"'><div class='ij-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
+						__("Preview could not be loaded.") +
+						"</div></div>"
+				);
+				if (onLoaded) {
+					onLoaded();
+				}
+			},
+		});
+	}
+
+	function _choiceHeaderLetter(c) {
+		var st = ((c && c.service_type) || "").toString().trim();
+		if (st) {
+			var m0 = st.match(/[A-Za-z0-9]/);
+			return m0 ? m0[0].toUpperCase() : "?";
+		}
+		var s = ((c && c.job_type) || (c && c.header_title) || "").toString().trim();
+		if (!s) {
+			return "?";
+		}
+		var m = s.match(/[A-Za-z0-9]/);
+		return m ? m[0].toUpperCase() : "?";
+	}
+
+	function _choiceIconText(c) {
+		if (c && c.detail_idx != null && c.detail_idx !== undefined && c.detail_idx !== "") {
+			var n = Number(c.detail_idx);
+			if (!isNaN(n) && n > 0) {
+				return String(n);
+			}
+		}
+		return _choiceHeaderLetter(c);
+	}
+
+	function _buildChoiceCardHead(c) {
+		var title =
+			(c.header_title != null && String(c.header_title).trim() !== "" && String(c.header_title)) ||
+			(c.service_type != null && String(c.service_type).trim() !== "" && String(c.service_type)) ||
+			String((c && c.job_type) || "") ||
+			String((c && c.label) || "");
+		var badge =
+			(c.header_badge != null && String(c.header_badge).trim() !== "" && String(c.header_badge)) ||
+			(c.job_no != null && String(c.job_no).trim() !== "" && String(c.job_no).trim()) ||
+			(c.detail_idx != null ? __("Pending") : __("Job Details"));
+		var sub =
+			c.header_subtitle != null && String(c.header_subtitle).trim()
+				? String(c.header_subtitle)
+				: "";
+		var $block = $("<div>").addClass("lij-card-head-block");
+		var iconText = _choiceIconText(c);
+		var $icon = $("<span>").addClass("lij-card-mono-icon").text(iconText);
+		if (iconText.length > 1) {
+			$icon.addClass("lij-card-mono-icon--compact");
+		}
+		$block.append($icon);
+		var $text = $("<div>").addClass("lij-card-head-text");
+		$text.append($("<div>").addClass("lij-card-head-title").text(title));
+		var $row2 = $("<div>").addClass("lij-card-head-row2");
+		$row2.append($("<span>").addClass("lij-card-pill").text(badge));
+		if (sub) {
+			$row2.append($("<span>").addClass("lij-card-sub").text(sub));
+		}
+		$text.append($row2);
+		$block.append($text);
+		return $block;
+	}
+
+	function _buildChoiceCards(choices) {
+		var $wrap = $('<div class="lij-cards-wrap">');
+		$wrap.append(
+			$("<p>")
+				.addClass("text-muted")
+				.css({ fontSize: "12px", marginBottom: "10px", lineHeight: 1.45 })
+				.text(
+					__(
+						"Scroll the list of options below. Expand a card for the preview; use Create in the card header when ready."
+					)
+				)
+		);
+		var $scroll = $('<div class="lij-cards-scroll">');
+		var $cards = $('<div class="lij-cards">');
+		choices.forEach(function (c) {
+			var enc = _encodeInternalJobChoice(c);
+			var creatable = c.creatable !== false;
+			var $card = $('<div class="lij-card">').attr("data-choice", enc);
+			var $hd = $('<div class="lij-card-hd">');
+			var $toggle = $('<div class="lij-card-toggle" role="button" tabindex="0">');
+			$toggle.append($('<span class="lij-card-chevron">').text("\u25B8"));
+			$toggle.append(_buildChoiceCardHead(c));
+			$hd.append($toggle);
+			if (creatable) {
+				$hd.append(
+					$("<button type='button'>")
+						.addClass("btn btn-primary btn-sm lij-card-create")
+						.text(__("Create"))
+				);
+			} else {
+				var linked = c.job_no != null && String(c.job_no).trim() !== "";
+				$hd.append(
+					$('<span class="lij-chip-na">').text(linked ? __("Linked") : __("Cannot create"))
+				);
+			}
+			var $bd = $('<div class="lij-card-bd">');
+			var $pv = $('<div class="lij-card-preview">');
+			$bd.append($pv);
+			$card.append($hd).append($bd);
+			$cards.append($card);
+		});
+		$scroll.append($cards);
+		$wrap.append($scroll);
+		return $wrap;
+	}
+
+	function _bindChoiceCards($root, frm, d) {
+		$root.on("click", ".lij-card-toggle", function () {
+			var $card = $(this).closest(".lij-card");
+			$card.toggleClass("open");
+			if ($card.hasClass("open")) {
+				var enc = $card.attr("data-choice");
+				var $pv = $card.find(".lij-card-preview");
+				if ($pv.data("ij-loaded")) {
+					return;
+				}
+				_loadCardPreview($pv, frm, enc, function () {
+					$pv.data("ij-loaded", true);
+				});
+			}
+		});
+		$root.on("keydown", ".lij-card-toggle", function (e) {
+			if (e.which === 13 || e.which === 32) {
+				e.preventDefault();
+				$(this).trigger("click");
+			}
+		});
+		$root.on("click", ".lij-card-create", function (e) {
+			e.stopPropagation();
+			var $card = $(this).closest(".lij-card");
+			var enc = $card.attr("data-choice");
+			var dec = _decodeInternalJobChoice(enc);
+			if (!dec.job_type && dec.detail_idx == null) {
+				frappe.msgprint({ message: __("Invalid selection."), indicator: "red" });
+				return;
+			}
+			if (!dec.job_type) {
+				frappe.msgprint({
+					title: __("Create Internal Job"),
+					message: __("Set Service Type on this Internal Jobs line before creating."),
+					indicator: "orange",
+				});
+				return;
+			}
+			if (dec.creatable === false) {
+				frappe.msgprint({
+					title: __("Create Internal Job"),
+					message: __(
+						"This line cannot be created automatically from here. Pick a supported option or create the document separately."
+					),
+					indicator: "orange",
+				});
+				return;
+			}
+			d.hide();
+			_maybeConfirmInboundThenCreate(frm, dec);
+		});
+	}
+
+	function _runInternalJobCreate(frm, dec) {
+		frappe.call({
+			method: "logistics.utils.internal_job_from_source.create_internal_job_from_operational_source",
+			args: {
+				source_doctype: frm.doctype,
+				source_name: frm.doc.name,
+				job_type: dec.job_type,
+				internal_job_detail_idx: dec.detail_idx,
+				internal_job_details: _internalJobDetailsPayload(frm),
+			},
+			freeze: true,
+			freeze_message: __("Creating..."),
+			callback: function (r2) {
+				if (r2.message && r2.message.already_exists && r2.message.declaration_order) {
+					frappe.show_alert({ message: r2.message.message || "", indicator: "blue" }, 5);
+					frappe.set_route("Form", "Declaration Order", r2.message.declaration_order);
+					if (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment") {
+						frm.reload_doc();
+					}
+					return;
+				}
+				_routeAfterInternalJobCreate(frm, dec.job_type, r2);
+			},
+		});
+	}
+
+	function _maybeConfirmInboundThenCreate(frm, dec) {
+		if (dec.creatable === false) {
+			return;
+		}
+		if (dec.job_type !== "Inbound Order") {
+			_runInternalJobCreate(frm, dec);
+			return;
+		}
+		var go = function () {
+			_runInternalJobCreate(frm, dec);
+		};
+		if (frm.doctype === "Transport Job") {
+			var pkgs = frm.doc.packages || [];
+			var needsDefault = !pkgs.length || pkgs.every(function (p) {
+				return !p.warehouse_item;
+			});
+			if (needsDefault) {
+				frappe.confirm(
+					__(
+						"No warehouse item on packages. The default item will be used where it is missing. Continue?"
+					),
+					go
+				);
+				return;
+			}
+		}
+		if (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment") {
+			var wi = frm.doc.warehouse_items || [];
+			if (wi.length === 0) {
+				frappe.confirm(
+					__(
+						"No warehouse items on this shipment. The default warehouse item will be used. Continue?"
+					),
+					go
+				);
+				return;
+			}
+		}
+		go();
 	}
 
 	window.logistics_show_create_internal_job_dialog = function (frm) {
@@ -490,7 +738,11 @@
 		}
 		frappe.call({
 			method: "logistics.utils.internal_job_from_source.get_internal_job_creation_choices",
-			args: { source_doctype: frm.doctype, source_name: frm.doc.name },
+			args: {
+				source_doctype: frm.doctype,
+				source_name: frm.doc.name,
+				internal_job_details: _internalJobDetailsPayload(frm),
+			},
 			freeze: true,
 			freeze_message: __("Loading options..."),
 			callback: function (r) {
@@ -503,67 +755,29 @@
 					});
 					return;
 				}
-				var selectOptions = choices.map(function (c) {
-					return { label: c.label, value: _encodeInternalJobChoice(c) };
-				});
 				var d = new frappe.ui.Dialog({
 					title: __("Create internal job"),
 					size: "large",
 					fields: [
 						{ fieldname: "info", fieldtype: "HTML" },
-						{
-							fieldname: "choice",
-							fieldtype: "Select",
-							label: __("What to create"),
-							options: selectOptions,
-							reqd: 1,
-							default: selectOptions[0] ? selectOptions[0].value : null,
-						},
-						{ fieldname: "preview_html", fieldtype: "HTML", label: __("Preview") },
+						{ fieldname: "cards_html", fieldtype: "HTML", label: "" },
 					],
-					primary_action_label: __("Create"),
-					primary_action: function (values) {
-						var dec = _decodeInternalJobChoice(values.choice);
-						if (!dec.job_type) {
-							frappe.msgprint({ message: __("Invalid selection."), indicator: "red" });
-							return;
-						}
+					primary_action_label: __("Close"),
+					primary_action: function () {
 						d.hide();
-						frappe.call({
-							method: "logistics.utils.internal_job_from_source.create_internal_job_from_operational_source",
-							args: {
-								source_doctype: frm.doctype,
-								source_name: frm.doc.name,
-								job_type: dec.job_type,
-								internal_job_detail_idx: dec.detail_idx,
-							},
-							freeze: true,
-							freeze_message: __("Creating..."),
-							callback: function (r2) {
-								if (r2.message && r2.message.already_exists && r2.message.declaration_order) {
-									frappe.show_alert({ message: r2.message.message || "", indicator: "blue" }, 5);
-									frappe.set_route("Form", "Declaration Order", r2.message.declaration_order);
-									if (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment") {
-										frm.reload_doc();
-									}
-									return;
-								}
-								_routeAfterInternalJobCreate(frm, dec.job_type, r2);
-							},
-						});
 					},
 				});
 				if (d.fields_dict.info && d.fields_dict.info.$wrapper) {
 					d.fields_dict.info.$wrapper.html(_dialogIntroHtml(frm));
 				}
-				d.show();
-				var $ch = d.fields_dict.choice && d.fields_dict.choice.$input;
-				if ($ch && $ch.length) {
-					$ch.on("change", function () {
-						_refreshInternalJobPreview(d, frm, d.get_value("choice"));
-					});
+				var $cardsRoot = d.fields_dict.cards_html && d.fields_dict.cards_html.$wrapper;
+				if ($cardsRoot && $cardsRoot.length) {
+					$cardsRoot.empty();
+					$cardsRoot.append(_ijStyles());
+					$cardsRoot.append(_buildChoiceCards(choices));
+					_bindChoiceCards($cardsRoot, frm, d);
 				}
-				_refreshInternalJobPreview(d, frm, d.get_value("choice") || (selectOptions[0] && selectOptions[0].value));
+				d.show();
 			},
 		});
 	};

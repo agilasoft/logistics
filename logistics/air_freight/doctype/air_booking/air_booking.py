@@ -105,17 +105,35 @@ class AirBooking(Document):
 			except Exception:
 				pass
 		
-		# Validate One-off Sales Quote not already converted
-		if self.sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-			validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
-		
-		# Validate quote field when quote_type is One-Off Quote (quote might reference Sales Quote)
-		if getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
-			# Check if quote is a Sales Quote (new system) and validate it
-			if frappe.db.exists("Sales Quote", self.quote):
-				from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-				validate_one_off_quote_not_converted(self.quote, self.doctype, self.name)
+		# Validate One-off Sales Quote not already converted (internal satellite bookings may share the main leg's quote)
+		_quote_is_sales_quote = (
+			getattr(self, "quote_type", None) == "One-Off Quote"
+			and getattr(self, "quote", None)
+			and frappe.db.exists("Sales Quote", self.quote)
+		)
+		if self.sales_quote or _quote_is_sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				resolve_allow_linked_freight_bookings_for_internal_job,
+				validate_one_off_quote_not_converted,
+			)
+
+			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			if self.sales_quote:
+				validate_one_off_quote_not_converted(
+					self.sales_quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
+			if _quote_is_sales_quote:
+				validate_one_off_quote_not_converted(
+					self.quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
 		
 		# Handle sales_quote field clearing - reset One-off quote if cleared
 		if not self.is_new() and original_sales_quote and not self.sales_quote:
@@ -305,8 +323,10 @@ class AirBooking(Document):
 		# Booking.release_type is a Link; set only if matching master exists.
 		self._set_link_default_if_exists("release_type", "Release Type", settings.default_release_type)
 
-		# Document settings
-		self._set_link_default_if_exists("uld_type", "ULD Type", settings.default_uld_type)
+		# Document settings (Load Type replaces legacy ULD Type on the booking form)
+		self._set_link_default_if_exists(
+			"load_type", "Load Type", getattr(settings, "default_load_type", None)
+		)
 
 		self._settings_applied = True
 
@@ -1802,12 +1822,12 @@ class AirBooking(Document):
 				"message": f"Release Type '{self.release_type}' does not exist"
 			})
 		
-		if hasattr(self, 'uld_type') and self.uld_type and not frappe.db.exists("ULD Type", self.uld_type):
+		if self.load_type and not frappe.db.exists("Load Type", self.load_type):
 			missing_fields.append({
-				"field": "uld_type",
-				"label": "ULD Type",
+				"field": "load_type",
+				"label": "Load Type",
 				"tab": "Details",
-				"message": f"ULD Type '{self.uld_type}' does not exist"
+				"message": f"Load Type '{self.load_type}' does not exist",
 			})
 		
 		# Validate ports exist as UNLOCO
@@ -2024,12 +2044,10 @@ class AirBooking(Document):
 			air_shipment.additional_terms = self.additional_terms
 			air_shipment.airline = self.airline
 			air_shipment.freight_agent = self.freight_agent
-			# Only copy uld_type if it exists as a valid record
-			if self.uld_type and frappe.db.exists("ULD Type", self.uld_type):
-				air_shipment.uld_type = self.uld_type
+			if self.load_type and frappe.db.exists("Load Type", self.load_type):
+				air_shipment.load_type = self.load_type
 			else:
-				# Explicitly clear the field if the record doesn't exist
-				air_shipment.uld_type = None
+				air_shipment.load_type = None
 			air_shipment.house_type = self.house_type
 			# Normalize legacy house_type values
 			if air_shipment.house_type == "Direct":
@@ -2412,7 +2430,7 @@ def get_air_booking_settings_defaults(company: str = None):
 			"direction": settings.default_direction,
 			"release_type": settings.default_release_type,
 			"entry_type": settings.default_entry_type,
-			"uld_type": settings.default_uld_type,
+			"load_type": getattr(settings, "default_load_type", None),
 		}
 	except Exception as e:
 		frappe.log_error(f"Error getting Air Booking defaults: {str(e)}", "Air Booking - Settings Defaults")
@@ -2482,6 +2500,7 @@ def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]
 				"quote_type": "One-Off Quote",
 				"name": ["!=", air_booking_name or ""],
 				"docstatus": ["!=", 2],
+				"is_main_service": 1,
 			},
 			or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
 			fields=["quote", "sales_quote"],
@@ -2559,6 +2578,13 @@ def populate_charges_from_sales_quote(
 				pass
 		
 		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
+		from logistics.utils.sync_internal_job_details_from_sales_quote import (
+			build_internal_job_details_payload_for_quote_response,
+		)
+
+		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
+			"Air Booking", doc, sales_quote_doc
+		)
 		parent = doc if doc else frappe._dict(
 			doctype="Air Booking", name=docname, is_internal_job=0, is_main_service=0
 		)
@@ -2634,6 +2660,7 @@ def populate_charges_from_sales_quote(
 				"message": f"No air freight charges found in Sales Quote: {sales_quote}",
 				"customer": sales_quote_doc.customer,
 				"routing_legs": routing_legs_for_api_response(sales_quote, doc),
+				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Create a temporary document instance for mapping
@@ -2661,6 +2688,7 @@ def populate_charges_from_sales_quote(
 			"charges_count": len(charges),
 			"customer": sales_quote_doc.customer,
 			"routing_legs": routing_legs_for_api_response(sales_quote, doc),
+			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:
@@ -2715,6 +2743,15 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			except Exception:
 				pass
 		
+		sales_quote_doc = frappe.get_doc("Sales Quote", one_off_quote)
+		from logistics.utils.sync_internal_job_details_from_sales_quote import (
+			build_internal_job_details_payload_for_quote_response,
+		)
+
+		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
+			"Air Booking", doc, sales_quote_doc
+		)
+
 		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
@@ -2745,7 +2782,8 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		if not sales_quote_air_freight_records:
 			return {
 				"charges": [],
-				"message": f"No air freight charges found in Sales Quote: {one_off_quote}"
+				"message": f"No air freight charges found in Sales Quote: {one_off_quote}",
+				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Create a temporary document instance for mapping
@@ -2770,7 +2808,8 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		
 		return {
 			"charges": charges,
-			"charges_count": len(charges)
+			"charges_count": len(charges),
+			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:
