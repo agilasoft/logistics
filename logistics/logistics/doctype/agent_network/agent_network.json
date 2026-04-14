@@ -35,13 +35,15 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "supplier",
    "fieldtype": "Link",
    "label": "Supplier",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   }
  ],
  "grid_page_length": 50,

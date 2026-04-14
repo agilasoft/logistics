@@ -73,7 +73,8 @@
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_general",
@@ -89,13 +90,14 @@
    "fieldname": "default_currency",
    "fieldtype": "Link",
    "label": "Default Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_incoterm",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Default Incoterm",
-   "options": "EXW\nFCA\nCPT\nCIP\nDAP\nDPU\nDDP\nFAS\nFOB\nCFR\nCIF"
+   "options": "Incoterm"
   },
   {
    "fieldname": "default_service_level",
@@ -112,31 +114,35 @@
    "fieldname": "default_origin_location",
    "fieldtype": "Link",
    "label": "Default Origin Location",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "default_destination_location",
    "fieldtype": "Link",
    "label": "Default Destination Location",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_location",
    "fieldtype": "Column Break"
   },
   {
+   "description": "Default origin port UNLOCO code",
    "fieldname": "default_origin_port",
    "fieldtype": "Link",
    "label": "Default Origin Port",
    "options": "UNLOCO",
-   "description": "Default origin port UNLOCO code"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
+   "description": "Default destination port UNLOCO code",
    "fieldname": "default_destination_port",
    "fieldtype": "Link",
    "label": "Default Destination Port",
    "options": "UNLOCO",
-   "description": "Default destination port UNLOCO code"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "business_settings_section",
@@ -147,13 +153,15 @@
    "fieldname": "default_shipping_line",
    "fieldtype": "Link",
    "label": "Default Shipping Line",
-   "options": "Shipping Line"
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent",
-   "options": "User"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_business",
@@ -169,7 +177,7 @@
    "default": "1",
    "fieldname": "auto_create_job_costing",
    "fieldtype": "Check",
-   "label": "Auto-create Job Costing Number"
+   "label": "Auto-create Job Number"
   },
   {
    "default": "1",
@@ -236,17 +244,17 @@
   },
   {
    "default": "1000",
+   "description": "Factor to convert volume (m\u00b3) to weight (kg) for chargeable weight calculation",
    "fieldname": "volume_to_weight_factor",
    "fieldtype": "Float",
-   "label": "Volume to Weight Factor (kg/m³)",
-   "description": "Factor to convert volume (m³) to weight (kg) for chargeable weight calculation"
+   "label": "Volume to Weight Factor (kg/m\u00b3)"
   },
   {
+   "default": "Higher of Both",
    "fieldname": "chargeable_weight_calculation",
    "fieldtype": "Select",
    "label": "Chargeable Weight Calculation",
-   "options": "Actual Weight\nVolume Weight\nHigher of Both",
-   "default": "Higher of Both"
+   "options": "Actual Weight\nVolume Weight\nHigher of Both"
   },
   {
    "fieldname": "column_break_calculation",
@@ -256,28 +264,31 @@
    "fieldname": "default_calculation_method",
    "fieldtype": "Select",
    "label": "Default Calculation Method",
-   "options": "Per kg\nPer m³\nPer package\nPer container\nPer shipment\nFixed amount"
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
   },
   {
+   "description": "Default UOM for weight in Sales Quote Sea tab and sea-related doctypes",
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
    "options": "UOM",
-   "description": "Default UOM for weight in Sales Quote Sea tab and sea-related doctypes"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
+   "description": "Default UOM for volume in Sales Quote Sea tab and sea-related doctypes",
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
    "options": "UOM",
-   "description": "Default UOM for volume in Sales Quote Sea tab and sea-related doctypes"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
+   "description": "Default UOM for chargeable weight in Sales Quote Sea tab and sea-related doctypes",
    "fieldname": "default_chargeable_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable UOM",
    "options": "UOM",
-   "description": "Default UOM for chargeable weight in Sales Quote Sea tab and sea-related doctypes"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "integration_settings_section",
@@ -311,7 +322,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-06-09 09:51:12.905009",
+ "modified": "2026-03-28 11:33:23.482913",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Settings",

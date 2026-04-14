@@ -29,8 +29,11 @@ WIKI_PAGES_CONFIG = {
     "document_list_template": ("Document List Template", "Introduction"),
     "logistics_document_type": ("Logistics Document Type", "Introduction"),
     "customer_portal": ("Customer Portal", "Introduction"),
+    "recent_platform_updates": ("Recent Platform Updates", "Introduction"),
+    "cargonext_v1_astraea_press_release": ("CargoNext v1 — Astraea Press Release", "Introduction"),
     # Settings
     "logistics_settings": ("Logistics Settings", "Setup"),
+    "credit_management": ("Credit Management", "Setup"),
     "sea_freight_settings": ("Sea Freight Settings", "Setup"),
     "air_freight_settings": ("Air Freight Settings", "Setup"),
     "transport_settings": ("Transport Settings", "Setup"),
@@ -63,6 +66,10 @@ WIKI_PAGES_CONFIG = {
     "transport_consolidation": ("Transport Consolidation", "Transport"),
     "transport_leg": ("Transport Leg", "Transport"),
     "transport_plan": ("Transport Plan", "Transport"),
+    "transport_order_intermodule_field_copy": (
+        "Transport Order — Inter-module Field Copy",
+        "Transport",
+    ),
     "run_sheet": ("Run Sheet", "Transport"),
     "proof_of_delivery": ("Proof of Delivery", "Transport"),
     "transport_template": ("Transport Template", "Transport"),
@@ -87,6 +94,10 @@ WIKI_PAGES_CONFIG = {
     "handling_unit_type": ("Handling Unit Type", "Warehousing"),
     # Pricing Center
     "sales_quote": ("Sales Quote", "Pricing Center"),
+    "sales_quote_separate_billings_and_internal_job": (
+        "Sales Quote — Separate Billings and Internal Job",
+        "Pricing Center",
+    ),
     "change_request": ("Change Request", "Pricing Center"),
     "sales_quote_calculation_method": ("Sales Quote – Calculation Method", "Pricing Center"),
     "charges_tariff_revenue_cost_pattern": ("Charges, Tariff, Revenue & Cost Pattern", "Pricing Center"),
@@ -95,10 +106,23 @@ WIKI_PAGES_CONFIG = {
     "logistics_milestone": ("Logistics Milestone", "Logistics"),
     # Job Management
     "job_management_module": ("Job Management Module", "Job Management"),
+    "revenue_recognition_policy_accounts_and_dates": (
+        "Revenue Recognition Policy — Accounts, Dates, and Charges",
+        "Job Management",
+    ),
+    "proforma_gl_entries": ("Proforma GL Entries (Job Number)", "Job Management"),
+    "wip_accrual_reversal_on_invoicing_design": (
+        "WIP and Accrual Reversal on Invoicing",
+        "Job Management",
+    ),
     # Sustainability
     "sustainability_module": ("Sustainability Module", "Sustainability"),
     # Intercompany
     "intercompany_module": ("Intercompany Module", "Intercompany"),
+    "internal_and_intercompany_billing": (
+        "Internal and Intercompany Billing",
+        "Intercompany",
+    ),
     # Special Projects
     "special_projects_module": ("Special Projects Module", "Special Projects"),
     # Pages

@@ -52,6 +52,15 @@ Sustainability data is linked to:
 - **Cross Module Summary Report** – Cross-module summary
 - **Trend Analysis Report** – Trends over time
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Sustainability metrics attach to operational documents; see their wiki pages for **Complete field reference** (e.g. [Sea Shipment](welcome/sea-shipment), [Air Shipment](welcome/air-shipment), [Transport Job](welcome/transport-job), [Warehouse Job](welcome/warehouse-job))._
+
+<!-- wiki-field-reference:end -->
+
 ## 4. Related Topics
 
 - [Transport Job](welcome/transport-job)

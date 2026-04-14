@@ -1,0 +1,36 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-06 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "transport_mode"
+ ],
+ "fields": [
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Mode",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Transport Document Type Transport Mode",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

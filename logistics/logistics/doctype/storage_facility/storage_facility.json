@@ -7,7 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "code",
-  "facility_name"
+  "facility_name",
+  "is_active"
  ],
  "fields": [
   {
@@ -20,6 +21,13 @@
    "fieldname": "facility_name",
    "fieldtype": "Data",
    "label": "Facility Name"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   }
  ],
  "grid_page_length": 50,

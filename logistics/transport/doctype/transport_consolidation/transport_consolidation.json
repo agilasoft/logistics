@@ -29,7 +29,7 @@
   "branch",
   "cost_center",
   "profit_center",
-  "job_costing_number",
+  "job_number",
   "amended_from"
  ],
  "fields": [
@@ -71,7 +71,7 @@
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
-   "link_filters": "[[\"Load Type\",\"transport\",\"=\",1],[\"Load Type\",\"can_handle_consolidation\",\"=\",1]]",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"transport\",\"=\",1],[\"Load Type\",\"can_handle_consolidation\",\"=\",1]]",
    "options": "Load Type"
   },
   {
@@ -106,13 +106,15 @@
    "fieldname": "total_volume_uom",
    "fieldtype": "Link",
    "label": "Total Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "total_weight_uom",
    "fieldtype": "Link",
    "label": "Total Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_2",
@@ -157,7 +159,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
@@ -167,10 +169,10 @@
    "options": "Profit Center"
   },
   {
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
    "fieldname": "amended_from",

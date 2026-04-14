@@ -4495,17 +4495,17 @@ frappe.ui.form.on('Run Sheet', {
       if (!frm.is_new()) {
         frm.add_custom_button(__('Refresh Legs'), function() {
           refresh_legs_from_transport_leg(frm);
-        }, __('Actions'));
+        }, __('Action'));
         
         frm.add_custom_button(__('Sync to Transport Legs'), function() {
           sync_legs_to_transport_leg(frm);
-        }, __('Actions'));
+        }, __('Action'));
         
         // Add button to manually fetch missing leg data (works for submitted docs too)
         if (frm.doc.legs && frm.doc.legs.length > 0) {
           frm.add_custom_button(__('Fetch Missing Leg Data'), function() {
             fetch_missing_leg_data_rs(frm);
-          }, __('Actions'));
+          }, __('Action'));
         }
         
         // Add Create Support Legs button

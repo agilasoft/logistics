@@ -59,7 +59,8 @@
    "in_list_view": 1,
    "label": "Settlement Group",
    "options": "Settlement Group",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Settlement Group\", \"is_active\", \"=\", 1]]"
   },
   {
    "fetch_from": "settlement_group.settlement_customer",
@@ -67,7 +68,8 @@
    "fieldtype": "Link",
    "label": "Settlement Customer",
    "options": "Customer",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fetch_from": "settlement_group.settlement_supplier",
@@ -75,7 +77,8 @@
    "fieldtype": "Link",
    "label": "Settlement Supplier",
    "options": "Supplier",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_info",
@@ -155,20 +158,23 @@
    "fieldtype": "Link",
    "label": "Receivable Account",
    "options": "Account",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "payable_account",
    "fieldtype": "Link",
    "label": "Payable Account",
    "options": "Account",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Account\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "section_break_journal",
@@ -242,4 +248,3 @@
  "states": [],
  "is_submittable": 1
 }
-

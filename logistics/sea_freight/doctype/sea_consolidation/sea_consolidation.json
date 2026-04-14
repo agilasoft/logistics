@@ -77,7 +77,7 @@
   "branch",
   "cost_center",
   "profit_center",
-  "job_costing_number"
+  "job_number"
  ],
  "fields": [
   {
@@ -154,7 +154,8 @@
    "fieldname": "consolidation_agent",
    "fieldtype": "Link",
    "label": "Consolidation Agent",
-   "options": "User"
+   "options": "User",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_route",
@@ -167,7 +168,8 @@
    "fieldtype": "Link",
    "label": "Origin Port",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "description": "Destination port UNLOCO code",
@@ -175,7 +177,8 @@
    "fieldtype": "Link",
    "label": "Destination Port",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "etd",
@@ -198,7 +201,8 @@
    "fieldtype": "Link",
    "label": "Shipping Line",
    "options": "Shipping Line",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "vessel_name",
@@ -242,13 +246,15 @@
    "fieldname": "total_volume_uom",
    "fieldtype": "Link",
    "label": "Total Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "total_weight_uom",
    "fieldtype": "Link",
    "label": "Total Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_3",
@@ -265,7 +271,8 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "consolidation_ratio",
@@ -346,7 +353,6 @@
    "label": "Packing & Routing"
   },
   {
-   "collapsible": 1,
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -359,7 +365,6 @@
    "search_index": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -371,7 +376,6 @@
    "options": "Sea Consolidation Packages"
   },
   {
-   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -489,7 +493,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -502,10 +506,10 @@
   },
   {
    "description": "This will be used when posting financial transactions to this job.",
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
    "fieldname": "details_tab",
@@ -515,7 +519,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-07 19:01:41.482727",
+ "modified": "2026-03-26 16:23:48.062198",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",

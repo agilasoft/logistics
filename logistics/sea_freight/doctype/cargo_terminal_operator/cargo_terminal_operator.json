@@ -9,6 +9,7 @@
  "field_order": [
   "code",
   "cto_name",
+  "is_active",
   "avaiable_for_column",
   "air",
   "sea",
@@ -27,6 +28,13 @@
    "fieldtype": "Data",
    "label": "CTO Name",
    "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   },
   {
    "fieldname": "avaiable_for_column",

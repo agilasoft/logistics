@@ -15,14 +15,52 @@
   "notes"
  ],
  "fields": [
-  {"fieldname": "resource_type", "fieldtype": "Select", "label": "Resource Type", "options": "Personnel\nThird Party\nOther"},
-  {"fieldname": "resource_role", "fieldtype": "Data", "label": "Role/Description"},
-  {"fieldname": "quantity", "fieldtype": "Float", "label": "Quantity", "default": 1},
-  {"fieldname": "uom", "fieldtype": "Link", "label": "UOM", "options": "UOM"},
-  {"fieldname": "required_from", "fieldtype": "Datetime", "label": "Required From"},
-  {"fieldname": "required_to", "fieldtype": "Datetime", "label": "Required To"},
-  {"fieldname": "allocation_status", "fieldtype": "Select", "label": "Status", "options": "Pending\nAllocated\nPartially Allocated\nCancelled", "default": "Pending"},
-  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+  {
+   "fieldname": "resource_type",
+   "fieldtype": "Select",
+   "label": "Resource Type",
+   "options": "Personnel\nThird Party\nOther"
+  },
+  {
+   "fieldname": "resource_role",
+   "fieldtype": "Data",
+   "label": "Role/Description"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "default": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "required_from",
+   "fieldtype": "Datetime",
+   "label": "Required From"
+  },
+  {
+   "fieldname": "required_to",
+   "fieldtype": "Datetime",
+   "label": "Required To"
+  },
+  {
+   "fieldname": "allocation_status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nAllocated\nPartially Allocated\nCancelled",
+   "default": "Pending"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
  ],
  "istable": 1,
  "links": [],

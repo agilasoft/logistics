@@ -2593,7 +2593,7 @@ def create_sales_invoice_from_periodic_billing(
     pb_branch  = getattr(pb, "branch", None) if "branch" in pbf else None
     profit_center = getattr(pb, "profit_center", None) if "profit_center" in pbf else None
     pb_cost_center = getattr(pb, "cost_center", None) if "cost_center" in pbf else None
-    job_costing_number = getattr(pb, "job_costing_number", None) if "job_costing_number" in pbf else None
+    job_number = getattr(pb, "job_number", None) if "job_number" in pbf else None
     
     if not customer:
         frappe.throw(_("Customer is required on Periodic Billing."))
@@ -2625,8 +2625,8 @@ def create_sales_invoice_from_periodic_billing(
         setattr(si, "profit_center", profit_center)
     if cost_center and "cost_center" in sif:
         setattr(si, "cost_center", cost_center)
-    if job_costing_number and "job_costing_number" in sif:
-        setattr(si, "job_costing_number", job_costing_number)
+    if job_number and "job_number" in sif:
+        setattr(si, "job_number", job_number)
     if "periodic_billing" in sif:
         setattr(si, "periodic_billing", pb.name)
 
@@ -2666,8 +2666,8 @@ def create_sales_invoice_from_periodic_billing(
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
         if pb_branch and "branch" in sif_item_fields: row_payload["branch"] = pb_branch
         if profit_center and "profit_center" in sif_item_fields: row_payload["profit_center"] = profit_center
-        # Tag job_costing_number to storage charges (all items from periodic billing are storage charges)
-        if job_costing_number and "job_costing_number" in sif_item_fields: row_payload["job_costing_number"] = job_costing_number
+        # Tag job_number to storage charges (all items from periodic billing are storage charges)
+        if job_number and "job_number" in sif_item_fields: row_payload["job_number"] = job_number
         si.append("items", row_payload)
         created_rows += 1
 

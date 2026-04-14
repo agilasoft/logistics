@@ -86,6 +86,22 @@ def apply_milestone_sync_in_place(doc, method=None):
 		ut = (cfg.get("update_trigger_type") or "").strip()
 		return ut in ("Date Based", "Parent date field sync")
 
+	# 0) User cleared milestone actual_end: clear linked parent date so step 1 does not immediately restore it.
+	# In before_save, row is already cleared but DB still has the previous actual_end — compare to detect clear.
+	for row in milestones:
+		cfg = _cfg(row)
+		if not _is_date_based(cfg) or not cfg.get("sync_parent_date_field"):
+			continue
+		fieldname = cfg["sync_parent_date_field"].strip()
+		if not fieldname or not hasattr(doc, fieldname):
+			continue
+		prev_end = None
+		if getattr(row, "name", None):
+			prev_end = frappe.db.get_value(row.doctype, row.name, "actual_end")
+		cur_end = getattr(row, "actual_end", None)
+		if prev_end and not cur_end:
+			doc.set(fieldname, None)
+
 	# 1) Parent date -> milestone actual_end
 	for row in milestones:
 		cfg = _cfg(row)
@@ -98,7 +114,9 @@ def apply_milestone_sync_in_place(doc, method=None):
 		if not fieldname:
 			continue
 		val = doc.get(fieldname)
-		if val is None:
+		if val is None or val == "":
+			if getattr(row, "actual_end", None):
+				row.actual_end = None
 			continue
 		current = getattr(row, "actual_end", None)
 		if not _dates_equal(current, val):
@@ -117,7 +135,9 @@ def apply_milestone_sync_in_place(doc, method=None):
 		if not fieldname:
 			continue
 		val = getattr(row, "actual_end", None)
-		if val is None:
+		if val is None or val == "":
+			if doc.get(fieldname) not in (None, ""):
+				doc.set(fieldname, None)
 			continue
 		current = doc.get(fieldname)
 		if not _dates_equal(current, val):
@@ -247,7 +267,10 @@ def apply_milestone_sync_and_triggers(doc, method=None):
 				val = parent.get(fieldname) if hasattr(parent, fieldname) else None
 			if val is None:
 				val = frappe.db.get_value(parent.doctype, parent.name, fieldname)
-			if val is None:
+			if val is None or val == "":
+				if row.actual_end:
+					row.actual_end = None
+					changed = True
 				continue
 			current = row.actual_end
 			if not _dates_equal(current, val):
@@ -267,7 +290,11 @@ def apply_milestone_sync_and_triggers(doc, method=None):
 			if not fieldname or not hasattr(parent, fieldname):
 				continue
 			val = row.actual_end
-			if val is None:
+			if val is None or val == "":
+				current_parent = parent.get(fieldname)
+				if current_parent not in (None, ""):
+					parent.set(fieldname, None)
+					changed = True
 				continue
 			current_parent = parent.get(fieldname)
 			if not _dates_equal(current_parent, val):

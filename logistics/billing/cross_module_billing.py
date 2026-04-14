@@ -8,8 +8,15 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import flt
-from typing import Dict, List, Any, Optional, Tuple
+from frappe.utils import cint, flt
+from typing import Dict, List, Any, Optional, Tuple, Iterator
+
+# Parent booking/order carries Internal Job + Main Job when the operational job does not.
+INTERNAL_JOB_PARENT_LINKS = {
+    "Transport Job": ("Transport Order", "transport_order"),
+    "Air Shipment": ("Air Booking", "air_booking"),
+    "Sea Shipment": ("Sea Booking", "sea_booking"),
+}
 
 # Registry: for each anchor DocType, list (Contributor DocType, link_field_name) to find jobs linked to that anchor.
 BILLING_CONTRIBUTOR_QUERIES = {
@@ -41,6 +48,114 @@ BILLING_JOB_TYPES = (
 )
 
 
+def resolve_internal_job_main_job(job_type: str, job_name: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Return (main_job_type, main_job_name) when the job is an internal job (checkbox on the job
+    or on its parent Transport Order / Air Booking / Sea Booking), with a valid Main Job link.
+    """
+    if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
+        return (None, None)
+    doc = frappe.get_doc(job_type, job_name)
+    mt = getattr(doc, "main_job_type", None)
+    mn = getattr(doc, "main_job", None)
+    if cint(getattr(doc, "is_internal_job", 0)) and mt and mn and frappe.db.exists(mt, mn):
+        return (mt, mn)
+    parent = INTERNAL_JOB_PARENT_LINKS.get(job_type)
+    if parent:
+        pdoctype, link_field = parent
+        pname = getattr(doc, link_field, None)
+        if pname and frappe.db.exists(pdoctype, pname):
+            parent_doc = frappe.get_doc(pdoctype, pname)
+            mt = getattr(parent_doc, "main_job_type", None)
+            mn = getattr(parent_doc, "main_job", None)
+            if cint(getattr(parent_doc, "is_internal_job", 0)) and mt and mn and frappe.db.exists(mt, mn):
+                return (mt, mn)
+    return (None, None)
+
+
+def get_main_job_company(main_job_type: str, main_job_name: str) -> Optional[str]:
+    if not main_job_type or not main_job_name or not frappe.db.exists(main_job_type, main_job_name):
+        return None
+    return frappe.db.get_value(main_job_type, main_job_name, "company")
+
+
+def iter_internal_job_charge_splits(
+    job_type: str,
+    job_name: str,
+    customer: Optional[str] = None,
+) -> Iterator[Dict[str, Any]]:
+    """
+    Yield per charge row: revenue, cost, item_code (for Job Number / Item dimensions on JEs).
+    Same revenue/cost rules as get_internal_job_revenue_and_cost.
+    """
+    if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
+        return
+    doc = frappe.get_doc(job_type, job_name)
+    customer = customer or getattr(doc, "customer", None) or getattr(doc, "local_customer", None)
+
+    if job_type == "Transport Job":
+        for ch in doc.get("charges") or []:
+            item_code = getattr(ch, "item_code", None)
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            cost = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            if rev <= 0 and cost <= 0:
+                continue
+            yield {"revenue": rev, "cost": cost, "item_code": item_code}
+
+    elif job_type == "Transport Order":
+        for ch in doc.get("charges") or []:
+            item_code = getattr(ch, "item_code", None)
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            cost = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            if rev <= 0 and cost <= 0:
+                continue
+            yield {"revenue": rev, "cost": cost, "item_code": item_code}
+
+    elif job_type == "Sea Shipment":
+        from logistics.utils.charges_calculation import get_charge_bill_to_customers
+
+        for ch in doc.get("charges") or []:
+            if customer and customer not in get_charge_bill_to_customers(ch):
+                continue
+            item_code = getattr(ch, "charge_item", None)
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
+            cost = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            if rev <= 0 and cost <= 0:
+                continue
+            yield {"revenue": rev, "cost": cost, "item_code": item_code}
+
+    elif job_type == "Air Shipment":
+        for ch in doc.get("charges") or []:
+            item_code = getattr(ch, "item_code", None)
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0))
+            cost = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            if rev <= 0 and cost <= 0:
+                continue
+            yield {"revenue": rev, "cost": cost, "item_code": item_code}
+
+    elif job_type == "Warehouse Job":
+        for ch in doc.get("charges") or []:
+            item_code = getattr(ch, "item_code", None) or getattr(ch, "item", None)
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            cost = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            if rev <= 0 and cost <= 0:
+                continue
+            yield {"revenue": rev, "cost": cost, "item_code": item_code}
+
+    elif job_type in ("Declaration", "Declaration Order"):
+        for ch in doc.get("charges") or []:
+            item_code = getattr(ch, "item_code", None)
+            rev = (
+                flt(getattr(ch, "actual_revenue", 0))
+                or flt(getattr(ch, "total_amount", 0))
+                or flt(getattr(ch, "estimated_revenue", 0))
+            )
+            cost = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+            if rev <= 0 and cost <= 0:
+                continue
+            yield {"revenue": rev, "cost": cost, "item_code": item_code}
+
+
 def get_invoice_items_from_job(
     job_type: str,
     job_name: str,
@@ -66,8 +181,27 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1))
             unit_rate = flt(getattr(ch, "unit_rate", 0))
-            est_rev = flt(getattr(ch, "estimated_revenue", 0))
-            rate = est_rev / qty if (est_rev > 0 and qty > 0) else unit_rate
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            rate = rev / qty if (rev > 0 and qty > 0) else unit_rate
+            items.append({
+                "item_code": item_code,
+                "item_name": getattr(ch, "item_name", None) or item_code,
+                "qty": qty,
+                "rate": rate,
+                "uom": getattr(ch, "uom", None),
+                "description": None,
+            })
+
+    elif job_type == "Transport Order":
+        charges = doc.get("charges") or []
+        for ch in charges:
+            item_code = getattr(ch, "item_code", None)
+            if not item_code:
+                continue
+            qty = flt(getattr(ch, "quantity", 1))
+            unit_rate = flt(getattr(ch, "unit_rate", 0))
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            rate = rev / qty if (rev > 0 and qty > 0) else unit_rate
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -83,11 +217,12 @@ def get_invoice_items_from_job(
         for ch in charges:
             if customer and customer not in get_charge_bill_to_customers(ch):
                 continue
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
             items.append({
                 "item_code": getattr(ch, "charge_item", None),
                 "item_name": getattr(ch, "charge_name", None),
                 "qty": 1,
-                "rate": flt(getattr(ch, "selling_amount", 0)),
+                "rate": rev,
                 "uom": None,
                 "description": getattr(ch, "charge_description", None),
             })
@@ -100,9 +235,13 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1))
             rate = flt(getattr(ch, "rate", 0))
-            total = flt(getattr(ch, "total_amount", 0))
-            if total > 0 and qty > 0:
-                rate = total / qty
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0))
+            if rev > 0 and qty > 0:
+                rate = rev / qty
+            elif not rev and rate <= 0:
+                total = flt(getattr(ch, "total_amount", 0))
+                if total > 0 and qty > 0:
+                    rate = total / qty
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -120,9 +259,9 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1))
             rate = flt(getattr(ch, "rate", 0))
-            est_rev = flt(getattr(ch, "estimated_revenue", 0))
-            if est_rev > 0 and qty > 0:
-                rate = est_rev / qty
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            if rev > 0 and qty > 0:
+                rate = rev / qty
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -140,12 +279,9 @@ def get_invoice_items_from_job(
                 continue
             qty = flt(getattr(ch, "quantity", 1)) or 1
             rate = flt(getattr(ch, "unit_rate", 0)) or flt(getattr(ch, "rate", 0))
-            total = flt(getattr(ch, "total_amount", 0))
-            est_rev = flt(getattr(ch, "estimated_revenue", 0))
-            if total > 0 and qty > 0:
-                rate = total / qty
-            elif est_rev > 0 and qty > 0:
-                rate = est_rev / qty
+            rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+            if rev > 0 and qty > 0:
+                rate = rev / qty
             items.append({
                 "item_code": item_code,
                 "item_name": getattr(ch, "item_name", None) or item_code,
@@ -156,6 +292,24 @@ def get_invoice_items_from_job(
             })
 
     return items
+
+
+def get_internal_job_revenue_and_cost(
+    job_type: str,
+    job_name: str,
+    customer: Optional[str] = None,
+) -> Tuple[float, float]:
+    """
+    Get total revenue (allocated from main job / transfer price) and total cost (tariff or actual)
+    from a job's charges. Used for internal billing Journal Entry amounts.
+    Returns (revenue_total, cost_total).
+    """
+    revenue_total = 0.0
+    cost_total = 0.0
+    for row in iter_internal_job_charge_splits(job_type, job_name, customer=customer):
+        revenue_total += flt(row.get("revenue"))
+        cost_total += flt(row.get("cost"))
+    return (revenue_total, cost_total)
 
 
 def get_suggested_contributors(

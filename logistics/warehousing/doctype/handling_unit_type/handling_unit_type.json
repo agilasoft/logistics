@@ -58,7 +58,8 @@
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_cady",
@@ -164,7 +165,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Default Billing UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "naming_series",

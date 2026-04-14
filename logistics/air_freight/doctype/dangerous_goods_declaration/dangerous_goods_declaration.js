@@ -15,7 +15,7 @@ frappe.ui.form.on("Dangerous Goods Declaration", {
 						});
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 			
 			frm.add_custom_button(__('Send Notification'), function() {
 				frm.call('send_notification').then(r => {
@@ -27,7 +27,7 @@ frappe.ui.form.on("Dangerous Goods Declaration", {
 						});
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 		}
 	},
 	

@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from frappe import append_hook
+
+from logistics.utils.credit_management import merge_credit_hooks
+
 # App dependencies
 app_dependencies = ["erpnext"]
 
@@ -14,17 +18,23 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
+fixtures = ["role.json"]
+
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
 app_include_css = "/assets/logistics/css/print_footer_fix.css"
 app_include_js = [
+	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
+	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
+	"/assets/logistics/js/internal_job_create_from_source.js?v=15",
+	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
-	"/assets/logistics/js/profitability_form.js?v=2",
+	"/assets/logistics/js/profitability_form.js?v=4",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 ]
@@ -38,6 +48,7 @@ app_include_js = [
 
 # include js in doctype views
 doctype_js = {
+	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
 	# Sales Quote: dialogs first, then air/sea freight scripts
 	"Sales Quote": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -48,6 +59,7 @@ doctype_js = {
 	# Charge parent doctypes: dialogs first, then charge script + handlers
 	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
 	"Air Booking": [
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -55,6 +67,8 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Air Shipment": [
+		"logistics/public/js/internal_job_create_from_source.js",
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -63,6 +77,8 @@ doctype_js = {
 		"logistics/public/js/profitability_form.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
+		"logistics/job_management/job_charge_reopen.js",
 	],
 	"Air Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -70,6 +86,8 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Sea Booking": [
+		"logistics/public/js/sea_freight_accounting_defaults.js",
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -77,6 +95,9 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Sea Shipment": [
+		"logistics/public/js/internal_job_create_from_source.js",
+		"logistics/public/js/sea_freight_accounting_defaults.js",
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/charge_break_dialogs.js",
@@ -85,6 +106,8 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
+		"logistics/job_management/job_charge_reopen.js",
 	],
 	"Sea Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -92,21 +115,30 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Declaration": [
+		"logistics/public/js/internal_job_create_from_source.js",
+		"logistics/public/js/transport_mode_default_document_type.js",
+		"logistics/public/js/shipper_consignee_defaults.js",
+		"logistics/public/js/sales_invoice_dialog.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/customs/doctype/declaration_charges/declaration_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/profitability_form.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
+		"logistics/job_management/job_charge_reopen.js",
 	],
 	"Declaration Order": [
+		"logistics/public/js/transport_mode_default_document_type.js",
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/customs/doctype/declaration_order_charges/declaration_order_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Transport Order": [
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -114,6 +146,8 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Transport Job": [
+		"logistics/public/js/internal_job_create_from_source.js",
+		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -122,6 +156,8 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
+		"logistics/job_management/job_charge_reopen.js",
 	],
 	"Transport Consolidation": [
 		"logistics/public/js/document_alerts_dialog.js",
@@ -130,14 +166,20 @@ doctype_js = {
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
+		"logistics/job_management/job_charge_reopen.js",
 	],
 	"General Job": [
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Special Project": [
 		"logistics/public/js/document_alerts_dialog.js",
 	],
+	"Account": "logistics/public/js/account_job_profit.js",
+	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
+	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -198,11 +240,25 @@ _doc_milestone_doctypes = [
 ]
 
 doc_events = {
+	"Accounting Dimension": {
+		"after_insert": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
+		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
+		"on_trash": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
+	},
+	"Account": {
+		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
+	},
 	"Purchase Invoice": {
+		"validate": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
 	},
 	"Sales Invoice": {
+		"validate": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
 	},
@@ -213,8 +269,84 @@ for _dt in _doc_milestone_doctypes:
 			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
 			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
 		],
-		"on_update": "logistics.document_management.api.ensure_documents_and_milestones_from_template",
 	}
+	# Exclude Declaration Order from automatic on_update hook to prevent timestamp mismatches
+	# Declaration Order uses user-initiated template population (like Air Booking and Sea Booking)
+	if _dt != "Declaration Order":
+		doc_events[_dt]["on_update"] = "logistics.document_management.api.ensure_documents_and_milestones_from_template"
+
+# Main Service vs Internal Job: internal jobs cannot be flagged as main service
+_MAIN_SERVICE_VALIDATE = "logistics.utils.charge_service_type.on_validate_main_service_internal_job"
+for _dt in (
+	"Air Booking",
+	"Air Shipment",
+	"Sea Booking",
+	"Sea Shipment",
+	"Transport Order",
+	"Transport Job",
+	"Declaration",
+	"Declaration Order",
+	"Warehouse Job",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_v = doc_events[_dt].get("validate")
+	if not _v:
+		doc_events[_dt]["validate"] = _MAIN_SERVICE_VALIDATE
+	elif isinstance(_v, list):
+		if _MAIN_SERVICE_VALIDATE not in _v:
+			doc_events[_dt]["validate"] = list(_v) + [_MAIN_SERVICE_VALIDATE]
+	elif _v != _MAIN_SERVICE_VALIDATE:
+		doc_events[_dt]["validate"] = [_v, _MAIN_SERVICE_VALIDATE]
+
+# Header estimated revenue / costs: roll up from charge lines on validate (persists to DB)
+_JOB_HEADER_ESTIMATE_FROM_CHARGES = "logistics.job_management.doc_events.on_job_validate_estimates"
+for _dt in (
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Job",
+	"Warehouse Job",
+	"Declaration",
+	"General Job",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_v = doc_events[_dt].get("validate")
+	if not _v:
+		doc_events[_dt]["validate"] = _JOB_HEADER_ESTIMATE_FROM_CHARGES
+	elif isinstance(_v, list):
+		if _JOB_HEADER_ESTIMATE_FROM_CHARGES not in _v:
+			doc_events[_dt]["validate"] = list(_v) + [_JOB_HEADER_ESTIMATE_FROM_CHARGES]
+	elif _v != _JOB_HEADER_ESTIMATE_FROM_CHARGES:
+		doc_events[_dt]["validate"] = [_v, _JOB_HEADER_ESTIMATE_FROM_CHARGES]
+
+# Block charge grid edits when job/shipment is in a closing status (Reopen Job unlocks)
+_CHARGE_REOPEN_VALIDATE = "logistics.job_management.charge_reopen.validate_submitted_charges_not_locked"
+for _dt in (
+	"Transport Job",
+	"Sea Shipment",
+	"Air Shipment",
+	"Warehouse Job",
+	"Declaration",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_v = doc_events[_dt].get("validate")
+	if not _v:
+		doc_events[_dt]["validate"] = _CHARGE_REOPEN_VALIDATE
+	elif isinstance(_v, list):
+		if _CHARGE_REOPEN_VALIDATE not in _v:
+			doc_events[_dt]["validate"] = list(_v) + [_CHARGE_REOPEN_VALIDATE]
+	elif _v != _CHARGE_REOPEN_VALIDATE:
+		doc_events[_dt]["validate"] = [_v, _CHARGE_REOPEN_VALIDATE]
+
+append_hook(
+	doc_events,
+	"*",
+	{"validate": "logistics.utils.load_type_active.validate_load_type_links_on_doc"},
+)
+
+merge_credit_hooks(doc_events)
 
 # Scheduled Tasks
 # ---------------
@@ -227,6 +359,7 @@ scheduler_events = {
 		"logistics.status_update.tasks.update_document_statuses",
 		"logistics.status_update.tasks.update_permit_statuses",
 		"logistics.status_update.tasks.update_exemption_statuses",
+		"logistics.container_management.api.reconcile_containers_from_terminal_sea_shipments",
 	],
 }
 
@@ -277,6 +410,10 @@ user_data_fields = [
 		"doctype": "{doctype_4}"
 	}
 ]
+
+# Database migrations (after schema sync)
+# ---------------------------------------
+after_migrate = ["logistics.job_management.recognition_migrate.after_migrate"]
 
 # Authentication and authorization
 # --------------------------------

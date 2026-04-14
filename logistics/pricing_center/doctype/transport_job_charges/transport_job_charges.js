@@ -2,9 +2,43 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Transport Job Charges", {
+	charge_type: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (row && row.charge_type === "Disbursement") {
+			_calculate_charge_row(frm, cdt, cdn);
+		}
+	},
+	item_code: function(frm, cdt, cdn) {
+		var attempts = 0;
+		var maxAttempts = 8;
+		var tick = function() {
+			attempts += 1;
+			var currentRow = locals[cdt] && locals[cdt][cdn];
+			if (currentRow && (currentRow.standard_unit_cost !== undefined || attempts >= maxAttempts)) {
+				_recalculate_total_standard_cost(frm, cdt, cdn);
+			} else {
+				setTimeout(tick, 150);
+			}
+		};
+		if (!locals[cdt][cdn].item_code) {
+			frappe.model.set_value(cdt, cdn, "total_standard_cost", 0);
+			return;
+		}
+		setTimeout(tick, 150);
+	},
+	quantity: function(frm, cdt, cdn) {
+		_calculate_charge_row(frm, cdt, cdn);
+		_recalculate_total_standard_cost(frm, cdt, cdn);
+	},
+	cost_quantity: function(frm, cdt, cdn) {
+		_calculate_charge_row(frm, cdt, cdn);
+		_recalculate_total_standard_cost(frm, cdt, cdn);
+	},
+	standard_unit_cost: function(frm, cdt, cdn) {
+		_recalculate_total_standard_cost(frm, cdt, cdn);
+	},
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	uom: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	currency: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -15,7 +49,6 @@ frappe.ui.form.on("Transport Job Charges", {
 	base_amount: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	base_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	cost_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_uom: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_currency: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_cost: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -43,8 +76,12 @@ function _calculate_charge_row(frm, cdt, cdn) {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				if ("actual_revenue" in r.message) {
+					frappe.model.set_value(cdt, cdn, "actual_revenue", r.message.actual_revenue);
+				}
+				if ("actual_cost" in r.message) {
+					frappe.model.set_value(cdt, cdn, "actual_cost", r.message.actual_cost);
+				}
 				if (r.message.quantity != null) {
 					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
 				}
@@ -57,7 +94,21 @@ function _calculate_charge_row(frm, cdt, cdn) {
 				if ("cost_calc_notes" in r.message) {
 					frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
 				}
+				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
+				}
 			}
 		}
 	});
+}
+
+function _recalculate_total_standard_cost(frm, cdt, cdn) {
+	var row = locals[cdt] && locals[cdt][cdn];
+	if (!row) return;
+	var qty = parseFloat(row.quantity) || 0;
+	if (qty <= 0) {
+		qty = parseFloat(row.cost_quantity) || 0;
+	}
+	var su = parseFloat(row.standard_unit_cost) || 0;
+	frappe.model.set_value(cdt, cdn, "total_standard_cost", qty * su);
 }

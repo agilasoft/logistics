@@ -17,7 +17,8 @@
    "in_list_view": 1,
    "label": "From Address",
    "options": "Address",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "to_address",
@@ -25,7 +26,8 @@
    "in_list_view": 1,
    "label": "To Address",
    "options": "Address",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "impact_type",

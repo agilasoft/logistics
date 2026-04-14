@@ -106,10 +106,10 @@ class AirConsolidation(Document):
         self.update_consolidation_status()
         self.calculate_total_charges()
         self.optimize_consolidation_ratio()
-        # Job Costing Number will be created in after_insert method
+        # Job Number will be created in after_insert method
     
     def after_insert(self):
-        """Create Job Costing Number after document is inserted"""
+        """Create Job Number after document is inserted"""
         # Apply settings defaults if not already applied
         if not hasattr(self, '_settings_applied'):
             self.apply_settings_defaults()
@@ -117,10 +117,10 @@ class AirConsolidation(Document):
         # Create job costing if enabled in settings
         settings = self.get_air_freight_settings()
         if settings and settings.auto_create_job_costing:
-            self.create_job_costing_number_if_needed()
+            self.create_job_number_if_needed()
         
         # Save the document to persist changes
-        if self.job_costing_number:
+        if self.job_number:
             self.save(ignore_permissions=True)
     
     def on_update(self):
@@ -832,24 +832,24 @@ class AirConsolidation(Document):
         # Mark as applied
         self._settings_applied = True
     
-    def create_job_costing_number_if_needed(self):
-        """Create Job Costing Number when document is first saved"""
+    def create_job_number_if_needed(self):
+        """Create Job Number when document is first saved"""
         # Check settings for auto-create job costing
         settings = self.get_air_freight_settings()
         if settings and not settings.auto_create_job_costing:
             return
         
-        # Only create if job_costing_number is not set
-        if not self.job_costing_number:
-            # Check if this is the first save (no existing Job Costing Number)
-            existing_job_ref = frappe.db.get_value("Job Costing Number", {
+        # Only create if job_number is not set
+        if not self.job_number:
+            # Check if this is the first save (no existing Job Number)
+            existing_job_ref = frappe.db.get_value("Job Number", {
                 "job_type": "Air Consolidation",
                 "job_no": self.name
             })
             
             if not existing_job_ref:
-                # Create Job Costing Number
-                job_ref = frappe.new_doc("Job Costing Number")
+                # Create Job Number
+                job_ref = frappe.new_doc("Job Number")
                 job_ref.job_type = "Air Consolidation"
                 job_ref.job_no = self.name
                 job_ref.company = self.company
@@ -861,7 +861,7 @@ class AirConsolidation(Document):
                 job_ref.job_open_date = self.consolidation_date
                 job_ref.insert(ignore_permissions=True)
                 
-                # Set the job_costing_number field
-                self.job_costing_number = job_ref.name
+                # Set the job_number field
+                self.job_number = job_ref.name
                 
-                frappe.msgprint(_("Job Costing Number {0} created successfully").format(job_ref.name))
+                frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))

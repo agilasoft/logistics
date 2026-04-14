@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2026-03-21 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "controlled_doctype",
+  "block_save",
+  "block_insert",
+  "block_submit",
+  "block_print"
+ ],
+ "fields": [
+  {
+   "fieldname": "controlled_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Subject DocType",
+   "options": "DocType",
+   "reqd": 1,
+   "description": "DocType evaluated when the resolved customer is on credit hold."
+  },
+  {
+   "default": "1",
+   "description": "After save: orange warning only; save is not blocked.",
+   "fieldname": "block_save",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Warn on save"
+  },
+  {
+   "default": "1",
+   "description": "Block creating new documents for a customer on hold.",
+   "fieldname": "block_insert",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Hold create"
+  },
+  {
+   "default": "1",
+   "description": "Block submit while on hold.",
+   "fieldname": "block_submit",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Hold submit"
+  },
+  {
+   "default": "1",
+   "description": "Block print and PDF while on hold.",
+   "fieldname": "block_print",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Hold print / PDF"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Logistics Settings Credit Rule",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

@@ -1,61 +1,171 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:code",
- "creation": "2025-10-03 10:25:21.810285",
+ "autoname": "field:load_type_name",
+ "creation": "2025-01-27 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "code",
+  "load_type_name",
   "description",
-  "column_break_mkgm",
-  "sea",
+  "is_active",
+  "column_break_ljsj",
   "air",
-  "transport"
+  "sea",
+  "transport",
+  "transport_tab",
+  "can_be_consolidated",
+  "can_handle_consolidation",
+  "consolidation_settings_section",
+  "max_consolidation_jobs",
+  "max_weight",
+  "max_volume",
+  "consolidation_rules",
+  "allowed_transport_job_types_section",
+  "container",
+  "non_container",
+  "special",
+  "oversized",
+  "multimodal",
+  "heavy_haul"
  ],
  "fields": [
   {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "label": "Code",
-   "unique": 1
-  },
-  {
    "fieldname": "description",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Description"
-  },
-  {
-   "fieldname": "column_break_mkgm",
-   "fieldtype": "Column Break"
   },
   {
    "default": "0",
    "fieldname": "sea",
    "fieldtype": "Check",
-   "in_standard_filter": 1,
    "label": "Sea"
   },
   {
    "default": "0",
    "fieldname": "air",
    "fieldtype": "Check",
-   "in_standard_filter": 1,
    "label": "Air"
   },
   {
    "default": "0",
    "fieldname": "transport",
    "fieldtype": "Check",
-   "in_standard_filter": 1,
    "label": "Transport"
+  },
+  {
+   "fieldname": "load_type_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Load Type Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_ljsj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transport_tab",
+   "fieldtype": "Tab Break",
+   "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_be_consolidated",
+   "fieldtype": "Check",
+   "label": "Can be Consolidated"
+  },
+  {
+   "default": "0",
+   "fieldname": "can_handle_consolidation",
+   "fieldtype": "Check",
+   "label": "Can handle Consolidation"
+  },
+  {
+   "fieldname": "consolidation_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Settings"
+  },
+  {
+   "default": "0",
+   "description": "Maximum number of transport jobs that can be consolidated together. 0 = unlimited",
+   "fieldname": "max_consolidation_jobs",
+   "fieldtype": "Int",
+   "label": "Max Consolidation Jobs"
+  },
+  {
+   "default": "0",
+   "description": "Maximum total weight for consolidated shipments. 0 = unlimited",
+   "fieldname": "max_weight",
+   "fieldtype": "Float",
+   "label": "Max Weight (kg)"
+  },
+  {
+   "default": "0",
+   "description": "Maximum total volume for consolidated shipments. 0 = unlimited",
+   "fieldname": "max_volume",
+   "fieldtype": "Float",
+   "label": "Max Volume (m\u00b3)"
+  },
+  {
+   "description": "Document specific consolidation rules, compatibility requirements, and special handling instructions",
+   "fieldname": "consolidation_rules",
+   "fieldtype": "Long Text",
+   "label": "Consolidation Rules"
+  },
+  {
+   "fieldname": "allowed_transport_job_types_section",
+   "fieldtype": "Section Break",
+   "label": "Allowed Transport Job Types"
+  },
+  {
+   "default": "0",
+   "fieldname": "container",
+   "fieldtype": "Check",
+   "label": "Container"
+  },
+  {
+   "default": "0",
+   "fieldname": "non_container",
+   "fieldtype": "Check",
+   "label": "Non-Container"
+  },
+  {
+   "default": "0",
+   "fieldname": "special",
+   "fieldtype": "Check",
+   "label": "Special"
+  },
+  {
+   "default": "0",
+   "fieldname": "oversized",
+   "fieldtype": "Check",
+   "label": "Oversized"
+  },
+  {
+   "default": "0",
+   "fieldname": "multimodal",
+   "fieldtype": "Check",
+   "label": "Multimodal"
+  },
+  {
+   "default": "0",
+   "fieldname": "heavy_haul",
+   "fieldtype": "Check",
+   "label": "Heavy Haul"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
   }
  ],
- "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-03 10:26:48.489797",
+ "modified": "2026-04-04 09:46:38.800289",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Load Type",
@@ -73,10 +183,25 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Transport Manager",
+   "share": 1,
+   "write": 1
   }
  ],
+ "quick_entry": 1,
  "row_format": "Dynamic",
+ "search_fields": "description",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

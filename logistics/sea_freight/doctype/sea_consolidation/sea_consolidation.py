@@ -33,13 +33,13 @@ class SeaConsolidation(Document):
         self.update_consolidation_status()
         self.calculate_total_charges()
         self.optimize_consolidation_ratio()
-        # Job Costing Number will be created in after_insert method
+        # Job Number will be created in after_insert method
     
     def after_insert(self):
-        """Create Job Costing Number after document is inserted"""
-        self.create_job_costing_number_if_needed()
-        # Save the document to persist the job_costing_number field
-        if self.job_costing_number:
+        """Create Job Number after document is inserted"""
+        self.create_job_number_if_needed()
+        # Save the document to persist the job_number field
+        if self.job_number:
             self.save(ignore_permissions=True)
     
     def on_update(self):
@@ -86,19 +86,19 @@ class SeaConsolidation(Document):
                     # Check if destination of previous route matches origin of current route
                     prev_route = self.consolidation_routes[i-1]
                     if prev_route.destination_port != route.origin_port:
-                        frappe.throw(_("Route {0}: Origin port must match destination of previous route").format(route.route_sequence))
+                        frappe.throw(_("Route {0}: Origin port must match destination of previous route").format(i + 1))
     
     def validate_capacity_constraints(self):
         """Validate capacity constraints for all routes"""
-        for route in self.consolidation_routes:
+        for i, route in enumerate(self.consolidation_routes, 1):
             if route.container_capacity and self.total_containers > route.container_capacity:
-                frappe.throw(_("Route {0}: Total containers exceed container capacity").format(route.route_sequence))
+                frappe.throw(_("Route {0}: Total containers exceed container capacity").format(i))
             
             if route.cargo_capacity_kg and self.total_weight > route.cargo_capacity_kg:
-                frappe.throw(_("Route {0}: Total weight exceeds cargo capacity").format(route.route_sequence))
+                frappe.throw(_("Route {0}: Total weight exceeds cargo capacity").format(i))
             
             if route.cargo_capacity_volume and self.total_volume > route.cargo_capacity_volume:
-                frappe.throw(_("Route {0}: Total volume exceeds cargo capacity").format(route.route_sequence))
+                frappe.throw(_("Route {0}: Total volume exceeds cargo capacity").format(i))
     
     def validate_attached_shipments_compatibility(self):
         """Validate that attached Sea Shipments are compatible for consolidation"""
@@ -232,9 +232,9 @@ class SeaConsolidation(Document):
         
         if dg_packages:
             # Check if all routes allow dangerous goods
-            for route in self.consolidation_routes:
+            for i, route in enumerate(self.consolidation_routes, 1):
                 if not route.dangerous_goods_allowed:
-                    frappe.throw(_("Route {0} does not allow dangerous goods, but consolidation contains DG packages").format(route.route_sequence))
+                    frappe.throw(_("Route {0} does not allow dangerous goods, but consolidation contains DG packages").format(i))
             
             # Validate DG segregation requirements
             self.validate_dg_segregation(dg_packages)
@@ -404,13 +404,12 @@ class SeaConsolidation(Document):
         if routes or not self.origin_port or not self.destination_port:
             return
         self._append_main_route()
-    
+
     def _append_main_route(self):
         """Append a single Direct route from origin to destination using header vessel/etd/eta."""
         if not self.origin_port or not self.destination_port:
             return
         route = {
-            "route_sequence": 1,
             "route_type": "Direct",
             "origin_port": self.origin_port,
             "destination_port": self.destination_port,
@@ -432,11 +431,11 @@ class SeaConsolidation(Document):
         self.save()
         return {"message": _("Routing leg created from origin to destination.")}
     
-    def create_job_costing_number_if_needed(self):
-        """Create Job Costing Number if not already linked"""
-        if not self.job_costing_number and self.company:
+    def create_job_number_if_needed(self):
+        """Create Job Number if not already linked"""
+        if not self.job_number and self.company:
             try:
-                job_costing = frappe.new_doc("Job Costing Number")
+                job_costing = frappe.new_doc("Job Number")
                 job_costing.job_name = self.name
                 job_costing.job_type = "Sea Consolidation"
                 job_costing.company = self.company
@@ -445,9 +444,9 @@ class SeaConsolidation(Document):
                 job_costing.profit_center = self.profit_center
                 job_costing.insert(ignore_permissions=True)
                 
-                self.job_costing_number = job_costing.name
+                self.job_number = job_costing.name
             except Exception as e:
-                frappe.log_error(f"Error creating Job Costing Number for Sea Consolidation {self.name}: {str(e)}")
+                frappe.log_error(f"Error creating Job Number for Sea Consolidation {self.name}: {str(e)}")
     
     def update_consolidation_status(self):
         """Update consolidation status based on current state"""
@@ -655,7 +654,7 @@ class SeaConsolidation(Document):
                     <span class="card-badge {st}">{m.status or "Planned"}</span>
                 </div>"""
             routes = getattr(self, "consolidation_routes", None) or []
-            legs_for_map = [{"idx": getattr(r, "route_sequence", i), "load_port": getattr(r, "origin_port", None), "discharge_port": getattr(r, "destination_port", None), "type": getattr(r, "route_type", "Direct")} for i, r in enumerate(routes, 1)]
+            legs_for_map = [{"idx": i, "load_port": getattr(r, "origin_port", None), "discharge_port": getattr(r, "destination_port", None), "type": getattr(r, "route_type", "Direct")} for i, r in enumerate(routes, 1)]
             map_segments = build_map_segments_from_routing_legs(legs_for_map)
             map_points = []
             if not map_segments:

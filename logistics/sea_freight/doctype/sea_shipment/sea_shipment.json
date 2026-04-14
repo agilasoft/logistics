@@ -13,21 +13,55 @@
   "section_break_main",
   "naming_series",
   "booking_date",
-  "shipping_status",
-  "sea_booking",
   "direction",
+  "house_type",
   "transport_mode",
   "column_break_nbco",
-  "master_bill",
+  "sea_booking",
   "shipping_line",
   "local_customer",
   "freight_agent",
+  "load_type",
   "column_break_ccsn",
-  "house_type",
+  "job_status",
   "release_type",
   "entry_type",
-  "sales_quote",
-  "billing_company",
+  "contains_dangerous_goods",
+  "section_break_parties",
+  "column_break_origin",
+  "shipper",
+  "origin_port",
+  "origin_cto",
+  "etd",
+  "atd",
+  "sending_agent",
+  "column_break_destination",
+  "consignee",
+  "destination_port",
+  "destination_cto",
+  "eta",
+  "ata",
+  "receiving_agent",
+  "column_break_entities_agents",
+  "booking_party",
+  "controlling_party",
+  "broker",
+  "master_details_section",
+  "master_bill",
+  "column_break_mbl_r",
+  "mbl_master_type",
+  "mbl_shipping_line",
+  "mbl_vessel",
+  "mbl_voyage_no",
+  "mbl_voyage_status",
+  "mbl_vessel_date",
+  "column_break_mbl_l",
+  "mbl_origin_port",
+  "mbl_destination_port",
+  "mbl_scheduled_departure",
+  "mbl_scheduled_arrival",
+  "mbl_booking_reference_no",
+  "mbl_agent_reference",
   "house_details_section",
   "house_bl",
   "incoterm",
@@ -40,26 +74,6 @@
   "description",
   "column_break_gmkt",
   "marks_and_nos",
-  "section_break_booking_control",
-  "booking_party",
-  "controlling_party",
-  "column_break_booking_control",
-  "contains_dangerous_goods",
-  "section_break_parties",
-  "column_break_origin",
-  "shipper",
-  "origin_port",
-  "etd",
-  "atd",
-  "column_break_destination",
-  "consignee",
-  "destination_port",
-  "eta",
-  "ata",
-  "column_break_entities_agents",
-  "sending_agent",
-  "receiving_agent",
-  "broker",
   "section_break_cutoffs",
   "cargo_cut_off",
   "document_cut_off",
@@ -68,10 +82,6 @@
   "gate_in_cut_off",
   "empty_return_cut_off",
   "other_cut_off",
-  "section_break_ctos",
-  "origin_cto",
-  "column_break_ctos",
-  "destination_cto",
   "section_break_reference_numbers",
   "reference_numbers",
   "packing_tab",
@@ -79,9 +89,8 @@
   "routing_legs",
   "packages_section",
   "packages",
-  "warehouse_items_section",
-  "warehouse_items",
   "containers_section",
+  "shipping_status",
   "containers",
   "section_break_mene",
   "total_containers",
@@ -115,30 +124,48 @@
   "column_break_wcpn",
   "notify_party_address",
   "charges_tab",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
   "section_break_elec",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
   "wip_amount",
   "recognized_revenue",
   "wip_journal_entry",
-  "wip_adjustment_journal_entry",
   "wip_closed",
   "column_break_accrual",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
   "accrual_closed",
+  "quote_reference_section",
+  "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -149,28 +176,6 @@
   "documents_html",
   "document_list_template",
   "documents",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_accounts",
-  "job_costing_number",
-  "project",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
   "notes_tab",
   "notes_section",
   "external_notes",
@@ -285,6 +290,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper",
    "reqd": 1
   },
@@ -293,6 +299,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee",
    "reqd": 1
   },
@@ -308,23 +315,71 @@
    "fieldtype": "Link",
    "label": "Sea Booking",
    "options": "Sea Booking",
-   "read_only": 1
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service"
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job",
    "read_only": 1
   },
   {
-   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
-   "fetch_from": "sales_quote.company",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "incoterm",
@@ -333,20 +388,20 @@
    "options": "Incoterm"
   },
   {
-   "description": "Origin port UNLOCO code",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Origin Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO",
    "reqd": 1
   },
   {
-   "description": "Destination port UNLOCO code",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO",
    "reqd": 1
   },
@@ -359,15 +414,17 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Local Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
    "reqd": 1
   },
   {
    "fieldname": "transport_mode",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Transport Mode",
-   "options": "FCL\nLCL\nBreak Bulk"
+   "link_filters": "[[\"Transport Mode\",\"is_active\",\"=\",1],[\"Transport Mode\",\"sea\",\"=\",1]]",
+   "options": "Transport Mode"
   },
   {
    "fieldname": "column_break_iklg",
@@ -400,6 +457,7 @@
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
@@ -476,18 +534,21 @@
    "fieldname": "total_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
    "fieldname": "total_weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Wt. UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -522,15 +583,10 @@
    "label": "Insurance"
   },
   {
-   "collapsible": 1,
-   "fieldname": "section_break_booking_control",
-   "fieldtype": "Section Break",
-   "label": "Booking & Control"
-  },
-  {
    "fieldname": "booking_party",
    "fieldtype": "Link",
    "label": "Booking Party",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
   },
   {
@@ -538,10 +594,6 @@
    "fieldtype": "Select",
    "label": "Controlling Party",
    "options": "Customer Controlled\nAgent Controlled"
-  },
-  {
-   "fieldname": "column_break_booking_control",
-   "fieldtype": "Column Break"
   },
   {
    "collapsible": 1,
@@ -565,40 +617,35 @@
    "fieldname": "sending_agent",
    "fieldtype": "Link",
    "label": "Sending Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
    "fieldname": "receiving_agent",
    "fieldtype": "Link",
    "label": "Receiving Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
    "fieldname": "broker",
    "fieldtype": "Link",
    "label": "Broker",
-   "options": "Freight Agent"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_ctos",
-   "fieldtype": "Section Break",
-   "label": "CTOs"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1],[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
-  },
-  {
-   "fieldname": "column_break_ctos",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1],[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
@@ -622,6 +669,7 @@
    "fieldname": "release_type",
    "fieldtype": "Link",
    "label": "Release Type",
+   "link_filters": "[[\"Release Type\", \"is_active\", \"=\", 1]]",
    "options": "Release Type"
   },
   {
@@ -688,6 +736,7 @@
    "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
+   "collapsible": 1,
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -699,10 +748,128 @@
    "options": "Sea Shipment Routing Leg"
   },
   {
+   "collapsible": 1,
+   "fieldname": "master_details_section",
+   "fieldtype": "Section Break",
+   "label": "Master Details"
+  },
+  {
    "fieldname": "master_bill",
    "fieldtype": "Link",
-   "label": "Master Bill",
+   "label": "Master BL",
    "options": "Master Bill"
+  },
+  {
+   "fieldname": "column_break_mbl_r",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_master_type",
+   "fieldtype": "Select",
+   "is_virtual": 1,
+   "label": "MBL Type",
+   "options": "Direct\nCo-Load\nAgent Consolidation\nCharter\nCourier\nOther",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_shipping_line",
+   "fieldtype": "Link",
+   "is_virtual": 1,
+   "label": "MBL Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_vessel",
+   "fieldtype": "Data",
+   "is_virtual": 1,
+   "label": "MBL Vessel",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_voyage_no",
+   "fieldtype": "Data",
+   "is_virtual": 1,
+   "label": "MBL Voyage No",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_voyage_status",
+   "fieldtype": "Select",
+   "is_virtual": 1,
+   "label": "MBL Voyage Status",
+   "options": "\nScheduled\nAt Origin\nDeparted\nIn Transit\nArrived\nAt Destination\nDelayed\nCancelled",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_vessel_date",
+   "fieldtype": "Date",
+   "is_virtual": 1,
+   "label": "MBL Vessel Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mbl_l",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_origin_port",
+   "fieldtype": "Link",
+   "is_virtual": 1,
+   "label": "MBL Origin Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_destination_port",
+   "fieldtype": "Link",
+   "is_virtual": 1,
+   "label": "MBL Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_scheduled_departure",
+   "fieldtype": "Datetime",
+   "is_virtual": 1,
+   "label": "MBL Sched. Departure (UTC)",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_scheduled_arrival",
+   "fieldtype": "Datetime",
+   "is_virtual": 1,
+   "label": "MBL Sched. Arrival (UTC)",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_booking_reference_no",
+   "fieldtype": "Data",
+   "is_virtual": 1,
+   "label": "MBL Booking Ref",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.master_bill",
+   "fieldname": "mbl_agent_reference",
+   "fieldtype": "Data",
+   "is_virtual": 1,
+   "label": "MBL Agent Ref",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -724,11 +891,84 @@
    "label": "Charges"
   },
   {
-   "fieldname": "details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Details"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
   },
   {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
+   "description": "This will be used when posting financial transactions to this job.",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -739,6 +979,7 @@
    "options": "Sea Freight Containers"
   },
   {
+   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -749,27 +990,11 @@
    "options": "Sea Freight Packages"
   },
   {
-   "collapsible": 1,
-   "fieldname": "warehouse_items_section",
-   "fieldtype": "Section Break",
-   "label": "Warehouse Items"
-  },
-  {
-   "fieldname": "warehouse_items",
-   "fieldtype": "Table",
-   "label": "Warehouse Items",
-   "options": "Shipment Warehouse Item"
-  },
-  {
-   "fieldname": "recognition_date",
-   "fieldtype": "Date",
-   "label": "Recognition Date"
-  },
-  {
    "fieldname": "section_break_elec",
    "fieldtype": "Section Break"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Sea Shipment Charges"
@@ -804,145 +1029,6 @@
    "options": "Job Document"
   },
   {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
-   "fieldname": "branch",
-   "fieldtype": "Link",
-   "label": "Branch",
-   "options": "Branch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
-   "options": "Cost Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "profit_center",
-   "fieldtype": "Link",
-   "label": "Profit Center",
-   "options": "Profit Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_accounts",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "This will be used when posting financial transactions to this job.",
-   "fieldname": "job_costing_number",
-   "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
-  },
-  {
-   "description": "ERPNext Project for Special Projects integration",
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "label": "Project",
-   "options": "Project"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "invoice_monitoring_section",
-   "fieldtype": "Section Break",
-   "label": "Invoice Monitoring"
-  },
-  {
-   "fieldname": "sales_invoice",
-   "fieldtype": "Link",
-   "label": "Sales Invoice",
-   "options": "Sales Invoice",
-   "read_only": 1
-  },
-  {
-   "fieldname": "purchase_invoice",
-   "fieldtype": "Link",
-   "label": "Purchase Invoice",
-   "options": "Purchase Invoice",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_invoiced",
-   "fieldtype": "Check",
-   "label": "Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_invoiced",
-   "fieldtype": "Date",
-   "label": "Date Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_paid",
-   "fieldtype": "Check",
-   "label": "Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_invoice_lifecycle",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "date_sales_invoice_requested",
-   "fieldtype": "Date",
-   "label": "SI Requested",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_sales_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "SI Submitted",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_purchase_invoice_requested",
-   "fieldtype": "Date",
-   "label": "PI Requested",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_purchase_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "PI Submitted",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "costs_fully_paid",
-   "fieldtype": "Check",
-   "label": "Costs Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_costs_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Costs Paid",
-   "read_only": 1
-  },
-  {
    "collapsible": 1,
    "fieldname": "recognition_section",
    "fieldtype": "Section Break",
@@ -952,25 +1038,37 @@
    "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
+  },
+  {
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_recognition",
@@ -998,13 +1096,6 @@
    "fieldname": "wip_journal_entry",
    "fieldtype": "Link",
    "label": "WIP Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "wip_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "WIP Adjustment JE",
    "options": "Journal Entry",
    "read_only": 1
   },
@@ -1038,20 +1129,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "accrual_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Adjustment JE",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
    "default": "0",
    "fieldname": "accrual_closed",
    "fieldtype": "Check",
@@ -1068,6 +1145,11 @@
    "fieldtype": "HTML",
    "is_virtual": 1,
    "label": "Dashboard"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   },
   {
    "fieldname": "milestones_tab",
@@ -1108,6 +1190,7 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -1120,7 +1203,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "fieldname": "contacts_and_addresses_section",
    "fieldtype": "Section Break",
    "label": "Contacts & Addresses"
@@ -1129,6 +1211,7 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -1210,14 +1293,28 @@
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
    "options": "Shipping Line"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "shipping_status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Shipping Status",
-   "options": "Booking Received\nBooking Confirmed\nCargo Not Ready\nPick-Up Scheduled\nGate-In at Port / CY\nCustoms Clearance (Export)\nLoaded on Vessel\nDeparted\nIn-Transit\nArrived\nDischarged from Vessel\nCustoms Clearance (Import)\nAvailable for Pick-Up\nOut for Delivery\nDelivered\nEmpty Container Returned\nDelayed\nCustoms Hold\nDocument Issue\nDetention / Demurrage Ongoing\nClosed"
+   "options": "Booking Received\nBooking Confirmed\nCargo Not Ready\nPick-Up Scheduled\nGate-In at Port / CY\nCustoms Clearance (Export)\nLoaded on Vessel\nDeparted\nIn-Transit\nArrived\nDischarged from Vessel\nCustoms Clearance (Import)\nAvailable for Pick-Up\nOut for Delivery\nDelivered\nEmpty Container Returned\nDelayed\nCustoms Hold\nDocument Issue\nDetention / Demurrage Ongoing\nClosed\nReopened"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Draft",
+   "fieldname": "job_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Status",
+   "length": 20,
+   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nClosed\nReopened\nCancelled",
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "notes_tab",
@@ -1248,6 +1345,7 @@
    "fieldname": "tc_name",
    "fieldtype": "Link",
    "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
    "options": "Terms and Conditions"
   },
   {
@@ -1422,6 +1520,13 @@
   {
    "fieldname": "section_break_owlh",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
+   "options": "Load Type"
   }
  ],
  "grid_page_length": 50,
@@ -1431,11 +1536,46 @@
   {
    "group": "Accounts",
    "link_doctype": "Sales Invoice",
-   "link_fieldname": "job_costing_number"
+   "link_fieldname": "job_number"
+  },
+  {
+   "group": "Accounts",
+   "link_doctype": "Purchase Invoice",
+   "link_fieldname": "job_number"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Transport Order",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Declaration Order",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Inbound Order",
+   "link_fieldname": "sea_shipment"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Transport Job",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Declaration",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Warehouse Job",
+   "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-03-16 15:44:20.289565",
- "modified_by": "Administrator",
+ "modified": "2026-04-14 14:14:04.761234",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Sea Shipment",
  "naming_rule": "By \"Naming Series\" field",

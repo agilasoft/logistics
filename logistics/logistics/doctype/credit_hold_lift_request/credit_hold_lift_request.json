@@ -1,0 +1,176 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-03-21 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "section_request",
+  "company",
+  "customer",
+  "column_break_rq",
+  "relieved_doctype",
+  "scope",
+  "reference_name",
+  "section_validity",
+  "valid_from",
+  "valid_to",
+  "column_break_v",
+  "justification"
+ ],
+ "fields": [
+  {
+   "default": "CHL-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "CHL-.YYYY.-\nCHL-.#####\n",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "section_request",
+   "fieldtype": "Section Break",
+   "label": "Request"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "description": "If set, the lift applies only to documents for this company. Leave blank for all companies."
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fieldname": "column_break_rq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "relieved_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Relieved DocType",
+   "options": "DocType",
+   "reqd": 1,
+   "description": "DocType for which credit blocks are temporarily lifted (e.g. Air Shipment)."
+  },
+  {
+   "default": "All Documents",
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "label": "Scope",
+   "options": "All Documents\nSingle Document",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.scope=='Single Document'",
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "options": "relieved_doctype",
+   "description": "Required when scope is Single Document."
+  },
+  {
+   "fieldname": "section_validity",
+   "fieldtype": "Section Break",
+   "label": "Validity"
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid From",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_to",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid To",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_v",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "justification",
+   "fieldtype": "Small Text",
+   "label": "Justification",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-03-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Credit Hold Lift Request",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Credit Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 0,
+   "cancel": 0,
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 0,
+   "submit": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer",
+ "track_changes": 1
+}

@@ -10,6 +10,7 @@ from frappe.model.document import Document
 from frappe.utils import add_days, cint, flt, getdate
 from pymysql.err import ProgrammingError
 
+from logistics.utils.dg_fields import copy_parent_dg_header
 # keep these exactly as requested
 ORDER_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
@@ -22,13 +23,15 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "quantity",
     "uom",
     "currency",
-    "unit_rate",
     "unit_type",
     "minimum_quantity",
     "minimum_charge",
     "maximum_charge",
     "base_amount",
     "estimated_revenue",
+    "charge_category",  # Added: charge_category
+    "bill_to",  # Added: bill_to
+    "pay_to",  # Added: pay_to
     "use_tariff_in_revenue",
     "use_tariff_in_cost",
     "tariff",
@@ -48,6 +51,9 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "revenue_calc_notes",
     "cost_calc_notes",
 ]
+
+# Include unit_rate from Sales Quote Transport / Sales Quote Charge rows (mapped to rate on charges)
+SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + ["unit_rate"]
 
 
 def _sync_quote_and_sales_quote(doc):
@@ -86,8 +92,6 @@ class TransportOrder(Document):
             original_sales_quote = getattr(self, 'sales_quote', None)
         
         _sync_quote_and_sales_quote(self)
-        from logistics.utils.module_integration import set_billing_company_from_sales_quote
-        set_billing_company_from_sales_quote(self)
 
         # Ensure quote field is preserved - restore original values if they were cleared
         # This ensures the quote field remains after submission
@@ -113,10 +117,30 @@ class TransportOrder(Document):
                 )
                 self.set(legs_field, [])
         
-        # Validate One-off Sales Quote not already converted
+        # Validate One-off Sales Quote not already converted (internal-job TO may share quote with main Sea/Air leg)
         if self.sales_quote:
-            from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-            validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
+            from frappe.utils import cint
+
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                resolve_allow_linked_freight_bookings_for_internal_job,
+                resolve_single_main_air_booking_for_sales_quote,
+                resolve_single_main_sea_booking_for_sales_quote,
+                validate_one_off_quote_not_converted,
+            )
+
+            allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+            if cint(getattr(self, "is_internal_job", 0)):
+                if not allow_sea:
+                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+                if not allow_air:
+                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+            validate_one_off_quote_not_converted(
+                self.sales_quote,
+                self.doctype,
+                self.name,
+                allow_linked_sea_booking=allow_sea,
+                allow_linked_air_booking=allow_air,
+            )
         
         # Handle sales_quote field clearing - reset One-off quote if cleared
         if not self.is_new() and original_sales_quote and not self.sales_quote:
@@ -165,6 +189,10 @@ class TransportOrder(Document):
         self.aggregate_volume_from_packages()
         self.aggregate_weight_from_packages()
         self._update_packing_summary()
+
+        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+        msgprint_sales_quote_validity_warnings(self)
 
     def before_save(self):
         from logistics.utils.module_integration import run_propagate_on_link
@@ -577,7 +605,7 @@ class TransportOrder(Document):
             return
         
         # Check for hazardous materials
-        if self.hazardous:
+        if self.contains_dangerous_goods:
             frappe.msgprint(_("Hazardous materials require special handling and documentation."))
 
     def _validate_multimodal_requirements(self):
@@ -777,7 +805,7 @@ class TransportOrder(Document):
         elif self.transport_job_type == "Hazardous":
             permits.extend(["Hazardous Materials Permit", "Environmental Clearance"])
         
-        if self.hazardous:
+        if self.contains_dangerous_goods:
             permits.extend(["Hazardous Materials Permit", "Environmental Clearance"])
         
         return list(set(permits))  # Remove duplicates
@@ -802,8 +830,8 @@ class TransportOrder(Document):
         elif self.transport_job_type == "Multimodal":
             factors["surcharge"] = 0.2  # 20% surcharge
         
-        if self.hazardous:
-            factors["surcharge"] += 0.3  # Additional 30% for hazardous
+        if self.contains_dangerous_goods:
+            factors["surcharge"] += 0.3  # Additional 30% for dangerous goods
             factors["special_handling"] = True
         
         if self.reefer:
@@ -832,7 +860,7 @@ class TransportOrder(Document):
             requirements["special_equipment"].extend(["Specialized Equipment"])
             requirements["driver_qualifications"].extend(["Special Transport License"])
         
-        if self.hazardous:
+        if self.contains_dangerous_goods:
             requirements["special_equipment"].extend(["Hazmat Equipment"])
             requirements["driver_qualifications"].extend(["Hazmat License"])
         
@@ -945,7 +973,7 @@ class TransportOrder(Document):
             score += 2
         
         # Additional factors
-        if self.hazardous:
+        if self.contains_dangerous_goods:
             score += 5
         if self.reefer:
             score += 3
@@ -1019,11 +1047,53 @@ class TransportOrder(Document):
             # Clear existing charges
             self.set("charges", [])
 
+            # Check separate_billings_per_service_type setting and if this is the main job
+            separate_billings = True  # Default to separate (current behavior)
+            is_main_job = False
+            
+            try:
+                sales_quote_doc = frappe.get_doc("Sales Quote", self.sales_quote)
+                separate_billings = getattr(sales_quote_doc, "separate_billings_per_service_type", 0) or False
+                
+                # Check if this Transport Order is the main job by checking routing legs
+                if hasattr(sales_quote_doc, "routing_legs") and sales_quote_doc.routing_legs:
+                    for leg in sales_quote_doc.routing_legs:
+                        leg_job_no = getattr(leg, "job_no", None)
+                        # job_no may be empty while creating the Transport Order from the quote (leg is linked after charges run)
+                        if (
+                            getattr(leg, "is_main_job", 0)
+                            and getattr(leg, "job_type", None) == "Transport Order"
+                            and (not leg_job_no or leg_job_no == self.name)
+                        ):
+                            is_main_job = True
+                            break
+                
+                # Fallback: check if main_service matches and no routing legs exist
+                if not is_main_job and (not hasattr(sales_quote_doc, "routing_legs") or not sales_quote_doc.routing_legs):
+                    if getattr(sales_quote_doc, "main_service", None) == "Transport":
+                        is_main_job = True
+            except Exception:
+                # If we can't get the sales quote, default to separate billings (current behavior)
+                pass
+
             # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+            fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
+            
+            # Build filters based on separate_billings_per_service_type setting
+            filters = {"parent": self.sales_quote, "parenttype": "Sales Quote"}
+            
+            # If separate_billings is unchecked AND this is the main job, get ALL charges
+            # Otherwise, filter by service_type="Transport"
+            if not separate_billings and is_main_job:
+                # Main job gets all charges regardless of service_type
+                pass  # No service_type filter
+            else:
+                # Each service gets only its own charges
+                filters["service_type"] = "Transport"
+            
             sales_quote_transport_records = frappe.get_all(
                 "Sales Quote Charge",
-                filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Transport"},
+                filters=filters,
                 fields=fields_to_fetch,
                 order_by="idx"
             )
@@ -1094,7 +1164,7 @@ class TransportOrder(Document):
             self.set("charges", [])
 
             # Fetch one_off_quote_transport records from the selected one_off_quote
-            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+            fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
             one_off_quote_transport_records = frappe.get_all(
                 "One-Off Quote Transport",
                 filters={"parent": self.quote, "parenttype": "One-Off Quote"},
@@ -1154,17 +1224,46 @@ class TransportOrder(Document):
             if "calculation_method" in charge_data:
                 charge_data["revenue_calculation_method"] = charge_data.pop("calculation_method")
 
+            # Get item document for additional fields
+            item_doc = None
+            if sqt_record.get("item_code"):
+                try:
+                    item_doc = frappe.get_doc("Item", sqt_record.item_code)
+                except Exception:
+                    pass
+
             # Fallbacks for essential fields
-            if not charge_data.get("item_name") and sqt_record.get("item_code"):
-                item_doc = frappe.get_doc("Item", sqt_record.item_code)
+            if not charge_data.get("item_name") and sqt_record.get("item_code") and item_doc:
                 charge_data["item_name"] = item_doc.item_name
 
-            if not charge_data.get("uom") and sqt_record.get("item_code"):
-                item_doc = item_doc if "item_doc" in locals() else frappe.get_doc("Item", sqt_record.item_code)
+            if not charge_data.get("uom") and sqt_record.get("item_code") and item_doc:
                 charge_data["uom"] = item_doc.stock_uom
 
-            if charge_data.get("unit_rate") is None:
-                charge_data["unit_rate"] = 0
+            # Add charge_category: first from Sales Quote record, then from item, then default
+            if not charge_data.get("charge_category"):
+                if hasattr(sqt_record, 'charge_category') and sqt_record.charge_category:
+                    charge_data["charge_category"] = sqt_record.charge_category
+                elif item_doc and hasattr(item_doc, 'custom_charge_category') and item_doc.custom_charge_category:
+                    charge_data["charge_category"] = item_doc.custom_charge_category
+                else:
+                    charge_data["charge_category"] = "Other"
+
+            # Add description from item if available
+            if not charge_data.get("description") and item_doc:
+                if hasattr(item_doc, 'description') and item_doc.description:
+                    charge_data["description"] = item_doc.description
+                else:
+                    charge_data["description"] = sqt_record.get("item_name") or (item_doc.item_name if item_doc else "")
+
+            # Add item_tax_template from item if available
+            if not charge_data.get("item_tax_template") and item_doc and hasattr(item_doc, 'item_tax_template'):
+                charge_data["item_tax_template"] = item_doc.item_tax_template
+
+            # Add invoice_type from item if available
+            if not charge_data.get("invoice_type") and item_doc and hasattr(item_doc, 'invoice_type'):
+                charge_data["invoice_type"] = item_doc.invoice_type
+
+            charge_data["rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
 
             if not charge_data.get("quantity"):
                 charge_data["quantity"] = 1
@@ -1177,6 +1276,41 @@ class TransportOrder(Document):
                 "Transport Order Charge Mapping Error"
             )
             return None
+
+    @frappe.whitelist()
+    def get_dashboard_html(self):
+        """Generate HTML for Dashboard tab: tabbed layout with map, milestones, alerts."""
+        try:
+            from logistics.document_management.logistics_form_dashboard import (
+                build_transport_order_dashboard_config,
+                render_logistics_form_dashboard_html,
+            )
+            from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+            dash = render_logistics_form_dashboard_html(
+                self, build_transport_order_dashboard_config(self)
+            )
+            return get_sales_quote_validity_dashboard_html(self) + dash
+        except Exception as e:
+            frappe.log_error(f"Transport Order get_dashboard_html: {str(e)}", "Transport Order Dashboard")
+            return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
+
+@frappe.whitelist()
+def get_dashboard_html_by_name(docname):
+    """
+    Return Dashboard tab HTML for a saved Transport Order.
+
+    Standalone whitelisted method (see transport_order.js) avoids run_doc_method / check_if_latest
+    so we do not get TimestampMismatchError or \"not found\" right after save when the client
+    is slightly ahead of the DB.
+    """
+    if not docname or str(docname).startswith("new-"):
+        return ""
+    if not frappe.db.exists("Transport Order", docname):
+        return ""
+    doc = frappe.get_doc("Transport Order", docname)
+    return doc.get_dashboard_html()
 
 
 # -------------------------------------------------------------------
@@ -1326,6 +1460,39 @@ def _map_template_row_to_order_row(order_child_dt: str, tmpl_row: Dict[str, Any]
 # Whitelisted actions
 # -------------------------------------------------------------------
 @frappe.whitelist()
+def aggregate_volume_from_packages_remote(doc=None):
+    """
+    Recompute total_packages / total_volume / total_weight from the client's doc (including unsaved packages).
+    Uses frappe.get_doc(dict) instead of run_doc_method so saving and this call cannot race on modified timestamp.
+    """
+    if doc is None:
+        frappe.throw(_("Document is required"))
+    if isinstance(doc, str):
+        parsed = frappe.parse_json(doc)
+        if isinstance(parsed, dict) and parsed.get("doctype"):
+            doc = parsed
+    try:
+        if isinstance(doc, dict):
+            if doc.get("doctype") != "Transport Order":
+                frappe.throw(_("Invalid document type"))
+            order = frappe.get_doc(doc)
+        else:
+            order = frappe.get_doc("Transport Order", doc)
+    except frappe.DoesNotExistError:
+        return {}
+    except Exception:
+        return {}
+    order._update_packing_summary()
+    return {
+        "total_volume": flt(order.total_volume),
+        "total_weight": flt(order.total_weight),
+        "total_packages": flt(order.total_packages),
+        "volume": flt(order.total_volume),
+        "weight": flt(order.total_weight),
+    }
+
+
+@frappe.whitelist()
 def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
     """Populate charges from sales_quote. Called from frontend when sales_quote field changes.
     
@@ -1348,11 +1515,52 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
                 "charges": []
             }
         
+        # Check separate_billings_per_service_type setting and if this is the main job
+        separate_billings = True  # Default to separate (current behavior)
+        is_main_job = False
+        
+        try:
+            sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
+            separate_billings = getattr(sales_quote_doc, "separate_billings_per_service_type", 0) or False
+            
+            # Check if this Transport Order is the main job by checking routing legs
+            if docname and hasattr(sales_quote_doc, "routing_legs") and sales_quote_doc.routing_legs:
+                for leg in sales_quote_doc.routing_legs:
+                    leg_job_no = getattr(leg, "job_no", None)
+                    if (
+                        getattr(leg, "is_main_job", 0)
+                        and getattr(leg, "job_type", None) == "Transport Order"
+                        and (not leg_job_no or leg_job_no == docname)
+                    ):
+                        is_main_job = True
+                        break
+            
+            # Fallback: check if main_service matches and no routing legs exist
+            if not is_main_job and (not hasattr(sales_quote_doc, "routing_legs") or not sales_quote_doc.routing_legs):
+                if getattr(sales_quote_doc, "main_service", None) == "Transport":
+                    is_main_job = True
+        except Exception:
+            # If we can't get the sales quote, default to separate billings (current behavior)
+            pass
+        
         # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+        fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
+        
+        # Build filters based on separate_billings_per_service_type setting
+        filters = {"parent": sales_quote, "parenttype": "Sales Quote"}
+        
+        # If separate_billings is unchecked AND this is the main job, get ALL charges
+        # Otherwise, filter by service_type="Transport"
+        if not separate_billings and is_main_job:
+            # Main job gets all charges regardless of service_type
+            pass  # No service_type filter
+        else:
+            # Each service gets only its own charges
+            filters["service_type"] = "Transport"
+        
         sales_quote_transport_records = frappe.get_all(
             "Sales Quote Charge",
-            filters={"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Transport"},
+            filters=filters,
             fields=fields_to_fetch,
             order_by="idx"
         )
@@ -1397,6 +1605,38 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         }
 
 
+def append_transport_order_charges_from_sales_quote_if_empty(order):
+    """
+    When the charge table is empty, load Transport lines from the linked Sales Quote
+    (same rules as populate_charges_from_sales_quote). Used after create Transport Order
+    from Air/Sea Shipment: shipment copy only brings Transport-tagged rows from the shipment,
+    which are often absent when Separate Billings per Service Type is on.
+    """
+    if not getattr(order, "sales_quote", None):
+        return
+    if getattr(order, "charges", None) and len(order.charges) > 0:
+        return
+    sq = order.sales_quote
+    if isinstance(sq, str) and sq.startswith("new-"):
+        return
+    try:
+        payload = populate_charges_from_sales_quote(
+            docname=getattr(order, "name", None),
+            sales_quote=sq,
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Transport Order Charges From Quote Fallback",
+        )
+        return
+    if not payload or payload.get("error") or not payload.get("charges"):
+        return
+    order.set("charges", [])
+    for row in payload["charges"]:
+        order.append("charges", row)
+
+
 @frappe.whitelist()
 def recalculate_all_charges(docname):
     """Recalculate all charges based on current Transport Order data using RateCalculationEngine."""
@@ -1431,18 +1671,46 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
         if "calculation_method" in charge_data:
             charge_data["revenue_calculation_method"] = charge_data.pop("calculation_method")
         
-        # Fallbacks for essential fields
+        # Get item document for additional fields
         item_doc = None
         if sqt_record.get("item_code"):
-            if not charge_data.get("item_name") or not charge_data.get("uom"):
+            try:
                 item_doc = frappe.get_doc("Item", sqt_record.item_code)
-                if not charge_data.get("item_name"):
-                    charge_data["item_name"] = item_doc.item_name
-                if not charge_data.get("uom"):
-                    charge_data["uom"] = item_doc.stock_uom
+            except Exception:
+                pass
         
-        if charge_data.get("unit_rate") is None:
-            charge_data["unit_rate"] = 0
+        # Fallbacks for essential fields
+        if item_doc:
+            if not charge_data.get("item_name"):
+                charge_data["item_name"] = item_doc.item_name
+            if not charge_data.get("uom"):
+                charge_data["uom"] = item_doc.stock_uom
+        
+        # Add charge_category: first from Sales Quote record, then from item, then default
+        if not charge_data.get("charge_category"):
+            if hasattr(sqt_record, 'charge_category') and sqt_record.charge_category:
+                charge_data["charge_category"] = sqt_record.charge_category
+            elif item_doc and hasattr(item_doc, 'custom_charge_category') and item_doc.custom_charge_category:
+                charge_data["charge_category"] = item_doc.custom_charge_category
+            else:
+                charge_data["charge_category"] = "Other"
+        
+        # Add description from item if available
+        if not charge_data.get("description") and item_doc:
+            if hasattr(item_doc, 'description') and item_doc.description:
+                charge_data["description"] = item_doc.description
+            else:
+                charge_data["description"] = sqt_record.get("item_name") or (item_doc.item_name if item_doc else "")
+        
+        # Add item_tax_template from item if available
+        if not charge_data.get("item_tax_template") and item_doc and hasattr(item_doc, 'item_tax_template'):
+            charge_data["item_tax_template"] = item_doc.item_tax_template
+        
+        # Add invoice_type from item if available
+        if not charge_data.get("invoice_type") and item_doc and hasattr(item_doc, 'invoice_type'):
+            charge_data["invoice_type"] = item_doc.invoice_type
+        
+        charge_data["rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
         
         if not charge_data.get("quantity"):
             charge_data["quantity"] = 1
@@ -1481,7 +1749,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
             }
         
         # Fetch one_off_quote_transport records from the selected one_off_quote
-        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_FIELDS
+        fields_to_fetch = ["name"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
         one_off_quote_transport_records = frappe.get_all(
             "One-Off Quote Transport",
             filters={"parent": one_off_quote, "parenttype": "One-Off Quote"},
@@ -1691,9 +1959,9 @@ def action_create_transport_job(docname: str):
             "customer_ref_no": getattr(doc, "customer_ref_no", None),
             "shipper": getattr(doc, "shipper", None),
             "consignee": getattr(doc, "consignee", None),
-            "hazardous": getattr(doc, "hazardous", None),
             "refrigeration": getattr(doc, "reefer", None),
             "vehicle_type": getattr(doc, "vehicle_type", None),
+            "transport_mode": getattr(doc, "transport_mode", None),
             "load_type": getattr(doc, "load_type", None),
             "container_type": getattr(doc, "container_type", None),
             "container_no": getattr(doc, "container_no", None),
@@ -1706,10 +1974,15 @@ def action_create_transport_job(docname: str):
             "profit_center": getattr(doc, "profit_center", None),
             "document_list_template": getattr(doc, "document_list_template", None),
             "milestone_template": getattr(doc, "milestone_template", None),
+            "sales_quote": getattr(doc, "sales_quote", None),
+            "sales_rep": getattr(doc, "sales_rep", None),
+            "operations_rep": getattr(doc, "operations_rep", None),
+            "customer_service_rep": getattr(doc, "customer_service_rep", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):
                 job.set(k, v)
+        copy_parent_dg_header(doc, job)
 
         # ---- Packages (TO -> TJ) by common fields
         _copy_child_rows_by_common_fields(
@@ -1743,6 +2016,10 @@ def action_create_transport_job(docname: str):
         job.flags.ignore_validate = True
         job.insert(ignore_permissions=False)
 
+        # Reload so in-memory doc matches DB (modified, etc.). Avoids TimestampMismatchError
+        # when leg.insert() or hooks touch the job and we call job.save().
+        job.reload()
+
         # ---- Legs: create top-level Transport Leg for each TO leg, then link into TJ legs
         order_legs_field = _find_child_table_fieldname(
             "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
@@ -1758,8 +2035,11 @@ def action_create_transport_job(docname: str):
             job_legs_field=job_legs_field,
         )
 
-        # Save added legs to job
-        job.save(ignore_permissions=False)
+        # Save added legs to job. ignore_version=True: leg.insert() can trigger hooks
+        # (e.g. Transport Leg after_save) that touch the job in DB, so the job's
+        # modified timestamp may change between our reload() and save(); we are the
+        # only logical writer in this flow, so skip the version check.
+        job.save(ignore_permissions=False, ignore_version=True)
         frappe.db.commit()
         return {"name": job.name, "created": True, "already_exists": False}
         
@@ -2121,56 +2401,56 @@ def get_cost_estimation(transport_job_type: str, base_cost: float = 1000) -> Dic
 
 @frappe.whitelist()
 def get_available_one_off_quotes(transport_order_name: str = None) -> Dict[str, Any]:
-    """Get list of One-Off Quotes that are not yet linked to a Transport Order and not converted.
-    
-    Excludes One-Off Quotes that are:
-    1. Already linked to another Transport Order
-    2. Already converted (status = "Converted" or converted_to_doc is set)
-    
-    This prevents users from selecting quotes that have already been converted or used.
+    """Get Link filters for One-off Sales Quotes usable on Transport Order (single-use rules preserved).
+
+    Eligible quotes must have **Transport** charge lines (unified or legacy), not only ``main_service``
+    = Transport, so a multi-service one-off can be selected here when transport is priced.
+
+    Excludes quotes already linked to another Transport Order or already converted.
     """
     try:
-        # Get all One-Off Quotes already linked to Transport Orders (excluding current order)
-        used_quotes = frappe.get_all(
+        from logistics.utils.sales_quote_service_eligibility import (
+            converted_one_off_sales_quote_names,
+            one_off_sales_quote_link_filters_for_service,
+        )
+
+        used_rows = frappe.get_all(
             "Transport Order",
             filters={
                 "quote_type": "One-Off Quote",
-                "quote": ["is", "set"],
-                "name": ["!=", transport_order_name or ""]
+                "name": ["!=", transport_order_name or ""],
+                "docstatus": ["!=", 2],
+                "is_main_service": 1,
             },
-            pluck="quote"
+            or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
+            fields=["quote", "sales_quote"],
         )
-        
-        # Get all converted One-Off Quotes (status = "Converted" or converted_to_doc is set)
-        converted_quotes = frappe.get_all(
-            "One-Off Quote",
-            filters={
-                "status": "Converted"
-            },
-            pluck="name"
+        used_quotes = []
+        for row in used_rows:
+            ref = (row.get("quote") or row.get("sales_quote") or "").strip()
+            if ref:
+                used_quotes.append(ref)
+
+        converted_legacy: list[str] = []
+        if frappe.db.exists("DocType", "One-Off Quote"):
+            try:
+                converted_legacy = frappe.get_all(
+                    "One-Off Quote",
+                    filters={"status": "Converted"},
+                    pluck="name",
+                ) + frappe.get_all(
+                    "One-Off Quote",
+                    filters={"converted_to_doc": ["is", "set"]},
+                    pluck="name",
+                )
+            except Exception:
+                converted_legacy = []
+
+        excluded_quotes = list(
+            set(used_quotes + converted_legacy + converted_one_off_sales_quote_names())
         )
-        
-        # Also get quotes with converted_to_doc set (in case status wasn't updated)
-        quotes_with_conversion = frappe.get_all(
-            "One-Off Quote",
-            filters={
-                "converted_to_doc": ["is", "set"]
-            },
-            pluck="name"
-        )
-        
-        # Combine all excluded quotes
-        excluded_quotes = list(set(used_quotes + converted_quotes + quotes_with_conversion))
-        
-        # Return filter to exclude used and converted quotes
-        filters = {}
-        if excluded_quotes:
-            filters["name"] = ["not in", excluded_quotes]
-        
-        # Also filter to only show Sales Quotes that have transport enabled
-        if _has_field("Sales Quote", "main_service"):
-            filters["main_service"] = "Transport"
-        
+
+        filters = one_off_sales_quote_link_filters_for_service("Transport", excluded_quotes)
         return {"filters": filters}
     except Exception as e:
         frappe.log_error(

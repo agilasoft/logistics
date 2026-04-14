@@ -124,16 +124,14 @@ def get_data(filters):
             filters=job_filters,
             fields=[
                 "name", "company", "cost_center",
-                "estimated_revenue", "wip_amount", "recognized_revenue", "wip_closed",
-                "estimated_costs", "accrual_amount", "recognized_costs", "accrual_closed"
+                "estimated_revenue", "wip_amount", "recognized_revenue",
+                "estimated_costs", "accrual_amount", "recognized_costs",
             ]
         )
         
         for job in jobs:
-            # Determine WIP status
-            if job.wip_closed:
-                wip_status = "Closed"
-            elif flt(job.wip_amount) > 0:
+            # Determine WIP status (amounts only; no header closed flags)
+            if flt(job.wip_amount) > 0:
                 wip_status = "Open"
             elif flt(job.recognized_revenue) > 0:
                 wip_status = "Recognized"
@@ -141,9 +139,7 @@ def get_data(filters):
                 wip_status = "Not Started"
             
             # Determine Accrual status
-            if job.accrual_closed:
-                accrual_status = "Closed"
-            elif flt(job.accrual_amount) > 0:
+            if flt(job.accrual_amount) > 0:
                 accrual_status = "Open"
             elif flt(job.recognized_costs) > 0:
                 accrual_status = "Recognized"

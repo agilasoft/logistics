@@ -22,7 +22,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "item",

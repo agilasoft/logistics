@@ -114,7 +114,8 @@
    "fieldname": "pick_address",
    "fieldtype": "Link",
    "label": "Pick Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "pick_address_html",
@@ -126,7 +127,8 @@
    "fieldname": "drop_address",
    "fieldtype": "Link",
    "label": "Drop Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "drop_address_html",

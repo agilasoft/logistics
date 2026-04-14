@@ -18,7 +18,7 @@
    "fieldname": "item_code",
    "fieldtype": "Link",
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_warehousing_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -30,7 +30,8 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_vonn",
@@ -45,7 +46,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   }
  ],
  "grid_page_length": 50,

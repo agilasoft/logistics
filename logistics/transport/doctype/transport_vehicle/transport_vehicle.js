@@ -25,14 +25,14 @@ frappe.ui.form.on("Transport Vehicle", {
 					freeze: true,
 					freeze_message: __("Fetching latest position...")
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		
 		// Add button to view position on map if coordinates are available
 		if (frm.doc.last_telematics_lat && frm.doc.last_telematics_lon) {
 			frm.add_custom_button(__("View on Map"), function() {
 				open_map(frm.doc.last_telematics_lat, frm.doc.last_telematics_lon);
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		
 		// Add button to fetch CAN data specifically
@@ -51,7 +51,7 @@ frappe.ui.form.on("Transport Vehicle", {
 					freeze: true,
 					freeze_message: __("Fetching CAN data...")
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		
 		// Add button to view all devices with selection capability
@@ -66,7 +66,7 @@ frappe.ui.form.on("Transport Vehicle", {
 				freeze: true,
 				freeze_message: __("Retrieving all devices...")
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		// Add button to fetch Device ID using Device Name
 		if (frm.doc.telematics_device_name && frm.doc.telematics_provider) {
@@ -87,7 +87,7 @@ frappe.ui.form.on("Transport Vehicle", {
 					freeze: true,
 					freeze_message: __("Fetching Device ID...")
 				});
-			}, __("Actions"));
+			}, __("Action"));
 		}
 		
 	}

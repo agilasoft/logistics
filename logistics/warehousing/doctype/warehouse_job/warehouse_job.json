@@ -39,6 +39,9 @@
   "section_break_jmth",
   "counts",
   "charges_tab",
+  "job_status",
+  "charges_locked",
+  "charges_reopen_mode",
   "charges",
   "documents_tab",
   "documents_section",
@@ -58,12 +61,18 @@
   "weight_qty_type",
   "accounts_tab",
   "company",
-  "billing_company",
+  "is_main_service",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_tab",
+  "internal_job_details_section",
+  "internal_job_details",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_tfeh",
-  "job_costing_number",
+  "job_number",
   "project",
   "invoice_monitoring_section",
   "sales_invoice",
@@ -81,23 +90,20 @@
   "date_costs_fully_paid",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
   "wip_amount",
   "recognized_revenue",
   "wip_journal_entry",
-  "wip_adjustment_journal_entry",
   "wip_closed",
   "column_break_accrual",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
   "accrual_closed",
   "notes_tab",
   "notes",
@@ -196,6 +202,35 @@
    "label": "Charges"
   },
   {
+   "allow_on_submit": 1,
+   "default": "Draft",
+   "description": "Same lifecycle as Transport Job. Set to Completed or Closed to lock charges; use Action Reopen Job to edit again.",
+   "fieldname": "job_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Status",
+   "length": 20,
+   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nClosed\nReopened\nCancelled",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "allow_on_submit": 1,
+   "description": "Legacy. Charge lock follows Job Status (Completed/Closed).",
+   "fieldname": "charges_locked",
+   "fieldtype": "Check",
+   "label": "Charges Locked"
+  },
+  {
+   "default": "0",
+   "allow_on_submit": 1,
+   "description": "Internal: set after Reopen Job; cleared with Close Job.",
+   "fieldname": "charges_reopen_mode",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Charges Reopen Mode"
+  },
+  {
    "fieldname": "operations_tab",
    "fieldtype": "Tab Break",
    "label": "Operations"
@@ -258,12 +293,51 @@
    "reqd": 1
   },
   {
-   "description": "Company that will bill the customer (from linked Sales Quote / shipment / contract). Used for intercompany.",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
-   "read_only": 1
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service"
+  },
+  {
+   "default": "0",
+   "description": "Internal service job: link Main Job for internal or intercompany billing.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nWarehouse Job\nDeclaration\nDeclaration Order"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "depends_on": "eval:doc.type=='Stocktake'",
@@ -321,19 +395,22 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper"
+   "options": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee"
+   "options": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "staging_area",
@@ -481,6 +558,7 @@
    "options": "Warehouse Job Operations"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "Warehouse Job Charges"
@@ -534,7 +612,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -550,10 +628,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number",
+   "label": "Job Number",
+   "options": "Job Number",
    "read_only": 1
   },
   {
@@ -561,7 +639,8 @@
    "fieldtype": "Link",
    "label": "Project",
    "options": "Project",
-   "description": "ERPNext Project for Special Projects integration"
+   "description": "ERPNext Project for Special Projects integration",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "invoice_monitoring_section",
@@ -654,30 +733,35 @@
    "label": "Revenue & Cost Recognition"
   },
   {
+   "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
-   "fetch_from": "job_costing_number.recognition_date",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
    "label": "Recognition Date",
@@ -713,13 +797,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "wip_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "WIP Adjustment JE",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
    "fieldname": "wip_closed",
    "fieldtype": "Check",
    "label": "WIP Closed",
@@ -745,20 +822,6 @@
    "fieldname": "recognized_costs",
    "fieldtype": "Currency",
    "label": "Recognized Costs",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Adjustment JE",
-   "options": "Journal Entry",
    "read_only": 1
   },
   {
@@ -817,7 +880,7 @@
   {
    "group": "Accounts",
    "link_doctype": "Sales Invoice",
-   "link_fieldname": "job_costing_number"
+   "link_fieldname": "job_number"
   },
   {
    "group": "Accounts",

@@ -54,6 +54,43 @@ Before using Milestone Tracking, it is advised to set up the following:
 - Declaration
 - Declaration Order
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_All fields from DocTypes **Job Milestone**, **Logistics Milestone** (subsections below) and their nested child tables, in form order. Columns: **Label** (`field name`), **Type**, **Description**._
+
+### Job Milestone
+
+| Label (Field name) | Type | Description |
+| --- | --- | --- |
+| Job Type (`job_type`) | Link | **Purpose:** Creates a controlled reference to **DocType** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **DocType**. Create the master first if it does not exist. |
+| Job Number (`job_number`) | Dynamic Link | **Purpose:** References another document whose **DocType** is chosen in field **job_type** (same pattern as ERPNext Dynamic Link). **What to enter:** First set the DocType field, then pick the document **name** for that type. |
+| Milestone (`milestone`) | Link | **Purpose:** Creates a controlled reference to **Logistics Milestone** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Logistics Milestone**. Create the master first if it does not exist. |
+| Status (`status`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: Planned, Started, Completed. |
+| `column_break_vxxu` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
+| Planned Start (`planned_start`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
+| Planned End (`planned_end`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
+| `column_break_etry` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
+| Actual Start (`actual_start`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
+| Actual End (`actual_end`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
+
+### Logistics Milestone
+
+| Label (Field name) | Type | Description |
+| --- | --- | --- |
+| Code (`code`) | Data | **Purpose:** Short stable code for lists, integrations, and EDI (often uppercase). **What to enter:** Unique code within this master; match what customs, carriers, or APIs expect. |
+| Description (`description`) | Data | **Purpose:** Short free-text for codes, references, or labels that are not master-linked. **What to enter:** Type the value as it should appear on print/PDF (no line breaks). |
+| Icon (`icon`) | Icon | **Purpose:** Visual icon for milestones or workspace navigation. **What to enter:** Pick an icon from the selector. |
+| `column_break_rydr` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
+| Air Freight (`air_freight`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Sea Freight (`sea_freight`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Transport (`transport`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Customs (`customs`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+
+<!-- wiki-field-reference:end -->
+
 ## 4. Related Topics
 
 - [Document Management](welcome/document-management)

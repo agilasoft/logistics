@@ -7,31 +7,34 @@
  "engine": "InnoDB",
  "field_order": [
   "column_break_other_svc",
-  "charge_item",
-  "charge_name",
+  "service_type",
+  "item_code",
+  "item_name",
   "charge_type",
   "charge_category",
   "item_tax_template",
   "invoice_type",
   "column_break_crpu",
-  "charge_description",
-  "is_other_service",
+  "description",
   "sales_quote_link",
+  "change_request",
+  "change_request_charge",
+  "is_other_service",
   "section_break_wicx",
   "column_break_ruye",
   "bill_to",
   "selling_currency",
   "estimated_revenue",
+  "actual_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
-  "revenue_calc_notes",
   "column_break_lday",
   "pay_to",
   "buying_currency",
   "estimated_cost",
+  "actual_cost",
   "use_tariff_in_cost",
   "cost_tariff",
-  "cost_calc_notes",
   "section_break_calc",
   "revenue_column",
   "revenue_calculation_method",
@@ -59,6 +62,10 @@
   "cost_maximum_charge",
   "cost_base_amount",
   "cost_base_quantity",
+  "section_break_calculation_notes",
+  "revenue_calc_notes",
+  "column_break_kzwc",
+  "cost_calc_notes",
   "calculation_notes_section",
   "selling_weight_break",
   "selling_qty_break",
@@ -71,6 +78,10 @@
   "column_break_uheq",
   "purchase_invoice",
   "purchase_invoice_status",
+  "wip_recognition_journal_entry",
+  "accrual_recognition_journal_entry",
+  "wip_adjustment_journal_entry",
+  "accrual_adjustment_journal_entry",
   "other_services_section",
   "other_service_type",
   "date_started",
@@ -81,8 +92,16 @@
  ],
  "fields": [
   {
+   "columns": 1,
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+  },
+  {
    "default": "0",
-   "description": "Set from Item (Other Service). Not editable.",
+   "description": "Automatically determined from the selected item. This field cannot be edited.",
    "fetch_from": "charge_item.custom_is_other_service",
    "fieldname": "is_other_service",
    "fieldtype": "Check",
@@ -90,7 +109,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.is_other_service",
    "fieldname": "other_services_section",
    "fieldtype": "Section Break",
@@ -133,20 +151,6 @@
    "label": "Notes"
   },
   {
-   "fieldname": "charge_item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Charge Item",
-   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
-   "options": "Item"
-  },
-  {
-   "fetch_from": "charge_item.item_name",
-   "fieldname": "charge_name",
-   "fieldtype": "Data",
-   "label": "Charge Name"
-  },
-  {
    "fieldname": "charge_type",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -164,7 +168,8 @@
    "fieldname": "item_tax_template",
    "fieldtype": "Link",
    "label": "Item Tax Template",
-   "options": "Item Tax Template"
+   "options": "Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "invoice_type",
@@ -173,16 +178,24 @@
    "options": "Invoice Type"
   },
   {
-   "fetch_from": "charge_item.description",
-   "fieldname": "charge_description",
-   "fieldtype": "Long Text",
-   "label": "Charge Description"
-  },
-  {
    "fieldname": "sales_quote_link",
    "fieldtype": "Link",
    "label": "Sales Quote Link",
    "options": "Sales Quote"
+  },
+  {
+   "fieldname": "change_request",
+   "fieldtype": "Link",
+   "label": "Change Request",
+   "options": "Change Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "change_request_charge",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Change Request Charge Row",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_wicx",
@@ -200,19 +213,27 @@
    "in_list_view": 1,
    "label": "Bill To",
    "options": "Customer",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
    "label": "Estimated Revenue",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+  },
+  {
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "label": "Actual Revenue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -226,19 +247,27 @@
    "fieldtype": "Link",
    "label": "Pay To",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "buying_currency",
    "fieldtype": "Link",
    "label": "Buying Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
    "label": "Estimated Cost",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Cost",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -251,7 +280,8 @@
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",
@@ -263,10 +293,10 @@
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff"
+   "options": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
-   "collapsible": 1,
    "fieldname": "calculation_notes_section",
    "fieldtype": "Section Break",
    "label": "Weight Breaks"
@@ -312,7 +342,6 @@
    "label": "Manage Cost Qty Breaks"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_calc",
    "fieldtype": "Section Break",
    "label": "Revenue & Cost"
@@ -343,14 +372,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "rate",
@@ -431,14 +462,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_cost",
@@ -513,6 +546,42 @@
    "read_only": 1
   },
   {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that posted WIP for this charge line (if any).",
+   "fieldname": "wip_recognition_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Recognition JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that posted cost accrual for this charge line (if any).",
+   "fieldname": "accrual_recognition_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Recognition JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that adjusted or reversed WIP for this charge line (if any).",
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that adjusted or reversed cost accrual for this charge line (if any).",
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
    "default": "Not Requested",
    "fieldname": "purchase_invoice_status",
    "fieldtype": "Select",
@@ -529,7 +598,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_status",
    "fieldtype": "Section Break",
    "label": "Status Information"
@@ -545,13 +613,41 @@
   {
    "fieldname": "column_break_riux",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_calculation_notes",
+   "fieldtype": "Section Break",
+   "label": "Calculations Notes"
+  },
+  {
+   "fieldname": "column_break_kzwc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-17 12:39:44.841510",
+ "modified": "2026-03-18 17:51:35.574557",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment Charges",

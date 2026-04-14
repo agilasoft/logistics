@@ -53,19 +53,22 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper"
+   "options": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee"
+   "options": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "notify_party",
    "fieldtype": "Link",
    "label": "Notify Party",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "section_break_commodity",
@@ -100,7 +103,8 @@
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "volume",
@@ -111,7 +115,8 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_links",
@@ -185,4 +190,3 @@
  "states": [],
  "istable": 1
 }
-

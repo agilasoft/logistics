@@ -26,7 +26,7 @@ frappe.ui.form.on('Settlement Entry', {
 						// No, cancel
 					}
 				);
-			}, __('Actions'));
+			}, __('Action'));
 		} else {
 			// Show button even if fields not set, but disable it with a message
 			frm.add_custom_button(__('Get Outstanding Transactions'), function() {
@@ -35,7 +35,7 @@ frappe.ui.form.on('Settlement Entry', {
 					indicator: 'orange',
 					title: __('Information')
 				});
-			}, __('Actions'));
+			}, __('Action'));
 		}
 	},
 	

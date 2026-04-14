@@ -191,7 +191,7 @@ def get_data(filters):
 			tj.vehicle_type,
 			tj.load_type,
 			tj.status,
-			tj.job_costing_number,
+			tj.job_number,
 			tj.company,
 			tj.branch,
 			SUM(COALESCE(tl.actual_distance_km, tl.distance_km, 0)) as total_distance,
@@ -201,7 +201,7 @@ def get_data(filters):
 		LEFT JOIN `tabTransport Leg` tl ON tl.name = tjl.transport_leg
 		WHERE tj.docstatus = 1
 		{conditions_clause}
-		GROUP BY tj.name, tj.customer, tj.booking_date, tj.vehicle_type, tj.load_type, tj.status, tj.job_costing_number, tj.company, tj.branch
+		GROUP BY tj.name, tj.customer, tj.booking_date, tj.vehicle_type, tj.load_type, tj.status, tj.job_number, tj.company, tj.branch
 		ORDER BY tj.booking_date DESC
 	""".format(conditions_clause=conditions_clause)
 	
@@ -210,7 +210,7 @@ def get_data(filters):
 	# Process data and calculate costs from GL Entry
 	for row in data:
 		# Get costs from GL Entry
-		cost_data = get_gl_entry_costs(row.transport_job, row.job_costing_number, row.company, filters)
+		cost_data = get_gl_entry_costs(row.transport_job, row.job_number, row.company, filters)
 		row.update(cost_data)
 		
 		# Calculate derived metrics
@@ -249,7 +249,7 @@ def get_conditions(filters):
 	
 	return " AND ".join(conditions) if conditions else ""
 
-def get_gl_entry_costs(transport_job, job_costing_number, company, filters=None):
+def get_gl_entry_costs(transport_job, job_number, company, filters=None):
 	"""Get cost data from GL Entry for a transport job"""
 	costs = {
 		"fuel_cost": 0,
@@ -262,7 +262,7 @@ def get_gl_entry_costs(transport_job, job_costing_number, company, filters=None)
 		"revenue": 0
 	}
 	
-	if not job_costing_number:
+	if not job_number:
 		return costs
 	
 	if not filters:
@@ -270,7 +270,7 @@ def get_gl_entry_costs(transport_job, job_costing_number, company, filters=None)
 	
 	# Get GL Entry data for the job costing number
 	gl_conditions = [
-		"gle.job_costing_number = %(job_costing_number)s",
+		"gle.job_number = %(job_number)s",
 		"gle.company = %(company)s",
 		"gle.docstatus = 1"
 	]
@@ -297,7 +297,7 @@ def get_gl_entry_costs(transport_job, job_costing_number, company, filters=None)
 	""".format(gl_where=gl_where)
 	
 	gl_data = frappe.db.sql(cost_query, {
-		"job_costing_number": job_costing_number,
+		"job_number": job_number,
 		"company": company,
 		"from_date": filters.get("from_date"),
 		"to_date": filters.get("to_date")
@@ -340,7 +340,7 @@ def get_gl_entry_costs(transport_job, job_costing_number, company, filters=None)
 	""".format(gl_where=gl_where)
 	
 	revenue_data = frappe.db.sql(revenue_query, {
-		"job_costing_number": job_costing_number,
+		"job_number": job_number,
 		"company": company,
 		"from_date": filters.get("from_date"),
 		"to_date": filters.get("to_date")

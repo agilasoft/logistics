@@ -1,10 +1,12 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
+import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
 from logistics.utils.charges_calculation import (
+    apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
 )
@@ -20,6 +22,21 @@ class SeaBookingCharges(Document):
 
     def _calculate_charges(self, parent_doc=None):
         """Calculate estimated revenue and cost using centralized charges module."""
+        parent = parent_doc
+        if parent is None and getattr(self, "parent", None) and getattr(self, "parenttype", None):
+            try:
+                parent = frappe.get_doc(self.parenttype, self.parent)
+            except Exception:
+                parent = None
+        if parent and getattr(parent, "_internal_job_charge_overlay_applied", None):
+            if hasattr(self, "total_amount"):
+                self.total_amount = flt(self.estimated_revenue) or 0
+            return
+
+        if apply_disbursement_charge_calculation_if_applicable(self, parent_doc):
+            if hasattr(self, "total_amount"):
+                self.total_amount = flt(self.estimated_revenue) or 0
+            return
         rev = calculate_charge_revenue(self, parent_doc)
         self.estimated_revenue = rev.get("amount", 0)
         if hasattr(self, "revenue_calc_notes"):

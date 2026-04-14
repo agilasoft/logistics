@@ -117,7 +117,10 @@
    "fieldname": "verified_by",
    "fieldtype": "Link",
    "label": "Verified By",
-   "options": "User"
+   "options": "User",
+   "read_only": 1,
+   "read_only_depends_on": "eval:!doc.is_verified",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "issued_by",
@@ -162,7 +165,7 @@
  "grid_page_length": 50,
  "istable": 1,
  "links": [],
- "modified": "2026-02-22 13:47:54.540541",
+ "modified": "2026-03-31 10:40:24.483703",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Job Document",

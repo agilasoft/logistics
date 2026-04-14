@@ -30,9 +30,11 @@ SI_EXCLUDED_STATUSES = ("Requested", "Posted", "Paid")
 # (charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, bill_to_field, invoice_type_field)
 # bill_to_field and invoice_type_field used to pre-filter when customer/invoice_type provided
 SALES_CHARGE_CONFIG = {
-    "Transport Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
+    "Transport Job": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", "bill_to", None),
     "Air Shipment": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", None, None),
-    "Sea Shipment": ("charges", "selling_amount", "selling_amount", None, "charge_item", "charge_name", "bill_to", "invoice_type"),
+    # Sea Shipment currently uses item_code/item_name/estimated_revenue in child rows.
+    # Keep downstream logic backward-compatible with legacy fields (charge_item/charge_name/selling_amount).
+    "Sea Shipment": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
     "Warehouse Job": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", None, None),
     "Declaration": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
 }
@@ -49,26 +51,38 @@ def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
         status = getattr(ch, "sales_invoice_status", None)
         if status in SI_EXCLUDED_STATUSES or getattr(ch, "sales_invoice", None):
             continue
-        revenue = flt(
-            getattr(ch, revenue_field, None)
-            or (flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1)),
-            0,
-        )
+        # Use actual_revenue for SI when present and > 0, else estimated/revenue_field
+        revenue = flt(getattr(ch, "actual_revenue", None) or 0)
+        if revenue <= 0:
+            revenue = flt(
+                getattr(ch, revenue_field, None)
+                or (flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1)),
+                0,
+            )
+        if revenue <= 0:
+            # Legacy fallback (especially for older Sea Shipment rows)
+            revenue = flt(
+                getattr(ch, "selling_amount", None)
+                or getattr(ch, "base_amount", None)
+                or getattr(ch, "estimated_revenue", None)
+                or 0
+            )
         if revenue <= 0:
             continue
-        item_code = getattr(ch, item_field, None)
+        item_code = getattr(ch, item_field, None) or getattr(ch, "charge_item", None)
         if not item_code:
             continue
         # Pre-filter by header details (Sea Shipment: bill_to, invoice_type)
         if customer and bill_to_field:
             bill_to = getattr(ch, bill_to_field, None)
-            if bill_to != customer:
+            # Empty bill_to: charge is not scoped to a customer (include for any selected customer)
+            if bill_to and bill_to != customer:
                 continue
         if invoice_type is not None and invoice_type_field:
             ch_inv_type = getattr(ch, invoice_type_field, None)
             if ch_inv_type != invoice_type:
                 continue
-        item_name = getattr(ch, item_name_field, None) or item_code
+        item_name = getattr(ch, item_name_field, None) or getattr(ch, "charge_name", None) or item_code
         rows.append((idx, ch, revenue, item_code, item_name))
     return rows
 
@@ -194,8 +208,8 @@ def create_sales_invoice_from_job(
         if getattr(job, dim, None):
             if frappe.get_meta("Sales Invoice").get_field(dim):
                 setattr(si, dim, getattr(job, dim))
-    if getattr(job, "job_costing_number", None) and frappe.get_meta("Sales Invoice").get_field("job_costing_number"):
-        si.job_costing_number = job.job_costing_number
+    if getattr(job, "job_number", None) and frappe.get_meta("Sales Invoice").get_field("job_number"):
+        si.job_number = job.job_number
     if getattr(job, "sales_quote", None) and frappe.get_meta("Sales Invoice").get_field("quotation_no"):
         si.quotation_no = job.sales_quote
 
@@ -217,15 +231,17 @@ def create_sales_invoice_from_job(
         # Description: include Calc Notes (revenue_calc_notes, charge_description, or calculation_notes)
         calc_notes = getattr(ch, "revenue_calc_notes", None) or getattr(ch, "calculation_notes", None)
         desc_parts = []
-        if getattr(ch, "charge_description", None):
+        if getattr(ch, "description", None):
+            desc_parts.append(ch.description)
+        elif getattr(ch, "charge_description", None):
             desc_parts.append(ch.charge_description)
         if calc_notes:
             desc_parts.append(calc_notes)
         if desc_parts:
             item_payload["description"] = "\n".join(desc_parts)
         if job_type == "Sea Shipment":
-            if getattr(ch, "selling_currency", None):
-                item_payload["currency"] = ch.selling_currency
+            if getattr(ch, "selling_currency", None) or getattr(ch, "currency", None):
+                item_payload["currency"] = getattr(ch, "selling_currency", None) or getattr(ch, "currency", None)
             if getattr(ch, "item_tax_template", None):
                 item_payload["item_tax_template"] = ch.item_tax_template
         if getattr(job, "cost_center", None):

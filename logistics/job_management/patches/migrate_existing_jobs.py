@@ -39,15 +39,11 @@ def execute():
             print(f"Skipping {job_type}: No recognition fields")
             continue
         
-        # Get submitted jobs without recognition
-        jobs = frappe.get_all(job_type,
-            filters={
-                "docstatus": 1,
-                "wip_journal_entry": ["is", "not set"],
-                "accrual_journal_entry": ["is", "not set"]
-            },
-            pluck="name"
-        )
+        # Get submitted jobs without recognition (header WIP JE; accrual may be charge-level only)
+        rec_filters = {"docstatus": 1, "wip_journal_entry": ["is", "not set"]}
+        if meta.has_field("accrual_journal_entry"):
+            rec_filters["accrual_journal_entry"] = ["is", "not set"]
+        jobs = frappe.get_all(job_type, filters=rec_filters, pluck="name")
         
         print(f"Found {len(jobs)} {job_type} jobs to migrate")
         

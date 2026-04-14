@@ -35,7 +35,8 @@
    "in_list_view": 1,
    "label": "Importer",
    "options": "Consignee",
-   "description": "Leave blank for all importers"
+   "description": "Leave blank for all importers",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "exporter",
@@ -43,7 +44,8 @@
    "in_list_view": 1,
    "label": "Exporter",
    "options": "Shipper",
-   "description": "Leave blank for all exporters"
+   "description": "Leave blank for all exporters",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "product_code",
@@ -82,7 +84,8 @@
    "fieldname": "commodity_code",
    "fieldtype": "Link",
    "label": "Commodity Code",
-   "options": "Commodity"
+   "options": "Commodity",
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "goods_origin",

@@ -51,10 +51,23 @@
   "milestones_section",
   "milestone_impending_days",
   "milestone_informational_days",
+  "strict_milestone_schedule_validation",
   "penalties_section",
   "penalty_impending_days",
   "delays_section",
-  "delay_impending_days"
+  "delay_impending_days",
+  "credit_control_tab",
+  "enable_credit_control",
+  "credit_control_intro",
+  "credit_block_on_status_on_hold",
+  "credit_block_on_status_watch",
+  "credit_apply_limit_breach",
+  "credit_apply_payment_terms_breach",
+  "credit_payment_terms_grace_days",
+  "credit_control_bypass_role",
+  "credit_apply_hold_to_all_doctypes",
+  "credit_subject_doctypes_section",
+  "credit_control_rules"
  ],
  "fields": [
   {
@@ -227,21 +240,24 @@
    "fieldtype": "Link",
    "label": "Base Dimension UOM",
    "options": "UOM",
-   "description": "Pivot UOM for length/width/height (e.g. CM)."
+   "description": "Pivot UOM for length/width/height (e.g. CM).",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "base_volume_uom",
    "fieldtype": "Link",
    "label": "Base Volume UOM",
    "options": "UOM",
-   "description": "Pivot UOM for volume (e.g. CBM)."
+   "description": "Pivot UOM for volume (e.g. CBM).",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "base_weight_uom",
    "fieldtype": "Link",
    "label": "Base Weight UOM",
    "options": "UOM",
-   "description": "Pivot UOM for weight and chargeable weight (e.g. KG)."
+   "description": "Pivot UOM for weight and chargeable weight (e.g. KG).",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_measurements",
@@ -252,28 +268,32 @@
    "fieldtype": "Link",
    "label": "Default Dimension UOM",
    "options": "UOM",
-   "description": "Default for dimension_uom on new lines."
+   "description": "Default for dimension_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
    "options": "UOM",
-   "description": "Default for volume_uom on new lines."
+   "description": "Default for volume_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
    "options": "UOM",
-   "description": "Default for weight_uom on new lines."
+   "description": "Default for weight_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable Weight UOM",
    "options": "UOM",
-   "description": "Default for chargeable_weight_uom on new lines."
+   "description": "Default for chargeable_weight_uom on new lines.",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "alerts_and_delays_tab",
@@ -333,6 +353,13 @@
    "description": "Milestones due within this many days show as Information (blue). Must be greater than Warning (Days) for Information alerts to appear."
   },
   {
+   "default": "1",
+   "fieldname": "strict_milestone_schedule_validation",
+   "fieldtype": "Check",
+   "label": "Strict Milestone Schedule Validation",
+   "description": "When enabled, Actual End cannot be earlier than Planned Start. Disable only if early completion before planned start is part of your process."
+  },
+  {
    "fieldname": "penalties_section",
    "fieldtype": "Section Break",
    "label": "Penalties",
@@ -357,6 +384,84 @@
    "label": "Warning (Days)",
    "default": 1,
    "description": "Days before expected delay to show Warning (yellow)."
+  },
+  {
+   "fieldname": "credit_control_tab",
+   "fieldtype": "Tab Break",
+   "label": "Credit Control"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_credit_control",
+   "fieldtype": "Check",
+   "label": "Enable logistics credit control",
+   "description": "When enabled, documents for customers on credit hold are controlled after hold conditions: either **Apply hold to all DocTypes** (full defaults for every registered DocType) or per-row **Subject DocTypes** below."
+  },
+  {
+   "fieldname": "credit_control_intro",
+   "fieldtype": "Section Break",
+   "label": "Hold conditions",
+   "description": "A customer is under credit hold when any enabled condition is true: manual status (Customer > Credit tab), credit limit exceeded, or overdue sales invoices (payment terms deviation)."
+  },
+  {
+   "default": "1",
+   "fieldname": "credit_block_on_status_on_hold",
+   "fieldtype": "Check",
+   "label": "Hold when Credit Status is On Hold"
+  },
+  {
+   "default": "0",
+   "fieldname": "credit_block_on_status_watch",
+   "fieldtype": "Check",
+   "label": "Hold when Credit Status is Watch"
+  },
+  {
+   "default": "1",
+   "fieldname": "credit_apply_limit_breach",
+   "fieldtype": "Check",
+   "label": "Hold when credit limit is exceeded",
+   "description": "Uses ERPNext customer / group / company credit limit vs outstanding (same basis as Selling)."
+  },
+  {
+   "default": "1",
+   "fieldname": "credit_apply_payment_terms_breach",
+   "fieldtype": "Check",
+   "label": "Hold on payment terms deviation",
+   "description": "Hold when any submitted Sales Invoice for the customer and company has outstanding amount and due date before today minus grace days."
+  },
+  {
+   "default": "0",
+   "fieldname": "credit_payment_terms_grace_days",
+   "fieldtype": "Int",
+   "label": "Payment terms grace (days)"
+  },
+  {
+   "fieldname": "credit_control_bypass_role",
+   "fieldtype": "Link",
+   "label": "Bypass role",
+   "options": "Role",
+   "description": "Users with this role skip credit blocks (optional).",
+   "link_filters": "[[\"Role\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "default": "0",
+   "fieldname": "credit_apply_hold_to_all_doctypes",
+   "fieldtype": "Check",
+   "label": "Apply hold to all DocTypes",
+   "description": "When enabled, every registered logistics DocType in credit control uses Warn on save and Hold create, submit, and print. The Subject DocTypes table is disabled and ignored."
+  },
+  {
+   "fieldname": "credit_subject_doctypes_section",
+   "fieldtype": "Section Break",
+   "label": "DocTypes subject to credit hold",
+   "description": "When **Apply hold to all DocTypes** is off, add one row per DocType and set Warn / Hold columns. When it is on, the table is disabled; all registered DocTypes in code are subject to full hold behaviour."
+  },
+  {
+   "fieldname": "credit_control_rules",
+   "fieldtype": "Table",
+   "label": "Subject DocTypes",
+   "options": "Logistics Settings Credit Rule",
+   "description": "Ignored when **Apply hold to all DocTypes** is checked. Otherwise one row per DocType (must also be registered in code)."
   }
  ],
  "grid_page_length": 50,

@@ -184,7 +184,7 @@ frappe.query_reports["Energy Efficiency Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Export Report"), function() {
 			frappe.call({
@@ -198,7 +198,7 @@ frappe.query_reports["Energy Efficiency Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("View Efficiency Chart"), function() {
 			frappe.call({
@@ -237,7 +237,7 @@ frappe.query_reports["Energy Efficiency Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Efficiency Insights"), function() {
 			frappe.call({
@@ -255,7 +255,7 @@ frappe.query_reports["Energy Efficiency Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Benchmark Comparison"), function() {
 			frappe.call({
@@ -273,6 +273,6 @@ frappe.query_reports["Energy Efficiency Report"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 	}
 };

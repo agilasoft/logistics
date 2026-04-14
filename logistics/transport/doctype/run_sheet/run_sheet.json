@@ -92,14 +92,15 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type"
+   "options": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "vehicle",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Vehicle",
-   "link_filters": "[[\"Transport Vehicle\",\"vehicle_type\",\"=\",\"eval:doc.vehicle_type\"]]",
+   "link_filters": "[[\"Transport Vehicle\", \"vehicle_type\", \"=\", \"eval:doc.vehicle_type\"], [\"Transport Vehicle\", \"is_active\", \"=\", 1]]",
    "options": "Transport Vehicle"
   },
   {
@@ -107,7 +108,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Transport Company",
-   "options": "Transport Company"
+   "options": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "driver",
@@ -204,7 +206,8 @@
    "fieldname": "dispatch_terminal",
    "fieldtype": "Link",
    "label": "Dispatch Terminal",
-   "options": "Transport Terminal"
+   "options": "Transport Terminal",
+   "link_filters": "[[\"Transport Terminal\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "dispatcher",
@@ -220,7 +223,8 @@
    "fieldname": "return_terminal",
    "fieldtype": "Link",
    "label": "Return Terminal",
-   "options": "Transport Terminal"
+   "options": "Transport Terminal",
+   "link_filters": "[[\"Transport Terminal\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "return_inspector",
@@ -242,7 +246,8 @@
    "fieldname": "trailer_type",
    "fieldtype": "Link",
    "label": "Trailer Type",
-   "options": "Vehicle Type"
+   "options": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   }
  ],
  "grid_page_length": 50,

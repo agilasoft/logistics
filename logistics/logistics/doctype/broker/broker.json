@@ -8,6 +8,8 @@
  "field_order": [
   "code",
   "broker_name",
+  "logo",
+  "is_active",
   "column_break_pbzu",
   "tab_2_tab",
   "customer",
@@ -30,6 +32,18 @@
    "label": "Broker Name"
   },
   {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
    "fieldname": "column_break_pbzu",
    "fieldtype": "Column Break"
   },
@@ -42,13 +56,15 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "supplier",
    "fieldtype": "Link",
    "label": "Supplier",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "related_parties_tab",
@@ -59,13 +75,15 @@
    "fieldname": "ar_netting_group",
    "fieldtype": "Link",
    "label": "AR Netting Group",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "ap_netting_group",
    "fieldtype": "Link",
    "label": "AP Netting Group",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   }
  ],
  "grid_page_length": 50,

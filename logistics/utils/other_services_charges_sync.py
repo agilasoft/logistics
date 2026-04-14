@@ -25,7 +25,11 @@ def validate_charge_item_not_manual_other_service(charge_row, charges_doctype, i
 	if not is_item_other_service(item_code):
 		return
 	# Allow if already marked as other services
-	if getattr(charge_row, "is_other_service", 0) or getattr(charge_row, "other_service_reference", None):
+	if (
+		getattr(charge_row, "is_other_service", 0)
+		or getattr(charge_row, "other_service_reference", None)
+		or getattr(charge_row, "other_service_reference_no", None)
+	):
 		return
 	frappe.throw(
 		_("Item {0} is an Other Service item. Add it in the Charges tab and check 'Other Services' on the row.").format(

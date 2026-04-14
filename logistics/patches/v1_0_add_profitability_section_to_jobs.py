@@ -28,7 +28,7 @@ HTML_FIELD = {
 	"no_copy": 1,
 }
 
-INSERT_AFTER_OPTIONS = ("accrual_closed", "job_costing_number", "company")
+INSERT_AFTER_OPTIONS = ("accrual_closed", "job_number", "company")
 
 
 def _find_insert_after(meta):

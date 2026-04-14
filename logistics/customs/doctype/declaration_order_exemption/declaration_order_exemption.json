@@ -6,12 +6,15 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "exemption_type",
   "exemption_certificate",
+  "planned_exemption_type",
+  "is_required",
+  "required_date",
+  "exemption_type",
+  "certificate_number",
   "exemption_basis",
   "column_break_1",
   "exemption_percentage",
-  "certificate_number",
   "exempted_duty",
   "column_break_2",
   "exempted_tax",
@@ -25,19 +28,54 @@
  ],
  "fields": [
   {
-   "fieldname": "exemption_type",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Exemption Type",
-   "options": "Exemption Type",
-   "reqd": 1
-  },
-  {
    "fieldname": "exemption_certificate",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Exemption Certificate",
    "options": "Exemption Certificate"
+  },
+  {
+   "depends_on": "eval:!doc.exemption_certificate",
+   "description": "Set before a certificate is linked. Copied to Declaration. Default for Create > Exemption Certificate.",
+   "fieldname": "planned_exemption_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exemption Type",
+   "options": "Exemption Type",
+   "link_filters": "[[\"Exemption Type\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_required",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Required"
+  },
+  {
+   "description": "Target date the exemption/certificate is required (planning). Copied to Declaration.",
+   "fieldname": "required_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Required Date"
+  },
+  {
+   "description": "From linked Exemption Certificate.",
+   "fieldname": "exemption_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "is_virtual": 1,
+   "label": "Type (Certificate)",
+   "options": "frappe.db.get_value(\"Exemption Certificate\", doc.get(\"exemption_certificate\"), \"exemption_type\")",
+   "read_only": 1
+  },
+  {
+   "description": "From linked Exemption Certificate.",
+   "fieldname": "certificate_number",
+   "fieldtype": "Data",
+   "is_virtual": 1,
+   "label": "Certificate Number",
+   "options": "frappe.db.get_value(\"Exemption Certificate\", doc.get(\"exemption_certificate\"), \"certificate_number\")",
+   "read_only": 1
   },
   {
    "fieldname": "exemption_basis",
@@ -51,14 +89,13 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Default percentage from Exemption Type on the certificate.",
    "fieldname": "exemption_percentage",
    "fieldtype": "Percent",
-   "label": "Exemption Percentage"
-  },
-  {
-   "fieldname": "certificate_number",
-   "fieldtype": "Data",
-   "label": "Certificate Number"
+   "is_virtual": 1,
+   "label": "Exemption Percentage",
+   "options": "frappe.db.get_value(\"Exemption Type\", frappe.db.get_value(\"Exemption Certificate\", doc.get(\"exemption_certificate\"), \"exemption_type\"), \"exemption_percentage\")",
+   "read_only": 1
   },
   {
    "fieldname": "exempted_duty",
@@ -118,7 +155,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-26 00:00:00.000000",
+ "modified": "2026-03-21 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order Exemption",

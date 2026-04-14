@@ -5,6 +5,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import getdate, date_diff, today
 from frappe import _
+from logistics.utils.document_date_validation import throw_if_not_past_date
 
 
 def apply_job_document_status_updates(row):
@@ -17,8 +18,33 @@ def apply_job_document_status_updates(row):
 		row.source = "Manual"
 	if not row.get("created_at"):
 		row.created_at = frappe.utils.now()
+	_realign_job_document_status_from_dates(row)
 	_apply_activity_based_status_updates(row)
 	_update_overdue_status(row)
+
+
+def _realign_job_document_status_from_dates(row):
+	"""When dates are corrected on save, drop stale Overdue/Expired so status matches the new dates."""
+	status = row.get("status")
+	if status not in ("Overdue", "Expired"):
+		return
+	today_date = getdate(today())
+
+	if status == "Expired":
+		exp = row.get("expiry_date")
+		if not exp or getdate(exp) >= today_date:
+			row.status = "Pending"
+			if row.get("overdue_days"):
+				row.overdue_days = 0
+		return
+
+	# Overdue: deadline removed or moved to today / future
+	if status == "Overdue":
+		dr = row.get("date_required")
+		if not dr or getdate(dr) >= today_date:
+			row.status = "Pending"
+			if row.get("overdue_days"):
+				row.overdue_days = 0
 
 
 def _apply_activity_based_status_updates(row):
@@ -69,39 +95,28 @@ def _update_overdue_status(row):
 
 def validate_job_document_status_aligned(row):
 	"""Ensure status is consistent with dates and required fields. Call from parent before_save."""
+	if not row or getattr(row, "doctype", None) != "Job Document":
+		return
+	_realign_job_document_status_from_dates(row)
 	status = row.get("status")
 	if not status:
 		return
 
-	today_date = getdate(today())
-
 	if status == "Overdue":
-		if not row.date_required:
-			frappe.throw(
-				_("Status 'Overdue' requires Date Required to be set."),
-				title=_("Invalid Status"),
-			)
-		if getdate(row.date_required) >= today_date:
-			frappe.throw(
-				_("Status 'Overdue' is only valid when Date Required ({0}) has passed.").format(
-					row.date_required
-				),
-				title=_("Invalid Status"),
-			)
+		throw_if_not_past_date(
+			row.date_required,
+			status_label="Overdue",
+			date_label="Date Required",
+			title=_("Invalid Status"),
+		)
 
 	elif status == "Expired":
-		if not row.expiry_date:
-			frappe.throw(
-				_("Status 'Expired' requires Expiry Date to be set."),
-				title=_("Invalid Status"),
-			)
-		if getdate(row.expiry_date) >= today_date:
-			frappe.throw(
-				_("Status 'Expired' is only valid when Expiry Date ({0}) has passed.").format(
-					row.expiry_date
-				),
-				title=_("Invalid Status"),
-			)
+		throw_if_not_past_date(
+			row.expiry_date,
+			status_label="Expired",
+			date_label="Expiry Date",
+			title=_("Invalid Status"),
+		)
 
 	elif status in ("Received", "Done", "Uploaded"):
 		if not row.get("attachment"):

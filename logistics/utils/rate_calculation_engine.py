@@ -169,6 +169,7 @@ class RateCalculationEngine:
         unit_type: str,
         actual_quantity: float,
         actual_weight: float,
+        actual_chargeable_weight: float,
         actual_volume: float,
         actual_distance: float,
         actual_pieces: float,
@@ -180,6 +181,8 @@ class RateCalculationEngine:
         """Get quantity based on unit type."""
         if unit_type == "Weight":
             return actual_weight
+        elif unit_type == "Chargeable Weight":
+            return flt(actual_chargeable_weight or kwargs.get("actual_chargeable_weight", 0))
         elif unit_type == "Volume":
             return actual_volume
         elif unit_type == "Distance":
@@ -200,6 +203,7 @@ class RateCalculationEngine:
         rate_data: Dict,
         actual_quantity: float = 0,
         actual_weight: float = 0,
+        actual_chargeable_weight: float = 0,
         actual_volume: float = 0,
         actual_distance: float = 0,
         actual_pieces: float = 0,
@@ -215,6 +219,7 @@ class RateCalculationEngine:
             unit_type,
             actual_quantity,
             actual_weight,
+            actual_chargeable_weight,
             actual_volume,
             actual_distance,
             actual_pieces,

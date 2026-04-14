@@ -2,6 +2,12 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Air Booking Charges", {
+	charge_type: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (row && row.charge_type === "Disbursement") {
+			_calculate_charge_row(frm, cdt, cdn);
+		}
+	},
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -52,6 +58,9 @@ function _calculate_charge_row(frm, cdt, cdn) {
 				}
 				if ("cost_calc_notes" in r.message) {
 					frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
+				}
+				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
 				}
 			}
 		}

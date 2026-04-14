@@ -9,4 +9,13 @@ from frappe.model.document import Document
 
 
 class ContainerMovement(Document):
-	pass
+	def on_update(self):
+		try:
+			from logistics.container_management.api import sync_container_from_movement
+
+			sync_container_from_movement(self)
+		except Exception as e:
+			frappe.log_error(
+				title="Container Movement sync",
+				message="Container Movement {0}: {1}".format(self.name or "", str(e)),
+			)

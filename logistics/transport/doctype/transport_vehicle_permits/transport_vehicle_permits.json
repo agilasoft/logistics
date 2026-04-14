@@ -29,7 +29,8 @@
    "in_list_view": 1,
    "label": "Issued By",
    "options": "Supplier",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_etmv",

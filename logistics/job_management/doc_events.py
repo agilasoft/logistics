@@ -8,6 +8,16 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.job_management.recognition_engine import (
+    get_charge_row_cost_amount,
+    get_charge_row_selling_amount,
+)
+
+
+def on_job_validate_estimates(doc, method=None):
+    """Persist header estimated revenue/costs from charge lines (validate runs before DB write)."""
+    update_estimates_from_charges(doc)
+
 
 def on_job_update(doc, method):
     """
@@ -40,51 +50,44 @@ def on_job_submit(doc, method):
     recognition_date = None
 
     if settings.get("enable_wip_recognition"):
-        if not doc.get("wip_journal_entry") and not doc.get("wip_closed"):
-            try:
-                wip_je = engine.recognize_wip(recognition_date)
-                if wip_je:
-                    frappe.msgprint(_("WIP recognized: {0}").format(wip_je), indicator="green")
-            except Exception as e:
-                frappe.log_error(str(e), "Recognition - WIP on Submit")
-                frappe.throw(_("WIP recognition failed: {0}").format(str(e)))
+        try:
+            wip_je = engine.recognize_wip(recognition_date)
+            if wip_je:
+                frappe.msgprint(_("WIP recognized: {0}").format(wip_je), indicator="green")
+        except Exception as e:
+            frappe.log_error(str(e), "Recognition - WIP on Submit")
+            frappe.throw(_("WIP recognition failed: {0}").format(str(e)))
 
     if settings.get("enable_accrual_recognition"):
-        if not doc.get("accrual_journal_entry") and not doc.get("accrual_closed"):
-            try:
-                accrual_je = engine.recognize_accruals(recognition_date)
-                if accrual_je:
-                    frappe.msgprint(_("Accruals recognized: {0}").format(accrual_je), indicator="green")
-            except Exception as e:
-                frappe.log_error(str(e), "Recognition - Accrual on Submit")
-                frappe.throw(_("Accrual recognition failed: {0}").format(str(e)))
+        doc.reload()
+        engine = RecognitionEngine(doc)
+        try:
+            accrual_je = engine.recognize_accruals(recognition_date)
+            if accrual_je:
+                frappe.msgprint(_("Accruals recognized: {0}").format(accrual_je), indicator="green")
+        except Exception as e:
+            frappe.log_error(str(e), "Recognition - Accrual on Submit")
+            frappe.throw(_("Accrual recognition failed: {0}").format(str(e)))
 
 
 def update_estimates_from_charges(doc):
     """Update estimated revenue and costs from charges table."""
     charges_table = get_charges_table_name(doc.doctype)
-    
+
     if not charges_table or not hasattr(doc, charges_table):
         return
-    
+
     total_revenue = 0
     total_cost = 0
-    
+
     for charge in doc.get(charges_table, []):
-        if hasattr(charge, 'estimated_revenue'):
-            total_revenue += flt(charge.estimated_revenue)
-        elif hasattr(charge, 'amount'):
-            total_revenue += flt(charge.amount)
-        
-        if hasattr(charge, 'estimated_cost'):
-            total_cost += flt(charge.estimated_cost)
-        elif hasattr(charge, 'cost'):
-            total_cost += flt(charge.cost)
-    
-    if hasattr(doc, 'estimated_revenue'):
+        total_revenue += get_charge_row_selling_amount(charge)
+        total_cost += get_charge_row_cost_amount(charge)
+
+    if hasattr(doc, "estimated_revenue"):
         doc.estimated_revenue = total_revenue
-    
-    if hasattr(doc, 'estimated_costs'):
+
+    if hasattr(doc, "estimated_costs"):
         doc.estimated_costs = total_cost
 
 
@@ -98,10 +101,6 @@ def handle_job_closure(doc):
     if doc.status not in closed_statuses:
         return
     
-    # Check if already closed
-    if doc.get("wip_closed") and doc.get("accrual_closed"):
-        return
-    
     # Check if there's anything to close
     if flt(doc.get("wip_amount", 0)) <= 0 and flt(doc.get("accrual_amount", 0)) <= 0:
         return
@@ -111,10 +110,10 @@ def handle_job_closure(doc):
     
     engine = RecognitionEngine(doc)
     
-    if flt(doc.get("wip_amount", 0)) > 0 and not doc.get("wip_closed"):
+    if flt(doc.get("wip_amount", 0)) > 0:
         engine.close_wip()
     
-    if flt(doc.get("accrual_amount", 0)) > 0 and not doc.get("accrual_closed"):
+    if flt(doc.get("accrual_amount", 0)) > 0:
         engine.close_accruals()
 
 

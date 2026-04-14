@@ -1076,9 +1076,9 @@
                 </div>
             </div>
             
-            <!-- Job Information Section (based on Job Costing Number from doc.job_number) -->
+            <!-- Job Information Section (based on Job Number from doc.job_number) -->
             {% if doc.job_number %}
-            {% set jcn = frappe.get_doc("Job Costing Number", doc.job_number) %}
+            {% set jcn = frappe.get_doc("Job Number", doc.job_number) %}
             {% set job_type = jcn.job_type or "" %}
             {% set job_no = jcn.job_no or "" %}
             <div class="job-information-section info-block">

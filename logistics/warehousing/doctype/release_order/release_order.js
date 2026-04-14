@@ -43,7 +43,7 @@ frappe.ui.form.on("Release Order", {
             }
           }
         });
-      }, __("Actions"));
+      }, __("Action"));
     }
 
     if (!frm.doc.docstatus) return;

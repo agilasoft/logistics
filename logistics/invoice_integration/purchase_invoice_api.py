@@ -25,15 +25,30 @@ CHARGES_CHILD_DOCTYPE = {
 
 # Charge table and cost field mapping: (charges_field, cost_field, rate_field, qty_field, item_field, supplier_field)
 CHARGE_CONFIG = {
-    "Transport Job": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", "pay_to"),
+    "Transport Job": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
     "Air Shipment": ("charges", "estimated_cost", "estimated_cost", "quantity", "item_code", "pay_to"),
-    "Sea Shipment": ("charges", "buying_amount", "buying_amount", None, "charge_item", "pay_to"),
+    # Sea Shipment Charges primarily use item_code (legacy rows may still have charge_item).
+    "Sea Shipment": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
     "Warehouse Job": ("charges", "total", "rate", "quantity", "item_code", None),
-    "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", None),
+    "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", "pay_to"),
 }
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)
 PI_EXCLUDED_STATUSES = ("Requested", "Invoiced", "Posted", "Paid")
+
+
+def _sea_shipment_row_cost(ch) -> float:
+    """Sea Shipment Charges: actual_cost when > 0, else estimated_cost, else unit_cost * cost_quantity, else cost_base_amount."""
+    c = flt(getattr(ch, "actual_cost", None) or 0)
+    if c <= 0:
+        c = flt(getattr(ch, "estimated_cost", None) or 0)
+    if c > 0:
+        return c
+    u = flt(getattr(ch, "unit_cost", 0))
+    q = flt(getattr(ch, "cost_quantity", None) or getattr(ch, "quantity", 1) or 1)
+    if u * q > 0:
+        return u * q
+    return flt(getattr(ch, "cost_base_amount", None) or 0)
 
 
 def _get_eligible_cost_rows(job, config):
@@ -45,14 +60,23 @@ def _get_eligible_cost_rows(job, config):
         status = getattr(ch, "purchase_invoice_status", None)
         if status in PI_EXCLUDED_STATUSES or getattr(ch, "purchase_invoice", None):
             continue
-        cost = flt(
-            getattr(ch, cost_field, None)
-            or (flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1)),
-            0,
-        )
+        if job.doctype == "Sea Shipment":
+            cost = _sea_shipment_row_cost(ch)
+        else:
+            # Use actual_cost for PI when present and > 0, else estimated/cost_field
+            cost = flt(getattr(ch, "actual_cost", None) or 0)
+            if cost <= 0:
+                cost = flt(
+                    getattr(ch, cost_field, None)
+                    or (flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1)),
+                    0,
+                )
         if cost <= 0:
             continue
         item_code = getattr(ch, item_field, None)
+        # Backward compatibility for historical Sea Shipment rows that used charge_item.
+        if not item_code and job.doctype == "Sea Shipment":
+            item_code = getattr(ch, "charge_item", None)
         if not item_code:
             continue
         sup = getattr(ch, supplier_field, None) if supplier_field else None
@@ -182,6 +206,20 @@ def create_purchase_invoice(
     if not resolved_supplier:
         frappe.throw(_("Supplier is required. Set pay_to on charges or pass supplier or configure default_cost_supplier in Logistics Settings."))
 
+    # Ensure selected rows belong to a single supplier to prevent mixed-supplier invoices.
+    mismatched = []
+    for _doc_idx, _ch, _cost, _item_code, sup in cost_rows:
+        if sup and sup != resolved_supplier:
+            mismatched.append(sup)
+    if mismatched:
+        suppliers = ", ".join(sorted(set(mismatched)))
+        frappe.throw(
+            _(
+                "Selected charges include a different supplier ({0}). "
+                "Please select only charges for supplier {1}."
+            ).format(suppliers, resolved_supplier)
+        )
+
     # Create Purchase Invoice
     pi = frappe.new_doc("Purchase Invoice")
     pi.supplier = resolved_supplier
@@ -205,8 +243,8 @@ def create_purchase_invoice(
         pi.reference_doctype = job_type
         pi.reference_name = job_name
     # Job costing number for GL/profitability (design §6.3)
-    if pi_meta.get_field("job_costing_number") and getattr(job, "job_costing_number", None):
-        pi.job_costing_number = job.job_costing_number
+    if pi_meta.get_field("job_number") and getattr(job, "job_number", None):
+        pi.job_number = job.job_number
 
     base_remarks = pi.remarks or ""
     note = _("Auto-created from {0} {1}").format(job_type, job_name)

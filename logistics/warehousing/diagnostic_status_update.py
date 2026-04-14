@@ -226,6 +226,6 @@ def fix_storage_location_status(location_name: str = None) -> dict:
 def _safe_meta_fieldnames(doctype: str) -> list:
     """Safely get field names for a doctype."""
     try:
-        return frappe.get_meta(doctype).get_fieldnames()
+        return [df.fieldname for df in frappe.get_meta(doctype).fields]
     except Exception:
         return []

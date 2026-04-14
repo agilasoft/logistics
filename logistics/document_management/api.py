@@ -75,9 +75,51 @@ MILESTONE_CHILD_DOCTYPE = {
 }
 
 
+def _milestone_row_field(row, fieldname):
+	if isinstance(row, dict):
+		return row.get(fieldname)
+	return getattr(row, fieldname, None)
+
+
+def get_milestone_display_rows_and_editor_doctype(doc):
+	"""
+	Milestone rows for HTML timeline: prefer parent child table; if empty, use legacy Job Milestone
+	(job_type = parent doctype, job_number = parent name). Returns (list of dicts, doctype for edit prompts).
+	"""
+	if not doc or not getattr(doc, "doctype", None):
+		return [], "Job Milestone"
+	doctype = doc.doctype
+	child_doctype = MILESTONE_CHILD_DOCTYPE.get(doctype, "") or "Job Milestone"
+	table_rows = list(doc.get("milestones") or [])
+	source_rows = table_rows
+	editor_dt = child_doctype
+	if not source_rows and doc.name:
+		jm = frappe.get_all(
+			"Job Milestone",
+			filters={"job_type": doctype, "job_number": doc.name},
+			fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+			order_by="planned_start",
+		)
+		if jm:
+			source_rows = jm
+			editor_dt = "Job Milestone"
+	milestones = []
+	for row in source_rows:
+		milestones.append({
+			"name": _milestone_row_field(row, "name"),
+			"milestone": _milestone_row_field(row, "milestone"),
+			"status": (_milestone_row_field(row, "status") or "Planned"),
+			"planned_start": _milestone_row_field(row, "planned_start"),
+			"planned_end": _milestone_row_field(row, "planned_end"),
+			"actual_start": _milestone_row_field(row, "actual_start"),
+			"actual_end": _milestone_row_field(row, "actual_end"),
+		})
+	return milestones, editor_dt
+
+
 @frappe.whitelist()
 def get_milestone_html(doctype, docname):
-	"""Generate graphical milestone HTML for Milestones tab. Uses child table milestones."""
+	"""Generate graphical milestone HTML for Milestones tab (child table; legacy Job Milestone if empty)."""
 	if not doctype or not docname or docname == "new":
 		return '<div class="alert alert-info">Save the document to view milestones.</div>'
 	if doctype not in MILESTONE_DOCTYPES:
@@ -87,21 +129,7 @@ def get_milestone_html(doctype, docname):
 	except frappe.DoesNotExistError:
 		return '<div class="alert alert-warning">Document not found.</div>'
 
-	milestone_rows = list(doc.get("milestones") or [])
-	child_doctype = MILESTONE_CHILD_DOCTYPE.get(doctype, "")
-
-	# Build milestone dicts for build_milestone_html
-	milestones = []
-	for row in milestone_rows:
-		milestones.append({
-			"name": row.name,
-			"milestone": row.milestone,
-			"status": row.status or "Planned",
-			"planned_start": row.planned_start,
-			"planned_end": row.planned_end,
-			"actual_start": row.actual_start,
-			"actual_end": row.actual_end,
-		})
+	milestones, child_doctype = get_milestone_display_rows_and_editor_doctype(doc)
 
 	# Resolve origin/destination per doctype (detail items section removed)
 	origin_name = (
@@ -256,9 +284,10 @@ def update_job_document_status_on_parent_before_save(doc, method=None):
 		validate_job_document_status_aligned,
 	)
 	for row in doc.documents:
-		# Validate status aligns with dates/fields (child validate never runs on parent save)
-		validate_job_document_status_aligned(row)
+		# Apply date/status realignment and activity rules first; then validate. Validating first
+		# blocked saves when e.g. Overdue + user extended date_required (status still old until apply).
 		apply_job_document_status_updates(row)
+		validate_job_document_status_aligned(row)
 
 
 def ensure_documents_and_milestones_from_template(doc, method=None):
@@ -641,7 +670,7 @@ def get_document_alerts_html(doctype, docname):
 		try:
 			doc = frappe.get_doc(doctype, docname)
 			for pr in (doc.get("permit_requirements") or []):
-				if pr.get("is_required") and not pr.get("is_obtained"):
+				if pr.get("is_required") and not getattr(pr, "is_obtained", None):
 					pending_permits += 1
 			exemptions_count = len(doc.get("exemptions") or [])
 		except Exception:
@@ -663,13 +692,18 @@ def get_document_alerts_html(doctype, docname):
 	cards.append(_doc_alert_card("Expiring Soon", expiring_soon, "doc-alert-card-expiring", "info", "expiring_soon"))
 	# Received/Verified/Done
 	cards.append(_doc_alert_card("Received", received, "doc-alert-card-received", "success", "received"))
-	# Total documents
-	cards.append(_doc_alert_card("Total", total, "doc-alert-card-total", "secondary", "total"))
+	# Total documents — on customs doctypes, swap accent with Exemptions (purple ↔ gray)
+	total_css, total_alert = "doc-alert-card-total", "secondary"
+	if doctype in ("Declaration", "Declaration Order"):
+		total_css, total_alert = "doc-alert-card-exemptions", "info"
+	cards.append(_doc_alert_card("Total", total, total_css, total_alert, "total"))
 
 	# Declaration and Declaration Order: Pending Permits and Exemptions cards
 	if doctype in ("Declaration", "Declaration Order"):
 		cards.append(_doc_alert_card("Pending Permits", pending_permits, "doc-alert-card-permits", "warning", "pending_permits"))
-		cards.append(_doc_alert_card("Exemptions", exemptions_count, "doc-alert-card-exemptions", "info", "exemptions"))
+		cards.append(
+			_doc_alert_card("Exemptions", exemptions_count, "doc-alert-card-total", "secondary", "exemptions")
+		)
 
 	cards_html = "\n".join(cards)
 	return f'''

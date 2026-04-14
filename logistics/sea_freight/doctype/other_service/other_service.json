@@ -70,7 +70,8 @@
    "fieldname": "item_link",
    "fieldtype": "Link",
    "label": "Item Link",
-   "options": "Item"
+   "options": "Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]"
   }
  ],
  "grid_page_length": 50,

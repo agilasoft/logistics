@@ -505,7 +505,7 @@ def _get_transport_legs(plan: Document, debug: Optional[List[str]] = None) -> Tu
     base_fields = ["name", leg_date_field]
     opt_fields = []
     for f in [
-        "vehicle_type", "hazardous", "order",
+        "vehicle_type", "contains_dangerous_goods", "order",
         "facility_type_from", "facility_from",
         "facility_type_to", "facility_to",
         "run_date", "transport_job",
@@ -604,7 +604,7 @@ def _get_consolidation_legs(start: str, end: str, leg_date_field: str, debug: Op
             base_fields = ["name", leg_date_field]
             opt_fields = []
             for f in [
-                "vehicle_type", "hazardous", "order",
+                "vehicle_type", "contains_dangerous_goods", "order",
                 "facility_type_from", "facility_from",
                 "facility_type_to", "facility_to",
                 "run_date", "transport_job",
@@ -685,7 +685,7 @@ def _consolidate_legs(day_legs: List[Dict[str, Any]], debug: Optional[List[str]]
                     "total_weight": sum(flt(leg.get("weight") or 0) for leg in consol_legs),
                     "total_volume": sum(flt(leg.get("volume") or 0) for leg in consol_legs),
                     "total_pallets": sum(flt(leg.get("pallets") or 0) for leg in consol_legs),
-                    "hazardous": any(leg.get("hazardous") for leg in consol_legs),
+                    "contains_dangerous_goods": any(leg.get("contains_dangerous_goods") for leg in consol_legs),
                     "leg_count": len(consol_legs),
                     "_is_existing_consolidation": True
                 }
@@ -782,7 +782,7 @@ def _create_load_type_consolidations(day_legs: List[Dict[str, Any]], debug: Opti
                 "total_weight": sum(flt(leg.get("weight") or 0) for leg in legs),
                 "total_volume": sum(flt(leg.get("volume") or 0) for leg in legs),
                 "total_pallets": sum(flt(leg.get("pallets") or 0) for leg in legs),
-                "hazardous": any(leg.get("hazardous") for leg in legs),
+                "contains_dangerous_goods": any(leg.get("contains_dangerous_goods") for leg in legs),
                 "leg_count": len(legs),
                 "load_type": load_type
             }
@@ -833,7 +833,7 @@ def _create_transport_consolidation(load_type: str, legs: List[Dict[str, Any]], 
             consolidation.branch = getattr(first_job, "branch", None)
             consolidation.cost_center = getattr(first_job, "cost_center", None)
             consolidation.profit_center = getattr(first_job, "profit_center", None)
-            consolidation.job_costing_number = getattr(first_job, "job_costing_number", None)
+            consolidation.job_number = getattr(first_job, "job_number", None)
         
         # Add transport jobs
         for job_name in transport_jobs:
@@ -860,9 +860,9 @@ def _sort_legs_for_optimization(legs: List[Dict[str, Any]]) -> List[Dict[str, An
     Sort legs for optimization considering priority, time windows, and geographic proximity.
     """
     def sort_key(leg):
-        # Priority: hazardous first, then by order, then by time
+        # Priority: dangerous goods first, then by order, then by time
         priority = 0
-        if leg.get("hazardous"):
+        if leg.get("contains_dangerous_goods"):
             priority += 1000
         
         order = cint(leg.get("order") or 0)
@@ -914,7 +914,7 @@ def _create_optimized_trips(legs: List[Dict[str, Any]], vehicle_type: str, debug
             "total_weight": sum(flt(leg.get("weight") or 0) for leg in current_trip),
             "total_volume": sum(flt(leg.get("volume") or 0) for leg in current_trip),
             "total_pallets": sum(flt(leg.get("pallets") or 0) for leg in current_trip),
-            "hazardous": any(leg.get("hazardous") for leg in current_trip),
+            "contains_dangerous_goods": any(leg.get("contains_dangerous_goods") for leg in current_trip),
             "leg_count": len(current_trip)
         }
         
@@ -932,8 +932,8 @@ def _can_add_leg_to_trip(trip_legs: List[Dict[str, Any]], new_leg: Dict[str, Any
     if new_leg.get("vehicle_type") != trip_legs[0].get("vehicle_type"):
         return False
     
-    # Check hazardous material compatibility
-    if new_leg.get("hazardous") and not all(leg.get("hazardous") for leg in trip_legs):
+    # Check dangerous goods compatibility
+    if new_leg.get("contains_dangerous_goods") and not all(leg.get("contains_dangerous_goods") for leg in trip_legs):
         return False
     
     # Check capacity constraints
@@ -991,9 +991,9 @@ def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List
     total_weight = sum(flt(leg.get("weight") or 0) for leg in trip_legs)
     total_volume = sum(flt(leg.get("volume") or 0) for leg in trip_legs)
     total_pallets = sum(flt(leg.get("pallets") or 0) for leg in trip_legs)
-    has_hazardous = any(leg.get("hazardous") for leg in trip_legs)
-    
-    debug.append(f"Trip requirements: {total_weight}kg, {total_volume}m³, {total_pallets}pallets, hazardous: {has_hazardous}")
+    has_dangerous_goods = any(leg.get("contains_dangerous_goods") for leg in trip_legs)
+
+    debug.append(f"Trip requirements: {total_weight}kg, {total_volume}m³, {total_pallets}pallets, dangerous_goods: {has_dangerous_goods}")
     
     # Find vehicles that can handle the entire trip
     v_filters: List[Any] = [
@@ -1179,7 +1179,7 @@ def _find_candidate_driver(leg: Dict[str, Any], vehicle: Dict[str, Any], debug: 
     filters: List[Any] = []
     if _has_field("Driver", "status"):
         filters.append(["status", "=", "Active"])
-    if leg.get("hazardous") and _has_field("Driver", "custom_hazmat_endorsement"):
+    if leg.get("contains_dangerous_goods") and _has_field("Driver", "custom_hazmat_endorsement"):
         filters.append(["custom_hazmat_endorsement", "=", 1])
     if vehicle.get("transport_company") and _has_field("Driver", "custom_transport_company"):
         filters.append(["custom_transport_company", "=", vehicle["transport_company"]])
@@ -1494,7 +1494,7 @@ def _copy_leg_to_runsheet_leg(child: Document, leg_doc: Document) -> None:
 
     # Other handy fields if present
     _set_if_exists(child, "vehicle_type", getattr(leg_doc, "vehicle_type", None))
-    _set_if_exists(child, "hazardous", getattr(leg_doc, "hazardous", None))
+    _set_if_exists(child, "contains_dangerous_goods", getattr(leg_doc, "contains_dangerous_goods", None))
 
 
 def _set_if_exists(doc: Document, fieldname: str, value: Any) -> None:
@@ -1752,7 +1752,7 @@ def _create_base_to_first_pick_leg(rs: Document, first_leg: Dict[str, Any]) -> O
     leg.transport_job = first_leg.get("transport_job")
     leg.date = first_leg.get("date")
     leg.vehicle_type = first_leg.get("vehicle_type")
-    leg.hazardous = first_leg.get("hazardous")
+    leg.contains_dangerous_goods = first_leg.get("contains_dangerous_goods")
     
     # Set from base location
     leg.facility_type_from = rs.base_location_type
@@ -1787,7 +1787,7 @@ def _create_last_drop_to_base_leg(rs: Document, last_leg: Dict[str, Any]) -> Opt
     leg.transport_job = last_leg.get("transport_job")
     leg.date = last_leg.get("date")
     leg.vehicle_type = last_leg.get("vehicle_type")
-    leg.hazardous = last_leg.get("hazardous")
+    leg.contains_dangerous_goods = last_leg.get("contains_dangerous_goods")
     
     # Set from last drop location
     leg.facility_type_from = last_leg.get("facility_type_to")
@@ -1819,7 +1819,7 @@ def _create_connecting_leg(rs: Document, from_leg: Dict[str, Any], to_leg: Dict[
     leg.transport_job = to_leg.get("transport_job")  # Associate with the destination job
     leg.date = to_leg.get("date")
     leg.vehicle_type = to_leg.get("vehicle_type")
-    leg.hazardous = to_leg.get("hazardous")
+    leg.contains_dangerous_goods = to_leg.get("contains_dangerous_goods")
     
     # Set from previous job's drop location
     leg.facility_type_from = from_leg.get("facility_type_to")

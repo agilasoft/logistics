@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "commodity",
+  "warehouse_item",
   "hs_code",
   "reference_no",
   "container",
@@ -32,7 +33,15 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Commodity",
-   "options": "Commodity"
+   "options": "Commodity",
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "warehouse_item",
+   "fieldtype": "Link",
+   "label": "Warehouse Item",
+   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.local_customer\"]]",
+   "options": "Warehouse Item"
   },
   {
    "fetch_from": "commodity.default_hs_code",
@@ -57,7 +66,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "container",
@@ -89,19 +99,22 @@
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "length",

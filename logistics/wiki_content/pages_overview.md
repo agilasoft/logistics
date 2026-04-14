@@ -12,6 +12,17 @@
 - **Count Sheet** (`count-sheet`) – Physical count entry for stocktake. Access: Home > Warehousing > Count Sheet.
 - **Plate Scanner** (`plate_scanner`) – Scan vehicle plates at gate. Access: Home > Warehousing > Plate Scanner.
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Mobile/page UIs surface fields from:_
+
+- [Run Sheet](welcome/run-sheet), [Warehouse Job](welcome/warehouse-job), [Stocktake Order](welcome/stocktake-order)
+
+<!-- wiki-field-reference:end -->
+
 ## Related
 
 - [Run Sheet](welcome/run-sheet)

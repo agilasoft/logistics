@@ -50,7 +50,8 @@
    "in_list_view": 1,
    "label": "Declaration Product Code",
    "options": "Declaration Product Code",
-   "description": "Select from Declaration Product Code (filtered by importer/exporter)"
+   "description": "Select from Declaration Product Code (filtered by importer/exporter)",
+   "link_filters": "[[\"Declaration Product Code\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "item",
@@ -59,7 +60,8 @@
    "label": "Item",
    "options": "Item",
    "read_only": 1,
-   "description": "Fetched from Declaration Product Code"
+   "description": "Fetched from Declaration Product Code",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "product_code",
@@ -102,7 +104,8 @@
    "fieldname": "commodity_code",
    "fieldtype": "Link",
    "label": "Commodity Code",
-   "options": "Commodity"
+   "options": "Commodity",
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",
@@ -118,7 +121,8 @@
    "fieldname": "invoice_qty_uom",
    "fieldtype": "Link",
    "label": "Invoice Qty UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "customs_qty",
@@ -129,7 +133,8 @@
    "fieldname": "customs_qty_uom",
    "fieldtype": "Link",
    "label": "Customs Qty UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "additional_qty_1",
@@ -140,7 +145,8 @@
    "fieldname": "additional_qty_1_uom",
    "fieldtype": "Link",
    "label": "Additional Qty 1 UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "additional_qty_2",
@@ -151,7 +157,8 @@
    "fieldname": "additional_qty_2_uom",
    "fieldtype": "Link",
    "label": "Additional Qty 2 UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "additional_qty_3",
@@ -162,7 +169,8 @@
    "fieldname": "additional_qty_3_uom",
    "fieldtype": "Link",
    "label": "Additional Qty 3 UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "price",
@@ -185,7 +193,8 @@
    "fieldname": "gross_weight_uom",
    "fieldtype": "Link",
    "label": "Gross Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "volume",
@@ -197,7 +206,8 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "measurements_section",
@@ -218,7 +228,8 @@
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "length",
@@ -244,7 +255,8 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "reference_no",

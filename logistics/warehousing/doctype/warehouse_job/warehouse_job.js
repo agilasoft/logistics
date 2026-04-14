@@ -262,7 +262,7 @@ frappe.ui.form.on('Warehouse Job', {
                         }
                     }
                 });
-            }, __('Actions'));
+            }, __('Action'));
         }
 
         calculate_job_totals(frm);
@@ -292,7 +292,7 @@ frappe.ui.form.on('Warehouse Job', {
             
             frm.add_custom_button(__(button_text), function() {
                 allocate_items(frm);
-            }, __('Actions'));
+            }, __('Action'));
         }
         
         // Note: Allocate Handling Units is now combined into Allocate Putaway
@@ -359,14 +359,14 @@ frappe.ui.form.on('Warehouse Job', {
         if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
             frm.add_custom_button(__('Fetch Count Sheet'), function() {
                 fetch_count_sheet(frm);
-            }, __('Actions'));
+            }, __('Action'));
         }
         
         // Add Populate Stocktake Adjustments button for Stocktake jobs
         if (frm.doc.type === 'Stocktake' && frm.doc.docstatus === 0) {
             frm.add_custom_button(__('Populate Adjustments'), function() {
                 populate_stocktake_adjustments(frm);
-            }, __('Actions'));
+            }, __('Action'));
         }
         
         // Add Post by Scan button for all job types (only when submitted)
@@ -388,27 +388,27 @@ frappe.ui.form.on('Warehouse Job', {
             
             frm.add_custom_button(__('View Gate Passes'), function() {
                 frm.view_related_gate_passes();
-            }, __('Actions'));
+            }, __('Action'));
         }
         
         // Add Fetch Charges button - show when contract exists (to fetch charges from contract)
         if (frm.doc.warehouse_contract || frm.doc.customer) {
             frm.add_custom_button(__('Fetch Charges'), function() {
                 fetch_charges_from_contract(frm);
-            }, __('Actions'));
+            }, __('Action'));
         }
         
         // Add Calculate Charges button - show when charges exist (to recalculate quantities/rates)
         if (frm.doc.charges && frm.doc.charges.length > 0) {
             frm.add_custom_button(__('Calculate Charges'), function() {
                 calculate_charges_from_contract(frm);
-            }, __('Actions'));
+            }, __('Action'));
         }
 
         if (!frm.is_new()) {
             frm.add_custom_button(__('Get Additional Charges'), function() {
                 logistics_additional_charges_show_sales_quote_dialog(frm, 'Warehouse Job');
-            }, __('Actions'));
+            }, __('Action'));
 			if (typeof show_create_sales_invoice_dialog === 'function') {
 				frm.add_custom_button(__('Sales Invoice'), function() {
 					show_create_sales_invoice_dialog(frm);

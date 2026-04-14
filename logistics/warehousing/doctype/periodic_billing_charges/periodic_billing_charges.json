@@ -32,7 +32,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_warehousing_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -60,7 +60,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "quantity",

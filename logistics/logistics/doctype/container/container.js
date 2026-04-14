@@ -2,6 +2,11 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Container", {
+	is_active(frm) {
+		if (frm.doc.is_active) {
+			frm.set_value("assignment_inactive_reason", null);
+		}
+	},
 	refresh: function (frm) {
 		// Skip for new/unsaved docs - name is temporary and doc doesn't exist in DB
 		if (frm.doc.__islocal || !frm.doc.name) return;

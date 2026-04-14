@@ -20,19 +20,82 @@
   "notes"
  ],
  "fields": [
-  {"fieldname": "item", "fieldtype": "Link", "label": "Item", "options": "Item", "in_list_view": 1},
-  {"fieldname": "quantity", "fieldtype": "Float", "label": "Quantity", "in_list_view": 1},
-  {"fieldname": "uom", "fieldtype": "Link", "label": "UOM", "options": "UOM"},
-  {"fieldname": "description", "fieldtype": "Small Text", "label": "Description"},
-  {"fieldname": "weight", "fieldtype": "Float", "label": "Weight"},
-  {"fieldname": "weight_uom", "fieldtype": "Link", "label": "Weight UOM", "options": "UOM"},
-  {"fieldname": "volume", "fieldtype": "Float", "label": "Volume"},
-  {"fieldname": "volume_uom", "fieldtype": "Link", "label": "Volume UOM", "options": "UOM"},
-  {"fieldname": "special_handling", "fieldtype": "Link", "label": "Special Handling", "options": "Special Handling Type"},
-  {"fieldname": "temperature_min", "fieldtype": "Float", "label": "Temperature Min"},
-  {"fieldname": "temperature_max", "fieldtype": "Float", "label": "Temperature Max"},
-  {"fieldname": "hazmat_class", "fieldtype": "Data", "label": "Hazmat Class"},
-  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_list_view": 1,
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "special_handling",
+   "fieldtype": "Link",
+   "label": "Special Handling",
+   "options": "Special Handling Type"
+  },
+  {
+   "fieldname": "temperature_min",
+   "fieldtype": "Float",
+   "label": "Temperature Min"
+  },
+  {
+   "fieldname": "temperature_max",
+   "fieldtype": "Float",
+   "label": "Temperature Max"
+  },
+  {
+   "fieldname": "hazmat_class",
+   "fieldtype": "Data",
+   "label": "Hazmat Class"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
  ],
  "istable": 1,
  "links": [],

@@ -12,7 +12,6 @@
   "section_break_main",
   "naming_series",
   "order_date",
-  "sales_quote",
   "customer",
   "column_break_1",
   "customs_authority",
@@ -20,6 +19,7 @@
   "exchange_rate",
   "column_break_pemj",
   "customs_broker",
+  "freight_agent",
   "notify_party",
   "status",
   "section_break_shipment_type",
@@ -28,10 +28,6 @@
   "column_break_knri",
   "declaration_type",
   "transport_mode",
-  "column_break_pwce",
-  "air_shipment",
-  "sea_shipment",
-  "transport_order",
   "section_break_transport",
   "column_break_transport",
   "vessel_flight_number",
@@ -70,8 +66,8 @@
   "incoterm_place",
   "inv_incoterm",
   "column_break_zsjh",
-  "inv_total_amount",
   "inv_currency",
+  "inv_total_amount",
   "inv_exchange_rate",
   "balance",
   "invoice_details_section",
@@ -102,6 +98,7 @@
   "lc_ex_rate",
   "column_break_lirr",
   "payment_number",
+  "payment_currency",
   "payment_amount",
   "payment_ex_rate",
   "section_break_invoice_charges",
@@ -124,17 +121,30 @@
   "milestone_template",
   "milestones",
   "charges_tab",
-  "charges_section",
-  "charges",
-  "accounts_tab",
+  "column_break_logistics_reps",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "billing_company",
-  "job_costing_number",
   "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "charges_section",
+  "column_break_qkdg",
+  "charges",
+  "quote_reference",
+  "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -148,7 +158,8 @@
   "sla_status",
   "sla_target_source",
   "column_break_sla",
-  "sla_notes"
+  "sla_notes",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -163,7 +174,6 @@
    "label": "Dashboard"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_shipment_type",
    "fieldtype": "Section Break",
    "label": "Shipment Details"
@@ -190,24 +200,56 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Customs\"]]",
    "no_copy": 1,
-   "options": "Sales Quote"
+   "options": "Sales Quote",
+   "search_index": 1
   },
   {
-   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
-   "fetch_from": "sales_quote.company",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
-   "read_only": 1
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service"
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
    "reqd": 1
   },
@@ -225,12 +267,14 @@
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
    "options": "Customs Authority"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency"
   },
   {
@@ -255,12 +299,14 @@
    "fieldname": "exporter_shipper",
    "fieldtype": "Link",
    "label": "Exporter/Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper"
   },
   {
    "fieldname": "importer_consignee",
    "fieldtype": "Link",
    "label": "Importer/Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee"
   },
   {
@@ -270,60 +316,40 @@
   {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
-   "label": "Customs Broker/Agent",
-   "options": "Supplier"
+   "label": "Customs Broker",
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
    "fieldtype": "Link",
    "label": "Notify Party",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
   },
   {
-   "depends_on": "eval:doc.transport_mode == 'Air'",
-   "description": "Trace customs order to air freight",
-   "fieldname": "air_shipment",
-   "fieldtype": "Link",
-   "label": "Air Shipment",
-   "options": "Air Shipment"
-  },
-  {
-   "depends_on": "eval:doc.transport_mode == 'Sea'",
-   "description": "Trace customs order to sea freight",
-   "fieldname": "sea_shipment",
-   "fieldtype": "Link",
-   "label": "Sea Shipment",
-   "options": "Sea Shipment"
-  },
-  {
-   "description": "Trace customs order to domestic transport",
-   "fieldname": "transport_order",
-   "fieldtype": "Link",
-   "label": "Transport Order",
-   "options": "Transport Order"
-  },
-  {
-   "collapsible": 1,
    "fieldname": "section_break_transport",
    "fieldtype": "Section Break",
    "label": "Transport Information"
   },
   {
    "fieldname": "transport_mode",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Transport Mode",
-   "options": "Sea\nAir\nRoad\nRail\nCourier\nPost"
+   "options": "Transport Mode"
   },
   {
    "fieldname": "port_of_loading",
    "fieldtype": "Link",
    "label": "Port of Loading/Entry",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
    "fieldname": "port_of_discharge",
    "fieldtype": "Link",
    "label": "Port of Discharge/Exit",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
@@ -343,9 +369,9 @@
   },
   {
    "fieldname": "transport_document_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Transport Document Type",
-   "options": "Bill of Lading\nAir Waybill\nCMR\nRailway Bill\nCourier Receipt\nOther"
+   "options": "Transport Document Type"
   },
   {
    "fieldname": "etd",
@@ -364,7 +390,6 @@
    "label": "Container Numbers"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_trade",
    "fieldtype": "Section Break",
    "label": "Trade Information"
@@ -485,12 +510,14 @@
   {
    "fieldname": "inv_total_amount",
    "fieldtype": "Currency",
-   "label": "Invoice Total"
+   "label": "Invoice Total",
+   "options": "inv_currency"
   },
   {
    "fieldname": "inv_currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency"
   },
   {
@@ -527,6 +554,7 @@
    "fieldname": "inv_importer",
    "fieldtype": "Link",
    "label": "Importer",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee"
   },
   {
@@ -538,6 +566,7 @@
    "fieldname": "inv_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -622,7 +651,8 @@
   {
    "fieldname": "payment_amount",
    "fieldtype": "Currency",
-   "label": "Payment Amount"
+   "label": "Payment Amount",
+   "options": "payment_currency"
   },
   {
    "fieldname": "payment_ex_rate",
@@ -638,6 +668,7 @@
    "fieldname": "inv_gross_weight_uom",
    "fieldtype": "Link",
    "label": "Inv. Gross Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -649,6 +680,7 @@
    "fieldname": "inv_net_weight_uom",
    "fieldtype": "Link",
    "label": "Inv. Net Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -660,6 +692,7 @@
    "fieldname": "packages_uom",
    "fieldtype": "Link",
    "label": "Packages UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -776,20 +809,8 @@
    "label": "Charges"
   },
   {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break",
-   "label": "Charges"
-  },
-  {
-   "fieldname": "charges",
-   "fieldtype": "Table",
-   "label": "Charges",
-   "options": "Declaration Order Charges"
-  },
-  {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "company",
@@ -807,7 +828,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
@@ -821,18 +842,61 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "For revenue/cost recognition",
-   "fieldname": "job_costing_number",
-   "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
-  },
-  {
    "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
    "options": "Project"
+  },
+  {
+   "description": "For revenue/cost recognition",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "description": "New charges must be added via Create Change Request. You can still adjust Estimated Revenue and Estimated Cost on existing lines.",
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Declaration Order Charges"
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
   },
   {
    "collapsible": 1,
@@ -847,10 +911,6 @@
   },
   {
    "fieldname": "column_break_knri",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_pwce",
    "fieldtype": "Column Break"
   },
   {
@@ -931,6 +991,7 @@
    "fieldname": "exporter",
    "fieldtype": "Link",
    "label": "Exporter",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper"
   },
   {
@@ -945,12 +1006,56 @@
    "fieldname": "importer_name",
    "fieldtype": "Data",
    "label": "Importer Name"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "quote_reference",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "payment_currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "column_break_qkdg",
+   "fieldtype": "Column Break",
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
- "links": [],
- "modified": "2026-03-13 11:58:57.947924",
+ "links": [
+  {
+   "group": "Connected Jobs",
+   "link_doctype": "Sea Shipment",
+   "link_fieldname": "job_no",
+   "table_fieldname": "internal_job_details"
+  },
+  {
+   "group": "Connected Jobs",
+   "link_doctype": "Air Shipment",
+   "link_fieldname": "job_no",
+   "table_fieldname": "internal_job_details"
+  }
+ ],
+ "modified": "2026-04-13 17:03:42.815061",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

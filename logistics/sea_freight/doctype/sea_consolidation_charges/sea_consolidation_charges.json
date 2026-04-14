@@ -74,7 +74,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Charge Item",
-   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -101,7 +101,8 @@
    "fieldname": "item_tax_template",
    "fieldtype": "Link",
    "label": "Item Tax Template",
-   "options": "Item Tax Template"
+   "options": "Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "invoice_type",
@@ -141,14 +142,16 @@
    "in_list_view": 1,
    "label": "Bill To",
    "options": "Customer",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "selling_amount",
@@ -182,14 +185,16 @@
    "fieldtype": "Link",
    "label": "Pay To",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "buying_currency",
    "fieldtype": "Link",
    "label": "Buying Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "buying_amount",
@@ -280,14 +285,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "rate",
@@ -300,7 +307,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -368,14 +375,16 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "unit_cost",
@@ -388,7 +397,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {

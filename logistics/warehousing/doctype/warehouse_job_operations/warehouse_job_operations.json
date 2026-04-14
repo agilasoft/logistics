@@ -73,7 +73,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Handling UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "quantity",

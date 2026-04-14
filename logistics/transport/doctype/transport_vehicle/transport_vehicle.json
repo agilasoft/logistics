@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "vehicle_name",
+  "is_active",
   "company_owned",
   "company",
   "column_break_gmed",
@@ -74,6 +75,13 @@
    "reqd": 1
   },
   {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
+  },
+  {
    "fieldname": "column_break_gmed",
    "fieldtype": "Column Break"
   },
@@ -81,7 +89,8 @@
    "fieldname": "make",
    "fieldtype": "Link",
    "label": "Make",
-   "options": "Vehicle Make"
+   "options": "Vehicle Make",
+   "link_filters": "[[\"Vehicle Make\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "model",
@@ -94,7 +103,8 @@
    "in_list_view": 1,
    "label": "Vehicle Type",
    "options": "Vehicle Type",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",
@@ -108,7 +118,8 @@
    "fieldtype": "Link",
    "label": "Transport Company",
    "mandatory_depends_on": "eval:!doc.company_owned",
-   "options": "Transport Company"
+   "options": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "capacity_tab",
@@ -126,7 +137,8 @@
    "fieldname": "capacity_weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "capacity_volume",
@@ -139,7 +151,8 @@
    "fieldname": "capacity_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "capacity_pallets",
@@ -205,13 +218,15 @@
    "fieldname": "base_facility",
    "fieldtype": "Link",
    "label": "Base Facility",
-   "options": "Transport Terminal"
+   "options": "Transport Terminal",
+   "link_filters": "[[\"Transport Terminal\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "address",
    "fieldtype": "Link",
    "label": "Address",
-   "options": "Address"
+   "options": "Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_tvvj",
@@ -259,7 +274,8 @@
    "fieldname": "telematics_provider",
    "fieldtype": "Link",
    "label": "Telematics Provider",
-   "options": "Telematics Provider"
+   "options": "Telematics Provider",
+   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "telematics_external_id",
@@ -315,7 +331,8 @@
    "fieldname": "last_provider",
    "fieldtype": "Link",
    "label": "Last Provider",
-   "options": "Telematics Provider"
+   "options": "Telematics Provider",
+   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_mrie",

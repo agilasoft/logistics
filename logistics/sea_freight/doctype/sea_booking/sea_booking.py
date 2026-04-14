@@ -5,9 +5,25 @@ import frappe
 import re
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import today, flt
+from frappe.utils import today, flt, cint
 from frappe.contacts.doctype.address.address import get_address_display
 from typing import Dict, Any
+
+from logistics.utils.module_integration import copy_sales_quote_fields_to_target
+from logistics.utils.charge_service_type import (
+	sales_quote_charge_filters,
+	throw_if_missing_destination_service_charge,
+)
+from logistics.utils.document_date_validation import throw_if_left_date_after_right
+from logistics.utils.internal_job_charge_copy import (
+	build_internal_job_sea_booking_charge_dicts,
+	populate_internal_job_charges_from_main_service,
+	should_apply_internal_job_main_charge_overlay,
+)
+from logistics.utils.sales_quote_routing import (
+	apply_sales_quote_routing_to_booking,
+	routing_legs_for_api_response,
+)
 
 
 def _sync_quote_and_sales_quote(doc):
@@ -33,8 +49,15 @@ class SeaBooking(Document):
 	
 	def validate(self):
 		"""Validate Sea Booking data"""
-		from logistics.utils.module_integration import set_billing_company_from_sales_quote
-		set_billing_company_from_sales_quote(self)
+		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+		apply_shipper_consignee_defaults(self)
+		if self.is_new():
+			from logistics.sea_freight.sea_freight_settings_defaults import (
+				apply_accounting_defaults_from_sea_freight_settings,
+			)
+
+			apply_accounting_defaults_from_sea_freight_settings(self)
 		# Normalize legacy house_type values (backup, in case before_validate didn't run)
 		if hasattr(self, 'house_type') and self.house_type:
 			if self.house_type == "Direct":
@@ -75,17 +98,35 @@ class SeaBooking(Document):
 		if original_sales_quote and getattr(self, 'quote_type', None) == 'Sales Quote' and not getattr(self, 'sales_quote', None):
 			self.sales_quote = original_sales_quote
 		
-		# Validate One-off Sales Quote not already converted
-		if self.sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-			validate_one_off_quote_not_converted(self.sales_quote, self.doctype, self.name)
-		
-		# Validate quote field when quote_type is One-Off Quote (quote might reference Sales Quote)
-		if getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
-			# Check if quote is a Sales Quote (new system) and validate it
-			if frappe.db.exists("Sales Quote", self.quote):
-				from logistics.pricing_center.doctype.sales_quote.sales_quote import validate_one_off_quote_not_converted
-				validate_one_off_quote_not_converted(self.quote, self.doctype, self.name)
+		# Validate One-off Sales Quote not already converted (internal satellite bookings may share the main leg's quote)
+		_quote_is_sales_quote = (
+			getattr(self, "quote_type", None) == "One-Off Quote"
+			and getattr(self, "quote", None)
+			and frappe.db.exists("Sales Quote", self.quote)
+		)
+		if self.sales_quote or _quote_is_sales_quote:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				resolve_allow_linked_freight_bookings_for_internal_job,
+				validate_one_off_quote_not_converted,
+			)
+
+			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			if self.sales_quote:
+				validate_one_off_quote_not_converted(
+					self.sales_quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
+			if _quote_is_sales_quote:
+				validate_one_off_quote_not_converted(
+					self.quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
 		
 		# Handle sales_quote field clearing - reset One-off quote if cleared
 		if not self.is_new() and original_sales_quote and not self.sales_quote:
@@ -102,6 +143,7 @@ class SeaBooking(Document):
 		self.validate_required_fields()
 		self.validate_dates()
 		self.validate_accounts()
+		self.validate_main_routing_legs_by_entry_type()
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
 			apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
@@ -129,7 +171,35 @@ class SeaBooking(Document):
 					indicator="orange",
 					title=_("Conversion Requirements")
 				)
-	
+
+		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+		msgprint_sales_quote_validity_warnings(self)
+
+	def validate_main_routing_legs_by_entry_type(self):
+		"""Allow additional Main leg for Transit/Transshipment while keeping Direct capped at one."""
+		entry_type = (getattr(self, "entry_type", "") or "").strip()
+		if not entry_type:
+			return
+
+		main_leg_count = sum(
+			1
+			for leg in (getattr(self, "routing_legs", None) or [])
+			if (getattr(leg, "type", "") or "").strip() == "Main"
+		)
+
+		if entry_type in {"Transit", "Transshipment"} and main_leg_count > 2:
+			frappe.throw(
+				_("For {0}, you can define at most two Main routing legs.").format(entry_type),
+				title=_("Invalid Routing Legs"),
+			)
+
+		if entry_type == "Direct" and main_leg_count > 1:
+			frappe.throw(
+				_("For Direct entry type, only one Main routing leg is allowed."),
+				title=_("Invalid Routing Legs"),
+			)
+
 	def aggregate_volume_from_packages(self):
 		"""Set header volume from sum of package volumes, converted to m³."""
 		if getattr(self, "override_volume_weight", False):
@@ -207,32 +277,45 @@ class SeaBooking(Document):
 			pass
 	
 	def calculate_chargeable_weight(self):
-		"""Calculate chargeable weight based on total_volume and total_weight using Sea Freight Settings divisor."""
+		"""Calculate chargeable weight using Sea Freight Settings divisor and chargeable_weight_calculation."""
 		if not self.total_volume and not self.total_weight:
-			if hasattr(self, "chargeable"):
-				self.chargeable = 0
+			self.chargeable = 0
 			return
-		
-		# Get volume to weight divisor from Sea Freight Settings
+
 		divisor = self.get_volume_to_weight_divisor()
-		
-		# Calculate volume weight
+		calculation_method = self.get_chargeable_weight_calculation_method()
+
 		volume_weight = 0
 		if self.total_volume and divisor:
-			# Convert volume from m³ to cm³, then divide by divisor
-			# Volume in m³ * 1,000,000 cm³/m³ / divisor = volume weight in kg
 			volume_weight = flt(self.total_volume) * (1000000.0 / divisor)
-		
-		# Calculate chargeable weight (higher of actual weight or volume weight)
-		if self.total_weight and volume_weight:
-			self.chargeable = max(flt(self.total_weight), volume_weight)
-		elif self.total_weight:
-			self.chargeable = flt(self.total_weight)
-		elif volume_weight:
+
+		actual_weight = flt(self.total_weight) or 0
+
+		if calculation_method == "Actual Weight":
+			self.chargeable = actual_weight
+		elif calculation_method == "Volume Weight":
 			self.chargeable = volume_weight
 		else:
-			self.chargeable = 0
-	
+			if actual_weight > 0 and volume_weight > 0:
+				self.chargeable = max(actual_weight, volume_weight)
+			elif actual_weight > 0:
+				self.chargeable = actual_weight
+			elif volume_weight > 0:
+				self.chargeable = volume_weight
+			else:
+				self.chargeable = 0
+
+	def get_chargeable_weight_calculation_method(self):
+		"""Sea Freight Settings: 'Actual Weight', 'Volume Weight', or 'Higher of Both' (default)."""
+		try:
+			settings = frappe.get_single("Sea Freight Settings")
+			method = getattr(settings, "chargeable_weight_calculation", None)
+			if method in ("Actual Weight", "Volume Weight", "Higher of Both"):
+				return method
+		except Exception:
+			pass
+		return "Higher of Both"
+
 	def get_volume_to_weight_divisor(self):
 		"""Get the volume to weight divisor from Sea Freight Settings.
 		Converts volume_to_weight_factor (kg/m³) to divisor format.
@@ -293,13 +376,18 @@ class SeaBooking(Document):
 		from logistics.utils.container_validation import (
 			validate_container_number,
 			get_strict_validation_setting,
-			normalize_container_number,
 		)
+		from logistics.container_management.api import (
+			expand_sea_container_no_for_sql_in,
+			sea_container_row_field_to_equipment_number,
+		)
+
 		strict = get_strict_validation_setting()
 		for i, c in enumerate(self.containers, 1):
 			container_no = getattr(c, "container_no", None)
 			if container_no and str(container_no).strip():
-				valid, err = validate_container_number(container_no, strict=strict)
+				equip = sea_container_row_field_to_equipment_number(container_no)
+				valid, err = validate_container_number(equip, strict=strict)
 				if not valid:
 					frappe.throw(_("Container {0}: {1}").format(i, err), title=_("Invalid Container Number"))
 		
@@ -309,18 +397,23 @@ class SeaBooking(Document):
 			container_no = getattr(c, "container_no", None)
 			if not container_no or not str(container_no).strip():
 				continue
-			normalized = normalize_container_number(container_no)
-			if normalized in seen:
+			equip = sea_container_row_field_to_equipment_number(container_no)
+			if equip in seen:
 				frappe.throw(
 					_("Duplicate container number in this document: {0} appears on row {1} and row {2}.").format(
-						container_no, seen[normalized], i
+						equip, seen[equip], i
 					),
 					title=_("Duplicate Container Numbers"),
 				)
-			seen[normalized] = i
+			seen[equip] = i
 		
 		# Get container numbers from current booking (filter out empty values)
-		container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None) and str(c.container_no).strip()]
+		container_numbers = []
+		for c in self.containers:
+			cn = getattr(c, "container_no", None)
+			if cn and str(cn).strip():
+				container_numbers.extend(expand_sea_container_no_for_sql_in(cn))
+		container_numbers = list(set(container_numbers))
 		if not container_numbers:
 			return
 		
@@ -367,14 +460,30 @@ class SeaBooking(Document):
 		# Build error message if duplicates found
 		errors = []
 		if existing_bookings:
-			container_list = ", ".join(set([c.container_no for c in existing_bookings]))
+			container_list = ", ".join(
+				sorted(
+					set(
+						sea_container_row_field_to_equipment_number(x.container_no)
+						for x in existing_bookings
+						if x.container_no
+					)
+				)
+			)
 			booking_list = ", ".join(set([c.name for c in existing_bookings]))
 			errors.append(_("Container number(s) {0} are already used in Sea Booking(s): {1}").format(
 				container_list, booking_list
 			))
 		
 		if existing_shipments:
-			container_list = ", ".join(set([c.container_no for c in existing_shipments]))
+			container_list = ", ".join(
+				sorted(
+					set(
+						sea_container_row_field_to_equipment_number(x.container_no)
+						for x in existing_shipments
+						if x.container_no
+					)
+				)
+			)
 			shipment_list = ", ".join(set([c.name for c in existing_shipments]))
 			errors.append(_("Container number(s) {0} are already used in Sea Shipment(s): {1}").format(
 				container_list, shipment_list
@@ -384,6 +493,31 @@ class SeaBooking(Document):
 			frappe.throw(
 				"\n".join(errors),
 				title=_("Duplicate Container Numbers")
+			)
+
+	def validate_fcl_container_numbers_required(self):
+		"""For FCL bookings, require Container No on at least one row and disallow empty container rows."""
+		if (getattr(self, "transport_mode", None) or "").strip() != "FCL":
+			return
+
+		containers = getattr(self, "containers", None) or []
+		if not containers:
+			frappe.throw(
+				_("For FCL mode, add at least one container with Container No before submitting."),
+				title=_("Missing Container No"),
+			)
+
+		empty_rows = []
+		for row in containers:
+			if not (getattr(row, "container_no", None) or "").strip():
+				empty_rows.append(getattr(row, "idx", None) or "?")
+
+		if empty_rows:
+			frappe.throw(
+				_("For FCL mode, Container No is mandatory. Fill Container No in row(s): {0}.").format(
+					", ".join(str(r) for r in empty_rows)
+				),
+				title=_("Missing Container No"),
 			)
 	
 	def _container_returned(self, container_no, other_shipment_name=None):
@@ -400,9 +534,12 @@ class SeaBooking(Document):
 			if shipping_status in ("Empty Container Returned", "Closed"):
 				return True
 		try:
-			from logistics.container_management.api import is_container_management_enabled, get_container_by_number
+			from logistics.container_management.api import (
+				is_container_management_enabled,
+				sea_container_row_field_to_doc_name,
+			)
 			if is_container_management_enabled():
-				container_name = get_container_by_number(container_no)
+				container_name = sea_container_row_field_to_doc_name(container_no)
 				if container_name:
 					row = frappe.db.get_value(
 						"Container", container_name, ["return_status", "status"], as_dict=True
@@ -433,8 +570,11 @@ class SeaBooking(Document):
 			# If quote_type is not set, check if sales_quote is set (backward compatibility)
 			if not self.sales_quote:
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
+
+		throw_if_missing_destination_service_charge(self)
 		
 		# Validate container numbers for duplicates
+		self.validate_fcl_container_numbers_required()
 		self.validate_container_numbers()
 	
 	def after_submit(self):
@@ -491,12 +631,19 @@ class SeaBooking(Document):
 	
 	def validate_dates(self):
 		"""Validate date logic"""
-		from frappe.utils import getdate
-		
-		# Validate ETD is before ETA
-		if self.etd and self.eta:
-			if getdate(self.etd) >= getdate(self.eta):
-				frappe.throw(_("ETD (Estimated Time of Departure) must be before ETA (Estimated Time of Arrival)"))
+		from logistics.utils.validation_user_messages import (
+			atd_ata_freight_invalid_message,
+			atd_ata_freight_title,
+			etd_eta_freight_invalid_message,
+			etd_eta_freight_title,
+		)
+
+		throw_if_left_date_after_right(
+			self.etd, self.eta, etd_eta_freight_invalid_message, etd_eta_freight_title
+		)
+		throw_if_left_date_after_right(
+			self.atd, self.ata, atd_ata_freight_invalid_message, atd_ata_freight_title
+		)
 	
 	def validate_accounts(self):
 		"""Validate that cost center, profit center, and branch belong to the company"""
@@ -562,10 +709,13 @@ class SeaBooking(Document):
 			
 		if self.has_value_changed("sales_quote"):
 			if self.sales_quote:
+				sq = frappe.get_doc("Sales Quote", self.sales_quote)
+				apply_sales_quote_routing_to_booking(self, sq)
 				self._populate_charges_from_sales_quote_doc()
 			else:
 				# Clear charges if sales_quote is removed
 				self.set("charges", [])
+				self.set("routing_legs", [])
 				frappe.msgprint(
 					"Charges cleared as Sales Quote was removed",
 					title="Charges Updated",
@@ -666,6 +816,8 @@ class SeaBooking(Document):
 				self.tc_name = getattr(sales_quote, 'tc_name', None)
 			if not self.terms:
 				self.terms = getattr(sales_quote, 'terms', None)
+
+			apply_sales_quote_routing_to_booking(self, sales_quote)
 			
 			# Populate charges from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
 			sea_charge_exists = frappe.db.exists("Sales Quote Charge", {
@@ -677,7 +829,14 @@ class SeaBooking(Document):
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
 			}) if frappe.db.table_exists("Sales Quote Sea Freight") else False
-			if sea_charge_exists or sea_freight_exists:
+			if (
+				sea_charge_exists
+				or sea_freight_exists
+				or (
+					cint(getattr(self, "is_internal_job", 0))
+					and should_apply_internal_job_main_charge_overlay(self)
+				)
+			):
 				self._populate_charges_from_sales_quote(sales_quote)
 			
 			# Save the document to persist the changes (charges and other fields)
@@ -712,6 +871,32 @@ class SeaBooking(Document):
 	
 	def _populate_charges_from_sales_quote_doc(self):
 		"""Populate charges based on sales_quote_transport of the filled sales_quote."""
+		overlay_populated = False
+		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+			try:
+				n, st = populate_internal_job_charges_from_main_service(self)
+				if n:
+					frappe.msgprint(
+						_("Populated {0} charge rows from Main Job (Service Type: {1}).").format(n, st),
+						title=_("Charges Updated"),
+						indicator="green",
+					)
+					overlay_populated = True
+				else:
+					frappe.msgprint(
+						_("No Sea charge lines on the Main Job; loading charges from Sales Quote if available."),
+						title=_("Charges"),
+						indicator="orange",
+					)
+			except Exception as e:
+				frappe.log_error(
+					f"Error populating Sea Booking charges from Main Job: {str(e)}",
+					"Sea Booking Charges From Main Job Error",
+				)
+				frappe.msgprint(str(e), title=_("Error"), indicator="red")
+		if overlay_populated:
+			return
+
 		if not self.sales_quote:
 			return
 
@@ -728,15 +913,24 @@ class SeaBooking(Document):
 			# Clear existing charges
 			self.set("charges", [])
 
-			# Fetch from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+			sales_quote_doc = frappe.get_doc("Sales Quote", self.sales_quote)
+			filters = sales_quote_charge_filters(self, sales_quote_doc)
+
+			# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
 				"name", "item_code", "item_name", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-				"maximum_charge", "base_amount", "estimated_revenue", "charge_type"
+				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
+				"bill_to", "pay_to", "service_type",
+				# Cost fields (only include fields that exist in Sales Quote Charge)
+				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
+				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
+				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
 			]
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Charge",
-				filters={"parent": self.sales_quote, "parenttype": "Sales Quote", "service_type": "Sea"},
+				filters=filters,
 				fields=charge_fields,
 				order_by="idx"
 			)
@@ -764,13 +958,9 @@ class SeaBooking(Document):
 					self.append("charges", charge_row)
 					charges_added += 1
 
-			if charges_added > 0:
-				frappe.msgprint(
-					f"Successfully populated {charges_added} charges from Sales Quote: {self.sales_quote}",
-					title="Charges Updated",
-					indicator="green"
-				)
-			else:
+			# Don't show success message here - it's called automatically during validation
+			# The frontend will show a user-friendly message when the user explicitly selects a quote
+			if charges_added == 0:
 				frappe.msgprint(
 					f"No valid charges could be mapped from Sales Quote: {self.sales_quote}",
 					title="No Valid Charges",
@@ -790,26 +980,56 @@ class SeaBooking(Document):
 	
 	def _populate_charges_from_sales_quote(self, sales_quote):
 		"""Populate charges from Sales Quote Sea Freight records (legacy method for fetch_quotations)"""
+		overlay_populated = False
+		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+			try:
+				n, st = populate_internal_job_charges_from_main_service(self)
+				if n:
+					overlay_populated = True
+				else:
+					frappe.msgprint(
+						_("No Sea charge lines on the Main Job; loading charges from Sales Quote if available."),
+						title=_("Charges"),
+						indicator="orange",
+					)
+			except Exception as e:
+				frappe.log_error(
+					f"Error populating Sea Booking charges from Main Job: {str(e)}",
+					"Sea Booking Charges From Main Job Error",
+				)
+				frappe.msgprint(str(e), title=_("Error"), indicator="red")
+		if overlay_populated:
+			return
+
 		try:
 			# Clear existing charges
 			self.set("charges", [])
 			
-			# Get from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+			sq_doc = sales_quote if getattr(sales_quote, "doctype", None) == "Sales Quote" else frappe.get_doc("Sales Quote", sales_quote)
+			filters = sales_quote_charge_filters(self, sq_doc)
+
+			# Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
 				"item_code", "item_name", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-				"maximum_charge", "base_amount", "estimated_revenue", "charge_type"
+				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
+				"bill_to", "pay_to", "service_type",
+				# Cost fields (only include fields that exist in Sales Quote Charge)
+				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
+				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
+				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
 			]
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Charge",
-				filters={"parent": sales_quote.name, "parenttype": "Sales Quote", "service_type": "Sea"},
+				filters=filters,
 				fields=charge_fields,
 				order_by="idx"
 			)
 			if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
 				sales_quote_sea_freight_records = frappe.get_all(
 					"Sales Quote Sea Freight",
-					filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
+					filters={"parent": sq_doc.name, "parenttype": "Sales Quote"},
 					fields=charge_fields,
 					order_by="idx"
 				)
@@ -829,12 +1049,8 @@ class SeaBooking(Document):
 					self.append("charges", charge_row)
 					charges_added += 1
 			
-			if charges_added > 0:
-				frappe.msgprint(
-					_("Successfully populated {0} charges from Sales Quote").format(charges_added),
-					title=_("Charges Updated"),
-					indicator="green"
-				)
+			# Don't show success message here - it's called automatically during validation
+			# The frontend will show a user-friendly message when the user explicitly selects a quote
 			
 		except Exception as e:
 			frappe.log_error(
@@ -903,13 +1119,9 @@ class SeaBooking(Document):
 					self.append("charges", charge_row)
 					charges_added += 1
 
-			if charges_added > 0:
-				frappe.msgprint(
-					f"Successfully populated {charges_added} charges from One-Off Quote: {self.quote}",
-					title="Charges Updated",
-					indicator="green"
-				)
-			else:
+			# Don't show success message here - it's called automatically during validation
+			# The frontend will show a user-friendly message when the user explicitly selects a quote
+			if charges_added == 0:
 				frappe.msgprint(
 					f"No valid charges could be mapped from One-Off Quote: {self.quote}",
 					title="No Valid Charges",
@@ -930,8 +1142,12 @@ class SeaBooking(Document):
 	def _map_sales_quote_sea_freight_to_charge(self, sqsf_record):
 		"""Map sales_quote_sea_freight record to sea_booking_charges format"""
 		try:
+			# Support both dict (from get_all) and document-like records
+			def _get(key, default=None):
+				return sqsf_record.get(key, default) if isinstance(sqsf_record, dict) else getattr(sqsf_record, key, default)
+
 			# Get the item details
-			item_doc = frappe.get_doc("Item", sqsf_record.item_code)
+			item_doc = frappe.get_doc("Item", _get("item_code"))
 			
 			# Get default currency
 			default_currency = frappe.get_system_settings("currency") or "USD"
@@ -940,6 +1156,7 @@ class SeaBooking(Document):
 			# Sea Booking Charges unit_type options: Distance, Weight, Volume, Package, Piece, Job, Trip, TEU, Operation Time
 			unit_type_mapping = {
 				"Weight": "Weight",
+				"Chargeable Weight": "Chargeable Weight",
 				"Volume": "Volume",
 				"Package": "Package",
 				"Piece": "Piece",
@@ -950,7 +1167,12 @@ class SeaBooking(Document):
 			
 			# Get quantity based on unit type
 			quantity = 0
-			if sqsf_record.unit_type == "Weight":
+			if sqsf_record.unit_type == "Chargeable Weight":
+				chargeable_qty = getattr(self, "chargeable", None)
+				if chargeable_qty in (None, ""):
+					chargeable_qty = getattr(self, "chargeable_weight", None)
+				quantity = flt(chargeable_qty or 0)
+			elif sqsf_record.unit_type == "Weight":
 				quantity = flt(self.total_weight) or 0
 			elif sqsf_record.unit_type == "Volume":
 				quantity = flt(self.total_volume) or 0
@@ -1065,11 +1287,39 @@ class SeaBooking(Document):
 			if calc_method_final not in valid_calc_methods:
 				calc_method_final = "Per Unit" if sqsf_record.get("unit_type") else "Flat Rate"
 			
+			# Determine charge_category: first from Sales Quote record, then from item, then default
+			charge_category = "Other"
+			if hasattr(sqsf_record, 'charge_category') and sqsf_record.charge_category:
+				charge_category = sqsf_record.charge_category
+			elif hasattr(item_doc, 'custom_charge_category') and item_doc.custom_charge_category:
+				charge_category = item_doc.custom_charge_category
+			
+			# Get description from item or use item_name as fallback
+			description = None
+			if hasattr(item_doc, 'description') and item_doc.description:
+				description = item_doc.description
+			else:
+				description = sqsf_record.item_name or item_doc.item_name
+			
+			# Get item_tax_template and invoice_type from item if available
+			item_tax_template = None
+			if hasattr(item_doc, 'item_tax_template'):
+				item_tax_template = item_doc.item_tax_template
+			
+			invoice_type = None
+			if hasattr(item_doc, 'invoice_type'):
+				invoice_type = item_doc.invoice_type
+			
 			# Map the fields to Sea Booking Charges structure
 			charge_data = {
-				"charge_item": sqsf_record.item_code,
-				"charge_name": sqsf_record.item_name or item_doc.item_name,
+				"service_type": _get("service_type") or "Sea",
+				"item_code": sqsf_record.item_code,  # Fixed: was "charge_item"
+				"item_name": sqsf_record.item_name or item_doc.item_name,  # Fixed: was "charge_name"
 				"charge_type": charge_type,
+				"charge_category": charge_category,  # Added: charge_category
+				"description": description,  # Added: description from item
+				"item_tax_template": item_tax_template,  # Added: item_tax_template from item
+				"invoice_type": invoice_type,  # Added: invoice_type from item
 				"charge_description": sqsf_record.item_name or item_doc.item_name,
 				"bill_to": getattr(sqsf_record, "bill_to", None) or (self.local_customer if hasattr(self, 'local_customer') else None),
 				"pay_to": getattr(sqsf_record, "pay_to", None),
@@ -1084,6 +1334,10 @@ class SeaBooking(Document):
 				"base_amount": sqsf_record.base_amount or 0,
 				"sales_quote_link": self.sales_quote if hasattr(self, 'sales_quote') and self.sales_quote else None,
 			}
+			# Copy estimated revenue from quote so booking shows correct revenue
+			est_rev = _get("estimated_revenue")
+			if est_rev is not None:
+				charge_data["estimated_revenue"] = flt(est_rev)
 			
 			# Add minimum/maximum charges and quantities if available
 			if sqsf_record.minimum_charge:
@@ -1092,6 +1346,45 @@ class SeaBooking(Document):
 				charge_data["maximum_charge"] = sqsf_record.maximum_charge
 			if sqsf_record.minimum_quantity:
 				charge_data["minimum_quantity"] = sqsf_record.minimum_quantity
+			
+			# Add cost fields if available
+			if hasattr(sqsf_record, "cost_calculation_method") and sqsf_record.cost_calculation_method:
+				charge_data["cost_calculation_method"] = sqsf_record.cost_calculation_method
+			if hasattr(sqsf_record, "unit_cost") and sqsf_record.unit_cost is not None:
+				charge_data["unit_cost"] = sqsf_record.unit_cost
+			cost_unit_type = _get("cost_unit_type")
+			if cost_unit_type:
+				charge_data["cost_unit_type"] = cost_unit_type
+			if hasattr(sqsf_record, "cost_currency") and sqsf_record.cost_currency:
+				charge_data["cost_currency"] = sqsf_record.cost_currency
+			if hasattr(sqsf_record, "cost_quantity") and sqsf_record.cost_quantity is not None:
+				charge_data["cost_quantity"] = sqsf_record.cost_quantity
+			if hasattr(sqsf_record, "cost_minimum_quantity") and sqsf_record.cost_minimum_quantity is not None:
+				charge_data["cost_minimum_quantity"] = sqsf_record.cost_minimum_quantity
+			if hasattr(sqsf_record, "cost_minimum_unit_rate") and sqsf_record.cost_minimum_unit_rate is not None:
+				charge_data["cost_minimum_unit_rate"] = sqsf_record.cost_minimum_unit_rate
+			if hasattr(sqsf_record, "cost_minimum_charge") and sqsf_record.cost_minimum_charge is not None:
+				charge_data["cost_minimum_charge"] = sqsf_record.cost_minimum_charge
+			if hasattr(sqsf_record, "cost_maximum_charge") and sqsf_record.cost_maximum_charge is not None:
+				charge_data["cost_maximum_charge"] = sqsf_record.cost_maximum_charge
+			if hasattr(sqsf_record, "cost_base_amount") and sqsf_record.cost_base_amount is not None:
+				charge_data["cost_base_amount"] = sqsf_record.cost_base_amount
+			if hasattr(sqsf_record, "cost_base_quantity") and sqsf_record.cost_base_quantity is not None:
+				charge_data["cost_base_quantity"] = sqsf_record.cost_base_quantity
+			if hasattr(sqsf_record, "cost_uom") and sqsf_record.cost_uom:
+				charge_data["cost_uom"] = sqsf_record.cost_uom
+			if hasattr(sqsf_record, "estimated_cost") and sqsf_record.estimated_cost is not None:
+				charge_data["estimated_cost"] = sqsf_record.estimated_cost
+			if hasattr(sqsf_record, "use_tariff_in_revenue"):
+				charge_data["use_tariff_in_revenue"] = getattr(sqsf_record, "use_tariff_in_revenue", False)
+			if hasattr(sqsf_record, "use_tariff_in_cost"):
+				charge_data["use_tariff_in_cost"] = getattr(sqsf_record, "use_tariff_in_cost", False)
+			if hasattr(sqsf_record, "tariff") and sqsf_record.tariff:
+				charge_data["tariff"] = sqsf_record.tariff
+			if hasattr(sqsf_record, "revenue_tariff") and sqsf_record.revenue_tariff:
+				charge_data["revenue_tariff"] = sqsf_record.revenue_tariff
+			if hasattr(sqsf_record, "cost_tariff") and sqsf_record.cost_tariff:
+				charge_data["cost_tariff"] = sqsf_record.cost_tariff
 			
 			return charge_data
 			
@@ -1196,85 +1489,18 @@ class SeaBooking(Document):
 	
 	@frappe.whitelist()
 	def get_dashboard_html(self):
-		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+		"""Generate HTML for Dashboard tab: tabbed layout with map, milestones, alerts."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-			from logistics.document_management.dashboard_layout import (
-				build_run_sheet_style_dashboard,
-				build_map_segments_from_routing_legs,
-				get_dg_dashboard_html,
-				get_unloco_coords,
+			from logistics.document_management.logistics_form_dashboard import (
+				build_sea_booking_dashboard_config,
+				render_logistics_form_dashboard_html,
 			)
+			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-			status = self.get("shipping_status")
-			if not status:
-				status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
-			header_items = [
-				("Status", status),
-				("ETD", str(self.etd) if self.etd else "—"),
-				("ETA", str(self.eta) if self.eta else "—"),
-				("Packages", str(len(self.packages or []))),
-				("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-			]
-			if self.shipping_line:
-				header_items.append(("Shipping Line", self.shipping_line))
-
-			try:
-				doc_alerts = get_document_alerts_html("Sea Booking", self.name or "new")
-			except Exception:
-				doc_alerts = ""
-
-			dg_route_below_html = get_dg_dashboard_html(self)
-
-			milestone_rows = list(self.get("milestones") or [])
-			milestone_details = {}
-			if milestone_rows:
-				names = [m.milestone for m in milestone_rows if m.milestone]
-				if names:
-					for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
-						milestone_details[lm.name] = lm.description or lm.name
-
-			cards_html = ""
-			for i, m in enumerate(milestone_rows, 1):
-				st = (m.status or "Planned").lower().replace(" ", "-")
-				desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-				planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-				actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-				cards_html += f"""
-				<div class="dash-card {st}">
-					<div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-					<div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-					<span class="card-badge {st}">{m.status or "Planned"}</span>
-				</div>"""
-
-			map_segments = build_map_segments_from_routing_legs(
-				getattr(self, "routing_legs", None) or []
+			dash = render_logistics_form_dashboard_html(
+				self, build_sea_booking_dashboard_config(self)
 			)
-			map_points = []
-			if not map_segments:
-				o = get_unloco_coords(self.origin_port)
-				d = get_unloco_coords(self.destination_port)
-				if o:
-					map_points.append(o)
-				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
-					map_points.append(d)
-
-			alerts_html = get_dashboard_alerts_html("Sea Booking", self.name or "new")
-			return build_run_sheet_style_dashboard(
-				header_title=self.name or "Sea Booking",
-				header_subtitle="Sea Booking",
-				header_items=header_items,
-				cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Get Milestones in Actions to generate from template.</div>",
-				map_points=map_points,
-				map_segments=map_segments,
-				map_id_prefix="sea-booking-dash-map",
-				doc_alerts_html=doc_alerts,
-				alerts_html=alerts_html,
-				straight_line=True,
-				origin_label=self.origin_port or None,
-				destination_label=self.destination_port or None,
-				route_below_html=dg_route_below_html,
-			)
+			return get_sales_quote_validity_dashboard_html(self) + dash
 		except Exception as e:
 			frappe.log_error(f"Sea Booking get_dashboard_html: {str(e)}", "Sea Booking Dashboard")
 			return "<div class='alert alert-warning'>Error loading dashboard.</div>"
@@ -1341,7 +1567,15 @@ class SeaBooking(Document):
 			sea_shipment.local_customer = self.local_customer
 			sea_shipment.booking_date = self.booking_date or today()
 			sea_shipment.sea_booking = self.name
-			sea_shipment.sales_quote = self.sales_quote
+			copy_sales_quote_fields_to_target(self, sea_shipment)
+			if hasattr(sea_shipment, "is_main_service") and hasattr(self, "is_main_service"):
+				sea_shipment.is_main_service = self.is_main_service
+			if hasattr(sea_shipment, "is_internal_job") and hasattr(self, "is_internal_job"):
+				sea_shipment.is_internal_job = self.is_internal_job
+			if hasattr(sea_shipment, "main_job_type") and hasattr(self, "main_job_type"):
+				sea_shipment.main_job_type = self.main_job_type
+			if hasattr(sea_shipment, "main_job") and hasattr(self, "main_job"):
+				sea_shipment.main_job = self.main_job
 			if hasattr(self, "booking_party") and self.booking_party:
 				sea_shipment.booking_party = self.booking_party
 			if hasattr(self, "controlling_party") and self.controlling_party:
@@ -1397,6 +1631,8 @@ class SeaBooking(Document):
 			if hasattr(self, "ata") and self.ata:
 				sea_shipment.ata = self.ata
 			sea_shipment.transport_mode = self.transport_mode
+			if getattr(self, "load_type", None):
+				sea_shipment.load_type = self.load_type
 			sea_shipment.company = self.company
 			sea_shipment.branch = self.branch
 			sea_shipment.cost_center = self.cost_center
@@ -1406,8 +1642,8 @@ class SeaBooking(Document):
 				sea_shipment.override_volume_weight = self.override_volume_weight or 0
 			if hasattr(self, "project") and self.project:
 				sea_shipment.project = self.project
-			if hasattr(self, "job_costing_number") and self.job_costing_number:
-				sea_shipment.job_costing_number = self.job_costing_number
+			if hasattr(self, "job_number") and self.job_number:
+				sea_shipment.job_number = self.job_number
 			# Copy DG fields
 			if hasattr(self, "contains_dangerous_goods"):
 				sea_shipment.contains_dangerous_goods = self.contains_dangerous_goods or 0
@@ -1553,6 +1789,7 @@ class SeaBooking(Document):
 				for package in self.packages:
 					sea_shipment.append("packages", {
 						"commodity": package.commodity,
+						"warehouse_item": getattr(package, "warehouse_item", None),
 						"hs_code": package.hs_code,
 						"reference_no": package.reference_no,
 						"container": package.container,
@@ -1569,19 +1806,13 @@ class SeaBooking(Document):
 						"weight_uom": getattr(package, "weight_uom", None),
 					})
 			
-			# Copy warehouse_items if they exist
-			if hasattr(self, 'warehouse_items') and self.warehouse_items:
-				for warehouse_item in self.warehouse_items:
-					sea_shipment.append("warehouse_items", {
-						"item": getattr(warehouse_item, "item", None),
-						"item_name": getattr(warehouse_item, "item_name", None),
-						"uom": getattr(warehouse_item, "uom", None),
-						"quantity": getattr(warehouse_item, "quantity", None),
-					})
-			
 			# Fetch charges from Sales Quote or One-Off Quote if Sea Booking has quote but no charges
 			if not hasattr(self, 'charges') or not self.charges:
 				if self.sales_quote:
+					self._populate_charges_from_sales_quote_doc()
+				elif cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(
+					self
+				):
 					self._populate_charges_from_sales_quote_doc()
 				elif getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
 					self._populate_charges_from_one_off_quote()
@@ -1597,12 +1828,18 @@ class SeaBooking(Document):
 					# Copy basic charge fields
 					if hasattr(charge, 'charge_item'):
 						new_charge_row.charge_item = charge.charge_item
+					if hasattr(charge, 'item_code'):
+						new_charge_row.item_code = charge.item_code
+					if hasattr(charge, 'item_name'):
+						new_charge_row.item_name = charge.item_name
 					if hasattr(charge, 'charge_name'):
 						new_charge_row.charge_name = charge.charge_name
 					if hasattr(charge, 'charge_type'):
 						new_charge_row.charge_type = charge.charge_type
 					if hasattr(charge, 'charge_category'):
 						new_charge_row.charge_category = charge.charge_category
+					if hasattr(charge, 'service_type') and charge.service_type:
+						new_charge_row.service_type = charge.service_type
 					if hasattr(charge, 'item_tax_template'):
 						new_charge_row.item_tax_template = charge.item_tax_template
 					if hasattr(charge, 'invoice_type'):
@@ -1740,6 +1977,10 @@ class SeaBooking(Document):
 						"eta": leg.eta,
 						"ata": leg.ata
 					})
+
+			from logistics.utils.internal_job_detail_copy import copy_internal_job_details_to_doc
+
+			copy_internal_job_details_to_doc(self, sea_shipment)
 			
 			# Copy milestone_template if it exists
 			if hasattr(self, 'milestone_template') and self.milestone_template:
@@ -1960,12 +2201,12 @@ class SeaBooking(Document):
 				if match:
 					job_no = match.group(1)
 					frappe.throw(
-						_("Unable to create shipment: The system tried to create a Job Costing Number but the shipment document '{0}' was not yet saved. Please try again or contact support if the issue persists.").format(job_no),
+						_("Unable to create shipment: The system tried to create a Job Number but the shipment document '{0}' was not yet saved. Please try again or contact support if the issue persists.").format(job_no),
 						title=_("Conversion Error")
 					)
 				else:
 					frappe.throw(
-						_("Unable to create shipment: There was an issue creating the Job Costing Number. The shipment document may not have been fully saved. Please try again or contact support if the issue persists."),
+						_("Unable to create shipment: There was an issue creating the Job Number. The shipment document may not have been fully saved. Please try again or contact support if the issue persists."),
 						title=_("Conversion Error")
 					)
 			else:
@@ -1991,68 +2232,62 @@ def recalculate_all_charges(docname):
 			"charges_recalculated": charges_recalculated,
 		}
 	except Exception as e:
-		frappe.log_error(str(e), "Sea Booking - Recalculate Charges Error")
+		frappe.log_error(title="Sea Booking - Recalculate Charges Error", message=str(e))
 		frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 
 @frappe.whitelist()
 def get_available_one_off_quotes(sea_booking_name: str = None) -> Dict[str, Any]:
-	"""Get list of One-Off Quotes that are not yet linked to a Sea Booking and not converted.
-	
-	Excludes One-Off Quotes that are:
-	1. Already linked to another Sea Booking
-	2. Already converted (status = "Converted" or converted_to_doc is set)
-	
-	This prevents users from selecting quotes that have already been converted or used.
+	"""Get Link filters for One-off Sales Quotes usable on Sea Booking (single-use rules preserved).
+
+	Eligible quotes must have **Sea** charge lines (unified or legacy), not only ``main_service`` = Sea,
+	so a multi-service one-off can be selected here when sea is priced.
+
+	Excludes quotes already linked to another Sea Booking or already converted.
 	"""
 	try:
-		# Get all One-Off Quotes already linked to Sea Bookings (excluding current booking)
-		used_quotes = frappe.get_all(
+		from logistics.utils.sales_quote_service_eligibility import (
+			converted_one_off_sales_quote_names,
+			one_off_sales_quote_link_filters_for_service,
+		)
+
+		used_rows = frappe.get_all(
 			"Sea Booking",
 			filters={
 				"quote_type": "One-Off Quote",
-				"quote": ["is", "set"],
-				"name": ["!=", sea_booking_name or ""]
+				"name": ["!=", sea_booking_name or ""],
+				"docstatus": ["!=", 2],
+				"is_main_service": 1,
 			},
-			pluck="quote"
+			or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
+			fields=["quote", "sales_quote"],
 		)
-		
-		# Get all converted One-Off Quotes (status = "Converted" or converted_to_doc is set)
-		converted_quotes = frappe.get_all(
-			"One-Off Quote",
-			filters={
-				"status": "Converted"
-			},
-			pluck="name"
-		)
-		
-		# Also get quotes with converted_to_doc set (in case status wasn't updated)
-		quotes_with_conversion = frappe.get_all(
-			"One-Off Quote",
-			filters={
-				"converted_to_doc": ["is", "set"]
-			},
-			pluck="name"
-		)
-		
-		# Combine all excluded quotes
-		excluded_quotes = list(set(used_quotes + converted_quotes + quotes_with_conversion))
-		
-		# Return filter to exclude used and converted quotes
-		filters = {}
-		if excluded_quotes:
-			filters["name"] = ["not in", excluded_quotes]
-		
-		# Also filter to only show Sales Quotes that have sea enabled
-		def _has_field(doctype: str, fieldname: str) -> bool:
-			try:
-				return frappe.get_meta(doctype).has_field(fieldname)
-			except Exception:
-				return False
+		used_quotes = []
+		for row in used_rows:
+			ref = (row.get("quote") or row.get("sales_quote") or "").strip()
+			if ref:
+				used_quotes.append(ref)
 
-		if _has_field("Sales Quote", "main_service"):
-			filters["main_service"] = "Sea"
-		
+		converted_legacy: list[str] = []
+		if frappe.db.exists("DocType", "One-Off Quote"):
+			try:
+				converted_legacy = frappe.get_all(
+					"One-Off Quote",
+					filters={"status": "Converted"},
+					pluck="name",
+				) + frappe.get_all(
+					"One-Off Quote",
+					filters={"converted_to_doc": ["is", "set"]},
+					pluck="name",
+				)
+			except Exception:
+				converted_legacy = []
+
+		excluded_quotes = list(
+			set(used_quotes + converted_legacy + converted_one_off_sales_quote_names())
+		)
+
+		filters = one_off_sales_quote_link_filters_for_service("Sea", excluded_quotes)
 		return {"filters": filters}
 	except Exception as e:
 		frappe.log_error(
@@ -2063,15 +2298,59 @@ def get_available_one_off_quotes(sea_booking_name: str = None) -> Dict[str, Any]
 
 
 @frappe.whitelist()
-def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
+def populate_charges_from_sales_quote(
+	docname: str = None,
+	sales_quote: str = None,
+	is_internal_job: int = None,
+	main_job_type: str = None,
+	main_job: str = None,
+):
 	"""Populate charges from sales_quote. Called from frontend when sales_quote field changes.
 	
 	Returns charge data that can be populated in the frontend.
 	"""
-	if not sales_quote:
-		return {"charges": []}
-	
 	try:
+		doc = None
+		if docname:
+			try:
+				doc = frappe.get_doc("Sea Booking", docname)
+			except Exception:
+				pass
+
+		parent = doc if doc else frappe._dict(
+			doctype="Sea Booking", name=docname, is_internal_job=0, is_main_service=0
+		)
+		if is_internal_job is not None:
+			parent.is_internal_job = cint(is_internal_job)
+		if main_job_type is not None:
+			parent.main_job_type = main_job_type
+		if main_job is not None:
+			parent.main_job = main_job
+
+		if should_apply_internal_job_main_charge_overlay(parent):
+			charges = build_internal_job_sea_booking_charge_dicts(parent)
+			ij_detail_payload = []
+			if sales_quote and frappe.db.exists("Sales Quote", sales_quote):
+				sq_doc = frappe.get_doc("Sales Quote", sales_quote)
+				from logistics.utils.sync_internal_job_details_from_sales_quote import (
+					build_internal_job_details_payload_for_quote_response,
+				)
+
+				ij_detail_payload = build_internal_job_details_payload_for_quote_response(
+					"Sea Booking", doc, sq_doc
+				)
+			return {
+				"charges": charges,
+				"charges_count": len(charges),
+				"internal_job_charge_overlay_applied": True,
+				"source": "main_service",
+				"routing_legs": routing_legs_for_api_response(sales_quote, doc) if sales_quote else [],
+				"internal_job_details": ij_detail_payload,
+			}
+
+		if not sales_quote:
+			return {"charges": []}
+
 		# Temporary names (unsaved documents) cannot be fetched
 		if sales_quote.startswith("new-"):
 			return {
@@ -2084,16 +2363,18 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 				"error": f"Sales Quote {sales_quote} does not exist",
 				"charges": []
 			}
-		
-		# Get the document if it exists (for getting weight/volume/containers/packages)
-		doc = None
-		if docname:
-			try:
-				doc = frappe.get_doc("Sea Booking", docname)
-			except Exception:
-				pass
-		
-		# Fetch from Sales Quote Charge (Sea) or Sales Quote Sea Freight (legacy)
+
+		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
+		from logistics.utils.sync_internal_job_details_from_sales_quote import (
+			build_internal_job_details_payload_for_quote_response,
+		)
+
+		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
+			"Sea Booking", doc, sales_quote_doc
+		)
+		filters = sales_quote_charge_filters(parent, sales_quote_doc)
+
+		# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 		charge_fields = [
 			"name",
 			"item_code",
@@ -2108,11 +2389,33 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 			"maximum_charge",
 			"base_amount",
 			"estimated_revenue",
-			"charge_type"
+			"charge_type",
+			"charge_category",  # Include charge_category
+			"bill_to",  # Include bill_to
+			"pay_to",  # Include pay_to
+			"service_type",  # Include service_type to identify charge types
+			# Cost fields (only include fields that exist in Sales Quote Charge)
+			"cost_calculation_method",
+			"unit_cost",
+			"cost_unit_type",
+			"cost_currency",
+			"cost_quantity",
+			"cost_minimum_quantity",
+			"cost_minimum_charge",
+			"cost_maximum_charge",
+			"cost_base_amount",
+			"cost_uom",
+			"estimated_cost",
+			"use_tariff_in_revenue",
+			"use_tariff_in_cost",
+			"tariff",
+			"revenue_tariff",
+			"cost_tariff"
 		]
+		
 		sales_quote_sea_freight_records = frappe.get_all(
 			"Sales Quote Charge",
-			filters={"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Sea"},
+			filters=filters,
 			fields=charge_fields,
 			order_by="idx"
 		)
@@ -2127,7 +2430,10 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 		if not sales_quote_sea_freight_records:
 			return {
 				"charges": [],
-				"message": f"No sea freight charges found in Sales Quote: {sales_quote}"
+				"message": f"No sea freight charges found in Sales Quote: {sales_quote}",
+				"customer": sales_quote_doc.customer,
+				"routing_legs": routing_legs_for_api_response(sales_quote, doc),
+				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Map and populate charges
@@ -2154,7 +2460,10 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 		
 		return {
 			"charges": charges,
-			"charges_count": len(charges)
+			"charges_count": len(charges),
+			"customer": sales_quote_doc.customer,
+			"routing_legs": routing_legs_for_api_response(sales_quote, doc),
+			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:

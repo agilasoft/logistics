@@ -32,3 +32,31 @@ window.logistics_load_documents_html = function (frm, doctype) {
 		}, 2000);
 	});
 };
+
+// Defensive patch: some forms can carry table controls whose grid pagination is not initialized
+// yet at switch time, which crashes Form.switch_doc on go_to_page(). Initialize lazily first.
+(function patch_form_switch_doc_for_grid_pagination() {
+	if (!frappe || !frappe.ui || !frappe.ui.form || !frappe.ui.form.Form) return;
+	const Form = frappe.ui.form.Form;
+	if (Form.__logistics_switch_doc_patched) return;
+
+	const original_switch_doc = Form.prototype.switch_doc;
+	if (typeof original_switch_doc !== "function") return;
+
+	Form.prototype.switch_doc = function (docname) {
+		(this.grids || []).forEach((grid_obj) => {
+			const grid = grid_obj && grid_obj.grid;
+			if (!grid) return;
+			if (!grid.grid_pagination && typeof grid.setup_grid_pagination === "function") {
+				try {
+					grid.setup_grid_pagination();
+				} catch (e) {
+					// Keep original flow; this is only a best-effort initializer.
+				}
+			}
+		});
+		return original_switch_doc.call(this, docname);
+	};
+
+	Form.__logistics_switch_doc_patched = true;
+})();

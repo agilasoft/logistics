@@ -255,7 +255,8 @@
    "fieldname": "default_telematics_provider",
    "fieldtype": "Link",
    "label": "Default Telematics Provider",
-   "options": "Telematics Provider"
+   "options": "Telematics Provider",
+   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "telematics_poll_interval_min",
@@ -394,7 +395,7 @@
    "depends_on": "eval:in_list(['Volume-Based', 'Volume and Weight Combined'], doc.default_loading_time_calculation_method)",
    "fieldname": "default_loading_time_per_volume_m3",
    "fieldtype": "Float",
-   "label": "Default Loading Time per m³ (minutes)",
+   "label": "Default Loading Time per m\u00b3 (minutes)",
    "description": "Default additional minutes per cubic meter of volume"
   },
   {
@@ -425,7 +426,7 @@
    "depends_on": "eval:in_list(['Volume-Based', 'Volume and Weight Combined'], doc.default_unloading_time_calculation_method)",
    "fieldname": "default_unloading_time_per_volume_m3",
    "fieldtype": "Float",
-   "label": "Default Unloading Time per m³ (minutes)",
+   "label": "Default Unloading Time per m\u00b3 (minutes)",
    "description": "Default additional minutes per cubic meter of volume"
   },
   {
@@ -532,28 +533,31 @@
    "fieldtype": "Link",
    "label": "Default Weight UOM",
    "options": "UOM",
-   "description": "Default UOM for weight in Sales Quote Transport tab and transport-related doctypes"
+   "description": "Default UOM for weight in Sales Quote Transport tab and transport-related doctypes",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
    "options": "UOM",
-   "description": "Default UOM for volume in Sales Quote Transport tab and transport-related doctypes"
+   "description": "Default UOM for volume in Sales Quote Transport tab and transport-related doctypes",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_chargeable_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable UOM",
    "options": "UOM",
-   "description": "Default UOM for chargeable weight in Sales Quote Transport tab and transport-related doctypes"
+   "description": "Default UOM for chargeable weight in Sales Quote Transport tab and transport-related doctypes",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "default": "3000",
    "fieldname": "volume_to_weight_divisor",
    "fieldtype": "Float",
    "label": "Volume to Weight Divisor",
-   "description": "Divisor for calculating volume weight. Formula: volume_weight = volume (m³) × 1,000,000 / divisor. Default: 3000 (common road transport standard = 333 kg/m³)"
+   "description": "Divisor for calculating volume weight. Formula: volume_weight = volume (m\u00b3) \u00d7 1,000,000 / divisor. Default: 3000 (common road transport standard = 333 kg/m\u00b3)"
   }
  ],
  "grid_page_length": 50,

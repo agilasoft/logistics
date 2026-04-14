@@ -2,18 +2,22 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Transport Order Charges", {
+	charge_type: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (row && row.charge_type === "Disbursement") {
+			_calculate_charge_row(frm, cdt, cdn);
+		}
+	},
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	uom: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	currency: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	minimum_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	minimum_unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	minimum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	maximum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	base_amount: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	base_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_uom: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -21,11 +25,9 @@ frappe.ui.form.on("Transport Order Charges", {
 	unit_cost: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_minimum_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	cost_minimum_unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_minimum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	cost_base_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	// Weight Break / Qty Break handlers in charge_break_buttons.js
 });
 
@@ -56,6 +58,9 @@ function _calculate_charge_row(frm, cdt, cdn) {
 				}
 				if ("cost_calc_notes" in r.message) {
 					frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
+				}
+				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
 				}
 			}
 		}

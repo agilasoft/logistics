@@ -7,10 +7,13 @@
  "engine": "InnoDB",
  "field_order": [
   "item_code",
+  "service_type",
   "charge_type",
   "charge_category",
   "item_name",
   "sales_quote_link",
+  "change_request",
+  "change_request_charge",
   "uom",
   "quantity",
   "column_break_ghkh",
@@ -20,7 +23,9 @@
   "standard_unit_cost",
   "total_standard_cost",
   "estimated_revenue",
+  "actual_revenue",
   "estimated_cost",
+  "actual_cost",
   "section_break_rxdj",
   "calculation_notes",
   "standard_cost_posted",
@@ -29,7 +34,11 @@
   "purchase_invoice_status",
   "purchase_invoice",
   "sales_invoice_status",
-  "sales_invoice"
+  "sales_invoice",
+  "wip_recognition_journal_entry",
+  "accrual_recognition_journal_entry",
+  "wip_adjustment_journal_entry",
+  "accrual_adjustment_journal_entry"
  ],
  "fields": [
   {
@@ -42,7 +51,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "columns": 1,
@@ -57,7 +67,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "columns": 1,
@@ -78,8 +89,16 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_warehousing_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
+  },
+  {
+   "columns": 1,
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
   },
   {
    "fetch_from": "item_code.item_name",
@@ -123,9 +142,21 @@
    "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "label": "Actual Revenue",
+   "read_only_depends_on": "eval:doc.charge_type && ['Cost','Disbursement'].includes(doc.charge_type)"
+  },
+  {
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
    "label": "Estimated Cost",
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Cost",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -193,10 +224,60 @@
    "read_only": 1
   },
   {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that posted WIP for this charge line (if any).",
+   "fieldname": "wip_recognition_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Recognition JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that posted cost accrual for this charge line (if any).",
+   "fieldname": "accrual_recognition_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Recognition JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that adjusted or reversed WIP for this charge line (if any).",
+   "fieldname": "wip_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Journal Entry that adjusted or reversed cost accrual for this charge line (if any).",
+   "fieldname": "accrual_adjustment_journal_entry",
+   "fieldtype": "Link",
+   "label": "Accrual Adjustment JE",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
    "fieldname": "sales_quote_link",
    "fieldtype": "Link",
    "label": "Sales Quote Link",
    "options": "Sales Quote"
+  },
+  {
+   "fieldname": "change_request",
+   "fieldtype": "Link",
+   "label": "Change Request",
+   "options": "Change Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "change_request_charge",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Change Request Charge Row",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

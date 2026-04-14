@@ -15,7 +15,6 @@
   "amended_from",
   "naming_series",
   "declaration_date",
-  "sales_quote",
   "customer",
   "column_break_1",
   "declaration_order",
@@ -23,8 +22,10 @@
   "currency",
   "exchange_rate",
   "status",
+  "job_status",
   "column_break_pemj",
   "customs_broker",
+  "freight_agent",
   "notify_party",
   "notify_party_address",
   "section_break_customs",
@@ -37,10 +38,6 @@
   "column_break_knri",
   "declaration_type",
   "transport_mode",
-  "column_break_pwce",
-  "air_shipment",
-  "sea_shipment",
-  "transport_order",
   "section_break_transport",
   "column_break_transport",
   "vessel_flight_number",
@@ -80,8 +77,8 @@
   "incoterm_place",
   "inv_incoterm",
   "column_break_zsjh",
-  "inv_total_amount",
   "inv_currency",
+  "inv_total_amount",
   "inv_exchange_rate",
   "balance",
   "invoice_details_section",
@@ -115,8 +112,8 @@
   "lc_ex_rate",
   "column_break_lirr",
   "payment_number",
-  "payment_amount",
   "payment_ex_rate",
+  "payment_amount",
   "section_break_invoice_charges",
   "commercial_invoice_charges",
   "section_break_processing",
@@ -160,57 +157,54 @@
   "milestone_template",
   "milestones",
   "charges_tab",
-  "charges_section",
-  "charges",
-  "profitability_section_break",
-  "profitability_section_html",
-  "accounts_tab",
+  "column_break_logistics_reps",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "billing_company",
-  "job_costing_number",
   "project",
-  "invoice_monitoring_section",
-  "sales_invoice",
-  "purchase_invoice",
-  "fully_invoiced",
-  "date_fully_invoiced",
-  "fully_paid",
-  "date_fully_paid",
-  "column_break_invoice_lifecycle",
-  "date_sales_invoice_requested",
-  "date_sales_invoice_submitted",
-  "date_purchase_invoice_requested",
-  "date_purchase_invoice_submitted",
-  "costs_fully_paid",
-  "date_costs_fully_paid",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "charges_locked",
+  "charges_reopen_mode",
+  "charges_section",
+  "charges",
+  "profitability_section_break",
+  "profitability_section_html",
   "recognition_section",
   "wip_recognition_enabled",
-  "wip_recognition_date_basis",
   "accrual_recognition_enabled",
-  "accrual_recognition_date_basis",
+  "recognition_policy_reference",
+  "recognition_date_basis",
   "recognition_date",
   "column_break_recognition",
   "estimated_revenue",
   "wip_amount",
   "recognized_revenue",
   "wip_journal_entry",
-  "wip_adjustment_journal_entry",
   "wip_closed",
   "column_break_accrual",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
-  "accrual_journal_entry",
-  "accrual_adjustment_journal_entry",
   "accrual_closed",
+  "section_break_puec",
+  "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "more_info_tab",
   "notes_section",
   "internal_notes",
-  "column_break_parties",
+  "column_break_kasq",
   "external_notes",
   "sustainability_section",
   "estimated_paper_usage",
@@ -258,6 +252,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
    "reqd": 1
   },
@@ -280,17 +275,52 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Customs\"]]",
-   "options": "Sales Quote"
+   "options": "Sales Quote",
+   "search_index": 1
   },
   {
-   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
-   "fetch_from": "sales_quote.company",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
-   "read_only": 1
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service"
+  },
+  {
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "declaration_order",
@@ -303,6 +333,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
    "options": "Customs Authority",
    "reqd": 1
   },
@@ -315,6 +346,19 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Draft\nSubmitted\nUnder Review\nCleared\nReleased\nRejected\nCancelled",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Draft",
+   "description": "Billing/charge lifecycle (same options as Transport Job). Synced from customs Status where possible. Drives Reopen Job / Close Job.",
+   "fieldname": "job_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Status",
+   "length": 20,
+   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nClosed\nReopened\nCancelled",
    "read_only": 1,
    "reqd": 1
   },
@@ -338,12 +382,14 @@
    "fieldname": "declaration_value",
    "fieldtype": "Currency",
    "label": "Total Declaration Value",
+   "options": "currency",
    "read_only": 1
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency"
   },
   {
@@ -363,35 +409,31 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "column_break_pwce",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "exporter_shipper",
    "fieldtype": "Link",
    "label": "Exporter/Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper"
   },
   {
    "fieldname": "importer_consignee",
    "fieldtype": "Link",
    "label": "Importer/Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee"
-  },
-  {
-   "fieldname": "column_break_parties",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "customs_broker",
    "fieldtype": "Link",
-   "label": "Customs Broker/Agent",
-   "options": "Supplier"
+   "label": "Customs Broker",
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "notify_party",
    "fieldtype": "Link",
    "label": "Notify Party",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
   },
   {
@@ -406,27 +448,6 @@
    "label": "Transport Information"
   },
   {
-   "description": "Trace customs to air freight",
-   "fieldname": "air_shipment",
-   "fieldtype": "Link",
-   "label": "Air Shipment",
-   "options": "Air Shipment"
-  },
-  {
-   "description": "Trace customs to sea freight",
-   "fieldname": "sea_shipment",
-   "fieldtype": "Link",
-   "label": "Sea Shipment",
-   "options": "Sea Shipment"
-  },
-  {
-   "description": "Trace customs to domestic transport",
-   "fieldname": "transport_order",
-   "fieldtype": "Link",
-   "label": "Transport Order",
-   "options": "Transport Order"
-  },
-  {
    "fieldname": "transport_mode",
    "fieldtype": "Select",
    "label": "Transport Mode",
@@ -436,12 +457,14 @@
    "fieldname": "port_of_loading",
    "fieldtype": "Link",
    "label": "Port of Loading/Entry",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
    "fieldname": "port_of_discharge",
    "fieldtype": "Link",
    "label": "Port of Discharge/Exit",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
@@ -469,9 +492,9 @@
   },
   {
    "fieldname": "transport_document_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Transport Document Type",
-   "options": "Bill of Lading\nAir Waybill\nCMR\nRailway Bill\nCourier Receipt\nOther"
+   "options": "Transport Document Type"
   },
   {
    "fieldname": "etd",
@@ -576,6 +599,7 @@
    "fieldname": "processing_officer",
    "fieldtype": "Link",
    "label": "Processing Officer",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
    "options": "User"
   },
   {
@@ -623,7 +647,8 @@
    "fieldname": "payment_status",
    "fieldtype": "Select",
    "label": "Payment Status",
-   "options": "Pending\nPartially Paid\nPaid\nOverdue"
+   "options": "Pending\nPartially Paid\nPaid\nOverdue",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -663,10 +688,6 @@
    "label": "Internal Notes"
   },
   {
-   "fieldname": "column_break_parties",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "external_notes",
    "fieldtype": "Text Editor",
    "label": "External Notes"
@@ -693,12 +714,14 @@
   {
    "fieldname": "inv_total_amount",
    "fieldtype": "Currency",
-   "label": "Invoice Total"
+   "label": "Invoice Total",
+   "options": "inv_currency"
   },
   {
    "fieldname": "inv_currency",
    "fieldtype": "Link",
-   "label": "Curr.",
+   "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency"
   },
   {
@@ -764,6 +787,7 @@
    "fieldname": "inv_importer",
    "fieldtype": "Link",
    "label": "Importer",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee"
   },
   {
@@ -775,6 +799,7 @@
    "fieldname": "inv_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -873,7 +898,8 @@
   {
    "fieldname": "payment_amount",
    "fieldtype": "Currency",
-   "label": "Payment Amount"
+   "label": "Payment Amount",
+   "options": "inv_currency"
   },
   {
    "fieldname": "payment_ex_rate",
@@ -889,6 +915,7 @@
    "fieldname": "inv_gross_weight_uom",
    "fieldtype": "Link",
    "label": "Inv. Gross Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -900,6 +927,7 @@
    "fieldname": "inv_net_weight_uom",
    "fieldtype": "Link",
    "label": "Inv. Net Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -911,6 +939,7 @@
    "fieldname": "packages_uom",
    "fieldtype": "Link",
    "label": "Packages UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -942,20 +971,8 @@
    "label": "Charges"
   },
   {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break",
-   "label": "Charges"
-  },
-  {
-   "fieldname": "charges",
-   "fieldtype": "Table",
-   "label": "Charges",
-   "options": "Declaration Charges"
-  },
-  {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "company",
@@ -975,7 +992,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
    "reqd": 1
   },
@@ -991,104 +1008,77 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "This will be used when posting financial transactions to this declaration.",
-   "fieldname": "job_costing_number",
-   "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
-  },
-  {
    "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
    "options": "Project"
   },
   {
-   "collapsible": 1,
-   "fieldname": "invoice_monitoring_section",
-   "fieldtype": "Section Break",
-   "label": "Invoice Monitoring"
-  },
-  {
-   "fieldname": "sales_invoice",
+   "description": "This will be used when posting financial transactions to this declaration.",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Sales Invoice",
-   "options": "Sales Invoice",
-   "read_only": 1
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
-   "fieldname": "purchase_invoice",
-   "fieldtype": "Link",
-   "label": "Purchase Invoice",
-   "options": "Purchase Invoice",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_invoiced",
-   "fieldtype": "Check",
-   "label": "Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_invoiced",
-   "fieldtype": "Date",
-   "label": "Date Fully Invoiced",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "fully_paid",
-   "fieldtype": "Check",
-   "label": "Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "date_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Fully Paid",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_invoice_lifecycle",
+   "fieldname": "column_break_yhuu",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "date_sales_invoice_requested",
-   "fieldtype": "Date",
-   "label": "SI Requested",
-   "read_only": 1
+   "fetch_from": "declaration_order.sales_rep",
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
-   "fieldname": "date_sales_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "SI Submitted",
-   "read_only": 1
+   "fetch_from": "declaration_order.operations_rep",
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
-   "fieldname": "date_purchase_invoice_requested",
-   "fieldtype": "Date",
-   "label": "PI Requested",
-   "read_only": 1
+   "fetch_from": "declaration_order.customer_service_rep",
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
   },
   {
-   "fieldname": "date_purchase_invoice_submitted",
-   "fieldtype": "Date",
-   "label": "PI Submitted",
-   "read_only": 1
-  },
-  {
+   "allow_on_submit": 1,
    "default": "0",
-   "fieldname": "costs_fully_paid",
+   "description": "Legacy. Charge lock uses Job Status (Completed/Closed).",
+   "fieldname": "charges_locked",
    "fieldtype": "Check",
-   "label": "Costs Fully Paid",
-   "read_only": 1
+   "label": "Charges Locked"
   },
   {
-   "fieldname": "date_costs_fully_paid",
-   "fieldtype": "Date",
-   "label": "Date Costs Paid",
+   "allow_on_submit": 1,
+   "default": "0",
+   "description": "Internal: set after Reopen Job; cleared with Close Job.",
+   "fieldname": "charges_reopen_mode",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Charges Reopen Mode"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "New charges must be added via Create Change Request. You can still adjust Estimated Revenue and Estimated Cost on existing lines.",
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Declaration Charges",
    "read_only": 1
   },
   {
@@ -1101,31 +1091,37 @@
    "default": "0",
    "fieldname": "wip_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable WIP Recognition"
-  },
-  {
-   "fieldname": "wip_recognition_date_basis",
-   "fieldtype": "Select",
-   "label": "WIP Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Enable WIP Recognition",
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "accrual_recognition_enabled",
    "fieldtype": "Check",
-   "label": "Enable Accrual Recognition"
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
   },
   {
-   "fieldname": "accrual_recognition_date_basis",
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
    "fieldtype": "Select",
-   "label": "Accrual Recognition Date Basis",
-   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified"
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
   },
   {
-   "description": "Used when date basis is 'User Specified'",
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
    "fieldname": "recognition_date",
    "fieldtype": "Date",
-   "label": "Recognition Date"
+   "label": "Recognition Date",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_recognition",
@@ -1157,13 +1153,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "wip_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "WIP Adjustment JE",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
    "default": "0",
    "fieldname": "wip_closed",
    "fieldtype": "Check",
@@ -1190,20 +1179,6 @@
    "fieldname": "recognized_costs",
    "fieldtype": "Currency",
    "label": "Recognized Costs",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Journal Entry",
-   "options": "Journal Entry",
-   "read_only": 1
-  },
-  {
-   "fieldname": "accrual_adjustment_journal_entry",
-   "fieldtype": "Link",
-   "label": "Accrual Adjustment JE",
-   "options": "Journal Entry",
    "read_only": 1
   },
   {
@@ -1395,6 +1370,7 @@
    "fieldname": "exporter",
    "fieldtype": "Link",
    "label": "Exporter",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper"
   },
   {
@@ -1421,6 +1397,23 @@
    "fieldname": "importer_name",
    "fieldtype": "Data",
    "label": "Importer Name"
+  },
+  {
+   "fieldname": "column_break_kasq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_puec",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   }
  ],
  "grid_page_length": 50,
@@ -1430,16 +1423,16 @@
   {
    "group": "Accounts",
    "link_doctype": "Sales Invoice",
-   "link_fieldname": "job_costing_number"
+   "link_fieldname": "job_number"
   },
   {
    "group": "Accounts",
-   "link_doctype": "Job Costing Number",
+   "link_doctype": "Job Number",
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-03-13 15:06:34.604196",
- "modified_by": "Administrator",
+ "modified": "2026-04-14 14:50:50.477232",
+ "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Declaration",
  "naming_rule": "By \"Naming Series\" field",

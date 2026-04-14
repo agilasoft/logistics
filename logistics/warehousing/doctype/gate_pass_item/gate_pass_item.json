@@ -57,7 +57,8 @@
    "in_list_view": 1,
    "label": "UOM",
    "options": "UOM",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_location",

@@ -24,7 +24,8 @@
    "in_list_view": 1,
    "label": "Container",
    "options": "Container",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "movement_type",

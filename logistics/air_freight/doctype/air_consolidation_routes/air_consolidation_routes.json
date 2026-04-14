@@ -79,7 +79,8 @@
    "in_list_view": 1,
    "label": "Origin Airport",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_airport",
@@ -87,7 +88,8 @@
    "in_list_view": 1,
    "label": "Destination Airport",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",
@@ -99,7 +101,8 @@
    "in_list_view": 1,
    "label": "Airline",
    "options": "Airline",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "flight_number",

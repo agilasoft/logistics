@@ -48,7 +48,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Billing UOM",
-   "link_filters": "[[\"UOM\",\"custom_storage_uom\",\"=\",1]]",
+   "link_filters": "[[\"UOM\", \"custom_storage_uom\", \"=\", 1], [\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {
@@ -132,7 +132,7 @@
    "fieldname": "capacity_uom",
    "fieldtype": "Link",
    "label": "Capacity UOM",
-   "link_filters": "[[\"UOM\",\"custom_storage_uom\",\"=\",1]]",
+   "link_filters": "[[\"UOM\", \"custom_storage_uom\", \"=\", 1], [\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
   },
   {

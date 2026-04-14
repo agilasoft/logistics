@@ -128,6 +128,19 @@ def update_job_on_sales_invoice_submit(si_doc):
                 "Invoice Integration Error",
             )
     update_charge_rows_for_sales_invoice(si_doc.name, "Posted")
+    try:
+        from logistics.invoice_integration.wip_reversal import reverse_wip_for_sales_invoice
+
+        reverse_wip_for_sales_invoice(si_doc)
+    except Exception as e:
+        frappe.log_error(
+            title="WIP reversal on Sales Invoice submit",
+            message=frappe.get_traceback(),
+        )
+        frappe.msgprint(
+            _("WIP reversal could not be posted: {0}").format(str(e)),
+            indicator="orange",
+        )
     frappe.db.commit()
 
 
@@ -241,6 +254,21 @@ def update_job_on_purchase_invoice_submit(pi_doc):
                 "Invoice Integration Error",
             )
     update_charge_rows_for_purchase_invoice(pi_doc.name, "Posted")
+    try:
+        from logistics.invoice_integration.accrual_reversal import (
+            reverse_cost_accrual_for_purchase_invoice,
+        )
+
+        reverse_cost_accrual_for_purchase_invoice(pi_doc)
+    except Exception as e:
+        frappe.log_error(
+            title="Accrual reversal on Purchase Invoice submit",
+            message=frappe.get_traceback(),
+        )
+        frappe.msgprint(
+            _("Accrual reversal could not be posted: {0}").format(str(e)),
+            indicator="orange",
+        )
     frappe.db.commit()
 
 
@@ -341,11 +369,12 @@ def _get_estimated_revenue(job) -> float:
     if not charges_field:
         return 0
     for row in job.get(charges_field) or []:
+        line_rate = flt(getattr(row, "rate", None) or getattr(row, "unit_rate", None) or 0)
+        qty = flt(getattr(row, "quantity", 1) or 1)
         amt = flt(
             getattr(row, "estimated_revenue", None)
-            or getattr(row, "unit_rate", None) * flt(getattr(row, "quantity", 1))
+            or (line_rate * qty if line_rate else 0)
             or getattr(row, "selling_amount", None)
-            or getattr(row, "rate", None) * flt(getattr(row, "quantity", 1))
             or getattr(row, "total", None),
             0,
         )

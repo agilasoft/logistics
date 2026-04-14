@@ -897,7 +897,7 @@ def fetch_matching_jobs(consolidation_name: str):
 	- Within weight/volume limits
 	- Compatible vehicle types
 	- No conflicting requirements
-	- No conflicting checkbox between hazardous and refrigeration
+	- No conflicting checkbox between dangerous goods and refrigeration
 	
 	The system will automatically modify pick_consolidated=1 and drop_consolidated=1 on Transport Legs.
 	"""
@@ -965,7 +965,7 @@ def fetch_matching_jobs(consolidation_name: str):
 			"Transport Job",
 			filters=filters,
 			fields=["name", "transport_template", "transport_job_type", "load_type", 
-			        "vehicle_type", "hazardous", "refrigeration", "scheduled_date", "booking_date", "company"],
+			        "vehicle_type", "contains_dangerous_goods", "refrigeration", "scheduled_date", "booking_date", "company"],
 			order_by="creation desc"
 		)
 		
@@ -999,11 +999,11 @@ def fetch_matching_jobs(consolidation_name: str):
 		elif consolidation.consolidation_date:
 			reference_date = getdate(consolidation.consolidation_date)
 		
-		# Track reference hazardous/refrigeration values (from reference job or first valid job)
-		reference_hazardous = None
+		# Track reference dangerous goods / refrigeration values (from reference job or first valid job)
+		reference_contains_dg = None
 		reference_refrigeration = None
 		if reference_job:
-			reference_hazardous = reference_job.hazardous
+			reference_contains_dg = reference_job.contains_dangerous_goods
 			reference_refrigeration = reference_job.refrigeration
 		
 		for job_data in matching_jobs:
@@ -1025,17 +1025,17 @@ def fetch_matching_jobs(consolidation_name: str):
 					# Allow different vehicle types but warn
 					pass  # Will be handled by validation
 			
-			# Check conflicting requirements (hazardous and refrigeration)
-			# Jobs with hazardous and refrigeration must match exactly
-			if reference_hazardous is None:
+			# Check conflicting requirements (dangerous goods and refrigeration)
+			# Jobs with dangerous goods and refrigeration must match exactly
+			if reference_contains_dg is None:
 				# No reference yet - use first job's values as reference
-				# This ensures all fetched jobs have the same hazardous/refrigeration requirements
-				reference_hazardous = job_data.hazardous
+				# This ensures all fetched jobs have the same dangerous goods / refrigeration requirements
+				reference_contains_dg = job_data.contains_dangerous_goods
 				reference_refrigeration = job_data.refrigeration
 			else:
 				# Compare with reference values
-				if reference_hazardous != job_data.hazardous:
-					continue  # Cannot mix hazardous and non-hazardous
+				if reference_contains_dg != job_data.contains_dangerous_goods:
+					continue  # Cannot mix dangerous goods and non-DG jobs
 				if reference_refrigeration != job_data.refrigeration:
 					continue  # Cannot mix refrigeration and non-refrigeration
 			
@@ -2003,7 +2003,7 @@ def get_consolidatable_legs(job_names: list = None, company: str = None, fetch_a
 		leg_fields = [
 			"name", "transport_job", "status", "pick_address", "drop_address",
 			"facility_type_from", "facility_from", "facility_type_to", "facility_to",
-			"date", "run_date", "order", "vehicle_type", "hazardous"
+			"date", "run_date", "order", "vehicle_type", "contains_dangerous_goods"
 		]
 		
 		# Add consolidation fields if they exist

@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:company",
- "creation": "2025-01-27 10:00:00.000000",
+ "creation": "2025-01-27 10:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -23,6 +23,15 @@
   "default_declaration_status",
   "enable_declaration_amendments",
   "max_amendment_count",
+  "permits_exemptions_section",
+  "block_submit_if_required_permit_not_obtained",
+  "block_submit_if_permit_expired",
+  "permit_expiring_warn_days",
+  "column_break_permits_exemptions",
+  "block_submit_if_permit_expires_within_days",
+  "block_submit_if_exemption_cert_invalid",
+  "block_submit_if_exemption_cert_not_active",
+  "block_submit_if_exemption_cert_expired",
   "workflow_settings_section",
   "enable_approval_workflow",
   "require_approval_for_submission",
@@ -91,13 +100,15 @@
    "fieldname": "default_customs_authority",
    "fieldtype": "Link",
    "label": "Default Customs Authority",
-   "options": "Customs Authority"
+   "options": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "default_currency",
    "fieldtype": "Link",
    "label": "Default Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_general",
@@ -107,7 +118,7 @@
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
@@ -167,6 +178,64 @@
    "fieldname": "max_amendment_count",
    "fieldtype": "Int",
    "label": "Maximum Amendment Count"
+  },
+  {
+   "fieldname": "permits_exemptions_section",
+   "fieldtype": "Section Break",
+   "label": "Permits and Exemptions (Declaration Submit)"
+  },
+  {
+   "default": "1",
+   "description": "Prevent submit when a required permit is not obtained (linked Permit Application status must be Approved or Renewed).",
+   "fieldname": "block_submit_if_required_permit_not_obtained",
+   "fieldtype": "Check",
+   "label": "Block Submit if Required Permit Not Obtained"
+  },
+  {
+   "default": "1",
+   "description": "Prevent submit when an obtained permit is past its expiry date.",
+   "fieldname": "block_submit_if_permit_expired",
+   "fieldtype": "Check",
+   "label": "Block Submit if Permit Expired"
+  },
+  {
+   "default": "7",
+   "description": "Show a non-blocking warning when an obtained permit expires within this many days (unless Block if Permit Expires Within Days applies).",
+   "fieldname": "permit_expiring_warn_days",
+   "fieldtype": "Int",
+   "label": "Permit Expiring Warning (Days)"
+  },
+  {
+   "fieldname": "column_break_permits_exemptions",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "If greater than zero, block submit when an obtained permit's expiry falls within this many days from today (expired permits use Block if Permit Expired).",
+   "fieldname": "block_submit_if_permit_expires_within_days",
+   "fieldtype": "Int",
+   "label": "Block Submit if Permit Expires Within (Days)"
+  },
+  {
+   "default": "1",
+   "description": "Prevent submit when a linked Exemption Certificate record is missing.",
+   "fieldname": "block_submit_if_exemption_cert_invalid",
+   "fieldtype": "Check",
+   "label": "Block Submit if Exemption Certificate Invalid"
+  },
+  {
+   "default": "1",
+   "description": "Prevent submit when the Exemption Certificate status is not Active.",
+   "fieldname": "block_submit_if_exemption_cert_not_active",
+   "fieldtype": "Check",
+   "label": "Block Submit if Exemption Certificate Not Active"
+  },
+  {
+   "default": "1",
+   "description": "Prevent submit when the Exemption Certificate valid-to date is in the past.",
+   "fieldname": "block_submit_if_exemption_cert_expired",
+   "fieldtype": "Check",
+   "label": "Block Submit if Exemption Certificate Expired"
   },
   {
    "fieldname": "workflow_settings_section",
@@ -268,8 +337,8 @@
    "label": "Require Document Attachments"
   },
   {
-   "depends_on": "eval:doc.enable_compliance_tracking",
    "default": "30",
+   "depends_on": "eval:doc.enable_compliance_tracking",
    "fieldname": "document_expiry_alert_days",
    "fieldtype": "Int",
    "label": "Document Expiry Alert Days"
@@ -286,8 +355,8 @@
    "label": "Enable Compliance Alerts"
   },
   {
-   "depends_on": "eval:doc.enable_compliance_alerts",
    "default": "24",
+   "depends_on": "eval:doc.enable_compliance_alerts",
    "fieldname": "compliance_check_interval_hours",
    "fieldtype": "Int",
    "label": "Compliance Check Interval (Hours)"
@@ -315,7 +384,7 @@
    "fieldname": "default_cost_calculation_method",
    "fieldtype": "Select",
    "label": "Default Cost Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based"
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
   },
   {
    "fieldname": "column_break_calculation",
@@ -395,8 +464,8 @@
    "label": "Enable Sustainability Tracking"
   },
   {
-   "depends_on": "eval:doc.enable_sustainability_tracking",
    "default": "5",
+   "depends_on": "eval:doc.enable_sustainability_tracking",
    "fieldname": "default_paper_usage_factor",
    "fieldtype": "Float",
    "label": "Default Paper Usage Factor (pages)"
@@ -406,8 +475,8 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.enable_sustainability_tracking",
    "default": "0.1",
+   "depends_on": "eval:doc.enable_sustainability_tracking",
    "fieldname": "default_carbon_factor",
    "fieldtype": "Float",
    "label": "Default Carbon Factor (kg CO2e)"
@@ -451,7 +520,7 @@
   }
  ],
  "links": [],
- "modified": "2025-01-27 10:00:00.000000",
+ "modified": "2026-03-25 18:24:18.100359",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Customs Settings",
@@ -477,5 +546,3 @@
  "sort_order": "DESC",
  "states": []
 }
-
-

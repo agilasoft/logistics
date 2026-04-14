@@ -62,6 +62,7 @@
   "require_dg_declaration",
   "require_customs_declaration",
   "default_uld_type",
+  "default_load_type",
   "consolidation_settings_section",
   "default_consolidation_type",
   "auto_assign_to_consolidation",
@@ -100,7 +101,8 @@
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_general",
@@ -116,7 +118,8 @@
    "fieldname": "default_currency",
    "fieldtype": "Link",
    "label": "Default Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "default_incoterm",
@@ -128,7 +131,8 @@
    "fieldname": "default_service_level",
    "fieldtype": "Link",
    "label": "Default Service Level",
-   "options": "Service Level Agreement"
+   "options": "Service Level Agreement",
+   "link_filters": "[[\"Service Level Agreement\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "location_settings_section",
@@ -139,13 +143,15 @@
    "fieldname": "default_origin_airport",
    "fieldtype": "Link",
    "label": "Default Origin Airport",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "default_destination_airport",
    "fieldtype": "Link",
    "label": "Default Destination Airport",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_location",
@@ -156,14 +162,16 @@
    "fieldname": "default_origin_port",
    "fieldtype": "Link",
    "label": "Default Origin Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "description": "Default destination port UNLOCO code",
    "fieldname": "default_destination_port",
    "fieldtype": "Link",
    "label": "Default Destination Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "business_settings_section",
@@ -174,13 +182,15 @@
    "fieldname": "default_airline",
    "fieldtype": "Link",
    "label": "Default Airline",
-   "options": "Airline"
+   "options": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent",
-   "options": "Freight Agent"
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_business",
@@ -196,7 +206,7 @@
    "default": "1",
    "fieldname": "auto_create_job_costing",
    "fieldtype": "Check",
-   "label": "Auto-create Job Costing Number"
+   "label": "Auto-create Job Number"
   },
   {
    "default": "1",
@@ -255,28 +265,31 @@
    "fieldname": "default_calculation_method",
    "fieldtype": "Select",
    "label": "Default Calculation Method",
-   "options": "Per kg\nPer m\u00b3\nPer package\nPer shipment\nFixed amount"
+   "options": "Per Unit\nFixed Amount\nBase Plus Additional\nFirst Plus Additional\nPercentage"
   },
   {
    "description": "Default UOM for weight in Sales Quote Air tab and air-related doctypes",
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "description": "Default UOM for volume in Sales Quote Air tab and air-related doctypes",
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "description": "Default UOM for chargeable weight in Sales Quote Air tab and air-related doctypes",
    "fieldname": "default_chargeable_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "alert_settings_section",
@@ -398,6 +411,13 @@
    "options": "Unit Load Device"
   },
   {
+   "fieldname": "default_load_type",
+   "fieldtype": "Link",
+   "label": "Default Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"air\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
    "fieldname": "consolidation_settings_section",
    "fieldtype": "Section Break",
    "label": "Consolidation Settings"
@@ -445,7 +465,8 @@
    "fieldname": "default_billing_currency",
    "fieldtype": "Link",
    "label": "Default Billing Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_billing",
@@ -466,7 +487,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-05 13:44:02.013217",
+ "modified": "2026-03-25 18:23:36.886093",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight Settings",

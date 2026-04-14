@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"yhMMLkCV_3\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"m7jPdhBILi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"s3vWBzNvOb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tariff\",\"col\":3}},{\"id\":\"Ol2JFAYVbg\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cost Sheet\",\"col\":3}},{\"id\":\"ccLgl3iept\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"C7YJpOaF41\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files and Setup</b></span>\",\"col\":12}},{\"id\":\"jdkPGs-8J0\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport\",\"col\":4}}]",
+ "content": "[{\"id\":\"yhMMLkCV_3\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"m7jPdhBILi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"s3vWBzNvOb\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tariff\",\"col\":3}},{\"id\":\"Ol2JFAYVbg\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cost Sheet\",\"col\":3}},{\"id\":\"chReqScut1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Change Request\",\"col\":3}},{\"id\":\"ccLgl3iept\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"C7YJpOaF41\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"Juoebpoj1e\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":3}},{\"id\":\"jdkPGs-8J0\",\"type\":\"card\",\"data\":{\"card_name\":\"Transport & Geography\",\"col\":3}},{\"id\":\"pR8tRatesC\",\"type\":\"card\",\"data\":{\"card_name\":\"Rates & Tariffs\",\"col\":3}},{\"id\":\"modSetCard1\",\"type\":\"card\",\"data\":{\"card_name\":\"Module Settings\",\"col\":3}},{\"id\":\"spcReports01\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"hdrReports01\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"cardRevBill\",\"type\":\"card\",\"data\":{\"card_name\":\"Revenue & Billing\",\"col\":4}},{\"id\":\"cardCostMrgn\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost & Margin\",\"col\":4}},{\"id\":\"cardPrjDash\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects & Performance\",\"col\":4}}]",
  "creation": "2026-02-11 23:39:43.802375",
  "custom_blocks": [],
  "docstatus": 0,
@@ -18,8 +18,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Transport",
-   "link_count": 3,
+   "label": "Transport & Geography",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -30,6 +30,26 @@
    "label": "Transport Zone",
    "link_count": 0,
    "link_to": "Transport Zone",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Zip Code Zone Mapping",
+   "link_count": 0,
+   "link_to": "Zip Code Zone Mapping",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Mode",
+   "link_count": 0,
+   "link_to": "Transport Mode",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -53,9 +73,402 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Module Settings",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Logistics Settings",
+   "link_count": 0,
+   "link_to": "Logistics Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Settings",
+   "link_count": 0,
+   "link_to": "Transport Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Settings",
+   "link_count": 0,
+   "link_to": "Sea Freight Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Settings",
+   "link_count": 0,
+   "link_to": "Air Freight Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs Settings",
+   "link_count": 0,
+   "link_to": "Customs Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse Settings",
+   "link_count": 0,
+   "link_to": "Warehouse Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Revenue & Billing",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Billing Status Report",
+   "link_count": 0,
+   "link_to": "Sea Freight Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Billing Status Report",
+   "link_count": 0,
+   "link_to": "Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Billing Status Report",
+   "link_count": 0,
+   "link_to": "Special Project Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Special Project Billing",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cost & Margin",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Cost Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Cost Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Cost Analysis",
+   "link_count": 0,
+   "link_to": "Cost Analysis Reports",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Transport Job",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Cost per Job",
+   "link_count": 0,
+   "link_to": "Transport Cost per Job",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Run Sheet",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Route Cost Analysis",
+   "link_count": 0,
+   "link_to": "Route Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Run Sheet",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Cost vs Revenue",
+   "link_count": 0,
+   "link_to": "Special Project Cost vs Revenue Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Special Project",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Profitability",
+   "link_count": 0,
+   "link_to": "Special Project Profitability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Special Project",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Value Report",
+   "link_count": 0,
+   "link_to": "Declaration Value Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Declaration",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Projects & Performance",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Sea Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Air Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consolidation Savings Report",
+   "link_count": 0,
+   "link_to": "Consolidation Savings Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Transport Consolidation",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Pipeline Report",
+   "link_count": 0,
+   "link_to": "Special Project Pipeline Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Special Project",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Route Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Route Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Route Analysis",
+   "link_count": 0,
+   "link_to": "Route Analysis Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rates & Tariffs",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tariff",
+   "link_count": 0,
+   "link_to": "Tariff",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cost Sheet",
+   "link_count": 0,
+   "link_to": "Cost Sheet",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse Contract",
+   "link_count": 0,
+   "link_to": "Warehouse Contract",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Organizations",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipper",
+   "link_count": 0,
+   "link_to": "Shipper",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consignee",
+   "link_count": 0,
+   "link_to": "Consignee",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Freight Agent",
+   "link_count": 0,
+   "link_to": "Freight Agent",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Broker",
+   "link_count": 0,
+   "link_to": "Broker",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-03-03 09:49:20.286752",
+ "modified": "2026-03-23 07:59:09.260718",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Pricing",
@@ -88,6 +501,14 @@
    "doc_view": "List",
    "label": "Tariff",
    "link_to": "Tariff",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Change Request",
+   "link_to": "Change Request",
    "stats_filter": "[]",
    "type": "DocType"
   }

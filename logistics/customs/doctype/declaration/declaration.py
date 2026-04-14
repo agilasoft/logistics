@@ -4,18 +4,53 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import today, getdate, flt
+from frappe.utils import today, getdate, flt, cint
 from typing import Dict, Any, Optional
+
+from logistics.utils.charge_service_type import (
+	customs_charges_rows_from_sales_quote_doc,
+	throw_if_missing_destination_service_charge,
+)
+from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
 
 
 class Declaration(Document):
 	def validate(self):
 		self._validate_declaration_order_unique()
+		self._validate_etd_eta()
+		self.update_payment_status()
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
 			apply_measurement_uom_conversion_to_children(self, "commercial_invoice_line_items", company=getattr(self, "company", None))
 		except Exception:
 			pass
+		try:
+			from logistics.job_management.recognition_engine import (
+				sync_job_recognition_fields_from_policy,
+			)
+
+			sync_job_recognition_fields_from_policy(self)
+		except Exception:
+			pass
+
+		from logistics.job_management.logistics_job_status import sync_declaration_job_status
+
+		sync_declaration_job_status(self)
+
+	def _validate_etd_eta(self):
+		"""Departure must not be after arrival (same calendar day allowed)."""
+		if not self.etd or not self.eta:
+			return
+		if getdate(self.etd) > getdate(self.eta):
+			from logistics.utils.validation_user_messages import (
+				declaration_etd_eta_invalid_message,
+				declaration_etd_eta_title,
+			)
+
+			frappe.throw(
+				declaration_etd_eta_invalid_message(),
+				title=declaration_etd_eta_title(),
+			)
 
 	def _validate_declaration_order_unique(self):
 		"""Ensure a Declaration Order can only be referenced by one Declaration."""
@@ -41,12 +76,20 @@ class Declaration(Document):
 	def before_save(self):
 		"""Calculate values and metrics before saving"""
 		from logistics.utils.module_integration import run_propagate_on_link
+		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+		from logistics.utils.transport_mode_defaults import apply_default_transport_document_type
+
 		run_propagate_on_link(self)
+		apply_shipper_consignee_defaults(self)
+		apply_default_transport_document_type(self)
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
 		self.calculate_exemptions()
 		self.calculate_sustainability_metrics()
 		self.update_processing_dates()
+		# Sync Job Number to Declaration Order if it exists
+		if self.job_number:
+			self.sync_job_number_to_declaration_order()
 	
 	def on_update(self):
 		"""Handle status changes"""
@@ -57,6 +100,7 @@ class Declaration(Document):
 		self.validate_permits()
 		self.validate_permit_expiry()
 		self.validate_exemption_certificates()
+		throw_if_missing_destination_service_charge(self)
 		# Auto-set status to Submitted when submitting from Draft
 		if self.status == "Draft":
 			self.status = "Submitted"
@@ -64,6 +108,103 @@ class Declaration(Document):
 	def after_submit(self):
 		"""Record sustainability metrics after declaration submission"""
 		self.record_sustainability_metrics()
+	
+	def after_insert(self):
+		"""Create Job Number after document is inserted"""
+		# Store original job_number to check if it was created
+		original_jcn = self.job_number
+		self.create_job_number_if_needed()
+		
+		# Save the document if Job Number was created
+		if self.job_number and self.job_number != original_jcn:
+			try:
+				self.save(ignore_permissions=True)
+			except Exception as e:
+				# If save fails, log error but don't raise
+				frappe.log_error(
+					f"Error saving Declaration {self.name} after creating Job Number: {str(e)}",
+					"Declaration Save Error"
+				)
+	
+	def create_job_number_if_needed(self):
+		"""Create Job Number when document is first saved"""
+		# Only create if job_number is not set
+		if not self.job_number:
+			# Check if this is the first save (no existing Job Number)
+			existing_job_ref = frappe.db.get_value("Job Number", {
+				"job_type": "Declaration",
+				"job_no": self.name
+			})
+			
+			if not existing_job_ref:
+				# Create Job Number
+				try:
+					job_ref = frappe.new_doc("Job Number")
+					job_ref.job_type = "Declaration"
+					job_ref.job_no = self.name
+					job_ref.company = self.company
+					job_ref.branch = self.branch
+					job_ref.cost_center = self.cost_center
+					job_ref.profit_center = self.profit_center
+					# Use declaration_date as job_open_date if available
+					job_ref.job_open_date = self.declaration_date
+					job_ref.insert(ignore_permissions=True)
+					
+					# Set the job_number field
+					self.job_number = job_ref.name
+					
+					# Sync to related Declaration Order if it exists
+					self.sync_job_number_to_declaration_order()
+					
+					frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
+				except frappe.DuplicateEntryError as e:
+					# If duplicate entry error occurs, try to get the existing one
+					if self.name:
+						existing = frappe.db.get_value("Job Number", {
+							"job_type": "Declaration",
+							"job_no": self.name
+						})
+						if existing:
+							self.job_number = existing
+							self.sync_job_number_to_declaration_order()
+							return
+					frappe.log_error(
+						f"Duplicate Job Number error for Declaration {self.name}: {str(e)}",
+						"Job Number Duplicate Error"
+					)
+					raise
+				except Exception as e:
+					frappe.log_error(
+						f"Error creating Job Number for Declaration {self.name}: {str(e)}",
+						"Job Number Creation Error"
+					)
+					# Don't raise - allow document to save even if Job Number creation fails
+		else:
+			# If job_number is already set, sync to Declaration Order
+			self.sync_job_number_to_declaration_order()
+	
+	def sync_job_number_to_declaration_order(self):
+		"""Sync Job Number from Declaration to related Declaration Order"""
+		if not self.job_number:
+			return
+		
+		if not getattr(self, "declaration_order", None):
+			return
+		
+		try:
+			# Check if Declaration Order exists and get its current Job Number
+			order_jcn = frappe.db.get_value("Declaration Order", self.declaration_order, "job_number")
+			
+			# Update Declaration Order if it doesn't have a Job Number or if it's different
+			if order_jcn != self.job_number:
+				frappe.db.set_value("Declaration Order", self.declaration_order, "job_number", self.job_number)
+				frappe.db.commit()
+		except Exception as e:
+			# Log error but don't fail the declaration save
+			frappe.log_error(
+				f"Error syncing Job Number to Declaration Order {self.declaration_order}: {str(e)}",
+				"Job Number Sync Error"
+			)
 	
 	def calculate_total_payable(self):
 		"""Calculate total payable from duty, tax, and other charges (after exemptions)"""
@@ -87,17 +228,18 @@ class Declaration(Document):
 		
 		for exemption in self.exemptions:
 			exemption_type = None
-			
-			# Get exemption type details
-			if exemption.exemption_type:
+			type_code = exemption.exemption_type or exemption.get("planned_exemption_type")
+			if type_code:
 				try:
-					exemption_type = frappe.get_doc("Exemption Type", exemption.exemption_type)
+					exemption_type = frappe.get_doc("Exemption Type", type_code)
 				except frappe.DoesNotExistError:
 					continue
 			
 			# Calculate exempted amounts based on exemption type
 			if exemption_type:
-				exemption_percentage = flt(exemption.exemption_percentage or exemption_type.exemption_percentage or 0)
+				exemption_percentage = flt(exemption.exemption_percentage or 0) or flt(
+					exemption_type.exemption_percentage or 0
+				)
 				
 				# Calculate exempted duty
 				if self.duty_amount:
@@ -137,21 +279,61 @@ class Declaration(Document):
 			for exemption in self.exemptions:
 				total += flt(exemption.total_exempted or 0)
 		return total
+
+	def _permit_exemption_submit_settings(self):
+		"""Customs Settings (per company) for declaration submit checks; defaults match strict behaviour."""
+		defaults = {
+			"block_submit_if_required_permit_not_obtained": 1,
+			"block_submit_if_permit_expired": 1,
+			"permit_expiring_warn_days": 7,
+			"block_submit_if_permit_expires_within_days": 0,
+			"block_submit_if_exemption_cert_invalid": 1,
+			"block_submit_if_exemption_cert_not_active": 1,
+			"block_submit_if_exemption_cert_expired": 1,
+		}
+		if not getattr(self, "company", None):
+			return frappe._dict(defaults)
+		row = frappe.db.get_value(
+			"Customs Settings",
+			{"company": self.company},
+			list(defaults.keys()),
+			as_dict=True,
+		)
+		out = dict(defaults)
+		if row:
+			for k in defaults:
+				val = row.get(k)
+				if val is not None:
+					out[k] = val
+		out["permit_expiring_warn_days"] = max(0, cint(out.get("permit_expiring_warn_days", 7)))
+		out["block_submit_if_permit_expires_within_days"] = max(0, cint(out.get("block_submit_if_permit_expires_within_days", 0)))
+		for k in (
+			"block_submit_if_required_permit_not_obtained",
+			"block_submit_if_permit_expired",
+			"block_submit_if_exemption_cert_invalid",
+			"block_submit_if_exemption_cert_not_active",
+			"block_submit_if_exemption_cert_expired",
+		):
+			out[k] = cint(out.get(k, 1))
+		return frappe._dict(out)
 	
 	def validate_permits(self):
 		"""Validate that all required permits are obtained before submission"""
 		if not self.permit_requirements:
 			return
+		s = self._permit_exemption_submit_settings()
+		if not s.block_submit_if_required_permit_not_obtained:
+			return
 		
 		missing_permits = []
 		for permit_req in self.permit_requirements:
 			if permit_req.is_required and not permit_req.is_obtained:
-				permit_type_name = permit_req.permit_type or "Unknown"
+				permit_type_name = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
 				missing_permits.append(permit_type_name)
 		
 		if missing_permits:
 			frappe.throw(
-				_("The following required permits are not yet obtained: {0}").format(", ".join(missing_permits)),
+				_("The following required permits are not yet obtained (not Approved/Renewed): {0}").format(", ".join(missing_permits)),
 				title=_("Missing Permits")
 			)
 
@@ -160,17 +342,29 @@ class Declaration(Document):
 		if not self.permit_requirements:
 			return
 		from frappe.utils import getdate, today, date_diff
+
+		s = self._permit_exemption_submit_settings()
 		today_date = getdate(today())
 		expired = []
+		expiring_blocked = []
 		expiring_soon = []
+		block_days = s.block_submit_if_permit_expires_within_days
+		warn_days = s.permit_expiring_warn_days
+
 		for permit_req in self.permit_requirements:
 			if not permit_req.is_obtained or not permit_req.expiry_date:
 				continue
 			exp_date = getdate(permit_req.expiry_date)
-			if exp_date < today_date:
-				expired.append((permit_req.permit_type or "Unknown", permit_req.expiry_date))
-			elif date_diff(exp_date, today_date) <= 7:
-				expiring_soon.append((permit_req.permit_type or "Unknown", permit_req.expiry_date))
+			ptn = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
+			days_left = date_diff(exp_date, today_date)
+			if days_left < 0:
+				if s.block_submit_if_permit_expired:
+					expired.append((ptn, permit_req.expiry_date))
+			elif block_days > 0 and days_left <= block_days:
+				expiring_blocked.append((ptn, permit_req.expiry_date, days_left))
+			elif warn_days > 0 and days_left <= warn_days:
+				expiring_soon.append((ptn, permit_req.expiry_date, days_left))
+
 		if expired:
 			frappe.throw(
 				_("The following permits have expired and may cause delays or penalties: {0}. Please renew before submission.").format(
@@ -178,10 +372,18 @@ class Declaration(Document):
 				),
 				title=_("Expired Permits")
 			)
+		if expiring_blocked:
+			frappe.throw(
+				_("The following permits expire within the configured window and must be renewed before submission: {0}").format(
+					", ".join(f"{p[0]} (expires {p[1]}, in {p[2]} day(s))" for p in expiring_blocked)
+				),
+				title=_("Permits Expiring Soon"),
+			)
 		if expiring_soon:
 			frappe.msgprint(
-				_("The following permits expire within 7 days: {0}. Consider renewing to avoid clearance delays.").format(
-					", ".join(f"{p[0]} (expires {p[1]})" for p in expiring_soon)
+				_("The following permits expire within {0} day(s): {1}. Consider renewing to avoid clearance delays.").format(
+					warn_days,
+					", ".join(f"{p[0]} (expires {p[1]})" for p in expiring_soon),
 				),
 				title=_("Permits Expiring Soon"),
 				indicator="orange",
@@ -191,45 +393,99 @@ class Declaration(Document):
 		"""Validate exemption certificates are active and not expired (avoid delays/penalties)."""
 		if not self.exemptions:
 			return
+		s = self._permit_exemption_submit_settings()
 		for exemption in self.exemptions:
 			if not exemption.exemption_certificate:
 				continue
 			try:
 				cert = frappe.get_doc("Exemption Certificate", exemption.exemption_certificate)
 			except frappe.DoesNotExistError:
-				frappe.throw(
-					_("Exemption Certificate {0} does not exist.").format(exemption.exemption_certificate),
-					title=_("Invalid Exemption Certificate"),
-				)
+				if s.block_submit_if_exemption_cert_invalid:
+					frappe.throw(
+						_("Exemption Certificate {0} does not exist.").format(exemption.exemption_certificate),
+						title=_("Invalid Exemption Certificate"),
+					)
+				continue
 			if cert.status != "Active":
-				frappe.throw(
-					_("Exemption Certificate {0} is not active (status: {1}). Using inactive certificates may cause delays or penalties.").format(
-						cert.name, cert.status
-					),
-					title=_("Inactive Exemption Certificate"),
-				)
+				if s.block_submit_if_exemption_cert_not_active:
+					frappe.throw(
+						_("Exemption Certificate {0} is not active (status: {1}). Using inactive certificates may cause delays or penalties.").format(
+							cert.name, cert.status
+						),
+						title=_("Inactive Exemption Certificate"),
+					)
+				continue
 			if cert.valid_to and getdate(cert.valid_to) < getdate(today()):
-				frappe.throw(
-					_("Exemption Certificate {0} has expired (valid to: {1}).").format(cert.name, cert.valid_to),
-					title=_("Expired Exemption Certificate"),
-				)
+				if s.block_submit_if_exemption_cert_expired:
+					frappe.throw(
+						_("Exemption Certificate {0} has expired (valid to: {1}).").format(cert.name, cert.valid_to),
+						title=_("Expired Exemption Certificate"),
+					)
 
 	def get_delay_penalty_alerts(self):
 		"""Return list of alerts related to delays and penalties for dashboard display."""
 		from frappe.utils import getdate, today, date_diff
 		alerts = []
 		today_date = getdate(today())
+		s = self._permit_exemption_submit_settings()
+		warn_days = s.permit_expiring_warn_days
+		block_within = s.block_submit_if_permit_expires_within_days
 
-		# 1. Pending required permits
+		# 1. Pending required permits (virtual permit fields use properties; avoid pr.get for those)
 		for pr in (self.get("permit_requirements") or []):
-			if pr.get("is_required") and not pr.get("is_obtained"):
-				alerts.append({"level": "danger", "msg": _("Required permit {0} not yet obtained. Submission will be blocked.").format(pr.get("permit_type") or "—")})
-			elif pr.get("is_obtained") and pr.get("expiry_date"):
-				exp = getdate(pr.expiry_date)
-				if exp < today_date:
-					alerts.append({"level": "danger", "msg": _("Permit {0} expired on {1}. Renew to avoid penalties.").format(pr.get("permit_type") or "—", pr.expiry_date)})
-				elif date_diff(exp, today_date) <= 7:
-					alerts.append({"level": "warning", "msg": _("Permit {0} expires on {1}. Renew soon to avoid clearance delays.").format(pr.get("permit_type") or "—", pr.expiry_date)})
+			is_req = pr.get("is_required")
+			is_obt = getattr(pr, "is_obtained", None)
+			ptype = getattr(pr, "permit_type", None) or pr.get("planned_permit_type")
+			expiry = getattr(pr, "expiry_date", None)
+			if is_req and not is_obt:
+				if s.block_submit_if_required_permit_not_obtained:
+					alerts.append(
+						{
+							"level": "danger",
+							"msg": _("Required permit {0} is not obtained (not Approved/Renewed). Submission will be blocked.").format(ptype or "—"),
+						}
+					)
+				else:
+					alerts.append(
+						{
+							"level": "warning",
+							"msg": _("Required permit {0} is not obtained; Customs Settings allow submission anyway.").format(ptype or "—"),
+						}
+					)
+			elif is_obt and expiry:
+				exp = getdate(expiry)
+				days_left = date_diff(exp, today_date)
+				if days_left < 0:
+					if s.block_submit_if_permit_expired:
+						alerts.append(
+							{
+								"level": "danger",
+								"msg": _("Permit {0} expired on {1}. Submission will be blocked.").format(ptype or "—", expiry),
+							}
+						)
+					else:
+						alerts.append(
+							{
+								"level": "warning",
+								"msg": _("Permit {0} expired on {1}; Customs Settings allow submission.").format(ptype or "—", expiry),
+							}
+						)
+				elif block_within > 0 and days_left <= block_within:
+					alerts.append(
+						{
+							"level": "danger",
+							"msg": _("Permit {0} expires on {1} (within {2} day(s)). Submission will be blocked.").format(
+								ptype or "—", expiry, block_within
+							),
+						}
+					)
+				elif warn_days > 0 and days_left <= warn_days:
+					alerts.append(
+						{
+							"level": "warning",
+							"msg": _("Permit {0} expires on {1}. Renew soon to avoid clearance delays.").format(ptype or "—", expiry),
+						}
+					)
 
 		# 2. Exemption certificates expiring or inactive
 		for ex in (self.get("exemptions") or []):
@@ -238,15 +494,60 @@ class Declaration(Document):
 			try:
 				cert = frappe.get_doc("Exemption Certificate", ex.exemption_certificate)
 				if cert.status != "Active":
-					alerts.append({"level": "warning", "msg": _("Exemption certificate {0} is not active.").format(cert.name)})
+					if s.block_submit_if_exemption_cert_not_active:
+						alerts.append(
+							{
+								"level": "danger",
+								"msg": _("Exemption certificate {0} is not active. Submission will be blocked.").format(cert.name),
+							}
+						)
+					else:
+						alerts.append(
+							{
+								"level": "warning",
+								"msg": _("Exemption certificate {0} is not active; Customs Settings allow submission.").format(cert.name),
+							}
+						)
 				elif cert.valid_to:
 					exp = getdate(cert.valid_to)
+					dleft = date_diff(exp, today_date)
 					if exp < today_date:
-						alerts.append({"level": "danger", "msg": _("Exemption certificate {0} expired on {1}.").format(cert.name, cert.valid_to)})
-					elif date_diff(exp, today_date) <= 14:
-						alerts.append({"level": "warning", "msg": _("Exemption certificate {0} expires on {1}.").format(cert.name, cert.valid_to)})
+						if s.block_submit_if_exemption_cert_expired:
+							alerts.append(
+								{
+									"level": "danger",
+									"msg": _("Exemption certificate {0} expired on {1}. Submission will be blocked.").format(cert.name, cert.valid_to),
+								}
+							)
+						else:
+							alerts.append(
+								{
+									"level": "warning",
+									"msg": _("Exemption certificate {0} expired on {1}; Customs Settings allow submission.").format(cert.name, cert.valid_to),
+								}
+							)
+					elif warn_days > 0 and dleft <= warn_days:
+						alerts.append(
+							{
+								"level": "warning",
+								"msg": _("Exemption certificate {0} expires on {1}.").format(cert.name, cert.valid_to),
+							}
+						)
 			except frappe.DoesNotExistError:
-				pass
+				if s.block_submit_if_exemption_cert_invalid:
+					alerts.append(
+						{
+							"level": "danger",
+							"msg": _("Exemption certificate link is invalid. Submission will be blocked."),
+						}
+					)
+				else:
+					alerts.append(
+						{
+							"level": "warning",
+							"msg": _("Exemption certificate link is invalid; Customs Settings allow submission."),
+						}
+					)
 
 		# 3. Expected clearance date passed but not released
 		expected = getattr(self, "expected_clearance_date", None)
@@ -296,6 +597,31 @@ class Declaration(Document):
 					price = flt(row.price or 0)
 					total_value += qty * price
 			self.declaration_value = total_value
+
+	def update_payment_status(self):
+		"""Auto-set payment status from invoice total, payment amount, and payment due date."""
+		total_amount = flt(self.inv_total_amount or 0)
+		paid_amount = flt(self.payment_amount or 0)
+		due_date = getdate(self.payment_date) if self.payment_date else None
+		today_date = getdate(today())
+
+		# Fully settled takes priority regardless of due date.
+		if total_amount > 0 and paid_amount >= total_amount:
+			self.payment_status = "Paid"
+			return
+
+		# Partial settlement when some amount is paid but not full.
+		if paid_amount > 0 and (total_amount <= 0 or paid_amount < total_amount):
+			self.payment_status = "Partially Paid"
+			return
+
+		# Unpaid and due date has passed.
+		if (paid_amount <= 0) and due_date and due_date < today_date:
+			self.payment_status = "Overdue"
+			return
+
+		# Default for unpaid invoices not yet due or with no due date.
+		self.payment_status = "Pending"
 	
 	def update_processing_dates(self):
 		"""Update processing dates based on status"""
@@ -353,104 +679,15 @@ class Declaration(Document):
 	
 	@frappe.whitelist()
 	def get_dashboard_html(self):
-		"""Generate HTML for Dashboard tab: declaration details (Air Shipment header format), milestones (from Milestones tab), Documents Management (from Air Shipment)."""
+		"""Generate HTML for Dashboard tab: tabbed layout with route, milestones, alerts."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html, get_milestone_html
-			from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
+			from logistics.document_management.logistics_form_dashboard import (
+				build_declaration_dashboard_config,
+				render_logistics_form_dashboard_html,
+			)
 
-			# Section 1: Declaration details (Air Shipment header format) with Exporter | Importer
-			status = "Cancelled" if self.docstatus == 2 else (self.status or "Draft")
-			# Status badge for dashboard (prominent display)
-			status_class = (status or "draft").lower().replace(" ", "_").replace(" ", "_")
-			status_badge_html = f'<span class="dash-status-badge {status_class}">{frappe.utils.escape_html(status)}</span>'
-			# Format value with correct currency code from commercial invoice
-			currency = self.inv_currency or frappe.db.get_default("currency") or "PHP"
-			# Format number and append currency code instead of using symbol
-			amount = flt(self.declaration_value or 0)
-			value_display = f"{frappe.utils.fmt_money(amount, precision=2)} {currency}"
-			
-			header_items = [
-				("Status", status),
-				("Declaration #", self.declaration_number or "—"),
-				("Type", self.declaration_type or "—"),
-				("Date", str(self.declaration_date) if self.declaration_date else "—"),
-				("Port of Loading", self.port_of_loading or "—"),
-				("Port of Discharge", self.port_of_discharge or "—"),
-				("ETD", str(self.etd) if self.etd else "—"),
-				("ETA", str(self.eta) if self.eta else "—"),
-				("Value", value_display),
-				("Payment", self.payment_status or "—"),
-			]
-
-			# Exporter and Importer for header (Shipper and Consignee names)
-			exporter_label = self.exporter_shipper or "—"
-			importer_label = self.importer_consignee or "—"
-
-			# Importer classification card (below Importer) - from Consignee customs_importer_classification
-			route_below_html = ""
-			if self.importer_consignee:
-				classification = frappe.db.get_value("Consignee", self.importer_consignee, "customs_importer_classification")
-				if classification and classification != "Not Classified":
-					cls_lower = (classification or "").lower().replace(" ", "_")
-					card_class = "sgl" if "sgl" in cls_lower else "gl" if "gl" in cls_lower or "green" in cls_lower else "yellow" if "yellow" in cls_lower else "red" if "red" in cls_lower else ""
-					route_below_html = (
-						f'<div class="importer-classification-card {card_class}" style="margin-left: 0;">'
-						f'<div class="classification-label">Importer Classification</div>'
-						f'<div class="classification-value">{frappe.utils.escape_html(classification)}</div>'
-						f'</div>'
-					)
-
-			# Section 2: Milestones (from Milestones tab)
-			milestone_html = ""
-			if self.name and not self.is_new():
-				milestone_html = get_milestone_html("Declaration", self.name)
-			else:
-				milestone_html = '<div class="alert alert-info">Save the document to view milestones.</div>'
-
-			# Section 3: Documents Management (from Air Shipment)
-			doc_alerts_html = ""
-			try:
-				doc_alerts_html = get_document_alerts_html("Declaration", self.name or "new")
-			except Exception:
-				pass
-
-			# Delay & penalty alerts
-			alerts_html = ""
-			if self.name and not self.is_new():
-				alerts = self.get_delay_penalty_alerts()
-				if alerts:
-					icons = {"danger": "fa-exclamation-circle", "warning": "fa-exclamation-triangle", "info": "fa-info-circle"}
-					items = []
-					for a in alerts:
-						level = a.get("level") or "info"
-						icon = icons.get(level, "fa-info-circle")
-						items.append(
-							f'<div class="dash-alert-item {level}"><i class="fa {icon}"></i><span>{frappe.utils.escape_html(a.get("msg", ""))}</span></div>'
-						)
-					alerts_html = "\n".join(items)
-
-			# Use build_run_sheet_style_dashboard: one card with declaration details + milestones, then Documents Management
-			return build_run_sheet_style_dashboard(
-				header_title=self.name or "Declaration",
-				header_subtitle="Declaration",
-				header_items=header_items,
-				status_badge_html=status_badge_html,
-				alerts_html=alerts_html,
-				cards_html=milestone_html,
-				map_points=[],
-				map_id_prefix="decl-dash-map",
-				doc_alerts_html=doc_alerts_html,
-				straight_line=True,
-				origin_label=exporter_label,
-				destination_label=importer_label,
-				origin_section_label="Exporter",
-				destination_section_label="Importer",
-				route_below_html=route_below_html,
-				doc_management_position="before",
-				cards_full_width=True,
-				hide_map=True,
-				merge_header_with_cards=True,
-				header_items_in_card=True,
+			return render_logistics_form_dashboard_html(
+				self, build_declaration_dashboard_config(self)
 			)
 		except Exception as e:
 			frappe.log_error(f"Declaration get_dashboard_html: {str(e)}", "Declaration Dashboard")
@@ -460,17 +697,13 @@ class Declaration(Document):
 	def get_milestone_html(self):
 		"""Generate HTML for milestone visualization in Milestones tab."""
 		try:
+			from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 			from logistics.document_management.milestone_html import build_milestone_html
 
 			origin_name = getattr(self, "port_of_loading", None) or "Port of Loading"
 			destination_name = getattr(self, "port_of_discharge", None) or "Port of Discharge"
 
-			milestones = frappe.get_all(
-				"Job Milestone",
-				filters={"job_type": "Declaration", "job_number": self.name},
-				fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
-				order_by="planned_start",
-			)
+			milestones, editor_child_dt = get_milestone_display_rows_and_editor_doctype(self)
 
 			detail_items = [
 				("Status", self.status or ""),
@@ -492,12 +725,114 @@ class Declaration(Document):
 				detail_items=detail_items,
 				milestones=milestones,
 				format_datetime_fn=format_dt,
+				child_milestone_doctype=editor_child_dt,
 				origin_party_name=getattr(self, "exporter_shipper", None) or "",
 				destination_party_name=getattr(self, "importer_consignee", None) or "",
 			)
 		except Exception as e:
 			frappe.log_error(f"Error in get_milestone_html: {str(e)}", "Declaration - Milestone HTML")
 			return "<div class='alert alert-danger'>Error loading milestone view. Please check the error log.</div>"
+
+	@frappe.whitelist()
+	def get_permit_application_create_context(self):
+		from logistics.customs.declaration_permit_exemption_create import get_permit_application_create_context
+
+		return get_permit_application_create_context(self)
+
+	@frappe.whitelist()
+	def create_linked_permit_application(self, permit_type, child_row_name=None):
+		from logistics.customs.declaration_permit_exemption_create import create_linked_permit_application
+
+		return create_linked_permit_application(self, permit_type, child_row_name)
+
+	@frappe.whitelist()
+	def get_exemption_certificate_create_context(self):
+		from logistics.customs.declaration_permit_exemption_create import get_exemption_certificate_create_context
+
+		return get_exemption_certificate_create_context(self)
+
+	@frappe.whitelist()
+	def create_linked_exemption_certificate(self, exemption_type, certificate_number, child_row_name=None):
+		from logistics.customs.declaration_permit_exemption_create import create_linked_exemption_certificate
+
+		return create_linked_exemption_certificate(self, exemption_type, certificate_number, child_row_name)
+
+	@frappe.whitelist()
+	def recalculate_all_charges(self):
+		"""Recalculate all declaration charges using each row's calculation routine."""
+		if not hasattr(self, "charges") or not self.charges:
+			return {"success": False, "message": _("No charges found to recalculate")}
+		if self.docstatus == 1:
+			frappe.throw(
+				_("Cannot recalculate charges after submission. Please cancel/amend the document or use a Draft Declaration."),
+				title=_("Cannot Update After Submit"),
+			)
+		try:
+			charges_recalculated = 0
+			for charge in self.charges:
+				if hasattr(charge, "calculate_charge_amount"):
+					charge.calculate_charge_amount(parent_doc=self)
+					charges_recalculated += 1
+			self.save()
+			return {
+				"success": True,
+				"message": _("Successfully recalculated {0} charges").format(charges_recalculated),
+				"charges_recalculated": charges_recalculated,
+			}
+		except Exception as e:
+			try:
+				frappe.log_error(
+					title="Declaration - Recalculate Charges Error",
+					message=frappe.get_traceback(),
+				)
+			except Exception:
+				pass
+			frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
+
+	@frappe.whitelist()
+	def revert_charges_to_source(self):
+		"""Revert charges to Declaration Order charges, else Sales Quote charges."""
+		if self.docstatus == 1:
+			frappe.throw(
+				_("Cannot revert charges after submission. Please cancel/amend the document or use a Draft Declaration."),
+				title=_("Cannot Update After Submit"),
+			)
+		if not self.declaration_order and not self.sales_quote:
+			return {"success": False, "message": _("No source charges available to revert.")}
+		try:
+			self.set("charges", [])
+
+			source = None
+			if self.declaration_order and frappe.db.exists("Declaration Order", self.declaration_order):
+				order = frappe.get_doc("Declaration Order", self.declaration_order)
+				if hasattr(order, "charges") and order.charges:
+					_populate_charges_from_declaration_order(self, order)
+					source = "declaration_order"
+
+			if not source and self.sales_quote and frappe.db.exists("Sales Quote", self.sales_quote):
+				sq = frappe.get_doc("Sales Quote", self.sales_quote)
+				_populate_charges_from_sales_quote(self, sq)
+				source = "sales_quote"
+
+			if not source:
+				return {"success": False, "message": _("No source charges available to revert.")}
+
+			self.save()
+			return {
+				"success": True,
+				"source": source,
+				"charges_count": len(self.get("charges") or []),
+				"message": _("Charges reverted successfully."),
+			}
+		except Exception as e:
+			try:
+				frappe.log_error(
+					title="Declaration - Revert Charges Error",
+					message=frappe.get_traceback(),
+				)
+			except Exception:
+				pass
+			frappe.throw(_("Error reverting charges: {0}").format(str(e)))
 
 	def record_sustainability_metrics(self):
 		"""Record sustainability metrics in the centralized system"""
@@ -563,20 +898,44 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		if not order.sales_quote:
 			frappe.throw(_("Declaration Order must have a Sales Quote to create a Declaration."))
 		sq = frappe.get_doc("Sales Quote", order.sales_quote)
-		has_customs = (
+		from logistics.utils.internal_job_charge_copy import (
+			build_internal_job_declaration_charge_dicts,
+			should_apply_internal_job_main_charge_overlay,
+		)
+
+		has_customs_on_quote = (
 			getattr(sq, "main_service", None) == "Customs"
 			or any(c.get("service_type") == "Customs" for c in (getattr(sq, "charges") or []))
 		)
-		if not has_customs:
-			frappe.throw(_("No customs details found in the linked Sales Quote."))
+		order_customs_charges = any(
+			(getattr(c, "service_type", None) or "") == "Customs" for c in (order.charges or [])
+		)
+		internal_job_customs_ok = cint(getattr(order, "is_internal_job", 0)) and (
+			order_customs_charges or should_apply_internal_job_main_charge_overlay(order)
+		)
+		if not has_customs_on_quote and not internal_job_customs_ok:
+			frappe.throw(
+				_("No customs details on the Sales Quote and no internal-job customs source on this Declaration Order.")
+			)
 		declaration = frappe.new_doc("Declaration")
+		# Preserve user-pruned rows copied from Declaration Order during this creation flow.
+		# Without this flag, on_update auto-population re-adds missing template rows.
+		declaration.flags.ignore_documents_milestones_populate = True
 		_copy_order_to_declaration(declaration, order, sq)
 		declaration.insert(ignore_permissions=True)
-		# Prefer charges from Declaration Order if present; else from Sales Quote
+		# Reload document to get latest timestamp after insert
+		declaration.reload()
+		# Prefer charges from Declaration Order; else internal-job main service; else Sales Quote
 		if hasattr(order, "charges") and order.charges:
 			_populate_charges_from_declaration_order(declaration, order)
+		elif cint(getattr(order, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(order):
+			_append_declaration_charges_from_do_style_dicts(
+				declaration, build_internal_job_declaration_charge_dicts(order)
+			)
 		else:
 			_populate_charges_from_sales_quote(declaration, sq)
+		# Keep suppression for the final save in this flow as well.
+		declaration.flags.ignore_documents_milestones_populate = True
 		declaration.save(ignore_permissions=True)
 		frappe.db.commit()
 		return {
@@ -586,9 +945,17 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		}
 	except frappe.DoesNotExistError:
 		frappe.throw(_("Declaration Order {0} does not exist.").format(declaration_order_name))
+	except frappe.TimestampMismatchError:
+		frappe.log_error("Timestamp mismatch when creating Declaration from Declaration Order", "Declaration Creation Error")
+		frappe.throw(_("The declaration was modified during creation. Please try again."), title=_("Creation Error"))
 	except Exception as e:
 		frappe.log_error(f"Error creating Declaration from Declaration Order: {str(e)}", "Declaration Creation Error")
-		frappe.throw(_("Error creating Declaration: {0}").format(str(e)))
+		# Provide user-friendly error message
+		error_msg = str(e)
+		if "TimestampMismatchError" in error_msg or "modified after you have opened it" in error_msg:
+			frappe.throw(_("The declaration was modified during creation. Please try again."), title=_("Creation Error"))
+		else:
+			frappe.throw(_("Unable to create declaration. Please check the logs for details."), title=_("Creation Error"))
 
 
 # -------------------------------------------------------------------
@@ -671,6 +1038,76 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		frappe.throw(_("Error creating Declaration: {0}").format(str(e)))
 
 
+# -------------------------------------------------------------------
+# ACTION: Create or link Declaration Order from Declaration (Sales Quote)
+# -------------------------------------------------------------------
+@frappe.whitelist()
+def link_or_create_declaration_order_for_declaration(declaration_name: str) -> Dict[str, Any]:
+	"""
+	If this Declaration has a Sales Quote but no Declaration Order, link an existing
+	Declaration Order for that quote or create one (same rules as Sales Quote → Create Declaration Order).
+	"""
+	if not declaration_name:
+		frappe.throw(_("Declaration name is required."))
+	declaration = frappe.get_doc("Declaration", declaration_name)
+	declaration.check_permission("write")
+	if declaration.docstatus == 2:
+		frappe.throw(_("Cannot modify a cancelled Declaration."))
+	if declaration.declaration_order:
+		frappe.throw(_("Declaration Order is already linked."), title=_("Already Linked"))
+	if not declaration.sales_quote:
+		frappe.throw(
+			_(
+				"Link a Sales Quote first. Declaration Order is created from a One-off Sales Quote with Customs charges."
+			),
+			title=_("Sales Quote Required"),
+		)
+
+	existing_do = frappe.db.get_value("Declaration Order", {"sales_quote": declaration.sales_quote}, "name")
+	if existing_do:
+		other = frappe.db.get_value(
+			"Declaration",
+			{
+				"declaration_order": existing_do,
+				"name": ["!=", declaration.name],
+				"docstatus": ["<", 2],
+			},
+			"name",
+		)
+		if other:
+			frappe.throw(
+				_("Declaration Order {0} is already linked to Declaration {1}.").format(existing_do, other),
+				title=_("Declaration Order In Use"),
+			)
+		declaration.declaration_order = existing_do
+		declaration.save()
+		return {
+			"success": True,
+			"declaration_order": existing_do,
+			"created": False,
+			"message": _("Linked Declaration Order {0} to this Declaration.").format(existing_do),
+		}
+
+	from logistics.customs.doctype.declaration_order.declaration_order import (
+		create_declaration_order_from_sales_quote,
+	)
+
+	result = create_declaration_order_from_sales_quote(declaration.sales_quote)
+	do_name = (result or {}).get("declaration_order")
+	if not do_name:
+		frappe.throw(_("Could not create Declaration Order."))
+
+	declaration.reload()
+	declaration.declaration_order = do_name
+	declaration.save()
+	return {
+		"success": True,
+		"declaration_order": do_name,
+		"created": True,
+		"message": (result or {}).get("message") or _("Declaration Order {0} created and linked.").format(do_name),
+	}
+
+
 def _copy_order_to_declaration(declaration: Document, order: Document, sales_quote: Document):
 	"""Copy all information from Declaration Order to Declaration."""
 	# Core references
@@ -680,21 +1117,23 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.declaration_date = today()
 	declaration.customs_authority = order.customs_authority
 	declaration.status = "Draft"
+	# Preserve internal-job classification context from the source order.
+	declaration.is_internal_job = getattr(order, "is_internal_job", 0)
+	declaration.main_job_type = getattr(order, "main_job_type", None)
+	declaration.main_job = getattr(order, "main_job", None)
 
 	# Main section
 	declaration.currency = order.currency or (getattr(sales_quote, "currency", None) if sales_quote else None)
 	declaration.exchange_rate = order.exchange_rate
 	declaration.customs_broker = order.customs_broker
 	declaration.notify_party = order.notify_party
+	declaration.freight_agent = getattr(order, "freight_agent", None)
 
 	# Shipment details
 	declaration.exporter_shipper = order.exporter_shipper
 	declaration.importer_consignee = order.importer_consignee
 	declaration.declaration_type = order.declaration_type
 	declaration.transport_mode = order.transport_mode
-	declaration.air_shipment = order.air_shipment
-	declaration.sea_shipment = order.sea_shipment
-	declaration.transport_order = order.transport_order
 
 	# Transport information
 	declaration.vessel_flight_number = order.vessel_flight_number
@@ -773,8 +1212,9 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.branch = order.branch
 	declaration.cost_center = order.cost_center
 	declaration.profit_center = order.profit_center
-	declaration.job_costing_number = getattr(order, "job_costing_number", None)
+	declaration.job_number = getattr(order, "job_number", None)
 	declaration.project = order.project
+	copy_operational_rep_fields_from_declaration_order(declaration, order)
 
 	# Notes
 	declaration.internal_notes = order.internal_notes
@@ -835,13 +1275,87 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 			_copy_child_row(row, child, doc_fields)
 
 
-def _copy_child_row(source_row: Document, target_row: Document, valid_fields: set):
-	"""Copy fields from source child row to target child row."""
+def _copy_child_row(source_row: Document, target_row: Document, valid_fields: set, child_meta=None):
+	"""Copy fields from source child row to target child row (skip virtual fields on the target row)."""
+	meta = child_meta or frappe.get_meta(target_row.doctype)
 	for field in valid_fields:
+		df = meta.get_field(field)
+		if df and getattr(df, "is_virtual", False):
+			continue
 		if hasattr(source_row, field):
 			val = getattr(source_row, field, None)
 			if val is not None and field not in ("name", "owner", "creation", "modified", "modified_by", "parent", "parenttype", "parentfield", "idx"):
 				target_row.set(field, val)
+
+
+def _append_declaration_charges_from_do_style_dicts(declaration: Document, charge_dicts: list) -> None:
+	"""Append Declaration Charges rows from Declaration Order–shaped charge dicts (e.g. internal-job main service)."""
+	if not charge_dicts:
+		return
+	target_meta = frappe.get_meta("Declaration Charges")
+	target_fields = {f.fieldname for f in target_meta.fields}
+	field_name_map = {"description": "charge_description"}
+	direct_fields = [
+		"service_type",
+		"item_code",
+		"item_name",
+		"charge_type",
+		"charge_category",
+		"revenue_calculation_method",
+		"quantity",
+		"uom",
+		"currency",
+		"rate",
+		"unit_type",
+		"minimum_quantity",
+		"minimum_unit_rate",
+		"minimum_charge",
+		"maximum_charge",
+		"base_amount",
+		"base_quantity",
+		"estimated_revenue",
+		"cost_calculation_method",
+		"cost_quantity",
+		"cost_uom",
+		"cost_currency",
+		"unit_cost",
+		"cost_unit_type",
+		"cost_minimum_quantity",
+		"cost_minimum_unit_rate",
+		"cost_minimum_charge",
+		"cost_maximum_charge",
+		"cost_base_amount",
+		"cost_base_quantity",
+		"estimated_cost",
+		"revenue_calc_notes",
+		"cost_calc_notes",
+		"use_tariff_in_revenue",
+		"use_tariff_in_cost",
+		"revenue_tariff",
+		"cost_tariff",
+		"bill_to",
+		"pay_to",
+		"is_other_service",
+		"other_service_type",
+		"date_started",
+		"date_ended",
+		"other_service_reference_no",
+		"other_service_notes",
+		"sales_quote_link",
+		"charge_basis",
+	]
+	for src in charge_dicts:
+		charge_row = declaration.append("charges", {})
+		for field in direct_fields:
+			if field not in target_fields:
+				continue
+			val = src.get(field)
+			if val is not None:
+				charge_row.set(field, val)
+		for src_fn, dst_fn in field_name_map.items():
+			val = src.get(src_fn)
+			if val is not None and dst_fn in target_fields:
+				charge_row.set(dst_fn, val)
 
 
 def _populate_charges_from_declaration_order(declaration: Document, order: Document):
@@ -849,23 +1363,82 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 	try:
 		if not hasattr(order, "charges") or not order.charges:
 			return
-		meta = frappe.get_meta("Declaration Charges")
-		charge_fields = [f.fieldname for f in meta.fields]
-		common_fields = [
-			"item_code", "item_name", "calculation_method", "quantity", "uom",
-			"currency", "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-			"maximum_charge", "base_amount", "estimated_revenue", "cost_calculation_method",
-			"cost_quantity", "cost_uom", "cost_currency", "unit_cost", "cost_unit_type",
-			"cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
-			"cost_base_amount", "estimated_cost", "revenue_calc_notes", "cost_calc_notes",
+		# Target meta to validate available fields
+		target_meta = frappe.get_meta("Declaration Charges")
+		target_fields = {f.fieldname for f in target_meta.fields}
+
+		# 1) Direct one-to-one fields present on both doctypes
+		direct_fields = [
+			"service_type",
+			"item_code",
+			"item_name",
+			"charge_type",
+			"charge_category",
+			"revenue_calculation_method",
+			"quantity",
+			"uom",
+			"currency",
+			"rate",
+			"unit_type",
+			"minimum_quantity",
+			"minimum_unit_rate",
+			"minimum_charge",
+			"maximum_charge",
+			"base_amount",
+			"base_quantity",
+			"estimated_revenue",
+			"cost_calculation_method",
+			"cost_quantity",
+			"cost_uom",
+			"cost_currency",
+			"unit_cost",
+			"cost_unit_type",
+			"cost_minimum_quantity",
+			"cost_minimum_unit_rate",
+			"cost_minimum_charge",
+			"cost_maximum_charge",
+			"cost_base_amount",
+			"cost_base_quantity",
+			"estimated_cost",
+			"revenue_calc_notes",
+			"cost_calc_notes",
+			"use_tariff_in_revenue",
+			"use_tariff_in_cost",
+			"revenue_tariff",
+			"cost_tariff",
+			"bill_to",
+			"pay_to",
+			# Other services block
+			"is_other_service",
+			"other_service_type",
+			"date_started",
+			"date_ended",
+			"other_service_reference_no",
+			"other_service_notes",
+			# Link back to quote if present on row
+			"sales_quote_link",
 		]
+
+		# 2) Field name mappings where source and target differ
+		# Declaration Order Charges -> Declaration Charges
+		field_name_map = {
+			"description": "charge_description",
+		}
+
 		for order_charge in order.charges:
 			charge_row = declaration.append("charges", {})
-			for field in common_fields:
-				if field in charge_fields and hasattr(order_charge, field):
+			# Copy direct fields that exist on target
+			for field in direct_fields:
+				if field in target_fields and hasattr(order_charge, field):
 					val = getattr(order_charge, field, None)
 					if val is not None:
 						charge_row.set(field, val)
+			# Copy mapped fields
+			for src, dst in field_name_map.items():
+				if dst in target_fields and hasattr(order_charge, src):
+					val = getattr(order_charge, src, None)
+					if val is not None:
+						charge_row.set(dst, val)
 	except Exception as e:
 		frappe.log_error(f"Error populating charges from Declaration Order: {str(e)}")
 
@@ -873,9 +1446,7 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Document):
 	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 	try:
-		customs_charges = []
-		if hasattr(sales_quote, "charges") and sales_quote.charges:
-			customs_charges = [c for c in sales_quote.charges if c.get("service_type") == "Customs"]
+		customs_charges = customs_charges_rows_from_sales_quote_doc(declaration, sales_quote)
 		if not customs_charges and hasattr(sales_quote, "customs") and sales_quote.customs:
 			customs_charges = list(sales_quote.customs)
 		if not customs_charges:
@@ -891,14 +1462,14 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 			
 			# Map common fields
 			common_fields = [
-				'item_code', 'item_name', 'calculation_method', 'quantity', 'uom',
+				'service_type', 'item_code', 'item_name', 'calculation_method', 'quantity', 'uom',
 				'currency', 'unit_rate', 'unit_type', 'minimum_quantity', 'minimum_charge',
 				'maximum_charge', 'base_amount', 'estimated_revenue', 'cost_calculation_method',
 				'cost_quantity', 'cost_uom', 'cost_currency', 'unit_cost', 'cost_unit_type',
 				'cost_minimum_quantity', 'cost_minimum_charge', 'cost_maximum_charge',
 				'cost_base_amount', 'estimated_cost', 'revenue_calc_notes', 'cost_calc_notes',
 				'use_tariff_in_revenue', 'use_tariff_in_cost', 'tariff',
-				'revenue_tariff', 'cost_tariff'
+				'revenue_tariff', 'cost_tariff', 'bill_to', 'pay_to'
 			]
 			
 			for field in common_fields:
@@ -917,19 +1488,19 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 @frappe.whitelist()
 def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	"""
-	Create a Sales Invoice from a Declaration when declaration is submitted.
+	Create a Sales Invoice from a Declaration (draft or submitted; not cancelled).
 	Uses charges from Declaration level.
 	"""
 	if not declaration_name:
 		frappe.throw(_("Declaration name is required."))
 	
 	declaration = frappe.get_doc("Declaration", declaration_name)
-	if declaration.docstatus != 1:
-		frappe.throw(_("Declaration must be submitted to create Sales Invoice."))
+	if declaration.docstatus == 2:
+		frappe.throw(_("Cannot create Sales Invoice from a cancelled Declaration."))
 	
 	# Check if Sales Invoice already exists for this declaration
-	existing_invoice = frappe.db.get_value("Sales Invoice", {"job_costing_number": declaration.job_costing_number}, "name")
-	if existing_invoice and declaration.job_costing_number:
+	existing_invoice = frappe.db.get_value("Sales Invoice", {"job_number": declaration.job_number}, "name")
+	if existing_invoice and declaration.job_number:
 		frappe.throw(_("Sales Invoice {0} already exists for this Declaration.").format(existing_invoice))
 	
 	# Create Sales Invoice
@@ -946,9 +1517,9 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	if declaration.profit_center:
 		si.profit_center = declaration.profit_center
 	
-	# Add reference to Job Costing Number if it exists
-	if declaration.job_costing_number:
-		si.job_costing_number = declaration.job_costing_number
+	# Add reference to Job Number if it exists
+	if declaration.job_number:
+		si.job_number = declaration.job_number
 	
 	# Add reference to Sales Quote if it exists
 	if declaration.sales_quote:

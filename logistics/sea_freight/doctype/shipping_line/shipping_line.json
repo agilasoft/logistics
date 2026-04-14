@@ -9,6 +9,7 @@
  "field_order": [
   "code",
   "shipping_line_name",
+  "logo",
   "is_active",
   "column_break_iyux",
   "scac",
@@ -30,6 +31,11 @@
    "fieldname": "shipping_line_name",
    "fieldtype": "Data",
    "label": "Shipping Line Name"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
   },
   {
    "default": "0",
@@ -61,12 +67,14 @@
    "fieldname": "customer_link",
    "fieldtype": "Link",
    "label": "Customer Link",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
   },
   {
    "fieldname": "supplier_link",
    "fieldtype": "Link",
    "label": "Supplier Link",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier"
   },
   {
@@ -81,9 +89,10 @@
   }
  ],
  "grid_page_length": 50,
+ "image_field": "logo",
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-17 12:34:17.391863",
+ "modified": "2026-04-14 15:37:58.430602",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Shipping Line",

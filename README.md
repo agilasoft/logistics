@@ -17,6 +17,7 @@ CargoNext is designed to streamline logistics operations for businesses of all s
 - **Logistics Sales**: Sales order integration
 - **Sustainability**: Environmental impact tracking
 - **Netting**: Financial netting operations
+- **Credit management**: Customer credit status, hold rules per DocType (or apply-all), temporary lifts via **Credit Hold Lift Request**, integrated with ERPNext limits and overdue invoices
 
 ## Features
 
@@ -28,6 +29,7 @@ CargoNext is designed to streamline logistics operations for businesses of all s
 - Portal access for warehouse and transport jobs
 - Real-time stock balance tracking
 - Comprehensive job status workflows
+- **Credit control** across logistics DocTypes: warn on save, hold create/submit/print, optional **Apply hold to all DocTypes**, **Credit Manager** approvals for lift requests
 
 ## Requirements
 
@@ -112,6 +114,19 @@ After installation, you may need to:
 ## Configuration
 
 The app integrates with ERPNext and extends its functionality. Ensure ERPNext is installed and configured before using CargoNext.
+
+### Credit management
+
+Cross-module credit enforcement is configured in **Logistics Settings → Credit Control** (enable control, hold conditions, bypass role, **Apply hold to all DocTypes** or per-row **Subject DocTypes**). Customer **Credit Status** lives on **Customer** (Credit tab). Temporary exceptions use **Credit Hold Lift Request** (submitted by **Credit Manager**).
+
+| Area | Location |
+|------|----------|
+| User-facing design / behaviour | [`logistics/wiki_content/credit_management.md`](logistics/wiki_content/credit_management.md) |
+| Core logic | [`logistics/utils/credit_management.py`](logistics/utils/credit_management.py) |
+| Settings & child table | [`logistics/logistics/doctype/logistics_settings/`](logistics/logistics/doctype/logistics_settings/) |
+| Lift request DocType | [`logistics/logistics/doctype/credit_hold_lift_request/`](logistics/logistics/doctype/credit_hold_lift_request/) |
+
+After `bench migrate`, assign the **Credit Manager** role (app fixture) to approvers. To publish wiki pages to a site with the Wiki app: `bench --site [site] execute logistics.setup.install_wiki_pages.install_wiki_pages`.
 
 ### Portal Access
 

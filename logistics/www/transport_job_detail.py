@@ -184,7 +184,7 @@ def get_job_details(job):
             "customer_ref_no": job.customer_ref_no,
             "transport_order": job.transport_order,
             "company": job.company,
-            "hazardous": job.hazardous,
+            "contains_dangerous_goods": job.contains_dangerous_goods,
             "refrigeration": job.refrigeration,
             "container_type": job.container_type,
             "container_no": job.container_no,

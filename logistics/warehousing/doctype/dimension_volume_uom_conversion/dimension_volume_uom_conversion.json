@@ -28,7 +28,8 @@
    "in_list_view": 1,
    "label": "Dimension UOM",
    "options": "UOM",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "volume_uom",
@@ -36,7 +37,8 @@
    "in_list_view": 1,
    "label": "Volume UOM",
    "options": "UOM",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "conversion_factor",

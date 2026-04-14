@@ -1404,3 +1404,17 @@ Regular testing using these scenarios ensures the system can handle all customs 
 **Last Updated:** 2024
 **Version:** 1.0
 **Module:** Customs
+
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Workflow uses **Declaration Order** and **Declaration** (and related masters). Full field lists:_
+
+- [Declaration Order](welcome/declaration-order), [Declaration](welcome/declaration)
+- [Commodity](welcome/commodity), [Customs Authority](welcome/customs-authority), [Customs Settings](welcome/customs-settings)
+- [Document Management](welcome/document-management) _(Job Document & templates)_
+
+<!-- wiki-field-reference:end -->
+

@@ -1,13 +1,12 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:route_sequence",
+ "autoname": "hash",
  "creation": "2025-01-27 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "route_info_section",
-  "route_sequence",
   "route_type",
   "origin_port",
   "destination_port",
@@ -56,14 +55,6 @@
    "label": "Route Information"
   },
   {
-   "fieldname": "route_sequence",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Route Sequence",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
    "fieldname": "route_type",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -78,7 +69,8 @@
    "in_list_view": 1,
    "label": "Origin Port",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "description": "Destination port UNLOCO code",
@@ -87,7 +79,8 @@
    "in_list_view": 1,
    "label": "Destination Port",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",
@@ -99,7 +92,8 @@
    "in_list_view": 1,
    "label": "Shipping Line",
    "options": "Shipping Line",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "vessel_name",

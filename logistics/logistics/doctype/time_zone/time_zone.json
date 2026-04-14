@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "description",
+  "is_active",
   "standard_details_section",
   "offset",
   "timezone_name",
@@ -32,6 +33,13 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "label": "Description"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Is Active"
   },
   {
    "fieldname": "standard_details_section",

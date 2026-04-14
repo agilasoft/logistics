@@ -4,9 +4,11 @@
 
 """
 Create intercompany Sales and Purchase Invoices when a customer Sales Invoice
-(from a Sales Quote) is submitted. For each routing leg where the job's company
-differs from the quote's billing company, the operating company invoices the
-billing company (intercompany SI + PI).
+(from a Sales Quote) is submitted. For each **Internal Job** (is_internal_job +
+Main Job link on the job or parent booking/order) where the job's operating
+company differs from the Main Job's company, the operating company invoices the
+Main Job company (intercompany SI + PI). Item and Job Number dimensions
+are set on SI (internal job) and PI (main job).
 """
 
 from __future__ import unicode_literals
@@ -28,14 +30,14 @@ def is_intercompany_enabled() -> bool:
 		return False
 
 
-def get_relationship(billing_company: str, operating_company: str) -> Optional[Dict[str, str]]:
+def get_relationship(main_job_company: str, operating_company: str) -> Optional[Dict[str, str]]:
 	"""
-	Get internal_customer and internal_supplier for a billing/operating company pair.
-	Returns None if not configured.
+	Get internal_customer and internal_supplier for a pair configured in Intercompany Settings.
+	``main_job_company`` matches the relationship row's **Billing Company** (customer-invoicing entity).
 	"""
 	settings = frappe.get_single("Intercompany Settings")
 	for row in settings.get("relationships") or []:
-		if row.get("billing_company") == billing_company and row.get("operating_company") == operating_company:
+		if row.get("billing_company") == main_job_company and row.get("operating_company") == operating_company:
 			return {
 				"internal_customer": row.get("internal_customer"),
 				"internal_supplier": row.get("internal_supplier"),
@@ -54,16 +56,19 @@ def get_invoice_items_from_job(
 	return billing_get_items(job_type, job_name, customer=customer_for_sea)
 
 
+@frappe.whitelist()
 def create_intercompany_invoices_for_quote(
 	sales_quote_name: str,
-	billing_company: str,
 	trigger_si: Optional[str] = None,
 	posting_date: Optional[str] = None,
 ) -> Dict[str, Any]:
 	"""
-	For each routing leg where job.company != billing_company, create
-	intercompany Sales Invoice (operating company -> billing company) and
-	Purchase Invoice (billing company <- operating company).
+	For each Internal Job on the quote where job.company != Main Job company,
+	create intercompany Sales Invoice (operating -> Main Job company) and
+	Purchase Invoice (Main Job company <- operating).
+
+	The Main Job company is resolved from each job's Main Job link
+	(``main_job_type`` / ``main_job``), not from a document ``billing_company`` field.
 	"""
 	if not is_intercompany_enabled():
 		return {"success": True, "created": 0, "message": _("Intercompany invoicing is disabled.")}
@@ -79,7 +84,11 @@ def create_intercompany_invoices_for_quote(
 	errors = []
 
 	# Cross-module billing: include every job (anchor + contributors) from each leg
-	from logistics.billing.cross_module_billing import get_all_billing_jobs_from_sales_quote
+	from logistics.billing.cross_module_billing import (
+		get_all_billing_jobs_from_sales_quote,
+		resolve_internal_job_main_job,
+		get_main_job_company,
+	)
 	all_jobs = get_all_billing_jobs_from_sales_quote(sales_quote)
 
 	for job_type, job_no in all_jobs:
@@ -92,14 +101,26 @@ def create_intercompany_invoices_for_quote(
 			errors.append(_("Job {0} {1}: {2}").format(job_type, job_no, str(e)))
 			continue
 
-		operating_company = getattr(job_doc, "company", None)
-		if not operating_company or operating_company == billing_company:
+		main_job_type, main_job_name = resolve_internal_job_main_job(job_type, job_no)
+		if not main_job_type or not main_job_name:
+			continue
+		main_job_company = get_main_job_company(main_job_type, main_job_name)
+		if not main_job_company:
+			errors.append(
+				_("Job {0} {1}: Main Job {2} {3} has no company.").format(
+					job_type, job_no, main_job_type, main_job_name
+				)
+			)
 			continue
 
-		rel = get_relationship(billing_company, operating_company)
+		operating_company = getattr(job_doc, "company", None)
+		if not operating_company or operating_company == main_job_company:
+			continue
+
+		rel = get_relationship(main_job_company, operating_company)
 		if not rel or not rel.get("internal_customer") or not rel.get("internal_supplier"):
-			errors.append(_("Job {0} {1}: no Intercompany Relationship for Billing Company {2} and Operating Company {3}.").format(
-				job_type, job_no, billing_company, operating_company
+			errors.append(_("Job {0} {1}: no Intercompany Relationship for Main Job Company {2} and Operating Company {3}.").format(
+				job_type, job_no, main_job_company, operating_company
 			))
 			continue
 
@@ -138,7 +159,7 @@ def create_intercompany_invoices_for_quote(
 			si_name, pi_name = _create_intercompany_pair(
 				leg=leg_for_log,
 				job_doc=job_doc,
-				billing_company=billing_company,
+				main_job_company=main_job_company,
 				operating_company=operating_company,
 				internal_customer=rel["internal_customer"],
 				internal_supplier=rel["internal_supplier"],
@@ -146,6 +167,8 @@ def create_intercompany_invoices_for_quote(
 				trigger_si=trigger_si,
 				posting_date=posting_date,
 				items=items,
+				main_job_type=main_job_type,
+				main_job_name=main_job_name,
 			)
 		except Exception as e:
 			frappe.log_error(
@@ -159,7 +182,7 @@ def create_intercompany_invoices_for_quote(
 				leg=leg_for_log,
 				job_type=job_type,
 				job_no=job_no,
-				billing_company=billing_company,
+				main_job_company=main_job_company,
 				operating_company=operating_company,
 				status="Failed",
 			)
@@ -171,7 +194,7 @@ def create_intercompany_invoices_for_quote(
 			leg=leg_for_log,
 			job_type=job_type,
 			job_no=job_no,
-			billing_company=billing_company,
+			main_job_company=main_job_company,
 			operating_company=operating_company,
 			status="Created",
 			intercompany_sales_invoice=si_name,
@@ -202,7 +225,7 @@ def _create_log_entry(
 	leg,
 	job_type: str,
 	job_no: str,
-	billing_company: str,
+	main_job_company: str,
 	operating_company: str,
 	status: str,
 	intercompany_sales_invoice: Optional[str] = None,
@@ -214,7 +237,7 @@ def _create_log_entry(
 	log.leg_order = getattr(leg, "idx", None)
 	log.job_type = job_type
 	log.job_no = job_no
-	log.billing_company = billing_company
+	log.main_job_company = main_job_company
 	log.operating_company = operating_company
 	log.status = status
 	if intercompany_sales_invoice:
@@ -227,7 +250,7 @@ def _create_log_entry(
 def _create_intercompany_pair(
 	leg,
 	job_doc,
-	billing_company: str,
+	main_job_company: str,
 	operating_company: str,
 	internal_customer: str,
 	internal_supplier: str,
@@ -235,12 +258,28 @@ def _create_intercompany_pair(
 	trigger_si: Optional[str],
 	posting_date: str,
 	items: List[Dict[str, Any]],
+	main_job_type: str,
+	main_job_name: str,
 ) -> Tuple[str, str]:
-	"""Create one intercompany Sales Invoice (operating co) and one Purchase Invoice (billing co). Returns (si_name, pi_name)."""
+	"""Create one intercompany Sales Invoice (operating co) and one Purchase Invoice (Main Job co). Returns (si_name, pi_name)."""
 	leg_order = getattr(leg, "idx", "")
 	job_type = job_doc.doctype
 	job_no = job_doc.name
 	desc_suffix = _("{0} {1} (Leg {2}) - Intercompany").format(job_type, job_no, leg_order)
+
+	main_jcn = None
+	main_branch = None
+	main_cc = None
+	main_pc = None
+	if main_job_type and main_job_name and frappe.db.exists(main_job_type, main_job_name):
+		main_jcn = frappe.db.get_value(main_job_type, main_job_name, "job_number")
+		try:
+			main_doc = frappe.get_doc(main_job_type, main_job_name)
+			main_branch = getattr(main_doc, "branch", None)
+			main_cc = getattr(main_doc, "cost_center", None)
+			main_pc = getattr(main_doc, "profit_center", None)
+		except Exception:
+			pass
 
 	# 1) Sales Invoice: operating company -> billing company (internal_customer)
 	si = frappe.new_doc("Sales Invoice")
@@ -255,6 +294,9 @@ def _create_intercompany_pair(
 		si.cost_center = job_doc.cost_center
 	if getattr(job_doc, "profit_center", None):
 		si.profit_center = job_doc.profit_center
+	si_meta = frappe.get_meta("Sales Invoice")
+	if si_meta.get_field("job_number") and getattr(job_doc, "job_number", None):
+		si.job_number = job_doc.job_number
 
 	for it in items:
 		row = si.append("items", {
@@ -275,19 +317,27 @@ def _create_intercompany_pair(
 	si.insert(ignore_permissions=True)
 	si.submit()
 
-	# 2) Purchase Invoice: billing company <- operating company (internal_supplier)
+	# 2) Purchase Invoice: Main Job company <- operating company (internal_supplier)
 	pi = frappe.new_doc("Purchase Invoice")
-	pi.company = billing_company
+	pi.company = main_job_company
 	pi.supplier = internal_supplier
 	pi.posting_date = posting_date
 	pi.remarks = _("Intercompany: from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-")
-	# Use quote for branch/cost_center if needed
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
-	if getattr(sales_quote, "branch", None):
+	pi_meta = frappe.get_meta("Purchase Invoice")
+	if pi_meta.get_field("job_number") and main_jcn:
+		pi.job_number = main_jcn
+	if main_branch and pi_meta.get_field("branch"):
+		pi.branch = main_branch
+	elif getattr(sales_quote, "branch", None):
 		pi.branch = sales_quote.branch
-	if getattr(sales_quote, "cost_center", None):
+	if main_cc and pi_meta.get_field("cost_center"):
+		pi.cost_center = main_cc
+	elif getattr(sales_quote, "cost_center", None):
 		pi.cost_center = sales_quote.cost_center
-	if getattr(sales_quote, "profit_center", None):
+	if main_pc and pi_meta.get_field("profit_center"):
+		pi.profit_center = main_pc
+	elif getattr(sales_quote, "profit_center", None):
 		pi.profit_center = sales_quote.profit_center
 
 	for it in items:
@@ -320,10 +370,8 @@ def create_intercompany_invoices_from_sales_invoice(sales_invoice_name: str) -> 
 	quote_name = getattr(si, "quotation_no", None)
 	if not quote_name or not frappe.db.exists("Sales Quote", quote_name):
 		frappe.throw(_("Sales Invoice {0} is not linked to a Sales Quote.").format(sales_invoice_name))
-	billing_company = si.company
 	return create_intercompany_invoices_for_quote(
 		sales_quote_name=quote_name,
-		billing_company=billing_company,
 		trigger_si=sales_invoice_name,
 		posting_date=si.posting_date,
 	)

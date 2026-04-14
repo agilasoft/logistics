@@ -222,7 +222,7 @@ class GrabExpressMapper(ODDSMapper):
             wd = float(pkg.get("width") or 10)
             d = float(pkg.get("depth") or pkg.get("length") or 10)
             result.append({
-                "name": str(pkg.get("description") or pkg.get("item") or "Package")[:500],
+                "name": str(pkg.get("description") or pkg.get("warehouse_item") or pkg.get("item") or "Package")[:500],
                 "description": str(pkg.get("description") or "")[:500],
                 "quantity": int(float(pkg.get("quantity") or 1)),
                 "price": float(pkg.get("goods_value") or 0),

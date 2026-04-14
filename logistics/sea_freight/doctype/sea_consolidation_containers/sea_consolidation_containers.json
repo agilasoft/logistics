@@ -43,7 +43,8 @@
    "in_list_view": 1,
    "label": "Container Type",
    "options": "Container Type",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "seal_number",

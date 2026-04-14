@@ -39,7 +39,7 @@ frappe.ui.form.on('Warehouse Job Charges', {
 		if (frm.doc.warehouse_contract) {
 			frm.add_custom_button(__('Validate All Charges'), function() {
 				validate_all_charges(frm);
-			}, __('Actions'));
+			}, __('Action'));
 		}
 	}
 });

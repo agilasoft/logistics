@@ -179,7 +179,8 @@
    "fieldname": "issuing_authority",
    "fieldtype": "Link",
    "label": "Issuing Authority",
-   "options": "Customs Authority"
+   "options": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "notes_tab",
@@ -225,4 +226,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

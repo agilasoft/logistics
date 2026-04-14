@@ -11,8 +11,9 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
-        from logistics.utils.module_integration import set_billing_company_from_sales_quote
-        set_billing_company_from_sales_quote(self)
+        from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+        apply_shipper_consignee_defaults(self)
         # DEBUG: Log all validation calls
         try:
             frappe.log_error(
@@ -42,6 +43,11 @@ class TransportJob(Document):
         
         # Prevent duplicate Transport Jobs for the same transport_order
         self._validate_no_duplicate_transport_order()
+        try:
+            from logistics.job_management.recognition_engine import sync_job_recognition_fields_from_policy
+            sync_job_recognition_fields_from_policy(self)
+        except Exception:
+            pass
         
         # Copy service level from Transport Order when transport_order is set
         self._copy_service_level_from_order()
@@ -58,7 +64,11 @@ class TransportJob(Document):
             pass
 
         self._update_packing_summary()
-        
+
+        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+        msgprint_sales_quote_validity_warnings(self)
+
         # DEBUG: Log after validation
         try:
             frappe.log_error(
@@ -67,7 +77,7 @@ class TransportJob(Document):
             )
         except Exception:
             pass
-    
+
     def before_save(self):
         """Calculate sustainability metrics and create job costing number before saving"""
         from logistics.utils.module_integration import run_propagate_on_link
@@ -91,7 +101,7 @@ class TransportJob(Document):
                     frappe.log_error("Transport Job container sync error: {0}".format(str(e)), "Container Management")
         
         self.calculate_sustainability_metrics()
-        self.create_job_costing_number_if_needed()
+        self.create_job_number_if_needed()
         
         # Derive SLA target date from Logistics Service Level when applicable
         self._derive_sla_target_from_service_level()
@@ -143,7 +153,7 @@ class TransportJob(Document):
     
     def after_insert(self):
         """Create job costing number for new documents"""
-        self.create_job_costing_number_if_needed()
+        self.create_job_number_if_needed()
     
     def before_submit(self):
         """Mark document as submitting and set status to Submitted"""
@@ -246,6 +256,18 @@ class TransportJob(Document):
             )
             frappe.db.commit()
         
+        self.reload()
+        try:
+            from logistics.container_management.api import sync_transport_job_container
+
+            sync_transport_job_container(self)
+        except Exception as e:
+            if not getattr(frappe.flags, "skip_container_sync", False):
+                frappe.log_error(
+                    "Transport Job container sync after submit: {0}".format(str(e)),
+                    "Container Management",
+                )
+
         self.record_sustainability_metrics()
         
         # Reserve capacity if vehicle is assigned
@@ -726,13 +748,22 @@ class TransportJob(Document):
         
         if old_status == new_status:
             return
+
+        if getattr(self.flags, "allow_charge_reopen_transition", False):
+            if (old_status, new_status) in (("Completed", "Reopened"), ("Closed", "Reopened")):
+                return
+        if getattr(self.flags, "allow_charge_close_transition", False):
+            if (old_status, new_status) == ("Reopened", "Closed"):
+                return
         
         # Define allowed transitions
         allowed_transitions = {
             "Draft": ["Submitted", "Cancelled"],
             "Submitted": ["In Progress", "Cancelled"],
             "In Progress": ["Completed", "Cancelled"],
-            "Completed": [],  # Cannot change from Completed
+            "Completed": [],  # Reopened only via reopen_job_for_charges (flags)
+            "Closed": [],  # Reopened only via reopen_job_for_charges (flags)
+            "Reopened": [],  # Closed only via close_job_for_charges (flags)
             "Cancelled": []  # Cannot change from Cancelled
         }
         
@@ -769,6 +800,9 @@ class TransportJob(Document):
         # If submitted (docstatus = 1), check leg statuses to determine job status
         # Default to "Submitted" unless legs indicate "In Progress" or "Completed"
         if self.docstatus == 1:
+            # Do not override manual Reopened / Closed (charge entry workflow)
+            if getattr(self, "status", None) in ("Reopened", "Closed"):
+                return
             legs_field = _get_job_legs_fieldname(self)
             job_legs = self.get(legs_field) or []
             
@@ -820,97 +854,18 @@ class TransportJob(Document):
     
     @frappe.whitelist()
     def get_dashboard_html(self):
-        """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+        """Generate HTML for Dashboard tab: tabbed layout with map, milestones, alerts."""
         try:
-            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-            from logistics.document_management.dashboard_layout import (
-                build_run_sheet_style_dashboard,
-                get_dg_dashboard_html,
+            from logistics.document_management.logistics_form_dashboard import (
+                build_transport_job_dashboard_config,
+                render_logistics_form_dashboard_html,
             )
-            from logistics.transport.api_optimized import get_address_coordinates_batch
+            from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-            status = self.status or "Draft"
-            legs = self.get("legs") or []
-            header_items = [
-                ("Status", status),
-                ("Booking Date", str(self.booking_date) if self.booking_date else "—"),
-                ("Customer", self.customer or "—"),
-                ("Scheduled", str(self.scheduled_date) if self.scheduled_date else "—"),
-                ("Legs", str(len(legs))),
-                ("Packages", str(len(self.packages or []))),
-                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-            ]
-            if self.transport_job_type:
-                header_items.append(("Job Type", self.transport_job_type))
-
-            doc_alerts = get_document_alerts_html("Transport Job", self.name or "new")
-
-            dg_route_below_html = get_dg_dashboard_html(self)
-
-            # Milestone cards from child table
-            milestone_rows = list(self.get("milestones") or [])
-            milestone_details = {}
-            if milestone_rows:
-                names = [m.milestone for m in milestone_rows if m.milestone]
-                if names:
-                    for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
-                        milestone_details[lm.name] = lm.description or lm.name
-
-            cards_html = ""
-            for i, m in enumerate(milestone_rows, 1):
-                st = (m.status or "Planned").lower().replace(" ", "-")
-                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-                cards_html += f"""
-                <div class="dash-card {st}">
-                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-                    <span class="card-badge {st}">{m.status or "Planned"}</span>
-                </div>"""
-
-            # Map points and origin/destination from legs
-            addr_names = []
-            for leg in legs:
-                if leg.get("pick_address"):
-                    addr_names.append(leg.pick_address)
-                if leg.get("drop_address"):
-                    addr_names.append(leg.drop_address)
-            addr_coords = get_address_coordinates_batch(list(set(addr_names))) or {} if addr_names else {}
-            map_points = []
-            for leg in legs:
-                for addr_field in ["pick_address", "drop_address"]:
-                    addr = leg.get(addr_field)
-                    if addr:
-                        c = addr_coords.get(addr) if addr_coords else None
-                        if c and c.get("lat") is not None and c.get("lon") is not None:
-                            map_points.append({"lat": float(c["lat"]), "lon": float(c["lon"]), "label": addr})
-
-            # Origin/destination from first leg pick, last leg drop
-            origin_label = None
-            destination_label = None
-            if legs:
-                first_pick = legs[0].get("pick_address")
-                last_drop = legs[-1].get("drop_address")
-                if first_pick:
-                    origin_label = frappe.db.get_value("Address", first_pick, "address_title") or first_pick
-                if last_drop:
-                    destination_label = frappe.db.get_value("Address", last_drop, "address_title") or last_drop
-
-            alerts_html = get_dashboard_alerts_html("Transport Job", self.name or "new")
-            return build_run_sheet_style_dashboard(
-                header_title=self.name or "Transport Job",
-                header_subtitle="Transport Job",
-                header_items=header_items,
-                cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Generate from template in Milestones tab.</div>",
-                map_points=map_points,
-                map_id_prefix="tj-dash-map",
-                doc_alerts_html=doc_alerts,
-                alerts_html=alerts_html,
-                origin_label=origin_label,
-                destination_label=destination_label,
-                route_below_html=dg_route_below_html,
+            dash = render_logistics_form_dashboard_html(
+                self, build_transport_job_dashboard_config(self)
             )
+            return get_sales_quote_validity_dashboard_html(self) + dash
         except Exception as e:
             frappe.log_error(f"Transport Job get_dashboard_html: {str(e)}", "Transport Job Dashboard")
             return "<div class='alert alert-warning'>Error loading dashboard.</div>"
@@ -933,9 +888,9 @@ class TransportJob(Document):
         except Exception as e:
             frappe.log_error(f"Error triggering auto-billing for Transport Job {self.name}: {str(e)}", "Auto Billing Error")
     
-    def create_job_costing_number_if_needed(self):
-        """Create Job Costing Number if it doesn't exist"""
-        if self.job_costing_number:
+    def create_job_number_if_needed(self):
+        """Create Job Number if it doesn't exist"""
+        if self.job_number:
             return
         
         if not self.name:
@@ -943,14 +898,14 @@ class TransportJob(Document):
             return
         
         try:
-            # Check if Job Costing Number already exists for this job
-            existing_jcn = frappe.db.exists("Job Costing Number", {"job_no": self.name})
+            # Check if Job Number already exists for this job
+            existing_jcn = frappe.db.exists("Job Number", {"job_no": self.name})
             if existing_jcn:
-                self.job_costing_number = existing_jcn
+                self.job_number = existing_jcn
                 return
             
-            # Create new Job Costing Number
-            jcn = frappe.new_doc("Job Costing Number")
+            # Create new Job Number
+            jcn = frappe.new_doc("Job Number")
             jcn.job_type = "Transport Job"  # Must be set before job_no (Dynamic Link)
             jcn.job_no = self.name
             jcn.job_name = self.name
@@ -958,9 +913,9 @@ class TransportJob(Document):
             jcn.customer = self.customer
             jcn.insert(ignore_permissions=True)
             
-            self.job_costing_number = jcn.name
+            self.job_number = jcn.name
         except Exception as e:
-            frappe.log_error(f"Error creating Job Costing Number for Transport Job {self.name}: {str(e)}", "Job Costing Number Creation Error")
+            frappe.log_error(f"Error creating Job Number for Transport Job {self.name}: {str(e)}", "Job Number Creation Error")
     
     # ==================== Capacity Management ====================
     
@@ -1583,9 +1538,9 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     if getattr(job, "profit_center", None):
         si.profit_center = job.profit_center
     
-    # Add reference to Job Costing Number if it exists
-    if getattr(job, "job_costing_number", None):
-        si.job_costing_number = job.job_costing_number
+    # Add reference to Job Number if it exists
+    if getattr(job, "job_number", None):
+        si.job_number = job.job_number
     
     # Add reference to Sales Quote if it exists
     if hasattr(job, "sales_quote") and job.sales_quote:
@@ -1620,12 +1575,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             item_name = getattr(charge, "item_name", None) or "Transport Service"
             qty = flt(getattr(charge, "quantity", 1))
             
-            # Transport Job Charges uses 'unit_rate' and 'estimated_revenue'
-            # Use estimated_revenue if available, otherwise use unit_rate
-            unit_rate = flt(getattr(charge, "unit_rate", 0))
+            # Transport Job Charges: rate (aligned with Air Shipment Charges); legacy unit_rate supported
+            unit_rate = flt(getattr(charge, "rate", 0) or getattr(charge, "unit_rate", 0))
             estimated_revenue = flt(getattr(charge, "estimated_revenue", 0))
             
-            # Calculate rate: prefer estimated_revenue, fallback to unit_rate
+            # Calculate rate: prefer estimated_revenue, fallback to unit rate field
             # If estimated_revenue exists, calculate rate from it
             if estimated_revenue > 0:
                 rate = estimated_revenue / qty if qty > 0 else estimated_revenue
@@ -1721,6 +1675,75 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
         "sales_invoice": si.name,
         "charges_used": valid_charges_count,
         "items_created": items_created
+    }
+
+
+@frappe.whitelist()
+def create_sales_invoice_from_transport_job(job_name, posting_date=None, customer=None):
+    """Create Sales Invoice from Transport Job charges (fallback when Create Sales Invoice dialog script is not loaded)."""
+    from frappe.utils import today
+
+    if not job_name:
+        frappe.throw(_("Transport Job name is required."))
+    job = frappe.get_doc("Transport Job", job_name)
+    if job.docstatus != 1:
+        frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
+    customer = customer or job.customer
+    if not customer:
+        frappe.throw(_("Customer is required to create Sales Invoice."))
+    if not job.charges:
+        frappe.throw(_("No charges found on Transport Job."))
+    invoice = frappe.new_doc("Sales Invoice")
+    invoice.customer = customer
+    invoice.company = job.company
+    invoice.posting_date = posting_date or today()
+    if getattr(job, "branch", None):
+        invoice.branch = job.branch
+    if getattr(job, "cost_center", None):
+        invoice.cost_center = job.cost_center
+    if getattr(job, "profit_center", None):
+        invoice.profit_center = job.profit_center
+    base_remarks = invoice.remarks or ""
+    note = _("Auto-created from Transport Job {0}").format(job.name)
+    invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+    for ch in job.charges:
+        line_rate = flt(getattr(ch, "rate", 0) or getattr(ch, "unit_rate", 0))
+        rev = flt(
+            getattr(ch, "estimated_revenue", 0)
+            or line_rate * flt(getattr(ch, "quantity", 1) or 1)
+        )
+        if rev <= 0:
+            continue
+        item_code = getattr(ch, "item_code", None)
+        if not item_code:
+            continue
+        invoice.append("items", {"item_code": item_code, "qty": 1, "rate": rev})
+    if not invoice.items:
+        frappe.throw(_("No charge items with revenue found."))
+    invoice.set_missing_values()
+    invoice.insert(ignore_permissions=True)
+    if frappe.get_meta("Transport Job").get_field("sales_invoice"):
+        frappe.db.set_value("Transport Job", job_name, "sales_invoice", invoice.name, update_modified=False)
+    return {"sales_invoice": invoice.name}
+
+
+@frappe.whitelist()
+def post_standard_costs(docname):
+    """Post standard costs on Transport Job charge lines (same pattern as Air Shipment)."""
+    job = frappe.get_doc("Transport Job", docname)
+    posted = 0
+    for ch in job.charges or []:
+        if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(
+            ch, "standard_cost_posted", False
+        ):
+            if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
+                ch.standard_cost_posted = 1
+                ch.standard_cost_posted_at = frappe.utils.now()
+                posted += 1
+    if posted > 0:
+        job.save()
+    return {
+        "message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")
     }
 
 

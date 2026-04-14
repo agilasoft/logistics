@@ -271,7 +271,7 @@ def search_transport_jobs(plate_number):
                 tj.transport_order,
                 tj.vehicle_type,
                 tj.container_no,
-                tj.hazardous,
+                tj.contains_dangerous_goods,
                 tj.refrigeration,
                 tj.notes
             FROM `tabTransport Job` tj
@@ -296,7 +296,7 @@ def search_transport_jobs(plate_number):
                 "docstatus": row.docstatus,
                 "booking_date": row.booking_date.strftime("%Y-%m-%d") if row.booking_date else None,
                 "notes": row.notes,
-                "hazardous": row.hazardous,
+                "contains_dangerous_goods": row.contains_dangerous_goods,
                 "refrigeration": row.refrigeration,
                 "transport_order": row.transport_order,
                 "status": "pending"  # Will be updated by access control
@@ -343,11 +343,11 @@ def add_access_control(results):
                         entry["status"] = "pending"
                         entry["access_reason"] = "ETA is overdue - requires manual review"
             
-            # Rule 5: Special handling for hazardous materials
-            if entry.get("hazardous"):
+            # Rule 5: Special handling for dangerous goods
+            if entry.get("contains_dangerous_goods"):
                 if entry["status"] == "allowed":
                     entry["status"] = "pending"
-                    entry["access_reason"] = "Hazardous materials - requires special approval"
+                    entry["access_reason"] = "Dangerous goods - requires special approval"
             
             # Rule 6: Add security notes for denied access
             if entry["status"] == "denied":

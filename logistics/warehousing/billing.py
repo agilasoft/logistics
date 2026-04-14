@@ -602,6 +602,8 @@ def calculate_billing_quantity_for_method(unit_type: str, hu_details: Dict, date
         return calculate_per_handling_unit_quantity(hu_details, date_from, date_to)
     elif unit_type == "Volume":
         return calculate_per_volume_quantity(hu_details, date_from, date_to)
+    elif unit_type == "Chargeable Weight":
+        return flt(hu_details.get("chargeable_weight", 0) or hu_details.get("chargeable", 0))
     elif unit_type == "Weight":
         return calculate_per_weight_quantity(hu_details, date_from, date_to)
     elif unit_type == "Package":

@@ -44,7 +44,7 @@ frappe.ui.form.on('Inbound Order', {
             }
           }
         });
-      }, __('Actions'));
+      }, __('Action'));
     }
 
     // Create → Warehouse Job button (only when submitted)

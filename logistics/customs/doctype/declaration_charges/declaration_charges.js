@@ -2,13 +2,20 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Declaration Charges", {
+	charge_type: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (row && row.charge_type === "Disbursement") {
+			_calculate_charge_row(frm, cdt, cdn);
+		}
+	},
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	uom: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	currency: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	minimum_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	minimum_unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	minimum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	maximum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	base_amount: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -20,6 +27,7 @@ frappe.ui.form.on("Declaration Charges", {
 	unit_cost: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_minimum_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	cost_minimum_unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_minimum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -41,8 +49,13 @@ function _calculate_charge_row(frm, cdt, cdn) {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				// Declaration charges: only update actual (estimated comes from Declaration Order, do not overwrite)
+				if ("actual_revenue" in r.message) {
+					frappe.model.set_value(cdt, cdn, "actual_revenue", r.message.actual_revenue);
+				}
+				if ("actual_cost" in r.message) {
+					frappe.model.set_value(cdt, cdn, "actual_cost", r.message.actual_cost);
+				}
 				if (r.message.quantity != null) {
 					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
 				}
@@ -54,6 +67,9 @@ function _calculate_charge_row(frm, cdt, cdn) {
 				}
 				if ("cost_calc_notes" in r.message) {
 					frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
+				}
+				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
 				}
 			}
 		}

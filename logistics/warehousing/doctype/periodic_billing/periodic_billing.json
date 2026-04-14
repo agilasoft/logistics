@@ -26,7 +26,7 @@
   "column_break_dimensions",
   "profit_center",
   "cost_center",
-  "job_costing_number"
+  "job_number"
  ],
  "fields": [
   {
@@ -54,7 +54,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "date",
@@ -127,13 +128,14 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number",
+   "label": "Job Number",
+   "options": "Job Number",
    "read_only": 1
   },
   {

@@ -44,7 +44,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
    "reqd": 1
   },
@@ -93,7 +93,8 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "minimum_charge",
@@ -118,19 +119,22 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "UNLOCO"
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
-   "options": "Shipping Line"
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "service_type",
@@ -186,7 +190,7 @@
    "fieldname": "item",
    "fieldtype": "Link",
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_logistics_charge_item\",\"=\",1],[\"Item\",\"custom_sea_forwarding_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_logistics_charge_item\", \"=\", 1], [\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {

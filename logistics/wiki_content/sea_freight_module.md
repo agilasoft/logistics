@@ -33,6 +33,19 @@ To access: **Home > Sea Freight**
 
 **Reports:** Sea Shipment Status Report, Sea Consolidation Report, Container Utilization Report, Sea Freight On-Time Performance Report, Sea Freight Revenue Analysis, Sea Freight Cost Analysis, Sea Freight Billing Status Report, Sea Freight Performance Dashboard, Sea Freight Route Analysis, Shipping Line Performance Report
 
+
+<!-- wiki-field-reference:start -->
+
+## Complete field reference
+
+_Module transactions and masters (each page lists all fields):_
+
+- [Sea Booking](welcome/sea-booking), [Sea Shipment](welcome/sea-shipment), [Sea Consolidation](welcome/sea-consolidation), [Master Bill](welcome/master-bill)
+- [Shipper](welcome/shipper), [Consignee](welcome/consignee), [Container Type](welcome/container-type)
+- [Sea Freight Settings](welcome/sea-freight-settings)
+
+<!-- wiki-field-reference:end -->
+
 ## 4. Related Topics
 
 - [Getting Started](welcome/getting-started)

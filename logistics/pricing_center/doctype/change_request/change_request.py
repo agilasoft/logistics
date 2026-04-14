@@ -6,147 +6,50 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+
+
+_SKIP_CHARGE_COPY = frozenset(
+	{
+		"name",
+		"owner",
+		"creation",
+		"modified",
+		"modified_by",
+		"docstatus",
+		"parent",
+		"parentfield",
+		"parenttype",
+		"idx",
+	}
+)
 
 
 class ChangeRequest(Document):
-	def validate(self):
-		if self.docstatus == 0 and self.charges:
-			# Ensure amount is set on child rows
-			for row in self.charges:
-				if row.quantity is not None and row.unit_cost is not None:
-					row.amount = flt(row.quantity, 2) * flt(row.unit_cost, 2)
-		# Store previous status so on_update can detect transition to Approved
-		if self.get("__islocal") or not self.name:
-			self._prev_status = None
-		else:
-			self._prev_status = frappe.db.get_value("Change Request", self.name, "status")
+	def on_submit(self):
+		from logistics.pricing_center.change_request_to_job import apply_change_request_charges_to_job
 
-	def on_update(self):
-		"""When status is set to Approved, push charges to the linked job/shipment."""
-		if self.status != "Approved" or not self.charges:
-			return
-		prev = getattr(self, "_prev_status", None)
-		if prev == "Approved":
-			return
-		apply_charges_to_job(self)
+		apply_change_request_charges_to_job(self)
+		frappe.db.set_value("Change Request", self.name, "status", "Submitted", update_modified=False)
+
+	def on_cancel(self):
+		from logistics.pricing_center.change_request_to_job import remove_change_request_charges_from_job
+
+		remove_change_request_charges_from_job(self)
+		frappe.db.set_value("Change Request", self.name, "status", "Draft", update_modified=False)
 
 
-def _charge_row_for_air_shipment(row, _job_doc):
-	"""Map Change Request Charge to Air Shipment Charges row."""
-	return {
-		"item_code": row.item_code,
-		"charge_type": "Revenue",
-		"charge_category": "Other",
-		"revenue_calculation_method": "Flat Rate",
-		"quantity": flt(row.quantity, 2) or 1,
-		"uom": row.uom,
-		"currency": row.currency,
-		"rate": flt(row.unit_cost, 2),
-		"estimated_revenue": flt(row.amount, 2),
-		"description": row.description or "",
-	}
-
-
-def _charge_row_for_transport_job(row, _job_doc):
-	"""Map Change Request Charge to Transport Job Charges row."""
-	return {
-		"item_code": row.item_code,
-		"charge_type": "Revenue",
-		"charge_category": "Other",
-		"revenue_calculation_method": "Flat Rate",
-		"quantity": flt(row.quantity, 2) or 1,
-		"uom": row.uom,
-		"currency": row.currency,
-		"rate": flt(row.unit_cost, 2),
-		"estimated_revenue": flt(row.amount, 2),
-		"description": getattr(row, "description", None) or "",
-	}
-
-
-def _charge_row_for_warehouse_job(row, _job_doc):
-	"""Map Change Request Charge to Warehouse Job Charges row."""
-	return {
-		"item_code": row.item_code,
-		"charge_type": "Revenue",
-		"charge_category": "Other",
-		"quantity": flt(row.quantity, 2) or 1,
-		"uom": row.uom,
-		"currency": row.currency,
-		"rate": flt(row.unit_cost, 2),
-		"estimated_revenue": flt(row.amount, 2),
-	}
-
-
-def _charge_row_for_sea_shipment(row, job_doc):
-	"""Map Change Request Charge to Sea Shipment Charges row (Sea Shipment)."""
-	# Sea Shipment Charges may use charge_item/selling_amount or item_code/rate; try common names
-	item_name = ""
-	if row.item_code:
-		item_name = frappe.db.get_value("Item", row.item_code, "item_name") or ""
-	return {
-		"item_code": row.item_code,
-		"charge_type": "Revenue",
-		"charge_category": "Other",
-		"revenue_calculation_method": "Flat Rate",
-		"quantity": flt(row.quantity, 2) or 1,
-		"uom": row.uom,
-		"currency": row.currency,
-		"rate": flt(row.unit_cost, 2),
-		"estimated_revenue": flt(row.amount, 2),
-		"description": getattr(row, "description", None) or item_name,
-	}
-
-
-def _charge_row_for_declaration(row, _job_doc):
-	"""Map Change Request Charge to Declaration Charges row."""
-	return {
-		"item_code": row.item_code,
-		"calculation_method": "Fixed Amount",
-		"quantity": flt(row.quantity, 2) or 1,
-		"uom": row.uom,
-		"currency": row.currency,
-		"unit_rate": flt(row.unit_cost, 2),
-		"estimated_revenue": flt(row.amount, 2),
-	}
-
-
-def apply_charges_to_job(cr):
-	"""Append Change Request charges to the linked job/shipment. Called when CR is approved."""
-	if not cr.job_type or not cr.job or not cr.charges:
-		return
-	if not frappe.db.exists(cr.job_type, cr.job):
-		frappe.throw(_("Job {0} does not exist").format(cr.job))
-	job_doc = frappe.get_doc(cr.job_type, cr.job)
-	mappers = {
-		"Air Shipment": _charge_row_for_air_shipment,
-		"Transport Job": _charge_row_for_transport_job,
-		"Warehouse Job": _charge_row_for_warehouse_job,
-		"Sea Shipment": _charge_row_for_sea_shipment,
-		"Declaration": _charge_row_for_declaration,
-	}
-	mapper = mappers.get(cr.job_type)
-	if not mapper:
-		frappe.msgprint(
-			_("Apply charges to job is not implemented for job type {0}. Charges were not applied.").format(cr.job_type),
-			indicator="orange",
-		)
-		return
-	added = 0
-	for row in cr.charges:
-		if not getattr(row, "item_code", None):
+def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
+	"""Map Change Request Charge row to Sales Quote Charge child dict (same field names)."""
+	out = {}
+	for k, v in charge_row.as_dict().items():
+		if k in _SKIP_CHARGE_COPY:
 			continue
-		charge_data = mapper(row, job_doc)
-		if charge_data:
-			job_doc.append("charges", charge_data)
-			added += 1
-	if added > 0:
-		job_doc.flags.ignore_validate_update_after_submit = True
-		job_doc.save(ignore_permissions=True)
-		frappe.msgprint(
-			_("Applied {0} charge(s) from Change Request to {1}.").format(added, cr.job),
-			indicator="green",
-		)
+		if v is None or v == "":
+			continue
+		out[k] = v
+	if not out.get("service_type"):
+		out["service_type"] = default_service_type
+	return out
 
 
 @frappe.whitelist()
@@ -169,6 +72,8 @@ def create_change_request(job_type, job_name):
 def create_sales_quote_from_change_request(change_request_name):
 	"""Create a Sales Quote from a Change Request (Additional Charge, job reference, items from charges)."""
 	cr = frappe.get_doc("Change Request", change_request_name)
+	if cr.docstatus != 1:
+		frappe.throw(_("Submit the Change Request before creating a Sales Quote."))
 	if not cr.charges:
 		frappe.throw(_("Change Request has no charge items. Add at least one charge before creating Sales Quote."))
 	# Create Sales Quote
@@ -187,27 +92,25 @@ def create_sales_quote_from_change_request(change_request_name):
 		"Warehouse Job": "Warehousing",
 		"Air Shipment": "Air",
 		"Sea Shipment": "Sea",
+		"Declaration": "Customs",
 		"Declaration Order": "Customs",
 	}
 	sq.main_service = job_to_service.get(cr.job_type, "Transport")
+	# Additional-charge quotes from Change Request are always one-off (and matching naming series).
+	sq.quotation_type = "One-off"
+	sq.naming_series = "OOQ.#####"
+	sq.change_request = cr.name
 	for row in cr.charges:
-		sq.append(
-			"charges",
-			{
-				"service_type": sq.main_service,
-				"item_code": row.item_code,
-				"quantity": flt(row.quantity, 2),
-				"uom": row.uom,
-				"currency": row.currency,
-				"unit_rate": flt(row.unit_cost, 2),
-				"estimated_revenue": flt(row.amount, 2),
-			},
-		)
+		row_dict = _charge_row_as_sales_quote_dict(row, sq.main_service)
+		row_dict["change_request_charge"] = row.name
+		sq.append("charges", row_dict)
 	sq.flags.ignore_mandatory = True
 	sq.insert(ignore_permissions=True)
-	# Link back
-	cr.sales_quote = sq.name
-	cr.status = "Sales Quote Created"
-	cr.flags.ignore_permissions = True
-	cr.save()
+	# Link back (submitted doc: avoid save(); status/sales_quote are not allow_on_submit)
+	frappe.db.set_value(
+		"Change Request",
+		cr.name,
+		{"sales_quote": sq.name, "status": "Sales Quote Created"},
+		update_modified=False,
+	)
 	return sq.name

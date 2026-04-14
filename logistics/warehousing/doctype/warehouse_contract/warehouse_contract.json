@@ -15,7 +15,6 @@
   "valid_until",
   "site",
   "sales_quote",
-  "billing_company",
   "shipper",
   "consignee",
   "section_break_cvch",
@@ -27,7 +26,7 @@
   "profit_center",
   "cost_center",
   "column_break_accounts",
-  "job_costing_number"
+  "job_number"
  ],
  "fields": [
   {
@@ -49,7 +48,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_djlp",
@@ -95,29 +95,22 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"customer\",\"=\",\"eval:doc.customer\"]]",
-   "options": "Sales Quote"
-  },
-  {
-   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
-   "fetch_from": "sales_quote.company",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
-   "read_only": 1
+   "options": "Sales Quote",
+   "search_index": 1
   },
   {
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper"
+   "options": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee"
+   "options": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "accounts_tab",
@@ -147,7 +140,7 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
@@ -155,10 +148,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "job_costing_number",
+   "fieldname": "job_number",
    "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number",
+   "label": "Job Number",
+   "options": "Job Number",
    "description": "For revenue/cost recognition"
   }
  ],

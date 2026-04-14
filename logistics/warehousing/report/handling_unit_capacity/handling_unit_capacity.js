@@ -155,7 +155,7 @@ frappe.query_reports["Handling Unit Capacity"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Export to Excel"), function() {
 			frappe.call({
@@ -169,7 +169,7 @@ frappe.query_reports["Handling Unit Capacity"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 		
 		report.page.add_inner_button(__("Capacity Insights"), function() {
 			frappe.call({
@@ -187,6 +187,6 @@ frappe.query_reports["Handling Unit Capacity"] = {
 					}
 				}
 			});
-		}, __("Actions"));
+		}, __("Action"));
 	}
 };

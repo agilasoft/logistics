@@ -1,0 +1,303 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-02 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "service_type",
+  "column_break_ident",
+  "job_type",
+  "job_no",
+  "section_break_air_params",
+  "air_house_type",
+  "airline",
+  "freight_agent",
+  "section_break_sea_params",
+  "sea_house_type",
+  "freight_agent_sea",
+  "shipping_line",
+  "transport_mode",
+  "section_break_common_params",
+  "load_type",
+  "direction",
+  "origin_port",
+  "destination_port",
+  "section_break_transport_params",
+  "transport_template",
+  "vehicle_type",
+  "container_type",
+  "container_no",
+  "column_break_transport",
+  "location_type",
+  "location_from",
+  "location_to",
+  "pick_mode",
+  "drop_mode",
+  "section_break_customs_params",
+  "customs_authority",
+  "declaration_type",
+  "customs_broker",
+  "customs_charge_category"
+ ],
+ "fields": [
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ident",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job No",
+   "options": "job_type",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "section_break_air_params",
+   "fieldtype": "Section Break",
+   "label": "Air Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "Air House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "section_break_sea_params",
+   "fieldtype": "Section Break",
+   "label": "Sea Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "sea_house_type",
+   "fieldtype": "Select",
+   "label": "Sea House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "freight_agent_sea",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Transport Mode",
+   "options": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "section_break_common_params",
+   "fieldtype": "Section Break",
+   "label": "Common Parameters"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "section_break_transport_params",
+   "fieldtype": "Section Break",
+   "label": "Transport Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "options": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No."
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "column_break_transport",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Location From",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Location To",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "label": "Pick Mode",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "label": "Drop Mode",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "section_break_customs_params",
+   "fieldtype": "Section Break",
+   "label": "Customs Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_authority",
+   "fieldtype": "Link",
+   "label": "Customs Authority",
+   "options": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "declaration_type",
+   "fieldtype": "Select",
+   "label": "Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_broker",
+   "fieldtype": "Link",
+   "label": "Customs Broker",
+   "options": "Broker",
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_charge_category",
+   "fieldtype": "Select",
+   "label": "Charge Category",
+   "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-03 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Internal Job Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

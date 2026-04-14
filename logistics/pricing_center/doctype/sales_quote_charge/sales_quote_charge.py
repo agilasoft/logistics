@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from frappe.model.document import Document
 
 from logistics.utils.charges_calculation import (
+	apply_disbursement_charge_calculation_if_applicable,
 	calculate_charge_revenue,
 	calculate_charge_cost,
 )
@@ -19,6 +20,8 @@ class SalesQuoteCharge(Document):
 
 	def _calculate_charges(self, parent_doc=None):
 		"""Calculate estimated revenue and cost using centralized charges module."""
+		if apply_disbursement_charge_calculation_if_applicable(self, parent_doc):
+			return
 		rev = calculate_charge_revenue(self, parent_doc)
 		self.estimated_revenue = rev.get("amount", 0)
 		if hasattr(self, "revenue_calc_notes"):

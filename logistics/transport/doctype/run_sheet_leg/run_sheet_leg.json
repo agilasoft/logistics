@@ -44,7 +44,8 @@
    "in_list_view": 1,
    "label": "Customer",
    "options": "Customer",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "section_break_ssrh",
@@ -110,7 +111,8 @@
    "fieldtype": "Link",
    "label": "Address From",
    "options": "Address",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
    "fetch_from": "transport_leg.drop_address",
@@ -118,7 +120,8 @@
    "fieldtype": "Link",
    "label": "Address To",
    "options": "Address",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   }
  ],
  "grid_page_length": 50,

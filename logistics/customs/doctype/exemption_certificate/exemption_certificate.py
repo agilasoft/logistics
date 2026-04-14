@@ -19,7 +19,15 @@ class ExemptionCertificate(Document):
 		
 		if self.exemption_quantity and self.exemption_quantity < 0:
 			frappe.throw(_("Exemption Quantity cannot be negative."))
-	
+
+	def before_submit(self):
+		if not self.valid_from:
+			frappe.throw(_("Valid From is required to submit."))
+		if not self.valid_to:
+			frappe.throw(_("Valid To is required to submit."))
+		if not any(row.get("attachment") for row in (self.attachments or [])):
+			frappe.throw(_("At least one attachment is required to submit."))
+
 	def before_save(self):
 		"""Calculate remaining values and update status"""
 		self.calculate_remaining()
@@ -46,7 +54,7 @@ class ExemptionCertificate(Document):
 		"""Update status based on validity and remaining values"""
 		if self.status == "Active":
 			# Check if expired
-			if self.valid_to and getdate(self.valid_to) < nowdate():
+			if self.valid_to and getdate(self.valid_to) < getdate(nowdate()):
 				self.status = "Expired"
 			# Check if fully used
 			elif self.exemption_value and self.remaining_value <= 0:

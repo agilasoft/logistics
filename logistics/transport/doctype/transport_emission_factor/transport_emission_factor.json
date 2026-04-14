@@ -21,7 +21,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Vehicle Type",
-   "options": "Vehicle Type"
+   "options": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "scope",

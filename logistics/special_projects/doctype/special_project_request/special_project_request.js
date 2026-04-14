@@ -4,7 +4,7 @@
 frappe.ui.form.on("Special Project Request", {
 	refresh: function (frm) {
 		if (frm.doc.special_project) {
-			frm.add_custom_button(__("Link Existing Order"), () => link_existing_order(frm), __("Actions"));
+			frm.add_custom_button(__("Link Existing Order"), () => link_existing_order(frm), __("Action"));
 		}
 		if (frm.doc.special_project && frm.doc.product_requests && frm.doc.product_requests.length) {
 			const has_inbound = frm.doc.product_requests.some((r) => r.fulfillment_type === "Inbound");

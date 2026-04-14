@@ -22,13 +22,13 @@
    "fieldname": "wip_status",
    "fieldtype": "Select",
    "label": "WIP Status",
-   "options": "\nNot Started\nOpen\nRecognized\nClosed"
+   "options": "\nNot Started\nOpen\nRecognized"
   },
   {
    "fieldname": "accrual_status",
    "fieldtype": "Select",
    "label": "Accrual Status",
-   "options": "\nNot Started\nOpen\nRecognized\nClosed"
+   "options": "\nNot Started\nOpen\nRecognized"
   }
  ],
  "is_standard": "Yes",

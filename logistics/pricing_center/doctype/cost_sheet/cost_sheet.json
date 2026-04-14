@@ -45,6 +45,7 @@
   {
    "fieldname": "valid_to",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Valid To"
   },
   {
@@ -53,7 +54,8 @@
    "in_list_view": 1,
    "label": "Currency",
    "options": "Currency",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_10",
@@ -94,6 +96,8 @@
   {
    "fieldname": "provider_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Provider Type",
    "link_filters": "[[\"DocType\",\"name\",\"in\",[\"Shipping Line\",\"Airline\",\"Freight Agent\",\"Transport Company\",\"Broker\"]]]",
    "options": "DocType",
@@ -102,6 +106,7 @@
   {
    "fieldname": "provider_name",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Provider Name",
    "options": "provider_type",
    "reqd": 1
@@ -114,13 +119,14 @@
    "options": "Cost Sheet",
    "print_hide": 1,
    "read_only": 1,
-   "search_index": 1
+   "search_index": 1,
+   "link_filters": "[[\"Cost Sheet\", \"is_active\", \"=\", 1]]"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-16 20:00:23.488910",
+ "modified": "2026-03-23 07:44:00.396317",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Cost Sheet",

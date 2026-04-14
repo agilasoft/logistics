@@ -18,30 +18,28 @@
   "airline",
   "local_customer",
   "freight_agent",
-  "uld_type",
+  "transport_mode",
+  "load_type",
   "column_break_customer",
   "release_type",
   "entry_type",
   "service_level",
-  "section_break_booking_control",
-  "booking_party",
-  "controlling_party",
-  "column_break_booking_control",
   "contains_dangerous_goods",
   "section_break_parties",
   "shipper",
   "origin_port",
   "etd",
   "atd",
+  "sending_agent",
   "column_break_origin",
   "consignee",
   "destination_port",
   "eta",
   "ata",
-  "column_break_entities_agents",
-  "sending_agent",
   "receiving_agent",
   "column_break_entities_broker",
+  "controlling_party",
+  "booking_party",
   "broker",
   "house_details_section",
   "house_awb",
@@ -62,8 +60,6 @@
   "routing_legs",
   "packages_section",
   "packages",
-  "warehouse_items_section",
-  "warehouse_items",
   "section_break_summary",
   "column_break_summary",
   "override_volume_weight",
@@ -92,8 +88,29 @@
   "column_break_notify",
   "notify_party_address",
   "charges_tab",
-  "charges_section",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_accounts",
+  "project",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_charges_table",
   "charges",
+  "quote_reference_section",
+  "is_main_service",
+  "sales_quote",
+  "column_break_pbmx",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -104,17 +121,6 @@
   "documents_html",
   "document_list_template",
   "documents",
-  "accounts_tab",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_accounts",
-  "job_costing_number",
-  "project",
-  "quote_reference_section",
-  "sales_quote",
-  "billing_company",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -197,25 +203,52 @@
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
-   "link_filters": "[[\"Sales Quote\",\"main_service\",\"=\",\"Air\"]]",
    "no_copy": 1,
-   "options": "Sales Quote"
+   "options": "Sales Quote",
+   "search_index": 1
   },
   {
-   "description": "Company that will bill the customer (from Sales Quote). Used for intercompany.",
-   "fetch_from": "sales_quote.company",
-   "fieldname": "billing_company",
-   "fieldtype": "Link",
-   "label": "Billing Company",
-   "options": "Company",
-   "read_only": 1
+   "default": "0",
+   "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service",
+   "no_copy": 1
   },
   {
-   "description": "ERPNext Project for Special Projects integration",
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "label": "Project",
-   "options": "Project"
+   "default": "0",
+   "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job",
+   "no_copy": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "description": "Service parameters for linked internal jobs (same fields as Sales Quote Charge parameter sections).",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "house_type",
@@ -239,12 +272,14 @@
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
    "options": "Airline"
   },
   {
    "fieldname": "local_customer",
    "fieldtype": "Link",
    "label": "Local Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
    "reqd": 1
   },
@@ -252,6 +287,7 @@
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
@@ -262,6 +298,7 @@
    "fieldname": "release_type",
    "fieldtype": "Link",
    "label": "Release Type",
+   "link_filters": "[[\"Release Type\", \"is_active\", \"=\", 1]]",
    "options": "Release Type"
   },
   {
@@ -277,14 +314,10 @@
    "options": "Logistics Service Level"
   },
   {
-   "fieldname": "section_break_booking_control",
-   "fieldtype": "Section Break",
-   "label": "Booking & Control"
-  },
-  {
    "fieldname": "booking_party",
    "fieldtype": "Link",
    "label": "Booking Party",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
   },
   {
@@ -292,10 +325,6 @@
    "fieldtype": "Select",
    "label": "Controlling Party",
    "options": "Customer Controlled\nAgent Controlled"
-  },
-  {
-   "fieldname": "column_break_booking_control",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "section_break_parties",
@@ -306,12 +335,14 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
    "options": "Shipper"
   },
   {
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
@@ -327,12 +358,14 @@
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee"
   },
   {
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
   },
   {
@@ -344,28 +377,28 @@
    "fieldname": "atd",
    "fieldtype": "Date",
    "label": "ATD",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "ata",
    "fieldtype": "Date",
    "label": "ATA",
+   "no_copy": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "column_break_entities_agents",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "sending_agent",
    "fieldtype": "Link",
    "label": "Sending Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
    "fieldname": "receiving_agent",
    "fieldtype": "Link",
    "label": "Receiving Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
@@ -376,6 +409,7 @@
    "fieldname": "broker",
    "fieldtype": "Link",
    "label": "Broker",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
   },
   {
@@ -460,6 +494,7 @@
    "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
   },
   {
+   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -472,17 +507,6 @@
   },
   {
    "collapsible": 1,
-   "fieldname": "warehouse_items_section",
-   "fieldtype": "Section Break",
-   "label": "Warehouse Items"
-  },
-  {
-   "fieldname": "warehouse_items",
-   "fieldtype": "Table",
-   "label": "Warehouse Items",
-   "options": "Shipment Warehouse Item"
-  },
-  {
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -552,6 +576,7 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -567,6 +592,7 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -670,9 +696,93 @@
    "label": "Charges"
   },
   {
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "no_copy": 1,
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "no_copy": 1,
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "no_copy": 1,
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_break_charges_table",
+   "fieldtype": "Section Break"
+  },
+  {
+   "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
+   "no_copy": 1,
    "options": "Air Booking Charges"
   },
   {
@@ -705,51 +815,6 @@
    "options": "Job Document"
   },
   {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
-   "fieldname": "branch",
-   "fieldtype": "Link",
-   "label": "Branch",
-   "options": "Branch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\",\"is_group\",\"=\",0],[\"Cost Center\",\"company\",\"=\",\"eval:doc.company\"]]",
-   "options": "Cost Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "profit_center",
-   "fieldtype": "Link",
-   "label": "Profit Center",
-   "options": "Profit Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_accounts",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "For revenue/cost recognition",
-   "fieldname": "job_costing_number",
-   "fieldtype": "Link",
-   "label": "Job Costing Number",
-   "options": "Job Costing Number"
-  },
-  {
    "fieldname": "internal_notes",
    "fieldtype": "Text Editor",
    "label": "Internal Notes"
@@ -773,6 +838,7 @@
    "fieldname": "tc_name",
    "fieldtype": "Link",
    "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
    "options": "Terms and Conditions"
   },
   {
@@ -797,12 +863,6 @@
    "search_index": 1
   },
   {
-   "fieldname": "uld_type",
-   "fieldtype": "Link",
-   "label": "ULD Type",
-   "options": "ULD Type"
-  },
-  {
    "fieldname": "house_awb",
    "fieldtype": "Data",
    "label": "House AWB"
@@ -812,9 +872,10 @@
    "fieldtype": "Column Break"
   },
   {
+   "collapsible": 1,
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
-   "label": "Quote Reference"
+   "label": "Job Details"
   },
   {
    "fieldname": "contacts_addresses",
@@ -849,14 +910,28 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "charges_section",
-   "fieldtype": "Section Break"
+   "fieldname": "column_break_pbmx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "label": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\",\"is_active\",\"=\",1],[\"Transport Mode\",\"air\",\"=\",1]]",
+   "options": "Transport Mode"
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"air\",\"=\",1]]",
+   "options": "Load Type"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-16 10:36:33.171834",
+ "modified": "2026-04-14 10:59:53.662429",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",
@@ -894,5 +969,7 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
 }

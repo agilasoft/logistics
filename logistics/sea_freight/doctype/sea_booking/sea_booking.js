@@ -18,9 +18,58 @@ function _load_milestone_html(frm) {
 	});
 }
 
+function _is_milestone_tracking_enabled(frm) {
+	if (frm._milestone_tracking_enabled !== undefined) {
+		return Promise.resolve(frm._milestone_tracking_enabled);
+	}
+	return frappe.db.get_single_value("Sea Freight Settings", "enable_milestone_tracking")
+		.then(function(value) {
+			frm._milestone_tracking_enabled = Number(value || 0) === 1;
+			return frm._milestone_tracking_enabled;
+		})
+		.catch(function() {
+			// Fail open to avoid hiding milestones when settings lookup fails.
+			frm._milestone_tracking_enabled = true;
+			return true;
+		});
+}
+
+function _apply_milestone_tracking_visibility(frm, enabled) {
+	var show = !!enabled;
+	var hidden = show ? 0 : 1;
+	["milestones_tab", "section_break_milestones", "milestone_html", "milestone_template", "milestones"].forEach(function(fieldname) {
+		if (frm.fields_dict[fieldname]) {
+			frm.set_df_property(fieldname, "hidden", hidden);
+		}
+	});
+}
+
 function _sea_booking_volume_fallback(frm, cdt, cdn, grid_row) {
 	var fn = window.logistics_volume_from_dimensions_fallback;
 	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
+}
+
+function _warn_if_missing_service_charges(frm, service_type) {
+	var charges = frm.doc.charges || [];
+	var has_match = charges.some(function(row) {
+		return (row.service_type || '').trim() === service_type;
+	});
+	if (!has_match) {
+		frappe.msgprint({
+			title: __("Charges Warning"),
+			message: __("No {0} charges found yet. You can continue in draft, but submit will be blocked.", [service_type]),
+			indicator: "orange"
+		});
+	}
+}
+
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
 // Suppress "Sea Booking X not found" when form is new/unsaved (e.g. package grid triggers API before save)
@@ -80,11 +129,18 @@ frappe.ui.form.on('Sea Booking', {
 				}
 			});
 		}
+		_logistics_set_charges_cannot_add_rows(frm);
 	},
 	setup: function(frm) {
 		frm.set_query('milestone_template', function() {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
+		});
+		frm.set_query('shipper', function() {
+			return { filters: { is_active: 1 } };
+		});
+		frm.set_query('consignee', function() {
+			return { filters: { is_active: 1 } };
 		});
 		// Filter address/contact by selected shipper/consignee (via Dynamic Link)
 		frm.set_query('shipper_address', function() {
@@ -111,6 +167,23 @@ frappe.ui.form.on('Sea Booking', {
 			}
 			return {};
 		});
+		frm.set_query('sales_quote', function() {
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
+				filters: {
+					service_type: 'Sea',
+					reference_doctype: 'Sea Booking',
+					reference_name: frm.doc.name || ''
+				}
+			};
+		});
+		frm.set_query('warehouse_item', 'packages', function(doc) {
+			const filters = {};
+			if (doc.local_customer) {
+				filters.customer = doc.local_customer;
+			}
+			return { filters: filters };
+		});
 	},
 	
 	shipper: function(frm) {
@@ -130,6 +203,9 @@ frappe.ui.form.on('Sea Booking', {
 			if (r && r.shipper_primary_contact) {
 				frm.set_value('shipper_contact', r.shipper_primary_contact);
 				frm.trigger('shipper_contact');
+			}
+			if (logistics.party_defaults) {
+				logistics.party_defaults.apply(frm);
 			}
 		});
 	},
@@ -152,7 +228,16 @@ frappe.ui.form.on('Sea Booking', {
 				frm.set_value('consignee_contact', r.consignee_primary_contact);
 				frm.trigger('consignee_contact');
 			}
+			if (logistics.party_defaults) {
+				logistics.party_defaults.apply(frm);
+			}
 		});
+	},
+
+	company: function(frm) {
+		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
+			window.logistics_apply_sea_freight_settings_accounting_defaults(frm);
+		}
 	},
 	
 	shipper_address: function(frm) {
@@ -320,6 +405,15 @@ frappe.ui.form.on('Sea Booking', {
 	},
 	
 	refresh: function(frm) {
+		_logistics_set_charges_cannot_add_rows(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+			}
+		}, 0);
+		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
+			window.logistics_apply_sea_freight_settings_accounting_defaults(frm);
+		}
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
@@ -341,12 +435,19 @@ frappe.ui.form.on('Sea Booking', {
 			}
 		}
 
-		_load_milestone_html(frm);
-		if (frm.layout && frm.layout.wrapper) {
-			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+		_is_milestone_tracking_enabled(frm).then(function(enabled) {
+			_apply_milestone_tracking_visibility(frm, enabled);
+			if (enabled) {
 				_load_milestone_html(frm);
-			});
-		}
+				if (frm.layout && frm.layout.wrapper) {
+					frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+						_load_milestone_html(frm);
+					});
+				}
+			} else if (frm.layout && frm.layout.wrapper) {
+				frm.layout.wrapper.off('click.milestone_html');
+			}
+		});
 
 		// Load documents summary HTML in Documents tab
 		if (window.logistics_load_documents_html) {
@@ -362,18 +463,21 @@ frappe.ui.form.on('Sea Booking', {
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
-			frm.add_custom_button(__('Get Milestones'), function() {
-				frappe.call({
-					method: 'logistics.document_management.api.populate_milestones_from_template',
-					args: { doctype: 'Sea Booking', docname: frm.doc.name },
-					callback: function(r) {
-						if (r.message && r.message.added !== undefined) {
-							frm.reload_doc();
-							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+			_is_milestone_tracking_enabled(frm).then(function(enabled) {
+				if (!enabled) return;
+				frm.add_custom_button(__('Get Milestones'), function() {
+					frappe.call({
+						method: 'logistics.document_management.api.populate_milestones_from_template',
+						args: { doctype: 'Sea Booking', docname: frm.doc.name },
+						callback: function(r) {
+							if (r.message && r.message.added !== undefined) {
+								frm.reload_doc();
+								frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
+							}
 						}
-					}
-				});
-			}, __('Actions'));
+					});
+				}, __('Action'));
+			});
 			frm.add_custom_button(__('Get Documents'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
@@ -385,7 +489,7 @@ frappe.ui.form.on('Sea Booking', {
 						}
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 			if (frm.doc.charges && frm.doc.charges.length > 0) {
 				frm.add_custom_button(__('Calculate Charges'), function() {
 					frappe.call({
@@ -398,7 +502,7 @@ frappe.ui.form.on('Sea Booking', {
 							}
 						}
 					});
-				}, __('Actions'));
+				}, __('Action'));
 			}
 		}
 
@@ -432,13 +536,14 @@ frappe.ui.form.on('Sea Booking', {
 						frm._fetching_quotations = false;
 					}
 				});
-			}, __('Actions'));
+			}, __('Action'));
 		}
 
 		// --- Create menu ---
 		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1) {
 			setTimeout(function() {
 				frm.add_custom_button(__('Shipment'), function() {
+					_warn_if_missing_service_charges(frm, "Sea");
 					frappe.confirm(
 						__('Are you sure you want to convert this Sea Booking to a Sea Shipment?'),
 						function() {
@@ -448,36 +553,35 @@ frappe.ui.form.on('Sea Booking', {
 								callback: function(r) {
 									if (r.exc) return;
 									if (r.message && r.message.success && r.message.sea_shipment) {
-										frm.reload_doc();
-										frappe.show_alert({
-											message: __('Sea Shipment {0} created', [r.message.sea_shipment]),
-											indicator: 'green'
-										}, 3);
-										
-										// Poll until doc is visible on server, then navigate (avoids "Sea Shipment ... not found" on form load)
 										var sea_shipment_name = r.message.sea_shipment;
-										function try_navigate(attempt) {
-											var max_attempts = 15;
-											if (attempt > max_attempts) {
-												frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
-												return;
-											}
-											frappe.call({
-												method: "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
-												args: { docname: sea_shipment_name },
-												callback: function(res) {
-													if (res.message === true) {
-														frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
-													} else {
+										frm.reload_doc().then(function() {
+											frappe.show_alert({
+												message: __('Sea Shipment {0} created', [sea_shipment_name]),
+												indicator: 'green'
+											}, 3);
+											function try_navigate(attempt) {
+												var max_attempts = 15;
+												if (attempt > max_attempts) {
+													frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
+													return;
+												}
+												frappe.call({
+													method: "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
+													args: { docname: sea_shipment_name },
+													callback: function(res) {
+														if (res.message === true) {
+															frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
+														} else {
+															setTimeout(function() { try_navigate(attempt + 1); }, 300);
+														}
+													},
+													error: function() {
 														setTimeout(function() { try_navigate(attempt + 1); }, 300);
 													}
-												},
-												error: function() {
-													setTimeout(function() { try_navigate(attempt + 1); }, 300);
-												}
-											});
-										}
-										try_navigate(1);
+												});
+											}
+											try_navigate(1);
+										});
 									}
 								}
 							});
@@ -513,7 +617,7 @@ function _populate_address_contact_displays_if_missing(frm) {
 	}
 }
 
-// Setup query filter for quote field to exclude already-used One-Off Quotes and filter by main_service
+// Setup query filter for quote field: exclude used/converted one-offs; eligible quotes must have Sea charges
 function _setup_quote_query(frm) {
 	if (frm.doc.quote_type === 'One-Off Quote') {
 		// Load available One-Off Quotes filters
@@ -537,19 +641,49 @@ function _setup_quote_query(frm) {
 			};
 		});
 	} else if (frm.doc.quote_type === 'Sales Quote') {
-		// For Sales Quote, filter by main_service = "Sea" and exclude converted One-off quotes
 		frm.set_query('quote', function() {
-			return { 
+			return {
+				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					main_service: "Sea",
-					_or: [
-						["quotation_type", "!=", "One-off"],
-						["quotation_type", "=", "One-off", "status", "!=", "Converted"]
-					]
+					service_type: 'Sea',
+					reference_doctype: 'Sea Booking',
+					reference_name: frm.doc.name || ''
 				}
 			};
 		});
 	}
+}
+
+function _apply_routing_legs_from_sales_quote_response(frm, r) {
+	if (!r.message || !r.message.routing_legs || !r.message.routing_legs.length) {
+		return;
+	}
+	frm.clear_table('routing_legs');
+	r.message.routing_legs.forEach(function(leg) {
+		var row = frm.add_child('routing_legs');
+		Object.keys(leg).forEach(function(key) {
+			if (leg[key] !== null && leg[key] !== undefined) {
+				row[key] = leg[key];
+			}
+		});
+	});
+	frm.refresh_field('routing_legs');
+}
+
+function _apply_internal_job_details_from_sales_quote_response(frm, r) {
+	if (!r.message || !r.message.internal_job_details || !r.message.internal_job_details.length) {
+		return;
+	}
+	frm.clear_table('internal_job_details');
+	r.message.internal_job_details.forEach(function(row) {
+		var d = frm.add_child('internal_job_details');
+		Object.keys(row).forEach(function(key) {
+			if (row[key] !== null && row[key] !== undefined) {
+				d[key] = row[key];
+			}
+		});
+	});
+	frm.refresh_field('internal_job_details');
 }
 
 function _populate_charges_from_quote(frm) {
@@ -598,7 +732,12 @@ function _populate_charges_from_quote(frm) {
 	}
 	
 	// Determine which parameter to pass based on the method being called
-	var args = { docname: docname };
+	var args = {
+		docname: docname,
+		is_internal_job: frm.doc.is_internal_job || 0,
+		main_job_type: frm.doc.main_job_type || "",
+		main_job: frm.doc.main_job || ""
+	};
 	if (method_name.includes('populate_charges_from_sales_quote')) {
 		args.sales_quote = target_quote;
 	} else if (method_name.includes('populate_charges_from_one_off_quote')) {
@@ -612,6 +751,9 @@ function _populate_charges_from_quote(frm) {
 		freeze_message: freeze_message,
 		callback: function(r) {
 			if (r.message) {
+				if (!frm.doc.local_customer && r.message.customer) {
+					frm.set_value('local_customer', r.message.customer);
+				}
 				if (r.message.error) {
 					frappe.msgprint({
 						title: __("Error"),
@@ -620,6 +762,8 @@ function _populate_charges_from_quote(frm) {
 					});
 					return;
 				}
+				_apply_routing_legs_from_sales_quote_response(frm, r);
+				_apply_internal_job_details_from_sales_quote_response(frm, r);
 				if (r.message.message) {
 					frappe.msgprint({
 						title: __("No Charges Found"),
@@ -641,11 +785,11 @@ function _populate_charges_from_quote(frm) {
 					});
 					frm.refresh_field('charges');
 					if (r.message.charges_count > 0) {
-						var message = success_message_template;
+						var message;
 						if (quote_type === 'One-Off Quote') {
-							message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
+							message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
 						} else {
-							message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+							message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
 						}
 						frappe.msgprint({
 							title: __("Charges Updated"),
@@ -656,6 +800,13 @@ function _populate_charges_from_quote(frm) {
 				} else {
 					frm.clear_table('charges');
 					frm.refresh_field('charges');
+					if (
+						target_quote &&
+						method_name.includes('populate_charges_from_sales_quote') &&
+						!_sea_internal_job_dialog_handled(frm, target_quote)
+					) {
+						_prompt_internal_sea_job_dialog(frm, target_quote);
+					}
 				}
 			}
 		},
@@ -666,6 +817,53 @@ function _populate_charges_from_quote(frm) {
 				indicator: 'red'
 			});
 		}
+	});
+}
+
+function _sea_internal_job_dialog_handled(frm, sales_quote) {
+	if (!frm._internal_job_dialog_shown_for_quote) {
+		frm._internal_job_dialog_shown_for_quote = {};
+	}
+	return !!frm._internal_job_dialog_shown_for_quote[sales_quote];
+}
+
+function _prompt_internal_sea_job_dialog(frm, sales_quote) {
+	frm._internal_job_dialog_shown_for_quote = frm._internal_job_dialog_shown_for_quote || {};
+	frm._internal_job_dialog_shown_for_quote[sales_quote] = true;
+	frappe.db.get_doc("Sales Quote", sales_quote).then(function(sq) {
+		var dialog = new frappe.ui.Dialog({
+			title: __("Create Internal Job - Sea"),
+			fields: [
+				{ fieldtype: "HTML", fieldname: "context_html" },
+				{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), default: 1, read_only: 1 },
+				{ fieldtype: "Link", fieldname: "main_job_type", label: __("Main Job Type"), options: "DocType", reqd: 1, default: frm.doc.main_job_type || "" },
+				{ fieldtype: "Dynamic Link", fieldname: "main_job", label: __("Main Job"), options: "main_job_type", reqd: 1, default: frm.doc.main_job || "" },
+				{ fieldtype: "Link", fieldname: "company", label: __("Company"), options: "Company", default: frm.doc.company || sq.company || "" },
+				{ fieldtype: "Link", fieldname: "branch", label: __("Branch"), options: "Branch", default: frm.doc.branch || sq.branch || "" },
+				{ fieldtype: "Link", fieldname: "cost_center", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || sq.cost_center || "" },
+				{ fieldtype: "Link", fieldname: "profit_center", label: __("Profit Center"), options: "Profit Center", default: frm.doc.profit_center || sq.profit_center || "" },
+				{ fieldtype: "Date", fieldname: "booking_date", label: __("Booking Date"), reqd: 1, default: frm.doc.booking_date || sq.date || frappe.datetime.get_today() }
+			],
+			primary_action_label: __("Create Internal Job"),
+			primary_action: function(values) {
+				frm.set_value("is_internal_job", 1);
+				frm.set_value("main_job_type", values.main_job_type);
+				frm.set_value("main_job", values.main_job);
+				frm.set_value("company", values.company || "");
+				frm.set_value("branch", values.branch || "");
+				frm.set_value("cost_center", values.cost_center || "");
+				frm.set_value("profit_center", values.profit_center || "");
+				frm.set_value("booking_date", values.booking_date);
+				dialog.hide();
+				_populate_charges_from_quote(frm);
+			}
+		});
+		dialog.fields_dict.context_html.$wrapper.html(
+			'<div class="text-muted">' +
+			__("No Sea charges were found on Sales Quote <b>{0}</b>. Continue as Internal Job and provide additional details.", [sales_quote]) +
+			"</div>"
+		);
+		dialog.show();
 	});
 }
 

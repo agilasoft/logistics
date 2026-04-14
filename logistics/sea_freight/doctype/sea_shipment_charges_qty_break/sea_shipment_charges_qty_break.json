@@ -1,1 +1,72 @@
-{"actions": [], "allow_rename": 1, "creation": "2026-03-01 00:00:00.000000", "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB", "field_order": ["type", "rate_type", "qty_break", "unit_rate", "currency"], "fields": [{"fieldname": "type", "fieldtype": "Select", "in_list_view": 1, "label": "Type", "options": "Selling\nCost", "default": "Selling", "permlevel": 0}, {"fieldname": "rate_type", "fieldtype": "Select", "in_list_view": 1, "label": "Break Type", "options": "M (Minimum)\nN (Normal)\nQ (Quantity Break)", "default": "N (Normal)", "permlevel": 0}, {"fieldname": "qty_break", "fieldtype": "Float", "in_list_view": 1, "label": "Qty Break", "precision": 2, "permlevel": 0}, {"fieldname": "unit_rate", "fieldtype": "Currency", "in_list_view": 1, "label": "Unit Rate", "options": "currency", "precision": 2, "permlevel": 0}, {"fieldname": "currency", "fieldtype": "Link", "in_list_view": 1, "label": "Currency", "options": "Currency", "permlevel": 0}], "istable": 1, "links": [], "modified": "2026-03-01 00:00:00.000000", "modified_by": "Administrator", "module": "Sea Freight", "name": "Sea Shipment Charges Qty Break", "owner": "Administrator", "permissions": [], "sort_field": "qty_break", "sort_order": "ASC", "states": []}
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "type",
+  "rate_type",
+  "qty_break",
+  "unit_rate",
+  "currency"
+ ],
+ "fields": [
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Selling\nCost",
+   "default": "Selling",
+   "permlevel": 0
+  },
+  {
+   "fieldname": "rate_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Break Type",
+   "options": "M (Minimum)\nN (Normal)\nQ (Quantity Break)",
+   "default": "N (Normal)",
+   "permlevel": 0
+  },
+  {
+   "fieldname": "qty_break",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty Break",
+   "precision": 2,
+   "permlevel": 0
+  },
+  {
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unit Rate",
+   "options": "currency",
+   "precision": 2,
+   "permlevel": 0
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "permlevel": 0,
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Shipment Charges Qty Break",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "qty_break",
+ "sort_order": "ASC",
+ "states": []
+}

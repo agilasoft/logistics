@@ -52,19 +52,22 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper"
+   "options": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee"
+   "options": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "notify_party",
    "fieldtype": "Link",
    "label": "Notify Party",
-   "options": "Customer"
+   "options": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "section_break_commodity",
@@ -180,4 +183,3 @@
  "states": [],
  "istable": 1
 }
-

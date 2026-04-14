@@ -34,7 +34,8 @@
    "fieldname": "issued_by",
    "fieldtype": "Link",
    "label": "Issued by",
-   "options": "Supplier"
+   "options": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
    "default": "0",

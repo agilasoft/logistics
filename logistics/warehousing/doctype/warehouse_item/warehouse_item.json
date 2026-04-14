@@ -75,7 +75,8 @@
    "in_list_view": 1,
    "label": "UOM",
    "options": "UOM",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_ppbd",
@@ -87,7 +88,8 @@
    "in_list_view": 1,
    "label": "Customer",
    "options": "Customer",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
    "default": "0",
@@ -268,7 +270,8 @@
    "fieldtype": "Link",
    "label": "Volume UOM",
    "options": "UOM",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "columns": 1,
@@ -276,7 +279,8 @@
    "fieldtype": "Link",
    "label": "Weight UOM",
    "options": "UOM",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "chargeable_weight",
@@ -287,14 +291,16 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
    "options": "UOM",
-   "read_only": 1
+   "read_only": 1,
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_hyfh",

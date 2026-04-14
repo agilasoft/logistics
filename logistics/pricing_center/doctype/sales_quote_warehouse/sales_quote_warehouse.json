@@ -44,7 +44,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_warehousing_charge\",\"=\",1]]",
+   "link_filters": "[[\"Item\", \"custom_warehousing_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
    "reqd": 1
   },
@@ -142,7 +142,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Handling Unit\nWeight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
+   "options": "Handling Unit\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
   },
   {
    "depends_on": "eval:doc.storage_charge && doc.billing_method == 'Per Volume'",
@@ -182,7 +182,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "section_break_btnr",
@@ -200,7 +201,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "columns": 1,
@@ -219,7 +221,8 @@
    "fieldtype": "Link",
    "in_preview": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "columns": 1,

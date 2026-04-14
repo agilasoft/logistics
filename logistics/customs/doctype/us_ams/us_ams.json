@@ -95,7 +95,8 @@
    "fieldtype": "Link",
    "label": "Port of Unlading",
    "options": "UNLOCO",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "estimated_arrival_date",
@@ -242,4 +243,3 @@
  "sort_order": "DESC",
  "states": []
 }
-

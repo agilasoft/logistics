@@ -1,12 +1,17 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:container_number",
- "creation": "2025-01-01 00:00:00.000000",
+ "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "container_number",
+  "section_master_bill",
+  "master_bill",
+  "column_break_mbl",
+  "is_active",
+  "assignment_inactive_date",
+  "assignment_inactive_reason",
   "container_type",
   "seal_number",
   "status",
@@ -23,15 +28,19 @@
   "has_penalties",
   "penalty_alert_sent",
   "last_penalty_check",
+  "penalty_manual_override",
   "section_deposit",
+  "container_deposit_column",
   "deposit_amount",
   "deposit_currency",
   "deposit_paid_date",
   "deposit_reference",
+  "empty_return_column",
   "return_status",
   "returned_date",
   "return_location_type",
   "return_location",
+  "deposit_history_tab",
   "section_deposits",
   "deposits",
   "section_links",
@@ -44,15 +53,52 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Container Number",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_master_bill",
+   "fieldtype": "Section Break",
+   "label": "Master bill assignment"
+  },
+  {
+   "fieldname": "master_bill",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Master Bill",
+   "options": "Master Bill"
+  },
+  {
+   "fieldname": "column_break_mbl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Active on Master Bill"
+  },
+  {
+   "fieldname": "assignment_inactive_date",
+   "fieldtype": "Date",
+   "label": "Assignment inactive date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assignment_inactive_reason",
+   "fieldtype": "Small Text",
+   "label": "Assignment inactive reason"
   },
   {
    "fieldname": "container_type",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Container Type",
-   "options": "Container Type"
+   "options": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
   },
   {
    "fieldname": "seal_number",
@@ -88,7 +134,8 @@
    "fieldname": "owner_carrier",
    "fieldtype": "Link",
    "label": "Owner Carrier",
-   "options": "Shipping Line"
+   "options": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",
@@ -109,28 +156,24 @@
    "fieldname": "demurrage_days",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Demurrage Days",
-   "read_only": 1
+   "label": "Demurrage Days"
   },
   {
    "fieldname": "detention_days",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Detention Days",
-   "read_only": 1
+   "label": "Detention Days"
   },
   {
    "fieldname": "estimated_penalty_amount",
    "fieldtype": "Currency",
-   "label": "Estimated Penalty Amount",
-   "read_only": 1
+   "label": "Estimated Penalty Amount"
   },
   {
    "default": "0",
    "fieldname": "has_penalties",
    "fieldtype": "Check",
-   "label": "Has Penalties",
-   "read_only": 1
+   "label": "Has Penalties"
   },
   {
    "default": "0",
@@ -146,7 +189,13 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
+   "default": "0",
+   "description": "When set, automated Sea Shipment sync and scheduled penalty recalculation will not overwrite free time or penalty fields below.",
+   "fieldname": "penalty_manual_override",
+   "fieldtype": "Check",
+   "label": "Manual penalty values"
+  },
+  {
    "fieldname": "section_deposit",
    "fieldtype": "Section Break",
    "label": "Deposit & Return"
@@ -160,7 +209,8 @@
    "fieldname": "deposit_currency",
    "fieldtype": "Link",
    "label": "Deposit Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "fieldname": "deposit_paid_date",
@@ -197,7 +247,6 @@
    "options": "return_location_type"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_deposits",
    "fieldtype": "Section Break",
    "label": "Deposit History"
@@ -209,7 +258,6 @@
    "options": "Container Deposit"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_links",
    "fieldtype": "Section Break",
    "label": "Linked Documents"
@@ -225,15 +273,29 @@
    "fieldtype": "HTML",
    "label": "Linked Transport Jobs",
    "read_only": 1
+  },
+  {
+   "fieldname": "container_deposit_column",
+   "fieldtype": "Column Break",
+   "label": "Container Deposit"
+  },
+  {
+   "fieldname": "empty_return_column",
+   "fieldtype": "Column Break",
+   "label": "Empty Return"
+  },
+  {
+   "fieldname": "deposit_history_tab",
+   "fieldtype": "Tab Break",
+   "label": "Deposit History"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-01 00:00:00.000000",
+ "modified": "2026-03-26 17:15:33.695062",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container",
- "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -249,7 +311,12 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
+ "search_fields": "master_bill,container_type,seal_number",
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "container_number",
+ "track_changes": 1
 }

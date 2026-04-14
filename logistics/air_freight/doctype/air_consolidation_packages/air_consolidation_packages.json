@@ -83,7 +83,8 @@
    "in_list_view": 1,
    "label": "Shipper",
    "options": "Shipper",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "consignee",
@@ -91,7 +92,8 @@
    "in_list_view": 1,
    "label": "Consignee",
    "options": "Consignee",
-   "reqd": 1
+   "reqd": 1,
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "column_break_1",
@@ -162,7 +164,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
    "default": "0",

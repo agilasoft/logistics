@@ -149,7 +149,7 @@ frappe.ui.form.on("Stocktake Order Charges", {
       // --- Action menu buttons ---
       if (!frm.doc.__islocal) {
         // 1) Get Count Items (always available once saved)
-        frm.add_custom_button(__("Get Count Items"), () => openGetItemsDialog(frm), __("Actions"));
+        frm.add_custom_button(__("Get Count Items"), () => openGetItemsDialog(frm), __("Action"));
 
         // 2) Create Warehouse Job — allowed ONLY when submitted
         if ((frm.doc.docstatus || 0) === 1) {

@@ -12,7 +12,8 @@ Uses calculation_method and unit_type for engine; legacy values (e.g. Per kg) ar
 import json
 
 import frappe
-from frappe.utils import flt
+from frappe import _
+from frappe.utils import cint, flt
 from typing import Dict, List, Optional, Any
 
 from logistics.utils.rate_calculation_engine import RateCalculationEngine
@@ -155,7 +156,11 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         _get_field(parent_doc, "total_pieces", "total_packages", "pieces") or 0
     )
     if pieces <= 0 and hasattr(parent_doc, "packages") and parent_doc.packages:
-        pieces = len(parent_doc.packages)
+        # Handle both numeric packages (DeclarationOrder) and list/table packages (Sea Booking, Air Booking, etc.)
+        if isinstance(parent_doc.packages, (int, float)):
+            pieces = flt(parent_doc.packages)
+        else:
+            pieces = len(parent_doc.packages)
     distance = flt(
         _get_field(
             parent_doc,
@@ -246,6 +251,75 @@ def _normalize_calculation_method(method: str, unit_type: str) -> tuple:
 def _get_item_code_from_charge(charge_doc: Any) -> Optional[str]:
     """Get item code from charge doc (supports item_code or charge_item)."""
     return _get_field(charge_doc, "item_code", "charge_item")
+
+
+def _main_job_charge_cost_for_item(main_doc: Any, item_code: Optional[str]) -> float:
+    """Sum actual/estimated cost on main job charge rows matching item_code (internal job revenue source)."""
+    if not item_code:
+        return 0.0
+    total = 0.0
+    for ch in main_doc.get("charges") or []:
+        row_item = _get_item_code_from_charge(ch)
+        if row_item != item_code:
+            continue
+        c = flt(getattr(ch, "actual_cost", 0)) or flt(getattr(ch, "estimated_cost", 0))
+        if c > 0:
+            total += c
+    return total
+
+
+def _item_fallback_buying_or_standard_rate(item_code: Optional[str]) -> float:
+    """Default cost rate: Item.standard_rate, else latest buying Item Price."""
+    if not item_code:
+        return 0.0
+    std = frappe.db.get_value("Item", item_code, "standard_rate")
+    if flt(std) > 0:
+        return flt(std)
+    row = frappe.db.sql(
+        """SELECT price_list_rate FROM `tabItem Price`
+			WHERE item_code=%s AND IFNULL(buying, 0)=1 ORDER BY modified DESC LIMIT 1""",
+        (item_code,),
+    )
+    if row and row[0][0] is not None:
+        return flt(row[0][0])
+    return 0.0
+
+
+def _resolve_parent_doc_for_charge(charge_doc: Any, parent_doc: Optional[Any]) -> Optional[Any]:
+    if parent_doc is not None:
+        return parent_doc
+    parent_name = getattr(charge_doc, "parent", None)
+    if not parent_name or str(parent_name).startswith("new-") or parent_name in ("new", ""):
+        return None
+    try:
+        return frappe.get_doc(charge_doc.parenttype, parent_name)
+    except Exception:
+        return None
+
+
+def _resolve_quantity_context_parent(charge_doc: Any, parent_doc: Optional[Any]) -> Optional[Any]:
+    """Use linked job weights/volumes when charge rows sit on Change Request."""
+    if (
+        parent_doc
+        and getattr(parent_doc, "doctype", None) == "Change Request"
+        and getattr(charge_doc, "parenttype", None) == "Change Request"
+    ):
+        jt = getattr(parent_doc, "job_type", None)
+        jn = getattr(parent_doc, "job", None)
+        if jt and jn and frappe.db.exists(jt, jn):
+            try:
+                return frappe.get_doc(jt, jn)
+            except Exception:
+                pass
+    return parent_doc
+
+
+INTERNAL_JOB_MAIN_JOB_TYPES = (
+    "Air Shipment",
+    "Sea Shipment",
+    "Transport Job",
+    "Declaration",
+)
 
 
 def _find_matching_rate_in_tariff(tariff_name: str, item_code: str) -> Optional[Dict]:
@@ -486,6 +560,36 @@ def _calculate_charge_amount(
         "cost_quantity": None,
     }
 
+    parent_doc = _resolve_parent_doc_for_charge(charge_doc, parent_doc)
+    parent_doc = _resolve_quantity_context_parent(charge_doc, parent_doc)
+
+    # Internal Transport Order / Declaration Order: revenue = main job charge cost (same item)
+    if (
+        is_revenue
+        and parent_doc
+        and getattr(parent_doc, "doctype", None) in ("Transport Order", "Declaration Order")
+        and cint(getattr(parent_doc, "is_internal_job", 0))
+    ):
+        mt = getattr(parent_doc, "main_job_type", None)
+        mn = getattr(parent_doc, "main_job", None)
+        if mt in INTERNAL_JOB_MAIN_JOB_TYPES and mn and frappe.db.exists(mt, mn):
+            main_doc = frappe.get_doc(mt, mn)
+            item_code = _get_item_code_from_charge(charge_doc)
+            cost_amt = _main_job_charge_cost_for_item(main_doc, item_code)
+            if cost_amt > 0:
+                result["amount"] = cost_amt
+                result["calc_notes"] = _("Internal job: revenue = main job ({0} {1}) cost for item {2}").format(
+                    mt, mn, item_code or "-"
+                )
+                result["success"] = True
+                return result
+            result["amount"] = 0
+            result["calc_notes"] = _(
+                "Internal job: no actual/estimated cost on main job charge line for item {0} ({1} {2})."
+            ).format(item_code or "-", mt, mn)
+            result["success"] = True
+            return result
+
     if is_revenue:
         method = _get_field(charge_doc, *REVENUE_METHOD_FIELDS)
         record_type = "Selling"
@@ -496,17 +600,26 @@ def _calculate_charge_amount(
         unit_type = _get_field(charge_doc, *COST_UNIT_TYPE_FIELDS) or "Weight"
 
     if not method:
+        # Internal job Transport / Declaration Order cost: tariff or standard/buying fallback without method
+        if (
+            not is_revenue
+            and parent_doc
+            and getattr(parent_doc, "doctype", None) in ("Transport Order", "Declaration Order")
+            and cint(getattr(parent_doc, "is_internal_job", 0))
+            and getattr(parent_doc, "main_job_type", None) in INTERNAL_JOB_MAIN_JOB_TYPES
+            and getattr(parent_doc, "main_job", None)
+        ):
+            std = _item_fallback_buying_or_standard_rate(_get_item_code_from_charge(charge_doc))
+            if std > 0:
+                cq = flt(getattr(charge_doc, "cost_quantity", None) or getattr(charge_doc, "quantity", None) or 0)
+                if cq <= 0:
+                    cq = 1.0
+                result["amount"] = std * cq
+                result["calc_notes"] = _("Internal job cost: standard/buying rate {0} × qty {1}").format(std, cq)
+                result["success"] = True
+                return result
         result["calc_notes"] = "Charge calculation: No calculation method specified. Set revenue/cost calculation method."
         return result
-
-    if parent_doc is None and getattr(charge_doc, "parent", None):
-        parent_name = charge_doc.parent
-        # Skip loading parent when it's a temporary name (unsaved document)
-        if parent_name and not str(parent_name).startswith("new-") and parent_name not in ("new", ""):
-            try:
-                parent_doc = frappe.get_doc(charge_doc.parenttype, parent_name)
-            except Exception:
-                parent_doc = None
 
     actual_data = _get_parent_actual_data(charge_doc, parent_doc)
 
@@ -678,12 +791,34 @@ def _calculate_charge_amount(
         result["calc_notes"] = f"Error: {str(e)}"
         result["error"] = str(e)
 
+    # Internal Transport / Declaration Order: after tariff/engine, if cost still zero use Item standard / buying rate
+    if (
+        not is_revenue
+        and parent_doc
+        and getattr(parent_doc, "doctype", None) in ("Transport Order", "Declaration Order")
+        and cint(getattr(parent_doc, "is_internal_job", 0))
+        and flt(result.get("amount", 0)) <= 0
+    ):
+        mt = getattr(parent_doc, "main_job_type", None)
+        mn = getattr(parent_doc, "main_job", None)
+        if mt in INTERNAL_JOB_MAIN_JOB_TYPES and mn:
+            std = _item_fallback_buying_or_standard_rate(_get_item_code_from_charge(charge_doc))
+            if std > 0:
+                cq = flt(result.get("cost_quantity") or getattr(charge_doc, "cost_quantity", None) or 0)
+                if cq <= 0:
+                    cq = flt(getattr(charge_doc, "quantity", None) or 0) or 1.0
+                result["amount"] = std * cq
+                result["calc_notes"] = _("Internal job cost: standard/buying rate {0} × qty {1}").format(std, cq)
+                result["success"] = True
+                result["error"] = None
+
     return result
 
 
 # Charge doctypes that use centralized calculation (for client-side recalculation API)
 CHARGE_DOCTYPES = (
     "Sales Quote Charge",
+    "Change Request Charge",
     "Transport Order Charges",
     "Transport Job Charges",
     "Air Booking Charges",
@@ -694,12 +829,134 @@ CHARGE_DOCTYPES = (
     "Declaration Order Charges",
 )
 
+# Disbursement: copy cost-side inputs to revenue-side (pass-through billing).
+# Revenue mirrors cost for: calculation method, unit rate/cost, unit type, quantity, UOM, currency,
+# minimum qty/rate/charges, max charge, base amount/qty, tariffs (where fields exist per doctype).
+# Bill To and Pay To stay independent: _mirror_disbursement_cost_to_revenue skips those field names.
+_AIR_BOOKING_DISBURSEMENT_PAIRS = (
+    ("cost_calculation_method", "revenue_calculation_method"),
+    ("cost_quantity", "quantity"),
+    ("cost_uom", "uom"),
+    ("cost_currency", "currency"),
+    ("unit_cost", "rate"),
+    ("cost_unit_type", "unit_type"),
+    ("cost_minimum_quantity", "minimum_quantity"),
+    ("cost_minimum_unit_rate", "minimum_unit_rate"),
+    ("cost_minimum_charge", "minimum_charge"),
+    ("cost_maximum_charge", "maximum_charge"),
+    ("cost_base_amount", "base_amount"),
+    ("cost_base_quantity", "base_quantity"),
+    ("use_tariff_in_cost", "use_tariff_in_revenue"),
+    ("cost_tariff", "revenue_tariff"),
+)
+
+_SALES_QUOTE_DISBURSEMENT_PAIRS = (
+    ("cost_calculation_method", "calculation_method"),
+    ("cost_quantity", "quantity"),
+    ("cost_uom", "uom"),
+    ("cost_currency", "currency"),
+    ("unit_cost", "unit_rate"),
+    ("cost_unit_type", "unit_type"),
+    ("cost_minimum_quantity", "minimum_quantity"),
+    ("cost_minimum_charge", "minimum_charge"),
+    ("cost_maximum_charge", "maximum_charge"),
+    ("cost_base_amount", "base_amount"),
+    ("use_tariff_in_cost", "use_tariff_in_revenue"),
+    ("cost_tariff", "revenue_tariff"),
+)
+
+DISBURSEMENT_FIELD_MAP = {
+    "Sales Quote Charge": _SALES_QUOTE_DISBURSEMENT_PAIRS,
+    "Change Request Charge": _SALES_QUOTE_DISBURSEMENT_PAIRS,
+    "Transport Order Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
+    "Transport Job Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
+    + (("buying_currency", "selling_currency"),),
+    "Air Booking Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
+    "Air Shipment Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
+    "Sea Booking Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
+    "Declaration Order Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
+    "Sea Shipment Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
+    + (("buying_currency", "selling_currency"),),
+    "Declaration Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
+    + (("buying_currency", "selling_currency"),),
+}
+
+
+def _mirror_disbursement_cost_to_revenue(doc: Any, doctype: str) -> Dict[str, Any]:
+    pairs = DISBURSEMENT_FIELD_MAP.get(doctype)
+    if not pairs:
+        return {}
+    meta = frappe.get_meta(doctype)
+    out: Dict[str, Any] = {}
+    for src, tgt in pairs:
+        if src in ("pay_to", "bill_to") or tgt in ("pay_to", "bill_to"):
+            continue
+        if not meta.get_field(src) or not meta.get_field(tgt):
+            continue
+        val = getattr(doc, src, None)
+        setattr(doc, tgt, val)
+        out[tgt] = val
+    return out
+
+
+def apply_disbursement_charge_calculation_if_applicable(doc: Any, parent_doc: Optional[Any] = None) -> bool:
+    """
+    For Disbursement charges: mirror cost→revenue, run cost engine only, sync amounts and notes.
+    Mutates doc in place. Used by child validate/recalculate so server matches calculate_charge_row.
+    Returns True if the doc was handled (caller should skip normal revenue+cost calculation).
+    """
+    doctype = getattr(doc, "doctype", None)
+    if getattr(doc, "charge_type", None) != "Disbursement" or not doctype:
+        return False
+    if doctype not in DISBURSEMENT_FIELD_MAP:
+        return False
+    _mirror_disbursement_cost_to_revenue(doc, doctype)
+    cost = calculate_charge_cost(doc, parent_doc)
+    _mirror_disbursement_cost_to_revenue(doc, doctype)
+    est_cost = flt(cost.get("amount", 0))
+    notes = cost.get("calc_notes", "") or ""
+
+    if doctype in (
+        "Transport Job Charges",
+        "Air Shipment Charges",
+        "Sea Shipment Charges",
+        "Declaration Charges",
+    ):
+        if hasattr(doc, "actual_revenue"):
+            doc.actual_revenue = est_cost
+        if hasattr(doc, "actual_cost"):
+            doc.actual_cost = est_cost
+        if hasattr(doc, "estimated_revenue"):
+            doc.estimated_revenue = est_cost
+        if hasattr(doc, "estimated_cost"):
+            doc.estimated_cost = est_cost
+        if hasattr(doc, "revenue_calc_notes"):
+            doc.revenue_calc_notes = notes
+        if hasattr(doc, "cost_calc_notes"):
+            doc.cost_calc_notes = notes
+        elif hasattr(doc, "calculation_notes"):
+            doc.calculation_notes = notes
+        return True
+
+    if hasattr(doc, "estimated_revenue"):
+        doc.estimated_revenue = est_cost
+    if hasattr(doc, "estimated_cost"):
+        doc.estimated_cost = est_cost
+    if hasattr(doc, "revenue_calc_notes"):
+        doc.revenue_calc_notes = notes
+    if hasattr(doc, "cost_calc_notes"):
+        doc.cost_calc_notes = notes
+    elif hasattr(doc, "calculation_notes"):
+        doc.calculation_notes = notes
+    return True
+
 
 @frappe.whitelist()
 def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: str):
     """
-    Recalculate estimated_revenue and estimated_cost for a charge row.
-    Used by client-side form events when user changes unit_rate, calculation_method, etc.
+    Recalculate estimated_revenue, estimated_cost, actual_revenue, and actual_cost for a charge row.
+    Used by client-side form events when user changes rate (or unit_rate on quote rows), calculation_method, etc.
+    Actual amounts use the same calculation method; when separate actual-value inputs exist they are used.
 
     Args:
         doctype: Charge child doctype (e.g. 'Air Booking Charges')
@@ -708,7 +965,7 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
         row_data: JSON string of the charge row data (or dict)
 
     Returns:
-        dict with estimated_revenue, estimated_cost, revenue_calc_notes, cost_calc_notes
+        dict with estimated_revenue, estimated_cost, actual_revenue, actual_cost, revenue_calc_notes, cost_calc_notes
     """
     import json
 
@@ -734,17 +991,55 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
             except Exception:
                 pass
 
+        charge_type = getattr(doc, "charge_type", None) or row_dict.get("charge_type")
+        if charge_type == "Disbursement":
+            # Mirror cost -> revenue before cost engine runs, then again after (engine may update cost_quantity etc.)
+            _mirror_disbursement_cost_to_revenue(doc, doctype)
+            cost = calculate_charge_cost(doc, parent_doc)
+            disbursement_mirror = _mirror_disbursement_cost_to_revenue(doc, doctype)
+            est_cost = flt(cost.get("amount", 0))
+            est_rev = est_cost
+            notes = cost.get("calc_notes", "")
+            actual_cst = (
+                flt(row_dict.get("actual_cost"))
+                if row_dict.get("actual_cost") is not None
+                else est_cost
+            )
+            actual_rev = actual_cst
+            cq = cost.get("cost_quantity")
+            cq_f = flt(cq) if cq is not None else None
+            return {
+                "success": True,
+                "estimated_revenue": est_rev,
+                "estimated_cost": est_cost,
+                "actual_revenue": actual_rev,
+                "actual_cost": actual_cst,
+                "revenue_calc_notes": notes,
+                "cost_calc_notes": notes,
+                "quantity": cq_f,
+                "cost_quantity": cq_f,
+                "disbursement_mirror": disbursement_mirror,
+            }
+
         rev = calculate_charge_revenue(doc, parent_doc)
         cost = calculate_charge_cost(doc, parent_doc)
+        est_rev = flt(rev.get("amount", 0))
+        est_cost = flt(cost.get("amount", 0))
+        # Actual = same calculation (basis for SI/PI); override with actual-value inputs when present
+        actual_rev = flt(row_dict.get("actual_revenue")) if row_dict.get("actual_revenue") is not None else est_rev
+        actual_cst = flt(row_dict.get("actual_cost")) if row_dict.get("actual_cost") is not None else est_cost
 
         return {
             "success": True,
-            "estimated_revenue": flt(rev.get("amount", 0)),
-            "estimated_cost": flt(cost.get("amount", 0)),
+            "estimated_revenue": est_rev,
+            "estimated_cost": est_cost,
+            "actual_revenue": actual_rev,
+            "actual_cost": actual_cst,
             "revenue_calc_notes": rev.get("calc_notes", ""),
             "cost_calc_notes": cost.get("calc_notes", ""),
             "quantity": rev.get("quantity"),
             "cost_quantity": cost.get("cost_quantity"),
+            "disbursement_mirror": None,
         }
     except Exception as e:
         frappe.log_error(f"Charge row calculation error: {str(e)}")

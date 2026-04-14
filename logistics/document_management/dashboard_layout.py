@@ -235,78 +235,17 @@ def _normalize_map_input(map_points=None, map_segments=None):
 	return [], map_points or [], False
 
 
-def build_run_sheet_style_dashboard(
-	header_title,
-	header_subtitle,
-	header_items,
-	cards_html,
-	map_points,
-	map_id_prefix="dash-map",
-	doc_alerts_html="",
-	straight_line=False,
+def render_route_map_html(
+	map_id_prefix,
+	map_points=None,
 	map_segments=None,
-	origin_label=None,
-	destination_label=None,
-	route_below_html="",
-	doc_management_position="before",
-	cards_full_width=False,
-	origin_section_label=None,
-	destination_section_label=None,
+	straight_line=True,
 	hide_map=False,
-	merge_header_with_cards=False,
-	header_items_in_card=False,
-	status_badge_html="",
-	alerts_html="",
 ):
 	"""
-	Build dashboard HTML with Run Sheet layout: header + sidebar cards + map.
-
-	header_items: list of (label, value) for header details
-	cards_html: HTML string for milestone/leg cards
-	map_points: list of {"lat": float, "lon": float, "label": str} (legacy, used when map_segments not provided)
-	map_segments: list of {"type": "Main"|"Pre-carriage"|"On-forwarding"|"Other", "points": [...]} for colored legs
-	straight_line: if True, draw straight lines between points (for air/sea); else use road-following route
-	origin_label: optional display label for origin (shown in first section)
-	destination_label: optional display label for destination (shown in first section)
+	Build the map column HTML + init script (Leaflet / Google / MapLibre) for run-sheet and Air Booking dashboards.
+	Does not depend on header route labels.
 	"""
-	# Exclude Origin/Destination from header_items when passed separately
-	_filtered_items = []
-	for h in (header_items or []):
-		if h[0] in ("Origin", "Destination"):
-			continue
-		_filtered_items.append(h)
-	header_details_html = "".join(
-		f'<div class="header-item"><label>{h[0]}:</label><span>{h[1]}</span></div>'
-		for h in _filtered_items
-	)
-	if header_items_in_card and header_details_html:
-		header_details = f'<div class="header-details-card">{header_details_html}</div>'
-	else:
-		header_details = header_details_html
-	header_details_class = "header-details header-details-full-width" if header_items_in_card else "header-details"
-
-	# Route section (ORIGIN | DESTINATION or custom labels like Exporter | Importer) and optional content below (e.g. DG status)
-	route_section = ""
-	if origin_label is not None or destination_label is not None:
-		o = frappe.utils.escape_html(origin_label or "—")
-		d = frappe.utils.escape_html(destination_label or "—")
-		route_below = (route_below_html or "").strip()
-		orig_lbl = origin_section_label or "ORIGIN"
-		dest_lbl = destination_section_label or "DESTINATION"
-		route_class = "header-route no-border" if header_items_in_card else "header-route"
-		route_section = f"""
-		<div class="{route_class}">
-			<div class="route-column">
-				<label class="section-label">{orig_lbl}</label>
-				<div class="route-location">{o}</div>
-			</div>
-			<div class="route-column">
-				<label class="section-label">{dest_lbl}</label>
-				<div class="route-location">{d}</div>
-			</div>
-		</div>
-		{route_below}"""
-
 	segments, all_points, use_segments = _normalize_map_input(map_points, map_segments)
 	points_for_header = all_points if all_points else (map_points or [])
 
@@ -314,14 +253,13 @@ def build_run_sheet_style_dashboard(
 	segments_json = json.dumps(segments) if segments else "[]"
 	leg_colors_json = json.dumps(LEG_TYPE_COLORS)
 
-	origin_label = points_for_header[0].get("label", "Origin") if points_for_header else "Origin"
-	dest_label = points_for_header[-1].get("label", "Destination") if len(points_for_header) > 1 else "Destination"
+	mf_origin = points_for_header[0].get("label", "Origin") if points_for_header else "Origin"
+	mf_dest = points_for_header[-1].get("label", "Destination") if len(points_for_header) > 1 else "Destination"
 	origin_lat = points_for_header[0].get("lat", 0) if points_for_header else 0
 	origin_lon = points_for_header[0].get("lon", 0) if points_for_header else 0
 	dest_lat = points_for_header[-1].get("lat", 0) if len(points_for_header) > 1 else 0
 	dest_lon = points_for_header[-1].get("lon", 0) if len(points_for_header) > 1 else 0
 
-	# Map renderer from Logistics Settings, fallback to Transport Settings (same as Run Sheet)
 	map_renderer = None
 	try:
 		ls = frappe.get_single("Logistics Settings")
@@ -530,9 +468,94 @@ def build_run_sheet_style_dashboard(
 		</script>
 		"""
 	elif not hide_map and points_for_header:
-		map_section = f'<div class="map-main"><div class="alert alert-info">At least two points with coordinates needed for map. Origin: {origin_label}</div></div>'
+		map_section = f'<div class="map-main"><div class="alert alert-info">At least two points with coordinates needed for map. Origin: {mf_origin}</div></div>'
 	elif not hide_map:
 		map_section = '<div class="map-main"><div class="alert alert-info">Add origin and destination (or routing legs) to view the route map.</div></div>'
+	else:
+		map_section = ""
+
+	return map_section
+
+
+def build_run_sheet_style_dashboard(
+	header_title,
+	header_subtitle,
+	header_items,
+	cards_html,
+	map_points,
+	map_id_prefix="dash-map",
+	doc_alerts_html="",
+	straight_line=False,
+	map_segments=None,
+	origin_label=None,
+	destination_label=None,
+	route_below_html="",
+	doc_management_position="before",
+	cards_full_width=False,
+	origin_section_label=None,
+	destination_section_label=None,
+	hide_map=False,
+	merge_header_with_cards=False,
+	header_items_in_card=False,
+	status_badge_html="",
+	alerts_html="",
+):
+	"""
+	Build dashboard HTML with Run Sheet layout: header + sidebar cards + map.
+
+	header_items: list of (label, value) for header details
+	cards_html: HTML string for milestone/leg cards
+	map_points: list of {"lat": float, "lon": float, "label": str} (legacy, used when map_segments not provided)
+	map_segments: list of {"type": "Main"|"Pre-carriage"|"On-forwarding"|"Other", "points": [...]} for colored legs
+	straight_line: if True, draw straight lines between points (for air/sea); else use road-following route
+	origin_label: optional display label for origin (shown in first section)
+	destination_label: optional display label for destination (shown in first section)
+	"""
+	# Exclude Origin/Destination from header_items when passed separately
+	_filtered_items = []
+	for h in (header_items or []):
+		if h[0] in ("Origin", "Destination"):
+			continue
+		_filtered_items.append(h)
+	header_details_html = "".join(
+		f'<div class="header-item"><label>{h[0]}:</label><span>{h[1]}</span></div>'
+		for h in _filtered_items
+	)
+	if header_items_in_card and header_details_html:
+		header_details = f'<div class="header-details-card">{header_details_html}</div>'
+	else:
+		header_details = header_details_html
+	header_details_class = "header-details header-details-full-width" if header_items_in_card else "header-details"
+
+	# Route section (ORIGIN | DESTINATION or custom labels like Exporter | Importer) and optional content below (e.g. DG status)
+	route_section = ""
+	if origin_label is not None or destination_label is not None:
+		o = frappe.utils.escape_html(origin_label or "—")
+		d = frappe.utils.escape_html(destination_label or "—")
+		route_below = (route_below_html or "").strip()
+		orig_lbl = origin_section_label or "ORIGIN"
+		dest_lbl = destination_section_label or "DESTINATION"
+		route_class = "header-route no-border" if header_items_in_card else "header-route"
+		route_section = f"""
+		<div class="{route_class}">
+			<div class="route-column">
+				<label class="section-label">{orig_lbl}</label>
+				<div class="route-location">{o}</div>
+			</div>
+			<div class="route-column">
+				<label class="section-label">{dest_lbl}</label>
+				<div class="route-location">{d}</div>
+			</div>
+		</div>
+		{route_below}"""
+
+	map_section = render_route_map_html(
+		map_id_prefix,
+		map_points=map_points,
+		map_segments=map_segments,
+		straight_line=straight_line,
+		hide_map=hide_map,
+	)
 
 	alerts_section = (alerts_html or "").strip()
 	if alerts_section:

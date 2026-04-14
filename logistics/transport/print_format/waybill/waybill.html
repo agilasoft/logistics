@@ -281,7 +281,7 @@
             </div>
         </div>
         
-        <!-- Transport Job Costing Number -->
+        <!-- Transport Job Number -->
         {% if doc.transport_job %}
         <div style="text-align: center; margin-bottom: 3mm; font-size: 9pt;">
             <strong>Transport Job:</strong> {{ doc.transport_job }}
@@ -293,7 +293,7 @@
         
         <!-- Special Handling Badges -->
         <div style="text-align: center; margin-bottom: 3mm;">
-            {% if doc.hazardous %}
+            {% if doc.contains_dangerous_goods %}
                 <span class="badge badge-danger">⚠ HAZARDOUS</span>
             {% endif %}
             {% if doc.refrigeration %}
@@ -452,7 +452,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if doc.hazardous %}HAZARDOUS | {% endif %}
+                        {% if doc.contains_dangerous_goods %}HAZARDOUS | {% endif %}
                         {% if doc.refrigeration %}REFRIGERATED | {% endif %}
                         {% if doc.priority %}PRIORITY: {{ doc.priority }}{% endif %}
                     </td>
