@@ -25,6 +25,47 @@ def _declaration_summary(doc: Document) -> dict:
 	}
 
 
+def _issuing_authority_name_from_customs_authority(ca_link: str | None) -> str | None:
+	"""Map Declaration's Customs Authority link to an Issuing Authority name (autoname = code).
+
+	Creates an Issuing Authority from the Customs Authority when missing, matching
+	``v1_0_migrate_customs_authority_to_issuing_authority``."""
+	if not ca_link or not frappe.db.table_exists("Issuing Authority"):
+		return None
+	ca_link = cstr(ca_link).strip()
+	if not ca_link:
+		return None
+	if frappe.db.exists("Issuing Authority", ca_link):
+		return ca_link
+	if not frappe.db.exists("Customs Authority", ca_link):
+		return None
+	src = frappe.get_doc("Customs Authority", ca_link)
+	code = cstr(src.code or src.name).strip()
+	if not code:
+		return None
+	if frappe.db.exists("Issuing Authority", code):
+		return code
+	ia = frappe.get_doc(
+		{
+			"doctype": "Issuing Authority",
+			"code": code,
+			"customs_authority_name": src.customs_authority_name or src.name,
+			"country": src.country,
+			"is_active": 1 if src.is_active is None else src.is_active,
+			"website": src.website,
+			"phone": src.phone,
+			"email": src.email,
+			"address_line_1": src.address_line_1,
+			"address_line_2": src.address_line_2,
+			"city": src.city,
+			"state": src.state,
+			"postal_code": src.postal_code,
+		}
+	)
+	ia.insert(ignore_permissions=True, ignore_if_duplicate=True)
+	return code if frappe.db.exists("Issuing Authority", code) else None
+
+
 def get_permit_application_create_context(doc: Document) -> dict:
 	rows_out = []
 	for row in doc.get("permit_requirements") or []:
@@ -60,7 +101,7 @@ def create_linked_permit_application(
 	pa.company = doc.company
 	pa.branch = getattr(doc, "branch", None)
 	if getattr(doc, "customs_authority", None):
-		pa.issuing_authority = doc.customs_authority
+		pa.issuing_authority = _issuing_authority_name_from_customs_authority(doc.customs_authority)
 	if getattr(doc, "customer", None):
 		pa.applicant_type = "Customer"
 		pa.applicant = doc.customer

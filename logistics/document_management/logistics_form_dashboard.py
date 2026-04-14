@@ -285,134 +285,78 @@ def build_transport_meta_cluster_html(doc):
 	return ""
 
 
-def build_declaration_meta_cluster_html(doc):
-	"""Declaration: left refs & dates (ports/ETD/ETA/value/payment are on route + KPI strip); right parties & transport."""
+def _customs_dashboard_cell_val(val):
+	if val is None or val == "":
+		return "—"
+	return str(val)
 
-	def _ab_meta_row(ic, val, label=None):
-		span = (
-			f'<span class="ab-meta-k">{escape_html(label)}:</span>{escape_html(str(val))}'
-			if label
-			else escape_html(str(val))
+
+def _customs_dashboard_primary_row(ic, label, raw_val):
+	v = _customs_dashboard_cell_val(raw_val)
+	span = f'<span class="ab-meta-k">{escape_html(label)}:</span>{escape_html(v)}'
+	return f'<div class="ab-meta-row"><i class="fa {escape_html(ic)}"></i><span>{span}</span></div>'
+
+
+def build_customs_form_primary_meta_html(doc, date_label, date_raw):
+	"""First dashboard subtext: two columns × five rows (row-paired). Left: type, date, customer, exporter, importer. Right: broker, mode, incoterm, sales quote, blank."""
+	left_specs = [
+		("fa-file-text", "Type", getattr(doc, "declaration_type", None)),
+		("fa-calendar", date_label, date_raw),
+		("fa-building", "Customer", getattr(doc, "customer", None)),
+		("fa-upload", "Exporter", getattr(doc, "exporter_shipper", None)),
+		("fa-download", "Importer", getattr(doc, "importer_consignee", None)),
+	]
+	right_specs = [
+		("fa-user-secret", "Customs broker", getattr(doc, "customs_broker", None)),
+		("fa-truck", "Transport mode", getattr(doc, "transport_mode", None)),
+		("fa-exchange", "Incoterm", getattr(doc, "incoterm", None)),
+		("fa-file-o", "Sales quote", getattr(doc, "sales_quote", None)),
+	]
+	while len(right_specs) < len(left_specs):
+		right_specs.append((None, None, None))
+	rows = []
+	for i in range(len(left_specs)):
+		lic, llb, lv = left_specs[i]
+		ric, rlb, rv = right_specs[i]
+		right_cell = (
+			_customs_dashboard_primary_row(ric, rlb, rv)
+			if ric
+			else '<div class="ab-meta-row ab-meta-row--customs-empty" aria-hidden="true"></div>'
 		)
-		return f'<div class="ab-meta-row"><i class="fa {escape_html(ic)}"></i><span>{span}</span></div>'
-
-	left = []
-	if getattr(doc, "declaration_type", None):
-		left.append(_ab_meta_row("fa-file-text", doc.declaration_type, "Type"))
-	if getattr(doc, "declaration_date", None):
-		left.append(_ab_meta_row("fa-calendar", str(doc.declaration_date), "Declaration date"))
-	if getattr(doc, "customer", None):
-		left.append(_ab_meta_row("fa-building", doc.customer, "Customer"))
-	if getattr(doc, "sales_quote", None):
-		left.append(_ab_meta_row("fa-file-o", doc.sales_quote, "Sales quote"))
-	if getattr(doc, "declaration_order", None):
-		left.append(_ab_meta_row("fa-link", doc.declaration_order, "Declaration order"))
-
-	right = []
-	if getattr(doc, "exporter_shipper", None):
-		right.append(_ab_meta_row("fa-upload", doc.exporter_shipper, "Exporter"))
-	if getattr(doc, "importer_consignee", None):
-		right.append(_ab_meta_row("fa-download", doc.importer_consignee, "Importer"))
-	if getattr(doc, "customs_broker", None):
-		right.append(_ab_meta_row("fa-user-secret", doc.customs_broker, "Customs broker"))
-	if getattr(doc, "transport_mode", None):
-		right.append(_ab_meta_row("fa-truck", doc.transport_mode, "Transport mode"))
-	vfn = getattr(doc, "vessel_flight_number", None)
-	if vfn:
-		right.append(_ab_meta_row("fa-plane", vfn, "Vessel / flight"))
-	tdn = getattr(doc, "transport_document_number", None)
-	tdt = getattr(doc, "transport_document_type", None)
-	if tdn or tdt:
-		td_bits = " — ".join(x for x in (tdt, tdn) if x)
-		right.append(_ab_meta_row("fa-file-o", td_bits, "Transport document"))
-	if getattr(doc, "incoterm", None):
-		right.append(_ab_meta_row("fa-exchange", doc.incoterm, "Incoterm"))
-
-	mp = f'<div class="ab-summary-meta-rows">{"".join(left)}</div>' if left else ""
-	ms = f'<div class="ab-secondary-meta">{"".join(right)}</div>' if right else ""
-	if mp and ms:
-		return (
-			f'<div class="log-ab-meta-cluster">'
-			f'<div class="log-ab-meta-col log-ab-meta-col--primary">{mp}</div>'
-			f'<div class="log-ab-meta-col log-ab-meta-col--secondary">{ms}</div>'
+		rows.append(
+			f'<div class="log-ab-customs-primary-grid-row">'
+			f'<div class="log-ab-customs-primary-grid-cell">{_customs_dashboard_primary_row(lic, llb, lv)}</div>'
+			f'<div class="log-ab-customs-primary-grid-cell">{right_cell}</div>'
 			f"</div>"
 		)
-	return mp or ms or ""
+	return f'<div class="log-ab-customs-primary-meta">{"".join(rows)}</div>'
+
+
+def build_declaration_meta_cluster_html(doc):
+	return build_customs_form_primary_meta_html(
+		doc, "Declaration date", getattr(doc, "declaration_date", None)
+	)
 
 
 def build_declaration_order_meta_cluster_html(doc):
-	"""Declaration Order: same split as Declaration — no duplicate ports/value vs route + KPI strip."""
+	return build_customs_form_primary_meta_html(doc, "Order date", getattr(doc, "order_date", None))
 
-	def _ab_meta_row(ic, val, label=None):
-		span = (
-			f'<span class="ab-meta-k">{escape_html(label)}:</span>{escape_html(str(val))}'
-			if label
-			else escape_html(str(val))
-		)
-		return f'<div class="ab-meta-row"><i class="fa {escape_html(ic)}"></i><span>{span}</span></div>'
 
-	left = []
-	if getattr(doc, "declaration_type", None):
-		left.append(_ab_meta_row("fa-file-text", doc.declaration_type, "Type"))
-	if getattr(doc, "order_date", None):
-		left.append(_ab_meta_row("fa-calendar", str(doc.order_date), "Order date"))
-	if getattr(doc, "customer", None):
-		left.append(_ab_meta_row("fa-building", doc.customer, "Customer"))
-	if getattr(doc, "sales_quote", None):
-		left.append(_ab_meta_row("fa-file-o", doc.sales_quote, "Sales quote"))
-	linked_rows = frappe.get_all(
-		"Declaration",
-		filters={"declaration_order": doc.name, "docstatus": ["<", 2]},
-		pluck="name",
-		order_by="modified desc",
-		limit_page_length=1,
-	)
-	linked_decl = linked_rows[0] if linked_rows else None
-	if linked_decl:
-		left.append(_ab_meta_row("fa-anchor", linked_decl, "Declaration"))
-	if getattr(doc, "is_internal_job", 0) and getattr(doc, "main_job", None):
-		mjt = getattr(doc, "main_job_type", None) or ""
-		mj = doc.main_job
-		left.append(_ab_meta_row("fa-sitemap", f"{mjt}: {mj}" if mjt else str(mj), "Main job"))
-	if getattr(doc, "sla_status", None) or getattr(doc, "sla_target_date", None):
-		sla_bits = " — ".join(
-			x for x in (getattr(doc, "sla_status", None), getattr(doc, "sla_target_date", None)) if x
-		)
-		if sla_bits:
-			left.append(_ab_meta_row("fa-clock-o", sla_bits, "SLA"))
-
-	right = []
-	if getattr(doc, "exporter_shipper", None):
-		right.append(_ab_meta_row("fa-upload", doc.exporter_shipper, "Exporter"))
-	if getattr(doc, "importer_consignee", None):
-		right.append(_ab_meta_row("fa-download", doc.importer_consignee, "Importer"))
-	if getattr(doc, "customs_broker", None):
-		right.append(_ab_meta_row("fa-user-secret", doc.customs_broker, "Customs broker"))
-	if getattr(doc, "transport_mode", None):
-		right.append(_ab_meta_row("fa-truck", doc.transport_mode, "Transport mode"))
-	vfn = getattr(doc, "vessel_flight_number", None)
-	if vfn:
-		right.append(_ab_meta_row("fa-plane", vfn, "Vessel / flight"))
+def _customs_transport_document_line(doc):
 	tdn = getattr(doc, "transport_document_number", None)
 	tdt = getattr(doc, "transport_document_type", None)
-	if tdn or tdt:
-		td_bits = " — ".join(x for x in (tdt, tdn) if x)
-		right.append(_ab_meta_row("fa-file-o", td_bits, "Transport document"))
-	if getattr(doc, "incoterm", None):
-		right.append(_ab_meta_row("fa-exchange", doc.incoterm, "Incoterm"))
-	if getattr(doc, "service_level", None):
-		right.append(_ab_meta_row("fa-star", doc.service_level, "Service level"))
+	if not tdn and not tdt:
+		return "—"
+	return " — ".join(x for x in (tdt, tdn) if x)
 
-	mp = f'<div class="ab-summary-meta-rows">{"".join(left)}</div>' if left else ""
-	ms = f'<div class="ab-secondary-meta">{"".join(right)}</div>' if right else ""
-	if mp and ms:
-		return (
-			f'<div class="log-ab-meta-cluster">'
-			f'<div class="log-ab-meta-col log-ab-meta-col--primary">{mp}</div>'
-			f'<div class="log-ab-meta-col log-ab-meta-col--secondary">{ms}</div>'
-			f"</div>"
-		)
-	return mp or ms or ""
+
+def _customs_sla_line(doc):
+	ss = getattr(doc, "sla_status", None)
+	std = getattr(doc, "sla_target_date", None)
+	parts = [x for x in (ss, std) if x not in (None, "")]
+	if not parts:
+		return "—"
+	return " — ".join(str(p) for p in parts)
 
 
 def _route_panel_address_titles(doc, legs_field="legs"):
@@ -466,6 +410,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	- alerts_prepend_html (str)
 	- status_slug (optional str for ring), ring_status_from workflow|docstatus
 	- ring_status_field when workflow (default status)
+	- customs_dashboard_enhanced_layout (bool): Declaration / Declaration Order — divider + layout CSS
 	"""
 	from logistics.document_management.api import (
 		get_dashboard_alerts,
@@ -677,10 +622,30 @@ def render_logistics_form_dashboard_html(doc, cfg):
 
 	header_details = _header_details_html(header_items)
 	hero_logo = (hero_html or "").strip() or '<span class="log-ab-logo-ph">—</span>'
+	customs_enh = bool(cfg.get("customs_dashboard_enhanced_layout"))
+	dash_root_class = "log-ab-dash run-sheet-dash" + (" log-ab-dash--customs" if customs_enh else "")
+	customs_extra_css = ""
+	if customs_enh:
+		customs_extra_css = """
+.log-ab-dash.log-ab-dash--customs .log-ab-customs-primary-meta { width: 100%; display: flex; flex-direction: column; gap: 0.12rem; }
+.log-ab-dash.log-ab-dash--customs .log-ab-customs-primary-grid-row {
+	display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 2rem; align-items: start; width: 100%;
+}
+.log-ab-dash.log-ab-dash--customs .log-ab-customs-primary-grid-cell { min-width: 0; }
+.log-ab-dash.log-ab-dash--customs .ab-meta-row--customs-empty { min-height: 1.35rem; margin: 0; padding: 0; border: none; }
+.log-ab-dash.log-ab-dash--customs .log-ab-customs-secondary-kpis {
+	border-top: 1px solid var(--ro-border-soft); margin-top: 0.55rem; padding-top: 0.7rem; width: 100%;
+}
+"""
+	header_body = (
+		f'<div class="log-ab-customs-secondary-kpis"><div class="header-details">{header_details}</div></div>'
+		if customs_enh
+		else f'<div class="header-details">{header_details}</div>'
+	)
 
 	return f"""
-	<div class="log-ab-dash run-sheet-dash">
-		<style>{RUN_SHEET_LAYOUT_CSS}{AIR_BOOKING_DASH_CSS}</style>
+	<div class="{dash_root_class}">
+		<style>{RUN_SHEET_LAYOUT_CSS}{AIR_BOOKING_DASH_CSS}{customs_extra_css}</style>
 		<div class="log-ab-top">
 			<div class="run-sheet-header log-ab-head ab-summary-header-card">
 				<div class="log-ab-head-stack">
@@ -694,7 +659,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 					</div>
 					{route_section}
 					<div class="log-ab-body-block">
-						<div class="header-details">{header_details}</div>
+						{header_body}
 					</div>
 				</div>
 			</div>
@@ -957,21 +922,16 @@ def build_declaration_dashboard_config(doc):
 	currency = doc.inv_currency or frappe.db.get_default("currency") or "PHP"
 	amount = frappe.utils.flt(doc.declaration_value or 0)
 	value_display = f"{frappe.utils.fmt_money(amount, precision=2)} {currency}"
-	# KPI strip: avoid repeating ports (route row), type/date (meta), parties/transport (meta)
-	header_items = [("Status", status)]
-	if getattr(doc, "job_number", None):
-		header_items.append(("Job #", doc.job_number))
-	if getattr(doc, "declaration_number", None):
-		header_items.append(("Declaration #", doc.declaration_number))
-	header_items.extend(
-		[
-			("ETD", str(doc.etd) if doc.etd else "—"),
-			("ETA", str(doc.eta) if doc.eta else "—"),
-			("Value", value_display),
-			("Payment", doc.payment_status or "—"),
-		]
-	)
-	hero_html = build_customs_authority_hero_html(doc, header_items)
+	header_items = [
+		("Status", status),
+		("ETD", str(doc.etd) if doc.etd else "—"),
+		("ETA", str(doc.eta) if doc.eta else "—"),
+		("Value", value_display),
+		("Vessel / flight", getattr(doc, "vessel_flight_number", None) or "—"),
+		("Transport document", _customs_transport_document_line(doc)),
+		("SLA", _customs_sla_line(doc)),
+	]
+	hero_html = build_customs_authority_hero_html(doc, list(header_items))
 	route_supplement = _declaration_importer_classification_html(doc)
 	milestone_html = ""
 	if doc.name and not doc.is_new():
@@ -1013,6 +973,7 @@ def build_declaration_dashboard_config(doc):
 		"status_slug": status_slug,
 		"scroll_doctype": "Declaration",
 		"scroll_field": "milestones",
+		"customs_dashboard_enhanced_layout": True,
 	}
 
 
@@ -1026,17 +987,16 @@ def build_declaration_order_dashboard_config(doc):
 		value_str = f"{frappe.utils.fmt_money(amt, precision=2)} {currency}"
 	except Exception:
 		value_str = str(doc.inv_total_amount) if doc.inv_total_amount is not None else "—"
-	header_items = [("Status", status)]
-	if getattr(doc, "job_number", None):
-		header_items.append(("Job #", doc.job_number))
-	header_items.extend(
-		[
-			("ETD", str(doc.etd) if doc.etd else "—"),
-			("ETA", str(doc.eta) if doc.eta else "—"),
-			("Invoice total", value_str),
-		]
-	)
-	hero_html = build_customs_authority_hero_html(doc, header_items)
+	header_items = [
+		("Status", status),
+		("ETD", str(doc.etd) if doc.etd else "—"),
+		("ETA", str(doc.eta) if doc.eta else "—"),
+		("Value", value_str),
+		("Vessel / flight", getattr(doc, "vessel_flight_number", None) or "—"),
+		("Transport document", _customs_transport_document_line(doc)),
+		("SLA", _customs_sla_line(doc)),
+	]
+	hero_html = build_customs_authority_hero_html(doc, list(header_items))
 	route_supplement = _declaration_importer_classification_html(doc)
 	milestone_html = ""
 	if doc.name and not doc.is_new():
@@ -1081,4 +1041,5 @@ def build_declaration_order_dashboard_config(doc):
 		"status_slug": status_slug,
 		"scroll_doctype": "Declaration Order",
 		"scroll_field": "milestones",
+		"customs_dashboard_enhanced_layout": True,
 	}

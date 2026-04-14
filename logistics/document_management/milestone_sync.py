@@ -115,7 +115,10 @@ def apply_milestone_sync_in_place(doc, method=None):
 			continue
 		val = doc.get(fieldname)
 		if val is None or val == "":
-			if getattr(row, "actual_end", None):
+			# Only clear milestone when the parent field alone drives the row ("Parent to Milestone only").
+			# For "Both" or default (empty) direction, keep user-entered actual_end so step 2 can
+			# push milestone -> parent (matches Declaration Order, which skips on_update re-sync).
+			if getattr(row, "actual_end", None) and direction == "Parent to Milestone only":
 				row.actual_end = None
 			continue
 		current = getattr(row, "actual_end", None)
@@ -268,7 +271,7 @@ def apply_milestone_sync_and_triggers(doc, method=None):
 			if val is None:
 				val = frappe.db.get_value(parent.doctype, parent.name, fieldname)
 			if val is None or val == "":
-				if row.actual_end:
+				if row.actual_end and direction == "Parent to Milestone only":
 					row.actual_end = None
 					changed = True
 				continue

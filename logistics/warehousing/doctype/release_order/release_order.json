@@ -21,7 +21,7 @@
   "priority",
   "planned_date",
   "due_date",
-  "section_break_connections",
+  "quote_reference_section",
   "air_shipment",
   "sea_shipment",
   "transport_order",
@@ -134,9 +134,9 @@
    "label": "Due Date"
   },
   {
-   "fieldname": "section_break_connections",
+   "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
-   "label": "Connected Documents",
+   "label": "Job Details",
    "collapsible": 1
   },
   {

@@ -130,8 +130,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
   },
   {
    "default": "Today",
@@ -150,22 +150,22 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper",
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee",
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
   },
   {
    "fieldname": "transport_company",
    "fieldtype": "Link",
    "label": "Transport Company",
-   "options": "Transport Company",
-   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Company"
   },
   {
    "default": "0",
@@ -282,8 +282,8 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
   },
   {
    "fieldname": "transport_mode",
@@ -356,8 +356,8 @@
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
-   "options": "Project",
-   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
   },
   {
    "description": "For revenue/cost recognition",
@@ -399,6 +399,7 @@
   {
    "fieldname": "charges",
    "fieldtype": "Table",
+   "no_copy": 1,
    "options": "Transport Order Charges"
   },
   {
@@ -412,7 +413,8 @@
    "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
    "fieldname": "is_main_service",
    "fieldtype": "Check",
-   "label": "Main Service"
+   "label": "Main Service",
+   "no_copy": 1
   },
   {
    "fieldname": "sales_quote",
@@ -431,13 +433,15 @@
    "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
    "fieldname": "is_internal_job",
    "fieldtype": "Check",
-   "label": "Internal Job"
+   "label": "Internal Job",
+   "no_copy": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
   },
   {
@@ -445,6 +449,7 @@
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type"
   },
   {
@@ -589,9 +594,9 @@
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
    "mandatory_depends_on": "eval:doc.transport_job_type=='Container'",
-   "options": "Container Type",
-   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+   "options": "Container Type"
   },
   {
    "depends_on": "eval:doc.transport_job_type=='Container'",
@@ -605,9 +610,9 @@
    "fieldname": "container",
    "fieldtype": "Link",
    "label": "Container",
+   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]",
    "options": "Container",
-   "read_only": 1,
-   "link_filters": "[[\"Container\", \"is_active\", \"=\", 1]]"
+   "read_only": 1
   },
   {
    "fieldname": "column_break_xzix",
@@ -649,8 +654,8 @@
    "fieldname": "terms",
    "fieldtype": "Link",
    "label": "Terms",
-   "options": "Terms and Conditions",
-   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
   },
   {
    "fieldname": "terms_and_conditions_details",
@@ -683,7 +688,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-01 11:52:08.211152",
+ "modified": "2026-04-14 19:48:39.471577",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order",
