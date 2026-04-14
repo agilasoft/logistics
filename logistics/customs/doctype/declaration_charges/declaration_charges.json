@@ -407,6 +407,7 @@
    "fieldname": "rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
+   "options": "currency",
    "precision": "2",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -428,6 +429,7 @@
    "fieldname": "minimum_unit_rate",
    "fieldtype": "Currency",
    "label": "Minimum Unit Rate",
+   "options": "currency",
    "precision": "2",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -435,6 +437,7 @@
    "fieldname": "minimum_charge",
    "fieldtype": "Currency",
    "label": "Minimum Charge",
+   "options": "currency",
    "precision": "2",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -442,6 +445,7 @@
    "fieldname": "maximum_charge",
    "fieldtype": "Currency",
    "label": "Maximum Charge",
+   "options": "currency",
    "precision": "2",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -449,6 +453,7 @@
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
+   "options": "currency",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -497,6 +502,7 @@
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
+   "options": "cost_currency",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
@@ -518,6 +524,7 @@
    "fieldname": "cost_minimum_unit_rate",
    "fieldtype": "Currency",
    "label": "Minimum Unit Rate",
+   "options": "cost_currency",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
@@ -525,6 +532,7 @@
    "fieldname": "cost_minimum_charge",
    "fieldtype": "Currency",
    "label": "Minimum Charge",
+   "options": "cost_currency",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
@@ -532,6 +540,7 @@
    "fieldname": "cost_maximum_charge",
    "fieldtype": "Currency",
    "label": "Maximum Charge",
+   "options": "cost_currency",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
@@ -539,6 +548,7 @@
    "fieldname": "cost_base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
+   "options": "cost_currency",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },

@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-03-03 00:00:00.000000",
+ "creation": "2026-03-03 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -45,31 +45,31 @@
  ],
  "fields": [
   {
+   "description": "Select from Declaration Product Code (filtered by importer/exporter)",
    "fieldname": "declaration_product_code",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Declaration Product Code",
-   "options": "Declaration Product Code",
-   "description": "Select from Declaration Product Code (filtered by importer/exporter)",
-   "link_filters": "[[\"Declaration Product Code\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Declaration Product Code\", \"active\", \"=\", 1]]",
+   "options": "Declaration Product Code"
   },
   {
+   "description": "Fetched from Declaration Product Code",
    "fieldname": "item",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item",
-   "read_only": 1,
-   "description": "Fetched from Declaration Product Code",
-   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]"
+   "read_only": 1
   },
   {
+   "description": "Fetched from Declaration Product Code",
    "fieldname": "product_code",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Product Code",
-   "read_only": 1,
-   "description": "Fetched from Declaration Product Code"
+   "read_only": 1
   },
   {
    "fieldname": "procedure_code",
@@ -104,8 +104,8 @@
    "fieldname": "commodity_code",
    "fieldtype": "Link",
    "label": "Commodity Code",
-   "options": "Commodity",
-   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]",
+   "options": "Commodity"
   },
   {
    "fieldname": "column_break_1",
@@ -121,8 +121,8 @@
    "fieldname": "invoice_qty_uom",
    "fieldtype": "Link",
    "label": "Invoice Qty UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "customs_qty",
@@ -133,8 +133,8 @@
    "fieldname": "customs_qty_uom",
    "fieldtype": "Link",
    "label": "Customs Qty UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "additional_qty_1",
@@ -145,8 +145,8 @@
    "fieldname": "additional_qty_1_uom",
    "fieldtype": "Link",
    "label": "Additional Qty 1 UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "additional_qty_2",
@@ -157,8 +157,8 @@
    "fieldname": "additional_qty_2_uom",
    "fieldtype": "Link",
    "label": "Additional Qty 2 UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "additional_qty_3",
@@ -169,14 +169,15 @@
    "fieldname": "additional_qty_3_uom",
    "fieldtype": "Link",
    "label": "Additional Qty 3 UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "price",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Price"
+   "label": "Price",
+   "options": "inv_currency"
   },
   {
    "fieldname": "tax_type_code",
@@ -193,8 +194,8 @@
    "fieldname": "gross_weight_uom",
    "fieldtype": "Link",
    "label": "Gross Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "volume",
@@ -206,8 +207,8 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "measurements_section",
@@ -228,8 +229,8 @@
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "length",
@@ -255,8 +256,8 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "reference_no",
@@ -268,7 +269,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-03 00:00:00.000000",
+ "modified": "2026-04-14 19:42:47.428436",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Commercial Invoice Line Item",

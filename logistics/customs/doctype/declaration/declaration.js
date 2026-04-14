@@ -773,7 +773,7 @@ function logistics_show_create_permit_application_dialog(frm) {
 			{ fieldtype: "Data", fieldname: "pv_company", label: __("Company"), read_only: 1, default: s.company || "" },
 			{ fieldtype: "Data", fieldname: "pv_decl", label: __("Declaration"), read_only: 1, default: s.declaration || "" },
 			{ fieldtype: "Column Break" },
-			{ fieldtype: "Data", fieldname: "pv_auth", label: __("Customs authority"), read_only: 1, default: s.customs_authority || "" },
+			{ fieldtype: "Data", fieldname: "pv_auth", label: __("Issuing Authority"), read_only: 1, default: s.customs_authority || "" },
 		];
 		var dialog = new frappe.ui.Dialog({
 			title: __("Create Permit Application"),

@@ -8,7 +8,12 @@ from frappe.model.document import Document
 
 
 class AirBookingMilestone(Document):
-	"""Child table for milestones on Air Booking."""
+	"""Child table for milestones on Air Booking.
+
+	Parent save runs Date Based sync in logistics.document_management.milestone_sync
+	(via doc_events on Air Booking). User-entered actual_end is preserved unless the
+	template uses sync direction "Parent to Milestone only" with an empty parent date.
+	"""
 
 	def before_save(self):
 		if not self.get("created_at"):

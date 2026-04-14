@@ -149,35 +149,74 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _patch_air_booking_milestone_actual_end_df(df) {
+	if (!df || df.fieldname !== "actual_end") {
+		return;
+	}
+	df.read_only_depends_on = null;
+	df.read_only = 0;
+}
+
 /**
- * Milestone grid: Actual End must stay editable after Actual Start is set.
- * Property Setters / Customize Form may set read_only_depends_on on actual_end; grid_row then sets
- * read_only from that (see Frappe grid_row.set_dependant_property). We strip the dependency on
- * template + every per-row docfield copy, then refresh Actual End on the grid.
+ * One grid row after Frappe runs set_dependant_property (setup_columns / refresh_dependency).
+ * Datetime cells skip focus when df.read_only (grid_row.js trigger_focus); columns_list[].df must match.
+ */
+function _patch_air_booking_milestone_grid_row_actual_end(grid_row) {
+	if (!grid_row || !grid_row.grid || grid_row.grid.df.fieldname !== "milestones") {
+		return;
+	}
+	if (grid_row.docfields && grid_row.docfields.length) {
+		grid_row.docfields.forEach(_patch_air_booking_milestone_actual_end_df);
+	}
+	if (grid_row.columns_list && grid_row.columns_list.length) {
+		grid_row.columns_list.forEach(function(col) {
+			_patch_air_booking_milestone_actual_end_df(col.df);
+		});
+	}
+	if (grid_row.grid_form && grid_row.grid_form.fields_dict && grid_row.grid_form.fields_dict.actual_end) {
+		var fe = grid_row.grid_form.fields_dict.actual_end;
+		_patch_air_booking_milestone_actual_end_df(fe.df);
+		if (fe.refresh) {
+			fe.refresh();
+		}
+	}
+	if (grid_row.refresh_field) {
+		grid_row.refresh_field("actual_end");
+	}
+}
+
+function _patch_air_booking_milestone_all_grid_rows(frm) {
+	if (!frm || !frm.fields_dict.milestones || !frm.fields_dict.milestones.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.milestones.grid;
+	if (grid.docfields && grid.docfields.length) {
+		grid.docfields.forEach(_patch_air_booking_milestone_actual_end_df);
+	}
+	if (grid.grid_rows && grid.grid_rows.length) {
+		grid.grid_rows.forEach(_patch_air_booking_milestone_grid_row_actual_end);
+	}
+}
+
+/**
+ * Milestone grid: keep Actual End editable (no read_only_depends_on / read_only from it).
+ * Meta copies + live grid_row df objects (Frappe applies dependencies per row in setup_columns).
  */
 function _ensure_air_booking_milestone_actual_end_editable_meta(frm) {
 	var dt = "Air Booking Milestone";
 	var fn = "actual_end";
 
-	function patch_df(df) {
-		if (!df) {
-			return;
-		}
-		df.read_only_depends_on = null;
-		df.read_only = 0;
-	}
-
 	var list = frappe.meta.docfield_list[dt];
 	if (list && list.length) {
 		list.forEach(function(df) {
 			if (df.fieldname === fn) {
-				patch_df(df);
+				_patch_air_booking_milestone_actual_end_df(df);
 			}
 		});
 	} else {
 		var base = frappe.meta.docfield_map[dt];
 		if (base && base[fn]) {
-			patch_df(base[fn]);
+			_patch_air_booking_milestone_actual_end_df(base[fn]);
 		}
 	}
 
@@ -186,10 +225,12 @@ function _ensure_air_booking_milestone_actual_end_editable_meta(frm) {
 		Object.keys(copies).forEach(function(dn) {
 			var row = copies[dn];
 			if (row && row[fn]) {
-				patch_df(row[fn]);
+				_patch_air_booking_milestone_actual_end_df(row[fn]);
 			}
 		});
 	}
+
+	_patch_air_booking_milestone_all_grid_rows(frm);
 
 	if (!frm || !frm.fields_dict.milestones || !frm.fields_dict.milestones.grid) {
 		return;
@@ -306,6 +347,32 @@ frappe.ui.form.on('Air Booking', {
 			return { filters: filters };
 		});
 		_install_air_booking_custom_savesubmit(frm);
+		// After grid_row.setup_columns → set_dependant_property, patch live df on columns (Datetime skips focus if read_only).
+		$(frm.wrapper)
+			.off("grid-row-render.air_booking_abm")
+			.on("grid-row-render.air_booking_abm", function(e, grid_row) {
+				_patch_air_booking_milestone_grid_row_actual_end(grid_row);
+			});
+		// refresh_dependency() can set actual_end read_only without re-firing grid-row-render; patch before the cell click handler runs.
+		if (frm.wrapper && frm.wrapper[0] && !frm._air_booking_abm_click_capture) {
+			frm._air_booking_abm_click_capture = true;
+			frm.wrapper[0].addEventListener(
+				"click",
+				function(e) {
+					var el = e.target && e.target.closest && e.target.closest(".grid-static-col[data-fieldname='actual_end']");
+					if (!el) {
+						return;
+					}
+					var rowEl = el.closest(".grid-row");
+					if (!rowEl) {
+						return;
+					}
+					var grid_row = $(rowEl).data("grid_row");
+					_patch_air_booking_milestone_grid_row_actual_end(grid_row);
+				},
+				true
+			);
+		}
 	},
 	company: function(frm) {
 		// Re-run defaults on company selection for new docs.
@@ -818,9 +885,11 @@ frappe.ui.form.on('Air Booking', {
 
 frappe.ui.form.on("Air Booking Milestone", {
 	actual_start: function(frm) {
-		setTimeout(function() {
+		function run() {
 			_ensure_air_booking_milestone_actual_end_editable_meta(frm);
-		}, 0);
+		}
+		setTimeout(run, 0);
+		setTimeout(run, 50);
 	},
 });
 

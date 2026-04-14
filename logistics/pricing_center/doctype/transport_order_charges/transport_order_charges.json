@@ -494,6 +494,7 @@
    "fieldname": "cost_minimum_unit_rate",
    "fieldtype": "Currency",
    "label": "Minimum Unit Rate",
+   "options": "cost_currency",
    "precision": "2",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
@@ -501,6 +502,7 @@
    "fieldname": "minimum_unit_rate",
    "fieldtype": "Currency",
    "label": "Minimum Unit Rate",
+   "options": "currency",
    "precision": "2",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
