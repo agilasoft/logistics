@@ -28,6 +28,7 @@
   "transport_template",
   "vehicle_type",
   "container_type",
+  "container_no",
   "column_break_transport",
   "location_type",
   "location_from",
@@ -201,6 +202,13 @@
    "label": "Container Type",
    "options": "Container Type",
    "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No."
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",

@@ -30,6 +30,7 @@
   "consolidate",
   "column_break_tjia",
   "transport_order",
+  "transport_company",
   "status",
   "priority",
   "group_legs_in_one_runsheet",
@@ -507,6 +508,14 @@
    "fieldtype": "Link",
    "label": "Transport Order",
    "options": "Transport Order"
+  },
+  {
+   "fetch_from": "transport_order.transport_company",
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "label": "Transport Company",
+   "options": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
   },
   {
    "fieldname": "transport_template",

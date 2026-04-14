@@ -15,6 +15,7 @@
   "column_break_info",
   "is_active",
   "timezone",
+  "logo",
   "contact_information_section",
   "website",
   "phone",
@@ -77,6 +78,12 @@
    "in_list_view": 1,
    "label": "Customs Authority Name",
    "reqd": 1
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Logo"
   },
   {
    "fieldname": "country",
@@ -320,8 +327,8 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "collapsible": 1,
@@ -336,9 +343,10 @@
   }
  ],
  "grid_page_length": 50,
+ "image_field": "logo",
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-17 12:47:12.090977",
+ "modified": "2026-04-14 17:31:00.901984",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Customs Authority",

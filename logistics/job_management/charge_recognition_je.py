@@ -21,6 +21,15 @@ def _row_item_code(row):
 	return (row.get("item_code") or row.get("charge_item") or "").strip()
 
 
+def _charge_row_fetch_fields(meta, recognition_fieldname):
+	"""Fields for loading charge rows; charge_item exists on some child tables only (e.g. not Transport Job Charges)."""
+	fields = ["name", "item_code"]
+	if meta.has_field("charge_item"):
+		fields.append("charge_item")
+	fields.append(recognition_fieldname)
+	return fields
+
+
 def set_wip_adjustment_je_on_charges(job_doctype, job_name, je_name, item_codes=None):
 	"""
 	Update wip_adjustment_journal_entry on charge child rows.
@@ -43,7 +52,7 @@ def set_wip_adjustment_je_on_charges(job_doctype, job_name, je_name, item_codes=
 	rows = frappe.get_all(
 		child_dt,
 		filters={"parent": job_name, "parenttype": job_doctype},
-		fields=["name", "item_code", "charge_item", "wip_recognition_journal_entry"],
+		fields=_charge_row_fetch_fields(meta, "wip_recognition_journal_entry"),
 	)
 	for r in rows:
 		if not r.get("wip_recognition_journal_entry"):
@@ -81,7 +90,7 @@ def set_accrual_adjustment_je_on_charges(job_doctype, job_name, je_name, item_co
 	rows = frappe.get_all(
 		child_dt,
 		filters={"parent": job_name, "parenttype": job_doctype},
-		fields=["name", "item_code", "charge_item", "accrual_recognition_journal_entry"],
+		fields=_charge_row_fetch_fields(meta, "accrual_recognition_journal_entry"),
 	)
 	for r in rows:
 		if not r.get("accrual_recognition_journal_entry"):

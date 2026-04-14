@@ -63,6 +63,15 @@ function _warn_if_missing_service_charges(frm, service_type) {
 	}
 }
 
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
+}
+
 // Suppress "Sea Booking X not found" when form is new/unsaved (e.g. package grid triggers API before save)
 frappe.ui.form.on('Sea Booking', {
 	packages_on_form_rendered: function(frm) {
@@ -120,6 +129,7 @@ frappe.ui.form.on('Sea Booking', {
 				}
 			});
 		}
+		_logistics_set_charges_cannot_add_rows(frm);
 	},
 	setup: function(frm) {
 		frm.set_query('milestone_template', function() {
@@ -395,6 +405,12 @@ frappe.ui.form.on('Sea Booking', {
 	},
 	
 	refresh: function(frm) {
+		_logistics_set_charges_cannot_add_rows(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+			}
+		}, 0);
 		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
 			window.logistics_apply_sea_freight_settings_accounting_defaults(frm);
 		}
@@ -537,36 +553,35 @@ frappe.ui.form.on('Sea Booking', {
 								callback: function(r) {
 									if (r.exc) return;
 									if (r.message && r.message.success && r.message.sea_shipment) {
-										frm.reload_doc();
-										frappe.show_alert({
-											message: __('Sea Shipment {0} created', [r.message.sea_shipment]),
-											indicator: 'green'
-										}, 3);
-										
-										// Poll until doc is visible on server, then navigate (avoids "Sea Shipment ... not found" on form load)
 										var sea_shipment_name = r.message.sea_shipment;
-										function try_navigate(attempt) {
-											var max_attempts = 15;
-											if (attempt > max_attempts) {
-												frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
-												return;
-											}
-											frappe.call({
-												method: "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
-												args: { docname: sea_shipment_name },
-												callback: function(res) {
-													if (res.message === true) {
-														frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
-													} else {
+										frm.reload_doc().then(function() {
+											frappe.show_alert({
+												message: __('Sea Shipment {0} created', [sea_shipment_name]),
+												indicator: 'green'
+											}, 3);
+											function try_navigate(attempt) {
+												var max_attempts = 15;
+												if (attempt > max_attempts) {
+													frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
+													return;
+												}
+												frappe.call({
+													method: "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
+													args: { docname: sea_shipment_name },
+													callback: function(res) {
+														if (res.message === true) {
+															frappe.set_route('Form', 'Sea Shipment', sea_shipment_name);
+														} else {
+															setTimeout(function() { try_navigate(attempt + 1); }, 300);
+														}
+													},
+													error: function() {
 														setTimeout(function() { try_navigate(attempt + 1); }, 300);
 													}
-												},
-												error: function() {
-													setTimeout(function() { try_navigate(attempt + 1); }, 300);
-												}
-											});
-										}
-										try_navigate(1);
+												});
+											}
+											try_navigate(1);
+										});
 									}
 								}
 							});

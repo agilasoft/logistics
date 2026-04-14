@@ -134,6 +134,7 @@
   "operations_rep",
   "customer_service_rep",
   "charges_section",
+  "column_break_qkdg",
   "charges",
   "quote_reference",
   "is_main_service",
@@ -887,8 +888,6 @@
    "label": "Charges"
   },
   {
-   "allow_bulk_edit": 0,
-   "cannot_add_rows": 1,
    "description": "New charges must be added via Create Change Request. You can still adjust Estimated Revenue and Estimated Cost on existing lines.",
    "fieldname": "charges",
    "fieldtype": "Table",
@@ -1033,6 +1032,11 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "column_break_qkdg",
+   "fieldtype": "Column Break",
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -1051,7 +1055,7 @@
    "table_fieldname": "internal_job_details"
   }
  ],
- "modified": "2026-04-04 09:57:26.559763",
+ "modified": "2026-04-13 17:03:42.815061",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

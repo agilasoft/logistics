@@ -11,6 +11,7 @@ from logistics.utils.charge_service_type import (
 	customs_charges_rows_from_sales_quote_doc,
 	throw_if_missing_destination_service_charge,
 )
+from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
 
 
 class Declaration(Document):
@@ -76,9 +77,11 @@ class Declaration(Document):
 		"""Calculate values and metrics before saving"""
 		from logistics.utils.module_integration import run_propagate_on_link
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+		from logistics.utils.transport_mode_defaults import apply_default_transport_document_type
 
 		run_propagate_on_link(self)
 		apply_shipper_consignee_defaults(self)
+		apply_default_transport_document_type(self)
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
 		self.calculate_exemptions()
@@ -676,104 +679,15 @@ class Declaration(Document):
 	
 	@frappe.whitelist()
 	def get_dashboard_html(self):
-		"""Generate HTML for Dashboard tab: declaration details (Air Shipment header format), milestones (from Milestones tab), Documents Management (from Air Shipment)."""
+		"""Generate HTML for Dashboard tab: tabbed layout with route, milestones, alerts."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html, get_milestone_html
-			from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
+			from logistics.document_management.logistics_form_dashboard import (
+				build_declaration_dashboard_config,
+				render_logistics_form_dashboard_html,
+			)
 
-			# Section 1: Declaration details (Air Shipment header format) with Exporter | Importer
-			status = "Cancelled" if self.docstatus == 2 else (self.status or "Draft")
-			# Status badge for dashboard (prominent display)
-			status_class = (status or "draft").lower().replace(" ", "_").replace(" ", "_")
-			status_badge_html = f'<span class="dash-status-badge {status_class}">{frappe.utils.escape_html(status)}</span>'
-			# Format value with correct currency code from commercial invoice
-			currency = self.inv_currency or frappe.db.get_default("currency") or "PHP"
-			# Format number and append currency code instead of using symbol
-			amount = flt(self.declaration_value or 0)
-			value_display = f"{frappe.utils.fmt_money(amount, precision=2)} {currency}"
-			
-			header_items = [
-				("Status", status),
-				("Declaration #", self.declaration_number or "—"),
-				("Type", self.declaration_type or "—"),
-				("Date", str(self.declaration_date) if self.declaration_date else "—"),
-				("Port of Loading", self.port_of_loading or "—"),
-				("Port of Discharge", self.port_of_discharge or "—"),
-				("ETD", str(self.etd) if self.etd else "—"),
-				("ETA", str(self.eta) if self.eta else "—"),
-				("Value", value_display),
-				("Payment", self.payment_status or "—"),
-			]
-
-			# Exporter and Importer for header (Shipper and Consignee names)
-			exporter_label = self.exporter_shipper or "—"
-			importer_label = self.importer_consignee or "—"
-
-			# Importer classification card (below Importer) - from Consignee customs_importer_classification
-			route_below_html = ""
-			if self.importer_consignee:
-				classification = frappe.db.get_value("Consignee", self.importer_consignee, "customs_importer_classification")
-				if classification and classification != "Not Classified":
-					cls_lower = (classification or "").lower().replace(" ", "_")
-					card_class = "sgl" if "sgl" in cls_lower else "gl" if "gl" in cls_lower or "green" in cls_lower else "yellow" if "yellow" in cls_lower else "red" if "red" in cls_lower else ""
-					route_below_html = (
-						f'<div class="importer-classification-card {card_class}" style="margin-left: 0;">'
-						f'<div class="classification-label">Importer Classification</div>'
-						f'<div class="classification-value">{frappe.utils.escape_html(classification)}</div>'
-						f'</div>'
-					)
-
-			# Section 2: Milestones (from Milestones tab)
-			milestone_html = ""
-			if self.name and not self.is_new():
-				milestone_html = get_milestone_html("Declaration", self.name)
-			else:
-				milestone_html = '<div class="alert alert-info">Save the document to view milestones.</div>'
-
-			# Section 3: Documents Management (from Air Shipment)
-			doc_alerts_html = ""
-			try:
-				doc_alerts_html = get_document_alerts_html("Declaration", self.name or "new")
-			except Exception:
-				pass
-
-			# Delay & penalty alerts
-			alerts_html = ""
-			if self.name and not self.is_new():
-				alerts = self.get_delay_penalty_alerts()
-				if alerts:
-					icons = {"danger": "fa-exclamation-circle", "warning": "fa-exclamation-triangle", "info": "fa-info-circle"}
-					items = []
-					for a in alerts:
-						level = a.get("level") or "info"
-						icon = icons.get(level, "fa-info-circle")
-						items.append(
-							f'<div class="dash-alert-item {level}"><i class="fa {icon}"></i><span>{frappe.utils.escape_html(a.get("msg", ""))}</span></div>'
-						)
-					alerts_html = "\n".join(items)
-
-			# Use build_run_sheet_style_dashboard: one card with declaration details + milestones, then Documents Management
-			return build_run_sheet_style_dashboard(
-				header_title=self.name or "Declaration",
-				header_subtitle="Declaration",
-				header_items=header_items,
-				status_badge_html=status_badge_html,
-				alerts_html=alerts_html,
-				cards_html=milestone_html,
-				map_points=[],
-				map_id_prefix="decl-dash-map",
-				doc_alerts_html=doc_alerts_html,
-				straight_line=True,
-				origin_label=exporter_label,
-				destination_label=importer_label,
-				origin_section_label="Exporter",
-				destination_section_label="Importer",
-				route_below_html=route_below_html,
-				doc_management_position="before",
-				cards_full_width=True,
-				hide_map=True,
-				merge_header_with_cards=True,
-				header_items_in_card=True,
+			return render_logistics_form_dashboard_html(
+				self, build_declaration_dashboard_config(self)
 			)
 		except Exception as e:
 			frappe.log_error(f"Declaration get_dashboard_html: {str(e)}", "Declaration Dashboard")
@@ -783,17 +697,13 @@ class Declaration(Document):
 	def get_milestone_html(self):
 		"""Generate HTML for milestone visualization in Milestones tab."""
 		try:
+			from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 			from logistics.document_management.milestone_html import build_milestone_html
 
 			origin_name = getattr(self, "port_of_loading", None) or "Port of Loading"
 			destination_name = getattr(self, "port_of_discharge", None) or "Port of Discharge"
 
-			milestones = frappe.get_all(
-				"Job Milestone",
-				filters={"job_type": "Declaration", "job_number": self.name},
-				fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
-				order_by="planned_start",
-			)
+			milestones, editor_child_dt = get_milestone_display_rows_and_editor_doctype(self)
 
 			detail_items = [
 				("Status", self.status or ""),
@@ -815,6 +725,7 @@ class Declaration(Document):
 				detail_items=detail_items,
 				milestones=milestones,
 				format_datetime_fn=format_dt,
+				child_milestone_doctype=editor_child_dt,
 				origin_party_name=getattr(self, "exporter_shipper", None) or "",
 				destination_party_name=getattr(self, "importer_consignee", None) or "",
 			)
@@ -1223,9 +1134,6 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.importer_consignee = order.importer_consignee
 	declaration.declaration_type = order.declaration_type
 	declaration.transport_mode = order.transport_mode
-	declaration.air_shipment = order.air_shipment
-	declaration.sea_shipment = order.sea_shipment
-	declaration.transport_order = order.transport_order
 
 	# Transport information
 	declaration.vessel_flight_number = order.vessel_flight_number
@@ -1306,6 +1214,7 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.profit_center = order.profit_center
 	declaration.job_number = getattr(order, "job_number", None)
 	declaration.project = order.project
+	copy_operational_rep_fields_from_declaration_order(declaration, order)
 
 	# Notes
 	declaration.internal_notes = order.internal_notes

@@ -84,9 +84,137 @@ function _apply_air_booking_settings_defaults(frm, force_reload) {
 	});
 }
 
+/**
+ * When ATA is set but ATD is not, show one confirm that combines the standard
+ * permanent-submit prompt with the ATA/ATD notice (same flow as frappe.form.savesubmit).
+ */
+function _install_air_booking_custom_savesubmit(frm) {
+	var _savesubmit = frm.savesubmit.bind(frm);
+	frm.savesubmit = function(btn, callback, on_error) {
+		var me = this;
+		if (!me.doc.ata || me.doc.atd) {
+			return _savesubmit(btn, callback, on_error);
+		}
+		return new Promise(function(resolve) {
+			me.validate_form_action("Submit");
+			frappe.confirm(
+				__(
+					"Permanently submit {0}? ATA (Actual Time of Arrival) is set but ATD (Actual Time of Departure) is not. Do you want to submit this booking anyway?",
+					[me.docname]
+				),
+				function() {
+					frappe.validated = true;
+					me.script_manager.trigger("before_submit").then(function() {
+						if (!frappe.validated) {
+							return me.handle_save_fail(btn, on_error);
+						}
+						me.save(
+							"Submit",
+							function(r) {
+								if (r.exc) {
+									me.handle_save_fail(btn, on_error);
+								} else {
+									frappe.utils.play_sound("submit");
+									callback && callback();
+									me.script_manager
+										.trigger("on_submit")
+										.then(() => resolve(me))
+										.then(() => {
+											if (frappe.route_hooks.after_submit) {
+												var route_callback = frappe.route_hooks.after_submit;
+												delete frappe.route_hooks.after_submit;
+												route_callback(me);
+											}
+										});
+								}
+							},
+							btn,
+							() => me.handle_save_fail(btn, on_error),
+							resolve
+						);
+					});
+				},
+				() => me.handle_save_fail(btn, on_error)
+			);
+		});
+	};
+}
+
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
+}
+
+/**
+ * Milestone grid: Actual End must stay editable after Actual Start is set.
+ * Property Setters / Customize Form may set read_only_depends_on on actual_end; grid_row then sets
+ * read_only from that (see Frappe grid_row.set_dependant_property). We strip the dependency on
+ * template + every per-row docfield copy, then refresh Actual End on the grid.
+ */
+function _ensure_air_booking_milestone_actual_end_editable_meta(frm) {
+	var dt = "Air Booking Milestone";
+	var fn = "actual_end";
+
+	function patch_df(df) {
+		if (!df) {
+			return;
+		}
+		df.read_only_depends_on = null;
+		df.read_only = 0;
+	}
+
+	var list = frappe.meta.docfield_list[dt];
+	if (list && list.length) {
+		list.forEach(function(df) {
+			if (df.fieldname === fn) {
+				patch_df(df);
+			}
+		});
+	} else {
+		var base = frappe.meta.docfield_map[dt];
+		if (base && base[fn]) {
+			patch_df(base[fn]);
+		}
+	}
+
+	var copies = frappe.meta.docfield_copy[dt];
+	if (copies) {
+		Object.keys(copies).forEach(function(dn) {
+			var row = copies[dn];
+			if (row && row[fn]) {
+				patch_df(row[fn]);
+			}
+		});
+	}
+
+	if (!frm || !frm.fields_dict.milestones || !frm.fields_dict.milestones.grid) {
+		return;
+	}
+
+	frm.set_df_property("milestones", "read_only_depends_on", null, dt, fn);
+	frm.set_df_property("milestones", "read_only", 0, dt, fn);
+
+	(frm.doc.milestones || []).forEach(function(row) {
+		if (!row.name) {
+			return;
+		}
+		frm.set_df_property("milestones", "read_only_depends_on", null, dt, fn, row.name);
+		frm.set_df_property("milestones", "read_only", 0, dt, fn, row.name);
+	});
+}
+
 frappe.ui.form.on('Air Booking', {
 	onload: function(frm) {
 		_apply_air_booking_settings_defaults(frm, false);
+		_logistics_set_charges_cannot_add_rows(frm);
+		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
+	},
+	milestones_on_form_rendered: function(frm) {
+		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
 	},
 	packages_on_form_rendered: function(frm) {
 		if (window.logistics_attach_packages_change_listener) {
@@ -177,6 +305,7 @@ frappe.ui.form.on('Air Booking', {
 			}
 			return { filters: filters };
 		});
+		_install_air_booking_custom_savesubmit(frm);
 	},
 	company: function(frm) {
 		// Re-run defaults on company selection for new docs.
@@ -397,6 +526,13 @@ frappe.ui.form.on('Air Booking', {
 	},
 
 	refresh: function(frm) {
+		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
+		_logistics_set_charges_cannot_add_rows(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+			}
+		}, 0);
 		if (frm.is_new() || frm.doc.__islocal) {
 			_apply_air_booking_settings_defaults(frm, false);
 		}
@@ -638,12 +774,35 @@ frappe.ui.form.on('Air Booking', {
 										callback: function(r) {
 											if (r.exc) return;
 											if (r.message && r.message.success && r.message.air_shipment) {
-												frm.reload_doc();
-												frappe.show_alert({
-													message: __('Air Shipment {0} created', [r.message.air_shipment]),
-													indicator: 'green'
-												}, 3);
-												frappe.set_route('Form', 'Air Shipment', r.message.air_shipment);
+												var air_shipment_name = r.message.air_shipment;
+												frm.reload_doc().then(function() {
+													frappe.show_alert({
+														message: __('Air Shipment {0} created', [air_shipment_name]),
+														indicator: 'green'
+													}, 3);
+													function try_navigate(attempt) {
+														var max_attempts = 15;
+														if (attempt > max_attempts) {
+															frappe.set_route('Form', 'Air Shipment', air_shipment_name);
+															return;
+														}
+														frappe.call({
+															method: "logistics.air_freight.doctype.air_shipment.air_shipment.air_shipment_exists",
+															args: { docname: air_shipment_name },
+															callback: function(res) {
+																if (res.message === true) {
+																	frappe.set_route('Form', 'Air Shipment', air_shipment_name);
+																} else {
+																	setTimeout(function() { try_navigate(attempt + 1); }, 300);
+																}
+															},
+															error: function() {
+																setTimeout(function() { try_navigate(attempt + 1); }, 300);
+															}
+														});
+													}
+													try_navigate(1);
+												});
 											}
 										}
 									});
@@ -655,6 +814,14 @@ frappe.ui.form.on('Air Booking', {
 			}, 100);
 		}
 	}
+});
+
+frappe.ui.form.on("Air Booking Milestone", {
+	actual_start: function(frm) {
+		setTimeout(function() {
+			_ensure_air_booking_milestone_actual_end_editable_meta(frm);
+		}, 0);
+	},
 });
 
 function _setup_sales_quote_query(frm) {

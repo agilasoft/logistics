@@ -8,7 +8,8 @@
  "field_order": [
   "code",
   "description",
-  "transport_mode"
+  "transport_mode",
+  "requires_container_no"
  ],
  "fields": [
   {
@@ -27,6 +28,13 @@
    "fieldtype": "Select",
    "label": "Transport Mode",
    "options": "Air\nSea\nRoad\nRail\nOthers"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, Sea Shipment container lines with this mode must have Container No. filled (e.g. FCL).",
+   "fieldname": "requires_container_no",
+   "fieldtype": "Check",
+   "label": "Requires Container No."
   }
  ],
  "grid_page_length": 50,

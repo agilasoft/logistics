@@ -225,3 +225,272 @@ class TestSeaShipment(FrappeTestCase):
 		self.assertEqual(shipment.branch, branch)
 		self.assertEqual(shipment.cost_center, cc)
 		self.assertEqual(shipment.profit_center, pc)
+
+	def test_transport_order_from_sea_shipment_filters_packages_by_container(self):
+		"""Creating a Transport Order from a multi-container sea shipment copies only cargo for the chosen container."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit, normalize_container_number
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn_a = _iso_container("123456")
+		cn_b = _iso_container("789012")
+
+		ct = frappe.db.get_value("Container Type", {"active": 1}, "name")
+		if not ct:
+			ct = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": "TST-TO-CT",
+					"description": "Test container type for TO filter test",
+					"active": 1,
+				}
+			).insert(ignore_permissions=True).name
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-TO {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"container_type": ct,
+			}
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "container": cn_a},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "container": cn_b},
+		)
+		shipment.insert()
+		frappe.db.commit()
+
+		with self.assertRaises(frappe.ValidationError):
+			create_transport_order_from_sea_shipment(shipment.name)
+
+		res = create_transport_order_from_sea_shipment(shipment.name, container_no=cn_b)
+		to = frappe.get_doc("Transport Order", res["transport_order"])
+		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn_b))
+		self.assertEqual(len(to.packages), 1)
+		self.assertEqual(to.packages[0].commodity, comms[1])
+
+	def test_transport_order_from_sea_shipment_uses_internal_job_detail_container_no(self):
+		"""When Internal Job Detail has container_no, create without API container_no still scopes packages."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit, normalize_container_number
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn_a = _iso_container("223456")
+		cn_b = _iso_container("889012")
+
+		ct = frappe.db.get_value("Container Type", {"active": 1}, "name")
+		if not ct:
+			ct = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": "TST-TO-IJ-CT",
+					"description": "Test container type for IJ container_no test",
+					"active": 1,
+				}
+			).insert(ignore_permissions=True).name
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-IJ {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"container_type": ct,
+			}
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "container": cn_a},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "container": cn_b},
+		)
+		shipment.append(
+			"internal_job_details",
+			{
+				"service_type": "Transport",
+				"job_type": "Transport Order",
+				"container_no": cn_b,
+			},
+		)
+		shipment.insert()
+		frappe.db.commit()
+
+		res = create_transport_order_from_sea_shipment(shipment.name, internal_job_detail_idx=1)
+		to = frappe.get_doc("Transport Order", res["transport_order"])
+		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn_b))
+		self.assertEqual(len(to.packages), 1)
+		self.assertEqual(to.packages[0].commodity, comms[1])
+
+	def test_transport_order_from_sea_shipment_filters_by_ij_container_without_header_container_type(self):
+		"""Per-line container refs without Sea Shipment Container Type still scope packages (regression)."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit, normalize_container_number
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn_a = _iso_container("323456")
+		cn_b = _iso_container("929012")
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-NO-CT {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "container": cn_a},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "container": cn_b},
+		)
+		shipment.append(
+			"internal_job_details",
+			{
+				"service_type": "Transport",
+				"job_type": "Transport Order",
+				"container_no": cn_b,
+			},
+		)
+		shipment.insert()
+		frappe.db.commit()
+
+		res = create_transport_order_from_sea_shipment(shipment.name, internal_job_detail_idx=1)
+		to = frappe.get_doc("Transport Order", res["transport_order"])
+		self.assertEqual(to.transport_job_type, "Container")
+		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn_b))
+		self.assertEqual(len(to.packages), 1)
+		self.assertEqual(to.packages[0].commodity, comms[1])

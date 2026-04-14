@@ -71,13 +71,15 @@
    "fieldname": "actual_start",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Actual Start"
+   "label": "Actual Start",
+   "read_only": 0
   },
   {
    "fieldname": "actual_end",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Actual End"
+   "label": "Actual End",
+   "read_only": 0
   },
   {
    "fieldname": "column_break_3",

@@ -35,7 +35,9 @@ For customs-related upgrades (status migrations, permit/exemption structure), se
 
 - **Exporter/Shipper** – Link to [Shipper](welcome/shipper)
 - **Importer/Consignee** – Link to [Consignee](welcome/consignee)
-- **Air Shipment**, **Sea Shipment**, **Transport Order** – Links to freight for traceability
+- **Transport Mode** – How the goods move (sea, air, road, etc.)
+
+Freight legs (air, sea, road) stay linked on the [Declaration Order](welcome/declaration-order), not repeated on the Declaration. Use the **Declaration Order** (and **Main Job** when you use internal jobs) to see which shipment or order this customs work belongs to.
 
 ### 2.3 Transport Information
 
@@ -226,9 +228,6 @@ _All fields from DocType **Declaration** and nested child tables, in form order 
 | Declaration Type (`declaration_type`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: Import, Export, Transit, Bonded. |
 | Transport Mode (`transport_mode`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: Sea, Air, Road, Rail, Courier, Post. |
 | `column_break_pwce` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
-| Air Shipment (`air_shipment`) | Link | **From definition:** Trace customs to air freight **Purpose:** Creates a controlled reference to **Air Shipment** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Air Shipment**. Create the master first if it does not exist. |
-| Sea Shipment (`sea_shipment`) | Link | **From definition:** Trace customs to sea freight **Purpose:** Creates a controlled reference to **Sea Shipment** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Sea Shipment**. Create the master first if it does not exist. |
-| Transport Order (`transport_order`) | Link | **From definition:** Trace customs to domestic transport **Purpose:** Creates a controlled reference to **Transport Order** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Transport Order**. Create the master first if it does not exist. |
 | Transport Information (`section_break_transport`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
 | `column_break_transport` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
 | Vessel/Flight/Vehicle Number (`vessel_flight_number`) | Data | **Purpose:** Short free-text for codes, references, or labels that are not master-linked. **What to enter:** Type the value as it should appear on print/PDF (no line breaks). |

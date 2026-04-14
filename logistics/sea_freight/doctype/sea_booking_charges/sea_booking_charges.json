@@ -190,12 +190,14 @@
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
    "label": "Estimated Revenue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "estimated_cost",
    "fieldtype": "Currency",
    "label": "Estimated Cost",
@@ -228,6 +230,7 @@
    "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "revenue_calc_notes",
    "fieldtype": "Small Text",
    "label": "Revenue Calc Notes",
@@ -238,6 +241,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "cost_calc_notes",
    "fieldtype": "Small Text",
    "label": "Cost Calc Notes",
@@ -282,6 +286,7 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "quantity",
    "fieldtype": "Float",
    "label": "Quantity",
@@ -372,6 +377,7 @@
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
    "label": "Quantity",

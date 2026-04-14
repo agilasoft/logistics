@@ -391,25 +391,47 @@
 		);
 	}
 
+	/**
+	 * Re-register desk breadcrumbs for the opened doctype after cross-doctype navigation.
+	 * Without this, the navbar can keep the previous document type (e.g. Air Shipment) while the form shows Transport Order.
+	 */
+	function _syncBreadcrumbsForFormDoctype(doctype) {
+		frappe.model.with_doctype(doctype, function () {
+			var meta = frappe.get_meta(doctype);
+			if (meta && meta.module) {
+				frappe.breadcrumbs.add(meta.module, doctype);
+			}
+		});
+	}
+
+	function _routeAfterFormNavigate(doctype, routeArgs) {
+		frappe.set_route.apply(null, routeArgs).then(function () {
+			_syncBreadcrumbsForFormDoctype(doctype);
+		});
+	}
+
 	function _routeAfterInternalJobCreate(frm, jobType, r) {
 		var msg = r.message || {};
 		if (msg.transport_order) {
-			frappe.set_route("Form", "Transport Order", msg.transport_order);
+			_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]);
+			if (frm && (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment")) {
+				frm.reload_doc();
+			}
 			return;
 		}
 		if (msg.declaration_order) {
-			frappe.set_route("Form", "Declaration Order", msg.declaration_order);
+			_routeAfterFormNavigate("Declaration Order", ["Form", "Declaration Order", msg.declaration_order]);
 			if (frm && (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment")) {
 				frm.reload_doc();
 			}
 			return;
 		}
 		if (msg.air_booking) {
-			frappe.set_route("Form", "Air Booking", msg.air_booking);
+			_routeAfterFormNavigate("Air Booking", ["Form", "Air Booking", msg.air_booking]);
 			return;
 		}
 		if (msg.sea_booking) {
-			frappe.set_route("Form", "Sea Booking", msg.sea_booking);
+			_routeAfterFormNavigate("Sea Booking", ["Form", "Sea Booking", msg.sea_booking]);
 			return;
 		}
 		if (msg.inbound_order) {
@@ -420,7 +442,7 @@
 				},
 				5
 			);
-			frappe.set_route("Form", "Inbound Order", msg.inbound_order);
+			_routeAfterFormNavigate("Inbound Order", ["Form", "Inbound Order", msg.inbound_order]);
 			return;
 		}
 		frappe.msgprint({
@@ -665,22 +687,30 @@
 		});
 	}
 
-	function _runInternalJobCreate(frm, dec) {
+	function _runInternalJobCreate(frm, dec, containerNo) {
+		var args = {
+			source_doctype: frm.doctype,
+			source_name: frm.doc.name,
+			job_type: dec.job_type,
+			internal_job_detail_idx: dec.detail_idx,
+			internal_job_details: _internalJobDetailsPayload(frm),
+		};
+		if (containerNo) {
+			args.container_no = containerNo;
+		}
 		frappe.call({
 			method: "logistics.utils.internal_job_from_source.create_internal_job_from_operational_source",
-			args: {
-				source_doctype: frm.doctype,
-				source_name: frm.doc.name,
-				job_type: dec.job_type,
-				internal_job_detail_idx: dec.detail_idx,
-				internal_job_details: _internalJobDetailsPayload(frm),
-			},
+			args: args,
 			freeze: true,
 			freeze_message: __("Creating..."),
 			callback: function (r2) {
 				if (r2.message && r2.message.already_exists && r2.message.declaration_order) {
 					frappe.show_alert({ message: r2.message.message || "", indicator: "blue" }, 5);
-					frappe.set_route("Form", "Declaration Order", r2.message.declaration_order);
+					_routeAfterFormNavigate("Declaration Order", [
+						"Form",
+						"Declaration Order",
+						r2.message.declaration_order,
+					]);
 					if (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment") {
 						frm.reload_doc();
 					}
@@ -691,8 +721,43 @@
 		});
 	}
 
+	function _ijDetailRowContainerNo(frm, detailIdx) {
+		var rows = frm.doc.internal_job_details || [];
+		if (!detailIdx || detailIdx < 1 || detailIdx > rows.length) {
+			return "";
+		}
+		var r = rows[detailIdx - 1];
+		if (!r || r.container_no == null || r.container_no === "") {
+			return "";
+		}
+		return $.trim(String(r.container_no));
+	}
+
+	function _seaShipmentTransportOrderFromIjThenCreate(frm, dec) {
+		function go(cn) {
+			_runInternalJobCreate(frm, dec, cn);
+		}
+		var cn = _ijDetailRowContainerNo(frm, dec.detail_idx);
+		if (cn) {
+			go(cn);
+			return;
+		}
+		frappe.confirm(
+			__(
+				"No container number on this Internal Job line. The Transport Order may include all packages or follow default rules. Continue?"
+			),
+			function () {
+				go(null);
+			}
+		);
+	}
+
 	function _maybeConfirmInboundThenCreate(frm, dec) {
 		if (dec.creatable === false) {
+			return;
+		}
+		if (frm.doctype === "Sea Shipment" && dec.job_type === "Transport Order") {
+			_seaShipmentTransportOrderFromIjThenCreate(frm, dec);
 			return;
 		}
 		if (dec.job_type !== "Inbound Order") {
@@ -718,8 +783,13 @@
 			}
 		}
 		if (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment") {
-			var wi = frm.doc.warehouse_items || [];
-			if (wi.length === 0) {
+			var pkgsSeaAir = frm.doc.packages || [];
+			var needsDefaultSeaAir =
+				!pkgsSeaAir.length ||
+				pkgsSeaAir.every(function (p) {
+					return !p.warehouse_item;
+				});
+			if (needsDefaultSeaAir) {
 				frappe.confirm(
 					__(
 						"No warehouse items on this shipment. The default warehouse item will be used. Continue?"

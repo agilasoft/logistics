@@ -37,7 +37,7 @@ def _show_non_blocking_schedule_warning(message):
 	if message in cache:
 		return
 	cache.add(message)
-	frappe.msgprint(message=message, title=milestone_date_validation_title(), indicator="orange", alert=True)
+	frappe.msgprint(message, title=milestone_date_validation_title(), indicator="orange", alert=True)
 
 
 def validate_milestone_date_ranges(milestone_doc):
@@ -47,6 +47,12 @@ def validate_milestone_date_ranges(milestone_doc):
 	"""
 	if not milestone_doc:
 		return
+
+	# Parent date sync / automation may set actual_end without actual_start; treat as same instant.
+	_end = milestone_doc.get("actual_end")
+	_start = milestone_doc.get("actual_start")
+	if _end and (_start is None or _start == ""):
+		milestone_doc.actual_start = _end
 
 	def _dt(val):
 		if val is None or val == "":
@@ -117,6 +123,5 @@ def update_milestone_status(milestone_doc):
 			milestone_doc.status = "Delayed"
 			return
 
-	# Default: Planned
-	if not milestone_doc.status or milestone_doc.status.lower() in ("delayed",):
-		milestone_doc.status = "Planned"
+	# No actual dates and planned window not overdue — always reset to Planned (e.g. after clearing actual_end)
+	milestone_doc.status = "Planned"

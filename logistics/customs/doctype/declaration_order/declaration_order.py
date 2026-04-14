@@ -21,111 +21,16 @@ from logistics.utils.internal_job_charge_copy import (
 class DeclarationOrder(Document):
 	@frappe.whitelist()
 	def get_dashboard_html(self):
-		"""Generate HTML for Dashboard tab: order details (same layout as Declaration), milestones, Documents Management."""
+		"""Generate HTML for Dashboard tab: tabbed layout with route, milestones, alerts."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html, get_milestone_html
-			from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
-
-			# Section 1: Order details (header format) with Exporter | Importer
-			status = self.status or "Draft"
-			status_badge_html = f'<span class="dash-status-badge {(status or "draft").lower().replace(" ", "_")}">{frappe.utils.escape_html(status)}</span>'
-			# Format value with correct currency code from commercial invoice
-			currency = self.inv_currency or frappe.db.get_default("currency") or "PHP"
-			try:
-				# Format number and append currency code instead of using symbol
-				amount = flt(self.inv_total_amount or 0)
-				value_str = f"{frappe.utils.fmt_money(amount, precision=2)} {currency}"
-			except Exception:
-				value_str = str(self.inv_total_amount) if self.inv_total_amount is not None else "—"
-			header_items = [
-				("Status", status),
-				("Type", self.declaration_type or "—"),
-				("Date", str(self.order_date) if self.order_date else "—"),
-				("Port of Loading", self.port_of_loading or "—"),
-				("Port of Discharge", self.port_of_discharge or "—"),
-				("ETD", str(self.etd) if self.etd else "—"),
-				("ETA", str(self.eta) if self.eta else "—"),
-				("Value", value_str),
-			]
-
-			exporter_label = self.exporter_shipper or "—"
-			importer_label = self.importer_consignee or "—"
-
-			# Importer classification card (below Importer)
-			route_below_html = ""
-			if self.importer_consignee:
-				try:
-					classification = frappe.db.get_value("Consignee", self.importer_consignee, "customs_importer_classification")
-					if classification and classification != "Not Classified":
-						cls_lower = (classification or "").lower().replace(" ", "_")
-						card_class = "sgl" if "sgl" in cls_lower else "gl" if "gl" in cls_lower or "green" in cls_lower else "yellow" if "yellow" in cls_lower else "red" if "red" in cls_lower else ""
-						route_below_html = (
-							f'<div class="importer-classification-card {card_class}" style="margin-left: 0;">'
-							f'<div class="classification-label">Importer Classification</div>'
-							f'<div class="classification-value">{frappe.utils.escape_html(classification)}</div>'
-							f'</div>'
-						)
-				except Exception:
-					pass
-
-			# Section 2: Milestones
-			milestone_html = ""
-			if self.name and not self.is_new():
-				try:
-					milestone_html = get_milestone_html("Declaration Order", self.name)
-				except Exception:
-					milestone_html = '<div class="alert alert-warning">Could not load milestones.</div>'
-			else:
-				milestone_html = '<div class="alert alert-info">Save the document to view milestones.</div>'
-
-			# Section 3: Documents Management
-			doc_alerts_html = ""
-			try:
-				doc_alerts_html = get_document_alerts_html("Declaration Order", self.name or "new")
-			except Exception:
-				pass
-
-			# Delay & penalty alerts
-			alerts_html = ""
-			if self.name and not self.is_new():
-				try:
-					alerts = self.get_delay_penalty_alerts()
-					if alerts:
-						icons = {"danger": "fa-exclamation-circle", "warning": "fa-exclamation-triangle", "info": "fa-info-circle"}
-						items = []
-						for a in alerts:
-							level = a.get("level") or "info"
-							icon = icons.get(level, "fa-info-circle")
-							items.append(
-								f'<div class="dash-alert-item {level}"><i class="fa {icon}"></i><span>{frappe.utils.escape_html(a.get("msg", ""))}</span></div>'
-							)
-						alerts_html = "\n".join(items)
-				except Exception as alert_err:
-					frappe.log_error(f"Declaration Order get_delay_penalty_alerts: {str(alert_err)}", "Declaration Order Dashboard Alerts")
-
+			from logistics.document_management.logistics_form_dashboard import (
+				build_declaration_order_dashboard_config,
+				render_logistics_form_dashboard_html,
+			)
 			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-			dash = build_run_sheet_style_dashboard(
-				header_title=self.name or "Declaration Order",
-				header_subtitle="Declaration Order",
-				header_items=header_items,
-				status_badge_html=status_badge_html,
-				alerts_html=alerts_html,
-				route_below_html=route_below_html,
-				cards_html=milestone_html,
-				map_points=[],
-				map_id_prefix="dco-dash-map",
-				doc_alerts_html=doc_alerts_html,
-				straight_line=True,
-				origin_label=exporter_label,
-				destination_label=importer_label,
-				origin_section_label="Exporter",
-				destination_section_label="Importer",
-				doc_management_position="before",
-				cards_full_width=True,
-				hide_map=True,
-				merge_header_with_cards=True,
-				header_items_in_card=True,
+			dash = render_logistics_form_dashboard_html(
+				self, build_declaration_order_dashboard_config(self)
 			)
 			return get_sales_quote_validity_dashboard_html(self) + dash
 		except Exception as e:
@@ -280,10 +185,12 @@ class DeclarationOrder(Document):
 			run_propagate_on_link,
 		)
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+		from logistics.utils.transport_mode_defaults import apply_default_transport_document_type
 
 		run_propagate_on_link(self)
 		apply_internal_job_declaration_order_from_shipment(self)
 		apply_shipper_consignee_defaults(self)
+		apply_default_transport_document_type(self)
 		self.calculate_exemptions()
 		# First save only: pull charges from Sales Quote (or internal-job main service) when the grid is still empty.
 		# Covers API/quick entry and cases where the form did not run the client fetch (e.g. pre-filled sales_quote).

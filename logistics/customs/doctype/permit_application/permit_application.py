@@ -23,6 +23,14 @@ class PermitApplication(Document):
 			if renewal_doc.status not in ["Approved", "Expired"]:
 				frappe.throw(_("Can only renew an Approved or Expired permit."))
 
+	def before_submit(self):
+		if not self.valid_from:
+			frappe.throw(_("Valid From is required to submit."))
+		if not self.valid_to:
+			frappe.throw(_("Valid To is required to submit."))
+		if not any(row.get("attachment") for row in (self.attachments or [])):
+			frappe.throw(_("At least one attachment is required to submit."))
+
 	def _ensure_default_issuing_authority(self):
 		"""Default issuing authority from Permit Type if not set."""
 		if self.get("issuing_authority") or not self.get("permit_type"):

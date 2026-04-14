@@ -8,6 +8,7 @@
  "field_order": [
   "naming_series",
   "full_name",
+  "logo",
   "is_active",
   "supplier",
   "customer",
@@ -25,6 +26,11 @@
    "fieldname": "full_name",
    "fieldtype": "Data",
    "label": "Full Name"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
   },
   {
    "default": "1",

@@ -29,6 +29,15 @@ def copy_operational_rep_fields_from_sales_quote_doc(target_doc, sales_quote_doc
 			setattr(target_doc, fn, getattr(sales_quote_doc, fn, None))
 
 
+def copy_operational_rep_fields_from_declaration_order(target_doc, declaration_order_doc):
+	"""Set all rep fields on target from a Declaration Order (e.g. Declaration create-from-order)."""
+	if not declaration_order_doc:
+		return
+	for fn in REP_FIELD_NAMES:
+		if hasattr(target_doc, fn):
+			setattr(target_doc, fn, getattr(declaration_order_doc, fn, None))
+
+
 def copy_operational_rep_fields_from_chain(target_doc, source_doc=None, *, sales_quote_doc=None):
 	"""Prefer values on source_doc; fill any blanks from linked Sales Quote on source or explicit sales_quote_doc."""
 	if sales_quote_doc is not None:

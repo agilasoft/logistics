@@ -76,6 +76,53 @@ def get_active_container_assignment(container_no):
 	return rows[0] if rows else None
 
 
+def sea_container_row_field_to_equipment_number(container_no_field):
+	"""
+	ISO equipment number from a Sea Booking / Sea Shipment child `container_no` value.
+	When fieldtype is Link, `container_no_field` is a Container document name.
+	Legacy rows may still store the plain container number string.
+	"""
+	if not container_no_field:
+		return ""
+	raw = str(container_no_field).strip()
+	if not raw:
+		return ""
+	if frappe.db.exists("Container", raw):
+		num = frappe.db.get_value("Container", raw, "container_number")
+		return normalize_container_number(num or "") if num else ""
+	return normalize_container_number(raw)
+
+
+def sea_container_row_field_to_doc_name(container_no_field):
+	"""Resolve a Container document name from child `container_no` (Link name or legacy number)."""
+	if not container_no_field:
+		return None
+	raw = str(container_no_field).strip()
+	if not raw:
+		return None
+	if frappe.db.exists("Container", raw):
+		return raw
+	return get_container_by_number(raw)
+
+
+def expand_sea_container_no_for_sql_in(container_no_field):
+	"""Possible `tabSea * Containers`.container_no DB values for duplicate checks (link + legacy)."""
+	found = set()
+	if not container_no_field:
+		return found
+	raw = str(container_no_field).strip()
+	if not raw:
+		return found
+	found.add(raw)
+	eq = sea_container_row_field_to_equipment_number(container_no_field)
+	if eq:
+		found.add(eq)
+	doc = sea_container_row_field_to_doc_name(container_no_field)
+	if doc:
+		found.add(doc)
+	return found
+
+
 @frappe.whitelist()
 def get_container_by_number_api(container_number):
 	"""Whitelisted: get Container name by number."""
@@ -206,16 +253,20 @@ def sync_shipment_containers_and_penalties(shipment_doc):
 		container_no = getattr(row, "container_no", None)
 		if not container_no or not str(container_no).strip():
 			continue
-
-		container_name = get_or_create_container(
-			container_no=container_no,
-			container_type=getattr(row, "type", None),
-			seal_number=getattr(row, "seal_no", None),
-			status=_shipping_status_to_container_status(
-				getattr(shipment_doc, "shipping_status", None)
-			),
-			master_bill=getattr(shipment_doc, "master_bill", None) or None,
-		)
+		raw = str(container_no).strip()
+		if frappe.db.exists("Container", raw):
+			container_name = raw
+		else:
+			eq = sea_container_row_field_to_equipment_number(raw) or raw
+			container_name = get_or_create_container(
+				container_no=eq,
+				container_type=getattr(row, "type", None),
+				seal_number=getattr(row, "seal_no", None),
+				status=_shipping_status_to_container_status(
+					getattr(shipment_doc, "shipping_status", None)
+				),
+				master_bill=getattr(shipment_doc, "master_bill", None) or None,
+			)
 		if container_name:
 			row.container = container_name
 			_sync_penalty_to_container(container_name, shipment_doc)

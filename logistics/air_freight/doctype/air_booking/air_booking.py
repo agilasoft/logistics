@@ -2293,86 +2293,14 @@ class AirBooking(Document):
 
 	@frappe.whitelist()
 	def get_dashboard_html(self):
-		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+		"""Generate HTML for Dashboard tab (RO-style layout; see air_booking_dashboard)."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-			from logistics.document_management.dashboard_layout import (
-				build_run_sheet_style_dashboard,
-				build_map_segments_from_routing_legs,
-				get_dg_dashboard_html,
-				get_unloco_coords,
+			from logistics.air_freight.doctype.air_booking.air_booking_dashboard import (
+				render_air_booking_dashboard_html,
 			)
-
-			status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
-			header_items = [
-				("Status", status),
-				("ETD", str(self.etd) if self.etd else "—"),
-				("ETA", str(self.eta) if self.eta else "—"),
-				("Packages", str(len(self.packages or []))),
-				("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-			]
-			if getattr(self, "airline", None):
-				header_items.append(("Airline", self.airline))
-
-			try:
-				doc_alerts = get_document_alerts_html("Air Booking", self.name or "new")
-			except Exception:
-				doc_alerts = ""
-
-			dg_route_below_html = get_dg_dashboard_html(self)
-
-			milestone_rows = list(self.get("milestones") or [])
-			milestone_details = {}
-			if milestone_rows:
-				names = [m.milestone for m in milestone_rows if m.milestone]
-				if names:
-					for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
-						milestone_details[lm.name] = lm.description or lm.name
-
-			cards_html = ""
-			for i, m in enumerate(milestone_rows, 1):
-				st = (m.status or "Planned").lower().replace(" ", "-")
-				desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-				planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-				actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-				cards_html += f"""
-				<div class="dash-card {st}">
-					<div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-					<div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-					<span class="card-badge {st}">{m.status or "Planned"}</span>
-				</div>"""
-
-			map_segments = build_map_segments_from_routing_legs(
-				getattr(self, "routing_legs", None) or []
-			)
-			map_points = []
-			if not map_segments:
-				o = get_unloco_coords(self.origin_port)
-				d = get_unloco_coords(self.destination_port)
-				if o:
-					map_points.append(o)
-				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
-					map_points.append(d)
-
-			alerts_html = get_dashboard_alerts_html("Air Booking", self.name or "new")
 			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-			dash = build_run_sheet_style_dashboard(
-				header_title=self.name or "Air Booking",
-				header_subtitle="Air Booking",
-				header_items=header_items,
-				cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Get Milestones in Actions to generate from template.</div>",
-				map_points=map_points,
-				map_segments=map_segments,
-				map_id_prefix="air-booking-dash-map",
-				doc_alerts_html=doc_alerts,
-				alerts_html=alerts_html,
-				straight_line=True,
-				origin_label=self.origin_port or None,
-				destination_label=self.destination_port or None,
-				route_below_html=dg_route_below_html,
-			)
-			return get_sales_quote_validity_dashboard_html(self) + dash
+			return get_sales_quote_validity_dashboard_html(self) + render_air_booking_dashboard_html(self)
 		except Exception as e:
 			frappe.log_error(f"Air Booking get_dashboard_html: {str(e)}", "Air Booking Dashboard")
 			return "<div class='alert alert-warning'>Error loading dashboard.</div>"

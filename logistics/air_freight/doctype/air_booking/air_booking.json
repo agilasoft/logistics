@@ -212,14 +212,16 @@
    "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
    "fieldname": "is_main_service",
    "fieldtype": "Check",
-   "label": "Main Service"
+   "label": "Main Service",
+   "no_copy": 1
   },
   {
    "default": "0",
    "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
    "fieldname": "is_internal_job",
    "fieldtype": "Check",
-   "label": "Internal Job"
+   "label": "Internal Job",
+   "no_copy": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
@@ -375,12 +377,14 @@
    "fieldname": "atd",
    "fieldtype": "Date",
    "label": "ATD",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "ata",
    "fieldtype": "Date",
    "label": "ATA",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -750,6 +754,7 @@
    "fieldtype": "Link",
    "label": "Sales Rep",
    "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Employee"
   },
   {
@@ -757,6 +762,7 @@
    "fieldtype": "Link",
    "label": "Operations Rep",
    "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Employee"
   },
   {
@@ -764,6 +770,7 @@
    "fieldtype": "Link",
    "label": "Customer Service Rep",
    "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Employee"
   },
   {
@@ -924,7 +931,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-04 09:52:15.187703",
+ "modified": "2026-04-14 10:59:53.662429",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking",

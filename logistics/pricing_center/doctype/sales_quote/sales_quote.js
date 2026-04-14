@@ -1,6 +1,18 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+/** Open Transport Order form and refresh desk breadcrumbs (avoids stale doctype in navbar after navigating from Sales Quote). */
+function logistics_set_route_to_transport_order(docname) {
+	frappe.set_route("Form", "Transport Order", docname).then(function () {
+		frappe.model.with_doctype("Transport Order", function () {
+			const meta = frappe.get_meta("Transport Order");
+			if (meta && meta.module) {
+				frappe.breadcrumbs.add(meta.module, "Transport Order");
+			}
+		});
+	});
+}
+
 frappe.ui.form.on("Sales Quote", {
 	_lock_naming_series(frm) {
 		// Keep naming series non-editable in UI; it is controlled by quotation_type logic.
@@ -1120,7 +1132,7 @@ function create_transport_order_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing order
-				frappe.set_route("Form", "Transport Order", r.name);
+				logistics_set_route_to_transport_order(r.name);
 				return;
 			}
 			// No existing order - proceed with creation
@@ -1207,7 +1219,7 @@ function show_transport_order_confirmation(frm) {
 							});
 							frappe.route_options = { "__clear_scheduled_date": true };
 							setTimeout(function() {
-								frappe.set_route("Form", "Transport Order", r.message.transport_order);
+								logistics_set_route_to_transport_order(r.message.transport_order);
 							}, 100);
 						} else if (r.message && r.message.message) {
 							frappe.msgprint({
@@ -1217,7 +1229,7 @@ function show_transport_order_confirmation(frm) {
 							});
 							if (r.message.transport_order) {
 								setTimeout(function() {
-									frappe.set_route("Form", "Transport Order", r.message.transport_order);
+									logistics_set_route_to_transport_order(r.message.transport_order);
 								}, 100);
 							}
 						}

@@ -40,7 +40,14 @@ logistics.transport.create_transport_order_from_sales_quote = function() {
 					if (r.message && r.message.success && r.message.transport_order) {
 						frappe.msgprint({ title: __("Transport Order Created"), message: r.message.message, indicator: "green" });
 						setTimeout(function() {
-							frappe.set_route("Form", "Transport Order", r.message.transport_order);
+							frappe.set_route("Form", "Transport Order", r.message.transport_order).then(function () {
+								frappe.model.with_doctype("Transport Order", function () {
+									var meta = frappe.get_meta("Transport Order");
+									if (meta && meta.module) {
+										frappe.breadcrumbs.add(meta.module, "Transport Order");
+									}
+								});
+							});
 						}, 100);
 					}
 				},

@@ -7,6 +7,7 @@ Used by Declaration Order, Declaration, Transport Order, Transport Job, Inbound 
 """
 
 import frappe
+from frappe.utils import cint
 
 from logistics.utils.dg_fields import copy_parent_dg_header, transport_order_package_row_from_shipment_pkg
 from logistics.utils.operational_rep_fields import REP_FIELD_NAMES, copy_operational_rep_fields_from_chain
@@ -22,6 +23,7 @@ from logistics.utils.internal_job_from_source import (
 from logistics.transport.doctype.transport_order.transport_order import (
 	append_transport_order_charges_from_sales_quote_if_empty,
 )
+from logistics.utils.container_validation import normalize_container_number
 
 
 def propagate_from_air_shipment(doc, fieldname="air_shipment"):
@@ -311,6 +313,139 @@ def _can_create_transport_order_from_shipment(shipment, direction_field="directi
 	return False, None
 
 
+def _sea_shipment_use_container_transport_mode(shipment) -> bool:
+	"""True when this shipment should drive a container Transport Order (header type and/or per-line container refs)."""
+	if getattr(shipment, "container_type", None):
+		return True
+	return len(_collect_distinct_container_numbers_sea_shipment(shipment)) > 0
+
+
+def _validate_sea_shipment_container_nos_for_transport_order(shipment) -> None:
+	"""Require Container No. on rows whose Freight Mode has Requires Container No. (create Transport Order only)."""
+	from frappe import _
+
+	for i, row in enumerate(getattr(shipment, "containers", []) or [], 1):
+		mode = getattr(row, "mode", None)
+		if not mode:
+			continue
+		if not cint(frappe.db.get_value("Freight Mode", mode, "requires_container_no")):
+			continue
+		if not (getattr(row, "container_no", None) or "").strip():
+			frappe.throw(
+				_(
+					"Container row {0}: enter Container No. for freight mode {1} before creating a Transport Order."
+				).format(i, mode),
+				title=_("Container Number Required"),
+			)
+
+
+def _collect_distinct_container_numbers_sea_shipment(shipment) -> list[str]:
+	"""Distinct container numbers from Sea Shipment container rows and package lines (canonical display per ISO-normalized key)."""
+	from logistics.container_management.api import sea_container_row_field_to_equipment_number
+
+	seen: dict[str, str] = {}
+	for row in getattr(shipment, "containers", []) or []:
+		cn = getattr(row, "container_no", None)
+		if cn and str(cn).strip():
+			raw = str(cn).strip()
+			key = sea_container_row_field_to_equipment_number(raw)
+			if key and key not in seen:
+				seen[key] = key
+	for pkg in getattr(shipment, "packages", []) or []:
+		cn = getattr(pkg, "container", None)
+		if cn and str(cn).strip():
+			raw = str(cn).strip()
+			key = normalize_container_number(raw)
+			if key and key not in seen:
+				seen[key] = raw
+	return [seen[k] for k in sorted(seen.keys())]
+
+
+def _resolve_sea_shipment_container_for_transport_order(shipment, order, container_no=None) -> None:
+	"""Set order.container_no for container moves; require explicit choice when multiple containers exist."""
+	from frappe import _
+
+	from logistics.container_management.api import sea_container_row_field_to_equipment_number
+
+	if getattr(order, "transport_job_type", None) != "Container":
+		return
+
+	distinct = _collect_distinct_container_numbers_sea_shipment(shipment)
+	passed = (container_no or "").strip()
+
+	if len(distinct) > 1:
+		if not passed:
+			frappe.throw(
+				_("This shipment has multiple containers. Select which container this transport order is for."),
+				title=_("Container required"),
+			)
+		passed_key = normalize_container_number(passed)
+		canonical = None
+		for d in distinct:
+			if normalize_container_number(d) == passed_key:
+				canonical = d
+				break
+		if not canonical:
+			frappe.throw(
+				_("Container number does not match any container or cargo line on this shipment."),
+				title=_("Invalid container"),
+			)
+		order.container_no = canonical
+		return
+
+	if len(distinct) == 1:
+		order.container_no = distinct[0]
+		return
+
+	containers = getattr(shipment, "containers", []) or []
+	if containers:
+		c0 = getattr(containers[0], "container_no", None)
+		if c0 and str(c0).strip():
+			order.container_no = sea_container_row_field_to_equipment_number(c0) or str(c0).strip()
+	if not order.container_no:
+		for pkg in getattr(shipment, "packages", []) or []:
+			cf = getattr(pkg, "container", None)
+			if cf and str(cf).strip():
+				order.container_no = str(cf).strip()
+				break
+	if passed:
+		passed_key = normalize_container_number(passed)
+		for pkg in getattr(shipment, "packages", []) or []:
+			pc = getattr(pkg, "container", None)
+			if pc and normalize_container_number(pc) == passed_key:
+				order.container_no = passed.strip()
+				return
+		for row in getattr(shipment, "containers", []) or []:
+			pc = getattr(row, "container_no", None)
+			if pc:
+				eq = sea_container_row_field_to_equipment_number(pc)
+				if eq and eq == passed_key:
+					order.container_no = eq
+					return
+		frappe.throw(
+			_("Container number does not match any container or cargo line on this shipment."),
+			title=_("Invalid container"),
+		)
+
+
+@frappe.whitelist()
+def get_sea_shipment_containers_for_transport_order(sea_shipment_name: str | None = None):
+	"""Return whether the user must pick a container before creating a Transport Order, and the list of options."""
+	from frappe import _
+
+	if not sea_shipment_name:
+		frappe.throw(_("Sea Shipment is required."))
+	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
+	distinct = _collect_distinct_container_numbers_sea_shipment(shipment)
+	is_container = _sea_shipment_use_container_transport_mode(shipment)
+	selection_required = len(distinct) > 1
+	return {
+		"selection_required": selection_required,
+		"container_numbers": distinct,
+		"is_container_shipment": is_container,
+	}
+
+
 # -------------------------------------------------------------------
 # Create-From Actions
 # -------------------------------------------------------------------
@@ -356,8 +491,10 @@ def create_transport_order_from_air_shipment(
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
-	ij, mjt, mj = _transport_order_job_context_from_freight_shipment(shipment, "Air Shipment", air_shipment_name)
-	ij, mjt, mj = _one_off_transport_order_job_context_from_shipment(
+	ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
+		shipment, "Air Shipment", air_shipment_name
+	)
+	ij, mjt, mj = resolve_transport_order_freight_main_job_if_empty(
 		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
 	)
 	order.is_internal_job = ij
@@ -393,17 +530,22 @@ def create_transport_order_from_air_shipment(
 	persist_internal_job_detail_job_link(
 		"Air Shipment", air_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
 	)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Air Shipment", air_shipment_name)
 	frappe.db.commit()
 	return {"transport_order": order.name, "message": _("Transport Order {0} created.").format(order.name)}
 
 
 @frappe.whitelist()
 def create_transport_order_from_sea_shipment(
-	sea_shipment_name: str, routing_leg_idx: int = None, internal_job_detail_idx: int = None
+	sea_shipment_name: str,
+	routing_leg_idx: int = None,
+	internal_job_detail_idx: int = None,
+	container_no: str | None = None,
 ):
 	"""Create a Transport Order from a Sea Shipment. Only allowed for pre-carriage or on-forwarding legs where company has control (per Logistics Settings).
 
 	Routing-style header fields come from Internal Job Detail rows when present, not from Sales Quote routing parameters.
+	When the shipment has multiple containers, pass ``container_no`` or set **Container No.** on the Internal Job Detail row (Transport).
 	"""
 	from frappe import _
 
@@ -421,6 +563,7 @@ def create_transport_order_from_sea_shipment(
 				", ".join("{0}+{1}".format(d, t) for d, t in allowed)
 			)
 		)
+	_validate_sea_shipment_container_nos_for_transport_order(shipment)
 	order = frappe.new_doc("Transport Order")
 	order.sea_shipment = sea_shipment_name
 	order.customer = shipment.local_customer
@@ -431,30 +574,19 @@ def create_transport_order_from_sea_shipment(
 	order.location_type = "UNLOCO"
 	order.location_from = shipment.origin_port
 	order.location_to = shipment.destination_port
-	order.transport_job_type = "Container" if shipment.container_type else "Non-Container"
+	_use_container = _sea_shipment_use_container_transport_mode(shipment)
+	order.transport_job_type = "Container" if _use_container else "Non-Container"
 	order.container_type = getattr(shipment, "container_type", None)
-	# Get container number from containers child table if available
-	if order.transport_job_type == "Container":
-		containers = getattr(shipment, "containers", []) or []
-		if containers:
-			container_no = getattr(containers[0], "container_no", None)
-			if container_no and container_no.strip():
-				order.container_no = container_no.strip()
-		if not order.container_no:
-			packages = getattr(shipment, "packages", []) or []
-			for pkg in packages:
-				container_field = getattr(pkg, "container", None)
-				if container_field and container_field.strip():
-					order.container_no = container_field.strip()
-					break
 	order.company = shipment.company or frappe.defaults.get_defaults().get("company")
 	order.branch = getattr(shipment, "branch", None)
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
-	ij, mjt, mj = _transport_order_job_context_from_freight_shipment(shipment, "Sea Shipment", sea_shipment_name)
-	ij, mjt, mj = _one_off_transport_order_job_context_from_shipment(
+	ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
+		shipment, "Sea Shipment", sea_shipment_name
+	)
+	ij, mjt, mj = resolve_transport_order_freight_main_job_if_empty(
 		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
 	)
 	order.is_internal_job = ij
@@ -466,6 +598,12 @@ def create_transport_order_from_sea_shipment(
 		order.main_job = None
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	effective_cn = (container_no or "").strip() or (
+		(getattr(ij_row, "container_no", None) or "").strip() if ij_row else ""
+	)
+	_resolve_sea_shipment_container_for_transport_order(
+		shipment, order, container_no=effective_cn or None
+	)
 	# Add door-to-door leg (restriction already enforced above)
 	if shipment.shipper and shipment.consignee:
 		leg = {
@@ -474,7 +612,7 @@ def create_transport_order_from_sea_shipment(
 			"facility_type_to": "Consignee",
 			"facility_to": shipment.consignee,
 			"scheduled_date": shipment.eta or shipment.etd,
-			"transport_job_type": "Container" if shipment.container_type else "Non-Container",
+			"transport_job_type": "Container" if _use_container else "Non-Container",
 		}
 		if getattr(shipment, "shipper_address", None):
 			leg["pick_address"] = shipment.shipper_address
@@ -489,6 +627,7 @@ def create_transport_order_from_sea_shipment(
 	persist_internal_job_detail_job_link(
 		"Sea Shipment", sea_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
 	)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Sea Shipment", sea_shipment_name)
 	frappe.db.commit()
 	return {"transport_order": order.name, "message": _("Transport Order {0} created.").format(order.name)}
 
@@ -571,6 +710,95 @@ def _one_off_transport_order_job_context_from_shipment(
 	except Exception:
 		return ij, mjt, mj
 	return ij, mjt, mj
+
+
+_TRANSPORT_ORDER_MAIN_JOB_TYPE_OPTIONS = frozenset(
+	{"Air Shipment", "Sea Shipment", "Transport Job", "Declaration"}
+)
+
+
+def final_transport_order_job_context_from_freight_shipment(
+	shipment, shipment_doctype: str, shipment_name: str
+):
+	"""Same as create Transport Order from freight: base context + one-off quote adjustment."""
+	ij, mjt, mj = _transport_order_job_context_from_freight_shipment(
+		shipment, shipment_doctype, shipment_name
+	)
+	return _one_off_transport_order_job_context_from_shipment(
+		shipment, shipment_doctype, shipment_name, ij, mjt, mj
+	)
+
+
+def resolve_transport_order_freight_main_job_if_empty(
+	shipment, shipment_doctype: str, shipment_name: str, ij, mjt, mj
+):
+	"""If internal-job context still has no Main Job, try linked Air/Sea Booking; else validate."""
+	from frappe import _
+	from frappe.utils import cint
+
+	if not cint(ij):
+		return ij, mjt, mj
+	if (mj or "").strip() and (mjt or "").strip():
+		return ij, mjt, mj
+
+	bk_name = None
+	bk_doctype = None
+	if shipment_doctype == "Air Shipment":
+		bk_name = (getattr(shipment, "air_booking", None) or "").strip()
+		bk_doctype = "Air Booking"
+	elif shipment_doctype == "Sea Shipment":
+		bk_name = (getattr(shipment, "sea_booking", None) or "").strip()
+		bk_doctype = "Sea Booking"
+
+	if bk_name and bk_doctype and frappe.db.exists(bk_doctype, bk_name):
+		booking = frappe.get_cached_doc(bk_doctype, bk_name)
+		bjt = (getattr(booking, "main_job_type", None) or "").strip()
+		bj = (getattr(booking, "main_job", None) or "").strip()
+		if bjt in _TRANSPORT_ORDER_MAIN_JOB_TYPE_OPTIONS and bj:
+			return ij, bjt, bj
+
+	frappe.throw(
+		_(
+			"This shipment is an Internal Job but Main Job Type / Main Job is missing. "
+			"Set Main Job on the shipment (or ensure the linked {0} has a valid Main Job) before creating a Transport Order."
+		).format(bk_doctype or _("booking"))
+	)
+
+
+def ensure_main_service_on_freight_hub_for_transport_order_link(
+	shipment_doctype: str, shipment_name: str
+) -> None:
+	"""Mark the hub or parent freight document as Main Service when a Transport Order is linked from it."""
+	from frappe.utils import cint
+
+	if shipment_doctype not in ("Air Shipment", "Sea Shipment"):
+		return
+	if not frappe.db.exists(shipment_doctype, shipment_name):
+		return
+	meta = frappe.get_meta(shipment_doctype)
+	if not meta.get_field("is_main_service"):
+		return
+
+	shipment = frappe.get_doc(shipment_doctype, shipment_name)
+
+	def _set_main_service_if_eligible(doctype: str, name: str) -> None:
+		if not doctype or not name or not frappe.db.exists(doctype, name):
+			return
+		m = frappe.get_meta(doctype)
+		if not m.get_field("is_main_service"):
+			return
+		if cint(frappe.db.get_value(doctype, name, "is_internal_job")):
+			return
+		frappe.db.set_value(doctype, name, "is_main_service", 1)
+
+	if not cint(getattr(shipment, "is_internal_job", 0)):
+		_set_main_service_if_eligible(shipment_doctype, shipment_name)
+		return
+
+	mjt = (getattr(shipment, "main_job_type", None) or "").strip()
+	mj = (getattr(shipment, "main_job", None) or "").strip()
+	if mjt and mj:
+		_set_main_service_if_eligible(mjt, mj)
 
 
 def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) -> None:
@@ -684,7 +912,12 @@ def get_freight_shipment_create_order_preview(
 		st_need = "customs"
 		from_main = _preview_from_main_service_internal_for_target(shipment, "customs")
 	else:
-		ij, mjt, mj = _transport_order_job_context_from_freight_shipment(shipment, shipment_doctype, shipment_name)
+		ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
+			shipment, shipment_doctype, shipment_name
+		)
+		ij, mjt, mj = resolve_transport_order_freight_main_job_if_empty(
+			shipment, shipment_doctype, shipment_name, ij, mjt, mj
+		)
 		st_need = "transport"
 		from_main = _preview_from_main_service_internal_for_target(shipment, "transport")
 
@@ -981,12 +1214,33 @@ def _copy_shipment_packages_to_transport_order(shipment, order):
 
 
 def _copy_sea_packages_to_transport_order(shipment, order):
-	"""Copy packages from Sea Shipment to Transport Order."""
+	"""Copy packages from Sea Shipment to Transport Order.
+
+	For container moves with a container number on the order, only copy lines whose package container matches.
+	"""
+	from frappe import _
+
 	packages = getattr(shipment, "packages", []) or []
+	target_key = None
+	if getattr(order, "container_no", None):
+		target_key = normalize_container_number(order.container_no)
+	copied = 0
 	for pkg in packages:
+		if target_key:
+			pc = getattr(pkg, "container", None)
+			if not pc or not str(pc).strip():
+				continue
+			if normalize_container_number(pc) != target_key:
+				continue
 		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
 		if row:
 			order.append("packages", row)
+			copied += 1
+	if target_key and copied == 0:
+		frappe.throw(
+			_("No cargo lines on this shipment match container {0}.").format(order.container_no),
+			title=_("No matching cargo"),
+		)
 
 
 @frappe.whitelist()
@@ -1107,7 +1361,6 @@ def create_inbound_order_from_transport_job(
 	if not customer:
 		frappe.throw(_("Transport Job must have Customer to create Inbound Order."))
 	order = frappe.new_doc("Inbound Order")
-	order.transport_job = transport_job_name
 	order.customer = customer
 	order.contract = _get_customer_warehouse_contract(customer) or ""
 	order.shipper = getattr(job, "shipper", None)
@@ -1123,6 +1376,10 @@ def create_inbound_order_from_transport_job(
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_transport_packages_to_inbound_order(job, order)
+	# Source link and GL job must win over any quote/routing defaults applied from Internal Job Detail.
+	order.transport_job = transport_job_name
+	if getattr(job, "job_number", None):
+		order.job_number = job.job_number
 	order.insert(ignore_permissions=True)
 	if resolved_detail_idx:
 		persist_internal_job_detail_job_link(

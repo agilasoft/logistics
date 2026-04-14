@@ -638,14 +638,14 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1],[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1],[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
@@ -1539,13 +1539,43 @@
    "link_fieldname": "job_number"
   },
   {
-   "group": "Bookings",
+   "group": "Accounts",
+   "link_doctype": "Purchase Invoice",
+   "link_fieldname": "job_number"
+  },
+  {
+   "group": "Orders and Bookings",
    "link_doctype": "Transport Order",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Declaration Order",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Orders and Bookings",
+   "link_doctype": "Inbound Order",
+   "link_fieldname": "sea_shipment"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Transport Job",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Declaration",
+   "link_fieldname": "main_job"
+  },
+  {
+   "group": "Shipments and Jobs",
+   "link_doctype": "Warehouse Job",
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-08 15:02:46.465951",
- "modified_by": "Administrator",
+ "modified": "2026-04-14 14:14:04.761234",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Sea Shipment",
  "naming_rule": "By \"Naming Series\" field",

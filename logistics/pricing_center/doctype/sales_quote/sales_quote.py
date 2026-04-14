@@ -49,6 +49,16 @@ CUSTOMS_ALLOWED_UNIT_TYPES_DISPLAY = (
 )
 
 
+def _sales_quote_has_warehousing_for_contract(sales_quote):
+	"""Legacy warehousing child rows or unified charges with service_type Warehousing (matches sales_quote.js + get_rates_from_sales_quote)."""
+	if sales_quote.get("warehousing"):
+		return True
+	for row in sales_quote.get("charges") or []:
+		if row.get("service_type") == "Warehousing":
+			return True
+	return False
+
+
 class SalesQuote(Document):
 	def validate(self):
 		"""Validate Sales Quote data"""
@@ -566,8 +576,8 @@ class SalesQuote(Document):
 			if self.docstatus != 1:
 				frappe.throw(_("This Sales Quote must be submitted before creating a Warehouse Contract."))
 			
-			# Check if Sales Quote has warehousing details
-			if not self.warehousing:
+			# Check if Sales Quote has warehousing details (legacy table or unified Warehousing charges)
+			if not _sales_quote_has_warehousing_for_contract(self):
 				frappe.throw(_("No warehousing details found in this Sales Quote."))
 			
 			# Create new Warehouse Contract

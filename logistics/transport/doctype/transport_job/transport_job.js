@@ -82,6 +82,15 @@ function _populate_shipper_consignee_from_shipment(frm, doctype) {
 	});
 }
 
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
+}
+
 // Helper function to apply load_type filters (same pattern as vehicle_type)
 function apply_load_type_filters(frm, preserve_existing_value) {
 	// Filter load types based on transport job type and boolean columns
@@ -347,9 +356,16 @@ frappe.ui.form.on('Transport Job', {
 				update_toolbar_buttons(frm);
 			}, 50);
 		});
+		_logistics_set_charges_cannot_add_rows(frm);
 	},
 
 	refresh: function(frm) {
+		_logistics_set_charges_cannot_add_rows(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+			}
+		}, 0);
 		// Use group "Document" / "Create" / "Post" (not "Actions") so the main Actions dropdown
 		// is reserved for workflow transitions and remains visible when the doctype has a workflow.
 		// Populate Documents from Template
@@ -692,7 +708,7 @@ frappe.ui.form.on('Transport Job', {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=14', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=15', _openInternalJobDlg);
 						}
 					}, __('Create'));
 					frm.add_custom_button(__('Sales Invoice'), function() {

@@ -1279,106 +1279,16 @@ class TransportOrder(Document):
 
     @frappe.whitelist()
     def get_dashboard_html(self):
-        """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones (same pattern as Transport Job)."""
+        """Generate HTML for Dashboard tab: tabbed layout with map, milestones, alerts."""
         try:
-            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-            from logistics.document_management.dashboard_layout import (
-                build_run_sheet_style_dashboard,
-                get_dg_dashboard_html,
+            from logistics.document_management.logistics_form_dashboard import (
+                build_transport_order_dashboard_config,
+                render_logistics_form_dashboard_html,
             )
-            from logistics.transport.api_optimized import get_address_coordinates_batch
-
-            status = (
-                "Submitted"
-                if self.docstatus == 1
-                else "Cancelled"
-                if self.docstatus == 2
-                else "Draft"
-            )
-            legs = self.get("legs") or []
-            header_items = [
-                ("Status", status),
-                ("Booking Date", str(self.booking_date) if self.booking_date else "—"),
-                ("Customer", self.customer or "—"),
-                ("Scheduled", str(self.scheduled_date) if self.scheduled_date else "—"),
-                ("Legs", str(len(legs))),
-                ("Packages", str(len(self.packages or []))),
-                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-            ]
-            if self.transport_job_type:
-                header_items.append(("Job Type", self.transport_job_type))
-
-            doc_alerts = get_document_alerts_html("Transport Order", self.name or "new")
-
-            dg_route_below_html = get_dg_dashboard_html(self)
-
-            milestone_rows = list(self.get("milestones") or [])
-            milestone_details = {}
-            if milestone_rows:
-                names = [m.milestone for m in milestone_rows if m.milestone]
-                if names:
-                    for lm in frappe.get_all(
-                        "Logistics Milestone",
-                        filters={"name": ["in", names]},
-                        fields=["name", "description"],
-                    ):
-                        milestone_details[lm.name] = lm.description or lm.name
-
-            cards_html = ""
-            for i, m in enumerate(milestone_rows, 1):
-                st = (m.status or "Planned").lower().replace(" ", "-")
-                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-                cards_html += f"""
-                <div class="dash-card {st}">
-                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-                    <span class="card-badge {st}">{m.status or "Planned"}</span>
-                </div>"""
-
-            addr_names = []
-            for leg in legs:
-                if leg.get("pick_address"):
-                    addr_names.append(leg.pick_address)
-                if leg.get("drop_address"):
-                    addr_names.append(leg.drop_address)
-            addr_coords = get_address_coordinates_batch(list(set(addr_names))) or {} if addr_names else {}
-            map_points = []
-            for leg in legs:
-                for addr_field in ["pick_address", "drop_address"]:
-                    addr = leg.get(addr_field)
-                    if addr:
-                        c = addr_coords.get(addr) if addr_coords else None
-                        if c and c.get("lat") is not None and c.get("lon") is not None:
-                            map_points.append({"lat": float(c["lat"]), "lon": float(c["lon"]), "label": addr})
-
-            origin_label = None
-            destination_label = None
-            if legs:
-                first_pick = legs[0].get("pick_address")
-                last_drop = legs[-1].get("drop_address")
-                if first_pick:
-                    origin_label = frappe.db.get_value("Address", first_pick, "address_title") or first_pick
-                if last_drop:
-                    destination_label = frappe.db.get_value("Address", last_drop, "address_title") or last_drop
-
-            alerts_html = get_dashboard_alerts_html("Transport Order", self.name or "new")
             from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-            dash = build_run_sheet_style_dashboard(
-                header_title=self.name or "Transport Order",
-                header_subtitle="Transport Order",
-                header_items=header_items,
-                cards_html=cards_html
-                or "<div class=\"text-muted\">No milestones. Use Get Milestones in Actions to generate from template.</div>",
-                map_points=map_points,
-                map_id_prefix="tro-dash-map",
-                doc_alerts_html=doc_alerts,
-                alerts_html=alerts_html,
-                origin_label=origin_label,
-                destination_label=destination_label,
-                route_below_html=dg_route_below_html,
+            dash = render_logistics_form_dashboard_html(
+                self, build_transport_order_dashboard_config(self)
             )
             return get_sales_quote_validity_dashboard_html(self) + dash
         except Exception as e:

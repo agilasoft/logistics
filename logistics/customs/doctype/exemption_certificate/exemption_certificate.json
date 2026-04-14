@@ -40,7 +40,8 @@
   "notes_tab",
   "notes",
   "accounts_tab",
-  "company"
+  "company",
+  "amended_from"
  ],
  "fields": [
   {
@@ -61,9 +62,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Exemption Type",
+   "link_filters": "[[\"Exemption Type\", \"is_active\", \"=\", 1]]",
    "options": "Exemption Type",
-   "reqd": 1,
-   "link_filters": "[[\"Exemption Type\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "status",
@@ -124,8 +125,8 @@
    "fieldname": "issued_by",
    "fieldtype": "Link",
    "label": "Issued By",
-   "options": "Customs Authority",
-   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
+   "options": "Customs Authority"
   },
   {
    "fieldname": "section_break_limits",
@@ -183,7 +184,8 @@
    "fieldname": "verification_status",
    "fieldtype": "Select",
    "label": "Verification Status",
-   "options": "Not Verified\nVerified\nRejected"
+   "options": "Not Verified\nVerified\nRejected",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_verification",
@@ -194,8 +196,8 @@
    "fieldname": "verified_by",
    "fieldtype": "Link",
    "label": "Verified By",
-   "options": "User",
-   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
+   "options": "User"
   },
   {
    "depends_on": "eval:doc.verification_status == 'Verified'",
@@ -246,12 +248,23 @@
    "label": "Company",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Exemption Certificate",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2026-03-25 13:07:52.744508",
- "modified_by": "Administrator",
+ "modified": "2026-04-14 13:50:59.468356",
+ "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Exemption Certificate",
  "naming_rule": "By fieldname",
@@ -267,12 +280,14 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
    "create": 1,
    "read": 1,
    "role": "Customs User",
+   "submit": 1,
    "write": 1
   }
  ],

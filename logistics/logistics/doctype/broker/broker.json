@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "broker_name",
+  "logo",
   "is_active",
   "column_break_pbzu",
   "tab_2_tab",
@@ -29,6 +30,11 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Broker Name"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
   },
   {
    "default": "1",

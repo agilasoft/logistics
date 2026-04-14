@@ -680,33 +680,32 @@ class SeaShipment(Document):
             from logistics.utils.container_validation import (
                 validate_container_number,
                 get_strict_validation_setting,
-                normalize_container_number,
             )
+            from logistics.container_management.api import sea_container_row_field_to_equipment_number
+
             strict = get_strict_validation_setting()
             seen = {}
             for i, container in enumerate(self.containers, 1):
                 if not container.type:
                     frappe.msgprint(_("Container {0}: Container Type is required").format(i), indicator="orange")
-                
+
                 if container.container_no:
-                    valid, err = validate_container_number(
-                        container.container_no, strict=strict
-                    )
+                    equip = sea_container_row_field_to_equipment_number(container.container_no)
+                    valid, err = validate_container_number(equip, strict=strict)
                     if not valid:
                         frappe.throw(
                             _("Container {0}: {1}").format(i, err),
                             title=_("Invalid Container Number")
                         )
                     # In-table duplicate: same container number must not appear on multiple rows
-                    normalized = normalize_container_number(container.container_no)
-                    if normalized in seen:
+                    if equip in seen:
                         frappe.throw(
                             _("Duplicate container number in this document: {0} appears on row {1} and row {2}.").format(
-                                container.container_no, seen[normalized], i
+                                equip, seen[equip], i
                             ),
                             title=_("Duplicate Container Numbers"),
                         )
-                    seen[normalized] = i
+                    seen[equip] = i
     
     def validate_duplicates(self):
         """Check for duplicate Sea Shipments based on identifying fields"""
@@ -749,7 +748,17 @@ class SeaShipment(Document):
         
         # Check for duplicate container numbers (allow reuse when other shipment is submitted and container returned)
         if hasattr(self, "containers") and self.containers:
-            container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None)]
+            from logistics.container_management.api import (
+                expand_sea_container_no_for_sql_in,
+                sea_container_row_field_to_equipment_number,
+            )
+
+            container_numbers = []
+            for c in self.containers:
+                cn = getattr(c, "container_no", None)
+                if cn:
+                    container_numbers.extend(expand_sea_container_no_for_sql_in(cn))
+            container_numbers = list(set(container_numbers))
             if container_numbers:
                 if self.name:
                     candidates = frappe.db.sql("""
@@ -779,7 +788,15 @@ class SeaShipment(Document):
                     if c.docstatus == 0 or not self._container_returned_for_shipment(c.container_no, c.name)
                 ]
                 if existing_containers:
-                    container_list = ", ".join(set([c.container_no for c in existing_containers]))
+                    container_list = ", ".join(
+                        sorted(
+                            set(
+                                sea_container_row_field_to_equipment_number(x.container_no)
+                                for x in existing_containers
+                                if x.container_no
+                            )
+                        )
+                    )
                     shipment_list = ", ".join(set([c.name for c in existing_containers]))
                     frappe.throw(
                         _("Container number(s) {0} are already used in Sea Shipment(s): {1}").format(
@@ -826,9 +843,12 @@ class SeaShipment(Document):
         if not container_no:
             return False
         try:
-            from logistics.container_management.api import is_container_management_enabled, get_container_by_number
+            from logistics.container_management.api import (
+                is_container_management_enabled,
+                sea_container_row_field_to_doc_name,
+            )
             if is_container_management_enabled():
-                container_name = get_container_by_number(container_no)
+                container_name = sea_container_row_field_to_doc_name(container_no)
                 if container_name:
                     row = frappe.db.get_value(
                         "Container", container_name, ["return_status", "status"], as_dict=True
@@ -904,90 +924,16 @@ class SeaShipment(Document):
 
     @frappe.whitelist()
     def get_dashboard_html(self):
-        """Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+        """Generate HTML for Dashboard tab: tabbed layout with map, milestones, alerts."""
         try:
-            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-            from logistics.document_management.dashboard_layout import (
-                build_run_sheet_style_dashboard,
-                build_map_segments_from_routing_legs,
-                get_dg_dashboard_html,
-                get_unloco_coords,
+            from logistics.document_management.logistics_form_dashboard import (
+                build_sea_shipment_dashboard_config,
+                render_logistics_form_dashboard_html,
             )
-
-            status = self.get("status")
-            if not status:
-                status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
-            header_items = [
-                ("Status", status),
-                ("ETD", str(self.etd) if self.etd else "—"),
-                ("ETA", str(self.eta) if self.eta else "—"),
-                ("Packages", str(len(self.packages or []))),
-                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-            ]
-            if self.shipping_line:
-                header_items.append(("Shipping Line", self.shipping_line))
-
-            # Wrap in try-except to handle race condition when document is just created
-            try:
-                doc_alerts = get_document_alerts_html("Sea Shipment", self.name or "new")
-            except Exception:
-                # Document may not be fully committed yet - return empty alerts
-                doc_alerts = ""
-
-            dg_route_below_html = get_dg_dashboard_html(self)
-
-            milestone_rows = list(self.get("milestones") or [])
-            milestone_details = {}
-            if milestone_rows:
-                names = [m.milestone for m in milestone_rows if m.milestone]
-                if names:
-                    for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
-                        milestone_details[lm.name] = lm.description or lm.name
-
-            cards_html = ""
-            for i, m in enumerate(milestone_rows, 1):
-                st = (m.status or "Planned").lower().replace(" ", "-")
-                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-                cards_html += f"""
-                <div class="dash-card {st}">
-                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-                    <span class="card-badge {st}">{m.status or "Planned"}</span>
-                </div>"""
-
-            # Map from routing legs (Pre-carriage, Main, On-forwarding, Other) with distinct colors
-            map_segments = build_map_segments_from_routing_legs(
-                getattr(self, "routing_legs", None) or []
-            )
-            map_points = []
-            if not map_segments:
-                # Fallback: origin/destination ports
-                o = get_unloco_coords(self.origin_port)
-                d = get_unloco_coords(self.destination_port)
-                if o:
-                    map_points.append(o)
-                if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
-                    map_points.append(d)
-
-            alerts_html = get_dashboard_alerts_html("Sea Shipment", self.name or "new")
             from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-            dash = build_run_sheet_style_dashboard(
-                header_title=self.name or "Sea Shipment",
-                header_subtitle="Sea Shipment",
-                header_items=header_items,
-                cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Generate from template in Milestones tab.</div>",
-                map_points=map_points,
-                map_segments=map_segments,
-                map_id_prefix="sea-dash-map",
-                doc_alerts_html=doc_alerts,
-                alerts_html=alerts_html,
-                straight_line=True,
-                origin_label=self.origin_port or None,
-                destination_label=self.destination_port or None,
-                route_below_html=dg_route_below_html,
+            dash = render_logistics_form_dashboard_html(
+                self, build_sea_shipment_dashboard_config(self)
             )
             return get_sales_quote_validity_dashboard_html(self) + dash
         except Exception as e:

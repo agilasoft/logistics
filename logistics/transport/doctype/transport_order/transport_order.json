@@ -16,6 +16,7 @@
   "customer_ref_no",
   "shipper",
   "consignee",
+  "transport_company",
   "scheduled_date",
   "column_break_5",
   "transport_job_type",
@@ -158,6 +159,13 @@
    "label": "Consignee",
    "options": "Consignee",
    "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "label": "Transport Company",
+   "options": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
   },
   {
    "default": "0",

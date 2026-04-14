@@ -324,6 +324,16 @@ frappe.ui.form.on("Declaration Order", {
 		if (frm.doc.date && !frm.doc.valid_until) {
 			frm.set_value("valid_until", frappe.datetime.add_days(frm.doc.date, 1));
 		}
+		// Virtual HTML fields reuse the same DOM across routes; clear when unsaved so a prior
+		// saved doc's dashboard/milestones HTML does not show on New (e.g. from Sales Quote connection).
+		if (frm.doc.__islocal) {
+			if (frm.fields_dict.dashboard_html) {
+				frm.fields_dict.dashboard_html.$wrapper.empty();
+			}
+			if (frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.empty();
+			}
+		}
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
@@ -445,14 +455,17 @@ frappe.ui.form.on("Declaration Order", {
 								callback: function(res) {
 									if (res.exc) return;
 									if (res.message && res.message.success && res.message.declaration) {
-										frappe.msgprint({
-											title: __("Declaration Created"),
-											message: __("Declaration {0} created.", [res.message.declaration]),
-											indicator: "green"
+										var declaration_name = res.message.declaration;
+										frm.reload_doc().then(function() {
+											frappe.msgprint({
+												title: __("Declaration Created"),
+												message: __("Declaration {0} created.", [declaration_name]),
+												indicator: "green"
+											});
+											setTimeout(function() {
+												frappe.set_route("Form", "Declaration", declaration_name);
+											}, 100);
 										});
-										setTimeout(function() {
-											frappe.set_route("Form", "Declaration", res.message.declaration);
-										}, 100);
 									}
 								}
 							});

@@ -598,7 +598,12 @@ def _get_internal_job_creation_preview_body(
 
 	if source_doctype in ("Air Shipment", "Sea Shipment"):
 		if jt == "Transport Order":
-			ij, mjt, mj = mi._transport_order_job_context_from_freight_shipment(doc, source_doctype, source_name)
+			ij, mjt, mj = mi.final_transport_order_job_context_from_freight_shipment(
+				doc, source_doctype, source_name
+			)
+			ij, mjt, mj = mi.resolve_transport_order_freight_main_job_if_empty(
+				doc, source_doctype, source_name, ij, mjt, mj
+			)
 			from_main = mi._preview_from_main_service_internal_for_target(doc, "transport")
 			target_internal = {"is_internal_job": bool(ij), "main_job_type": mjt, "main_job": mj}
 		elif jt == "Declaration Order":
@@ -662,6 +667,7 @@ def create_internal_job_from_operational_source(
 	job_type: str,
 	internal_job_detail_idx: int | None = None,
 	internal_job_details: Any = None,
+	container_no: str | None = None,
 ):
 	"""Dispatch create by source + job type; optional 1-based Internal Job Detail row index applies row defaults."""
 	jt = (job_type or "").strip()
@@ -691,7 +697,7 @@ def create_internal_job_from_operational_source(
 		if source_doctype == "Sea Shipment":
 			if jt == "Transport Order":
 				return mi.create_transport_order_from_sea_shipment(
-					source_name, internal_job_detail_idx=idx
+					source_name, internal_job_detail_idx=idx, container_no=container_no
 				)
 			if jt == "Declaration Order":
 				return mi.create_declaration_order_from_sea_shipment(

@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-03-03 00:00:00.000000",
+ "creation": "2026-03-03 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -34,9 +34,9 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Curr.",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "fieldname": "column_break_1",
@@ -82,8 +82,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-03 00:00:00.000000",
- "modified_by": "Administrator",
+ "modified": "2026-04-14 09:52:21.324394",
+ "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Commercial Invoice Charges",
  "owner": "Administrator",

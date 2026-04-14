@@ -38,10 +38,6 @@
   "column_break_knri",
   "declaration_type",
   "transport_mode",
-  "column_break_pwce",
-  "air_shipment",
-  "sea_shipment",
-  "transport_order",
   "section_break_transport",
   "column_break_transport",
   "vessel_flight_number",
@@ -413,10 +409,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "column_break_pwce",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "exporter_shipper",
    "fieldtype": "Link",
    "label": "Exporter/Shipper",
@@ -454,27 +446,6 @@
    "fieldname": "section_break_transport",
    "fieldtype": "Section Break",
    "label": "Transport Information"
-  },
-  {
-   "description": "Trace customs to air freight",
-   "fieldname": "air_shipment",
-   "fieldtype": "Link",
-   "label": "Air Shipment",
-   "options": "Air Shipment"
-  },
-  {
-   "description": "Trace customs to sea freight",
-   "fieldname": "sea_shipment",
-   "fieldtype": "Link",
-   "label": "Sea Shipment",
-   "options": "Sea Shipment"
-  },
-  {
-   "description": "Trace customs to domestic transport",
-   "fieldname": "transport_order",
-   "fieldtype": "Link",
-   "label": "Transport Order",
-   "options": "Transport Order"
   },
   {
    "fieldname": "transport_mode",
@@ -1056,6 +1027,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "fetch_from": "declaration_order.sales_rep",
    "fieldname": "sales_rep",
    "fieldtype": "Link",
    "label": "Sales Rep",
@@ -1063,6 +1035,7 @@
    "options": "Employee"
   },
   {
+   "fetch_from": "declaration_order.operations_rep",
    "fieldname": "operations_rep",
    "fieldtype": "Link",
    "label": "Operations Rep",
@@ -1070,6 +1043,7 @@
    "options": "Employee"
   },
   {
+   "fetch_from": "declaration_order.customer_service_rep",
    "fieldname": "customer_service_rep",
    "fieldtype": "Link",
    "label": "Customer Service Rep",
@@ -1104,7 +1078,8 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
-   "options": "Declaration Charges"
+   "options": "Declaration Charges",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -1456,8 +1431,8 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-04-08 15:04:47.935768",
- "modified_by": "Administrator",
+ "modified": "2026-04-14 14:50:50.477232",
+ "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Declaration",
  "naming_rule": "By \"Naming Series\" field",

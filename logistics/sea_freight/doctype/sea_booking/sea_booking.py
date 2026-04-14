@@ -376,13 +376,18 @@ class SeaBooking(Document):
 		from logistics.utils.container_validation import (
 			validate_container_number,
 			get_strict_validation_setting,
-			normalize_container_number,
 		)
+		from logistics.container_management.api import (
+			expand_sea_container_no_for_sql_in,
+			sea_container_row_field_to_equipment_number,
+		)
+
 		strict = get_strict_validation_setting()
 		for i, c in enumerate(self.containers, 1):
 			container_no = getattr(c, "container_no", None)
 			if container_no and str(container_no).strip():
-				valid, err = validate_container_number(container_no, strict=strict)
+				equip = sea_container_row_field_to_equipment_number(container_no)
+				valid, err = validate_container_number(equip, strict=strict)
 				if not valid:
 					frappe.throw(_("Container {0}: {1}").format(i, err), title=_("Invalid Container Number"))
 		
@@ -392,18 +397,23 @@ class SeaBooking(Document):
 			container_no = getattr(c, "container_no", None)
 			if not container_no or not str(container_no).strip():
 				continue
-			normalized = normalize_container_number(container_no)
-			if normalized in seen:
+			equip = sea_container_row_field_to_equipment_number(container_no)
+			if equip in seen:
 				frappe.throw(
 					_("Duplicate container number in this document: {0} appears on row {1} and row {2}.").format(
-						container_no, seen[normalized], i
+						equip, seen[equip], i
 					),
 					title=_("Duplicate Container Numbers"),
 				)
-			seen[normalized] = i
+			seen[equip] = i
 		
 		# Get container numbers from current booking (filter out empty values)
-		container_numbers = [c.container_no for c in self.containers if getattr(c, "container_no", None) and str(c.container_no).strip()]
+		container_numbers = []
+		for c in self.containers:
+			cn = getattr(c, "container_no", None)
+			if cn and str(cn).strip():
+				container_numbers.extend(expand_sea_container_no_for_sql_in(cn))
+		container_numbers = list(set(container_numbers))
 		if not container_numbers:
 			return
 		
@@ -450,14 +460,30 @@ class SeaBooking(Document):
 		# Build error message if duplicates found
 		errors = []
 		if existing_bookings:
-			container_list = ", ".join(set([c.container_no for c in existing_bookings]))
+			container_list = ", ".join(
+				sorted(
+					set(
+						sea_container_row_field_to_equipment_number(x.container_no)
+						for x in existing_bookings
+						if x.container_no
+					)
+				)
+			)
 			booking_list = ", ".join(set([c.name for c in existing_bookings]))
 			errors.append(_("Container number(s) {0} are already used in Sea Booking(s): {1}").format(
 				container_list, booking_list
 			))
 		
 		if existing_shipments:
-			container_list = ", ".join(set([c.container_no for c in existing_shipments]))
+			container_list = ", ".join(
+				sorted(
+					set(
+						sea_container_row_field_to_equipment_number(x.container_no)
+						for x in existing_shipments
+						if x.container_no
+					)
+				)
+			)
 			shipment_list = ", ".join(set([c.name for c in existing_shipments]))
 			errors.append(_("Container number(s) {0} are already used in Sea Shipment(s): {1}").format(
 				container_list, shipment_list
@@ -508,9 +534,12 @@ class SeaBooking(Document):
 			if shipping_status in ("Empty Container Returned", "Closed"):
 				return True
 		try:
-			from logistics.container_management.api import is_container_management_enabled, get_container_by_number
+			from logistics.container_management.api import (
+				is_container_management_enabled,
+				sea_container_row_field_to_doc_name,
+			)
 			if is_container_management_enabled():
-				container_name = get_container_by_number(container_no)
+				container_name = sea_container_row_field_to_doc_name(container_no)
 				if container_name:
 					row = frappe.db.get_value(
 						"Container", container_name, ["return_status", "status"], as_dict=True
@@ -1460,86 +1489,16 @@ class SeaBooking(Document):
 	
 	@frappe.whitelist()
 	def get_dashboard_html(self):
-		"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+		"""Generate HTML for Dashboard tab: tabbed layout with map, milestones, alerts."""
 		try:
-			from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-			from logistics.document_management.dashboard_layout import (
-				build_run_sheet_style_dashboard,
-				build_map_segments_from_routing_legs,
-				get_dg_dashboard_html,
-				get_unloco_coords,
+			from logistics.document_management.logistics_form_dashboard import (
+				build_sea_booking_dashboard_config,
+				render_logistics_form_dashboard_html,
 			)
-
-			status = self.get("shipping_status")
-			if not status:
-				status = "Submitted" if self.docstatus == 1 else "Cancelled" if self.docstatus == 2 else "Draft"
-			header_items = [
-				("Status", status),
-				("ETD", str(self.etd) if self.etd else "—"),
-				("ETA", str(self.eta) if self.eta else "—"),
-				("Packages", str(len(self.packages or []))),
-				("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-			]
-			if self.shipping_line:
-				header_items.append(("Shipping Line", self.shipping_line))
-
-			try:
-				doc_alerts = get_document_alerts_html("Sea Booking", self.name or "new")
-			except Exception:
-				doc_alerts = ""
-
-			dg_route_below_html = get_dg_dashboard_html(self)
-
-			milestone_rows = list(self.get("milestones") or [])
-			milestone_details = {}
-			if milestone_rows:
-				names = [m.milestone for m in milestone_rows if m.milestone]
-				if names:
-					for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
-						milestone_details[lm.name] = lm.description or lm.name
-
-			cards_html = ""
-			for i, m in enumerate(milestone_rows, 1):
-				st = (m.status or "Planned").lower().replace(" ", "-")
-				desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-				planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-				actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-				cards_html += f"""
-				<div class="dash-card {st}">
-					<div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-					<div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-					<span class="card-badge {st}">{m.status or "Planned"}</span>
-				</div>"""
-
-			map_segments = build_map_segments_from_routing_legs(
-				getattr(self, "routing_legs", None) or []
-			)
-			map_points = []
-			if not map_segments:
-				o = get_unloco_coords(self.origin_port)
-				d = get_unloco_coords(self.destination_port)
-				if o:
-					map_points.append(o)
-				if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
-					map_points.append(d)
-
-			alerts_html = get_dashboard_alerts_html("Sea Booking", self.name or "new")
 			from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
-			dash = build_run_sheet_style_dashboard(
-				header_title=self.name or "Sea Booking",
-				header_subtitle="Sea Booking",
-				header_items=header_items,
-				cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Get Milestones in Actions to generate from template.</div>",
-				map_points=map_points,
-				map_segments=map_segments,
-				map_id_prefix="sea-booking-dash-map",
-				doc_alerts_html=doc_alerts,
-				alerts_html=alerts_html,
-				straight_line=True,
-				origin_label=self.origin_port or None,
-				destination_label=self.destination_port or None,
-				route_below_html=dg_route_below_html,
+			dash = render_logistics_form_dashboard_html(
+				self, build_sea_booking_dashboard_config(self)
 			)
 			return get_sales_quote_validity_dashboard_html(self) + dash
 		except Exception as e:
@@ -2273,7 +2232,7 @@ def recalculate_all_charges(docname):
 			"charges_recalculated": charges_recalculated,
 		}
 	except Exception as e:
-		frappe.log_error(str(e), "Sea Booking - Recalculate Charges Error")
+		frappe.log_error(title="Sea Booking - Recalculate Charges Error", message=str(e))
 		frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 

@@ -20,6 +20,15 @@ function _load_milestone_html(frm) {
 	});
 }
 
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
+}
+
 // Build Address link filter for a leg row - used by pick_address and drop_address get_query.
 // Uses (doc, cdt, cdn) so the correct row is used when opening the link from the grid.
 function get_address_query_for_leg(frm, doc, cdt, cdn, kind) {
@@ -317,9 +326,16 @@ frappe.ui.form.on("Transport Order", {
 		
 		// Set query for sales_quote field
 		_setup_sales_quote_query(frm);
+		_logistics_set_charges_cannot_add_rows(frm);
 	},
 
 	refresh: function(frm) {
+		_logistics_set_charges_cannot_add_rows(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+			}
+		}, 0);
 		// Load documents summary HTML in Documents tab
 		if (window.logistics_load_documents_html) {
 			window.logistics_load_documents_html(frm, "Transport Order");

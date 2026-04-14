@@ -75,9 +75,51 @@ MILESTONE_CHILD_DOCTYPE = {
 }
 
 
+def _milestone_row_field(row, fieldname):
+	if isinstance(row, dict):
+		return row.get(fieldname)
+	return getattr(row, fieldname, None)
+
+
+def get_milestone_display_rows_and_editor_doctype(doc):
+	"""
+	Milestone rows for HTML timeline: prefer parent child table; if empty, use legacy Job Milestone
+	(job_type = parent doctype, job_number = parent name). Returns (list of dicts, doctype for edit prompts).
+	"""
+	if not doc or not getattr(doc, "doctype", None):
+		return [], "Job Milestone"
+	doctype = doc.doctype
+	child_doctype = MILESTONE_CHILD_DOCTYPE.get(doctype, "") or "Job Milestone"
+	table_rows = list(doc.get("milestones") or [])
+	source_rows = table_rows
+	editor_dt = child_doctype
+	if not source_rows and doc.name:
+		jm = frappe.get_all(
+			"Job Milestone",
+			filters={"job_type": doctype, "job_number": doc.name},
+			fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+			order_by="planned_start",
+		)
+		if jm:
+			source_rows = jm
+			editor_dt = "Job Milestone"
+	milestones = []
+	for row in source_rows:
+		milestones.append({
+			"name": _milestone_row_field(row, "name"),
+			"milestone": _milestone_row_field(row, "milestone"),
+			"status": (_milestone_row_field(row, "status") or "Planned"),
+			"planned_start": _milestone_row_field(row, "planned_start"),
+			"planned_end": _milestone_row_field(row, "planned_end"),
+			"actual_start": _milestone_row_field(row, "actual_start"),
+			"actual_end": _milestone_row_field(row, "actual_end"),
+		})
+	return milestones, editor_dt
+
+
 @frappe.whitelist()
 def get_milestone_html(doctype, docname):
-	"""Generate graphical milestone HTML for Milestones tab. Uses child table milestones."""
+	"""Generate graphical milestone HTML for Milestones tab (child table; legacy Job Milestone if empty)."""
 	if not doctype or not docname or docname == "new":
 		return '<div class="alert alert-info">Save the document to view milestones.</div>'
 	if doctype not in MILESTONE_DOCTYPES:
@@ -87,21 +129,7 @@ def get_milestone_html(doctype, docname):
 	except frappe.DoesNotExistError:
 		return '<div class="alert alert-warning">Document not found.</div>'
 
-	milestone_rows = list(doc.get("milestones") or [])
-	child_doctype = MILESTONE_CHILD_DOCTYPE.get(doctype, "")
-
-	# Build milestone dicts for build_milestone_html
-	milestones = []
-	for row in milestone_rows:
-		milestones.append({
-			"name": row.name,
-			"milestone": row.milestone,
-			"status": row.status or "Planned",
-			"planned_start": row.planned_start,
-			"planned_end": row.planned_end,
-			"actual_start": row.actual_start,
-			"actual_end": row.actual_end,
-		})
+	milestones, child_doctype = get_milestone_display_rows_and_editor_doctype(doc)
 
 	# Resolve origin/destination per doctype (detail items section removed)
 	origin_name = (
