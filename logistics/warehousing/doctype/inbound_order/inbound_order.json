@@ -23,7 +23,7 @@
   "due_date",
   "section_break_tams",
   "items",
-  "section_break_connections",
+  "quote_reference_section",
   "air_shipment",
   "sea_shipment",
   "transport_job",
@@ -155,9 +155,9 @@
   },
   {
    "collapsible": 1,
-   "fieldname": "section_break_connections",
+   "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
-   "label": "Connected Documents"
+   "label": "Job Details"
   },
   {
    "description": "Receive goods from air freight",
