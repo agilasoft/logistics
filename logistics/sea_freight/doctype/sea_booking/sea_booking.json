@@ -64,9 +64,8 @@
   "vgm_cut_off",
   "column_break_cutoffs",
   "gate_in_cut_off",
-  "empty_return_cut_off",
-  "column_break_basic",
   "other_cut_off",
+  "empty_return_cut_off",
   "section_break_reference_numbers",
   "reference_numbers",
   "packing_tab",
@@ -217,6 +216,7 @@
    "label": "Sales Quote",
    "no_copy": 1,
    "options": "Sales Quote",
+   "read_only": 1,
    "search_index": 1
   },
   {
@@ -291,10 +291,6 @@
    "label": "Direction",
    "options": "Import\nExport",
    "reqd": 1
-  },
-  {
-   "fieldname": "column_break_basic",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "shipping_line",
@@ -784,7 +780,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -1039,8 +1034,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-08 12:01:49.747825",
- "modified_by": "Administrator",
+ "modified": "2026-04-15 16:07:19.190510",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Sea Booking",
  "naming_rule": "By \"Naming Series\" field",

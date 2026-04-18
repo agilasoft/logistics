@@ -358,7 +358,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -1431,18 +1430,21 @@
    "read_only": 1
   },
   {
+   "description": "Total detention days summed across all containers on this shipment (each container uses its own free time when set).",
    "fieldname": "detention_days",
    "fieldtype": "Float",
    "label": "Detention Days",
    "read_only": 1
   },
   {
+   "description": "Total demurrage days summed across all containers on this shipment (each container uses its own free time when set).",
    "fieldname": "demurrage_days",
    "fieldtype": "Float",
    "label": "Demurrage Days",
    "read_only": 1
   },
   {
+   "description": "Largest effective free time (days) among containers on this shipment; informational summary.",
    "fieldname": "free_time_days",
    "fieldtype": "Float",
    "label": "Free Time (Days)",
@@ -1574,8 +1576,8 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-14 14:14:04.761234",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-04-15 09:42:16.431598",
+ "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",
  "naming_rule": "By \"Naming Series\" field",

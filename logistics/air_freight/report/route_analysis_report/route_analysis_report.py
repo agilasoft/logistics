@@ -103,9 +103,9 @@ def get_data(filters):
 			SUM(aship.weight) as total_weight,
 			SUM(aship.volume) as total_volume,
 			SUM(aship.chargeable) as total_chargeable,
-			COALESCE(SUM(asc.total_amount), 0) as total_revenue,
+			COALESCE(SUM(aschg.total_amount), 0) as total_revenue,
 			CASE
-				WHEN SUM(aship.chargeable) > 0 THEN COALESCE(SUM(asc.total_amount), 0) / SUM(aship.chargeable)
+				WHEN SUM(aship.chargeable) > 0 THEN COALESCE(SUM(aschg.total_amount), 0) / SUM(aship.chargeable)
 				ELSE 0
 			END as avg_revenue_per_kg,
 			CASE
@@ -129,7 +129,7 @@ def get_data(filters):
 		FROM
 			`tabAir Shipment` aship
 		LEFT JOIN
-			`tabAir Shipment Charges` asc ON asc.parent = aship.name
+			`tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE
 			aship.docstatus = 1
 			{conditions}

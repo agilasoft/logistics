@@ -1,0 +1,22 @@
+[
+ "intercompany_invoice_log_executive_snapshot",
+ "intercompany_invoice_log_job_type_mix",
+ "intercompany_invoice_log_main_job_company_concentration",
+ "intercompany_invoice_log_monthly_automation_volume",
+ "intercompany_invoice_log_open_draft_aging_backlog",
+ "intercompany_invoice_log_operating_company_concentration",
+ "intercompany_invoice_log_owner_workload_review",
+ "intercompany_invoice_log_processing_status_pipeline",
+ "intercompany_invoice_log_submission_health_ratio",
+ "intercompany_invoice_log_weekly_automation_volume",
+ "intercompany_sales_quote_customer_concentration",
+ "intercompany_sales_quote_executive_snapshot",
+ "intercompany_sales_quote_monthly_quote_volume",
+ "intercompany_sales_quote_open_draft_aging_backlog",
+ "intercompany_sales_quote_overdue_validity_pressure",
+ "intercompany_sales_quote_owner_workload_review",
+ "intercompany_sales_quote_status_funnel_mix",
+ "intercompany_sales_quote_submission_health_ratio",
+ "intercompany_sales_quote_transport_mode_mix",
+ "intercompany_sales_quote_weekly_quote_volume"
+]

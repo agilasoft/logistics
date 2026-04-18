@@ -1,0 +1,22 @@
+[
+ "air_consolidation_agent_concentration",
+ "air_consolidation_airline_concentration",
+ "air_consolidation_executive_snapshot",
+ "air_consolidation_status_pipeline",
+ "air_consolidation_type_mix",
+ "air_consolidation_weekly_activity",
+ "air_consolidation_weekly_throughput_index",
+ "air_shipment_airline_concentration",
+ "air_shipment_branch_performance_view",
+ "air_shipment_customer_concentration",
+ "air_shipment_direction_mix",
+ "air_shipment_executive_control_snapshot",
+ "air_shipment_job_status_pipeline",
+ "air_shipment_monthly_volume_and_value",
+ "air_shipment_open_draft_aging_backlog",
+ "air_shipment_origin_airport_concentration",
+ "air_shipment_overdue_schedule_pressure",
+ "air_shipment_owner_workload_review",
+ "air_shipment_submission_health_ratio",
+ "air_shipment_weekly_volume_and_value"
+]

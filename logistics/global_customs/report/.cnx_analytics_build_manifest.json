@@ -1,0 +1,22 @@
+[
+ "global_manifest_bill_consignee_concentration",
+ "global_manifest_bill_line_monthly_volume",
+ "global_manifest_bill_line_weekly_volume",
+ "global_manifest_bill_owner_workload_review",
+ "global_manifest_bill_package_type_mix",
+ "global_manifest_bill_shipper_concentration",
+ "global_manifest_bill_submission_health_ratio",
+ "global_manifest_bill_type_pipeline_mix",
+ "global_manifest_branch_performance_view",
+ "global_manifest_carrier_concentration",
+ "global_manifest_country_concentration",
+ "global_manifest_executive_snapshot",
+ "global_manifest_monthly_filing_volume",
+ "global_manifest_open_draft_aging_backlog",
+ "global_manifest_overdue_filing_pressure",
+ "global_manifest_owner_workload_review",
+ "global_manifest_submission_health_ratio",
+ "global_manifest_type_trade_lane_mix",
+ "global_manifest_weekly_filing_volume",
+ "global_manifest_workflow_status_pipeline"
+]

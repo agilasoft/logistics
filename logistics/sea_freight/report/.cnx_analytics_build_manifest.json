@@ -1,0 +1,22 @@
+[
+ "ocean_shipment_branch_performance_view",
+ "ocean_shipment_carrier_line_concentration",
+ "ocean_shipment_customer_concentration",
+ "ocean_shipment_destination_port_concentration",
+ "ocean_shipment_direction_trade_mix",
+ "ocean_shipment_executive_control_snapshot",
+ "ocean_shipment_monthly_volume_and_value",
+ "ocean_shipment_open_draft_aging_backlog",
+ "ocean_shipment_origin_port_concentration",
+ "ocean_shipment_overdue_schedule_pressure",
+ "ocean_shipment_owner_workload_review",
+ "ocean_shipment_shipping_status_pipeline",
+ "ocean_shipment_submission_health_ratio",
+ "ocean_shipment_weekly_volume_and_value",
+ "sea_consolidation_agent_concentration",
+ "sea_consolidation_executive_snapshot",
+ "sea_consolidation_port_pair_concentration",
+ "sea_consolidation_status_pipeline",
+ "sea_consolidation_type_mix",
+ "sea_consolidation_weekly_activity"
+]

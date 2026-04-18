@@ -11,15 +11,18 @@ from typing import Dict, Any
 
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.charge_service_type import (
+	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.document_date_validation import throw_if_left_date_after_right
+from logistics.utils.dg_fields import update_parent_dg_compliance_status
 from logistics.utils.internal_job_charge_copy import (
 	build_internal_job_sea_booking_charge_dicts,
 	populate_internal_job_charges_from_main_service,
 	should_apply_internal_job_main_charge_overlay,
 )
+from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
 from logistics.utils.sales_quote_routing import (
 	apply_sales_quote_routing_to_booking,
 	routing_legs_for_api_response,
@@ -27,14 +30,18 @@ from logistics.utils.sales_quote_routing import (
 
 
 def _sync_quote_and_sales_quote(doc):
-	"""Sync quote_type/quote with sales_quote for backward compatibility."""
-	if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
-		doc.sales_quote = doc.quote
-	elif getattr(doc, "quote_type", None) == "One-Off Quote":
-		doc.sales_quote = None
-	elif not getattr(doc, "quote_type", None) and getattr(doc, "sales_quote", None):
-		doc.quote_type = "Sales Quote"
-		doc.quote = doc.sales_quote
+    """Sync quote_type/quote with sales_quote for backward compatibility."""
+    if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
+        doc.sales_quote = doc.quote
+    elif getattr(doc, "quote_type", None) == "One-Off Quote":
+        q = getattr(doc, "quote", None)
+        if q and frappe.db.exists("Sales Quote", q):
+            doc.sales_quote = q
+        else:
+            doc.sales_quote = None
+    elif not getattr(doc, "quote_type", None) and getattr(doc, "sales_quote", None):
+        doc.quote_type = "Sales Quote"
+        doc.quote = doc.sales_quote
 
 
 class SeaBooking(Document):
@@ -64,6 +71,7 @@ class SeaBooking(Document):
 				self.house_type = "Standard House"
 			elif self.house_type == "Consolidation":
 				self.house_type = "Co-load Master"
+		update_parent_dg_compliance_status(self)
 		# Preserve quote field value before syncing (to prevent it from being cleared)
 		# Get original values from database if document exists
 		original_quote = None
@@ -94,9 +102,15 @@ class SeaBooking(Document):
 			self.quote = original_quote
 		if original_quote_type and not getattr(self, 'quote_type', None):
 			self.quote_type = original_quote_type
-		# Only preserve sales_quote if quote_type is Sales Quote (One-Off Quote clears sales_quote)
-		if original_sales_quote and getattr(self, 'quote_type', None) == 'Sales Quote' and not getattr(self, 'sales_quote', None):
-			self.sales_quote = original_sales_quote
+		# Restore sales_quote if something cleared it while quote still points at the same Sales Quote
+		qt = getattr(self, "quote_type", None)
+		if original_sales_quote and not getattr(self, "sales_quote", None):
+			if qt == "Sales Quote" or (
+				qt == "One-Off Quote"
+				and getattr(self, "quote", None)
+				and original_sales_quote == getattr(self, "quote", None)
+			):
+				self.sales_quote = original_sales_quote
 		
 		# Validate One-off Sales Quote not already converted (internal satellite bookings may share the main leg's quote)
 		_quote_is_sales_quote = (
@@ -139,6 +153,10 @@ class SeaBooking(Document):
 						reset_one_off_quote_on_cancel(original_sales_quote)
 			except Exception:
 				pass
+
+		from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+
+		assert_one_off_sales_quote_job_rules(self)
 		
 		self.validate_required_fields()
 		self.validate_dates()
@@ -922,25 +940,31 @@ class SeaBooking(Document):
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"bill_to", "pay_to", "service_type",
+				"origin_port", "destination_port",
 				# Cost fields (only include fields that exist in Sales Quote Charge)
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
 			]
+			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Charge",
 				filters=filters,
-				fields=charge_fields,
+				fields=sqc_fields,
 				order_by="idx"
 			)
 			if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+				legacy_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
 				sales_quote_sea_freight_records = frappe.get_all(
 					"Sales Quote Sea Freight",
 					filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-					fields=charge_fields,
+					fields=legacy_fields,
 					order_by="idx"
 				)
+			sales_quote_sea_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+				self, sales_quote_sea_freight_records
+			)
 
 			if not sales_quote_sea_freight_records:
 				frappe.msgprint(
@@ -1014,26 +1038,32 @@ class SeaBooking(Document):
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"bill_to", "pay_to", "service_type",
+				"origin_port", "destination_port",
 				# Cost fields (only include fields that exist in Sales Quote Charge)
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
 			]
+			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Charge",
 				filters=filters,
-				fields=charge_fields,
+				fields=sqc_fields,
 				order_by="idx"
 			)
 			if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+				legacy_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
 				sales_quote_sea_freight_records = frappe.get_all(
 					"Sales Quote Sea Freight",
 					filters={"parent": sq_doc.name, "parenttype": "Sales Quote"},
-					fields=charge_fields,
+					fields=legacy_fields,
 					order_by="idx"
 				)
-			
+			sales_quote_sea_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+				self, sales_quote_sea_freight_records
+			)
+
 			if not sales_quote_sea_freight_records:
 				frappe.msgprint(
 					_("No Sea Freight charges found in Sales Quote. Charges will not be populated."),
@@ -2394,6 +2424,8 @@ def populate_charges_from_sales_quote(
 			"bill_to",  # Include bill_to
 			"pay_to",  # Include pay_to
 			"service_type",  # Include service_type to identify charge types
+			"origin_port",
+			"destination_port",
 			# Cost fields (only include fields that exist in Sales Quote Charge)
 			"cost_calculation_method",
 			"unit_cost",
@@ -2412,20 +2444,25 @@ def populate_charges_from_sales_quote(
 			"revenue_tariff",
 			"cost_tariff"
 		]
-		
+		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		sales_quote_sea_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters=filters,
-			fields=charge_fields,
+			fields=sqc_fields,
 			order_by="idx"
 		)
 		if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
+			legacy_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Sea Freight",
 				filters={"parent": sales_quote, "parenttype": "Sales Quote"},
-				fields=charge_fields,
+				fields=legacy_fields,
 				order_by="idx"
 			)
+		filter_parent = doc if doc else parent
+		sales_quote_sea_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+			filter_parent, sales_quote_sea_freight_records
+		)
 		
 		if not sales_quote_sea_freight_records:
 			return {

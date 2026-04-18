@@ -254,6 +254,21 @@ frappe.ui.form.on('Air Booking', {
 		_logistics_set_charges_cannot_add_rows(frm);
 		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
 	},
+	after_save: function(frm) {
+		// After first save, sync may rename the doc in locals and delete the temporary key; the form can
+		// still hold a stale object reference (wrong `modified`) — same as Declaration. Rebind to locals.
+		var renamed = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
+		if (renamed) {
+			frm.docname = renamed;
+			frm.doc = (locals[frm.doctype] && locals[frm.doctype][renamed])
+				? locals[frm.doctype][renamed]
+				: frappe.get_doc(frm.doctype, renamed);
+			return;
+		}
+		if (frm.doc && frm.doc.name && locals[frm.doctype] && locals[frm.doctype][frm.doc.name]) {
+			frm.doc = locals[frm.doctype][frm.doc.name];
+		}
+	},
 	milestones_on_form_rendered: function(frm) {
 		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
 	},
@@ -337,8 +352,6 @@ frappe.ui.form.on('Air Booking', {
 			}
 			return {};
 		});
-		// Sales Quote: main Air OR Air charges; exclude used One-off quotes (server-side in link search).
-		_setup_sales_quote_query(frm);
 		frm.set_query('warehouse_item', 'packages', function(doc) {
 			const filters = {};
 			if (doc.local_customer) {
@@ -503,20 +516,10 @@ frappe.ui.form.on('Air Booking', {
 	},
 
 	sales_quote: function(frm) {
-		// Avoid duplicate runs while server-side fetch_quotations is in progress.
-		if (frm._fetching_quotations) {
-			return;
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
-		// Match Sea Booking behavior: populate on first set, and only repopulate on actual change.
-		if (!frm.doc.charges || frm.doc.charges.length === 0) {
-			_populate_charges_from_quote(frm);
-		} else {
-			var previous_sales_quote = frm._previous_sales_quote;
-			if (previous_sales_quote !== frm.doc.sales_quote && frm.doc.sales_quote) {
-				_populate_charges_from_quote(frm);
-			}
-		}
-		frm._previous_sales_quote = frm.doc.sales_quote;
+		// Sales Quote is read-only; use Action → Get Charges from Quotation.
 	},
 
 	quote_type: function(frm) {
@@ -550,18 +553,7 @@ frappe.ui.form.on('Air Booking', {
 		if (!frm.doc.quote) {
 			frm.clear_table('charges');
 			frm.refresh_field('charges');
-			// Clear sales_quote when quote is cleared
-			if (frm.doc.sales_quote) {
-				frm.set_value('sales_quote', '');
-			}
 			return;
-		}
-		// Sync sales_quote field when quote_type is "Sales Quote"
-		if (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote) {
-			frm.set_value('sales_quote', frm.doc.quote);
-		} else if (frm.doc.quote_type === 'One-Off Quote') {
-			// Clear sales_quote for One-Off Quote
-			frm.set_value('sales_quote', '');
 		}
 		_populate_charges_from_quote(frm);
 	},
@@ -570,10 +562,11 @@ frappe.ui.form.on('Air Booking', {
 		_update_measurement_fields_readonly(frm);
 		if (frm.is_new() || frm.doc.__islocal) return;
 		if (!frm.doc.override_volume_weight) {
-			// Re-aggregate when override is turned off (no freeze)
-			frm.call({
-				method: 'aggregate_volume_from_packages_api',
-				doc: frm.doc,
+			// Re-aggregate when override is turned off (no freeze).
+			// Use full-path frappe.call (not frm.call) so this does not use run_doc_method / check_if_latest.
+			frappe.call({
+				method: 'logistics.air_freight.doctype.air_booking.air_booking.aggregate_volume_from_packages_api',
+				args: { doc: frm.doc },
 				freeze: false,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
@@ -593,6 +586,9 @@ frappe.ui.form.on('Air Booking', {
 	},
 
 	refresh: function(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
 		_logistics_set_charges_cannot_add_rows(frm);
 		setTimeout(function () {
@@ -617,15 +613,6 @@ frappe.ui.form.on('Air Booking', {
 		// Defer HTML field loading so the new doc is visible on the server (avoids "Air Booking ... not found")
 		var docname = frm.doc.name;
 		var isNew = !docname || frm.doc.__islocal;
-		// For docs opened from Sales Quote connections, populate charges even before first save.
-		if (isNew
-			&& (frm.doc.sales_quote || (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote))
-			&& (!frm.doc.charges || frm.doc.charges.length === 0)
-			&& !frm._auto_fetched_from_sales_quote
-			&& !frm._fetching_quotations) {
-			frm._auto_fetched_from_sales_quote = true;
-			_populate_charges_from_quote(frm);
-		}
 		if (isNew) return;
 
 		function load_html_fields() {
@@ -665,45 +652,12 @@ frappe.ui.form.on('Air Booking', {
 
 		setTimeout(load_html_fields, 400);
 
-		// Auto-populate charges from linked quote once on first load
-		if (!frm.is_new() && !frm.doc.__islocal
-			&& (frm.doc.sales_quote || (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote))
-			&& (!frm.doc.charges || frm.doc.charges.length === 0)
-			&& !frm._auto_fetched_from_sales_quote
-			&& !frm._fetching_quotations) {
-			frm._auto_fetched_from_sales_quote = true;
-			// Prefer the same client-side population used by quote/one-off handlers to avoid server save timing
-			try {
-				_populate_charges_from_quote(frm);
-			} catch (e) {
-				// Fallback to server method if client helper is unavailable
-				frm._fetching_quotations = true;
-				frm.call({
-					method: 'fetch_quotations',
-					doc: frm.doc,
-					freeze: false,
-					callback: function(r) {
-						if (r && r.message && r.message.success) {
-							frm.reload_doc().then(function() {
-								if (frm.fields_dict.charges) frm.refresh_field('charges');
-								setTimeout(function() { frm._fetching_quotations = false; }, 300);
-							});
-						} else {
-							frm._fetching_quotations = false;
-						}
-					},
-					error: function() {
-						frm._fetching_quotations = false;
-					}
-				});
-			}
-		}
-
-		// Recalculate package volumes from dimensions (fixes stale/wrong values on load)
+		// Recalculate package volumes from dimensions (fixes stale/wrong values on load).
+		// Full-path frappe.call avoids run_doc_method / check_if_latest (TimestampMismatchError after save).
 		if (frm.doc.packages && frm.doc.packages.length > 0) {
-			frm.call({
-				method: 'recalculate_package_volumes_api',
-				doc: frm.doc,
+			frappe.call({
+				method: 'logistics.air_freight.doctype.air_booking.air_booking.recalculate_package_volumes_api',
+				args: { doc: frm.doc },
 				freeze: false,
 				callback: function(r) {
 					if (r && !r.exc && r.message && Array.isArray(r.message)) {
@@ -719,9 +673,9 @@ frappe.ui.form.on('Air Booking', {
 							}
 						});
 						// Re-aggregate header totals
-						frm.call({
-							method: 'aggregate_volume_from_packages_api',
-							doc: frm.doc,
+						frappe.call({
+							method: 'logistics.air_freight.doctype.air_booking.air_booking.aggregate_volume_from_packages_api',
+							args: { doc: frm.doc },
 							freeze: false,
 							callback: function(agg) {
 								if (agg && !agg.exc && agg.message) {
@@ -738,6 +692,17 @@ frappe.ui.form.on('Air Booking', {
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
+			if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 0) {
+				frm.add_custom_button(__('Get Charges from Quotation'), function() {
+					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+						logistics.open_get_charges_from_quotation_dialog(frm);
+					} else {
+						frappe.msgprint(
+							__("Charges dialog is not ready. Please refresh the page and try again.")
+						);
+					}
+				}, __('Action'));
+			}
 			frm.add_custom_button(__('Get Milestones'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
@@ -778,46 +743,6 @@ frappe.ui.form.on('Air Booking', {
 			}
 		}
 
-		// Add button to fetch quotations
-		if (frm.doc.sales_quote) {
-			frm.add_custom_button(__('Fetch Quotations'), function() {
-				// Set flag to prevent sales_quote handler from clearing charges
-				frm._fetching_quotations = true;
-				frm.call({
-					method: 'fetch_quotations',
-					doc: frm.doc,
-					callback: function(r) {
-						if (r.message && r.message.success) {
-							// Show additional info if no charges were fetched
-							if (r.message.charges_count === 0) {
-								frappe.show_alert({
-									message: __('No charges were fetched. Please check the Sales Quote Air Freight records.'),
-									indicator: 'orange'
-								}, 5);
-							}
-							// Reload the document to show the updated charges and other fields
-							// Use reload_doc with callback to ensure charges are visible
-							frm.reload_doc().then(function() {
-								// Refresh charges field to ensure it's displayed
-								if (frm.fields_dict.charges) {
-									frm.refresh_field('charges');
-								}
-								// Clear flag after reload
-								setTimeout(function() {
-									frm._fetching_quotations = false;
-								}, 1000);
-							});
-						} else {
-							frm._fetching_quotations = false;
-						}
-					},
-					error: function(r) {
-						frm._fetching_quotations = false;
-					}
-				});
-			}, __('Action'));
-		}
-
 		// --- Create menu ---
 		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1) {
 			setTimeout(function() {
@@ -835,9 +760,9 @@ frappe.ui.form.on('Air Booking', {
 							frappe.confirm(
 								__('Are you sure you want to convert this Air Booking to an Air Shipment?'),
 								function() {
-									frm.call({
-										method: 'convert_to_shipment',
-										doc: frm.doc,
+									frappe.call({
+										method: 'logistics.air_freight.doctype.air_booking.air_booking.convert_to_shipment_api',
+										args: { docname: frm.doc.name },
 										callback: function(r) {
 											if (r.exc) return;
 											if (r.message && r.message.success && r.message.air_shipment) {
@@ -892,19 +817,6 @@ frappe.ui.form.on("Air Booking Milestone", {
 		setTimeout(run, 50);
 	},
 });
-
-function _setup_sales_quote_query(frm) {
-	frm.set_query('sales_quote', function() {
-		return {
-			query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
-			filters: {
-				service_type: 'Air',
-				reference_doctype: 'Air Booking',
-				reference_name: frm.doc.name || ''
-			}
-		};
-	});
-}
 
 // Setup query filter for quote field based on quote_type
 function _setup_quote_query(frm) {
@@ -971,7 +883,6 @@ function _populate_charges_from_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
 	var quote_type = frm.doc.quote_type;
 	var quote = frm.doc.quote;
-	var sales_quote = frm.doc.sales_quote;
 	
 	// Determine which quote to use
 	var target_quote = null;
@@ -989,12 +900,6 @@ function _populate_charges_from_quote(frm) {
 		method_name = "logistics.air_freight.doctype.air_booking.air_booking.populate_charges_from_one_off_quote";
 		freeze_message = __("Fetching charges from One-Off Quote...");
 		success_message_template = __("Successfully populated {0} charges from One-Off Quote: {1}");
-	} else if (sales_quote) {
-		// Fallback to sales_quote field for backward compatibility
-		target_quote = sales_quote;
-		method_name = "logistics.air_freight.doctype.air_booking.air_booking.populate_charges_from_sales_quote";
-		freeze_message = __("Fetching charges from Sales Quote...");
-		success_message_template = __("Successfully populated {0} charges from Sales Quote: {1}");
 	}
 	
 	if (!target_quote || !method_name) {

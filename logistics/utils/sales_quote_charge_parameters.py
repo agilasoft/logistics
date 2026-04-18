@@ -47,6 +47,20 @@ def _row_val(row: Any, fieldname: str):
 	return getattr(row, fieldname, None)
 
 
+def filter_fields_existing_in_doctype(doctype: str, fields: list[str]) -> list[str]:
+	"""Return only fieldnames that exist as columns on the doctype table.
+
+	Legacy Sales Quote Air/Sea Freight child tables omit fields present on unified
+	``Sales Quote Charge`` (e.g. ``service_type``). Using this avoids MySQL 1054
+	when falling back to legacy tables.
+	"""
+	cols = frappe.db.get_table_columns(doctype)
+	if not cols:
+		return []
+	allowed = set(cols)
+	return [f for f in fields if f in allowed]
+
+
 def extract_sales_quote_charge_parameters(row: Any) -> dict[str, Any]:
 	"""Non-empty parameter values from a Sales Quote Charge row (dict or document)."""
 	out: dict[str, Any] = {}

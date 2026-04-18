@@ -4,6 +4,8 @@
 import frappe
 from frappe import _
 
+from logistics.analytics_reports.bootstrap import series_chart
+
 # Pipeline stages in order
 PIPELINE_ORDER = ["Draft", "Scoping", "Booked", "Planning", "Approved", "In Progress", "On Hold", "Completed", "Cancelled"]
 
@@ -11,7 +13,8 @@ PIPELINE_ORDER = ["Draft", "Scoping", "Booked", "Planning", "Approved", "In Prog
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
-	return columns, data
+	chart = series_chart(data, "status", "project_count")
+	return columns, data, None, chart, []
 
 
 def get_columns():

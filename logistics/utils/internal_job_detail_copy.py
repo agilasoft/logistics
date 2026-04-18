@@ -46,6 +46,65 @@ def internal_job_detail_row_as_dict(row: Any) -> dict:
 	return d
 
 
+def sync_internal_job_details_from_declaration_to_declaration_order(declaration: Any) -> None:
+	"""Copy Declaration.internal_job_details onto the linked Declaration Order so row counts stay aligned.
+
+	Called when the Declaration is saved so downstream flows (e.g. persist_internal_job_detail_job_link on
+	the Order) see the same Internal Jobs lines as on the Declaration. Preserves ``job_no`` / ``job_type``
+	from the Order row when the Declaration row is still open (link was written only on the Order).
+	"""
+	do_name = (getattr(declaration, "declaration_order", None) or "").strip()
+	if not do_name or not frappe.db.exists("Declaration Order", do_name):
+		return
+	dec_rows = list(getattr(declaration, "internal_job_details", None) or [])
+
+	try:
+		order = frappe.get_doc("Declaration Order", do_name)
+	except frappe.DoesNotExistError:
+		return
+
+	old_rows = list(getattr(order, "internal_job_details", None) or [])
+	if not dec_rows:
+		if not old_rows:
+			return
+		order.set("internal_job_details", [])
+		order.flags.ignore_validate_update_after_submit = True
+		order.flags.ignore_links = True
+		order.save(ignore_permissions=True)
+		return
+
+	merged: list[dict[str, Any]] = []
+	for i, row in enumerate(dec_rows):
+		d = internal_job_detail_row_as_dict(row)
+		if i < len(old_rows):
+			old_jn = (getattr(old_rows[i], "job_no", None) or "").strip()
+			new_jn = (d.get("job_no") or "").strip()
+			old_jt = (getattr(old_rows[i], "job_type", None) or "").strip()
+			if old_jn and not new_jn:
+				d["job_no"] = old_jn
+				if old_jt:
+					d["job_type"] = old_jt
+		merged.append(d)
+
+	def _row_matches(doc_row: Any, want: dict[str, Any]) -> bool:
+		for k, v in want.items():
+			if getattr(doc_row, k, None) != v:
+				return False
+		return True
+
+	if len(merged) == len(old_rows) and all(
+		_row_matches(old_rows[i], merged[i]) for i in range(len(merged))
+	):
+		return
+
+	order.set("internal_job_details", [])
+	for d in merged:
+		order.append("internal_job_details", d)
+	order.flags.ignore_validate_update_after_submit = True
+	order.flags.ignore_links = True
+	order.save(ignore_permissions=True)
+
+
 def copy_internal_job_details_to_doc(source_doc: Any, dest_doc: Any) -> None:
 	"""Append copies of source_doc.internal_job_details onto dest_doc."""
 	rows = getattr(source_doc, "internal_job_details", None) or []

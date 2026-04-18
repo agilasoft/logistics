@@ -1,762 +1,495 @@
 """
-UNLOCO Utilities for Location Auto-Population
-Provides functions to populate UNLOCO details automatically
+UNLOCO / UNLOCODE auto-population helpers.
+Desk API returns {status, message?, data} so logistics/doctype/unloco/unloco.js can apply fields including coordinates.
 """
+
+from __future__ import annotations
+
+import re
+from typing import Any, Dict, List, Optional
 
 import frappe
 from frappe import _
-from typing import Dict, Optional, Any
-from datetime import datetime
+
+_COORD_RE = re.compile(
+	r"^\s*(?P<lat_d>\d{2})(?P<lat_m>\d{2})(?P<lat_h>[NS])\s+(?P<lon_d>\d{3})(?P<lon_m>\d{2})(?P<lon_h>[EW])\s*$",
+	re.IGNORECASE,
+)
+
+
+def parse_un_coordinates(coord: str) -> tuple:
+	"""
+	Parse UN/LOCODE coordinate string to (latitude, longitude) or (None, None).
+	Accepts standard form e.g. 4230N 00131E, 3342N 11824W (flexible whitespace, case).
+	"""
+	if not coord or not isinstance(coord, str):
+		return None, None
+	s = " ".join(coord.strip().upper().split())
+	m = _COORD_RE.match(s)
+	if not m:
+		return None, None
+	lat = int(m.group("lat_d")) + int(m.group("lat_m")) / 60.0
+	if m.group("lat_h").upper() == "S":
+		lat = -lat
+	lon = int(m.group("lon_d")) + int(m.group("lon_m")) / 60.0
+	if m.group("lon_h").upper() == "W":
+		lon = -lon
+	return lat, lon
+
 
 @frappe.whitelist()
 def populate_unlocode_details(unlocode: str, doc: Any = None) -> Dict[str, Any]:
-    """
-    Populate UNLOCO details for a location
-    
-    Args:
-        unlocode: UNLOCO code (e.g., "USLAX")
-        doc: Location document (optional)
-    
-    Returns:
-        Dictionary of populated fields
-    """
-    try:
-        if not unlocode:
-            return {}
-        
-        print(f"🔍 Looking up UNLOCO details for: {unlocode}")
-        
-        # Get UNLOCO data
-        unlocode_data = get_unlocode_data(unlocode.upper())
-        
-        if unlocode_data:
-            # Ensure unlocode is in data for function/code-pattern logic
-            unlocode_data.setdefault("unlocode", unlocode.upper())
-            # Populate fields (includes Function Capabilities tab checkboxes)
-            populated_fields = populate_fields_from_data(unlocode_data)
-            # Update document if provided
-            if doc:
-                update_document_fields(doc, populated_fields)
-            print(f"✅ UNLOCO details populated for {unlocode}")
-            return populated_fields
-        else:
-            print(f"⚠️  No UNLOCO data found for {unlocode}")
-            # Try to populate basic details from code; always include Function Capabilities checkboxes
-            basic_fields = populate_basic_details_from_code(unlocode.upper())
-            if doc:
-                update_document_fields(doc, basic_fields)
-            return basic_fields
-            
-    except Exception as e:
-        print(f"❌ Error populating UNLOCO details: {str(e)}")
-        frappe.log_error(f"UNLOCO details population error: {str(e)}")
-        return {}
+	"""
+	Return {status, message?, data} for desk; data is a flat field dict for UNLOCO.
+	"""
+	try:
+		if not unlocode:
+			return {"status": "warning", "message": _("No UNLOCO code provided"), "data": {}}
+
+		code = unlocode.strip().upper()
+		if len(code) != 5:
+			return {"status": "error", "message": _("UNLOCO code must be exactly 5 characters"), "data": {}}
+
+		unlocode_data = get_unlocode_data(code)
+
+		if unlocode_data:
+			unlocode_data.setdefault("unlocode", code)
+			populated_fields = populate_fields_from_data(unlocode_data)
+			if doc:
+				update_document_fields(doc, populated_fields)
+			return {"status": "success", "data": populated_fields}
+
+		basic_fields = populate_basic_details_from_code(code)
+		if doc:
+			update_document_fields(doc, basic_fields)
+		if basic_fields:
+			return {
+				"status": "warning",
+				"message": _("Limited details inferred from code; coordinates may be missing."),
+				"data": basic_fields,
+			}
+		return {"status": "warning", "message": _("No UNLOCO data found for this code."), "data": {}}
+
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), f"UNLOCO populate: {e!s}")
+		return {"status": "error", "message": str(e), "data": {}}
+
+
+def unwrap_populate_result(result: Any) -> Dict[str, Any]:
+	"""Normalize populate_unlocode_details return value to a flat field dict for Document setattr."""
+	if not result:
+		return {}
+	if isinstance(result, dict) and "data" in result and isinstance(result["data"], dict):
+		return dict(result["data"])
+	if isinstance(result, dict) and "status" not in result:
+		return dict(result)
+	return {}
+
+
+def _is_blank_str(val: Any) -> bool:
+	return val is None or (isinstance(val, str) and not val.strip())
+
+
+_OVERLAY_FILL_KEYS = (
+	"location_name",
+	"country",
+	"country_code",
+	"subdivision",
+	"city",
+	"location_type",
+	"iata_code",
+	"icao_code",
+	"timezone",
+	"currency",
+	"language",
+	"utc_offset",
+	"operating_hours",
+	"description",
+	"status",
+	"data_source",
+)
+
+
+def _merge_unlocode_overlay(base: Dict[str, Any], overlay: Optional[Dict[str, Any]]) -> None:
+	"""Fill blank string / None scalar fields in base from overlay (e.g. DataHub after a sparse DB row)."""
+	if not overlay:
+		return
+	for key in _OVERLAY_FILL_KEYS:
+		if key not in overlay:
+			continue
+		val = overlay[key]
+		if val is None:
+			continue
+		if isinstance(val, str) and not val.strip():
+			continue
+		if _is_blank_str(base.get(key)):
+			base[key] = val
+	if overlay.get("latitude") is not None and base.get("latitude") is None:
+		base["latitude"] = overlay["latitude"]
+	if overlay.get("longitude") is not None and base.get("longitude") is None:
+		base["longitude"] = overlay["longitude"]
+	for key in (
+		"has_post",
+		"has_customs",
+		"has_unload",
+		"has_airport",
+		"has_rail",
+		"has_road",
+		"has_store",
+		"has_terminal",
+		"has_discharge",
+		"has_seaport",
+		"has_outport",
+	):
+		if key in overlay and overlay[key] is not None and base.get(key) is None:
+			base[key] = overlay[key]
+
+
+def _backfill_country_from_unlocode_prefix(code: str, base: Dict[str, Any]) -> None:
+	"""If country or country_code still empty, derive from ISO2 prefix of the 5-letter UN/LOCODE."""
+	if not _is_blank_str(base.get("country")) and not _is_blank_str(base.get("country_code")):
+		return
+	if len(code) != 5:
+		return
+	info = enrich_country_info(code[:2])
+	if _is_blank_str(base.get("country_code")) and info.get("country_code"):
+		base["country_code"] = info["country_code"]
+	if _is_blank_str(base.get("country")) and info.get("country"):
+		base["country"] = info["country"]
+	if _is_blank_str(base.get("currency")) and info.get("currency"):
+		base["currency"] = info["currency"]
+	if _is_blank_str(base.get("language")) and info.get("language"):
+		base["language"] = info["language"]
+
+
+def _unloco_db_row_to_dict(existing: Any) -> Dict[str, Any]:
+	return {
+		"location_name": existing[1] or "",
+		"country": existing[2] or "",
+		"country_code": existing[3] or "",
+		"subdivision": existing[4] or "",
+		"city": existing[5] or "",
+		"location_type": existing[6] or "",
+		"iata_code": existing[7] or "",
+		"icao_code": existing[8] or "",
+		"timezone": existing[9] or "",
+		"currency": existing[10] or "",
+		"language": existing[11] or "",
+		"utc_offset": existing[12] or "",
+		"operating_hours": existing[13] or "",
+		"latitude": existing[14],
+		"longitude": existing[15],
+		"description": existing[16] or "",
+		"has_post": existing[17],
+		"has_customs": existing[18],
+		"has_unload": existing[19],
+		"has_airport": existing[20],
+		"has_rail": existing[21],
+		"has_road": existing[22],
+		"has_store": existing[23],
+		"has_terminal": existing[24],
+		"has_discharge": existing[25],
+		"has_seaport": existing[26],
+		"has_outport": existing[27],
+	}
+
 
 def get_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
-    """
-    Get UNLOCO data for a specific code
-    
-    Args:
-        unlocode: UNLOCO code (e.g., "USLAX")
-    
-    Returns:
-        Dictionary of UNLOCO data or None
-    """
-    try:
-        # First, check if we have this UNLOCO code in our existing UNLOCO records
-        existing_unlocode = frappe.db.get_value(
-            "UNLOCO",
-            {"unlocode": unlocode.upper()},
-            [
-                "name", "location_name", "country", "country_code", "subdivision", "city",
-                "location_type", "iata_code", "icao_code",
-                "timezone", "currency", "language", "utc_offset", "operating_hours",
-                "latitude", "longitude", "description",
-                "has_post", "has_customs", "has_unload", "has_airport", "has_rail",
-                "has_road", "has_store", "has_terminal", "has_discharge", "has_seaport", "has_outport",
-            ],
-        )
+	try:
+		code = unlocode.strip().upper()
+		existing = frappe.db.get_value(
+			"UNLOCO",
+			{"unlocode": code},
+			[
+				"name",
+				"location_name",
+				"country",
+				"country_code",
+				"subdivision",
+				"city",
+				"location_type",
+				"iata_code",
+				"icao_code",
+				"timezone",
+				"currency",
+				"language",
+				"utc_offset",
+				"operating_hours",
+				"latitude",
+				"longitude",
+				"description",
+				"has_post",
+				"has_customs",
+				"has_unload",
+				"has_airport",
+				"has_rail",
+				"has_road",
+				"has_store",
+				"has_terminal",
+				"has_discharge",
+				"has_seaport",
+				"has_outport",
+			],
+		)
 
-        if existing_unlocode:
-            # Return data from existing UNLOCO record (Function Capabilities tab)
-            return {
-                "location_name": existing_unlocode[1] or "",
-                "country": existing_unlocode[2] or "",
-                "country_code": existing_unlocode[3] or "",
-                "subdivision": existing_unlocode[4] or "",
-                "city": existing_unlocode[5] or "",
-                "location_type": existing_unlocode[6] or "",
-                "iata_code": existing_unlocode[7] or "",
-                "icao_code": existing_unlocode[8] or "",
-                "timezone": existing_unlocode[9] or "",
-                "currency": existing_unlocode[10] or "",
-                "language": existing_unlocode[11] or "",
-                "utc_offset": existing_unlocode[12] or "",
-                "operating_hours": existing_unlocode[13] or "",
-                "latitude": existing_unlocode[14],
-                "longitude": existing_unlocode[15],
-                "description": existing_unlocode[16] or "",
-                "has_post": existing_unlocode[17],
-                "has_customs": existing_unlocode[18],
-                "has_unload": existing_unlocode[19],
-                "has_airport": existing_unlocode[20],
-                "has_rail": existing_unlocode[21],
-                "has_road": existing_unlocode[22],
-                "has_store": existing_unlocode[23],
-                "has_terminal": existing_unlocode[24],
-                "has_discharge": existing_unlocode[25],
-                "has_seaport": existing_unlocode[26],
-                "has_outport": existing_unlocode[27],
-            }
-        
-        # If not found in existing locations, try to get from UNLOCO database
-        return get_unlocode_from_database(unlocode)
-        
-    except Exception as e:
-        print(f"❌ Error getting UNLOCO data: {str(e)}")
-        frappe.log_error(f"UNLOCO data retrieval error: {str(e)}")
-        return None
+		if existing:
+			base = _unloco_db_row_to_dict(existing)
+			if _is_blank_str(base.get("country")) or _is_blank_str(base.get("country_code")):
+				fresh = get_unlocode_from_database(code)
+				_merge_unlocode_overlay(base, fresh)
+				_backfill_country_from_unlocode_prefix(code, base)
+			return base
+
+		return get_unlocode_from_database(unlocode)
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), f"UNLOCO get_unlocode_data: {e!s}")
+		return None
+
 
 def get_unlocode_from_database(unlocode: str) -> Optional[Dict[str, Any]]:
-    """
-    Get UNLOCO data from external database or API
-    
-    Args:
-        unlocode: UNLOCO code
-    
-    Returns:
-        Dictionary of UNLOCO data or None
-    """
-    try:
-        # Sample data for common UNLOCO codes
-        sample_data = {
-            "USLAX": {
-                "location_name": "Los Angeles International Airport",
-                "country": "United States",
-                "country_code": "US",
-                "subdivision": "California",
-                "city": "Los Angeles",
-                "location_type": "Airport",
-                "iata_code": "LAX",
-                "icao_code": "KLAX",
-                "timezone": "America/Los_Angeles",
-                "currency": "USD",
-                "language": "en",
-                "utc_offset": "-08:00",
-                "operating_hours": "24/7",
-                "latitude": 33.9425,
-                "longitude": -118.4081,
-                "description": "Los Angeles International Airport - Major international gateway to the US West Coast"
-            },
-            "USJFK": {
-                "location_name": "John F. Kennedy International Airport",
-                "country": "United States",
-                "country_code": "US",
-                "subdivision": "New York",
-                "city": "New York",
-                "location_type": "Airport",
-                "iata_code": "JFK",
-                "icao_code": "KJFK",
-                "timezone": "America/New_York",
-                "currency": "USD",
-                "language": "en",
-                "utc_offset": "-05:00",
-                "operating_hours": "24/7",
-                "latitude": 40.6413,
-                "longitude": -73.7781,
-                "description": "John F. Kennedy International Airport - Major international gateway to New York"
-            },
-            "GBLHR": {
-                "location_name": "London Heathrow Airport",
-                "country": "United Kingdom",
-                "country_code": "GB",
-                "subdivision": "England",
-                "city": "London",
-                "location_type": "Airport",
-                "iata_code": "LHR",
-                "icao_code": "EGLL",
-                "timezone": "Europe/London",
-                "currency": "GBP",
-                "language": "en",
-                "utc_offset": "+00:00",
-                "operating_hours": "24/7",
-                "latitude": 51.4700,
-                "longitude": -0.4543,
-                "description": "London Heathrow Airport - Major international hub for Europe"
-            },
-            "DEHAM": {
-                "location_name": "Port of Hamburg",
-                "country": "Germany",
-                "country_code": "DE",
-                "subdivision": "Hamburg",
-                "city": "Hamburg",
-                "location_type": "Port",
-                "iata_code": "HAM",
-                "icao_code": "EDDH",
-                "timezone": "Europe/Berlin",
-                "currency": "EUR",
-                "language": "de",
-                "utc_offset": "+01:00",
-                "operating_hours": "24/7",
-                "latitude": 53.5511,
-                "longitude": 9.9937,
-                "description": "Port of Hamburg - Major European port and gateway to Central Europe"
-            },
-            "NLRTM": {
-                "location_name": "Port of Rotterdam",
-                "country": "Netherlands",
-                "country_code": "NL",
-                "subdivision": "South Holland",
-                "city": "Rotterdam",
-                "location_type": "Port",
-                "iata_code": "RTM",
-                "icao_code": "EHRD",
-                "timezone": "Europe/Amsterdam",
-                "currency": "EUR",
-                "language": "nl",
-                "utc_offset": "+01:00",
-                "operating_hours": "24/7",
-                "latitude": 51.9244,
-                "longitude": 4.4777,
-                "description": "Port of Rotterdam - Europe's largest port"
-            },
-            "SGSIN": {
-                "location_name": "Port of Singapore",
-                "country": "Singapore",
-                "country_code": "SG",
-                "subdivision": "Singapore",
-                "city": "Singapore",
-                "location_type": "Port",
-                "iata_code": "SIN",
-                "icao_code": "WSSS",
-                "timezone": "Asia/Singapore",
-                "currency": "SGD",
-                "language": "en",
-                "utc_offset": "+08:00",
-                "operating_hours": "24/7",
-                "latitude": 1.2966,
-                "longitude": 103.7764,
-                "description": "Port of Singapore - World's busiest transshipment port"
-            }
-        }
-        
-        if unlocode in sample_data:
-            return sample_data[unlocode]
-        
-        # If not in sample data, try to infer from UNLOCO code pattern
-        return infer_unlocode_data(unlocode)
-        
-    except Exception as e:
-        print(f"❌ Error getting UNLOCO from database: {str(e)}")
-        frappe.log_error(f"UNLOCO database retrieval error: {str(e)}")
-        return None
+	try:
+		try:
+			from logistics.air_freight.utils.datahub_unlocode import get_unlocode_from_datahub
+
+			dh = get_unlocode_from_datahub(unlocode)
+			if dh:
+				dh.setdefault("unlocode", unlocode.upper())
+				return dh
+		except ImportError:
+			pass
+
+		sample_data = _sample_unlocode_rows()
+		u = unlocode.upper()
+		if u in sample_data:
+			return dict(sample_data[u])
+
+		return infer_unlocode_data(u)
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), f"UNLOCO get_unlocode_from_database: {e!s}")
+		return None
+
+
+def _sample_unlocode_rows() -> Dict[str, Dict[str, Any]]:
+	return {
+		"USLAX": {
+			"location_name": "Los Angeles International Airport",
+			"country": "United States",
+			"country_code": "US",
+			"subdivision": "California",
+			"city": "Los Angeles",
+			"location_type": "Airport",
+			"iata_code": "LAX",
+			"icao_code": "KLAX",
+			"timezone": "America/Los_Angeles",
+			"currency": "USD",
+			"language": "en",
+			"utc_offset": "-08:00",
+			"operating_hours": "24/7",
+			"latitude": 33.9425,
+			"longitude": -118.4081,
+			"description": "Los Angeles International Airport",
+		},
+		"USJFK": {
+			"location_name": "John F. Kennedy International Airport",
+			"country": "United States",
+			"country_code": "US",
+			"subdivision": "New York",
+			"city": "New York",
+			"location_type": "Airport",
+			"iata_code": "JFK",
+			"icao_code": "KJFK",
+			"timezone": "America/New_York",
+			"currency": "USD",
+			"language": "en",
+			"latitude": 40.6413,
+			"longitude": -73.7781,
+			"description": "John F. Kennedy International Airport",
+		},
+		"GBLHR": {
+			"location_name": "London Heathrow Airport",
+			"country": "United Kingdom",
+			"country_code": "GB",
+			"subdivision": "England",
+			"city": "London",
+			"location_type": "Airport",
+			"iata_code": "LHR",
+			"icao_code": "EGLL",
+			"timezone": "Europe/London",
+			"currency": "GBP",
+			"language": "en",
+			"latitude": 51.47,
+			"longitude": -0.4543,
+			"description": "London Heathrow Airport",
+		},
+	}
+
 
 def infer_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
-    """
-    Infer UNLOCO data from code pattern
-    
-    Args:
-        unlocode: UNLOCO code
-    
-    Returns:
-        Dictionary of inferred data or None
-    """
-    try:
-        if len(unlocode) != 5:
-            return None
-        
-        country_code = unlocode[:2]
-        location_code = unlocode[2:]
-        
-        # Get country information
-        country_info = get_country_info(country_code)
-        
-        # Infer location type and details
-        location_info = infer_location_details(unlocode, country_code, location_code)
-        
-        if country_info and location_info:
-            return {
-                **country_info,
-                **location_info
-            }
-        
-        return None
-        
-    except Exception as e:
-        print(f"❌ Error inferring UNLOCO data: {str(e)}")
-        frappe.log_error(f"UNLOCO data inference error: {str(e)}")
-        return None
+	if len(unlocode) != 5:
+		return None
+	country_code = unlocode[:2].upper()
+	ci = enrich_country_info(country_code)
+	li = infer_location_details(unlocode, country_code, unlocode[2:])
+	if not li:
+		return None
+	out = {**ci, **li}
+	out.setdefault("unlocode", unlocode.upper())
+	if not out.get("location_name"):
+		out["location_name"] = unlocode.upper()
+	return out
+
 
 def get_country_info(country_code: str) -> Dict[str, str]:
-    """
-    Get country information from country code
-    
-    Args:
-        country_code: ISO country code (e.g., "US")
-    
-    Returns:
-        Dictionary of country information
-    """
-    country_mapping = {
-        "US": {"country": "United States", "country_code": "US", "currency": "USD", "language": "en"},
-        "GB": {"country": "United Kingdom", "country_code": "GB", "currency": "GBP", "language": "en"},
-        "DE": {"country": "Germany", "country_code": "DE", "currency": "EUR", "language": "de"},
-        "FR": {"country": "France", "country_code": "FR", "currency": "EUR", "language": "fr"},
-        "IT": {"country": "Italy", "country_code": "IT", "currency": "EUR", "language": "it"},
-        "ES": {"country": "Spain", "country_code": "ES", "currency": "EUR", "language": "es"},
-        "NL": {"country": "Netherlands", "country_code": "NL", "currency": "EUR", "language": "nl"},
-        "BE": {"country": "Belgium", "country_code": "BE", "currency": "EUR", "language": "nl"},
-        "CH": {"country": "Switzerland", "country_code": "CH", "currency": "CHF", "language": "de"},
-        "AT": {"country": "Austria", "country_code": "AT", "currency": "EUR", "language": "de"},
-        "CN": {"country": "China", "country_code": "CN", "currency": "CNY", "language": "zh"},
-        "JP": {"country": "Japan", "country_code": "JP", "currency": "JPY", "language": "ja"},
-        "KR": {"country": "South Korea", "country_code": "KR", "currency": "KRW", "language": "ko"},
-        "SG": {"country": "Singapore", "country_code": "SG", "currency": "SGD", "language": "en"},
-        "AU": {"country": "Australia", "country_code": "AU", "currency": "AUD", "language": "en"},
-        "CA": {"country": "Canada", "country_code": "CA", "currency": "CAD", "language": "en"},
-        "MX": {"country": "Mexico", "country_code": "MX", "currency": "MXN", "language": "es"},
-        "BR": {"country": "Brazil", "country_code": "BR", "currency": "BRL", "language": "pt"},
-        "AR": {"country": "Argentina", "country_code": "AR", "currency": "ARS", "language": "es"},
-        "CL": {"country": "Chile", "country_code": "CL", "currency": "CLP", "language": "es"},
-        "IN": {"country": "India", "country_code": "IN", "currency": "INR", "language": "hi"},
-        "TH": {"country": "Thailand", "country_code": "TH", "currency": "THB", "language": "th"},
-        "MY": {"country": "Malaysia", "country_code": "MY", "currency": "MYR", "language": "ms"},
-        "ID": {"country": "Indonesia", "country_code": "ID", "currency": "IDR", "language": "id"},
-        "PH": {"country": "Philippines", "country_code": "PH", "currency": "PHP", "language": "en"},
-        "VN": {"country": "Vietnam", "country_code": "VN", "currency": "VND", "language": "vi"},
-        "RU": {"country": "Russia", "country_code": "RU", "currency": "RUB", "language": "ru"},
-        "UA": {"country": "Ukraine", "country_code": "UA", "currency": "UAH", "language": "uk"},
-        "PL": {"country": "Poland", "country_code": "PL", "currency": "PLN", "language": "pl"},
-        "CZ": {"country": "Czech Republic", "country_code": "CZ", "currency": "CZK", "language": "cs"}
-    }
-    
-    return country_mapping.get(country_code, {})
+	mapping = {
+		"US": {"country": "United States", "country_code": "US", "currency": "USD", "language": "en"},
+		"GB": {"country": "United Kingdom", "country_code": "GB", "currency": "GBP", "language": "en"},
+		"DE": {"country": "Germany", "country_code": "DE", "currency": "EUR", "language": "de"},
+		"NL": {"country": "Netherlands", "country_code": "NL", "currency": "EUR", "language": "nl"},
+		"SG": {"country": "Singapore", "country_code": "SG", "currency": "SGD", "language": "en"},
+	}
+	cc = (country_code or "").strip().upper()
+	return dict(mapping.get(cc, {}))
+
+
+def enrich_country_info(country_code: str) -> Dict[str, str]:
+	"""
+	Resolve ISO-3166 alpha-2 to display fields. Uses built-in map first, then Frappe Country.
+	Always returns country_code when input is a valid 2-letter code (even if name is unknown).
+	"""
+	cc = (country_code or "").strip().upper()
+	if len(cc) != 2:
+		return {}
+	out = dict(get_country_info(cc))
+	out.setdefault("country_code", cc)
+	if not out.get("country"):
+		try:
+			name = frappe.db.get_value("Country", {"code": cc}, "country_name")
+			if name:
+				out["country"] = name
+		except Exception:
+			pass
+	if not out.get("country"):
+		out["country"] = ""
+	out.setdefault("currency", "")
+	out.setdefault("language", "")
+	return out
+
 
 def infer_location_details(unlocode: str, country_code: str, location_code: str) -> Dict[str, Any]:
-    """
-    Infer location details from UNLOCO code
-    
-    Args:
-        unlocode: Full UNLOCO code
-        country_code: Country code
-        location_code: Location code
-    
-    Returns:
-        Dictionary of location details
-    """
-    try:
-        # Common patterns for location types
-        if location_code in ["LAX", "JFK", "MIA", "ORD", "DFW", "ATL", "SEA", "LHR", "LGW", "CDG", "FRA", "MAD", "FCO", "AMS", "BRU", "ZUR", "VIE", "PEK", "NRT", "ICN", "SIN", "SYD", "YYZ", "MEX", "GRU", "EZE", "SCL", "BOM", "BKK", "KUL", "CGK", "MNL", "SGN", "SVO", "KBP", "WAW", "PRG"]:
-            return {
-                "location_type": "Airport",
-                "iata_code": location_code,
-                "icao_code": f"K{location_code}" if country_code == "US" else f"E{location_code}" if country_code in ["GB", "DE", "FR", "IT", "ES", "NL", "BE", "CH", "AT"] else location_code,
-                "timezone": get_timezone_for_country(country_code),
-                "utc_offset": get_utc_offset_for_country(country_code),
-                "operating_hours": "24/7",
-                "description": f"Airport location with UNLOCO code {unlocode}"
-            }
-        elif location_code in ["LGB", "NYC", "HAM", "RTM", "SIN", "PVG", "YOK", "LON", "PAR", "HAM", "ROT", "SGP", "SHA", "YOK"]:
-            return {
-                "location_type": "Port",
-                "timezone": get_timezone_for_country(country_code),
-                "utc_offset": get_utc_offset_for_country(country_code),
-                "operating_hours": "24/7",
-                "description": f"Port location with UNLOCO code {unlocode}"
-            }
-        else:
-            return {
-                "location_type": "Other",
-                "timezone": get_timezone_for_country(country_code),
-                "utc_offset": get_utc_offset_for_country(country_code),
-                "operating_hours": "24/7",
-                "description": f"Transport location with UNLOCO code {unlocode}"
-            }
-        
-    except Exception as e:
-        print(f"❌ Error inferring location details: {str(e)}")
-        frappe.log_error(f"Location details inference error: {str(e)}")
-        return {}
+	air = {
+		"LAX",
+		"JFK",
+		"MIA",
+		"ORD",
+		"LHR",
+		"LGW",
+		"CDG",
+		"FRA",
+		"AMS",
+		"SIN",
+	}
+	if location_code in air:
+		return {
+			"location_type": "Airport",
+			"iata_code": location_code,
+			"timezone": _tz_for_country(country_code),
+			"description": f"Inferred airport for {unlocode}",
+		}
+	return {
+		"location_type": "Other",
+		"timezone": _tz_for_country(country_code),
+		"description": f"Inferred location for {unlocode}",
+	}
 
-def get_timezone_for_country(country_code: str) -> str:
-    """
-    Get timezone for country code
-    
-    Args:
-        country_code: ISO country code
-    
-    Returns:
-        Timezone identifier
-    """
-    timezone_mapping = {
-        "US": "America/New_York",
-        "GB": "Europe/London",
-        "DE": "Europe/Berlin",
-        "FR": "Europe/Paris",
-        "IT": "Europe/Rome",
-        "ES": "Europe/Madrid",
-        "NL": "Europe/Amsterdam",
-        "BE": "Europe/Brussels",
-        "CH": "Europe/Zurich",
-        "AT": "Europe/Vienna",
-        "CN": "Asia/Shanghai",
-        "JP": "Asia/Tokyo",
-        "KR": "Asia/Seoul",
-        "SG": "Asia/Singapore",
-        "AU": "Australia/Sydney",
-        "CA": "America/Toronto",
-        "MX": "America/Mexico_City",
-        "BR": "America/Sao_Paulo",
-        "AR": "America/Argentina/Buenos_Aires",
-        "CL": "America/Santiago",
-        "IN": "Asia/Kolkata",
-        "TH": "Asia/Bangkok",
-        "MY": "Asia/Kuala_Lumpur",
-        "ID": "Asia/Jakarta",
-        "PH": "Asia/Manila",
-        "VN": "Asia/Ho_Chi_Minh",
-        "RU": "Europe/Moscow",
-        "UA": "Europe/Kiev",
-        "PL": "Europe/Warsaw",
-        "CZ": "Europe/Prague"
-    }
-    
-    return timezone_mapping.get(country_code, "UTC")
 
-def get_utc_offset_for_country(country_code: str) -> str:
-    """
-    Get UTC offset for country code
-    
-    Args:
-        country_code: ISO country code
-    
-    Returns:
-        UTC offset string
-    """
-    offset_mapping = {
-        "US": "-05:00",
-        "GB": "+00:00",
-        "DE": "+01:00",
-        "FR": "+01:00",
-        "IT": "+01:00",
-        "ES": "+01:00",
-        "NL": "+01:00",
-        "BE": "+01:00",
-        "CH": "+01:00",
-        "AT": "+01:00",
-        "CN": "+08:00",
-        "JP": "+09:00",
-        "KR": "+09:00",
-        "SG": "+08:00",
-        "AU": "+10:00",
-        "CA": "-05:00",
-        "MX": "-06:00",
-        "BR": "-03:00",
-        "AR": "-03:00",
-        "CL": "-03:00",
-        "IN": "+05:30",
-        "TH": "+07:00",
-        "MY": "+08:00",
-        "ID": "+07:00",
-        "PH": "+08:00",
-        "VN": "+07:00",
-        "RU": "+03:00",
-        "UA": "+02:00",
-        "PL": "+01:00",
-        "CZ": "+01:00"
-    }
-    
-    return offset_mapping.get(country_code, "+00:00")
+def _tz_for_country(country_code: str) -> str:
+	return {
+		"US": "America/New_York",
+		"GB": "Europe/London",
+		"DE": "Europe/Berlin",
+		"NL": "Europe/Amsterdam",
+		"SG": "Asia/Singapore",
+	}.get(country_code, "UTC")
+
 
 def populate_fields_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Populate fields from UNLOCO data
-    
-    Args:
-        unlocode_data: Dictionary of UNLOCO data
-    
-    Returns:
-        Dictionary of populated fields
-    """
-    try:
-        populated_fields = {}
-        
-        # Basic information
-        if unlocode_data.get('location_name'):
-            populated_fields['location_name'] = unlocode_data['location_name']
-        
-        if unlocode_data.get('country'):
-            populated_fields['country'] = unlocode_data['country']
-        
-        if unlocode_data.get('country_code'):
-            populated_fields['country_code'] = unlocode_data['country_code']
-        
-        if unlocode_data.get('subdivision'):
-            populated_fields['subdivision'] = unlocode_data['subdivision']
-        
-        if unlocode_data.get('city'):
-            populated_fields['city'] = unlocode_data['city']
-        
-        if unlocode_data.get('location_type'):
-            populated_fields['location_type'] = unlocode_data['location_type']
-        
-        # Identifiers
-        if unlocode_data.get('iata_code'):
-            populated_fields['iata_code'] = unlocode_data['iata_code']
-        
-        if unlocode_data.get('icao_code'):
-            populated_fields['icao_code'] = unlocode_data['icao_code']
-        
-        # Logistics details
-        if unlocode_data.get('timezone'):
-            populated_fields['timezone'] = unlocode_data['timezone']
-        
-        if unlocode_data.get('currency'):
-            populated_fields['currency'] = unlocode_data['currency']
-        
-        if unlocode_data.get('language'):
-            populated_fields['language'] = unlocode_data['language']
-        
-        if unlocode_data.get('utc_offset'):
-            populated_fields['utc_offset'] = unlocode_data['utc_offset']
-        
-        if unlocode_data.get('operating_hours'):
-            populated_fields['operating_hours'] = unlocode_data['operating_hours']
-        
-        # Coordinates
-        if unlocode_data.get('latitude'):
-            populated_fields['latitude'] = unlocode_data['latitude']
-        
-        if unlocode_data.get('longitude'):
-            populated_fields['longitude'] = unlocode_data['longitude']
-        
-        # Description
-        if unlocode_data.get('description'):
-            populated_fields['description'] = unlocode_data['description']
-        
-        # Set function checkboxes (from Function Capabilities tab; supports multiple functions)
-        function_checkboxes = set_function_checkboxes_from_data(unlocode_data)
-        populated_fields.update(function_checkboxes)
-        
-        # Set regulatory facilities
-        regulatory_facilities = set_regulatory_facilities_from_data(unlocode_data)
-        populated_fields.update(regulatory_facilities)
-        
-        return populated_fields
-        
-    except Exception as e:
-        print(f"❌ Error populating fields from data: {str(e)}")
-        frappe.log_error(f"Fields population error: {str(e)}")
-        return {}
+	out: Dict[str, Any] = {}
+	if unlocode_data.get("location_name") is not None:
+		out["location_name"] = unlocode_data["location_name"]
+	if unlocode_data.get("country") is not None:
+		out["country"] = unlocode_data["country"]
+	if unlocode_data.get("country_code") is not None:
+		out["country_code"] = unlocode_data["country_code"]
+	if unlocode_data.get("subdivision") is not None:
+		out["subdivision"] = unlocode_data["subdivision"]
+	if unlocode_data.get("city") is not None:
+		out["city"] = unlocode_data["city"]
+	if unlocode_data.get("location_type") is not None:
+		out["location_type"] = unlocode_data["location_type"]
+	if unlocode_data.get("iata_code") is not None:
+		out["iata_code"] = unlocode_data["iata_code"]
+	if unlocode_data.get("icao_code") is not None:
+		out["icao_code"] = unlocode_data["icao_code"]
+	if unlocode_data.get("timezone") is not None:
+		out["timezone"] = unlocode_data["timezone"]
+	if unlocode_data.get("currency") is not None:
+		out["currency"] = unlocode_data["currency"]
+	if unlocode_data.get("language") is not None:
+		out["language"] = unlocode_data["language"]
+	if unlocode_data.get("utc_offset") is not None:
+		out["utc_offset"] = unlocode_data["utc_offset"]
+	if unlocode_data.get("operating_hours") is not None:
+		out["operating_hours"] = unlocode_data["operating_hours"]
+	# Coordinates: use explicit None checks (0.0 is valid latitude)
+	if "latitude" in unlocode_data and unlocode_data["latitude"] is not None:
+		out["latitude"] = unlocode_data["latitude"]
+	if "longitude" in unlocode_data and unlocode_data["longitude"] is not None:
+		out["longitude"] = unlocode_data["longitude"]
+	if unlocode_data.get("description") is not None:
+		out["description"] = unlocode_data["description"]
+	if unlocode_data.get("status") is not None:
+		out["status"] = unlocode_data["status"]
+	if unlocode_data.get("data_source") is not None:
+		out["data_source"] = unlocode_data["data_source"]
 
-# UN/LOCODE function code to Function Capabilities mapping (1=Port, 2=Rail, 3=Road, 4=Airport, 5=Post, etc.)
-_FUNCTION_TO_CAPABILITIES = {
-    "0": {},
-    "1": {"has_seaport": 1, "has_discharge": 1, "has_unload": 1, "has_terminal": 1},
-    "2": {"has_rail": 1, "has_terminal": 1},
-    "3": {"has_road": 1, "has_terminal": 1},
-    "4": {"has_airport": 1, "has_customs": 1, "has_terminal": 1},
-    "5": {"has_post": 1},
-    "6": {},
-    "7": {},
-    "b": {},
-    "port": {"has_seaport": 1, "has_discharge": 1, "has_unload": 1, "has_terminal": 1},
-    "rail": {"has_rail": 1, "has_terminal": 1},
-    "road": {"has_road": 1, "has_terminal": 1},
-    "airport": {"has_airport": 1, "has_customs": 1, "has_terminal": 1},
-    "post": {"has_post": 1},
-}
+	for key in (
+		"has_post",
+		"has_customs",
+		"has_unload",
+		"has_airport",
+		"has_rail",
+		"has_road",
+		"has_store",
+		"has_terminal",
+		"has_discharge",
+		"has_seaport",
+		"has_outport",
+	):
+		if key in unlocode_data and unlocode_data[key] is not None:
+			out[key] = 1 if unlocode_data[key] else 0
 
+	return out
 
-def set_function_checkboxes_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, int]:
-    """
-    Set Function Capabilities checkboxes from location data.
-    A location can have multiple functions (e.g. Port and Road); use the
-    'functions' list in data or location_type/code patterns.
-    """
-    try:
-        checkboxes = {
-            "has_post": 0,
-            "has_customs": 0,
-            "has_unload": 0,
-            "has_airport": 0,
-            "has_rail": 0,
-            "has_road": 0,
-            "has_store": 1,
-            "has_terminal": 0,
-            "has_discharge": 0,
-            "has_seaport": 0,
-            "has_outport": 0,
-        }
-
-        # If data already has capability fields (e.g. from existing UNLOCO), preserve them
-        cap_keys = [k for k in checkboxes if k in unlocode_data and unlocode_data[k] is not None]
-        if cap_keys:
-            for k in cap_keys:
-                checkboxes[k] = 1 if unlocode_data.get(k) else 0
-            return checkboxes
-
-        # Support multiple functions via "functions" list (e.g. ["1", "3"] or ["Port", "Road"])
-        functions = unlocode_data.get("functions") or []
-        if isinstance(functions, str):
-            functions = [f.strip() for f in functions.split(",") if f.strip()]
-        for fn in functions:
-            key = str(fn).strip().lower()
-            if key in _FUNCTION_TO_CAPABILITIES:
-                for cap, val in _FUNCTION_TO_CAPABILITIES[key].items():
-                    checkboxes[cap] = max(checkboxes.get(cap, 0), val)
-            # Allow "1 - Port" style and take first token
-            if " " in key:
-                code = key.split()[0]
-                if code in _FUNCTION_TO_CAPABILITIES:
-                    for cap, val in _FUNCTION_TO_CAPABILITIES[code].items():
-                        checkboxes[cap] = max(checkboxes.get(cap, 0), val)
-
-        if any(checkboxes.values()):
-            return checkboxes
-
-        location_type = unlocode_data.get("location_type", "")
-        unlocode = (unlocode_data.get("unlocode") or "").upper()
-
-        # Set checkboxes based on location type (single primary type)
-        if location_type == "Airport":
-            checkboxes["has_airport"] = 1
-            checkboxes["has_customs"] = 1
-            checkboxes["has_terminal"] = 1
-        elif location_type == "Port":
-            checkboxes["has_seaport"] = 1
-            checkboxes["has_customs"] = 1
-            checkboxes["has_unload"] = 1
-            checkboxes["has_discharge"] = 1
-            checkboxes["has_terminal"] = 1
-        elif location_type == "Railway Station":
-            checkboxes["has_rail"] = 1
-            checkboxes["has_terminal"] = 1
-        elif location_type == "Road Terminal":
-            checkboxes["has_road"] = 1
-            checkboxes["has_terminal"] = 1
-
-        # Set additional checkboxes based on UNLOCO code patterns
-        if any(
-            x in unlocode
-            for x in ["LAX", "JFK", "MIA", "ORD", "DFW", "ATL", "SEA", "LHR", "LGW"]
-        ):
-            checkboxes["has_airport"] = 1
-            checkboxes["has_customs"] = 1
-            checkboxes["has_terminal"] = 1
-        elif any(
-            x in unlocode
-            for x in ["LGB", "NYC", "HAM", "RTM", "SIN", "PVG", "YOK"]
-        ):
-            checkboxes["has_seaport"] = 1
-            checkboxes["has_customs"] = 1
-            checkboxes["has_unload"] = 1
-            checkboxes["has_discharge"] = 1
-            checkboxes["has_terminal"] = 1
-
-        return checkboxes
-
-    except Exception as e:
-        print(f"❌ Error setting function checkboxes: {str(e)}")
-        frappe.log_error(f"Function checkbox setting error: {str(e)}")
-        return {}
-
-def set_regulatory_facilities_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, int]:
-    """
-    Set regulatory facilities based on location data
-    
-    Args:
-        unlocode_data: Dictionary of UNLOCO data
-    
-    Returns:
-        Dictionary of regulatory facility values
-    """
-    try:
-        facilities = {
-            'customs_office': 0,
-            'immigration_office': 0,
-            'quarantine_facility': 0,
-            'health_authority': 0
-        }
-        
-        location_type = unlocode_data.get('location_type', '')
-        unlocode = unlocode_data.get('unlocode', '').upper()
-        
-        # Set regulatory facilities based on location type
-        if location_type == "Airport":
-            facilities['customs_office'] = 1
-            facilities['immigration_office'] = 1
-            facilities['quarantine_facility'] = 1
-            facilities['health_authority'] = 1
-        elif location_type == "Port":
-            facilities['customs_office'] = 1
-            facilities['quarantine_facility'] = 1
-            facilities['health_authority'] = 1
-        elif location_type == "Border Crossing":
-            facilities['customs_office'] = 1
-            facilities['immigration_office'] = 1
-        
-        # Set additional regulatory facilities based on UNLOCO code patterns
-        if "LAX" in unlocode or "JFK" in unlocode or "MIA" in unlocode or "ORD" in unlocode or "DFW" in unlocode or "ATL" in unlocode or "SEA" in unlocode or "LHR" in unlocode or "LGW" in unlocode:
-            facilities['customs_office'] = 1
-            facilities['immigration_office'] = 1
-            facilities['quarantine_facility'] = 1
-            facilities['health_authority'] = 1
-        elif "LGB" in unlocode or "NYC" in unlocode or "HAM" in unlocode or "RTM" in unlocode or "SIN" in unlocode or "PVG" in unlocode or "YOK" in unlocode:
-            facilities['customs_office'] = 1
-            facilities['quarantine_facility'] = 1
-            facilities['health_authority'] = 1
-        
-        return facilities
-        
-    except Exception as e:
-        print(f"❌ Error setting regulatory facilities: {str(e)}")
-        frappe.log_error(f"Regulatory facilities setting error: {str(e)}")
-        return {}
-
-def update_document_fields(doc: Any, populated_fields: Dict[str, Any]) -> None:
-    """
-    Update document fields with populated data
-    
-    Args:
-        doc: Location document
-        populated_fields: Dictionary of populated fields
-    """
-    try:
-        for field_name, field_value in populated_fields.items():
-            if hasattr(doc, field_name):
-                setattr(doc, field_name, field_value)
-        
-        # Update last updated timestamp
-        doc.last_updated = frappe.utils.now()
-        
-    except Exception as e:
-        print(f"❌ Error updating document fields: {str(e)}")
-        frappe.log_error(f"Document fields update error: {str(e)}")
 
 def populate_basic_details_from_code(unlocode: str) -> Dict[str, Any]:
-    """
-    Populate basic details from UNLOCO code when no data is found.
-    Always includes Function Capabilities tab checkboxes (inferred from code or defaults).
-    """
-    try:
-        if len(unlocode) != 5:
-            return {}
-        country_code = unlocode[:2]
-        country_info = get_country_info(country_code)
-        basic_fields = {
-            "country": country_info.get("country", ""),
-            "country_code": country_info.get("country_code", ""),
-            "currency": country_info.get("currency", ""),
-            "language": country_info.get("language", ""),
-            "timezone": get_timezone_for_country(country_code),
-            "utc_offset": get_utc_offset_for_country(country_code),
-            "description": f"Transport location with UNLOCO code {unlocode}",
-        }
-        # Always update Function Capabilities checkboxes (from code pattern or defaults)
-        basic_fields.update(set_function_checkboxes_from_data({"unlocode": unlocode.upper()}))
-        return basic_fields
-    except Exception as e:
-        print(f"❌ Error populating basic details from code: {str(e)}")
-        frappe.log_error(f"Basic details population error: {str(e)}")
-        return {}
+	if len(unlocode) != 5:
+		return {}
+	cc = unlocode[:2].upper()
+	info = enrich_country_info(cc)
+	basic = {
+		"location_name": unlocode.upper(),
+		"country": info.get("country", ""),
+		"country_code": info.get("country_code") or cc,
+		"currency": info.get("currency", ""),
+		"language": info.get("language", ""),
+		"timezone": _tz_for_country(cc),
+		"description": f"Transport location with UNLOCO code {unlocode}",
+	}
+	return basic
+
+
+def update_document_fields(doc: Any, populated_fields: Dict[str, Any]) -> None:
+	for field_name, field_value in populated_fields.items():
+		if hasattr(doc, field_name):
+			setattr(doc, field_name, field_value)
+	doc.last_updated = frappe.utils.now()

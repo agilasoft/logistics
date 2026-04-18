@@ -1,0 +1,22 @@
+[
+ "job_number_branch_performance_view",
+ "job_number_document_type_pipeline",
+ "job_number_executive_snapshot",
+ "job_number_monthly_registration_index",
+ "job_number_open_draft_aging_backlog",
+ "job_number_owner_workload_review",
+ "job_number_submission_health_ratio",
+ "job_number_weekly_registration_index",
+ "recognition_policy_accrual_toggle_mix",
+ "recognition_policy_branch_match_concentration",
+ "recognition_policy_company_concentration",
+ "recognition_policy_enabled_mix",
+ "recognition_policy_executive_snapshot",
+ "recognition_policy_monthly_change_index",
+ "recognition_policy_open_draft_aging_backlog",
+ "recognition_policy_owner_workload_review",
+ "recognition_policy_recognition_basis_mix",
+ "recognition_policy_submission_health_ratio",
+ "recognition_policy_weekly_change_index",
+ "recognition_policy_wip_toggle_mix"
+]

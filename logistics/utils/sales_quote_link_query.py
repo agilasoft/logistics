@@ -67,6 +67,138 @@ def _legacy_exists_clause(service_type: str) -> str:
 	)"""
 
 
+def _has_sales_quote_routing_legs_sql() -> str:
+	"""SQL fragment (references ``sq``): true if this Sales Quote has at least one routing leg row."""
+	return """EXISTS (
+		SELECT 1 FROM `tabSales Quote Routing Leg` rlx
+		WHERE rlx.parent = sq.name AND rlx.parenttype = 'Sales Quote'
+	)"""
+
+
+def _corridor_match_sql_charges_header_legacy(service_type: str) -> str:
+	"""SQL fragment — corridor via unified charges, legacy child rows, or header only (no routing legs table)."""
+	st = (service_type or "").strip()
+	co, cd = "%(corridor_origin)s", "%(corridor_dest)s"
+	if st in ("Sea", "Air"):
+		unified = f"""EXISTS (
+			SELECT 1 FROM `tabSales Quote Charge` sqc
+			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
+			AND sqc.service_type = %(service_type)s
+			AND IFNULL(sqc.origin_port,'') = {co}
+			AND IFNULL(sqc.destination_port,'') = {cd}
+		)"""
+		child_dt = SERVICE_LEGACY_TABLE.get(st)
+		legacy = ""
+		if child_dt and frappe.db.table_exists(child_dt):
+			legacy = f""" OR EXISTS (
+				SELECT 1 FROM `tab{child_dt}` leg
+				WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
+				AND IFNULL(leg.origin_port,'') = {co}
+				AND IFNULL(leg.destination_port,'') = {cd}
+			)"""
+		parent_ports = f""" OR (
+			IFNULL(sq.origin_port,'') = {co} AND IFNULL(sq.destination_port,'') = {cd}
+		)"""
+		return f"({unified}{legacy}{parent_ports})"
+	if st == "Transport":
+		unified = f"""EXISTS (
+			SELECT 1 FROM `tabSales Quote Charge` sqc
+			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
+			AND sqc.service_type = 'Transport'
+			AND IFNULL(sqc.location_from,'') = {co}
+			AND IFNULL(sqc.location_to,'') = {cd}
+		)"""
+		legacy = ""
+		child_dt = SERVICE_LEGACY_TABLE.get("Transport")
+		if child_dt and frappe.db.table_exists(child_dt):
+			legacy = f""" OR EXISTS (
+				SELECT 1 FROM `tab{child_dt}` leg
+				WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
+				AND IFNULL(leg.location_from,'') = {co}
+				AND IFNULL(leg.location_to,'') = {cd}
+			)"""
+		parent_loc = f""" OR (
+			IFNULL(sq.location_from,'') = {co} AND IFNULL(sq.location_to,'') = {cd}
+		)"""
+		return f"({unified}{legacy}{parent_loc})"
+	return "(1=0)"
+
+
+def _corridor_match_sql_routing_legs_only(service_type: str) -> str:
+	"""SQL fragment — job O/D must match a Sales Quote Routing Leg (origin/destination + mode flags)."""
+	st = (service_type or "").strip()
+	co, cd = "%(corridor_origin)s", "%(corridor_dest)s"
+	if st in ("Sea", "Air"):
+		tm_flag = "IFNULL(tm.air, 0) = 1" if st == "Air" else "IFNULL(tm.sea, 0) = 1"
+		return f"""EXISTS (
+			SELECT 1 FROM `tabSales Quote Routing Leg` rl
+			INNER JOIN `tabTransport Mode` tm ON tm.name = rl.mode
+			WHERE rl.parent = sq.name AND rl.parenttype = 'Sales Quote'
+			AND IFNULL(rl.origin,'') = {co}
+			AND IFNULL(rl.destination,'') = {cd}
+			AND {tm_flag}
+		)"""
+	if st == "Transport":
+		return f"""EXISTS (
+			SELECT 1 FROM `tabSales Quote Routing Leg` rl
+			INNER JOIN `tabTransport Mode` tm ON tm.name = rl.mode
+			WHERE rl.parent = sq.name AND rl.parenttype = 'Sales Quote'
+			AND IFNULL(rl.origin,'') = {co}
+			AND IFNULL(rl.destination,'') = {cd}
+			AND IFNULL(tm.transport, 0) = 1
+		)"""
+	return "(1=0)"
+
+
+def _corridor_match_sql(service_type: str) -> str:
+	"""SQL fragment (references ``sq``) — corridor match with routing precedence.
+
+	If the quote has **Routing Legs**, the job origin/destination must match a leg (and transport mode).
+	If it has **no** routing legs, matching uses unified charges, legacy rows, or header ports/locations only.
+	"""
+	st = (service_type or "").strip()
+	if st not in ("Sea", "Air", "Transport"):
+		return "(1=1)"
+	has_legs = _has_sales_quote_routing_legs_sql()
+	no_legs = f"(NOT {has_legs})"
+	non_routing = _corridor_match_sql_charges_header_legacy(service_type)
+	routing_only = _corridor_match_sql_routing_legs_only(service_type)
+	return f"(({no_legs}) AND ({non_routing})) OR (({has_legs}) AND ({routing_only}))"
+
+
+def sales_quote_matches_job_corridor(
+	sales_quote_name: str,
+	service_type: str,
+	corridor_origin: str,
+	corridor_dest: str,
+) -> bool:
+	"""True if the Sales Quote has at least one corridor match for Get Charges from Quotation (same rules as list filter)."""
+	o = (corridor_origin or "").strip()
+	d = (corridor_dest or "").strip()
+	if not o or not d:
+		return False
+	st = (service_type or "").strip()
+	if st not in SERVICE_LEGACY_TABLE:
+		return False
+	match_sql = _corridor_match_sql(st)
+	params: dict[str, Any] = {
+		"name": sales_quote_name,
+		"service_type": st,
+		"corridor_origin": o,
+		"corridor_dest": d,
+	}
+	row = frappe.db.sql(
+		f"""
+		SELECT 1 FROM `tabSales Quote` sq
+		WHERE sq.name = %(name)s
+		AND {match_sql}
+		LIMIT 1
+		""",
+		params,
+	)
+	return bool(row)
+
+
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def sales_quote_by_service_link_search(
@@ -151,3 +283,71 @@ def sales_quote_by_service_link_search(
 	"""
 
 	return frappe.db.sql(sql, params)
+
+
+def fetch_eligible_regular_sales_quote_names(
+	service_type: str,
+	customer: str | None = None,
+	reference_doctype: str | None = None,
+	reference_name: str | None = None,
+	limit: int = 100,
+	corridor_origin: str | None = None,
+	corridor_dest: str | None = None,
+) -> list[str]:
+	"""Sales Quote names that have unified or legacy charge rows for ``service_type``.
+
+	Returns **Regular** quotations only (Action → Get Charges from Quotation — excludes One-off and Project).
+	Only **submitted** quotes (``docstatus`` = 1) are returned.
+
+	When ``corridor_origin`` and ``corridor_dest`` are both non-empty, only quotes whose corridor
+	matches: if the quote has **routing legs**, only a matching **routing leg** counts; otherwise
+	unified charges, legacy child, or header fields (same as before).
+	"""
+	service_type = (service_type or "").strip()
+	if service_type not in SERVICE_LEGACY_TABLE:
+		return []
+
+	limit = cint(limit) or 100
+	co = (corridor_origin or "").strip()
+	cd = (corridor_dest or "").strip()
+	use_corridor = bool(co and cd)
+
+	params: dict[str, Any] = {"service_type": service_type, "limit": limit}
+	if use_corridor:
+		params["corridor_origin"] = co
+		params["corridor_dest"] = cd
+		eligibility = _corridor_match_sql(service_type)
+	else:
+		legacy_sql = _legacy_exists_clause(service_type)
+		eligibility = f"""( EXISTS (
+				SELECT 1 FROM `tabSales Quote Charge` sqc
+				WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
+				AND sqc.service_type = %(service_type)s
+			)
+			{legacy_sql}
+		)"""
+	# Action → Get Charges from Quotation: **Regular** quotes only (excludes One-off, Project, blank).
+	regular_only_where = "TRIM(IFNULL(sq.quotation_type,'')) = 'Regular'"
+
+	customer_cond = ""
+	if (customer or "").strip():
+		params["customer"] = customer.strip()
+		customer_cond = "AND TRIM(IFNULL(sq.customer,'')) = %(customer)s"
+
+	match_cond = get_match_cond("Sales Quote")
+	sql = f"""
+		SELECT sq.name
+		FROM `tabSales Quote` sq
+		WHERE {eligibility}
+		AND {regular_only_where}
+		{customer_cond}
+		AND IFNULL(sq.status,'') NOT IN ('Lost','Expired')
+		AND (sq.valid_until IS NULL OR sq.valid_until >= CURDATE())
+		AND sq.docstatus = 1
+		{match_cond}
+		ORDER BY sq.modified DESC
+		LIMIT %(limit)s
+	"""
+	params["limit"] = limit
+	rows = frappe.db.sql(sql, params)
+	return [r[0] for r in rows] if rows else []

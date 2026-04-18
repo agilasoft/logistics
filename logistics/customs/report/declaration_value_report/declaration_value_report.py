@@ -2,7 +2,10 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.utils import getdate, flt
+
+from logistics.analytics_reports.bootstrap import series_chart
 
 
 def execute(filters=None):
@@ -10,8 +13,8 @@ def execute(filters=None):
 	
 	columns = get_columns()
 	data = get_data(f)
-	
-	return columns, data
+	chart = series_chart(data, "period", "count")
+	return columns, data, None, chart, []
 
 
 def get_columns():

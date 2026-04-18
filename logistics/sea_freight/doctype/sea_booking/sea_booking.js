@@ -167,16 +167,6 @@ frappe.ui.form.on('Sea Booking', {
 			}
 			return {};
 		});
-		frm.set_query('sales_quote', function() {
-			return {
-				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
-				filters: {
-					service_type: 'Sea',
-					reference_doctype: 'Sea Booking',
-					reference_name: frm.doc.name || ''
-				}
-			};
-		});
 		frm.set_query('warehouse_item', 'packages', function(doc) {
 			const filters = {};
 			if (doc.local_customer) {
@@ -317,24 +307,10 @@ frappe.ui.form.on('Sea Booking', {
 	},
 	
 	sales_quote: function(frm) {
-		// Don't repopulate charges if we're in the middle of fetching quotations
-		// or if charges already exist (to prevent clearing them on form reload)
-		if (frm._fetching_quotations) {
-			return;
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
-		// Only populate if sales_quote changed and we don't have charges yet
-		// This prevents clearing charges when form reloads after fetch_quotations
-		if (!frm.doc.charges || frm.doc.charges.length === 0) {
-			_populate_charges_from_quote(frm);
-		} else {
-			// If charges exist, only populate if sales_quote actually changed
-			// (not just on form load)
-			var previous_sales_quote = frm._previous_sales_quote;
-			if (previous_sales_quote !== frm.doc.sales_quote && frm.doc.sales_quote) {
-				_populate_charges_from_quote(frm);
-			}
-		}
-		frm._previous_sales_quote = frm.doc.sales_quote;
+		// Sales Quote is read-only; charges load via Action → Get Charges from Quotation.
 	},
 	
 	quote_type: function(frm) {
@@ -368,18 +344,7 @@ frappe.ui.form.on('Sea Booking', {
 		if (!frm.doc.quote) {
 			frm.clear_table('charges');
 			frm.refresh_field('charges');
-			// Clear sales_quote when quote is cleared
-			if (frm.doc.sales_quote) {
-				frm.set_value('sales_quote', '');
-			}
 			return;
-		}
-		// Sync sales_quote field when quote_type is "Sales Quote"
-		if (frm.doc.quote_type === 'Sales Quote' && frm.doc.quote) {
-			frm.set_value('sales_quote', frm.doc.quote);
-		} else if (frm.doc.quote_type === 'One-Off Quote') {
-			// Clear sales_quote for One-Off Quote
-			frm.set_value('sales_quote', '');
 		}
 		_populate_charges_from_quote(frm);
 	},
@@ -405,6 +370,9 @@ frappe.ui.form.on('Sea Booking', {
 	},
 	
 	refresh: function(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		_logistics_set_charges_cannot_add_rows(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
@@ -506,36 +474,15 @@ frappe.ui.form.on('Sea Booking', {
 			}
 		}
 
-		// Add button to fetch quotations
-		if (frm.doc.sales_quote) {
-			frm.add_custom_button(__('Fetch Quotations'), function() {
-				// Set flag to prevent sales_quote handler from clearing charges
-				frm._fetching_quotations = true;
-				frm.call({
-					method: 'fetch_quotations',
-					doc: frm.doc,
-					callback: function(r) {
-						if (r.message && r.message.success) {
-							// Reload the document to show the updated charges and other fields
-							// Use reload_doc with callback to ensure charges are visible
-							frm.reload_doc().then(function() {
-								// Refresh charges field to ensure it's displayed
-								if (frm.fields_dict.charges) {
-									frm.refresh_field('charges');
-								}
-								// Clear flag after reload
-								setTimeout(function() {
-									frm._fetching_quotations = false;
-								}, 1000);
-							});
-						} else {
-							frm._fetching_quotations = false;
-						}
-					},
-					error: function(r) {
-						frm._fetching_quotations = false;
-					}
-				});
+		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 0) {
+			frm.add_custom_button(__('Get Charges from Quotation'), function() {
+				if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+					logistics.open_get_charges_from_quotation_dialog(frm);
+				} else {
+					frappe.msgprint(
+						__("Charges dialog is not ready. Please refresh the page and try again.")
+					);
+				}
 			}, __('Action'));
 		}
 
@@ -690,7 +637,6 @@ function _populate_charges_from_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
 	var quote_type = frm.doc.quote_type;
 	var quote = frm.doc.quote;
-	var sales_quote = frm.doc.sales_quote;
 	
 	// Determine which quote to use
 	var target_quote = null;
@@ -708,12 +654,6 @@ function _populate_charges_from_quote(frm) {
 		method_name = "logistics.sea_freight.doctype.sea_booking.sea_booking.populate_charges_from_one_off_quote";
 		freeze_message = __("Fetching charges from One-Off Quote...");
 		success_message_template = __("Successfully populated {0} charges from One-Off Quote: {1}");
-	} else if (sales_quote) {
-		// Fallback to sales_quote field for backward compatibility
-		target_quote = sales_quote;
-		method_name = "logistics.sea_freight.doctype.sea_booking.sea_booking.populate_charges_from_sales_quote";
-		freeze_message = __("Fetching charges from Sales Quote...");
-		success_message_template = __("Successfully populated {0} charges from Sales Quote: {1}");
 	}
 	
 	if (!target_quote || !method_name) {

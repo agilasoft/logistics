@@ -4,11 +4,15 @@
 import frappe
 from frappe.utils import getdate
 
+from logistics.analytics_reports.bootstrap import tally_chart
+
+
 def execute(filters=None):
     filters = frappe._dict(filters or {})
     columns = get_columns()
     data = get_data(filters)
-    return columns, data
+    chart = tally_chart(data, "item", _("Movements"))
+    return columns, data, None, chart, []
 
 def get_columns():
     return [

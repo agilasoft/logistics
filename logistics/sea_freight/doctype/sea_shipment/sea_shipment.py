@@ -9,6 +9,7 @@ from logistics.utils.document_date_validation import (
     throw_if_left_date_after_right,
     is_future_date,
 )
+from logistics.utils.dg_fields import update_parent_dg_compliance_status
 
 # Virtual MBL display fields: (fieldname on Sea Shipment, column on Master Bill)
 _MBL_VIRTUAL_FIELD_SOURCES = (
@@ -41,6 +42,7 @@ class SeaShipment(Document):
             apply_accounting_defaults_from_sea_freight_settings(self)
         # Normalize legacy house_type values
         self._normalize_house_type()
+        update_parent_dg_compliance_status(self)
         self.validate_accounts()
         self.validate_required_fields()
         self.validate_dates()
@@ -1028,109 +1030,31 @@ class SeaShipment(Document):
             frappe.log_error(f"Error checking delays for Sea Shipment {self.name}: {str(e)}", "Sea Shipment Delay Check")
     
     def calculate_penalties(self):
-        """Calculate detention and demurrage penalties"""
+        """Calculate detention and demurrage penalties (aggregated per container row when present)."""
         try:
             from frappe.utils import now_datetime, getdate
-            from datetime import timedelta
-            
-            # Get settings for free time and penalty rates
-            settings = frappe.get_single("Sea Freight Settings")
-            free_time_days = getattr(settings, "default_free_time_days", 7)  # Default 7 days free time
-            
-            # Calculate based on container return date or discharge date
-            # For now, use a simplified calculation based on discharge date
-            discharge_date = None
-            
-            # Try to get discharge date from milestone or status
-            if self.shipping_status == "Discharged from Vessel":
-                for row in (self.get("milestones") or []):
-                    if getattr(row, "milestone", None) == "SF-DISCHARGED" and getattr(row, "actual_end", None):
-                        discharge_date = getdate(row.actual_end)
-                        break
-            
-            if not discharge_date:
-                # Fallback: use ETA if available
-                if self.eta:
-                    discharge_date = getdate(self.eta)
-                else:
-                    return  # Cannot calculate without discharge date
-            
-            today = getdate(now_datetime())
-            days_since_discharge = (today - discharge_date).days
+            from logistics.sea_freight.penalty_utils import compute_penalty_totals_for_sea_shipment
 
-            # Reset penalty flags/values on each run to avoid stale results.
-            self.has_penalties = 0
-            self.detention_days = 0
-            self.demurrage_days = 0
-            
-            # Calculate free time
-            self.free_time_days = free_time_days
-            
-            # Calculate detention (container held beyond free time)
-            if days_since_discharge > free_time_days:
-                detention_days = days_since_discharge - free_time_days
-                self.detention_days = detention_days
-                self.has_penalties = 1
-            else:
-                self.detention_days = 0
-            
-            # Calculate demurrage (container at port beyond free time)
-            # For sea freight, demurrage is typically calculated from gate-in date
-            gate_in_date = None
-            for row in (self.get("milestones") or []):
-                if getattr(row, "milestone", None) == "SF-GATE-IN" and getattr(row, "actual_end", None):
-                    gate_in_date = getdate(row.actual_end)
-                    break
-            
-            if gate_in_date:
-                days_at_port = (today - gate_in_date).days
-                if days_at_port > free_time_days:
-                    demurrage_days = days_at_port - free_time_days
-                    self.demurrage_days = demurrage_days
-                    self.has_penalties = 1
-                else:
-                    self.demurrage_days = 0
-            
-            # Calculate estimated penalty amount
-            per_container_amount = self._calculate_penalty_amount()
-            self.estimated_penalty_amount = per_container_amount * self._get_penalty_container_count()
-            
-            # Update last penalty check
+            settings = frappe.get_single("Sea Freight Settings")
+            today = getdate(now_datetime())
+
+            totals = compute_penalty_totals_for_sea_shipment(self, settings, today)
+
+            self.detention_days = totals["detention_days"]
+            self.demurrage_days = totals["demurrage_days"]
+            self.estimated_penalty_amount = totals["estimated_penalty_amount"]
+            self.free_time_days = totals["free_time_days_summary"]
+            self.has_penalties = 1 if (self.detention_days > 0 or self.demurrage_days > 0) else 0
+
             self.last_penalty_check = now_datetime()
-            
-            # Send alert if penalties detected and alert not sent yet
+
             if self.has_penalties and not self.penalty_alert_sent and getattr(settings, "enable_penalty_alerts", 1):
                 self.send_penalty_alert()
                 self.penalty_alert_sent = 1
-                
+
         except Exception as e:
             frappe.log_error(f"Error calculating penalties for Sea Shipment {self.name}: {str(e)}", "Sea Shipment Penalty Calculation")
 
-    def _get_penalty_container_count(self):
-        """Count valid container rows for penalty total calculation."""
-        containers = self.get("containers") or []
-        count = sum(1 for row in containers if getattr(row, "container_no", None))
-        return count if count > 0 else 1
-    
-    def _calculate_penalty_amount(self):
-        """Calculate estimated penalty amount based on detention and demurrage days"""
-        try:
-            settings = frappe.get_single("Sea Freight Settings")
-            
-            # Get penalty rates from settings (if available)
-            detention_rate = getattr(settings, "detention_rate_per_day", 0) or 0
-            demurrage_rate = getattr(settings, "demurrage_rate_per_day", 0) or 0
-            
-            # Calculate total penalty
-            detention_amount = flt(self.detention_days or 0) * flt(detention_rate)
-            demurrage_amount = flt(self.demurrage_days or 0) * flt(demurrage_rate)
-            
-            return detention_amount + demurrage_amount
-            
-        except Exception as e:
-            frappe.log_error(f"Error calculating penalty amount: {str(e)}")
-            return 0
-    
     def send_delay_alert(self):
         """Send delay alert notification"""
         try:
@@ -1308,33 +1232,44 @@ class SeaShipment(Document):
             # Clear existing charges
             self.set("charges", [])
             
-            from logistics.utils.charge_service_type import sales_quote_charge_filters
+            from logistics.utils.charge_service_type import (
+                filter_sales_quote_charge_rows_for_operational_doc,
+                sales_quote_charge_filters,
+            )
 
             sq_doc = frappe.get_doc("Sales Quote", self.sales_quote)
             filters = sales_quote_charge_filters(self, sq_doc)
 
             # Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
-            from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+            from logistics.utils.sales_quote_charge_parameters import (
+                SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+                filter_fields_existing_in_doctype,
+            )
 
             charge_fields = [
                 "item_code", "item_name", "calculation_method", "uom", "currency",
                 "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
                 "maximum_charge", "base_amount", "estimated_revenue", "service_type",
             ] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+            sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
             sales_quote_sea_freight_records = frappe.get_all(
                 "Sales Quote Charge",
                 filters=filters,
-                fields=charge_fields,
+                fields=sqc_fields,
                 order_by="idx"
             )
             if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
-                sqsf_fields = charge_fields + ["minimum_unit_rate", "base_quantity"]
+                legacy_wanted = charge_fields + ["minimum_unit_rate", "base_quantity"]
+                legacy_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", legacy_wanted)
                 sales_quote_sea_freight_records = frappe.get_all(
                     "Sales Quote Sea Freight",
                     filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-                    fields=sqsf_fields,
+                    fields=legacy_fields,
                     order_by="idx"
                 )
+            sales_quote_sea_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+                self, sales_quote_sea_freight_records
+            )
             
             if not sales_quote_sea_freight_records:
                 frappe.msgprint(

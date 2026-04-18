@@ -3075,32 +3075,43 @@ def populate_charges_from_sales_quote(docname=None):
 		# Clear existing charges
 		self.set("charges", [])
 		
-		from logistics.utils.charge_service_type import sales_quote_charge_filters
+		from logistics.utils.charge_service_type import (
+			filter_sales_quote_charge_rows_for_operational_doc,
+			sales_quote_charge_filters,
+		)
 
 		sq_doc = frappe.get_doc("Sales Quote", self.sales_quote)
 		filters = sales_quote_charge_filters(self, sq_doc)
 
 		# Get from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)
-		from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+		from logistics.utils.sales_quote_charge_parameters import (
+			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+			filter_fields_existing_in_doctype,
+		)
 
 		charge_fields = [
 			"item_code", "item_name", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
+		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters=filters,
-			fields=charge_fields,
+			fields=sqc_fields,
 			order_by="idx"
 		)
 		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Air Freight",
 				filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-				fields=charge_fields,
+				fields=legacy_air_fields,
 				order_by="idx"
 			)
+		sales_quote_air_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+			self, sales_quote_air_freight_records
+		)
 		
 		if not sales_quote_air_freight_records:
 			frappe.msgprint(

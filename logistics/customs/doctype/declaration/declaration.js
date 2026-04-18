@@ -178,6 +178,26 @@ function _auto_set_payment_status(frm) {
 	frm.set_value("payment_status", "Pending");
 }
 
+/** Mirrors `Declaration.calculate_total_payable` (duty + tax + other − exemptions). */
+function _declaration_recalculate_total_payable(frm) {
+	var duty = flt(frm.doc.duty_amount);
+	var tax = flt(frm.doc.tax_amount);
+	var other = flt(frm.doc.other_charges);
+	var total_exempted = 0;
+	var rows = frm.doc.exemptions || [];
+	for (var i = 0; i < rows.length; i++) {
+		var row = rows[i];
+		total_exempted += flt(row.exempted_duty) + flt(row.exempted_tax) + flt(row.exempted_fee);
+	}
+	var total = duty + tax + other - total_exempted;
+	if (total < 0) {
+		total = 0;
+	}
+	if (Math.abs(flt(frm.doc.total_payable) - total) > 1e-6) {
+		frm.set_value("total_payable", total);
+	}
+}
+
 /** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
 function _logistics_set_charges_cannot_add_rows(frm) {
 	if (!frm.get_docfield || !frm.get_docfield("charges")) {
@@ -188,6 +208,21 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 }
 
 frappe.ui.form.on("Declaration", {
+	duty_amount(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
+	tax_amount(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
+	other_charges(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
+	exemptions_add(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
+	exemptions_remove(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
 	inv_total_amount(frm) {
 		_auto_set_payment_status(frm);
 	},
@@ -276,6 +311,9 @@ frappe.ui.form.on("Declaration", {
 	},
 	
 	refresh(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		_logistics_set_charges_cannot_add_rows(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
@@ -544,10 +582,22 @@ frappe.ui.form.on("Declaration", {
 						});
 					}, __('Post'));
 				}
-				// WIP & Accrual recognition (Post > Recognize WIP & Accrual, Recognition menu)
+				// WIP & Accrual recognition (Post > WIP and Accrual; Recognition: adjust/close)
 				_declaration_add_recognition_buttons(frm);
 			}, 100);
 		}
+	},
+});
+
+frappe.ui.form.on("Declaration Exemption", {
+	exempted_duty(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
+	exempted_tax(frm) {
+		_declaration_recalculate_total_payable(frm);
+	},
+	exempted_fee(frm) {
+		_declaration_recalculate_total_payable(frm);
 	},
 });
 
@@ -601,7 +651,7 @@ function create_sales_invoice_from_declaration(frm) {
 }
 
 /**
- * Add WIP & Accrual recognition buttons to Declaration (Post and Recognition menus).
+ * Add WIP & Accrual recognition buttons to Declaration (Post: WIP and Accrual; Recognition: adjust/close).
  * Inline here so buttons show even when recognition_client.js is not loaded.
  */
 function _declaration_add_recognition_buttons(frm) {
@@ -631,7 +681,7 @@ function _declaration_add_recognition_buttons(frm) {
 			return flt(d.estimated_costs) > flt(d.accrual_amount);
 		})());
 	if (needs_wip || needs_accrual) {
-		frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
+		frm.add_custom_button(__('WIP and Accrual'), function() {
 			frappe.call({
 				method: 'logistics.job_management.recognition_engine.recognize',
 				args: { doctype: d.doctype, docname: d.name },
@@ -653,36 +703,6 @@ function _declaration_add_recognition_buttons(frm) {
 				}
 			});
 		}, __('Post'));
-	}
-	if (needs_wip) {
-		frm.add_custom_button(__('Recognize WIP'), function() {
-			frappe.prompt([
-				{ fieldname: 'recognition_date', fieldtype: 'Date', label: __('Recognition Date'), default: frappe.datetime.get_today(), reqd: 1 }
-			], function(values) {
-				frappe.call({
-					method: 'logistics.job_management.recognition_engine.recognize_wip',
-					args: { doctype: d.doctype, docname: d.name, recognition_date: values.recognition_date },
-					freeze: true,
-					freeze_message: __('Creating WIP Recognition...'),
-					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('WIP Recognition created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
-				});
-			}, __('Recognize WIP'), __('Create'));
-		}, __('Recognition'));
-	}
-	if (needs_accrual) {
-		frm.add_custom_button(__('Recognize Accruals'), function() {
-			frappe.prompt([
-				{ fieldname: 'recognition_date', fieldtype: 'Date', label: __('Recognition Date'), default: frappe.datetime.get_today(), reqd: 1 }
-			], function(values) {
-				frappe.call({
-					method: 'logistics.job_management.recognition_engine.recognize_accruals',
-					args: { doctype: d.doctype, docname: d.name, recognition_date: values.recognition_date },
-					freeze: true,
-					freeze_message: __('Creating Accrual Recognition...'),
-					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('Accrual Recognition created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
-				});
-			}, __('Recognize Accruals'), __('Create'));
-		}, __('Recognition'));
 	}
 	if (d.wip_amount > 0) {
 		frm.add_custom_button(__('Adjust WIP'), function() {

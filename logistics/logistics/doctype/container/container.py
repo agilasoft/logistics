@@ -11,6 +11,10 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, getdate, now_datetime
 
+from logistics.logistics.deposit_processing.container_deposit_gl import (
+	resolve_default_job_number_for_container,
+	sync_deposit_header_from_child_rows,
+)
 from logistics.utils.container_validation import (
 	normalize_container_number,
 	validate_container_number,
@@ -47,6 +51,7 @@ class Container(Document):
 		self.update_current_location_name()
 		if self.is_active:
 			self._validate_active_mbl_assignment()
+		self._stamp_refund_readiness_waivers()
 
 	def _validate_container_number_format(self):
 		if not self.container_number:
@@ -71,6 +76,25 @@ class Container(Document):
 				self.assignment_inactive_date = getdate()
 			elif self.is_active:
 				self.assignment_inactive_date = None
+		self._sync_deposit_lines_defaults()
+		sync_deposit_header_from_child_rows(self)
+
+	def _sync_deposit_lines_defaults(self):
+		if self.is_new():
+			self.current_job_number = None
+			return
+		jn = resolve_default_job_number_for_container(self.name)
+		self.current_job_number = jn
+		for row in self.get("deposits") or []:
+			if not row.get("job_number") and jn:
+				row.job_number = jn
+			if not row.get("company") and row.get("job_number"):
+				row.company = frappe.db.get_value("Job Number", row.job_number, "company")
+
+	def _stamp_refund_readiness_waivers(self):
+		for line in self.get("refund_readiness") or []:
+			if line.status == "Waived" and not line.get("waived_by"):
+				line.waived_by = frappe.session.user
 
 	def _validate_active_mbl_assignment(self):
 		rows = frappe.get_all(
@@ -161,11 +185,12 @@ def get_linked_transport_jobs_html(container):
 
 def calculate_penalties_for_container(container_name):
 	"""
-	Calculate demurrage/detention penalties for a container.
-	Uses linked Sea Shipment milestones and Sea Freight Settings.
+	Calculate demurrage/detention penalties for a container using linked Sea Shipment milestones
+	and this container's free time (Sea Freight default when unset).
 	Returns dict with demurrage_days, detention_days, estimated_penalty_amount.
 	"""
-	from frappe.utils import now_datetime
+	from frappe.utils import now_datetime, getdate
+	from logistics.sea_freight.penalty_utils import compute_penalty_for_single_container
 
 	container = frappe.get_doc("Container", container_name)
 	if getattr(container, "penalty_manual_override", 0):
@@ -176,13 +201,7 @@ def calculate_penalties_for_container(container_name):
 			"skipped": True,
 		}
 	settings = frappe.get_single("Sea Freight Settings")
-	free_time_days = flt(container.free_time_days or 0) or flt(
-		getattr(settings, "default_free_time_days", 7)
-	)
-	detention_rate = flt(getattr(settings, "detention_rate_per_day", 0))
-	demurrage_rate = flt(getattr(settings, "demurrage_rate_per_day", 0))
 
-	# Get linked Sea Shipment
 	shipment = frappe.db.sql(
 		"""
 		SELECT sfc.parent FROM `tabSea Freight Containers` sfc
@@ -195,20 +214,22 @@ def calculate_penalties_for_container(container_name):
 
 	demurrage_days = 0
 	detention_days = 0
+	estimated_amount = 0
 
 	if shipment:
-		shipment_name = shipment[0].parent
-		ship_doc = frappe.get_doc("Sea Shipment", shipment_name)
-		# Use shipment's calculated values
-		demurrage_days = flt(getattr(ship_doc, "demurrage_days", 0))
-		detention_days = flt(getattr(ship_doc, "detention_days", 0))
-
-	estimated_amount = (demurrage_days * demurrage_rate) + (detention_days * detention_rate)
+		ship_doc = frappe.get_doc("Sea Shipment", shipment[0].parent)
+		today = getdate(now_datetime())
+		out = compute_penalty_for_single_container(container, ship_doc, settings, today)
+		demurrage_days = out["demurrage_days"]
+		detention_days = out["detention_days"]
+		estimated_amount = out["estimated_penalty_amount"]
+		container.has_penalties = out["has_penalties"]
+	else:
+		container.has_penalties = 0
 
 	container.demurrage_days = demurrage_days
 	container.detention_days = detention_days
 	container.estimated_penalty_amount = estimated_amount
-	container.has_penalties = 1 if (demurrage_days > 0 or detention_days > 0) else 0
 	container.last_penalty_check = now_datetime()
 	container.save(ignore_permissions=True)
 

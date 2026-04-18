@@ -124,16 +124,16 @@ def get_data(filters):
 			AVG(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL
 				THEN TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival)
 				ELSE NULL END) as avg_arrival_delay,
-			COALESCE(SUM(asc.total_amount), 0) as total_revenue,
+			COALESCE(SUM(aschg.total_amount), 0) as total_revenue,
 			CASE
 				WHEN COUNT(DISTINCT aship.name) > 0
-				THEN COALESCE(SUM(asc.total_amount), 0) / COUNT(DISTINCT aship.name)
+				THEN COALESCE(SUM(aschg.total_amount), 0) / COUNT(DISTINCT aship.name)
 				ELSE 0
 			END as avg_revenue_per_shipment
 		FROM
 			`tabAir Shipment` aship
 		LEFT JOIN
-			`tabAir Shipment Charges` asc ON asc.parent = aship.name
+			`tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE
 			aship.docstatus = 1
 			AND aship.airline IS NOT NULL

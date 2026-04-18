@@ -1,0 +1,210 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\": \"nh\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Netting</span>\", \"col\": 12}}, {\"id\": \"sp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"rh\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"c1\", \"type\": \"card\", \"data\": {\"card_name\": \"Financial & settlement context\", \"col\": 4}}, {\"id\": \"c2\", \"type\": \"card\", \"data\": {\"card_name\": \"Operations & compliance\", \"col\": 4}}, {\"id\": \"c3\", \"type\": \"card\", \"data\": {\"card_name\": \"Performance\", \"col\": 4}}]",
+ "creation": "2026-04-14 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "accounting",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Netting",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settlement Group",
+   "link_count": 0,
+   "link_to": "Settlement Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settlement Entry",
+   "link_count": 0,
+   "link_to": "Settlement Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Financial & settlement context",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Billing Status Report",
+   "link_count": 0,
+   "link_to": "Sea Freight Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Billing Status Report",
+   "link_count": 0,
+   "link_to": "Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Billing Status Report",
+   "link_count": 0,
+   "link_to": "Special Project Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Special Project Billing",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations & compliance",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Status Report",
+   "link_count": 0,
+   "link_to": "Declaration Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Declaration",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs Compliance Report",
+   "link_count": 0,
+   "link_to": "Customs Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Declaration",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Filing Compliance Report",
+   "link_count": 0,
+   "link_to": "Filing Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Performance",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Sea Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sea Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Air Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Shipment",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "On-Time Delivery Report",
+   "link_count": 0,
+   "link_to": "On-Time Delivery Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-04-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Netting",
+ "name": "Netting",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "shortcuts": [
+  {"color": "Blue", "doc_view": "List", "label": "Settlement Group", "link_to": "Settlement Group", "stats_filter": "[]", "type": "DocType"},
+  {"color": "Grey", "doc_view": "List", "label": "Settlement Entry", "link_to": "Settlement Entry", "stats_filter": "[]", "type": "DocType"}
+ ],
+ "title": "Netting",
+ "type": "Workspace"
+}

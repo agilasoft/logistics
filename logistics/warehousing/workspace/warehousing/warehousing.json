@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"SL7dS_-_Xs\",\"type\":\"card\",\"data\":{\"card_name\":\"Stock Reports\",\"col\":4}},{\"id\":\"K6xE4Umub3\",\"type\":\"card\",\"data\":{\"card_name\":\"Capacity Management\",\"col\":4}},{\"id\":\"oNb734hTDW\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity\",\"col\":4}}]",
+ "content": "[{\"id\": \"SHfdX5HVQT\", \"type\": \"onboarding\", \"data\": {\"onboarding_name\": \"Warehousing\", \"col\": 12}}, {\"id\": \"Na3LMScaDW\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"6RTugEzdAZ\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"YI_RRMOoqk\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Quote\", \"col\": 3}}, {\"id\": \"qs1hyvvZ7d\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Warehouse Contract\", \"col\": 3}}, {\"id\": \"1GkyMSM7v5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Inbound Order\", \"col\": 3}}, {\"id\": \"3tcxrO1IPF\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Release Order\", \"col\": 3}}, {\"id\": \"RLuBQLNUAf\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Transfer Order\", \"col\": 3}}, {\"id\": \"WuAAv2AYis\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"VAS Order\", \"col\": 3}}, {\"id\": \"dHKnqH-zUV\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Stocktake Order\", \"col\": 3}}, {\"id\": \"KcjoqOPobc\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Warehouse Job\", \"col\": 3}}, {\"id\": \"Ajv2Uunfaz\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Periodic Billing\", \"col\": 3}}, {\"id\": \"iXnX-uP9sy\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Gate Pass\", \"col\": 3}}, {\"id\": \"iUjnrb4GSs\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"r1zOFE_yc9\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\", \"col\": 12}}, {\"id\": \"mDzG6dd1tT\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Job Card\", \"col\": 3}}, {\"id\": \"BUQlmnkGzL\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Plate Scanner\", \"col\": 3}}, {\"id\": \"Zb_6qdCOY-\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Count Sheet\", \"col\": 3}}, {\"id\": \"rISdMpNTa7\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"rjH0rGHL3j\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\", \"col\": 12}}, {\"id\": \"6OO2WnC8Og\", \"type\": \"card\", \"data\": {\"card_name\": \"Storage\", \"col\": 4}}, {\"id\": \"-QA7Op-wX1\", \"type\": \"card\", \"data\": {\"card_name\": \"Handling\", \"col\": 4}}, {\"id\": \"8_6l-HhLSd\", \"type\": \"card\", \"data\": {\"card_name\": \"Customer Setup\", \"col\": 4}}, {\"id\": \"GKdBEsgtwk\", \"type\": \"card\", \"data\": {\"card_name\": \"Warehouse Settings\", \"col\": 4}}, {\"id\": \"994_zTIM46\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"NfAdTJ7Mwg\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Inventory health & rotation\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Productivity & slot capacity\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Energy, waste & site metrics\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Trade & multimodal flow\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Commercial & route economics\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Sustainability goals & trends\", \"col\": 4}}]",
  "creation": "2025-08-18 19:01:13.708217",
  "custom_blocks": [],
  "docstatus": 0,
@@ -60,35 +60,6 @@
    "link_count": 0,
    "link_to": "Storage Location",
    "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Productivity",
-   "link_count": 2,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Labor Productivity Report",
-   "link_count": 0,
-   "link_to": "Labor Productivity Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Machine Productivity Report",
-   "link_count": 0,
-   "link_to": "Machine Productivity Report",
-   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   },
@@ -202,8 +173,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Stock Reports",
-   "link_count": 3,
+   "label": "Inventory health & rotation",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -240,15 +211,6 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "Capacity Management",
-   "link_count": 4,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
    "is_query_report": 1,
    "label": "Storage Location Usage",
    "link_count": 0,
@@ -258,7 +220,45 @@
    "type": "Link"
   },
   {
-   "dependencies": "Energy Consumption",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "ABC Report",
+   "link_count": 0,
+   "link_to": "ABC Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Productivity & slot capacity",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Labor Productivity Report",
+   "link_count": 0,
+   "link_to": "Labor Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Machine Productivity Report",
+   "link_count": 0,
+   "link_to": "Machine Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
    "hidden": 0,
    "is_query_report": 1,
    "label": "Handling Unit Capacity",
@@ -281,9 +281,253 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "ABC Report",
+   "label": "Waste Management Report",
    "link_count": 0,
-   "link_to": "ABC Report",
+   "link_to": "Waste Management Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Energy, waste & site metrics",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Energy Efficiency Report",
+   "link_count": 0,
+   "link_to": "Energy Efficiency Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Report",
+   "link_count": 0,
+   "link_to": "Sustainability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Dashboard",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "On-Time Delivery Report",
+   "link_count": 0,
+   "link_to": "On-Time Delivery Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Transport Cost per Job",
+   "link_count": 0,
+   "link_to": "Transport Cost per Job",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Trade & multimodal flow",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Shipment Status Report",
+   "link_count": 0,
+   "link_to": "Sea Shipment Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Shipment Status Report",
+   "link_count": 0,
+   "link_to": "Air Shipment Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Status Report",
+   "link_count": 0,
+   "link_to": "Declaration Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Utilization Report",
+   "link_count": 0,
+   "link_to": "Container Utilization Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Container Status Report",
+   "link_count": 0,
+   "link_to": "Container Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Commercial & route economics",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Cost vs Revenue Report",
+   "link_count": 0,
+   "link_to": "Special Project Cost vs Revenue Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Profitability Report",
+   "link_count": 0,
+   "link_to": "Special Project Profitability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Route Cost Analysis",
+   "link_count": 0,
+   "link_to": "Route Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sustainability goals & trends",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Dashboard Report",
+   "link_count": 0,
+   "link_to": "Sustainability Dashboard Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Trend Analysis Report",
+   "link_count": 0,
+   "link_to": "Trend Analysis Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Report",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Goals Report",
+   "link_count": 0,
+   "link_to": "Sustainability Goals Report",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"

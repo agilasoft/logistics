@@ -1,7 +1,8 @@
 {
+ "app": "logistics",
  "charts": [],
  "doctype": "Workspace",
- "content": "[{\"id\":\"container-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Container Management</span>\",\"col\":12}},{\"id\":\"container-cards\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Containers with Penalties\",\"col\":4}},{\"id\":\"container-cards2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Outstanding Deposits\",\"col\":4}},{\"id\":\"container-shortcuts\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"shortcuts-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"shortcut-container\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container\",\"col\":3}},{\"id\":\"shortcut-status\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Status Report\",\"col\":3}},{\"id\":\"shortcut-penalty\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Penalty Report\",\"col\":3}},{\"id\":\"shortcut-deposit\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Deposit Report\",\"col\":3}},{\"id\":\"shortcut-movement\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Movement\",\"col\":3}},{\"id\":\"shortcut-charge\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Charge\",\"col\":3}}]",
+ "content": "[{\"id\": \"container-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Container Management</span>\", \"col\": 12}}, {\"id\": \"container-cards\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Containers with Penalties\", \"col\": 4}}, {\"id\": \"container-cards2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Outstanding Deposits\", \"col\": 4}}, {\"id\": \"container-shortcuts\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"shortcuts-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"shortcut-container\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container\", \"col\": 3}}, {\"id\": \"shortcut-status\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Status Report\", \"col\": 3}}, {\"id\": \"shortcut-penalty\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Penalty Report\", \"col\": 3}}, {\"id\": \"shortcut-deposit\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Deposit Report\", \"col\": 3}}, {\"id\": \"shortcut-movement\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Movement\", \"col\": 3}}, {\"id\": \"shortcut-charge\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Charge\", \"col\": 3}}, {\"id\": \"rep-hdr\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"rep-head\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Container lifecycle & charges\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Ocean & air cargo\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Commercial & billing\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Inland transport & OTIF\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Trade & warehouse touchpoints\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"ESG & enterprise risk\", \"col\": 4}}]",
  "creation": "2025-01-01 00:00:00.000000",
  "docstatus": 0,
  "extends": "",
@@ -12,15 +13,464 @@
  "is_default": 0,
  "is_standard": 1,
  "label": "Container Management",
- "links": [{"hidden":0,"is_query_report":0,"label":"Container","link_count":0,"link_to":"Container","link_type":"DocType","onboard":0,"type":"Link"},{"hidden":0,"is_query_report":0,"label":"Container Movement","link_count":0,"link_to":"Container Movement","link_type":"DocType","onboard":0,"type":"Link"},{"hidden":0,"is_query_report":0,"label":"Container Charge","link_count":0,"link_to":"Container Charge","link_type":"DocType","onboard":0,"type":"Link"},{"hidden":0,"is_query_report":1,"label":"Container Status Report","link_count":0,"link_to":"Container Status Report","link_type":"Report","onboard":0,"type":"Link"},{"hidden":0,"is_query_report":1,"label":"Container Penalty Report","link_count":0,"link_to":"Container Penalty Report","link_type":"Report","onboard":0,"type":"Link"},{"hidden":0,"is_query_report":1,"label":"Container Deposit Report","link_count":0,"link_to":"Container Deposit Report","link_type":"Report","onboard":0,"type":"Link"}],
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container",
+   "link_count": 0,
+   "link_to": "Container",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Movement",
+   "link_count": 0,
+   "link_to": "Container Movement",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Charge",
+   "link_count": 0,
+   "link_to": "Container Charge",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container lifecycle & charges",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Container Status Report",
+   "link_count": 0,
+   "link_to": "Container Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Container Penalty Report",
+   "link_count": 0,
+   "link_to": "Container Penalty Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Container Deposit Report",
+   "link_count": 0,
+   "link_to": "Container Deposit Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Container Utilization Report",
+   "link_count": 0,
+   "link_to": "Container Utilization Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipping Line Performance Report",
+   "link_count": 0,
+   "link_to": "Shipping Line Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Ocean & air cargo",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Shipment Status Report",
+   "link_count": 0,
+   "link_to": "Sea Shipment Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Shipment Status Report",
+   "link_count": 0,
+   "link_to": "Air Shipment Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Consolidation Report",
+   "link_count": 0,
+   "link_to": "Sea Consolidation Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Consolidation"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Consolidation Report",
+   "link_count": 0,
+   "link_to": "Air Consolidation Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Consolidation"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Route Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Route Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Commercial & billing",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Billing Status Report",
+   "link_count": 0,
+   "link_to": "Sea Freight Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Billing Status Report",
+   "link_count": 0,
+   "link_to": "Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Billing Status Report",
+   "link_count": 0,
+   "link_to": "Special Project Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project Billing"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inland transport & OTIF",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "On-Time Delivery Report",
+   "link_count": 0,
+   "link_to": "On-Time Delivery Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Vehicle Utilization Report",
+   "link_count": 0,
+   "link_to": "Vehicle Utilization Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Driver Performance Report",
+   "link_count": 0,
+   "link_to": "Driver Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Fleet Capacity Utilization",
+   "link_count": 0,
+   "link_to": "Fleet Capacity Utilization",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Route Cost Analysis",
+   "link_count": 0,
+   "link_to": "Route Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Trade & warehouse touchpoints",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Status Report",
+   "link_count": 0,
+   "link_to": "Declaration Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Manifest Status Report",
+   "link_count": 0,
+   "link_to": "Manifest Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Global Manifest"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Balance",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Ledger",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Batch Expiry Risk",
+   "link_count": 0,
+   "link_to": "Batch Expiry Risk",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "ESG & enterprise risk",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Fuel Consumption Analysis",
+   "link_count": 0,
+   "link_to": "Fuel Consumption Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Transport Leg"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Dashboard",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Waste Management Report",
+   "link_count": 0,
+   "link_to": "Waste Management Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Compliance Report",
+   "link_count": 0,
+   "link_to": "Sustainability Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
  "modified": "2025-01-01 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container Management",
- "number_cards": [{"number_card_name":"Containers with Penalties"},{"number_card_name":"Outstanding Deposits"}],
+ "number_cards": [
+  {
+   "number_card_name": "Containers with Penalties"
+  },
+  {
+   "number_card_name": "Outstanding Deposits"
+  }
+ ],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
- "shortcuts": [{"color":"Blue","doc_view":"List","label":"Container","link_to":"Container","type":"DocType"},{"color":"Grey","doc_view":"Report","label":"Container Status Report","link_to":"Container Status Report","type":"Report"},{"color":"Orange","doc_view":"Report","label":"Container Penalty Report","link_to":"Container Penalty Report","type":"Report"},{"color":"Orange","doc_view":"Report","label":"Container Deposit Report","link_to":"Container Deposit Report","type":"Report"},{"color":"Grey","doc_view":"List","label":"Container Movement","link_to":"Container Movement","type":"DocType"},{"color":"Grey","doc_view":"List","label":"Container Charge","link_to":"Container Charge","type":"DocType"}],
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Container",
+   "link_to": "Container",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "Report",
+   "label": "Container Status Report",
+   "link_to": "Container Status Report",
+   "type": "Report"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "Report",
+   "label": "Container Penalty Report",
+   "link_to": "Container Penalty Report",
+   "type": "Report"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "Report",
+   "label": "Container Deposit Report",
+   "link_to": "Container Deposit Report",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Container Movement",
+   "link_to": "Container Movement",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Container Charge",
+   "link_to": "Container Charge",
+   "type": "DocType"
+  }
+ ],
  "title": "Container Management"
 }

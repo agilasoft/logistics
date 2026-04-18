@@ -324,13 +324,25 @@ frappe.ui.form.on("Transport Order", {
 			});
 		}
 		
-		// Set query for sales_quote field
-		_setup_sales_quote_query(frm);
 		_logistics_set_charges_cannot_add_rows(frm);
 	},
 
 	refresh: function(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (!frm.is_new() && !frm.doc.__islocal && frm.doc.docstatus === 0) {
+			frm.add_custom_button(__('Get Charges from Quotation'), function() {
+				if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+					logistics.open_get_charges_from_quotation_dialog(frm);
+				} else {
+					frappe.msgprint(
+						__("Charges dialog is not ready. Please refresh the page and try again.")
+					);
+				}
+			}, __('Action'));
+		}
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
@@ -685,9 +697,6 @@ frappe.ui.form.on("Transport Order", {
 			});
 		}
 		
-		// Refresh sales_quote query setup
-		_setup_sales_quote_query(frm);
-		
 		// Render address HTML for all existing legs
 		if (frm.doc.legs && frm.doc.legs.length > 0) {
 			frm.doc.legs.forEach(function(leg) {
@@ -782,41 +791,12 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	sales_quote: function(frm) {
-		_populate_charges_from_sales_quote(frm);
-	},
-
-	air_shipment: function(frm) {
-		_populate_shipper_consignee_from_shipment(frm, 'Air Shipment');
-	},
-	sea_shipment: function(frm) {
-		_populate_shipper_consignee_from_shipment(frm, 'Sea Shipment');
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
+		// Sales Quote is read-only; use Action → Get Charges from Quotation.
 	}
 });
-
-function _populate_shipper_consignee_from_shipment(frm, doctype) {
-	var shipment_name = doctype === 'Air Shipment' ? frm.doc.air_shipment : frm.doc.sea_shipment;
-	if (!shipment_name) return;
-	frappe.db.get_value(doctype, shipment_name, ['shipper', 'consignee'], function(r) {
-		if (r && (r.shipper || r.consignee)) {
-			if (!frm.doc.shipper && r.shipper) frm.set_value('shipper', r.shipper);
-			if (!frm.doc.consignee && r.consignee) frm.set_value('consignee', r.consignee);
-		}
-	});
-}
-
-function _setup_sales_quote_query(frm) {
-	frm.set_query('sales_quote', function() {
-		// Main service Transport OR at least one Sales Quote Charge (or legacy transport row) with service_type Transport.
-		return {
-			query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
-			filters: {
-				service_type: 'Transport',
-				reference_doctype: 'Transport Order',
-				reference_name: frm.doc.name || ''
-			}
-		};
-	});
-}
 
 function _warn_if_missing_service_charges(frm, service_type) {
 	var charges = frm.doc.charges || [];

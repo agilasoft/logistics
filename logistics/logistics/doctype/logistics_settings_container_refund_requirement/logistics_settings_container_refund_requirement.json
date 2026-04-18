@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "creation": "2026-04-15 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "requirement_name",
+  "mandatory_for_refund",
+  "applies_to",
+  "shipping_line",
+  "column_break_crr",
+  "attachment_required",
+  "instructions"
+ ],
+ "fields": [
+  {
+   "fieldname": "requirement_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Requirement Name",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "mandatory_for_refund",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Mandatory for refund"
+  },
+  {
+   "default": "All",
+   "fieldname": "applies_to",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Applies to",
+   "options": "All\nImport\nExport"
+  },
+  {
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line"
+  },
+  {
+   "fieldname": "column_break_crr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "attachment_required",
+   "fieldtype": "Check",
+   "label": "Attachment required"
+  },
+  {
+   "fieldname": "instructions",
+   "fieldtype": "Small Text",
+   "label": "Instructions"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Logistics Settings Container Refund Requirement",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

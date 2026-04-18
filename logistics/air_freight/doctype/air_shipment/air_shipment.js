@@ -306,6 +306,9 @@ frappe.ui.form.on('Air Shipment', {
 	},
 
 	refresh: function(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		_logistics_set_charges_cannot_add_rows(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
@@ -538,7 +541,7 @@ frappe.ui.form.on('Air Shipment', {
 						});
 					}, __('Post'));
 				}
-				// WIP & Accrual recognition (Post > Recognize WIP & Accrual, Recognition menu)
+				// WIP & Accrual recognition (Post > WIP and Accrual; Recognition: adjust/close)
 				_air_shipment_add_recognition_buttons(frm);
 				// Reopen/Close Job (charges) after deferred Post/Recognition — same ordering concern as Sea Shipment
 				if (window.logistics && logistics.job_charge_reopen && logistics.job_charge_reopen.setup) {
@@ -581,7 +584,7 @@ function _update_measurement_fields_readonly(frm) {
 }
 
 /**
- * Add WIP & Accrual recognition buttons to Air Shipment (Post and Recognition menus).
+ * Add WIP & Accrual recognition buttons to Air Shipment (Post: WIP and Accrual; Recognition: adjust/close).
  * Inline here so buttons show even when recognition_client.js is not loaded.
  */
 function _air_shipment_add_recognition_buttons(frm) {
@@ -611,7 +614,7 @@ function _air_shipment_add_recognition_buttons(frm) {
 			return flt(d.estimated_costs) > flt(d.accrual_amount);
 		})());
 	if (needs_wip || needs_accrual) {
-		frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
+		frm.add_custom_button(__('WIP and Accrual'), function() {
 			frappe.call({
 				method: 'logistics.job_management.recognition_engine.recognize',
 				args: { doctype: d.doctype, docname: d.name },
@@ -633,36 +636,6 @@ function _air_shipment_add_recognition_buttons(frm) {
 				}
 			});
 		}, __('Post'));
-	}
-	if (needs_wip) {
-		frm.add_custom_button(__('Recognize WIP'), function() {
-			frappe.prompt([
-				{ fieldname: 'recognition_date', fieldtype: 'Date', label: __('Recognition Date'), default: frappe.datetime.get_today(), reqd: 1 }
-			], function(values) {
-				frappe.call({
-					method: 'logistics.job_management.recognition_engine.recognize_wip',
-					args: { doctype: d.doctype, docname: d.name, recognition_date: values.recognition_date },
-					freeze: true,
-					freeze_message: __('Creating WIP Recognition...'),
-					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('WIP Recognition created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
-				});
-			}, __('Recognize WIP'), __('Create'));
-		}, __('Recognition'));
-	}
-	if (needs_accrual) {
-		frm.add_custom_button(__('Recognize Accruals'), function() {
-			frappe.prompt([
-				{ fieldname: 'recognition_date', fieldtype: 'Date', label: __('Recognition Date'), default: frappe.datetime.get_today(), reqd: 1 }
-			], function(values) {
-				frappe.call({
-					method: 'logistics.job_management.recognition_engine.recognize_accruals',
-					args: { doctype: d.doctype, docname: d.name, recognition_date: values.recognition_date },
-					freeze: true,
-					freeze_message: __('Creating Accrual Recognition...'),
-					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('Accrual Recognition created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
-				});
-			}, __('Recognize Accruals'), __('Create'));
-		}, __('Recognition'));
 	}
 	if (d.wip_amount > 0) {
 		frm.add_custom_button(__('Adjust WIP'), function() {

@@ -1,0 +1,22 @@
+[
+ "customs_declaration_executive_snapshot",
+ "declaration_authority_workload_concentration",
+ "declaration_branch_performance_view",
+ "declaration_customer_value_concentration",
+ "declaration_destination_country_trade_concentration",
+ "declaration_incoterm_commercial_mix",
+ "declaration_job_status_pipeline_mix",
+ "declaration_monthly_clearance_volume_and_value",
+ "declaration_monthly_throughput_index",
+ "declaration_open_draft_aging_backlog",
+ "declaration_origin_country_trade_concentration",
+ "declaration_overdue_clearance_pressure",
+ "declaration_owner_workload_review",
+ "declaration_payment_status_risk_pipeline",
+ "declaration_status_pipeline_mix",
+ "declaration_submission_health_ratio",
+ "declaration_transport_mode_corridor_mix",
+ "declaration_type_regulatory_mix",
+ "declaration_weekly_clearance_volume_and_value",
+ "declaration_weekly_throughput_index"
+]

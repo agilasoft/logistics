@@ -86,7 +86,6 @@
   "milestone_html",
   "milestone_template",
   "milestones",
-  "section_break_connections",
   "air_shipment",
   "sea_shipment",
   "notes_tab",
@@ -188,15 +187,10 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
-   "fieldname": "section_break_connections",
-   "fieldtype": "Section Break",
-   "label": "Connected Documents"
-  },
-  {
    "description": "Port pickup/delivery for air freight",
    "fieldname": "air_shipment",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Air Shipment",
    "options": "Air Shipment"
   },
@@ -204,6 +198,7 @@
    "description": "Port pickup/delivery for sea freight",
    "fieldname": "sea_shipment",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Sea Shipment",
    "options": "Sea Shipment"
   },
@@ -403,7 +398,6 @@
    "options": "Transport Order Charges"
   },
   {
-   "collapsible": 1,
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -422,6 +416,7 @@
    "label": "Sales Quote",
    "no_copy": 1,
    "options": "Sales Quote",
+   "read_only": 1,
    "search_index": 1
   },
   {
@@ -688,7 +683,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-14 19:48:39.471577",
+ "modified": "2026-04-16 14:43:51.388306",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Order",

@@ -82,6 +82,14 @@ def effective_internal_job_detail_job_type(row):
 
 def on_validate_main_service_internal_job(doc, method=None):
 	"""Doc event: internal jobs cannot be tagged as main service."""
+	sq_name = doc.get("sales_quote")
+	if sq_name and frappe.db.exists("Sales Quote", sq_name):
+		qt = frappe.db.get_value("Sales Quote", sq_name, "quotation_type")
+		if qt == "One-off":
+			if hasattr(doc, "is_main_service"):
+				doc.is_main_service = 1
+			if hasattr(doc, "is_internal_job"):
+				doc.is_internal_job = 0
 	if not hasattr(doc, "is_internal_job") or not hasattr(doc, "is_main_service"):
 		return
 	if cint(getattr(doc, "is_internal_job", 0)):
@@ -116,6 +124,55 @@ def is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc):
 		ms = getattr(sq, "main_service", None)
 		return implied_service_type_for_doctype(parent_doc.doctype) == ms
 	return False
+
+
+def _sq_charge_row_field(row, fieldname):
+	if row is None:
+		return None
+	if isinstance(row, dict):
+		return row.get(fieldname)
+	return getattr(row, fieldname, None)
+
+
+def sales_quote_charge_row_matches_operational_routing(parent_doc, row):
+	"""
+	Return False when a Sales Quote Charge row is scoped to different ports/locations than the job.
+
+	Rows with blank origin_port/destination_port (or location_from/location_to for Transport) act as
+	wildcards. When the operational document has no port/location set yet, rows are not excluded.
+	"""
+	row_st = (_sq_charge_row_field(row, "service_type") or "").strip()
+
+	if row_st == "Transport":
+		plf = (getattr(parent_doc, "location_from", None) or "").strip()
+		plt = (getattr(parent_doc, "location_to", None) or "").strip()
+		rlf = (_sq_charge_row_field(row, "location_from") or "").strip()
+		rlt = (_sq_charge_row_field(row, "location_to") or "").strip()
+		if rlf and plf and rlf != plf:
+			return False
+		if rlt and plt and rlt != plt:
+			return False
+		return True
+
+	if row_st in ("Sea", "Air"):
+		pop = (getattr(parent_doc, "origin_port", None) or "").strip()
+		pdp = (getattr(parent_doc, "destination_port", None) or "").strip()
+		rop = (_sq_charge_row_field(row, "origin_port") or "").strip()
+		rdp = (_sq_charge_row_field(row, "destination_port") or "").strip()
+		if rop and pop and rop != pop:
+			return False
+		if rdp and pdp and rdp != pdp:
+			return False
+		return True
+
+	return True
+
+
+def filter_sales_quote_charge_rows_for_operational_doc(parent_doc, rows):
+	"""Narrow Sales Quote Charge fetch results to rows that match the job's routing parameters."""
+	if not rows or not parent_doc:
+		return rows
+	return [r for r in rows if sales_quote_charge_row_matches_operational_routing(parent_doc, r)]
 
 
 def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type=None):

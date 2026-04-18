@@ -1,0 +1,22 @@
+[
+ "inbound_branch_performance_view",
+ "inbound_customer_demand_concentration",
+ "inbound_monthly_volume_and_value_trend",
+ "inbound_open_draft_aging_backlog",
+ "inbound_order_executive_control_snapshot",
+ "inbound_overdue_and_due_date_pressure",
+ "inbound_owner_workload_review",
+ "inbound_priority_pipeline_mix",
+ "inbound_submission_health_ratio",
+ "inbound_weekly_volume_and_value_trend",
+ "release_branch_performance_view",
+ "release_customer_fulfillment_concentration",
+ "release_monthly_volume_and_value_trend",
+ "release_open_draft_aging_backlog",
+ "release_order_executive_control_snapshot",
+ "release_overdue_and_due_date_pressure",
+ "release_owner_workload_review",
+ "release_priority_pipeline_mix",
+ "release_submission_health_ratio",
+ "release_weekly_volume_and_value_trend"
+]

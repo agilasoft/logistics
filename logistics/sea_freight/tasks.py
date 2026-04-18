@@ -8,7 +8,6 @@ Scheduled Tasks for Sea Freight Delay and Penalty Alerts
 
 from __future__ import unicode_literals
 import frappe
-from datetime import datetime, timedelta
 
 from logistics.utils.alert_utils import get_penalty_impending_days as _get_penalty_impending_days
 
@@ -140,20 +139,18 @@ def check_impending_penalties():
 	Alerts users about upcoming penalties to minimize costs
 	"""
 	try:
+		from frappe.utils import now_datetime, getdate
+
+		from logistics.sea_freight.penalty_utils import (
+			get_detention_reference_date,
+			min_effective_free_time_days_for_shipment,
+		)
+
 		settings = frappe.get_single("Sea Freight Settings")
-		
+
 		if not getattr(settings, "enable_penalty_alerts", 1):
 			return
-		
-		free_time_days = getattr(settings, "default_free_time_days", 7)
-		
-		# Get shipments that are approaching free time limit
-		# Check shipments discharged in the last (free_time_days + 1) days
-		from frappe.utils import now_datetime, getdate
-		from datetime import timedelta
-		
-		check_date = getdate(now_datetime()) - timedelta(days=int(free_time_days) + 1)
-		
+
 		# Get shipments that might be approaching penalty threshold
 		shipments = frappe.get_all(
 			"Sea Shipment",
@@ -166,61 +163,42 @@ def check_impending_penalties():
 				]],
 				"has_penalties": 0  # Not yet penalized
 			},
-			fields=["name", "shipping_status", "eta"],
+			fields=["name", "shipping_status"],
 			limit=50
 		)
-		
+
 		if not shipments:
 			return
-		
+
 		impending_count = 0
-		
+
 		for shipment in shipments:
 			try:
 				doc = frappe.get_doc("Sea Shipment", shipment.name)
-				
-				# Check if approaching free time limit
-				discharge_date = None
-				
-				# Try to get discharge date from milestone
-				discharge_milestone = frappe.get_all(
-					"Job Milestone",
-					filters={
-						"job_type": "Sea Shipment",
-						"job_number": doc.name,
-						"milestone": "SF-DISCHARGED"
-					},
-					fields=["actual_end"],
-					limit=1
-				)
-				
-				if discharge_milestone and discharge_milestone[0].actual_end:
-					discharge_date = getdate(discharge_milestone[0].actual_end)
-				elif doc.eta:
-					discharge_date = getdate(doc.eta)
-				
-				if discharge_date:
-					today = getdate(now_datetime())
-					days_since_discharge = (today - discharge_date).days
-					penalty_impending_days = _get_penalty_impending_days()
-					# Alert if approaching free time limit (within penalty_impending_days)
-					if days_since_discharge >= (free_time_days - penalty_impending_days) and days_since_discharge < free_time_days:
-						# Send impending penalty alert
-						doc._send_impending_penalty_alert(days_since_discharge, free_time_days)
-						impending_count += 1
-						
+				ref_date = get_detention_reference_date(doc)
+				if not ref_date:
+					continue
+
+				free_time_min = min_effective_free_time_days_for_shipment(doc, settings)
+				today = getdate(now_datetime())
+				days_since = (today - ref_date).days
+				penalty_impending_days = _get_penalty_impending_days()
+				if days_since >= (free_time_min - penalty_impending_days) and days_since < free_time_min:
+					doc._send_impending_penalty_alert(days_since, free_time_min)
+					impending_count += 1
+
 			except Exception as e:
 				frappe.log_error(f"Error checking impending penalties for Sea Shipment {shipment.name}: {str(e)}")
 				continue
-		
+
 		frappe.db.commit()
-		
+
 		if impending_count > 0:
 			frappe.log_error(
 				title="Impending Penalty Check Completed",
 				message=f"Checked {len(shipments)} shipments, {impending_count} impending penalties alerted"
 			)
-		
+
 	except Exception as e:
 		frappe.log_error(f"Check impending penalties error: {str(e)}")
 

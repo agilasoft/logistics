@@ -71,9 +71,9 @@ def get_data(filters):
 	# Revenue
 	revenue_data = frappe.db.sql("""
 		SELECT
-			COALESCE(SUM(asc.total_amount), 0) as total_revenue
+			COALESCE(SUM(aschg.total_amount), 0) as total_revenue
 		FROM `tabAir Shipment` aship
-		LEFT JOIN `tabAir Shipment Charges` asc ON asc.parent = aship.name
+		LEFT JOIN `tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE aship.docstatus = 1 {conditions}
 		GROUP BY aship.name
 	""".format(conditions=conditions), filters, as_dict=1)

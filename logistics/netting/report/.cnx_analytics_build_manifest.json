@@ -1,0 +1,22 @@
+[
+ "settlement_entry_branch_performance_view",
+ "settlement_entry_customer_concentration",
+ "settlement_entry_executive_snapshot",
+ "settlement_entry_monthly_netting_volume",
+ "settlement_entry_open_draft_aging_backlog",
+ "settlement_entry_owner_workload_review",
+ "settlement_entry_payable_inclusion_mix",
+ "settlement_entry_receivable_inclusion_mix",
+ "settlement_entry_submission_health_ratio",
+ "settlement_entry_supplier_concentration",
+ "settlement_entry_weekly_netting_volume",
+ "settlement_entry_weekly_throughput_index",
+ "settlement_group_active_flag_pipeline",
+ "settlement_group_customer_concentration",
+ "settlement_group_executive_snapshot",
+ "settlement_group_monthly_maintenance_index",
+ "settlement_group_open_draft_aging_backlog",
+ "settlement_group_owner_workload_review",
+ "settlement_group_submission_health_ratio",
+ "settlement_group_weekly_maintenance_index"
+]

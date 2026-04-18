@@ -30,6 +30,7 @@
   "last_penalty_check",
   "penalty_manual_override",
   "section_deposit",
+  "current_job_number",
   "container_deposit_column",
   "deposit_amount",
   "deposit_currency",
@@ -43,6 +44,9 @@
   "deposit_history_tab",
   "section_deposits",
   "deposits",
+  "refund_readiness_tab",
+  "section_refund_readiness",
+  "refund_readiness",
   "section_links",
   "linked_shipments",
   "linked_transport_jobs"
@@ -201,6 +205,13 @@
    "label": "Deposit & Return"
   },
   {
+   "fieldname": "current_job_number",
+   "fieldtype": "Link",
+   "label": "Current Job Number",
+   "options": "Job Number",
+   "read_only": 1
+  },
+  {
    "fieldname": "deposit_amount",
    "fieldtype": "Currency",
    "label": "Deposit Amount"
@@ -288,6 +299,23 @@
    "fieldname": "deposit_history_tab",
    "fieldtype": "Tab Break",
    "label": "Deposit History"
+  },
+  {
+   "fieldname": "refund_readiness_tab",
+   "fieldtype": "Tab Break",
+   "label": "Refund Readiness"
+  },
+  {
+   "fieldname": "section_refund_readiness",
+   "fieldtype": "Section Break",
+   "label": "Required documents for refund",
+   "description": "Populate from Logistics Settings template using Refresh checklist. Mandatory lines must be Received or Waived before posting refund journal entries."
+  },
+  {
+   "fieldname": "refund_readiness",
+   "fieldtype": "Table",
+   "label": "Refund readiness",
+   "options": "Container Refund Readiness"
   }
  ],
  "index_web_pages_for_search": 1,

@@ -105,17 +105,17 @@ def get_data(filters):
 			aship.local_customer as customer,
 			aship.sales_quote,
 			aship.billing_status,
-			COALESCE(SUM(asc.total_amount), 0) as total_charges,
+			COALESCE(SUM(aschg.total_amount), 0) as total_charges,
 			COALESCE(aship.billing_amount, 0) as billing_amount,
 			aship.billing_date,
 			aship.sales_invoice,
-			COALESCE(MAX(asc.currency), aship.billing_currency, 'USD') as currency,
+			COALESCE(MAX(aschg.currency), aship.billing_currency, 'USD') as currency,
 			DATEDIFF(CURDATE(), aship.booking_date) as days_since_booking,
 			aship.company
 		FROM
 			`tabAir Shipment` aship
 		LEFT JOIN
-			`tabAir Shipment Charges` asc ON asc.parent = aship.name
+			`tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE
 			aship.docstatus = 1
 			{conditions}

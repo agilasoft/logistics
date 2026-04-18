@@ -104,7 +104,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]",
+   "link_filters": "[[\"Item\",\"disabled\",\"=\",0]]",
    "options": "Item"
   },
   {
@@ -617,8 +617,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-04 13:54:02.636396",
- "modified_by": "Administrator",
+ "modified": "2026-04-17 17:23:44.043947",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Pricing Center",
  "name": "Sales Quote Charge",
  "naming_rule": "Random",

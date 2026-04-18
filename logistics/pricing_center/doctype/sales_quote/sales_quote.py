@@ -7,8 +7,16 @@ from frappe.model.document import Document
 from frappe.utils import format_date, today, flt, getdate
 
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
+from logistics.utils.party_address_contact_from_masters import (
+	append_transport_order_door_leg_from_party_masters,
+	populate_air_sea_booking_party_fields_from_masters,
+)
+from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
-from logistics.utils.charge_service_type import sales_quote_charge_filters
+from logistics.utils.charge_service_type import (
+	filter_sales_quote_charge_rows_for_operational_doc,
+	sales_quote_charge_filters,
+)
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 
 
@@ -80,7 +88,26 @@ class SalesQuote(Document):
 
 	def before_submit(self):
 		"""Validate before submitting the document"""
-		pass
+		self.validate_main_service_has_charges()
+
+	def validate_main_service_has_charges(self):
+		"""Require at least one charge line for the selected Main Service (aligned with UI create-booking logic)."""
+		main = getattr(self, "main_service", None)
+		if not main:
+			return
+		if main == "Warehousing":
+			if not _sales_quote_has_warehousing_for_contract(self):
+				frappe.throw(
+					_("Add warehousing details or at least one charge line with Service Type \"Warehousing\"."),
+					title=_("Main Service Has No Charges"),
+				)
+			return
+		charges = getattr(self, "charges", None) or []
+		if not any(getattr(r, "service_type", None) == main for r in charges):
+			frappe.throw(
+				_("Add at least one charge line with Service Type \"{0}\" (Main Service).").format(main),
+				title=_("Main Service Has No Charges"),
+			)
 
 	def on_submit(self):
 		"""Additional-charge quotes: push charge lines to the linked job with sales_quote_link."""
@@ -997,6 +1024,8 @@ def _create_transport_order_from_sales_quote(sales_quote):
 	)
 	transport_order.is_main_service = 1
 	copy_sales_quote_fields_to_target(sales_quote, transport_order)
+	append_transport_order_door_leg_from_party_masters(transport_order)
+	apply_shipper_consignee_defaults(transport_order)
 
 	transport_order.flags.skip_container_no_validation = True
 	transport_order.flags.skip_container_type_validation = True
@@ -1121,6 +1150,8 @@ def _create_air_booking_from_sales_quote(sales_quote):
 		air_booking.volume = volume
 
 	apply_sales_quote_routing_to_booking(air_booking, sales_quote)
+	populate_air_sea_booking_party_fields_from_masters(air_booking)
+	apply_shipper_consignee_defaults(air_booking)
 
 	# Populate charges before insert so they are saved with the document (avoids insert+reload clearing them)
 	from logistics.air_freight.doctype.air_booking.air_booking import _sync_quote_and_sales_quote
@@ -1195,6 +1226,8 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	copy_sales_quote_fields_to_target(sales_quote, sea_booking)
 
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
+	populate_air_sea_booking_party_fields_from_masters(sea_booking)
+	apply_shipper_consignee_defaults(sea_booking)
 
 	sea_booking.insert(ignore_permissions=True)
 	sea_booking.reload()
@@ -1292,7 +1325,10 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 		filters = sales_quote_charge_filters(air_shipment, sales_quote)
 
 		# Get from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)
-		from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+		from logistics.utils.sales_quote_charge_parameters import (
+			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+			filter_fields_existing_in_doctype,
+		)
 
 		charge_fields = [
 			"item_code", "item_name", "calculation_method", "uom", "currency",
@@ -1301,19 +1337,24 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
 			"revenue_tariff", "cost_tariff", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
+		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters=filters,
-			fields=charge_fields,
+			fields=sqc_fields,
 			order_by="idx"
 		)
 		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Air Freight",
 				filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
-				fields=charge_fields,
+				fields=legacy_air_fields,
 				order_by="idx"
 			)
+		sales_quote_air_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+			air_shipment, sales_quote_air_freight_records
+		)
 
 		# Map and populate charges
 		charges_added = 0
@@ -1548,7 +1589,10 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 		filters = sales_quote_charge_filters(sea_shipment, sales_quote)
 
 		# Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
-		from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+		from logistics.utils.sales_quote_charge_parameters import (
+			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+			filter_fields_existing_in_doctype,
+		)
 
 		charge_fields = [
 			"item_code", "item_name", "calculation_method", "uom", "currency",
@@ -1557,19 +1601,24 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
 			"revenue_tariff", "cost_tariff", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
+		legacy_sea_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
 		sales_quote_sea_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters=filters,
-			fields=charge_fields,
+			fields=sqc_fields,
 			order_by="idx"
 		)
 		if not sales_quote_sea_freight_records and frappe.db.table_exists("Sales Quote Sea Freight"):
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Sea Freight",
 				filters={"parent": sales_quote.name, "parenttype": "Sales Quote"},
-				fields=charge_fields,
+				fields=legacy_sea_fields,
 				order_by="idx"
 			)
+		sales_quote_sea_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+			sea_shipment, sales_quote_sea_freight_records
+		)
 
 		# Map and populate charges
 		charges_added = 0
@@ -1900,6 +1949,7 @@ def validate_one_off_quote_not_converted(
 	allow_if_quote_converted_to: str = None,
 	allow_linked_sea_booking: str = None,
 	allow_linked_air_booking: str = None,
+	allow_main_transport_if_converted_to_declaration_order: bool = False,
 ):
 	"""
 	Validate that One-off Sales Quote is not already converted or linked to another document.
@@ -1913,6 +1963,8 @@ def validate_one_off_quote_not_converted(
 			allow use — used when the current document is the next step in the same chain (e.g. Declaration from that Order).
 		allow_linked_sea_booking: Sea Booking name that may hold the same quote as this doc (e.g. Sea Shipment's parent booking, or main Sea leg for an internal-job Transport Order).
 		allow_linked_air_booking: Air Booking name for the same job chain (e.g. Air Shipment's parent booking).
+		allow_main_transport_if_converted_to_declaration_order: If True and current doc is a main Transport Order,
+			allow when the quote is already marked converted to a Declaration Order (customs leg submitted first; transport main leg is part of the same job chain).
 		
 	Raises:
 		frappe.ValidationError: If quote is already converted or linked to another document
@@ -1936,6 +1988,14 @@ def validate_one_off_quote_not_converted(
 				return  # Same document that converted the quote — allow save
 			# Same conversion chain: e.g. quote was converted to Declaration Order X, current doc is Declaration from that Order
 			if allow_if_quote_converted_to and converted_ref and converted_ref == allow_if_quote_converted_to.strip():
+				return
+			# Main Transport Order alongside a submitted Declaration Order (one-off quote covers customs + transport)
+			if (
+				allow_main_transport_if_converted_to_declaration_order
+				and (current_doctype or "") == "Transport Order"
+				and converted_ref
+				and converted_ref.startswith("Declaration Order ")
+			):
 				return
 			converted_info = sales_quote.converted_to_doc or _("Unknown document")
 			frappe.throw(

@@ -10,9 +10,11 @@ from typing import Dict, Any
 
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.charge_service_type import (
+	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
 	throw_if_missing_destination_service_charge,
 )
+from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
 from logistics.utils.sales_quote_routing import (
 	apply_sales_quote_routing_to_booking,
 	routing_legs_for_api_response,
@@ -24,7 +26,13 @@ def _sync_quote_and_sales_quote(doc):
 	if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
 		doc.sales_quote = doc.quote
 	elif getattr(doc, "quote_type", None) == "One-Off Quote":
-		doc.sales_quote = None
+		# Legacy "One-Off Quote" doctype used `quote` only. Unified one-off *Sales Quotes*
+		# also use quote_type One-Off Quote with `quote` = Sales Quote name — keep sales_quote in sync.
+		q = getattr(doc, "quote", None)
+		if q and frappe.db.exists("Sales Quote", q):
+			doc.sales_quote = q
+		else:
+			doc.sales_quote = None
 	elif not getattr(doc, "quote_type", None) and getattr(doc, "sales_quote", None):
 		doc.quote_type = "Sales Quote"
 		doc.quote = doc.sales_quote
@@ -146,6 +154,10 @@ class AirBooking(Document):
 						reset_one_off_quote_on_cancel(original_sales_quote)
 			except Exception:
 				pass
+
+		from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+
+		assert_one_off_sales_quote_job_rules(self)
 		
 		self.validate_required_fields()
 		self.validate_dates()
@@ -965,18 +977,21 @@ class AirBooking(Document):
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "cost_uom", "estimated_cost", "pay_to",
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
-				"service_type"
+				"service_type",
+				"origin_port", "destination_port",
 			]
 			# Sales Quote Charge table does not have cost_minimum_unit_rate or cost_base_quantity; use subset
 			charge_fields_sales_quote_charge = [
 				f for f in charge_fields_legacy
 				if f not in ("cost_minimum_unit_rate", "cost_base_quantity")
 			]
+			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields_sales_quote_charge)
+			legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields_legacy)
 
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Charge",
 				filters=filters,
-				fields=charge_fields_sales_quote_charge,
+				fields=sqc_fields,
 				order_by="idx"
 			)
 			# Backward-compatible fallback: when separate billing is ON, quotes may have blank service_type.
@@ -1000,7 +1015,7 @@ class AirBooking(Document):
 					all_sq_charges = frappe.get_all(
 						"Sales Quote Charge",
 						filters=base_filters,
-						fields=charge_fields_sales_quote_charge,
+						fields=sqc_fields,
 						order_by="idx"
 					)
 					allowed_aliases = {implied_service, "", None}
@@ -1015,9 +1030,12 @@ class AirBooking(Document):
 				sales_quote_air_freight_records = frappe.get_all(
 					"Sales Quote Air Freight",
 					filters={"parent": sq_name, "parenttype": "Sales Quote"},
-					fields=charge_fields_legacy,
+					fields=legacy_air_fields,
 					order_by="idx"
 				)
+			sales_quote_air_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+				self, sales_quote_air_freight_records
+			)
 			
 			# Normalize calculation_method values in fetched records before processing
 			valid_calc_methods = [
@@ -1476,6 +1494,9 @@ class AirBooking(Document):
 	def _map_sales_quote_air_freight_to_charge(self, sqaf_record):
 		"""Map sales_quote_air_freight record to air_shipment_charges format"""
 		try:
+			def _sq_row_get(key, default=None):
+				return sqaf_record.get(key, default) if isinstance(sqaf_record, dict) else getattr(sqaf_record, key, default)
+
 			# Validate item_code is present
 			if not sqaf_record.get("item_code"):
 				frappe.log_error(
@@ -1714,6 +1735,9 @@ class AirBooking(Document):
 			service_type = _normalize_service_type_value(
 				(sqaf_record.get("service_type") if isinstance(sqaf_record, dict) else getattr(sqaf_record, "service_type", None))
 			) or "Air"
+			_sq_link = getattr(self, "sales_quote", None)
+			if not _sq_link and getattr(self, "quote", None) and frappe.db.exists("Sales Quote", self.quote):
+				_sq_link = self.quote
 			charge_data = {
 				"service_type": service_type,
 				"item_code": sqaf_record.item_code,
@@ -1731,8 +1755,9 @@ class AirBooking(Document):
 				"unit_of_measure": normalized_uom,  # Keep normalized value for unit_of_measure if needed
 				"unit_type": sqaf_record.get("unit_type"),
 				"billing_status": "To Bill",
-				"bill_to": getattr(sqaf_record, "bill_to", None),
-				"pay_to": getattr(sqaf_record, "pay_to", None),
+				"bill_to": _sq_row_get("bill_to"),
+				"pay_to": _sq_row_get("pay_to"),
+				"sales_quote_link": _sq_link,
 				"use_tariff_in_revenue": getattr(sqaf_record, "use_tariff_in_revenue", False),
 				"use_tariff_in_cost": getattr(sqaf_record, "use_tariff_in_cost", False),
 				"tariff": getattr(sqaf_record, "tariff", None),
@@ -2366,6 +2391,35 @@ def get_air_booking_settings_defaults(company: str = None):
 
 
 @frappe.whitelist()
+def recalculate_package_volumes_api(doc=None):
+	"""Module-level wrapper: same logic as AirBooking.recalculate_package_volumes_api but without run_doc_method.
+
+	Using ``frappe.call`` with this path avoids ``check_if_latest`` (TimestampMismatchError) when the client
+	sends a doc dict, e.g. right after save when another RPC may still carry a stale ``modified`` timestamp.
+	"""
+	if doc is None:
+		frappe.throw(_("Document is required"))
+	if isinstance(doc, str):
+		parsed = frappe.parse_json(doc)
+		if isinstance(parsed, dict) and parsed.get("doctype"):
+			doc = parsed
+	try:
+		booking = frappe.get_doc(doc) if isinstance(doc, dict) else frappe.get_doc("Air Booking", doc)
+		return booking.recalculate_package_volumes_api()
+	except frappe.DoesNotExistError:
+		return []
+
+
+@frappe.whitelist()
+def convert_to_shipment_api(docname=None):
+	"""Load Air Booking from DB and convert; avoids ``run_doc_method`` / ``check_if_latest``."""
+	if not docname:
+		frappe.throw(_("Document is required"))
+	booking = frappe.get_doc("Air Booking", docname)
+	return booking.convert_to_shipment()
+
+
+@frappe.whitelist()
 def aggregate_volume_from_packages_api(doc=None):
 	"""Module-level wrapper so full-path RPC (e.g. from Air Booking Packages) can call the doc method."""
 	if doc is None:
@@ -2536,13 +2590,17 @@ def populate_charges_from_sales_quote(
 			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
-			"service_type"  # Include service_type to identify charge types
+			"service_type",  # Include service_type to identify charge types
+			"origin_port",
+			"destination_port",
 		]
+		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
+		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
 		
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters=filters,
-			fields=charge_fields,
+			fields=sqc_fields,
 			order_by="idx"
 		)
 		# Backward-compatible fallback for quotes where Air rows have blank/legacy service_type.
@@ -2564,7 +2622,7 @@ def populate_charges_from_sales_quote(
 				all_sq_charges = frappe.get_all(
 					"Sales Quote Charge",
 					filters=base_filters,
-					fields=charge_fields,
+					fields=sqc_fields,
 					order_by="idx"
 				)
 				allowed_aliases = {implied_service, "", None}
@@ -2578,9 +2636,13 @@ def populate_charges_from_sales_quote(
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Air Freight",
 				filters={"parent": sales_quote, "parenttype": "Sales Quote"},
-				fields=charge_fields,
+				fields=legacy_air_fields,
 				order_by="idx"
 			)
+		filter_parent = doc if doc else parent
+		sales_quote_air_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+			filter_parent, sales_quote_air_freight_records
+		)
 		
 		if not sales_quote_air_freight_records:
 			return {
@@ -2690,22 +2752,31 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
-			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
+			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+			"service_type",
+			"origin_port",
+			"destination_port",
 		]
+		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
+		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
 		
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
 			filters={"parent": one_off_quote, "parenttype": "Sales Quote", "service_type": "Air"},
-			fields=charge_fields,
+			fields=sqc_fields,
 			order_by="idx"
 		)
 		if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
 			sales_quote_air_freight_records = frappe.get_all(
 				"Sales Quote Air Freight",
 				filters={"parent": one_off_quote, "parenttype": "Sales Quote"},
-				fields=charge_fields,
+				fields=legacy_air_fields,
 				order_by="idx"
 			)
+		one_off_parent = doc if doc else frappe._dict(doctype="Air Booking")
+		sales_quote_air_freight_records = filter_sales_quote_charge_rows_for_operational_doc(
+			one_off_parent, sales_quote_air_freight_records
+		)
 		
 		if not sales_quote_air_freight_records:
 			return {

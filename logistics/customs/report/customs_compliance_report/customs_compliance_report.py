@@ -2,7 +2,10 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.utils import getdate, today, add_days, date_diff
+
+from logistics.analytics_reports.bootstrap import tally_chart
 
 
 def execute(filters=None):
@@ -10,8 +13,8 @@ def execute(filters=None):
 	
 	columns = get_columns()
 	data = get_data(f)
-	
-	return columns, data
+	chart = tally_chart(data, "issue_type", _("Issues"))
+	return columns, data, None, chart, []
 
 
 def get_columns():

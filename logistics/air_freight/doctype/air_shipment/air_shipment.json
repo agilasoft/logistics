@@ -377,6 +377,7 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
+   "link_filters": "[[\"UNLOCO\",\"has_airport\",\"=\",1]]",
    "options": "UNLOCO",
    "reqd": 1
   },
@@ -385,6 +386,7 @@
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\",\"has_airport\",\"=\",1]]",
    "options": "UNLOCO",
    "reqd": 1
   },
@@ -505,7 +507,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -849,7 +850,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -1246,7 +1246,6 @@
    "label": "Details"
   },
   {
-   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -1387,7 +1386,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-08 15:03:57.969890",
+ "modified": "2026-04-15 16:58:32.563828",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

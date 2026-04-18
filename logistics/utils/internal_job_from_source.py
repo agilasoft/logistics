@@ -620,7 +620,9 @@ def _get_internal_job_creation_preview_body(
 				"main_job": doc.name,
 			}
 	elif source_doctype == "Declaration":
-		if jt == "Transport Order" and cint(getattr(doc, "is_internal_job", 0)):
+		if jt == "Transport Order" and (
+			cint(getattr(doc, "is_internal_job", 0)) or ij_row is not None
+		):
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Declaration",

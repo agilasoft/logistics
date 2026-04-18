@@ -313,7 +313,7 @@
    "fieldname": "direction",
    "fieldtype": "Select",
    "label": "Direction",
-   "options": "Import\nExport"
+   "options": "Import\nExport\nDomestic"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",
