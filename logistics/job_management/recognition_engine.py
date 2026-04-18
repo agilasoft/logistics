@@ -103,6 +103,15 @@ class RecognitionEngine:
         """Set the site Item accounting dimension on Journal Entry Account rows (if configured)."""
         return item_row_dict("Journal Entry Account", item_code)
 
+    def _je_dimension_fields_for_job(self):
+        """CC / PC / Branch for JE lines — same resolution as recognition policy matching (incl. Job Number)."""
+        cc, pc, br, _, _ = _job_dimensions_for_match(self.job)
+        return {
+            "cost_center": cc,
+            "profit_center": pc,
+            "branch": br,
+        }
+
     # ==================== WIP Recognition ====================
     
     def recognize_wip(self, recognition_date=None):
@@ -650,8 +659,7 @@ class RecognitionEngine:
                 "account": settings.get("revenue_liability_account"),
                 "debit_in_account_currency": amt,
                 "credit_in_account_currency": 0,
-                "cost_center": self.job.get("cost_center"),
-                "profit_center": self.job.get("profit_center"),
+                **self._je_dimension_fields_for_job(),
                 **self._je_account_reference_fields(),
                 **item_extra,
             }
@@ -663,8 +671,7 @@ class RecognitionEngine:
                 "account": settings.get("wip_account"),
                 "debit_in_account_currency": 0,
                 "credit_in_account_currency": amt,
-                "cost_center": self.job.get("cost_center"),
-                "profit_center": self.job.get("profit_center"),
+                **self._je_dimension_fields_for_job(),
                 **self._je_account_reference_fields(),
                 **item_extra,
             }
@@ -698,8 +705,7 @@ class RecognitionEngine:
             "account": settings.get("revenue_liability_account"),
             "debit_in_account_currency": amount,
             "credit_in_account_currency": 0,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
+            **self._je_dimension_fields_for_job(),
             **self._je_account_reference_fields(),
         }
         if jcn:
@@ -711,8 +717,7 @@ class RecognitionEngine:
             "account": settings.get("wip_account"),
             "debit_in_account_currency": 0,
             "credit_in_account_currency": amount,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
+            **self._je_dimension_fields_for_job(),
             **self._je_account_reference_fields(),
         }
         if jcn:
@@ -746,8 +751,7 @@ class RecognitionEngine:
             "account": settings.get("wip_account"),
             "debit_in_account_currency": amount,
             "credit_in_account_currency": 0,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
+            **self._je_dimension_fields_for_job(),
             **self._je_account_reference_fields(),
         }
         if jcn:
@@ -759,8 +763,7 @@ class RecognitionEngine:
             "account": settings.get("revenue_liability_account"),
             "debit_in_account_currency": 0,
             "credit_in_account_currency": amount,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
+            **self._je_dimension_fields_for_job(),
             **self._je_account_reference_fields(),
         }
         if jcn:
@@ -815,8 +818,7 @@ class RecognitionEngine:
                 "account": settings.get("cost_accrual_account"),
                 "debit_in_account_currency": amt,
                 "credit_in_account_currency": 0,
-                "cost_center": self.job.get("cost_center"),
-                "profit_center": self.job.get("profit_center"),
+                **self._je_dimension_fields_for_job(),
                 **self._je_account_reference_fields(),
                 **item_extra,
             }
@@ -828,8 +830,7 @@ class RecognitionEngine:
                 "account": settings.get("accrued_cost_liability_account"),
                 "debit_in_account_currency": 0,
                 "credit_in_account_currency": amt,
-                "cost_center": self.job.get("cost_center"),
-                "profit_center": self.job.get("profit_center"),
+                **self._je_dimension_fields_for_job(),
                 **self._je_account_reference_fields(),
                 **item_extra,
             }
@@ -864,8 +865,7 @@ class RecognitionEngine:
             "account": settings.get("accrued_cost_liability_account"),
             "debit_in_account_currency": amount,
             "credit_in_account_currency": 0,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
+            **self._je_dimension_fields_for_job(),
             **self._je_account_reference_fields(),
         }
         if jcn:
@@ -877,8 +877,7 @@ class RecognitionEngine:
             "account": settings.get("cost_accrual_account"),
             "debit_in_account_currency": 0,
             "credit_in_account_currency": amount,
-            "cost_center": self.job.get("cost_center"),
-            "profit_center": self.job.get("profit_center"),
+            **self._je_dimension_fields_for_job(),
             **self._je_account_reference_fields(),
         }
         if jcn:

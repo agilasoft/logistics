@@ -12,6 +12,7 @@ Tests cover:
 
 import frappe
 import unittest
+from unittest.mock import patch
 from frappe.utils import nowdate, add_days, flt
 from logistics.job_management.recognition_engine import (
     RecognitionEngine,
@@ -20,7 +21,8 @@ from logistics.job_management.recognition_engine import (
     get_recognition_policy_by_dimensions,
     get_ata_date,
     get_atd_date,
-    get_booking_date
+    get_booking_date,
+    _job_dimensions_for_match,
 )
 
 
@@ -138,6 +140,60 @@ class TestRecognitionEngine(unittest.TestCase):
         self.assertIsNotNone(policy)
 
 
+class TestRecognitionJeDimensions(unittest.TestCase):
+    """JE dimension helper — no reliance on TestRecognitionEngine.setUpClass (account fixtures)."""
+
+    def test_je_dimension_fields_for_job_matches_policy_resolution(self):
+        """WIP/accrual JE lines use the same CC/PC/Branch resolution as policy matching."""
+
+        class MockJob:
+            def __init__(self):
+                self.company = "_TestCo"
+                self.name = "MOCK-JOB-1"
+                self.doctype = "Sea Shipment"
+                self.cost_center = "CC-JOB"
+                self.profit_center = "PC-JOB"
+                self.branch = "BR-JOB"
+                self.job_number = None
+
+            def get(self, key, default=None):
+                return getattr(self, key, default) if hasattr(self, key) else default
+
+        job = MockJob()
+        engine = RecognitionEngine(job)
+        dims = engine._je_dimension_fields_for_job()
+        cc, pc, br, _, _ = _job_dimensions_for_match(job)
+        self.assertEqual(dims["cost_center"], cc)
+        self.assertEqual(dims["profit_center"], pc)
+        self.assertEqual(dims["branch"], br)
+        self.assertEqual(dims["branch"], "BR-JOB")
+
+    def test_je_dimension_fields_delegates_to_job_dimensions_for_match(self):
+        """Regression: JE row dimensions must stay aligned with _job_dimensions_for_match (e.g. Job Number fallback)."""
+
+        class MockJob:
+            def __init__(self):
+                self.company = ""
+                self.name = "MOCK-JOB-2"
+                self.doctype = "Sea Shipment"
+                self.job_number = None
+
+            def get(self, key, default=None):
+                return getattr(self, key, default) if hasattr(self, key) else default
+
+        job = MockJob()
+        engine = RecognitionEngine(job)
+        with patch(
+            "logistics.job_management.recognition_engine._job_dimensions_for_match",
+            return_value=("CC-X", "PC-X", "BR-X", None, None),
+        ):
+            dims = engine._je_dimension_fields_for_job()
+        self.assertEqual(
+            dims,
+            {"cost_center": "CC-X", "profit_center": "PC-X", "branch": "BR-X"},
+        )
+
+
 class TestRecognitionAccounting(unittest.TestCase):
     """Test accounting entries for recognition."""
     
@@ -157,6 +213,7 @@ class TestRecognitionAccounting(unittest.TestCase):
 def run_tests():
     """Run all recognition engine tests."""
     suite = unittest.TestLoader().loadTestsFromTestCase(TestRecognitionEngine)
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestRecognitionJeDimensions))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestRecognitionAccounting))
     unittest.TextTestRunner(verbosity=2).run(suite)
 

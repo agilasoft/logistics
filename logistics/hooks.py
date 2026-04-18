@@ -30,6 +30,7 @@ fixtures = [
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
 	"/assets/logistics/css/get_charges_from_quotation.css?v=3",
+	"/assets/logistics/css/charges_grid_no_row_check.css?v=1",
 ]
 app_include_js = [
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
