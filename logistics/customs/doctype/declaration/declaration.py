@@ -94,6 +94,7 @@ class Declaration(Document):
 	def on_update(self):
 		"""Handle status changes"""
 		self.handle_status_changes()
+		self.sync_internal_job_details_to_declaration_order()
 	
 	def before_submit(self):
 		"""Validate before submission"""
@@ -125,7 +126,24 @@ class Declaration(Document):
 					f"Error saving Declaration {self.name} after creating Job Number: {str(e)}",
 					"Declaration Save Error"
 				)
-	
+			else:
+				return
+		self.sync_internal_job_details_to_declaration_order()
+
+	def sync_internal_job_details_to_declaration_order(self):
+		"""Keep linked Declaration Order Internal Jobs in sync when this Declaration's table changes."""
+		try:
+			from logistics.utils.internal_job_detail_copy import (
+				sync_internal_job_details_from_declaration_to_declaration_order,
+			)
+
+			sync_internal_job_details_from_declaration_to_declaration_order(self)
+		except Exception as e:
+			frappe.log_error(
+				f"Error syncing Internal Job Details to Declaration Order for Declaration {self.name}: {str(e)}",
+				"Declaration Internal Job Sync Error",
+			)
+
 	def create_job_number_if_needed(self):
 		"""Create Job Number when document is first saved"""
 		# Only create if job_number is not set
@@ -922,6 +940,13 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		# Without this flag, on_update auto-population re-adds missing template rows.
 		declaration.flags.ignore_documents_milestones_populate = True
 		_copy_order_to_declaration(declaration, order, sq)
+		if not declaration.customs_authority:
+			frappe.throw(
+				_(
+					"Customs Authority is missing. Set it on Declaration Order {0}, on the linked Sales Quote (Customs charge or header), or as Default Customs Authority in Customs Settings for the company."
+				).format(order.name),
+				title=_("Missing Customs Authority"),
+			)
 		declaration.insert(ignore_permissions=True)
 		# Reload document to get latest timestamp after insert
 		declaration.reload()
@@ -1114,9 +1139,27 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.declaration_order = order.name
 	declaration.sales_quote = order.sales_quote
 	declaration.customer = order.customer
-	declaration.declaration_date = today()
+	od = getattr(order, "order_date", None)
+	declaration.declaration_date = getdate(od) if od else today()
 	declaration.customs_authority = order.customs_authority
+	if not declaration.customs_authority and order.sales_quote:
+		from logistics.customs.doctype.declaration_order.declaration_order import get_sales_quote_details
+
+		sqd = get_sales_quote_details(order.sales_quote)
+		if sqd.get("customs_authority"):
+			declaration.customs_authority = sqd["customs_authority"]
+	if not declaration.customs_authority:
+		company = getattr(order, "company", None) or (
+			getattr(sales_quote, "company", None) if sales_quote else None
+		)
+		if company:
+			default_ca = frappe.db.get_value(
+				"Customs Settings", {"company": company}, "default_customs_authority"
+			)
+			if default_ca:
+				declaration.customs_authority = default_ca
 	declaration.status = "Draft"
+	declaration.is_main_service = cint(getattr(order, "is_main_service", 0))
 	# Preserve internal-job classification context from the source order.
 	declaration.is_internal_job = getattr(order, "is_internal_job", 0)
 	declaration.main_job_type = getattr(order, "main_job_type", None)
@@ -1172,6 +1215,7 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.inv_total_amount = order.inv_total_amount
 	declaration.inv_currency = order.inv_currency
 	declaration.inv_exchange_rate = order.inv_exchange_rate
+	declaration.balance = getattr(order, "balance", None)
 	declaration.inv_volume = order.inv_volume
 	declaration.inv_volume_uom = order.inv_volume_uom
 	declaration.inv_gross_weight = order.inv_gross_weight
@@ -1193,6 +1237,7 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.letter_of_credit_date = order.letter_of_credit_date
 	declaration.lc_ex_rate = order.lc_ex_rate
 	declaration.payment_number = order.payment_number
+	declaration.payment_currency = getattr(order, "payment_currency", None)
 	declaration.payment_amount = order.payment_amount
 	declaration.payment_ex_rate = order.payment_ex_rate
 
@@ -1219,6 +1264,19 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	# Notes
 	declaration.internal_notes = order.internal_notes
 	declaration.external_notes = getattr(order, "external_notes", None)
+
+	# Child tables: internal jobs (same child doctype on both)
+	if order.get("internal_job_details"):
+		declaration.set("internal_job_details", [])
+		ij_meta = frappe.get_meta("Internal Job Detail")
+		ij_fields = {
+			f.fieldname
+			for f in ij_meta.fields
+			if f.fieldtype not in ("Section Break", "Column Break", "Tab Break")
+		}
+		for row in order.internal_job_details:
+			child = declaration.append("internal_job_details", {})
+			_copy_child_row(row, child, ij_fields)
 
 	# Child tables: commercial invoice line items (same structure)
 	if order.get("commercial_invoice_line_items"):

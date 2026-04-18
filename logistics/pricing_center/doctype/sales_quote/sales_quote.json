@@ -49,29 +49,31 @@
   "billing_mode",
   "routing_legs",
   "charges_tab",
+  "column_break_jabf",
+  "company",
+  "column_break_trty",
+  "branch",
+  "profit_center",
+  "cost_center",
+  "column_break_pfsj",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_bpor",
+  "additional_charge",
+  "column_break_eoty",
+  "change_request",
+  "job",
+  "job_type",
   "charges_section",
   "charges",
   "section_break_oiqx",
   "warehousing",
-  "section_break_bpor",
-  "additional_charge",
-  "job_type",
-  "job",
-  "change_request",
   "projects_tab",
   "projects_section",
   "special_project",
   "project_resources",
   "project_products",
-  "accounts_tab",
-  "sales_rep",
-  "operations_rep",
-  "customer_service_rep",
-  "column_break_jabf",
-  "company",
-  "branch",
-  "profit_center",
-  "cost_center",
   "additional_information_tab",
   "terms_and_conditions_section",
   "tc_name",
@@ -352,11 +354,6 @@
    "options": "Sales Quote Product"
   },
   {
-   "fieldname": "accounts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Accounts"
-  },
-  {
    "fieldname": "sales_rep",
    "fieldtype": "Link",
    "label": "Sales Rep",
@@ -581,6 +578,18 @@
   {
    "fieldname": "section_break_bpor",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_trty",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_pfsj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_eoty",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
@@ -633,7 +642,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-04-08 11:46:10.604563",
+ "modified": "2026-04-17 15:07:32.046177",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

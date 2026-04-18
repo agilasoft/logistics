@@ -4,11 +4,14 @@
 import frappe
 from frappe import _
 
+from logistics.analytics_reports.bootstrap import series_chart
+
 
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
-	return columns, data
+	chart = series_chart(data, "customer", "project_count")
+	return columns, data, None, chart, []
 
 
 def get_columns():

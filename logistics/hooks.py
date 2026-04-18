@@ -18,17 +18,25 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
-fixtures = ["role.json"]
+fixtures = [
+	"role.json",
+	"custom_html_block.json",
+]
 
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/logistics/css/print_footer_fix.css"
+app_include_css = [
+	"/assets/logistics/css/print_footer_fix.css",
+	"/assets/logistics/css/get_charges_from_quotation.css?v=3",
+]
 app_include_js = [
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/internal_job_create_from_source.js?v=15",
+	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=3",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
@@ -49,6 +57,11 @@ app_include_js = [
 # include js in doctype views
 doctype_js = {
 	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
+	"Container": "logistics/logistics/doctype/container/container.js",
+	"UNLOCO": [
+		"logistics/logistics/doctype/unloco/unloco.js",
+		"logistics/logistics/doctype/unloco/unloco_list.js",
+	],
 	# Sales Quote: dialogs first, then air/sea freight scripts
 	"Sales Quote": [
 		"logistics/public/js/charge_break_dialogs.js",
@@ -65,6 +78,8 @@ doctype_js = {
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/air_freight/doctype/air_booking_charges/air_booking_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
+		# Same Get Charges from Quotation UI as Sea Booking / Transport Order (list criteria, search, cards, Apply).
+		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Air Shipment": [
 		"logistics/public/js/internal_job_create_from_source.js",
@@ -287,6 +302,8 @@ for _dt in (
 	"Declaration",
 	"Declaration Order",
 	"Warehouse Job",
+	"Inbound Order",
+	"Release Order",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -413,7 +430,10 @@ user_data_fields = [
 
 # Database migrations (after schema sync)
 # ---------------------------------------
-after_migrate = ["logistics.job_management.recognition_migrate.after_migrate"]
+after_migrate = [
+	"logistics.job_management.recognition_migrate.after_migrate",
+	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
+]
 
 # Authentication and authorization
 # --------------------------------

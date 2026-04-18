@@ -1,0 +1,22 @@
+[
+ "transport_job_branch_and_profit_performance",
+ "transport_job_carrier_concentration",
+ "transport_job_cost_center_value_concentration",
+ "transport_job_customer_value_concentration",
+ "transport_job_dg_compliance_pipeline",
+ "transport_job_executive_control_snapshot",
+ "transport_job_load_type_service_mix",
+ "transport_job_mode_of_transport_mix",
+ "transport_job_monthly_throughput_index",
+ "transport_job_monthly_volume_and_value_trend",
+ "transport_job_open_draft_aging_backlog",
+ "transport_job_overdue_and_due_date_pressure",
+ "transport_job_owner_workload_balance",
+ "transport_job_profit_center_value_concentration",
+ "transport_job_project_portfolio_concentration",
+ "transport_job_sla_status_pipeline_mix",
+ "transport_job_submission_health_ratio",
+ "transport_job_vehicle_type_planning_mix",
+ "transport_job_weekly_throughput_index",
+ "transport_job_weekly_volume_and_value_trend"
+]

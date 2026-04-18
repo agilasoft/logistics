@@ -1,0 +1,22 @@
+[
+ "sales_quote_branch_performance_view",
+ "sales_quote_customer_win_concentration",
+ "sales_quote_direction_trade_mix",
+ "sales_quote_executive_control_snapshot",
+ "sales_quote_incoterm_commercial_mix",
+ "sales_quote_job_type_portfolio_mix",
+ "sales_quote_main_service_mix",
+ "sales_quote_monthly_pipeline_and_value",
+ "sales_quote_monthly_throughput_index",
+ "sales_quote_open_draft_aging_backlog",
+ "sales_quote_operations_representative_concentration",
+ "sales_quote_overdue_validity_pressure",
+ "sales_quote_owner_workload_review",
+ "sales_quote_quotation_type_mix",
+ "sales_quote_sales_representative_concentration",
+ "sales_quote_status_funnel_mix",
+ "sales_quote_submission_health_ratio",
+ "sales_quote_transport_mode_offer_mix",
+ "sales_quote_weekly_pipeline_and_value",
+ "sales_quote_weekly_throughput_index"
+]

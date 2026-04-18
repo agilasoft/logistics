@@ -1,8 +1,7 @@
 # Copyright (c) 2026, Agilasoft Cloud Technologies Inc. and Contributors
 # See license.txt
 
-# import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests import IntegrationTestCase, UnitTestCase
 
 
 # On IntegrationTestCase, the doctype test records and all
@@ -20,3 +19,33 @@ class IntegrationTestContainer(IntegrationTestCase):
 	"""
 
 	pass
+
+
+class UnitTestContainerDepositRow(UnitTestCase):
+	def test_sync_deposit_header_from_child_rows(self):
+		from logistics.logistics.deposit_processing.container_deposit_gl import sync_deposit_header_from_child_rows
+
+		class Row:
+			event_type = "Pay Carrier"
+			deposit_amount = 100
+			refund_amount = 0
+			deposit_currency = "USD"
+			deposit_date = "2026-01-01"
+
+			def get(self, k, d=None):
+				return getattr(self, k, d)
+
+		class _Fake:
+			deposit_amount = 0
+			deposit_currency = None
+			deposit_paid_date = None
+
+			def get(self, k, d=None):
+				if k == "deposits":
+					return [Row()]
+				return getattr(self, k, d)
+
+		f = _Fake()
+		sync_deposit_header_from_child_rows(f)
+		self.assertEqual(f.deposit_amount, 100)
+		self.assertEqual(f.deposit_currency, "USD")

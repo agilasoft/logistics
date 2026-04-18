@@ -102,15 +102,15 @@ def get_data(filters):
 			aship.origin_port,
 			aship.destination_port,
 			aship.chargeable,
-			COALESCE(SUM(asc.total_amount), 0) as total_charges,
+			COALESCE(SUM(aschg.total_amount), 0) as total_charges,
 			COALESCE(aship.revenue_amount, 0) as revenue_amount,
 			aship.billing_status,
-			COALESCE(MAX(asc.currency), aship.billing_currency, 'USD') as currency,
+			COALESCE(MAX(aschg.currency), aship.billing_currency, 'USD') as currency,
 			aship.company
 		FROM
 			`tabAir Shipment` aship
 		LEFT JOIN
-			`tabAir Shipment Charges` asc ON asc.parent = aship.name
+			`tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE
 			aship.docstatus = 1
 			{conditions}

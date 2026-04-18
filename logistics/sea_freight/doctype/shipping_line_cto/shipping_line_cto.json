@@ -31,7 +31,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Both\nImport\nExport"
+   "options": "Both\nImport\nExport\nDomestic"
   }
  ],
  "grid_page_length": 50,

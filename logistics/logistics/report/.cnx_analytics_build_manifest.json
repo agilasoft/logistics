@@ -1,0 +1,22 @@
+[
+ "container_active_versus_inactive_mix",
+ "container_carrier_concentration_by_value",
+ "container_equipment_type_concentration",
+ "container_fleet_executive_control_snapshot",
+ "container_fleet_monthly_volume_and_booked_value",
+ "container_fleet_owner_workload_and_value",
+ "container_fleet_weekly_volume_and_booked_value",
+ "container_location_type_routing_mix",
+ "container_master_bill_concentration",
+ "container_monthly_throughput_index",
+ "container_movement_reference_document_concentration",
+ "container_movement_type_operational_mix",
+ "container_movement_weekly_activity_index",
+ "container_open_draft_aging_backlog",
+ "container_operational_status_pipeline_and_share",
+ "container_penalty_and_deposit_financial_exposure",
+ "container_return_status_pipeline",
+ "container_submission_health_versus_drafts",
+ "container_top_locations_by_deposit_and_penalty_value",
+ "container_weekly_throughput_index"
+]

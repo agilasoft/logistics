@@ -1,7 +1,11 @@
 # warehouse_stock_balance.py  (fixed joins for company/branch)
 
 import frappe
+from frappe import _
 from frappe.utils import getdate
+
+from logistics.analytics_reports.bootstrap import bar_top_numeric
+
 
 def execute(filters=None):
     f = frappe._dict(filters or {})
@@ -137,4 +141,5 @@ def execute(filters=None):
     if frappe.utils.cint(f.get("hide_zero") or 0):
         data = [r for r in data if abs(r.get("ending_qty") or 0) > 0.0000001]
 
-    return columns, data
+    chart = bar_top_numeric(data, "item", "ending_qty", dataset_label=_("Ending qty"))
+    return columns, data, None, chart, []

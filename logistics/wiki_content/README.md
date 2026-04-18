@@ -83,6 +83,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | shipper.md | Shipper | Sea Freight |
 | consignee.md | Consignee | Sea Freight |
 | container_type.md | Container Type | Sea Freight |
+| container_management.md | Container Management (design) | Sea Freight |
 | uld_type.md | ULD Type | Air Freight |
 | transport_order.md | Transport Order | Transport |
 | transport_job.md | Transport Job | Transport |

@@ -34,6 +34,7 @@
   "actual_cost",
   "use_tariff_in_cost",
   "cost_tariff",
+  "tariff",
   "section_break_revenue_cost",
   "revenue_column",
   "revenue_calculation_method",
@@ -649,6 +650,15 @@
    "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
+   "hidden": 1,
+   "description": "Fallback when revenue_tariff/cost_tariff not set (backward compat)",
+   "fieldname": "tariff",
+   "fieldtype": "Link",
+   "label": "Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
+   "options": "Tariff"
+  },
+  {
    "fieldname": "weight_breaks_section",
    "fieldtype": "Section Break",
    "label": "Weight Breaks"
@@ -690,7 +700,7 @@
  "in_create": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-08 12:00:00.000000",
+ "modified": "2026-04-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Transport Job Charges",

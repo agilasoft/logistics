@@ -112,8 +112,9 @@
   "lc_ex_rate",
   "column_break_lirr",
   "payment_number",
-  "payment_ex_rate",
+  "payment_currency",
   "payment_amount",
+  "payment_ex_rate",
   "section_break_invoice_charges",
   "commercial_invoice_charges",
   "section_break_processing",
@@ -276,6 +277,7 @@
    "fieldtype": "Link",
    "label": "Sales Quote",
    "options": "Sales Quote",
+   "read_only": 1,
    "search_index": 1
   },
   {
@@ -326,7 +328,8 @@
    "fieldname": "declaration_order",
    "fieldtype": "Link",
    "label": "Declaration Order",
-   "options": "Declaration Order"
+   "options": "Declaration Order",
+   "read_only": 1
   },
   {
    "fieldname": "customs_authority",
@@ -896,10 +899,17 @@
    "label": "Payment #"
   },
   {
+   "fieldname": "payment_currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
+  },
+  {
    "fieldname": "payment_amount",
    "fieldtype": "Currency",
    "label": "Payment Amount",
-   "options": "inv_currency"
+   "options": "payment_currency"
   },
   {
    "fieldname": "payment_ex_rate",
@@ -1403,7 +1413,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_puec",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -1431,8 +1440,8 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-04-14 14:50:50.477232",
- "modified_by": "ejay.sambrano@agilasoft.com",
+ "modified": "2026-04-15 11:23:50.256697",
+ "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",
  "naming_rule": "By \"Naming Series\" field",

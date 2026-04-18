@@ -1,0 +1,506 @@
+/* Get Charges from Quotation — desk modal table (list + preview) */
+.logistics-gcfq-dialog .modal-body {
+	padding-top: 0.5rem;
+}
+
+/* Footer: single secondary “Close” — light neutral, aligned with reference */
+.logistics-gcfq-dialog .modal-footer .btn-modal-secondary {
+	background: #fff;
+	border: 1px solid #c8c8c8;
+	color: #36414c;
+}
+
+.logistics-gcfq-dialog .modal-footer .btn-modal-secondary:hover {
+	background: #f5f7fa;
+	border-color: #b8b8b8;
+	color: #36414c;
+}
+
+.logistics-gcfq-quotation-list {
+	min-height: 2rem;
+}
+
+/* Filter criteria (document fields + server rules) above the quotation table */
+.logistics-gcfq-filters {
+	font-size: 12px;
+	color: #36414c;
+	background: #f7fafc;
+	border: 1px solid #d1d8dd;
+	border-radius: 6px;
+	padding: 10px 12px 12px;
+	margin-bottom: 12px;
+}
+
+.logistics-gcfq-filters-title {
+	font-weight: 600;
+	font-size: 12px;
+	margin-bottom: 8px;
+	color: #36414c;
+}
+
+.logistics-gcfq-filters-dl {
+	display: grid;
+	grid-template-columns: minmax(8rem, 11rem) 1fr;
+	gap: 4px 12px;
+	margin: 0 0 10px;
+	align-items: start;
+}
+
+.logistics-gcfq-filters-dl dt {
+	margin: 0;
+	font-weight: 600;
+	color: #74808b;
+}
+
+.logistics-gcfq-filters-dl dd {
+	margin: 0;
+	word-break: break-word;
+}
+
+.logistics-gcfq-filters-rules-title {
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	color: #74808b;
+	margin-bottom: 6px;
+}
+
+.logistics-gcfq-filters-rules {
+	margin: 0;
+	padding-left: 1.1rem;
+	color: #5c6773;
+	line-height: 1.45;
+}
+
+.logistics-gcfq-filters-rules li {
+	margin-bottom: 4px;
+}
+
+.logistics-gcfq-filters--below-cards {
+	margin-top: 14px;
+	margin-bottom: 0;
+}
+
+.logistics-gcfq-list-root {
+	font-size: 13px;
+	color: #36414c;
+}
+
+.gcfq-quote-search-wrap {
+	margin-bottom: 10px;
+}
+
+.gcfq-quote-search-wrap .gcfq-quote-search {
+	width: 100%;
+	max-width: 100%;
+}
+
+.gcfq-quote-search-empty {
+	margin: 12px 0 4px;
+	text-align: center;
+	font-size: 13px;
+}
+
+.gcfq-list-toolbar {
+	margin-bottom: 10px;
+}
+
+.gcfq-list-toolbar .gcfq-quote-search {
+	max-width: 100%;
+}
+
+.gcfq-list-toolbar .gcfq-filter-empty {
+	margin-top: 8px;
+	padding-top: 2px;
+}
+
+/* Expandable quotation cards (aligned with Create Internal Job — internal_job_create_from_source.js) */
+.gcfq-cards-scroll {
+	max-height: min(58vh, 520px);
+	overflow-y: auto;
+	overflow-x: hidden;
+	min-height: 0;
+	padding: 2px 2px 6px 0;
+	-webkit-overflow-scrolling: touch;
+}
+
+.gcfq-cards {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.gcfq-card {
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	overflow: hidden;
+	background: #fff;
+}
+
+.gcfq-card.open {
+	border-color: #5c6ac4;
+	box-shadow: 0 0 0 1px rgba(92, 106, 196, 0.12);
+}
+
+.gcfq-card-hd {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	font-weight: 600;
+	font-size: 13px;
+	flex-wrap: wrap;
+}
+
+.gcfq-card-toggle {
+	cursor: pointer;
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	flex: 1;
+	min-width: 0;
+	user-select: none;
+	border-radius: 6px;
+	margin: -4px;
+	padding: 4px 6px 4px 4px;
+}
+
+.gcfq-card-toggle .gcfq-card-chevron {
+	align-self: center;
+	margin-top: 8px;
+}
+
+.gcfq-card-head-block {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	min-width: 0;
+	flex: 1;
+}
+
+.gcfq-card-mono-icon {
+	flex-shrink: 0;
+	width: 36px;
+	height: 36px;
+	border-radius: 8px;
+	background: #1a1a1a;
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 15px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.gcfq-card-mono-icon--compact {
+	font-size: 11px;
+	letter-spacing: -0.02em;
+}
+
+.gcfq-card-head-text {
+	min-width: 0;
+	flex: 1;
+}
+
+.gcfq-card-head-title {
+	font-weight: 600;
+	font-size: 14px;
+	color: #36414c;
+	line-height: 1.3;
+	margin: 0 0 6px;
+	word-break: break-word;
+}
+
+.gcfq-card-head-row2 {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.gcfq-card-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 10px;
+	border-radius: 999px;
+	background: rgba(92, 106, 196, 0.14);
+	color: #5c6ac4;
+	font-size: 11px;
+	font-weight: 600;
+	white-space: nowrap;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.gcfq-card-sub {
+	color: #74808b;
+	font-weight: 400;
+	min-width: 0;
+	word-break: break-word;
+}
+
+.gcfq-card-toggle:hover {
+	background: #f8fafc;
+}
+
+.gcfq-card-toggle:focus {
+	outline: 2px solid #5c6ac4;
+	outline-offset: 2px;
+}
+
+.gcfq-card-chevron {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #74808b;
+	transition: transform 0.18s ease;
+	font-size: 11px;
+}
+
+.gcfq-card.open .gcfq-card-chevron {
+	transform: rotate(90deg);
+}
+
+.gcfq-card-hd .gcfq-card-apply {
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
+.gcfq-card-bd {
+	display: none;
+	border-top: 1px solid #e2e8f0;
+	padding: 12px 14px;
+	background: #fafafa;
+	max-height: min(45vh, 380px);
+	overflow-y: auto;
+	overflow-x: hidden;
+	-webkit-overflow-scrolling: touch;
+}
+
+.gcfq-card.open .gcfq-card-bd {
+	display: block;
+}
+
+.gcfq-card-preview {
+	min-height: 8px;
+}
+
+.gcfq-card-loading {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 16px;
+	color: #74808b;
+	font-size: 13px;
+}
+
+.gcfq-card-loading-spin {
+	width: 18px;
+	height: 18px;
+	border: 2px solid #d1d8dd;
+	border-top-color: #5c6ac4;
+	border-radius: 50%;
+	animation: gcfq-spin 0.7s linear infinite;
+	flex-shrink: 0;
+}
+
+@keyframes gcfq-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.logistics-gcfq-preview--in-card .logistics-gcfq-preview-toolbar {
+	margin-bottom: 8px;
+}
+
+/* Scrollable table shell: white card, light border (matches reference modal) */
+.logistics-gcfq-table-wrap {
+	max-height: 50vh;
+	overflow: auto;
+	border: 1px solid #d1d8dd;
+	border-radius: 6px;
+	background: #fff;
+}
+
+.logistics-gcfq-table {
+	width: 100%;
+	margin-bottom: 0;
+	border-collapse: collapse;
+	font-size: 13px;
+	color: #36414c;
+}
+
+.logistics-gcfq-table thead th {
+	background-color: #f0f4f7;
+	color: #36414c;
+	font-weight: 600;
+	font-size: 12px;
+	text-align: left;
+	border: 1px solid #d1d8dd;
+	padding: 10px 12px;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.logistics-gcfq-table tbody td {
+	border: 1px solid #d1d8dd;
+	padding: 10px 12px;
+	vertical-align: middle;
+	background: #fff;
+}
+
+/* Selectable row (standard desk list pattern) */
+.logistics-gcfq-table tbody tr.gcfq-quote-row {
+	cursor: pointer;
+}
+
+.logistics-gcfq-table tbody tr.gcfq-quote-row:hover td {
+	background-color: #f5f7fa;
+}
+
+/* Sales Quote: Frappe btn-link — looks like a form Link field */
+.logistics-gcfq-table .gcfq-col-quote {
+	min-width: 10rem;
+}
+
+.logistics-gcfq-table .gcfq-quote-select {
+	font-size: 13px;
+	font-weight: 500;
+	padding: 0;
+	text-decoration: none;
+	border: none;
+	background: transparent;
+	box-shadow: none;
+	vertical-align: baseline;
+}
+
+.logistics-gcfq-table .gcfq-quote-select:hover,
+.logistics-gcfq-table tbody tr.gcfq-quote-row:hover .gcfq-quote-select {
+	text-decoration: underline;
+}
+
+/* Preview step: toolbar + table (aligned with quotation list) */
+.logistics-gcfq-preview {
+	color: #36414c;
+}
+
+.logistics-gcfq-preview-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.logistics-gcfq-preview-toolbar-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: #36414c;
+}
+
+.logistics-gcfq-preview-count {
+	font-size: 12px;
+	color: #74808b;
+	background: #f0f4f7;
+	border: 1px solid #d1d8dd;
+	border-radius: 4px;
+	padding: 4px 10px;
+	line-height: 1.3;
+}
+
+.logistics-gcfq-preview-table-wrap {
+	max-height: 42vh;
+}
+
+.logistics-gcfq-preview-table th:first-child,
+.logistics-gcfq-preview-table td.gcfq-preview-col-service {
+	width: 18%;
+	min-width: 6rem;
+}
+
+.logistics-gcfq-preview-table th:nth-child(2),
+.logistics-gcfq-preview-table td.gcfq-preview-col-code {
+	width: 20%;
+	min-width: 6.5rem;
+}
+
+.logistics-gcfq-preview-table th:nth-child(3),
+.logistics-gcfq-preview-table td.gcfq-preview-col-name {
+	word-break: break-word;
+	min-width: 7rem;
+}
+
+.logistics-gcfq-preview-table th.gcfq-preview-th-rate,
+.logistics-gcfq-preview-table td.gcfq-preview-col-rate {
+	text-align: right;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	width: 1%;
+	min-width: 7rem;
+}
+
+.logistics-gcfq-preview-table .gcfq-preview-service-pill {
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: #36414c;
+	background: #eef2f6;
+	border: 1px solid #d1d8dd;
+	border-radius: 4px;
+	padding: 3px 8px;
+	text-transform: none;
+}
+
+.logistics-gcfq-preview-table .gcfq-preview-empty-cell {
+	color: #b8c0c9;
+	font-size: 13px;
+}
+
+.logistics-gcfq-preview-empty {
+	border: 1px dashed #d1d8dd;
+	border-radius: 6px;
+	background: #fafbfc;
+	color: #74808b;
+	font-size: 13px;
+	padding: 20px 16px;
+	text-align: center;
+	margin-bottom: 4px;
+}
+
+.logistics-gcfq-preview-more {
+	font-size: 12px;
+	margin-top: 10px;
+}
+
+.logistics-gcfq-preview-actions {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid #ebeff2;
+}
+
+.logistics-gcfq-preview-actions .btn-default {
+	background: #fff;
+	border: 1px solid #c8c8c8;
+	color: #36414c;
+}
+
+.logistics-gcfq-preview-actions .btn-default:hover {
+	background: #f5f7fa;
+	border-color: #b8b8b8;
+}
+
+.logistics-gcfq-preview-actions .btn-primary:disabled {
+	cursor: not-allowed;
+	opacity: 0.65;
+}

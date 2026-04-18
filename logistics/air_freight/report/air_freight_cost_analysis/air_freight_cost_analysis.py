@@ -120,21 +120,21 @@ def get_data(filters):
 			aship.destination_port,
 			aship.airline,
 			aship.chargeable,
-			COALESCE(SUM(CASE WHEN asc.charge_type = 'Freight' THEN asc.total_amount ELSE 0 END), 0) as freight_cost,
-			COALESCE(SUM(CASE WHEN asc.charge_type = 'Fuel Surcharge' THEN asc.total_amount ELSE 0 END), 0) as fuel_surcharge,
-			COALESCE(SUM(CASE WHEN asc.charge_type IN ('Handling', 'Terminal Handling') THEN asc.total_amount ELSE 0 END), 0) as handling_cost,
-			COALESCE(SUM(CASE WHEN asc.charge_type = 'Customs Clearance' THEN asc.total_amount ELSE 0 END), 0) as customs_cost,
-			COALESCE(SUM(CASE WHEN asc.charge_type NOT IN ('Freight', 'Fuel Surcharge', 'Handling', 'Terminal Handling', 'Customs Clearance') THEN asc.total_amount ELSE 0 END), 0) as other_costs,
-			COALESCE(SUM(asc.total_amount), 0) as total_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_type = 'Freight' THEN aschg.total_amount ELSE 0 END), 0) as freight_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_type = 'Fuel Surcharge' THEN aschg.total_amount ELSE 0 END), 0) as fuel_surcharge,
+			COALESCE(SUM(CASE WHEN aschg.charge_type IN ('Handling', 'Terminal Handling') THEN aschg.total_amount ELSE 0 END), 0) as handling_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_type = 'Customs Clearance' THEN aschg.total_amount ELSE 0 END), 0) as customs_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_type NOT IN ('Freight', 'Fuel Surcharge', 'Handling', 'Terminal Handling', 'Customs Clearance') THEN aschg.total_amount ELSE 0 END), 0) as other_costs,
+			COALESCE(SUM(aschg.total_amount), 0) as total_cost,
 			CASE 
-				WHEN aship.chargeable > 0 THEN COALESCE(SUM(asc.total_amount), 0) / aship.chargeable
+				WHEN aship.chargeable > 0 THEN COALESCE(SUM(aschg.total_amount), 0) / aship.chargeable
 				ELSE 0
 			END as cost_per_kg,
 			aship.company
 		FROM
 			`tabAir Shipment` aship
 		LEFT JOIN
-			`tabAir Shipment Charges` asc ON asc.parent = aship.name
+			`tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE
 			aship.docstatus = 1
 			{conditions}

@@ -1,0 +1,83 @@
+.afw-hub { font-size: 13px; color: var(--text-color, #1f2937); }
+.afw-hub-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.afw-hub-draft { margin: 0; font-weight: normal; }
+.afw-hub-main {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) minmax(200px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .afw-hub-main { grid-template-columns: 1fr; }
+}
+.afw-hub-map-title, .afw-hub-side-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted, #6b7280); margin-bottom: 8px;
+}
+.afw-hub-map-host { position: relative; }
+.afw-hub-map-filter-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 500;
+  max-width: calc(100% - 16px);
+}
+.afw-hub-map-filter-pill {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--fg-color, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.afw-hub-map-filter-pill .afw-hub-map-filter {
+  margin: 0 !important;
+  border: none;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+}
+.afw-hub-map-filter-pill .afw-hub-map-filter:hover {
+  color: var(--text-color, #111827);
+  background: var(--control-bg, #f3f4f6);
+}
+.afw-hub-map-filter-pill .afw-hub-map-filter.active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.35);
+}
+.afw-hub-map {
+  height: 440px; width: 100%; border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 6px; background: var(--control-bg, #f3f4f6);
+  position: relative;
+}
+.afw-hub-airline-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.afw-hub-cell.afw-hub-airline {
+  border: 1px solid var(--border-color, #111827); background: var(--fg-color, #fff);
+  border-radius: 4px; padding: 12px 10px; text-align: center; font-weight: 600;
+  font-size: 12px; letter-spacing: 0.02em;
+}
+.afw-hub-alert-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+}
+.afw-hub-pill {
+  border-radius: 8px; padding: 12px 10px; text-align: center; font-weight: 600; font-size: 13px; color: #fff;
+}
+.afw-hub-pill-danger { background: #374151; }
+.afw-hub-pill-warn { background: #4b5563; }
+.afw-hub-alerts-list { max-height: 220px; overflow: auto; }
+.afw-hub-alert-item {
+  font-size: 12px; padding: 8px 10px; margin-bottom: 6px; background: var(--control-bg, #f3f4f6);
+  border-radius: 4px; border-left: 3px solid var(--border-color, #d1d5db);
+}
+.afw-hub-alert-item.danger { border-left-color: #dc2626; }
+.afw-hub-alert-item.warning { border-left-color: #ca8a04; }
+.afw-hub-alert-item.info { border-left-color: #0284c7; }
+.afw-hub-alert-item a { font-weight: 600; }

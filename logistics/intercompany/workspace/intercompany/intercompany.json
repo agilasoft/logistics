@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\": \"header1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Intercompany</span>\", \"col\": 12}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Settings\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Invoice Log\", \"col\": 4}}]",
+ "content": "[{\"id\": \"header1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Intercompany</span>\", \"col\": 12}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Settings\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Invoice Log\", \"col\": 4}}, {\"id\": \"sp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdrRep\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Shipment & consolidation status\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue & cost visibility\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Billing & accruals context\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Customs & compliance\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Warehouse & productivity\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Performance & ESG analytics\", \"col\": 4}}]",
  "creation": "2026-02-25 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -15,8 +15,390 @@
  "label": "Intercompany",
  "link_type": "DocType",
  "links": [
-  {"label": "Intercompany Settings", "link_to": "Intercompany Settings", "link_type": "DocType", "type": "Link"},
-  {"label": "Intercompany Invoice Log", "link_to": "Intercompany Invoice Log", "link_type": "DocType", "type": "Link"}
+  {
+   "label": "Intercompany Settings",
+   "link_to": "Intercompany Settings",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "label": "Intercompany Invoice Log",
+   "link_to": "Intercompany Invoice Log",
+   "link_type": "DocType",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipment & consolidation status",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Shipment Status Report",
+   "link_count": 0,
+   "link_to": "Sea Shipment Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Shipment Status Report",
+   "link_count": 0,
+   "link_to": "Air Shipment Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "On-Time Delivery Report",
+   "link_count": 0,
+   "link_to": "On-Time Delivery Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Consolidation Report",
+   "link_count": 0,
+   "link_to": "Sea Consolidation Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Consolidation"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Consolidation Report",
+   "link_count": 0,
+   "link_to": "Air Consolidation Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Consolidation"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Revenue & cost visibility",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Cost Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Air Freight Cost Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Billing Status Report",
+   "link_count": 0,
+   "link_to": "Sea Freight Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Billing & accruals context",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight On-Time Performance Report",
+   "link_count": 0,
+   "link_to": "Sea Freight On-Time Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight On-Time Performance Report",
+   "link_count": 0,
+   "link_to": "Air Freight On-Time Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Route Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Route Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Route Analysis Report",
+   "link_count": 0,
+   "link_to": "Route Analysis Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipping Line Performance Report",
+   "link_count": 0,
+   "link_to": "Shipping Line Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs & compliance",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Status Report",
+   "link_count": 0,
+   "link_to": "Declaration Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Manifest Status Report",
+   "link_count": 0,
+   "link_to": "Manifest Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Global Manifest"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs Compliance Report",
+   "link_count": 0,
+   "link_to": "Customs Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Filing Compliance Report",
+   "link_count": 0,
+   "link_to": "Filing Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Value Report",
+   "link_count": 0,
+   "link_to": "Declaration Value Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse & productivity",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Balance",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Ledger",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Storage Location Usage",
+   "link_count": 0,
+   "link_to": "Storage Location Usage",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Handling Unit Capacity",
+   "link_count": 0,
+   "link_to": "Handling Unit Capacity",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Capacity Forecasting Report",
+   "link_count": 0,
+   "link_to": "Capacity Forecasting Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Performance & ESG analytics",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Dashboard Report",
+   "link_count": 0,
+   "link_to": "Sustainability Dashboard Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Report",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Energy Consumption Report",
+   "link_count": 0,
+   "link_to": "Energy Consumption Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Fuel Consumption Analysis",
+   "link_count": 0,
+   "link_to": "Fuel Consumption Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Transport Leg"
+  }
  ],
  "modified": "2026-02-25 00:00:00.000000",
  "modified_by": "Administrator",
@@ -29,8 +411,22 @@
  "quick_lists": [],
  "roles": [],
  "shortcuts": [
-  {"color": "Blue", "doc_view": "Form", "label": "Intercompany Settings", "link_to": "Intercompany Settings", "stats_filter": "[]", "type": "DocType"},
-  {"color": "Grey", "doc_view": "List", "label": "Intercompany Invoice Log", "link_to": "Intercompany Invoice Log", "stats_filter": "[]", "type": "DocType"}
+  {
+   "color": "Blue",
+   "doc_view": "Form",
+   "label": "Intercompany Settings",
+   "link_to": "Intercompany Settings",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Intercompany Invoice Log",
+   "link_to": "Intercompany Invoice Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
  ],
  "title": "Intercompany",
  "type": "Workspace"

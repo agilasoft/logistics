@@ -16,8 +16,6 @@
   "airline_numeric_code",
   "three_letter_numeric_code",
   "two_character_code",
-  "memberships_section",
-  "memberships",
   "other_details_section",
   "short_name",
   "address",
@@ -117,16 +115,6 @@
    "label": "Two Character Code"
   },
   {
-   "fieldname": "memberships_section",
-   "fieldtype": "Section Break",
-   "label": "Memberships"
-  },
-  {
-   "fieldname": "memberships",
-   "fieldtype": "Table",
-   "options": "Airline Membership"
-  },
-  {
    "fieldname": "other_details_section",
    "fieldtype": "Section Break",
    "label": "Other Details"
@@ -140,8 +128,8 @@
    "fieldname": "address",
    "fieldtype": "Link",
    "label": "Address",
-   "options": "Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
   },
   {
    "fieldname": "efreight_tab",
@@ -436,7 +424,7 @@
  "image_field": "logo",
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-18 11:20:19.049202",
+ "modified": "2026-04-18 09:43:57.203081",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Airline",

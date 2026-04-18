@@ -1,9 +1,14 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"KmqO4ZDUte\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"lLsF1rZJs0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Air Shipments\",\"col\":4}},{\"id\":\"zfGnGqD_KJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Pending Consolidations\",\"col\":4}},{\"id\":\"Yrv323PTD-\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Unbilled Shipments\",\"col\":4}},{\"id\":\"PnzmoDx3AD\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"id5PPDI1AU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"cOpPisjZoB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"yzT5a0lxSA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Booking\",\"col\":3}},{\"id\":\"3HiVrZLIPv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Shipment\",\"col\":3}},{\"id\":\"aDLLlm2IFm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Consolidation\",\"col\":3}},{\"id\":\"zzsLPl3JFG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Master Air Waybill\",\"col\":3}},{\"id\":\"95JHp6T1ff\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"oJg34cjG-V\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"7U-lNFTP-G\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"3e_58ovOE1\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}},{\"id\":\"ofYYUE8KNc\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}},{\"id\":\"MfMg7iL-aE\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"nGrk4a4DrA\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"M_wmlfz5l6\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"kt796SCV0z\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"3YIhlfqgeO\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Analysis Reports\",\"col\":4}}]",
+ "content": "[{\"id\":\"EKUujeeskW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Air Freight Operations Dashboard\",\"col\":12}},{\"id\":\"KmqO4ZDUte\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"lLsF1rZJs0\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Air Shipments\",\"col\":4}},{\"id\":\"zfGnGqD_KJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Pending Consolidations\",\"col\":4}},{\"id\":\"Yrv323PTD-\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Unbilled Shipments\",\"col\":4}},{\"id\":\"PnzmoDx3AD\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"id5PPDI1AU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"cOpPisjZoB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"yzT5a0lxSA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Booking\",\"col\":3}},{\"id\":\"3HiVrZLIPv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Shipment\",\"col\":3}},{\"id\":\"aDLLlm2IFm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Consolidation\",\"col\":3}},{\"id\":\"zzsLPl3JFG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Master Air Waybill\",\"col\":3}},{\"id\":\"95JHp6T1ff\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"oJg34cjG-V\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"7U-lNFTP-G\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"3e_58ovOE1\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}},{\"id\":\"ofYYUE8KNc\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}},{\"id\":\"MfMg7iL-aE\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"nGrk4a4DrA\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"M_wmlfz5l6\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"kt796SCV0z\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"3YIhlfqgeO\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Analysis Reports\",\"col\":4}},{\"id\":\"aMD7qAAbbc\",\"type\":\"card\",\"data\":{\"card_name\":\"Consolidations\",\"col\":4}}]",
  "creation": "2025-05-22 17:01:00.044524",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Air Freight Operations Dashboard",
+   "label": "Air Freight Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -311,9 +316,83 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consolidations",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Executive Snapshor",
+   "link_count": 0,
+   "link_to": "Air Consolidation Executive Snapshot",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Consolidation",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Agent Concentration",
+   "link_count": 0,
+   "link_to": "Air Consolidation Agent Concentration",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Airline Concenttration",
+   "link_count": 0,
+   "link_to": "Air Consolidation Airline Concentration",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Consolidation",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Status Pipeline",
+   "link_count": 0,
+   "link_to": "Air Consolidation Status Pipeline",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Consolidation",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Weekly Activity",
+   "link_count": 0,
+   "link_to": "Air Consolidation Weekly Activity",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Consolidation",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Weekly Thoughput",
+   "link_count": 0,
+   "link_to": "Air Consolidation Weekly Throughput Index",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Air Consolidation",
+   "type": "Link"
   }
  ],
- "modified": "2026-03-16 21:09:48.833916",
+ "modified": "2026-04-15 18:27:43.282875",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight",

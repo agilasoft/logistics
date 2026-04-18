@@ -4,6 +4,7 @@
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 # Parent-level: same fieldname on Air/Sea Shipment, Air/Sea Booking, Transport Order, Transport Job.
 PARENT_DG_FLAG = "contains_dangerous_goods"
@@ -99,6 +100,48 @@ def copy_parent_dg_header(source, target):
 			v = getattr(source, fn, None)
 			if v is not None and v != "":
 				setattr(target, fn, v)
+
+
+DG_STATUS_PENDING_DOCUMENTATION = "Pending Documentation"
+
+
+def update_parent_dg_compliance_status(doc):
+	"""Set parent ``dg_compliance_status`` from declaration checkbox and emergency contact fields (Sea/Air booking & shipment).
+
+	When ``contains_dangerous_goods`` is false, clears ``dg_compliance_status``.
+	Otherwise: Under Review if declaration not complete; Compliant if complete and all emergency fields
+	non-empty; Non-Compliant if complete and any emergency field empty.
+	If the computed value would be Under Review and the document already has Pending Documentation, that
+	value is preserved until declaration is complete (then Compliant / Non-Compliant applies).
+	"""
+	if not hasattr(doc, "dg_compliance_status"):
+		return
+
+	if not cint(getattr(doc, PARENT_DG_FLAG, 0)):
+		doc.dg_compliance_status = ""
+		return
+
+	declaration_done = bool(cint(getattr(doc, "dg_declaration_complete", 0)))
+	current = (getattr(doc, "dg_compliance_status", None) or "").strip()
+
+	def _txt(fieldname):
+		return (getattr(doc, fieldname, None) or "").strip()
+
+	emergency_ok = all(
+		_txt(fn) for fn in ("dg_emergency_contact", "dg_emergency_phone", "dg_emergency_email")
+	)
+
+	if not declaration_done:
+		computed = "Under Review"
+	elif emergency_ok:
+		computed = "Compliant"
+	else:
+		computed = "Non-Compliant"
+
+	if computed == "Under Review" and current == DG_STATUS_PENDING_DOCUMENTATION:
+		return
+
+	doc.dg_compliance_status = computed
 
 
 def transport_order_package_row_from_shipment_pkg(shipment, pkg):

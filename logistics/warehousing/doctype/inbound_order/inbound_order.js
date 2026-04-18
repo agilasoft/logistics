@@ -19,6 +19,19 @@ frappe.ui.form.on('Inbound Order', {
     });
   },
   refresh(frm) {
+    if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+      logistics.apply_one_off_sales_quote_order_standard(frm);
+    }
+    frm.set_query("sales_quote", function () {
+      return {
+        query: "logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search",
+        filters: {
+          service_type: "Warehousing",
+          reference_doctype: "Inbound Order",
+          reference_name: frm.doc.name || "",
+        },
+      };
+    });
     // Load documents summary HTML in Documents tab
     if (window.logistics_load_documents_html) {
       window.logistics_load_documents_html(frm, "Inbound Order");

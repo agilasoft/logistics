@@ -9,10 +9,11 @@
  "field_order": [
   "details_tab",
   "code",
-  "is_active",
   "consignee_name",
-  "section_break_customs",
-  "customs_importer_classification",
+  "column_break_bvoo",
+  "importer_category",
+  "default_unloco",
+  "is_active",
   "section_general_defaults",
   "default_notify_party",
   "default_notify_party_address",
@@ -25,6 +26,7 @@
   "section_air_defaults",
   "air_default_receiving_agent",
   "air_default_broker",
+  "default_airport",
   "column_break_air_1",
   "air_default_customs_broker",
   "air_default_document_template",
@@ -36,6 +38,7 @@
   "section_sea_defaults",
   "sea_default_receiving_agent",
   "sea_default_broker",
+  "default_seaport",
   "column_break_sea_1",
   "sea_default_freight_consolidator",
   "sea_default_document_template",
@@ -47,6 +50,7 @@
   "section_customs_defaults",
   "customs_default_broker",
   "customs_default_freight_agent",
+  "customs_importer_classification",
   "column_break_customs_1",
   "customs_default_trade_agreement",
   "customs_default_marks_and_numbers",
@@ -101,11 +105,6 @@
    "label": "Consignee Name"
   },
   {
-   "fieldname": "section_break_customs",
-   "fieldtype": "Section Break",
-   "label": "Customs"
-  },
-  {
    "description": "Customs lane classification (SGL=Super Green Lane, GL=Green Lane)",
    "fieldname": "customs_importer_classification",
    "fieldtype": "Select",
@@ -147,8 +146,8 @@
    "fieldname": "default_currency",
    "fieldtype": "Link",
    "label": "Default Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "fieldname": "default_payment_terms",
@@ -170,15 +169,15 @@
    "fieldname": "air_default_receiving_agent",
    "fieldtype": "Link",
    "label": "Default Receiving Agent (Air)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "air_default_broker",
    "fieldtype": "Link",
    "label": "Default Broker (Air)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_air_1",
@@ -188,8 +187,8 @@
    "fieldname": "air_default_customs_broker",
    "fieldtype": "Link",
    "label": "Default Customs Broker (Air)",
-   "options": "Supplier",
-   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
   },
   {
    "fieldname": "air_default_document_template",
@@ -211,8 +210,8 @@
    "fieldname": "air_default_tc_name",
    "fieldtype": "Link",
    "label": "Default Terms (Air)",
-   "options": "Terms and Conditions",
-   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
   },
   {
    "fieldname": "air_default_client_notes",
@@ -233,15 +232,15 @@
    "fieldname": "sea_default_receiving_agent",
    "fieldtype": "Link",
    "label": "Default Receiving Agent (Sea)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "sea_default_broker",
    "fieldtype": "Link",
    "label": "Default Broker (Sea)",
-   "options": "Broker",
-   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "column_break_sea_1",
@@ -251,8 +250,8 @@
    "fieldname": "sea_default_freight_consolidator",
    "fieldtype": "Link",
    "label": "Default Freight Consolidator",
-   "options": "Freight Consolidator",
-   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Consolidator"
   },
   {
    "fieldname": "sea_default_document_template",
@@ -274,8 +273,8 @@
    "fieldname": "sea_default_tc_name",
    "fieldtype": "Link",
    "label": "Default Terms (Sea)",
-   "options": "Terms and Conditions",
-   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
   },
   {
    "fieldname": "sea_default_client_notes",
@@ -296,15 +295,15 @@
    "fieldname": "customs_default_broker",
    "fieldtype": "Link",
    "label": "Default Customs Broker",
-   "options": "Broker",
-   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "customs_default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent (Customs)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_customs_1",
@@ -409,16 +408,16 @@
    "fieldname": "consignee_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "options": "Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
   },
   {
    "description": "Default address for transport deliveries",
    "fieldname": "delivery_address",
    "fieldtype": "Link",
    "label": "Delivery Address",
-   "options": "Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
   },
   {
    "fieldname": "addresses_and_contacts",
@@ -451,12 +450,40 @@
    "fieldname": "primary_address",
    "fieldtype": "Text",
    "label": "Primary Address"
+  },
+  {
+   "fieldname": "column_break_bvoo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_unloco",
+   "fieldtype": "Link",
+   "label": "Default UNLOCO",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "default_airport",
+   "fieldtype": "Link",
+   "label": "Default Airport",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "default_seaport",
+   "fieldtype": "Link",
+   "label": "Default Seaport",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "importer_category",
+   "fieldtype": "Link",
+   "label": "Importer Category",
+   "options": "Importer Category"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-22 12:00:00.000000",
+ "modified": "2026-04-17 14:33:10.329752",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Consignee",

@@ -1,0 +1,20 @@
+{
+ "content": null,
+ "doctype": "Page",
+ "creation": "2026-04-15 12:00:00.000000",
+ "docstatus": 0,
+ "idx": 0,
+ "modified": "2026-04-15 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "air-freight-operations",
+ "owner": "Administrator",
+ "page_name": "air-freight-operations",
+ "restrict_to_domain": "",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 1,
+ "title": "Air Freight Operations"
+}

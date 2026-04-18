@@ -62,6 +62,7 @@ function _group_and_collapse_dash_alerts($container) {
 }
 
 function _load_milestone_html(frm) {
+	if (frm._logistics_template_populate_busy) return;
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._milestone_html_called) return;
 	frm._milestone_html_called = true;
@@ -241,36 +242,55 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+/**
+ * Save, then populate documents/milestones from template on the server.
+ * Sets _logistics_template_populate_busy so refresh() does not run async dashboard/milestone HTML
+ * loaders while modified is changing — that race can trigger TimestampMismatchError on run_doc_method.
+ */
+function _declaration_order_save_then_populate_template(frm, method, freeze_message) {
+	if (!frm.doc.name || frm.doc.__islocal) return;
+	frm._logistics_template_populate_busy = true;
+	frm.save()
+		.then(function () {
+			frappe.call({
+				method: method,
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				freeze: true,
+				freeze_message: freeze_message,
+				callback: function (r) {
+					frm._logistics_template_populate_busy = false;
+					if (r.exc) return;
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) {
+							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+						}
+					}
+				},
+				error: function () {
+					frm._logistics_template_populate_busy = false;
+				},
+			});
+		})
+		.catch(function () {
+			frm._logistics_template_populate_busy = false;
+		});
+}
+
 frappe.ui.form.on("Declaration Order", {
 	document_list_template: function (frm) {
-		if (!frm.doc.name || frm.doc.__islocal) return;
-		frm.save().then(function () {
-			frappe.call({
-				method: "logistics.document_management.api.populate_documents_from_template",
-				args: { doctype: frm.doctype, docname: frm.doc.name },
-				callback: function (r) {
-					if (r.message) {
-						frm.reload_doc();
-						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
-					}
-				}
-			});
-		});
+		_declaration_order_save_then_populate_template(
+			frm,
+			"logistics.document_management.api.populate_documents_from_template",
+			__("Applying document template...")
+		);
 	},
 	milestone_template: function (frm) {
-		if (!frm.doc.name || frm.doc.__islocal) return;
-		frm.save().then(function () {
-			frappe.call({
-				method: "logistics.document_management.api.populate_milestones_from_template",
-				args: { doctype: frm.doctype, docname: frm.doc.name },
-				callback: function (r) {
-					if (r.message) {
-						frm.reload_doc();
-						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
-					}
-				}
-			});
-		});
+		_declaration_order_save_then_populate_template(
+			frm,
+			"logistics.document_management.api.populate_milestones_from_template",
+			__("Applying milestone template...")
+		);
 	},
 	onload(frm) {
 		_logistics_set_charges_cannot_add_rows(frm);
@@ -303,6 +323,9 @@ frappe.ui.form.on("Declaration Order", {
 		}
 	},
 	refresh(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		_logistics_set_charges_cannot_add_rows(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
@@ -334,25 +357,36 @@ frappe.ui.form.on("Declaration Order", {
 				frm.fields_dict.milestone_html.$wrapper.empty();
 			}
 		}
-		// Load dashboard HTML in Dashboard tab (only when doc is saved)
-		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+		// Load dashboard HTML in Dashboard tab (only when doc is saved).
+		// Use fetch_declaration_order_dashboard_html(docname), not frm.call(get_dashboard_html), so we do not
+		// go through run_doc_method / check_if_latest. Otherwise TimestampMismatchError can occur when
+		// document_list_template save + populate_documents_from_template updates modified while refresh runs.
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal && !frm._logistics_template_populate_busy) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call('get_dashboard_html').then(function(r) {
-					if (r.message && frm.fields_dict.dashboard_html) {
-						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-						_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-						if (window.logistics_bind_document_alert_cards) {
-							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+				frappe.call({
+					method: "logistics.customs.doctype.declaration_order.declaration_order.fetch_declaration_order_dashboard_html",
+					args: { docname: frm.doc.name },
+					callback: function (r) {
+						if (r.message && frm.fields_dict.dashboard_html) {
+							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+							_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							if (window.logistics_bind_document_alert_cards) {
+								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+							}
 						}
-					}
+					},
 				}).always(() => {
-					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+					setTimeout(() => {
+						frm._dashboard_html_called = false;
+					}, 2000);
 				});
 			}
 		}
-		// Load milestone HTML in Milestones tab
-		_load_milestone_html(frm);
+		// Load milestone HTML in Milestones tab (skip while template population runs; same race as dashboard).
+		if (!frm._logistics_template_populate_busy) {
+			_load_milestone_html(frm);
+		}
 		// Pre-filled Sales Quote on a new doc does not fire the sales_quote field trigger; fetch charges once.
 		if (
 			frm.is_new() &&
@@ -373,26 +407,42 @@ frappe.ui.form.on("Declaration Order", {
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__('Get Milestones'), function() {
+				frm._logistics_template_populate_busy = true;
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
 					args: { doctype: 'Declaration Order', docname: frm.doc.name },
+					freeze: true,
+					freeze_message: __('Applying milestone template...'),
 					callback: function(r) {
+						frm._logistics_template_populate_busy = false;
+						if (r.exc) return;
 						if (r.message && r.message.added !== undefined) {
 							frm.reload_doc();
 							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
 						}
+					},
+					error: function() {
+						frm._logistics_template_populate_busy = false;
 					}
 				});
 			}, __('Action'));
 			frm.add_custom_button(__('Get Documents'), function() {
+				frm._logistics_template_populate_busy = true;
 				frappe.call({
 					method: "logistics.document_management.api.populate_documents_from_template",
 					args: { doctype: "Declaration Order", docname: frm.doc.name },
+					freeze: true,
+					freeze_message: __('Applying document template...'),
 					callback: function(r) {
+						frm._logistics_template_populate_busy = false;
+						if (r.exc) return;
 						if (r.message && r.message.added !== undefined) {
 							frm.reload_doc();
 							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
 						}
+					},
+					error: function() {
+						frm._logistics_template_populate_busy = false;
 					}
 				});
 			}, __('Action'));
@@ -487,7 +537,7 @@ frappe.ui.form.on("Declaration Order", {
 		}
 	},
 	after_save(frm) {
-		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and run_doc_method (e.g. get_dashboard_html) use the correct modified timestamp.
+		// After first save (insert), sync renames the doc in locals but the form may still reference the old doc object. Point the form to the new doc so refresh() and server calls use the correct document identity.
 		var new_name = frappe.model.new_names && frappe.model.new_names[frm.doc.name];
 		if (new_name) {
 			frm.docname = new_name;
@@ -501,6 +551,9 @@ frappe.ui.form.on("Declaration Order", {
 		frm.set_value("valid_until", frappe.datetime.add_days(frm.doc.date, 1));
 	},
 	sales_quote(frm) {
+		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+			logistics.apply_one_off_sales_quote_order_standard(frm);
+		}
 		// no_copy should keep copied/amended drafts from auto-fetching by inherited value
 		if (
 			frm.is_new() &&

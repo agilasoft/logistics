@@ -4,11 +4,21 @@
 import frappe
 from frappe import _
 
+from logistics.analytics_reports.bootstrap import series_chart, tally_chart
+
 
 def execute(filters=None):
 	columns = get_columns(filters)
 	data = get_data(filters)
-	return columns, data
+	f = filters or {}
+	group_by = f.get("group_by") or "None"
+	if group_by == "Customer":
+		chart = series_chart(data, "customer", "project_count")
+	elif group_by == "Status":
+		chart = series_chart(data, "status", "project_count")
+	else:
+		chart = tally_chart(data, "status", _("Projects"))
+	return columns, data, None, chart, []
 
 
 def get_columns(filters):

@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"D2qyuCuSUE\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"7h5Rb1CfPp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Metrics\",\"col\":3}},{\"id\":\"U1g6tPctBi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Carbon Footprint\",\"col\":3}},{\"id\":\"zrubEesaeB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Energy Consumption\",\"col\":3}},{\"id\":\"FobjLJWgPL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Emission Factors\",\"col\":3}},{\"id\":\"3b2f_0az8G\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Goals\",\"col\":3}},{\"id\":\"QncNpyUF3C\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Compliance\",\"col\":3}},{\"id\":\"6G1w8Vy-h2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Settings\",\"col\":3}},{\"id\":\"ZxV9CwjRdh\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"jFyvcxzXt8\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Module Integration</b></span>\",\"col\":12}},{\"id\":\"i_C-8REYVY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transport Job\",\"col\":3}},{\"id\":\"I1ih1u23TI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"8DptehEfeh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Air Shipment\",\"col\":3}},{\"id\":\"j94q3u5pje\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Shipment\",\"col\":3}},{\"id\":\"ierOkwWLj7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"lPpjbVObOn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"General Job\",\"col\":3}},{\"id\":\"axCd7vIiuJ\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"n22UXqztaW\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Reports &amp; Analysis<b></b></span>\",\"col\":12}},{\"id\":\"uMxbZbp4lT\",\"type\":\"card\",\"data\":{\"card_name\":\"Core Metrics Reports\",\"col\":4}},{\"id\":\"uD0Uch7e1h\",\"type\":\"card\",\"data\":{\"card_name\":\"Environmental Impact Reports\",\"col\":4}},{\"id\":\"56UsQcwIvi\",\"type\":\"card\",\"data\":{\"card_name\":\"Goals & Compliance Reports\",\"col\":4}},{\"id\":\"2j6Fa9MUCt\",\"type\":\"card\",\"data\":{\"card_name\":\"Analysis Reports\",\"col\":4}}]",
+ "content": "[{\"id\": \"D2qyuCuSUE\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"7h5Rb1CfPp\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sustainability Metrics\", \"col\": 3}}, {\"id\": \"U1g6tPctBi\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Carbon Footprint\", \"col\": 3}}, {\"id\": \"zrubEesaeB\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Energy Consumption\", \"col\": 3}}, {\"id\": \"FobjLJWgPL\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Emission Factors\", \"col\": 3}}, {\"id\": \"3b2f_0az8G\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sustainability Goals\", \"col\": 3}}, {\"id\": \"QncNpyUF3C\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sustainability Compliance\", \"col\": 3}}, {\"id\": \"6G1w8Vy-h2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sustainability Settings\", \"col\": 3}}, {\"id\": \"ZxV9CwjRdh\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"jFyvcxzXt8\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Module Integration</b></span>\", \"col\": 12}}, {\"id\": \"i_C-8REYVY\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Transport Job\", \"col\": 3}}, {\"id\": \"I1ih1u23TI\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Warehouse Job\", \"col\": 3}}, {\"id\": \"8DptehEfeh\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Air Shipment\", \"col\": 3}}, {\"id\": \"j94q3u5pje\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sea Shipment\", \"col\": 3}}, {\"id\": \"ierOkwWLj7\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Declaration\", \"col\": 3}}, {\"id\": \"lPpjbVObOn\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"General Job\", \"col\": 3}}, {\"id\": \"axCd7vIiuJ\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"n22UXqztaW\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Reports &amp; Analysis<b></b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Core sustainability KPIs\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Carbon & energy intensity\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Goals, waste & compliance\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Freight OTIF & mode mix\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Regulatory & dangerous goods\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Operations & warehouse footprint\", \"col\": 4}}]",
  "creation": "2025-10-30 10:13:01.738302",
  "custom_blocks": [],
  "docstatus": 0,
@@ -16,8 +16,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Core Metrics Reports",
-   "link_count": 2,
+   "label": "Core sustainability KPIs",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -45,8 +45,38 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Environmental Impact Reports",
-   "link_count": 2,
+   "label": "Sustainability Metrics",
+   "link_count": 0,
+   "link_to": "Sustainability Metrics",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Trend Analysis Report",
+   "link_count": 0,
+   "link_to": "Trend Analysis Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Carbon & energy intensity",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -64,6 +94,16 @@
   {
    "hidden": 0,
    "is_query_report": 1,
+   "label": "Carbon Footprint Dashboard",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
    "label": "Energy Consumption Report",
    "link_count": 0,
    "link_to": "Energy Consumption Report",
@@ -73,29 +113,10 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "Analysis Reports",
-   "link_count": 2,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
    "is_query_report": 1,
-   "label": "Cross Module Summary Report",
+   "label": "Energy Efficiency Report",
    "link_count": 0,
-   "link_to": "Cross Module Summary Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Trend Analysis Report",
-   "link_count": 0,
-   "link_to": "Trend Analysis Report",
+   "link_to": "Energy Efficiency Report",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
@@ -103,8 +124,19 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Goals & Compliance Reports",
-   "link_count": 2,
+   "label": "Fuel Consumption Analysis",
+   "link_count": 0,
+   "link_to": "Fuel Consumption Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Transport Leg"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Goals, waste & compliance",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -125,6 +157,220 @@
    "label": "Sustainability Compliance Report",
    "link_count": 0,
    "link_to": "Sustainability Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Waste Management Report",
+   "link_count": 0,
+   "link_to": "Waste Management Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Report",
+   "link_count": 0,
+   "link_to": "Sustainability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Pipeline Report",
+   "link_count": 0,
+   "link_to": "Special Project Pipeline Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Freight OTIF & mode mix",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sea Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Sea Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Air Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "On-Time Delivery Report",
+   "link_count": 0,
+   "link_to": "On-Time Delivery Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight On-Time Performance Report",
+   "link_count": 0,
+   "link_to": "Sea Freight On-Time Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight On-Time Performance Report",
+   "link_count": 0,
+   "link_to": "Air Freight On-Time Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Regulatory & dangerous goods",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Status Report",
+   "link_count": 0,
+   "link_to": "Declaration Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs Compliance Report",
+   "link_count": 0,
+   "link_to": "Customs Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Filing Compliance Report",
+   "link_count": 0,
+   "link_to": "Filing Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Manifest Status Report",
+   "link_count": 0,
+   "link_to": "Manifest Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Global Manifest"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Dangerous Goods Compliance Report",
+   "link_count": 0,
+   "link_to": "Dangerous Goods Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations & warehouse footprint",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Balance",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Labor Productivity Report",
+   "link_count": 0,
+   "link_to": "Labor Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Machine Productivity Report",
+   "link_count": 0,
+   "link_to": "Machine Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Storage Location Usage",
+   "link_count": 0,
+   "link_to": "Storage Location Usage",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Capacity Forecasting Report",
+   "link_count": 0,
+   "link_to": "Capacity Forecasting Report",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"

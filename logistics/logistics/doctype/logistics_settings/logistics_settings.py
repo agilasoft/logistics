@@ -12,6 +12,7 @@ class LogisticsSettings(Document):
 		"""Validate temperature limits configuration"""
 		self.validate_temperature_limits()
 		self.validate_credit_control_rules()
+		self.validate_container_deposit_accounts()
 	
 	def validate_temperature_limits(self):
 		"""Validate that min_temp < max_temp if both are set"""
@@ -37,3 +38,18 @@ class LogisticsSettings(Document):
 			if dt in seen:
 				frappe.throw(_("Duplicate credit rule for DocType {0}.").format(dt))
 			seen.add(dt)
+
+	def validate_container_deposit_accounts(self):
+		for fname, label in (
+			("container_deposit_clearing_account", _("Deposit clearing account")),
+			("container_deposit_customer_liability_account", _("Customer deposit liability account")),
+			("container_deposit_forfeiture_account", _("Deposit forfeiture expense account")),
+		):
+			acc = self.get(fname)
+			if not acc:
+				continue
+			if not frappe.db.exists("Account", acc):
+				frappe.throw(_("Account {0} does not exist for field {1}.").format(acc, label))
+		debt = self.get("container_deposit_debtors_account")
+		if debt and not frappe.db.exists("Account", debt):
+			frappe.throw(_("Debtors override account does not exist."))

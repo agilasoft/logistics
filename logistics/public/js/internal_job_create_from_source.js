@@ -405,25 +405,48 @@
 	}
 
 	function _routeAfterFormNavigate(doctype, routeArgs) {
-		frappe.set_route.apply(null, routeArgs).then(function () {
+		return frappe.set_route.apply(null, routeArgs).then(function () {
 			_syncBreadcrumbsForFormDoctype(doctype);
+		});
+	}
+
+	/**
+	 * After navigating to the created job (e.g. Transport Order), reload the source Air/Sea Shipment
+	 * so Internal Job Details and links stay in sync. Must run after route + form load AJAX to avoid races.
+	 */
+	function _reloadSourceFreightShipmentAfterNavigate(frm) {
+		if (
+			!frm ||
+			(frm.doctype !== "Air Shipment" && frm.doctype !== "Sea Shipment") ||
+			!frm.doc ||
+			!frm.doc.name ||
+			frm.doc.__islocal
+		) {
+			return;
+		}
+		frappe.after_ajax(function () {
+			frm.reload_doc();
 		});
 	}
 
 	function _routeAfterInternalJobCreate(frm, jobType, r) {
 		var msg = r.message || {};
 		if (msg.transport_order) {
-			_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]);
-			if (frm && (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment")) {
-				frm.reload_doc();
-			}
+			_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]).then(
+				function () {
+					_reloadSourceFreightShipmentAfterNavigate(frm);
+				}
+			);
 			return;
 		}
 		if (msg.declaration_order) {
-			_routeAfterFormNavigate("Declaration Order", ["Form", "Declaration Order", msg.declaration_order]);
-			if (frm && (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment")) {
-				frm.reload_doc();
-			}
+			_routeAfterFormNavigate("Declaration Order", [
+				"Form",
+				"Declaration Order",
+				msg.declaration_order,
+			]).then(function () {
+				_reloadSourceFreightShipmentAfterNavigate(frm);
+			});
 			return;
 		}
 		if (msg.air_booking) {
@@ -710,10 +733,9 @@
 						"Form",
 						"Declaration Order",
 						r2.message.declaration_order,
-					]);
-					if (frm.doctype === "Air Shipment" || frm.doctype === "Sea Shipment") {
-						frm.reload_doc();
-					}
+					]).then(function () {
+						_reloadSourceFreightShipmentAfterNavigate(frm);
+					});
 					return;
 				}
 				_routeAfterInternalJobCreate(frm, dec.job_type, r2);

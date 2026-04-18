@@ -209,7 +209,8 @@
    "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
    "fieldname": "is_main_service",
    "fieldtype": "Check",
-   "label": "Main Service"
+   "label": "Main Service",
+   "no_copy": 1
   },
   {
    "default": "0",
@@ -892,6 +893,7 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
+   "no_copy": 1,
    "options": "Declaration Order Charges"
   },
   {
@@ -1008,7 +1010,6 @@
    "label": "Importer Name"
   },
   {
-   "collapsible": 1,
    "fieldname": "quote_reference",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -1053,9 +1054,15 @@
    "link_doctype": "Air Shipment",
    "link_fieldname": "job_no",
    "table_fieldname": "internal_job_details"
+  },
+  {
+   "group": "Connected Jobs",
+   "link_doctype": "Transport Order",
+   "link_fieldname": "job_no",
+   "table_fieldname": "internal_job_details"
   }
  ],
- "modified": "2026-04-13 17:03:42.815061",
+ "modified": "2026-04-15 15:32:49.299288",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

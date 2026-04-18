@@ -1,0 +1,22 @@
+[
+ "carbon_footprint_branch_performance_view",
+ "carbon_footprint_emissions_scope_mix",
+ "carbon_footprint_executive_snapshot",
+ "carbon_footprint_facility_concentration",
+ "carbon_footprint_module_source_concentration",
+ "carbon_footprint_monthly_activity",
+ "carbon_footprint_owner_workload_review",
+ "carbon_footprint_submission_health_ratio",
+ "carbon_footprint_verification_pipeline",
+ "carbon_footprint_weekly_activity",
+ "sustainability_branch_performance_view",
+ "sustainability_compliance_status_pipeline",
+ "sustainability_facility_concentration",
+ "sustainability_metrics_executive_snapshot",
+ "sustainability_module_source_pipeline",
+ "sustainability_monthly_environmental_activity",
+ "sustainability_open_draft_aging_backlog",
+ "sustainability_owner_workload_review",
+ "sustainability_submission_health_ratio",
+ "sustainability_weekly_environmental_activity"
+]

@@ -7,11 +7,14 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 
+from logistics.analytics_reports.bootstrap import tally_chart
+
 
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
-	return columns, data
+	chart = tally_chart(data, "container_type", _("Penalties"))
+	return columns, data, None, chart, []
 
 
 def get_columns():

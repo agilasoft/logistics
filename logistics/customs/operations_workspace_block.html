@@ -1,0 +1,101 @@
+<div class="cus-ops-dash log-ab-dash run-sheet-dash" data-link-doctype="Declaration">
+  <div class="log-ab-banner alert alert-warning cus-ops-banner" style="display:none;margin:0 1.5rem 0.75rem;"></div>
+  <div class="log-ab-top">
+    <div class="run-sheet-header log-ab-head ab-summary-header-card">
+      <div class="log-ab-head-stack">
+        <div class="log-ab-top-row">
+          <div class="log-ab-hero-col">
+            <img class="log-ab-logo-img cus-ops-company-logo" alt="" style="display:none;" />
+            <span class="log-ab-logo-ph cus-ops-logo-ph">Co</span>
+          </div>
+          <div class="log-ab-main-block">
+            <div class="cus-ops-page-title"></div>
+            <div class="log-ab-meta-cluster cus-ops-meta-cluster"></div>
+          </div>
+          <div class="ab-summary-aside">
+            <div class="ab-ring-wrap">
+              <div class="ab-ring ab-ring--status-submitted cus-ops-alert-ring" style="--ab-pct:0"></div>
+              <div class="ab-ring-center">
+                <span class="ab-ring-pct cus-ops-ring-pct">0</span>
+                <span class="ab-ring-cap cus-ops-ring-cap">shipments</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="log-ab-body-block">
+          <div class="header-details cus-ops-kpis"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ab-tab-shell">
+    <input type="radio" name="cus_ops_tabs" id="cus_ops_heat" class="ab-dash-tab-input" checked>
+    <input type="radio" name="cus_ops_tabs" id="cus_ops_wf" class="ab-dash-tab-input">
+    <input type="radio" name="cus_ops_tabs" id="cus_ops_alert" class="ab-dash-tab-input">
+    <div class="ab-tab-bar">
+      <label for="cus_ops_heat" class="ab-tlabel">HeatMap</label>
+      <label for="cus_ops_wf" class="ab-tlabel">Workflow Center</label>
+      <label for="cus_ops_alert" class="ab-tlabel">Alerts and Notifications <span class="ab-tab-count cus-ops-alerts-tab-count">(0)</span></label>
+    </div>
+    <div class="ab-ro-body">
+      <div class="ab-tab-panels ab-ro-shell">
+        <div class="ab-tab-panel ab-tab-panel-route">
+          <div class="log-ab-ro-card log-ab-ro-card--flush cus-ops-heat-card">
+            <div class="cus-ops-heat-toolbar">
+              <button type="button" class="btn btn-default btn-xs afw-hub-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+              <span class="cus-ops-user-filter cus-ops-status-filter"><span class="cus-ops-user-filter-lbl">Status</span>
+              <select class="form-control input-xs cus-ops-filter-status">
+                <option value="ongoing" selected>Ongoing (no draft)</option>
+                <option value="open">Ongoing (incl. draft)</option>
+                <option value="Draft">Draft</option>
+                <option value="Submitted">Submitted</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Reopened">Reopened</option>
+                <option value="Completed">Completed</option>
+                <option value="Closed">Closed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select></span>
+              <span class="cus-ops-user-filter cus-ops-traffic-filter"><span class="cus-ops-user-filter-lbl">Traffic</span>
+              <select class="form-control input-xs cus-ops-filter-traffic">
+                <option value="all">All</option>
+                <option value="import">Import</option>
+                <option value="export">Export</option>
+                <option value="domestic">Domestic</option>
+              </select></span>
+              <span class="cus-ops-user-filter"><span class="cus-ops-user-filter-lbl">Owner</span>
+              <select class="form-control input-xs cus-ops-filter-user"></select></span>
+            <div class="cus-ops-airline-ms">
+                <button type="button" class="btn btn-default btn-xs form-control text-left cus-ops-airline-dd-toggle" aria-expanded="false" aria-haspopup="listbox">
+                  <span class="cus-ops-airline-summary"></span>
+                </button>
+                <div class="cus-ops-airline-dd-panel" role="listbox">
+                  <div class="cus-ops-airline-checkboxes"></div>
+                </div>
+              </div></span>
+            </div>
+            <div class="afw-hub-map-host">
+              <div class="afw-hub-map"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ab-tab-panel ab-tab-panel-milestones">
+          <div class="log-ab-ro-card cus-ops-wf-card">
+            <div class="cus-ops-wf-title">Workflow Center</div>
+            <p class="text-muted small cus-ops-wf-desc">Approvals, tasks, and workflow items for logistics are available in the Workflow Center workspace.</p>
+            <p><a class="btn btn-primary btn-sm cus-ops-wf-link" href="/app/workflow-cockpit">Open Workflow Center</a></p>
+          </div>
+        </div>
+        <div class="ab-tab-panel ab-tab-panel-alerts">
+          <div class="log-ab-ro-card">
+            <div class="cus-ops-alerts-booking-format">
+              <div class="dash-alerts-section cus-ops-dash-alerts-section"></div>
+              <div class="doc-alerts-cards-wrapper cus-ops-ops-alert-cards-wrap" style="margin-bottom: 0;">
+                <div class="doc-alerts-cards cus-ops-ops-alert-cards"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

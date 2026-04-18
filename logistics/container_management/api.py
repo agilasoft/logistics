@@ -300,23 +300,23 @@ def _shipping_status_to_container_status(shipping_status):
 
 
 def _sync_penalty_to_container(container_name, shipment_doc):
-	"""Sync penalty fields from Sea Shipment to Container."""
+	"""Sync per-container penalty fields from Sea Shipment dates and Container free time."""
 	try:
+		from frappe.utils import now_datetime, getdate
+		from logistics.sea_freight.penalty_utils import compute_penalty_for_single_container
+
 		container = frappe.get_doc("Container", container_name)
 		if getattr(container, "penalty_manual_override", 0):
 			return
-		containers = getattr(shipment_doc, "containers", []) or []
-		container_count = sum(
-			1 for row in containers if getattr(row, "container_no", None) and str(getattr(row, "container_no", "")).strip()
-		) or 1
-		per_container_estimated_penalty = flt(getattr(shipment_doc, "estimated_penalty_amount", 0)) / flt(container_count)
-		container.demurrage_days = flt(getattr(shipment_doc, "demurrage_days", 0))
-		container.detention_days = flt(getattr(shipment_doc, "detention_days", 0))
-		container.estimated_penalty_amount = per_container_estimated_penalty
-		container.has_penalties = 1 if getattr(shipment_doc, "has_penalties", 0) else 0
+		settings = frappe.get_single("Sea Freight Settings")
+		today = getdate(now_datetime())
+		out = compute_penalty_for_single_container(container, shipment_doc, settings, today)
+		container.demurrage_days = out["demurrage_days"]
+		container.detention_days = out["detention_days"]
+		container.estimated_penalty_amount = out["estimated_penalty_amount"]
+		container.has_penalties = out["has_penalties"]
 		container.penalty_alert_sent = 1 if getattr(shipment_doc, "penalty_alert_sent", 0) else 0
 		container.last_penalty_check = getattr(shipment_doc, "last_penalty_check", None)
-		container.free_time_days = flt(getattr(shipment_doc, "free_time_days", 0)) or container.free_time_days
 		container.save(ignore_permissions=True)
 	except Exception as e:
 		frappe.log_error(

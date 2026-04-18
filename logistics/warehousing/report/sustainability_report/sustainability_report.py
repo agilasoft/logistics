@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, add_months
 from frappe.model.document import Document
 
+from logistics.analytics_reports.bootstrap import tally_chart
+
 
 def execute(filters=None):
 	"""Execute sustainability report"""
@@ -20,8 +22,8 @@ def execute(filters=None):
 	# Get data based on filters
 	columns = get_columns()
 	data = get_data(filters)
-	
-	return columns, data
+	chart = tally_chart(data, "site", _("Records"))
+	return columns, data, None, chart, []
 
 
 def get_columns():

@@ -1146,6 +1146,37 @@ def recalculate_all_charges(docname):
         frappe.throw(_("Error recalculating charges: {0}").format(str(e)))
 
 
+@frappe.whitelist()
+def aggregate_volume_from_packages_remote(doc=None):
+    """
+    Recompute total_packages / total_volume / total_weight from the client's doc (including unsaved packages).
+    Same pattern as Transport Order: uses frappe.get_doc(dict) so this call cannot race with save on modified timestamp.
+    """
+    if doc is None:
+        frappe.throw(_("Document is required"))
+    if isinstance(doc, str):
+        parsed = frappe.parse_json(doc)
+        if isinstance(parsed, dict) and parsed.get("doctype"):
+            doc = parsed
+    try:
+        if isinstance(doc, dict):
+            if doc.get("doctype") != "Transport Job":
+                frappe.throw(_("Invalid document type"))
+            job = frappe.get_doc(doc)
+        else:
+            job = frappe.get_doc("Transport Job", doc)
+    except frappe.DoesNotExistError:
+        return {}
+    except Exception:
+        return {}
+    job._update_packing_summary()
+    return {
+        "total_volume": flt(job.total_volume),
+        "total_weight": flt(job.total_weight),
+        "total_packages": flt(job.total_packages),
+    }
+
+
 # --------------------------------------------------------------------
 # Helpers to discover child-table fieldnames dynamically & safe-setting
 # --------------------------------------------------------------------

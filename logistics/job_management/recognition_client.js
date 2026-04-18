@@ -79,29 +79,15 @@ logistics.recognition = {
      */
     setup_form: function(frm) {
         // Show recognition buttons for both draft and submitted documents
-        // Post > Recognize: charge-line JE links + open balances vs job estimates (no header JE checks)
+        // Post > WIP and Accrual: charge-line JE links + open balances vs job estimates (no header JE checks)
         var needs_wip = logistics.recognition.needs_wip_recognition(frm.doc);
         var needs_accrual = logistics.recognition.needs_accrual_recognition(frm.doc);
         if (needs_wip || needs_accrual) {
-            frm.add_custom_button(__('Recognize WIP & Accrual'), function() {
+            frm.add_custom_button(__('WIP and Accrual'), function() {
                 logistics.recognition.recognize(frm);
             }, __('Post'));
         }
-        
-        // Add WIP Recognition button (individual)
-        if (needs_wip) {
-            frm.add_custom_button(__('Recognize WIP'), function() {
-                logistics.recognition.recognize_wip(frm);
-            }, __('Recognition'));
-        }
-        
-        // Add Accrual Recognition button (individual)
-        if (needs_accrual) {
-            frm.add_custom_button(__('Recognize Accruals'), function() {
-                logistics.recognition.recognize_accruals(frm);
-            }, __('Recognition'));
-        }
-        
+
         // Add WIP Adjustment button if there is open WIP balance
         if (frm.doc.wip_amount > 0) {
             frm.add_custom_button(__('Adjust WIP'), function() {

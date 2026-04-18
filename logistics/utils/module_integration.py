@@ -67,16 +67,28 @@ def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 		_set_if_empty(doc, "planned_date", getattr(shipment, "eta", None))
 		_set_if_empty(doc, "due_date", getattr(shipment, "eta", None))
+		try:
+			apply_inbound_order_freight_job_context_from_shipment(
+				doc, shipment, "Air Shipment", doc.get(fieldname)
+			)
+		except Exception:
+			pass
 	elif doctype == "Release Order":
 		_set_if_empty(doc, "shipper", getattr(shipment, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
+		try:
+			apply_inbound_order_freight_job_context_from_shipment(
+				doc, shipment, "Air Shipment", doc.get(fieldname)
+			)
+		except Exception:
+			pass
 	elif doctype == "Warehouse Job":
 		_set_if_empty(doc, "shipper", getattr(shipment, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 
-	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order"):
+	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 
@@ -119,16 +131,28 @@ def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 		_set_if_empty(doc, "planned_date", getattr(shipment, "eta", None))
 		_set_if_empty(doc, "due_date", getattr(shipment, "eta", None))
+		try:
+			apply_inbound_order_freight_job_context_from_shipment(
+				doc, shipment, "Sea Shipment", doc.get(fieldname)
+			)
+		except Exception:
+			pass
 	elif doctype == "Release Order":
 		_set_if_empty(doc, "shipper", getattr(shipment, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
+		try:
+			apply_inbound_order_freight_job_context_from_shipment(
+				doc, shipment, "Sea Shipment", doc.get(fieldname)
+			)
+		except Exception:
+			pass
 	elif doctype == "Warehouse Job":
 		_set_if_empty(doc, "shipper", getattr(shipment, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 
-	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order"):
+	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 
@@ -148,6 +172,11 @@ def propagate_from_transport_job(doc, fieldname="transport_job"):
 		_set_if_empty(doc, "customer", getattr(job, "customer", None))
 		_set_if_empty(doc, "planned_date", getattr(job, "scheduled_date", None))
 		_set_if_empty(doc, "due_date", getattr(job, "scheduled_date", None))
+		propagate_sales_quote_from_source_if_empty(job, doc)
+		try:
+			apply_inbound_order_job_context_from_transport_job(doc, job)
+		except Exception:
+			pass
 	elif doctype == "Warehouse Job":
 		_set_if_empty(doc, "shipper", getattr(job, "shipper", None))
 		_set_if_empty(doc, "consignee", getattr(job, "consignee", None))
@@ -175,6 +204,11 @@ def propagate_from_transport_order(doc, fieldname="transport_order"):
 		propagate_sales_quote_from_source_if_empty(order, doc)
 	elif doctype == "Release Order":
 		_set_if_empty(doc, "customer", getattr(order, "customer", None))
+		propagate_sales_quote_from_source_if_empty(order, doc)
+		try:
+			apply_warehousing_job_context_from_internal_job_source(doc, order)
+		except Exception:
+			pass
 	if doctype == "Declaration Order":
 		propagate_sales_quote_from_source_if_empty(order, doc)
 
@@ -248,7 +282,11 @@ def _resolve_sales_quote_from_doc(source_doc):
 
 
 def copy_sales_quote_fields_to_target(source_doc, target_doc):
-	"""Copy Sales Quote link and operational rep fields from source (shipment/booking/order/job) to a new target doc."""
+	"""Propagate ``sales_quote`` link (or legacy ``quote`` when it points at a Sales Quote) and rep fields.
+
+	Does **not** copy commercial header fields (ports, parties, charges, etc.) — only the link and
+	``sales_rep`` / ``operations_rep`` / ``customer_service_rep`` via ``copy_operational_rep_fields_from_chain``.
+	"""
 	sq = _resolve_sales_quote_from_doc(source_doc)
 	if sq and hasattr(target_doc, "sales_quote"):
 		target_doc.sales_quote = sq
@@ -765,6 +803,170 @@ def resolve_transport_order_freight_main_job_if_empty(
 	)
 
 
+def _freight_shipment_has_warehousing_charge_rows(shipment) -> bool:
+	for ch in getattr(shipment, "charges", None) or []:
+		if (getattr(ch, "service_type", None) or "").strip().lower() == "warehousing":
+			return True
+	return False
+
+
+def _freight_shipment_has_internal_job_detail_for_inbound_order(shipment) -> bool:
+	"""True if Internal Job Details include a warehousing / Inbound Order line (even before charge rows exist)."""
+	from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
+
+	for row in getattr(shipment, "internal_job_details", None) or []:
+		if effective_internal_job_detail_job_type(row) == "Inbound Order":
+			return True
+	return False
+
+
+def _inbound_order_job_context_from_freight_shipment(
+	shipment, shipment_doctype: str, shipment_name: str
+):
+	"""Return (is_internal_job, main_job_type, main_job) for Inbound Order from Air/Sea Shipment (mirrors Declaration/TO patterns)."""
+	from frappe.utils import cint
+
+	if cint(getattr(shipment, "is_internal_job", 0)):
+		return (
+			1,
+			getattr(shipment, "main_job_type", None),
+			getattr(shipment, "main_job", None),
+		)
+	if cint(getattr(shipment, "is_main_service", 0)) and (
+		_freight_shipment_has_warehousing_charge_rows(shipment)
+		or _freight_shipment_has_internal_job_detail_for_inbound_order(shipment)
+	):
+		return (1, shipment_doctype, shipment_name)
+	return (0, None, None)
+
+
+def _one_off_inbound_order_job_context_from_shipment(
+	shipment, shipment_doctype: str, shipment_name: str, ij, mjt, mj
+):
+	"""One-off Sales Quote: Inbound Order from this freight shipment is a satellite of that leg (same idea as Transport Order)."""
+	sqn = getattr(shipment, "sales_quote", None)
+	if not sqn or not frappe.db.exists("Sales Quote", sqn):
+		return ij, mjt, mj
+	try:
+		sq = frappe.get_cached_doc("Sales Quote", sqn)
+		if getattr(sq, "quotation_type", None) != "One-off":
+			return ij, mjt, mj
+		if not ij:
+			return 1, shipment_doctype, shipment_name
+		if ij and not (mj or "").strip():
+			return ij, shipment_doctype, shipment_name
+	except Exception:
+		return ij, mjt, mj
+	return ij, mjt, mj
+
+
+def final_inbound_order_job_context_from_freight_shipment(
+	shipment, shipment_doctype: str, shipment_name: str
+):
+	ij, mjt, mj = _inbound_order_job_context_from_freight_shipment(
+		shipment, shipment_doctype, shipment_name
+	)
+	return _one_off_inbound_order_job_context_from_shipment(
+		shipment, shipment_doctype, shipment_name, ij, mjt, mj
+	)
+
+
+def resolve_inbound_order_freight_main_job_if_empty(
+	shipment, shipment_doctype: str, shipment_name: str, ij, mjt, mj
+):
+	"""If internal-job context still has no Main Job, try linked Air/Sea Booking; else validate."""
+	from frappe import _
+	from frappe.utils import cint
+
+	if not cint(ij):
+		return ij, mjt, mj
+	if (mj or "").strip() and (mjt or "").strip():
+		return ij, mjt, mj
+
+	bk_name = None
+	bk_doctype = None
+	if shipment_doctype == "Air Shipment":
+		bk_name = (getattr(shipment, "air_booking", None) or "").strip()
+		bk_doctype = "Air Booking"
+	elif shipment_doctype == "Sea Shipment":
+		bk_name = (getattr(shipment, "sea_booking", None) or "").strip()
+		bk_doctype = "Sea Booking"
+
+	if bk_name and bk_doctype and frappe.db.exists(bk_doctype, bk_name):
+		booking = frappe.get_cached_doc(bk_doctype, bk_name)
+		bjt = (getattr(booking, "main_job_type", None) or "").strip()
+		bj = (getattr(booking, "main_job", None) or "").strip()
+		if bjt in _TRANSPORT_ORDER_MAIN_JOB_TYPE_OPTIONS and bj:
+			return ij, bjt, bj
+
+	frappe.throw(
+		_(
+			"This shipment is an Internal Job but Main Job Type / Main Job is missing. "
+			"Set Main Job on the shipment (or ensure the linked {0} has a valid Main Job) before creating this warehousing order."
+		).format(bk_doctype or _("booking"))
+	)
+
+
+def apply_inbound_order_freight_job_context_from_shipment(
+	doc, shipment, shipment_doctype: str, shipment_name: str
+):
+	"""Set Job Details (internal job + main job link) on Inbound/Release Order from linked Air/Sea Shipment."""
+	from frappe.utils import cint
+
+	if doc.doctype not in ("Inbound Order", "Release Order"):
+		return
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, shipment_doctype, shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, shipment_doctype, shipment_name, ij, mjt, mj
+	)
+	doc.is_internal_job = cint(ij)
+	if ij:
+		doc.main_job_type = mjt
+		doc.main_job = mj
+	else:
+		doc.main_job_type = None
+		doc.main_job = None
+
+
+def apply_warehousing_job_context_from_internal_job_source(doc, source):
+	"""Copy Main Service / Internal Job hierarchy from Transport Job or Transport Order."""
+	from frappe.utils import cint
+
+	if doc.doctype not in ("Inbound Order", "Release Order"):
+		return
+	if cint(getattr(source, "is_internal_job", 0)):
+		doc.is_internal_job = 1
+		doc.main_job_type = getattr(source, "main_job_type", None)
+		doc.main_job = getattr(source, "main_job", None)
+	else:
+		doc.is_internal_job = 0
+		doc.main_job_type = None
+		doc.main_job = None
+
+
+def apply_inbound_order_job_context_from_transport_job(doc, job):
+	"""Set Job Details on Inbound Order from linked Transport Job.
+
+	If the job is an Internal Job, inherit its Main Job Type / Main Job. If it is a main
+	Transport Job, the Inbound Order is a satellite (same pattern as Transport Order /
+	Declaration Order created from a Transport Job).
+	"""
+	from frappe.utils import cint
+
+	if doc.doctype != "Inbound Order":
+		return
+	if cint(getattr(job, "is_internal_job", 0)):
+		doc.is_internal_job = 1
+		doc.main_job_type = getattr(job, "main_job_type", None)
+		doc.main_job = getattr(job, "main_job", None)
+	else:
+		doc.is_internal_job = 1
+		doc.main_job_type = "Transport Job"
+		doc.main_job = job.name
+
+
 def ensure_main_service_on_freight_hub_for_transport_order_link(
 	shipment_doctype: str, shipment_name: str
 ) -> None:
@@ -884,6 +1086,8 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 			rate_val = getattr(src, "unit_rate", None)
 		if rate_val is not None and "rate" in tfields:
 			row.set("rate", rate_val)
+		if "service_type" in tfields:
+			row.set("service_type", "Transport")
 
 
 @frappe.whitelist()
@@ -1243,6 +1447,48 @@ def _copy_sea_packages_to_transport_order(shipment, order):
 		)
 
 
+def _copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment) -> None:
+	"""Append Inbound Order Charges from Air/Sea Shipment rows where service_type is Warehousing."""
+	from frappe.utils import flt
+
+	rows = [
+		r
+		for r in (getattr(shipment, "charges", None) or [])
+		if (getattr(r, "service_type", None) or "").strip().lower() == "warehousing"
+	]
+	if not rows:
+		return
+
+	meta = frappe.get_meta("Inbound Order Charges")
+	tfields = {f.fieldname for f in meta.fields}
+	for src in rows:
+		row = order.append("charges", {})
+		if "item_code" in tfields and getattr(src, "item_code", None):
+			row.item_code = src.item_code
+		if "item_name" in tfields:
+			row.item_name = getattr(src, "item_name", None) or ""
+		qty = getattr(src, "quantity", None)
+		if qty is None:
+			qty = 1
+		if "quantity" in tfields:
+			row.quantity = qty
+		rate = getattr(src, "rate", None)
+		if rate is None:
+			rate = getattr(src, "unit_rate", None)
+		if "rate" in tfields and rate is not None:
+			row.rate = rate
+		if "currency" in tfields and getattr(src, "currency", None):
+			row.currency = src.currency
+		if "uom" in tfields and getattr(src, "uom", None):
+			row.uom = src.uom
+		if "charge_type" in tfields and getattr(src, "charge_type", None):
+			row.charge_type = src.charge_type
+		if "charge_category" in tfields and getattr(src, "charge_category", None):
+			row.charge_category = src.charge_category
+		if "total" in tfields:
+			row.total = flt(qty) * flt(rate or 0)
+
+
 @frappe.whitelist()
 def create_inbound_order_from_air_shipment(
 	air_shipment_name: str, internal_job_detail_idx: int | None = None
@@ -1276,9 +1522,24 @@ def create_inbound_order_from_air_shipment(
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
+	copy_sales_quote_fields_to_target(shipment, order)
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, "Air Shipment", air_shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
+	)
+	order.is_internal_job = cint(ij)
+	if ij:
+		order.main_job_type = mjt
+		order.main_job = mj
+	else:
+		order.main_job_type = None
+		order.main_job = None
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_shipment_packages_to_inbound_order(shipment, order)
+	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment)
 	order.insert(ignore_permissions=True)
 	if resolved_detail_idx:
 		persist_internal_job_detail_job_link(
@@ -1288,6 +1549,7 @@ def create_inbound_order_from_air_shipment(
 			order.name,
 			detail_idx=resolved_detail_idx,
 		)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Air Shipment", air_shipment_name)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
@@ -1325,9 +1587,24 @@ def create_inbound_order_from_sea_shipment(
 	order.cost_center = getattr(shipment, "cost_center", None)
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
+	copy_sales_quote_fields_to_target(shipment, order)
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, "Sea Shipment", sea_shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
+	)
+	order.is_internal_job = cint(ij)
+	if ij:
+		order.main_job_type = mjt
+		order.main_job = mj
+	else:
+		order.main_job_type = None
+		order.main_job = None
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_sea_packages_to_inbound_order(shipment, order)
+	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment)
 	order.insert(ignore_permissions=True)
 	if resolved_detail_idx:
 		persist_internal_job_detail_job_link(
@@ -1337,6 +1614,7 @@ def create_inbound_order_from_sea_shipment(
 			order.name,
 			detail_idx=resolved_detail_idx,
 		)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Sea Shipment", sea_shipment_name)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
@@ -1373,6 +1651,8 @@ def create_inbound_order_from_transport_job(
 	order.cost_center = getattr(job, "cost_center", None)
 	order.profit_center = getattr(job, "profit_center", None)
 	order.project = getattr(job, "project", None)
+	copy_sales_quote_fields_to_target(job, order)
+	apply_inbound_order_job_context_from_transport_job(order, job)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_transport_packages_to_inbound_order(job, order)
@@ -1478,6 +1758,43 @@ def _copy_transport_charges_from_declaration_to_transport_order(order, declarati
 			row.set("rate", rate_val)
 
 
+def _declaration_order_doc_for_linked_declaration(dec):
+	"""Return (Declaration Order doc, name) when ``declaration.declaration_order`` is set and exists."""
+	do_name = (getattr(dec, "declaration_order", None) or "").strip()
+	if not do_name or not frappe.db.exists("Declaration Order", do_name):
+		return None, None
+	return frappe.get_doc("Declaration Order", do_name), do_name
+
+
+def _resolve_transport_ij_for_declaration_to_order(dec, internal_job_detail_idx):
+	"""Resolve Internal Job Detail for Transport Order: prefer linked Declaration Order (main), then Declaration."""
+	from frappe.exceptions import ValidationError
+
+	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	do_doc, do_name = _declaration_order_doc_for_linked_declaration(dec)
+
+	ij_row, resolved_idx = None, None
+	persist_doctype, persist_name = "Declaration", dec.name
+
+	if do_doc is not None:
+		try:
+			ij_row, resolved_idx = resolve_internal_job_detail_row_for_create(
+				do_doc, "Transport Order", idx
+			)
+		except ValidationError:
+			ij_row, resolved_idx = None, None
+		if ij_row is not None or resolved_idx is not None:
+			persist_doctype, persist_name = "Declaration Order", do_name
+
+	if ij_row is None and resolved_idx is None:
+		ij_row, resolved_idx = resolve_internal_job_detail_row_for_create(
+			dec, "Transport Order", idx
+		)
+		persist_doctype, persist_name = "Declaration", dec.name
+
+	return ij_row, resolved_idx, persist_doctype, persist_name, do_doc, do_name
+
+
 @frappe.whitelist()
 def create_transport_order_from_declaration(
 	declaration_name: str, internal_job_detail_idx: int | None = None
@@ -1485,6 +1802,10 @@ def create_transport_order_from_declaration(
 	"""Create a Transport Order from a Declaration (main-service or internal-job); link on Declaration."""
 	from frappe import _
 	from frappe.utils import cint
+
+	from logistics.utils.internal_job_detail_copy import (
+		sync_internal_job_details_from_declaration_to_declaration_order,
+	)
 
 	if not declaration_name:
 		frappe.throw(_("Declaration is required."))
@@ -1495,6 +1816,9 @@ def create_transport_order_from_declaration(
 	if (getattr(dec, "transport_order", None) or "").strip():
 		frappe.throw(_("This Declaration already has a linked Transport Order."))
 
+	# Align linked Declaration Order child rows before resolving / persisting Internal Job Detail index.
+	sync_internal_job_details_from_declaration_to_declaration_order(dec)
+
 	is_ij = cint(getattr(dec, "is_internal_job", 0))
 	is_main = cint(getattr(dec, "is_main_service", 0))
 	if not ((is_main and not is_ij) or is_ij):
@@ -1502,51 +1826,66 @@ def create_transport_order_from_declaration(
 			_("Transport Order can only be created from a Main Service declaration or an Internal Job declaration.")
 		)
 
-	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
-	ij_row, resolved_idx = resolve_internal_job_detail_row_for_create(dec, "Transport Order", idx)
+	ij_row, resolved_idx, persist_doctype, persist_name, do_doc, do_name = (
+		_resolve_transport_ij_for_declaration_to_order(dec, internal_job_detail_idx)
+	)
+
+	# Header defaults: when linked to a Declaration Order, use it as the main source for corridor/parties/reps.
+	header_src = do_doc if do_doc is not None else dec
 
 	order = frappe.new_doc("Transport Order")
-	order.customer = dec.customer
-	order.shipper = getattr(dec, "exporter_shipper", None)
-	order.consignee = getattr(dec, "importer_consignee", None)
-	order.sales_quote = dec.sales_quote
+	order.customer = getattr(header_src, "customer", None)
+	order.shipper = getattr(header_src, "exporter_shipper", None)
+	order.consignee = getattr(header_src, "importer_consignee", None)
+	order.sales_quote = getattr(header_src, "sales_quote", None) or getattr(dec, "sales_quote", None)
 	order.booking_date = frappe.utils.today()
 	order.scheduled_date = (
-		getattr(dec, "eta", None) or getattr(dec, "etd", None) or order.booking_date
+		getattr(header_src, "eta", None) or getattr(header_src, "etd", None) or order.booking_date
 	)
-	order.company = getattr(dec, "company", None) or frappe.defaults.get_defaults().get("company")
-	order.branch = getattr(dec, "branch", None)
-	order.cost_center = getattr(dec, "cost_center", None)
-	order.profit_center = getattr(dec, "profit_center", None)
-	order.project = getattr(dec, "project", None)
+	order.company = getattr(header_src, "company", None) or frappe.defaults.get_defaults().get("company")
+	order.branch = getattr(header_src, "branch", None)
+	order.cost_center = getattr(header_src, "cost_center", None)
+	order.profit_center = getattr(header_src, "profit_center", None)
+	order.project = getattr(header_src, "project", None)
+	if getattr(header_src, "job_number", None):
+		order.job_number = header_src.job_number
 	order.location_type = "UNLOCO"
-	order.location_from = getattr(dec, "port_of_loading", None)
-	order.location_to = getattr(dec, "port_of_discharge", None)
+	order.location_from = getattr(header_src, "port_of_loading", None)
+	order.location_to = getattr(header_src, "port_of_discharge", None)
 	order.transport_job_type = "Non-Container"
-	copy_sales_quote_fields_to_target(dec, order)
-	if is_ij:
+	copy_sales_quote_fields_to_target(header_src, order)
+	# Internal job on the TO when the declaration is an internal job, or when this TO
+	# is created from a Main Service declaration via an Internal Job Detail line.
+	if is_ij or ij_row:
 		order.is_internal_job = 1
+		# main_job_type Select only allows "Declaration" (not DocType "Declaration Order"); link to this Declaration.
 		order.main_job_type = "Declaration"
 		order.main_job = dec.name
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
-	if getattr(dec, "exporter_shipper", None) and getattr(dec, "importer_consignee", None):
+	if getattr(header_src, "exporter_shipper", None) and getattr(header_src, "importer_consignee", None):
 		order.append(
 			"legs",
 			{
 				"facility_type_from": "Shipper",
-				"facility_from": dec.exporter_shipper,
+				"facility_from": header_src.exporter_shipper,
 				"facility_type_to": "Consignee",
-				"facility_to": dec.importer_consignee,
+				"facility_to": header_src.importer_consignee,
 				"scheduled_date": order.scheduled_date,
 				"transport_job_type": "Non-Container",
 			},
 		)
 	copy_parent_dg_header(dec, order)
 	_copy_transport_charges_from_declaration_to_transport_order(order, dec)
+	# Internal-job Declarations only hold Customs lines when separate billings per service type is on,
+	# so there are no Transport rows to copy; pull Transport lines from the Sales Quote like Air/Sea flows.
+	append_transport_order_charges_from_sales_quote_if_empty(order)
+	# Primary transport doc for this quote leg: required so validate_one_off_quote_not_converted allows the
+	# same one-off quote already converted to the linked Declaration Order (customs + transport one chain).
+	order.is_main_service = 1
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
-		"Declaration", declaration_name, "Transport Order", order.name, detail_idx=resolved_idx
+		persist_doctype, persist_name, "Transport Order", order.name, detail_idx=resolved_idx
 	)
 	frappe.db.set_value("Declaration", declaration_name, "transport_order", order.name)
 	frappe.db.commit()

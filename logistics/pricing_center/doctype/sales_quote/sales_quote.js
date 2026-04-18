@@ -315,7 +315,9 @@ frappe.ui.form.on("Sales Quote", {
 		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items (unified or legacy)
 		const has_warehousing = (frm.doc.charges && frm.doc.charges.some(c => c.service_type === "Warehousing")) ||
 			(frm.doc.warehousing && frm.doc.warehousing.length > 0);
-		if (frm.doc.docstatus === 1 && has_warehousing && !frm.doc.__islocal) {
+		const one_off_warehouse_ok =
+			frm.doc.quotation_type !== "One-off" || frm.doc.main_service === "Warehousing";
+		if (frm.doc.docstatus === 1 && has_warehousing && !frm.doc.__islocal && one_off_warehouse_ok) {
 			frm.add_custom_button(__("Create Warehouse Contract"), function() {
 				create_warehouse_contract_from_sales_quote(frm);
 			}, __("Create"));
@@ -343,7 +345,13 @@ frappe.ui.form.on("Sales Quote", {
 		// Add custom button to create Declaration Order if quote is One-Off and submitted (unified or legacy)
 		const has_customs = (frm.doc.charges && frm.doc.charges.some(c => c.service_type === "Customs")) ||
 			(frm.doc.customs && frm.doc.customs.length > 0);
-		if (frm.doc.quotation_type === "One-off" && has_customs && !frm.doc.__islocal && frm.doc.docstatus === 1) {
+		if (
+			frm.doc.quotation_type === "One-off" &&
+			frm.doc.main_service === "Customs" &&
+			has_customs &&
+			!frm.doc.__islocal &&
+			frm.doc.docstatus === 1
+		) {
 			frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
 				if (!r || !r.name) {
 					frm.add_custom_button(__("Declaration Order"), function() {
@@ -964,7 +972,9 @@ function add_create_button(frm, config) {
 	const isOneOff = frm.doc.quotation_type === "One-off";
 	
 	if (!isOneOff || !isSubmitted) return;
-	
+	// One-off: only the Main Service job type is offered from Create (not every service that has charge lines)
+	if (frm.doc.main_service !== main_service) return;
+
 	// Check if document exists
 	frappe.db.get_value(doctype, {"sales_quote": frm.doc.name}, "name", function(r) {
 		if (!r || !r.name) {
@@ -1538,7 +1548,9 @@ function create_declaration_order_from_sales_quote(frm) {
 					message: __("A Declaration Order already exists for this One-Off Sales Quote."),
 					indicator: "orange"
 				});
-				frappe.set_route("Form", "Declaration Order", r.name);
+				Promise.resolve(frm.reload_doc()).then(function() {
+					frappe.set_route("Form", "Declaration Order", r.name);
+				});
 				return;
 			}
 			show_declaration_order_confirmation(frm);
@@ -1549,66 +1561,102 @@ function create_declaration_order_from_sales_quote(frm) {
 }
 
 function show_declaration_order_confirmation(frm) {
-	show_precreate_review_dialog(frm, {
-		title: __("Create > Declaration Order"),
-		intro: __("Review and update the data that will be passed from Sales Quote to Declaration Order."),
-		primary_label: __("Create Declaration Order"),
-		fields: [
-			{ fieldname: "company", fieldtype: "Link", label: __("Company"), options: "Company", default: frm.doc.company || "" },
-			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
-			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" },
-			{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: frm.doc.profit_center || "" },
-			{ fieldname: "customs_authority", fieldtype: "Link", label: __("Customs Authority"), options: "Customs Authority", default: frm.doc.customs_authority || "" },
-			{ fieldname: "declaration_type", fieldtype: "Select", label: __("Declaration Type"), options: "\nImport\nExport\nTransit", default: frm.doc.declaration_type || "" }
-		],
-		apply_values: function(values) {
-			frm.set_value("company", values.company || "");
-			frm.set_value("branch", values.branch || "");
-			frm.set_value("cost_center", values.cost_center || "");
-			frm.set_value("profit_center", values.profit_center || "");
-			frm.set_value("customs_authority", values.customs_authority || "");
-			frm.set_value("declaration_type", values.declaration_type || "");
-		},
-		on_continue: function() {
-			frappe.confirm(
-				__("Create a Declaration Order from this Sales Quote?"),
-				function() {
-			frm.dashboard.set_headline_alert(__("Creating Declaration Order..."));
-			frappe.call({
-				method: "logistics.customs.doctype.declaration_order.declaration_order.create_declaration_order_from_sales_quote",
-				args: { sales_quote_name: frm.doc.name },
-				callback: function(r) {
-					frm.dashboard.clear_headline();
-					if (r.exc) return;
-					if (r.message && r.message.success && r.message.declaration_order) {
-						frappe.msgprint({
-							title: __("Declaration Order Created"),
-							message: __("Declaration Order {0} has been created. Sales Quote status and Converted To have been updated.", [r.message.declaration_order]),
-							indicator: "green"
-						});
-						frm.reload_doc();
-						setTimeout(function() {
-							frappe.set_route("Form", "Declaration Order", r.message.declaration_order);
-						}, 100);
-					} else if (r.message && r.message.message) {
-						frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
-						if (r.message.declaration_order) {
-							frm.reload_doc();
-							setTimeout(function() { frappe.set_route("Form", "Declaration Order", r.message.declaration_order); }, 100);
-						}
+	frappe.call({
+		method: "logistics.customs.doctype.declaration_order.declaration_order.get_sales_quote_details",
+		args: { sales_quote: frm.doc.name },
+		callback: function(resp) {
+			var sqd = (resp && resp.message) || {};
+			var decl_type = sqd.declaration_type || "";
+			if (!decl_type && frm.doc.direction && (frm.doc.direction === "Import" || frm.doc.direction === "Export")) {
+				decl_type = frm.doc.direction;
+			}
+			var defaults = {
+				company: frm.doc.company || sqd.company || "",
+				branch: frm.doc.branch || sqd.branch || "",
+				cost_center: frm.doc.cost_center || sqd.cost_center || "",
+				profit_center: frm.doc.profit_center || sqd.profit_center || "",
+				customs_authority: sqd.customs_authority || "",
+				declaration_type: decl_type
+			};
+			show_precreate_review_dialog(frm, {
+				title: __("Create > Declaration Order"),
+				intro: __("Review and update the data that will be passed from Sales Quote to Declaration Order."),
+				primary_label: __("Create Declaration Order"),
+				fields: [
+					{ fieldname: "company", fieldtype: "Link", label: __("Company"), options: "Company", default: defaults.company },
+					{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: defaults.branch },
+					{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: defaults.cost_center },
+					{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: defaults.profit_center },
+					{ fieldname: "customs_authority", fieldtype: "Link", label: __("Customs Authority"), options: "Customs Authority", default: defaults.customs_authority },
+					{
+						fieldname: "declaration_type",
+						fieldtype: "Select",
+						label: __("Declaration Type"),
+						options: "\nImport\nExport\nTransit\nBonded",
+						default: defaults.declaration_type
 					}
+				],
+				apply_values: function(values) {
+					frm.set_value("company", values.company || "");
+					frm.set_value("branch", values.branch || "");
+					frm.set_value("cost_center", values.cost_center || "");
+					frm.set_value("profit_center", values.profit_center || "");
+					// customs_authority / declaration_type live on Customs charge rows, not the quote header;
+					// pass them to create_declaration_order_from_sales_quote instead of frm.set_value.
+					frm._declaration_order_precreate_values = {
+						customs_authority: values.customs_authority || "",
+						declaration_type: values.declaration_type || ""
+					};
 				},
-				error: function() {
-					frm.dashboard.clear_headline();
-					frappe.msgprint({
-						title: __("Error"),
-						message: __("Failed to create Declaration Order. Please try again."),
-						indicator: "red"
-					});
+				on_continue: function() {
+					frappe.confirm(
+						__("Create a Declaration Order from this Sales Quote?"),
+						function() {
+							var pre = frm._declaration_order_precreate_values || {};
+							frm.dashboard.set_headline_alert(__("Creating Declaration Order..."));
+							frappe.call({
+								method: "logistics.customs.doctype.declaration_order.declaration_order.create_declaration_order_from_sales_quote",
+								args: {
+									sales_quote_name: frm.doc.name,
+									customs_authority: pre.customs_authority,
+									declaration_type: pre.declaration_type
+								},
+								callback: function(r) {
+									frm.dashboard.clear_headline();
+									if (r.exc) return;
+									if (r.message && r.message.success && r.message.declaration_order) {
+										var do_name = r.message.declaration_order;
+										frappe.msgprint({
+											title: __("Declaration Order Created"),
+											message: __("Declaration Order {0} has been created. Sales Quote status and Converted To have been updated.", [do_name]),
+											indicator: "green"
+										});
+										Promise.resolve(frm.reload_doc()).then(function() {
+											frappe.set_route("Form", "Declaration Order", do_name);
+										});
+									} else if (r.message && r.message.message) {
+										frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+										if (r.message.declaration_order) {
+											var do_name_alt = r.message.declaration_order;
+											Promise.resolve(frm.reload_doc()).then(function() {
+												frappe.set_route("Form", "Declaration Order", do_name_alt);
+											});
+										}
+									}
+								},
+								error: function() {
+									frm.dashboard.clear_headline();
+									frappe.msgprint({
+										title: __("Error"),
+										message: __("Failed to create Declaration Order. Please try again."),
+										indicator: "red"
+									});
+								}
+							});
+						}
+					);
 				}
 			});
-		}
-			);
 		}
 	});
 }

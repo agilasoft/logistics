@@ -76,6 +76,7 @@
  "fields": [
   {
    "columns": 1,
+   "default": "Transport",
    "fieldname": "service_type",
    "fieldtype": "Select",
    "in_list_view": 1,

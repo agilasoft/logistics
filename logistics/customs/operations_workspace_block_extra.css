@@ -1,0 +1,217 @@
+/* Air Freight operations custom block — tab + toolbar overrides (with Air Booking dashboard CSS) */
+#cus_ops_heat:checked ~ .ab-tab-bar label[for="cus_ops_heat"],
+#cus_ops_wf:checked ~ .ab-tab-bar label[for="cus_ops_wf"],
+#cus_ops_alert:checked ~ .ab-tab-bar label[for="cus_ops_alert"] {
+  font-weight: 600;
+  color: #212529;
+  border-bottom-color: #212529;
+}
+#cus_ops_heat:checked ~ .ab-ro-body .ab-tab-panel-route,
+#cus_ops_wf:checked ~ .ab-ro-body .ab-tab-panel-milestones,
+#cus_ops_alert:checked ~ .ab-ro-body .ab-tab-panel-alerts {
+  display: block;
+}
+.cus-ops-dash .cus-ops-page-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ro-text-strong);
+  margin-top: 0.15rem;
+}
+.cus-ops-dash .cus-ops-breadcrumb {
+  font-size: 0.72rem;
+  color: var(--ro-label);
+}
+.cus-ops-dash .cus-ops-heat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+}
+.cus-ops-dash .cus-ops-user-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--ro-label);
+}
+.cus-ops-dash .cus-ops-user-filter.cus-ops-airline-filter {
+  align-items: center;
+}
+.cus-ops-dash .cus-ops-airline-ms {
+  position: relative;
+  min-width: 11rem;
+  max-width: 18rem;
+}
+.cus-ops-dash .cus-ops-airline-dd-toggle {
+  min-height: 1.85rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+.cus-ops-dash .cus-ops-airline-dd-toggle .cus-ops-airline-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 500;
+  color: var(--ro-text, #333);
+}
+.cus-ops-dash .cus-ops-airline-dd-toggle::after {
+  content: "";
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--ro-muted, #6c757d);
+  margin-top: 2px;
+}
+.cus-ops-dash .cus-ops-airline-ms.cus-ops-airline-dd-open .cus-ops-airline-dd-panel {
+  display: block;
+}
+.cus-ops-dash .cus-ops-airline-dd-panel {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 800;
+  background: #fff;
+  border: 1px solid var(--ro-border-soft, #e9ecef);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+.cus-ops-dash .cus-ops-airline-cb-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ro-text, #333);
+  cursor: pointer;
+}
+.cus-ops-dash .cus-ops-airline-cb-row:hover {
+  background: var(--ro-fill-light, #f8f9fa);
+}
+.cus-ops-dash .cus-ops-airline-cb-row input {
+  margin: 0;
+  flex-shrink: 0;
+}
+.cus-ops-dash .cus-ops-status-filter .cus-ops-filter-status {
+  min-width: 10.5rem;
+  max-width: 14rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.cus-ops-dash .cus-ops-user-filter-lbl {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cus-ops-dash .cus-ops-filter-user {
+  min-width: 11rem;
+  max-width: 18rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.cus-ops-dash .cus-ops-traffic-filter .cus-ops-filter-traffic {
+  min-width: 7.5rem;
+  max-width: 10rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.cus-ops-dash .afw-hub-map {
+  height: 420px;
+  border-radius: 0;
+  border: none;
+}
+.cus-ops-dash .cus-ops-wf-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ro-text-strong);
+  margin-bottom: 0.35rem;
+}
+.cus-ops-dash .cus-ops-wf-desc {
+  margin-bottom: 0.75rem;
+  max-width: 42rem;
+}
+.cus-ops-dash .log-ab-banner.alert {
+  border-radius: 8px;
+}
+/* UNLOCO map popup: flag top-left, UNLOCO below flag, close space top-right; bold stat lines */
+.afw-hub-unloco-popup {
+  box-sizing: border-box;
+  min-width: 10.5rem;
+  max-width: 18rem;
+  padding-right: 2.6rem;
+  margin: 0;
+}
+.afw-hub-popup-head {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 0.45rem 0;
+}
+.afw-hub-popup-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.afw-hub-popup-flag {
+  font-size: 2.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+.afw-hub-popup-close-slot {
+  flex-shrink: 0;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2rem;
+  pointer-events: none;
+}
+.afw-hub-popup-code {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ro-text-strong, #212529);
+}
+.afw-hub-popup-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+.afw-hub-popup-stat {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--ro-text, #333);
+}
+.afw-hub-popup-stat strong {
+  font-weight: 600;
+}

@@ -54,6 +54,7 @@ WIKI_PAGES_CONFIG = {
     "shipper": ("Shipper", "Sea Freight"),
     "consignee": ("Consignee", "Sea Freight"),
     "container_type": ("Container Type", "Sea Freight"),
+    "container_management": ("Container Management", "Sea Freight"),
     # Air Freight
     "air_booking": ("Air Booking", "Air Freight"),
     "air_shipment": ("Air Shipment", "Air Freight"),

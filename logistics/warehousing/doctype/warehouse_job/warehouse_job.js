@@ -237,6 +237,9 @@ frappe.ui.form.on('Warehouse Job', {
         };
     },
     refresh: function(frm) {
+        if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
+            logistics.apply_one_off_sales_quote_order_standard(frm);
+        }
         // Load documents summary HTML in Documents tab
         if (window.logistics_load_documents_html) {
             window.logistics_load_documents_html(frm, "Warehouse Job");

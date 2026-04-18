@@ -11,6 +11,8 @@ from frappe.utils import add_days, cint, flt, getdate
 from pymysql.err import ProgrammingError
 
 from logistics.utils.dg_fields import copy_parent_dg_header
+from logistics.utils.charge_service_type import filter_sales_quote_charge_rows_for_operational_doc
+from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
 # keep these exactly as requested
 ORDER_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
@@ -61,7 +63,11 @@ def _sync_quote_and_sales_quote(doc):
     if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
         doc.sales_quote = doc.quote
     elif getattr(doc, "quote_type", None) == "One-Off Quote":
-        doc.sales_quote = None
+        q = getattr(doc, "quote", None)
+        if q and frappe.db.exists("Sales Quote", q):
+            doc.sales_quote = q
+        else:
+            doc.sales_quote = None
     elif not getattr(doc, "quote_type", None) and getattr(doc, "sales_quote", None):
         doc.quote_type = "Sales Quote"
         doc.quote = doc.sales_quote
@@ -99,9 +105,14 @@ class TransportOrder(Document):
             self.quote = original_quote
         if original_quote_type and not getattr(self, 'quote_type', None):
             self.quote_type = original_quote_type
-        # Only preserve sales_quote if quote_type is Sales Quote (One-Off Quote clears sales_quote)
-        if original_sales_quote and getattr(self, 'quote_type', None) == 'Sales Quote' and not getattr(self, 'sales_quote', None):
-            self.sales_quote = original_sales_quote
+        qt = getattr(self, "quote_type", None)
+        if original_sales_quote and not getattr(self, "sales_quote", None):
+            if qt == "Sales Quote" or (
+                qt == "One-Off Quote"
+                and getattr(self, "quote", None)
+                and original_sales_quote == getattr(self, "quote", None)
+            ):
+                self.sales_quote = original_sales_quote
         # If the Transport Template changes, clear the Leg Plan table.
         try:
             if self.has_value_changed("transport_template"):
@@ -140,6 +151,7 @@ class TransportOrder(Document):
                 self.name,
                 allow_linked_sea_booking=allow_sea,
                 allow_linked_air_booking=allow_air,
+                allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
             )
         
         # Handle sales_quote field clearing - reset One-off quote if cleared
@@ -153,6 +165,10 @@ class TransportOrder(Document):
                         reset_one_off_quote_on_cancel(original_sales_quote)
             except Exception:
                 pass
+
+        from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+
+        assert_one_off_sales_quote_job_rules(self)
         
         # On duplicate (new doc with same One-Off Quote), clear quote reference
         self._validate_sales_quote_duplication()
@@ -1077,7 +1093,14 @@ class TransportOrder(Document):
                 pass
 
             # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-            fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
+            fields_to_fetch = (
+                ["name", "service_type", "location_from", "location_to"]
+                + SALES_QUOTE_CHARGE_SOURCE_FIELDS
+            )
+            sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", fields_to_fetch)
+            legacy_transport_fields = filter_fields_existing_in_doctype(
+                "Sales Quote Transport", fields_to_fetch
+            )
             
             # Build filters based on separate_billings_per_service_type setting
             filters = {"parent": self.sales_quote, "parenttype": "Sales Quote"}
@@ -1094,16 +1117,19 @@ class TransportOrder(Document):
             sales_quote_transport_records = frappe.get_all(
                 "Sales Quote Charge",
                 filters=filters,
-                fields=fields_to_fetch,
+                fields=sqc_fields,
                 order_by="idx"
             )
             if not sales_quote_transport_records and frappe.db.table_exists("Sales Quote Transport"):
                 sales_quote_transport_records = frappe.get_all(
                     "Sales Quote Transport",
                     filters={"parent": self.sales_quote, "parenttype": "Sales Quote"},
-                    fields=fields_to_fetch,
+                    fields=legacy_transport_fields,
                     order_by="idx"
                 )
+            sales_quote_transport_records = filter_sales_quote_charge_rows_for_operational_doc(
+                self, sales_quote_transport_records
+            )
 
             if not sales_quote_transport_records:
                 frappe.msgprint(
@@ -1267,6 +1293,15 @@ class TransportOrder(Document):
 
             if not charge_data.get("quantity"):
                 charge_data["quantity"] = 1
+
+            # Select options start with Air; unset service_type would otherwise present as Air.
+            charge_data["service_type"] = (sqt_record.get("service_type") or "").strip() or "Transport"
+
+            sq_link = getattr(self, "sales_quote", None)
+            if not sq_link and getattr(self, "quote", None) and frappe.db.exists("Sales Quote", self.quote):
+                sq_link = self.quote
+            if sq_link and _has_field("Transport Order Charges", "sales_quote_link"):
+                charge_data["sales_quote_link"] = sq_link
 
             return charge_data
 
@@ -1544,7 +1579,14 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
             pass
         
         # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
-        fields_to_fetch = ["name", "service_type"] + SALES_QUOTE_CHARGE_SOURCE_FIELDS
+        fields_to_fetch = (
+            ["name", "service_type", "location_from", "location_to"]
+            + SALES_QUOTE_CHARGE_SOURCE_FIELDS
+        )
+        sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", fields_to_fetch)
+        legacy_transport_fields = filter_fields_existing_in_doctype(
+            "Sales Quote Transport", fields_to_fetch
+        )
         
         # Build filters based on separate_billings_per_service_type setting
         filters = {"parent": sales_quote, "parenttype": "Sales Quote"}
@@ -1561,16 +1603,22 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         sales_quote_transport_records = frappe.get_all(
             "Sales Quote Charge",
             filters=filters,
-            fields=fields_to_fetch,
+            fields=sqc_fields,
             order_by="idx"
         )
         if not sales_quote_transport_records and frappe.db.table_exists("Sales Quote Transport"):
             sales_quote_transport_records = frappe.get_all(
                 "Sales Quote Transport",
                 filters={"parent": sales_quote, "parenttype": "Sales Quote"},
-                fields=fields_to_fetch,
+                fields=legacy_transport_fields,
                 order_by="idx"
             )
+        order_for_filter = (
+            frappe.get_doc("Transport Order", docname) if docname else frappe._dict(doctype="Transport Order")
+        )
+        sales_quote_transport_records = filter_sales_quote_charge_rows_for_operational_doc(
+            order_for_filter, sales_quote_transport_records
+        )
         
         if not sales_quote_transport_records:
             return {
@@ -1714,7 +1762,10 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
         
         if not charge_data.get("quantity"):
             charge_data["quantity"] = 1
-        
+
+        # Select options start with Air; unset service_type would otherwise present as Air.
+        charge_data["service_type"] = (sqt_record.get("service_type") or "").strip() or "Transport"
+
         return charge_data
         
     except Exception as e:
@@ -1956,6 +2007,7 @@ def action_create_transport_job(docname: str):
             "transport_job_type": getattr(doc, "transport_job_type", None),
             "customer": getattr(doc, "customer", None),
             "booking_date": getattr(doc, "booking_date", None),
+            "scheduled_date": getattr(doc, "scheduled_date", None),
             "customer_ref_no": getattr(doc, "customer_ref_no", None),
             "shipper": getattr(doc, "shipper", None),
             "consignee": getattr(doc, "consignee", None),
@@ -1965,6 +2017,7 @@ def action_create_transport_job(docname: str):
             "load_type": getattr(doc, "load_type", None),
             "container_type": getattr(doc, "container_type", None),
             "container_no": getattr(doc, "container_no", None),
+            "container": getattr(doc, "container", None),
             "consolidate": getattr(doc, "consolidate", None),
             "pick_address": getattr(doc, "pick_address", None),
             "drop_address": getattr(doc, "drop_address", None),
@@ -1972,16 +2025,36 @@ def action_create_transport_job(docname: str):
             "branch": getattr(doc, "branch", None),
             "cost_center": getattr(doc, "cost_center", None),
             "profit_center": getattr(doc, "profit_center", None),
+            "project": getattr(doc, "project", None),
+            "job_number": getattr(doc, "job_number", None),
+            "transport_company": getattr(doc, "transport_company", None),
             "document_list_template": getattr(doc, "document_list_template", None),
             "milestone_template": getattr(doc, "milestone_template", None),
             "sales_quote": getattr(doc, "sales_quote", None),
             "sales_rep": getattr(doc, "sales_rep", None),
             "operations_rep": getattr(doc, "operations_rep", None),
             "customer_service_rep": getattr(doc, "customer_service_rep", None),
+            "air_shipment": getattr(doc, "air_shipment", None),
+            "sea_shipment": getattr(doc, "sea_shipment", None),
+            "is_main_service": getattr(doc, "is_main_service", None),
+            "is_internal_job": getattr(doc, "is_internal_job", None),
+            "main_job_type": getattr(doc, "main_job_type", None),
+            "main_job": getattr(doc, "main_job", None),
+            "internal_notes": getattr(doc, "internal_notes", None),
+            "client_notes": getattr(doc, "client_notes", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):
                 job.set(k, v)
+        # Service Level (TO) -> SLA block (TJ): different field names, same Logistics Service Level link
+        if job_meta.has_field("logistics_service_level"):
+            sl = getattr(doc, "service_level", None)
+            if sl:
+                job.set("logistics_service_level", sl)
+        if job_meta.has_field("sla_notes"):
+            sld = getattr(doc, "service_level_details", None)
+            if sld:
+                job.set("sla_notes", sld)
         copy_parent_dg_header(doc, job)
 
         # ---- Packages (TO -> TJ) by common fields
@@ -2004,10 +2077,19 @@ def action_create_transport_job(docname: str):
             src_doc=doc, src_table_field="milestones", dst_doc=job, dst_table_field="milestones"
         )
 
+        # ---- Internal Job Details (TO -> TJ) by common fields
+        _copy_child_rows_by_common_fields(
+            src_doc=doc, src_table_field="internal_job_details", dst_doc=job, dst_table_field="internal_job_details"
+        )
+
         # ---- Warehouse Items (TO -> TJ) by common fields
         _copy_child_rows_by_common_fields(
             src_doc=doc, src_table_field="warehouse_items", dst_doc=job, dst_table_field="warehouse_items"
         )
+
+        # Totals from packages: insert uses ignore_validate, and that flag would also skip the later
+        # job.save() — so validate() / _update_packing_summary() never ran. Compute here so DB is correct.
+        job._update_packing_summary()
 
         # Insert now to get a real job name for back-references from Transport Leg
         # Temporarily ignore mandatory and validation checks to prevent "Job Type must be set first" popups
@@ -2019,6 +2101,11 @@ def action_create_transport_job(docname: str):
         # Reload so in-memory doc matches DB (modified, etc.). Avoids TimestampMismatchError
         # when leg.insert() or hooks touch the job and we call job.save().
         job.reload()
+
+        # Re-enable validation for save(); otherwise run_before_save_methods returns early and
+        # totals/capacity checks from validate() never run on the created job.
+        job.flags.ignore_validate = False
+        job.flags.ignore_mandatory = False
 
         # ---- Legs: create top-level Transport Leg for each TO leg, then link into TJ legs
         order_legs_field = _find_child_table_fieldname(
@@ -2589,7 +2676,8 @@ def _create_and_attach_job_legs_from_order_legs(
         # Create top-level Transport Leg
         leg = frappe.new_doc("Transport Leg")
         _safe_set(leg, "transport_job", job_doc.name)  # back-reference to the Job
-        _safe_set(leg, "date", order_doc.scheduled_date)  # back-reference to the Job
+        leg_date = getattr(ol, "scheduled_date", None) or getattr(order_doc, "scheduled_date", None)
+        _safe_set(leg, "date", leg_date)
 
         _safe_set(leg, "facility_type_from", getattr(ol, "facility_type_from", None))
         _safe_set(leg, "facility_from", getattr(ol, "facility_from", None))

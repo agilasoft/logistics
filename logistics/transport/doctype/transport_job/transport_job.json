@@ -123,11 +123,10 @@
   "estimated_carbon_footprint",
   "column_break_sustainability",
   "sustainability_notes",
-  "connections_tab",
-  "section_break_freight_connections",
   "air_shipment",
   "sea_shipment",
-  "amended_from"
+  "amended_from",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -514,8 +513,8 @@
    "fieldname": "transport_company",
    "fieldtype": "Link",
    "label": "Transport Company",
-   "options": "Transport Company",
-   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Company"
   },
   {
    "fieldname": "transport_template",
@@ -701,7 +700,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -794,20 +792,10 @@
    "label": "Sustainability Notes"
   },
   {
-   "fieldname": "connections_tab",
-   "fieldtype": "Tab Break",
-   "label": "Connections",
-   "show_dashboard": 1
-  },
-  {
-   "fieldname": "section_break_freight_connections",
-   "fieldtype": "Section Break",
-   "label": "Freight Connections"
-  },
-  {
    "description": "Port pickup/delivery for air freight",
    "fieldname": "air_shipment",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Air Shipment",
    "options": "Air Shipment"
   },
@@ -815,6 +803,7 @@
    "description": "Port pickup/delivery for sea freight",
    "fieldname": "sea_shipment",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Sea Shipment",
    "options": "Sea Shipment"
   },
@@ -878,6 +867,12 @@
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "is_submittable": 1,
@@ -898,7 +893,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2026-04-08 15:06:06.560272",
+ "modified": "2026-04-16 15:39:23.774854",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",

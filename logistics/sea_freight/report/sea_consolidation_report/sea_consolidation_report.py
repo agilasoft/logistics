@@ -5,12 +5,15 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.analytics_reports.bootstrap import tally_chart
+
 
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
 	summary = get_summary(data) if data else []
-	return columns, data, None, None, summary
+	chart = tally_chart(data, "status", _("Consolidations"))
+	return columns, data, None, chart, summary
 
 
 def get_columns():

@@ -32,6 +32,17 @@
   "auto_create_container",
   "strict_container_validation",
   "enable_container_penalty_alerts",
+  "container_deposit_section",
+  "container_deposit_pattern",
+  "require_job_number_on_container_deposits",
+  "column_break_cd1",
+  "container_deposit_default_company",
+  "container_deposit_clearing_account",
+  "container_deposit_customer_liability_account",
+  "container_deposit_forfeiture_account",
+  "container_deposit_debtors_account",
+  "container_deposit_refund_waiver_roles",
+  "container_refund_requirements",
   "measurements_tab",
   "measurements_section",
   "base_dimension_uom",
@@ -223,6 +234,75 @@
    "fieldname": "enable_container_penalty_alerts",
    "fieldtype": "Check",
    "label": "Enable Container Penalty Alerts"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "container_deposit_section",
+   "fieldtype": "Section Break",
+   "label": "Container deposits and GL",
+   "description": "Pending carrier payments and pending carrier refunds are posted via Journal Entry through Debtors (AR) with a Customer party, offsetting the clearing account (see user documentation)."
+  },
+  {
+   "default": "Customer Funded",
+   "fieldname": "container_deposit_pattern",
+   "fieldtype": "Select",
+   "label": "Deposit cash pattern",
+   "options": "Customer Funded\nForwarder Funded"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_job_number_on_container_deposits",
+   "fieldtype": "Check",
+   "label": "Require Job Number on deposit lines"
+  },
+  {
+   "fieldname": "column_break_cd1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "container_deposit_default_company",
+   "fieldtype": "Link",
+   "label": "Default company for deposit JE",
+   "options": "Company"
+  },
+  {
+   "fieldname": "container_deposit_clearing_account",
+   "fieldtype": "Link",
+   "label": "Deposit clearing account",
+   "options": "Account",
+   "description": "Balance sheet offset account paired with Debtors on container deposit JEs."
+  },
+  {
+   "fieldname": "container_deposit_customer_liability_account",
+   "fieldtype": "Link",
+   "label": "Customer deposit liability account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "container_deposit_forfeiture_account",
+   "fieldtype": "Link",
+   "label": "Deposit forfeiture expense account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "container_deposit_debtors_account",
+   "fieldtype": "Link",
+   "label": "Debtors override (optional)",
+   "options": "Account",
+   "description": "If empty, Company default receivable account is used for AR lines."
+  },
+  {
+   "fieldname": "container_deposit_refund_waiver_roles",
+   "fieldtype": "Small Text",
+   "label": "Roles allowed to waive refund documents",
+   "default": "System Manager",
+   "description": "Comma-separated Role names. Users with any of these roles may set checklist rows to Waived with a reason."
+  },
+  {
+   "fieldname": "container_refund_requirements",
+   "fieldtype": "Table",
+   "label": "Refund document requirements (template)",
+   "options": "Logistics Settings Container Refund Requirement"
   },
   {
    "fieldname": "measurements_tab",

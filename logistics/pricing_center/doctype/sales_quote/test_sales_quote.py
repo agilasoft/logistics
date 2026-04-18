@@ -133,3 +133,214 @@ class TestSalesQuote(FrappeTestCase):
 
 		with self.assertRaises(frappe.ValidationError):
 			extend_sales_quote_validity(sq.name, add_days(today(), -1))
+
+	def test_get_charges_from_quotation_list_filters_by_air_corridor(self):
+		"""Action → Get Charges from Quotation lists only quotes matching booking origin/destination."""
+		from logistics.utils.get_charges_from_quotation import list_sales_quotes_for_job
+
+		create_test_unloco("USORD", "Chicago", "ORD", "US", "Airport")
+
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"quotation_type": "Regular",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": "Air",
+			}
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		sq.submit()
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Air Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+			}
+		)
+		booking.insert()
+
+		out = list_sales_quotes_for_job("Air Booking", booking.name)
+		names = [r["name"] for r in (out.get("quotes") or [])]
+		self.assertIn(sq.name, names)
+
+		booking_wrong = frappe.get_doc(
+			{
+				"doctype": "Air Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USORD",
+			}
+		)
+		booking_wrong.insert()
+
+		out2 = list_sales_quotes_for_job("Air Booking", booking_wrong.name)
+		names2 = [r["name"] for r in (out2.get("quotes") or [])]
+		self.assertNotIn(sq.name, names2)
+
+	def test_get_charges_from_quotation_excludes_draft_sales_quote(self):
+		"""Draft Sales Quotes must not appear in Get Charges from Quotation."""
+		from logistics.utils.get_charges_from_quotation import list_sales_quotes_for_job
+
+		sq_draft = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"quotation_type": "Regular",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": "Air",
+			}
+		)
+		sq_draft.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq_draft.insert()
+
+		sq_sub = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"quotation_type": "Regular",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": "Air",
+			}
+		)
+		sq_sub.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq_sub.insert()
+		sq_sub.submit()
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Air Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+			}
+		)
+		booking.insert()
+
+		out = list_sales_quotes_for_job("Air Booking", booking.name)
+		names = [r["name"] for r in (out.get("quotes") or [])]
+		self.assertNotIn(sq_draft.name, names)
+		self.assertIn(sq_sub.name, names)
+		filters = out.get("filters") or {}
+		self.assertEqual(filters.get("customer"), self.customer)
+		self.assertEqual(filters.get("origin"), "USLAX")
+		self.assertEqual(filters.get("destination"), "USJFK")
+
+	def _minimal_sales_quote_doc(self, main_service):
+		return frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"quotation_type": "Regular",
+				"naming_series": "SQU.#########",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": main_service,
+			}
+		)
+
+	def test_submit_blocked_when_main_service_has_no_matching_charges(self):
+		"""Cannot submit when Main Service is Sea but no Sea charge rows (e.g. only Air)."""
+		sq = self._minimal_sales_quote_doc("Sea")
+		sq.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		with self.assertRaises(frappe.ValidationError):
+			sq.submit()
+
+	def test_submit_allowed_when_main_service_has_matching_charges(self):
+		"""Submit succeeds when at least one charge line matches Main Service."""
+		sq = self._minimal_sales_quote_doc("Sea")
+		sq.append(
+			"charges",
+			{
+				"service_type": "Sea",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		sq.submit()
+		sq.reload()
+		self.assertEqual(sq.docstatus, 1)
+
+	def test_submit_blocked_warehousing_main_without_warehousing_charges(self):
+		"""Warehousing main requires legacy warehousing rows or a Warehousing charge line."""
+		sq = self._minimal_sales_quote_doc("Warehousing")
+		sq.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		with self.assertRaises(frappe.ValidationError):
+			sq.submit()

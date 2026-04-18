@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import getdate, date_diff, today
 
+from logistics.analytics_reports.bootstrap import tally_chart
+
 
 def execute(filters=None):
 	"""Execute Filing Compliance Report"""
@@ -12,8 +14,8 @@ def execute(filters=None):
 	
 	columns = get_columns()
 	data = get_data(filters)
-	
-	return columns, data
+	chart = tally_chart(data, "filing_type", _("Filings"))
+	return columns, data, None, chart, []
 
 
 def get_columns():

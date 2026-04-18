@@ -9,22 +9,24 @@
  "field_order": [
   "details_tab",
   "code",
-  "is_active",
   "shipper_name",
   "column_break_mmav",
   "exporter_category",
-  "country",
-  "default_currency",
-  "default_incoterm",
+  "default_unloco",
+  "is_active",
   "section_general_defaults",
   "default_notify_party",
   "default_notify_party_address",
   "column_break_general",
   "default_service_level",
+  "default_incoterm",
+  "country",
+  "default_currency",
   "air_freight_tab",
   "section_air_defaults",
   "air_default_sending_agent",
   "air_default_receiving_agent",
+  "default_airport",
   "column_break_air_1",
   "air_default_broker",
   "air_default_document_template",
@@ -37,6 +39,7 @@
   "section_sea_defaults",
   "sea_default_sending_agent",
   "sea_default_receiving_agent",
+  "default_seaport",
   "column_break_sea_1",
   "sea_default_broker",
   "sea_default_freight_consolidator",
@@ -111,8 +114,8 @@
    "fieldname": "exporter_category",
    "fieldtype": "Link",
    "label": "Exporter Category",
-   "options": "Exporter Category",
-   "link_filters": "[[\"Exporter Category\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Exporter Category\", \"is_active\", \"=\", 1]]",
+   "options": "Exporter Category"
   },
   {
    "fieldname": "country",
@@ -124,8 +127,8 @@
    "fieldname": "default_currency",
    "fieldtype": "Link",
    "label": "Default Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "fieldname": "default_incoterm",
@@ -172,15 +175,15 @@
    "fieldname": "air_default_sending_agent",
    "fieldtype": "Link",
    "label": "Default Sending Agent (Air)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "air_default_receiving_agent",
    "fieldtype": "Link",
    "label": "Default Receiving Agent (Air)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_air_1",
@@ -190,8 +193,8 @@
    "fieldname": "air_default_broker",
    "fieldtype": "Link",
    "label": "Default Broker (Air)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "air_default_document_template",
@@ -213,8 +216,8 @@
    "fieldname": "air_default_tc_name",
    "fieldtype": "Link",
    "label": "Default Terms (Air)",
-   "options": "Terms and Conditions",
-   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
   },
   {
    "fieldname": "air_default_additional_terms",
@@ -240,15 +243,15 @@
    "fieldname": "sea_default_sending_agent",
    "fieldtype": "Link",
    "label": "Default Sending Agent (Sea)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "sea_default_receiving_agent",
    "fieldtype": "Link",
    "label": "Default Receiving Agent (Sea)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_sea_1",
@@ -258,15 +261,15 @@
    "fieldname": "sea_default_broker",
    "fieldtype": "Link",
    "label": "Default Broker (Sea)",
-   "options": "Broker",
-   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "sea_default_freight_consolidator",
    "fieldtype": "Link",
    "label": "Default Freight Consolidator",
-   "options": "Freight Consolidator",
-   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Consolidator"
   },
   {
    "fieldname": "sea_default_document_template",
@@ -288,8 +291,8 @@
    "fieldname": "sea_default_tc_name",
    "fieldtype": "Link",
    "label": "Default Terms (Sea)",
-   "options": "Terms and Conditions",
-   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
   },
   {
    "fieldname": "sea_default_additional_terms",
@@ -315,15 +318,15 @@
    "fieldname": "customs_default_broker",
    "fieldtype": "Link",
    "label": "Default Customs Broker",
-   "options": "Broker",
-   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
    "fieldname": "customs_default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent (Customs)",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_customs_1",
@@ -427,16 +430,16 @@
    "fieldname": "shipper_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "options": "Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
   },
   {
+   "description": "Default address for transport pickups",
    "fieldname": "pick_address",
    "fieldtype": "Link",
    "label": "Pick Address",
-   "options": "Address",
-   "description": "Default address for transport pickups",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
   },
   {
    "fieldname": "primary_address",
@@ -451,12 +454,30 @@
    "fieldtype": "Link",
    "label": "Primary Contact",
    "options": "Contact"
+  },
+  {
+   "fieldname": "default_unloco",
+   "fieldtype": "Link",
+   "label": "Default UNLOCO",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "default_airport",
+   "fieldtype": "Link",
+   "label": "Default Airport",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "default_seaport",
+   "fieldtype": "Link",
+   "label": "Default Seaport",
+   "options": "UNLOCO"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-22 12:00:00.000000",
+ "modified": "2026-04-17 14:34:10.172544",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Shipper",

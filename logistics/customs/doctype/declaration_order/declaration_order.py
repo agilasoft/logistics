@@ -16,6 +16,7 @@ from logistics.utils.internal_job_charge_copy import (
 	populate_internal_job_charges_from_main_service,
 	should_apply_internal_job_main_charge_overlay,
 )
+from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_chain
 
 
 class DeclarationOrder(Document):
@@ -175,6 +176,48 @@ class DeclarationOrder(Document):
 				title=declaration_etd_eta_title(),
 			)
 
+	def _apply_declaration_conversion_defaults_from_sales_quote(self):
+		"""Fill customs / company / dimensions from Sales Quote when empty so Declaration insert succeeds."""
+		if not getattr(self, "sales_quote", None):
+			return
+		try:
+			sqd = get_sales_quote_details(self.sales_quote) or {}
+		except Exception:
+			sqd = {}
+		for fname in ("company", "branch", "cost_center", "profit_center", "customs_authority"):
+			if not getattr(self, fname, None) and sqd.get(fname):
+				self.set(fname, sqd[fname])
+		if not getattr(self, "declaration_type", None) and sqd.get("declaration_type"):
+			self.declaration_type = sqd["declaration_type"]
+		if not getattr(self, "currency", None):
+			curr = frappe.db.get_value("Sales Quote", self.sales_quote, "currency")
+			if curr:
+				self.currency = curr
+		company = getattr(self, "company", None) or sqd.get("company")
+		if not getattr(self, "customs_authority", None) and company:
+			default_ca = frappe.db.get_value(
+				"Customs Settings", {"company": company}, "default_customs_authority"
+			)
+			if default_ca:
+				self.customs_authority = default_ca
+
+	def _validate_declaration_conversion_prerequisites(self):
+		"""Declaration requires these when created from a submitted order; block submit if still missing."""
+		meta = frappe.get_meta(self.doctype)
+		missing_labels = []
+		for fname in ("customs_authority", "company", "branch", "cost_center", "profit_center"):
+			if not getattr(self, fname, None):
+				df = meta.get_field(fname)
+				label = _(df.label) if df and df.label else _(fname.replace("_", " ").title())
+				missing_labels.append(label)
+		if missing_labels:
+			frappe.throw(
+				_(
+					"Cannot submit until the following are set (they are required to create a Declaration from this order): {0}. They were filled from the Sales Quote where possible — complete any remaining fields on this order or on the quote."
+				).format(", ".join(missing_labels)),
+				title=_("Missing declaration prerequisites"),
+			)
+
 	def after_insert(self):
 		"""Called after document is inserted."""
 		pass
@@ -211,6 +254,8 @@ class DeclarationOrder(Document):
 		if not self.sales_quote:
 			frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."))
 		throw_if_missing_destination_service_charge(self)
+		self._apply_declaration_conversion_defaults_from_sales_quote()
+		self._validate_declaration_conversion_prerequisites()
 
 	def on_submit(self):
 		if self.sales_quote:
@@ -378,6 +423,14 @@ class DeclarationOrder(Document):
 				return
 			meta = frappe.get_meta("Declaration Order Charges")
 			charge_fields = [f.fieldname for f in meta.fields]
+
+			def _ch_has(ch, fn):
+				return (fn in ch) if isinstance(ch, dict) else hasattr(ch, fn)
+
+			def _ch_get(ch, fn, default=None):
+				return ch.get(fn, default) if isinstance(ch, dict) else getattr(ch, fn, default)
+
+			# Keep in sync with populate_charges_from_sales_quote (API / client): bill_to, pay_to, sales_quote_link, tariffs
 			common_fields = [
 				"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
 				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
@@ -386,20 +439,36 @@ class DeclarationOrder(Document):
 				"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
 				"revenue_calc_notes", "cost_calc_notes", "charge_basis", "rate",
+				"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
+				"bill_to", "pay_to",
 			]
 			self.set("charges", [])
+			sq_name = self.sales_quote
 			for sq_charge in sq_charges:
 				row = self.append("charges", {})
 				for field in common_fields:
-					if field in charge_fields and hasattr(sq_charge, field):
-						val = getattr(sq_charge, field, None)
+					if field in charge_fields and _ch_has(sq_charge, field):
+						val = _ch_get(sq_charge, field)
 						if val is not None:
 							row.set(field, val)
-				# Map Sales Quote field names to charge table (charge_basis/rate)
-				if "charge_basis" in charge_fields and hasattr(sq_charge, "calculation_method") and sq_charge.calculation_method:
-					row.set("charge_basis", sq_charge.calculation_method)
-				if "rate" in charge_fields and hasattr(sq_charge, "unit_rate") and sq_charge.unit_rate is not None:
-					row.set("rate", sq_charge.unit_rate)
+				if "charge_basis" in charge_fields and _ch_get(sq_charge, "calculation_method"):
+					row.set("charge_basis", _ch_get(sq_charge, "calculation_method"))
+				if "rate" in charge_fields and _ch_get(sq_charge, "unit_rate") is not None:
+					row.set("rate", _ch_get(sq_charge, "unit_rate"))
+				if "revenue_calculation_method" in charge_fields and _ch_get(sq_charge, "calculation_method"):
+					row.set("revenue_calculation_method", _ch_get(sq_charge, "calculation_method"))
+				legacy_tariff = _ch_get(sq_charge, "tariff")
+				if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
+					if "revenue_tariff" in charge_fields and (
+						row.get("use_tariff_in_revenue") or _ch_get(sq_charge, "use_tariff_in_revenue")
+					):
+						row.set("revenue_tariff", legacy_tariff)
+					if "cost_tariff" in charge_fields and (
+						row.get("use_tariff_in_cost") or _ch_get(sq_charge, "use_tariff_in_cost")
+					):
+						row.set("cost_tariff", legacy_tariff)
+				if "sales_quote_link" in charge_fields and sq_name:
+					row.set("sales_quote_link", sq_name)
 				if "charge_type" in charge_fields and not row.get("charge_type"):
 					row.set("charge_type", "Revenue")
 		except Exception as e:
@@ -416,7 +485,7 @@ def get_sales_quote_details(sales_quote):
 		"incoterm",
 	]
 	out = frappe.db.get_value("Sales Quote", sales_quote, fields, as_dict=True) or {}
-	# Get customs params from first Customs charge or legacy header
+	# Get customs params from first Customs charge or legacy header on Sales Quote (if those fields still exist)
 	customs_charge = frappe.db.get_value(
 		"Sales Quote Charge",
 		{"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Customs"},
@@ -427,10 +496,42 @@ def get_sales_quote_details(sales_quote):
 		out["customs_authority"] = customs_charge.get("customs_authority")
 		out["declaration_type"] = customs_charge.get("declaration_type")
 	if out.get("customs_authority") is None and out.get("declaration_type") is None:
-		legacy = frappe.db.get_value("Sales Quote", sales_quote, ["customs_authority", "declaration_type"], as_dict=True)
-		if legacy:
-			out["customs_authority"] = legacy.get("customs_authority")
-			out["declaration_type"] = legacy.get("declaration_type")
+		sq_meta = frappe.get_meta("Sales Quote")
+		legacy_fields = [f for f in ("customs_authority", "declaration_type") if sq_meta.has_field(f)]
+		if legacy_fields:
+			legacy = frappe.db.get_value("Sales Quote", sales_quote, legacy_fields, as_dict=True)
+			if legacy:
+				out["customs_authority"] = legacy.get("customs_authority")
+				out["declaration_type"] = legacy.get("declaration_type")
+	# Any charge row with customs parameters (e.g. service_type not "Customs" but params filled)
+	if out.get("customs_authority") is None and out.get("declaration_type") is None:
+		fallback = frappe.db.sql(
+			"""
+			select customs_authority, declaration_type
+			from `tabSales Quote Charge`
+			where parent=%(parent)s and parenttype='Sales Quote'
+				and (
+					ifnull(customs_authority, '') != ''
+					or ifnull(declaration_type, '') != ''
+				)
+			order by idx asc
+			limit 1
+			""",
+			{"parent": sales_quote},
+			as_dict=True,
+		)
+		if fallback:
+			out["customs_authority"] = fallback[0].get("customs_authority")
+			out["declaration_type"] = fallback[0].get("declaration_type")
+	# Header fields useful for One-off → Declaration Order prefill (charge row may mirror these)
+	try:
+		sq_doc = frappe.get_cached_doc("Sales Quote", sales_quote)
+	except Exception:
+		sq_doc = None
+	if sq_doc:
+		for fn in ("origin_port", "destination_port", "transport_mode", "direction"):
+			if fn not in out:
+				out[fn] = getattr(sq_doc, fn, None)
 	return out
 
 
@@ -495,29 +596,39 @@ def populate_charges_from_sales_quote(
 			"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
 			"bill_to", "pay_to",
 		]
+		def _ch_has(ch, fn):
+			return (fn in ch) if isinstance(ch, dict) else hasattr(ch, fn)
+
+		def _ch_get(ch, fn, default=None):
+			return ch.get(fn, default) if isinstance(ch, dict) else getattr(ch, fn, default)
+
 		charges = []
 		for sq_charge in sq_charges:
 			row = {}
 			for field in common_fields:
-				if field in charge_fields and hasattr(sq_charge, field):
-					val = getattr(sq_charge, field, None)
+				if field in charge_fields and _ch_has(sq_charge, field):
+					val = _ch_get(sq_charge, field)
 					if val is not None:
 						row[field] = val
 			# Map Sales Quote field names to charge table
-			if "charge_basis" in charge_fields and getattr(sq_charge, "calculation_method", None):
-				row["charge_basis"] = sq_charge.calculation_method
-			if "rate" in charge_fields and getattr(sq_charge, "unit_rate", None) is not None:
-				row["rate"] = sq_charge.unit_rate
+			if "charge_basis" in charge_fields and _ch_get(sq_charge, "calculation_method"):
+				row["charge_basis"] = _ch_get(sq_charge, "calculation_method")
+			if "rate" in charge_fields and _ch_get(sq_charge, "unit_rate") is not None:
+				row["rate"] = _ch_get(sq_charge, "unit_rate")
 			# Map revenue_calculation_method from calculation_method if field exists
-			if "revenue_calculation_method" in charge_fields and getattr(sq_charge, "calculation_method", None):
-				row["revenue_calculation_method"] = sq_charge.calculation_method
+			if "revenue_calculation_method" in charge_fields and _ch_get(sq_charge, "calculation_method"):
+				row["revenue_calculation_method"] = _ch_get(sq_charge, "calculation_method")
 			# Map legacy tariff field to revenue_tariff and cost_tariff if they exist
-			legacy_tariff = getattr(sq_charge, "tariff", None)
+			legacy_tariff = _ch_get(sq_charge, "tariff")
 			if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
 				# If source has tariff but not separate revenue_tariff/cost_tariff, map to both
-				if "revenue_tariff" in charge_fields and (row.get("use_tariff_in_revenue") or getattr(sq_charge, "use_tariff_in_revenue", False)):
+				if "revenue_tariff" in charge_fields and (
+					row.get("use_tariff_in_revenue") or _ch_get(sq_charge, "use_tariff_in_revenue")
+				):
 					row["revenue_tariff"] = legacy_tariff
-				if "cost_tariff" in charge_fields and (row.get("use_tariff_in_cost") or getattr(sq_charge, "use_tariff_in_cost", False)):
+				if "cost_tariff" in charge_fields and (
+					row.get("use_tariff_in_cost") or _ch_get(sq_charge, "use_tariff_in_cost")
+				):
 					row["cost_tariff"] = legacy_tariff
 			# Set sales_quote_link to link back to the Sales Quote
 			if "sales_quote_link" in charge_fields:
@@ -554,10 +665,17 @@ def fetch_declaration_order_dashboard_html(docname):
 
 
 @frappe.whitelist()
-def create_declaration_order_from_sales_quote(sales_quote_name: str):
+def create_declaration_order_from_sales_quote(
+	sales_quote_name: str,
+	customs_authority: str | None = None,
+	declaration_type: str | None = None,
+):
 	"""
 	Create a Declaration Order from a Sales Quote (One-off, with customs).
 	Updates the Sales Quote status and converted_to_doc to the new Declaration Order.
+
+	Optional ``customs_authority`` / ``declaration_type`` come from the pre-create review dialog;
+	they are not Sales Quote header fields (values normally live on Sales Quote Charge rows).
 	"""
 	if not sales_quote_name:
 		frappe.throw(_("A Sales Quote must be selected to create a Declaration Order."))
@@ -581,15 +699,81 @@ def create_declaration_order_from_sales_quote(sales_quote_name: str):
 			title=_("Already Created"),
 		)
 	details = get_sales_quote_details(sales_quote_name) or {}
+	if customs_authority and str(customs_authority).strip():
+		details["customs_authority"] = customs_authority
+	if declaration_type and str(declaration_type).strip():
+		details["declaration_type"] = declaration_type
+	if not (details.get("declaration_type") or "").strip():
+		direction = getattr(sq, "direction", None) or details.get("direction")
+		if direction in ("Import", "Export"):
+			details["declaration_type"] = direction
 	order = frappe.new_doc("Declaration Order")
 	order.sales_quote = sales_quote_name
 	order.order_date = today()
+	# Same contract as other Create-from-Sales-Quote flows (Transport Order, Air/Sea Booking): this
+	# One-off leg’s operational document is the main service job for billing/charge rollup.
+	order.is_main_service = 1
+	order.is_internal_job = 0
+	order.main_job_type = None
+	order.main_job = None
+	if getattr(sq, "special_project", None):
+		order.project = sq.special_project
 	for key in ("customer", "company", "customs_authority", "branch", "cost_center", "profit_center", "declaration_type", "incoterm"):
 		if details.get(key) is not None:
 			order.set(key, details[key])
+
+	def _coalesce(*vals):
+		for v in vals:
+			if v is not None and str(v).strip() != "":
+				return v
+		return None
+
+	first_c = sq_customs[0]
+	pol = _coalesce(
+		getattr(first_c, "origin_port", None),
+		getattr(sq, "origin_port", None),
+		details.get("origin_port"),
+	)
+	pod = _coalesce(
+		getattr(first_c, "destination_port", None),
+		getattr(sq, "destination_port", None),
+		details.get("destination_port"),
+	)
+	if pol:
+		order.port_of_loading = pol
+	if pod:
+		order.port_of_discharge = pod
+	tm = _coalesce(
+		getattr(first_c, "transport_mode", None),
+		getattr(sq, "transport_mode", None),
+		details.get("transport_mode"),
+	)
+	if tm:
+		order.transport_mode = tm
+	cb = getattr(first_c, "customs_broker", None)
+	if cb:
+		order.customs_broker = cb
+	fa = _coalesce(
+		getattr(first_c, "freight_agent", None),
+		getattr(first_c, "freight_agent_sea", None),
+		getattr(sq, "freight_agent", None),
+		getattr(sq, "freight_agent_sea", None),
+	)
+	if fa:
+		order.freight_agent = fa
+	cur = getattr(first_c, "currency", None)
+	if cur:
+		order.currency = cur
+
+	if getattr(sq, "shipper", None):
+		order.exporter_shipper = sq.shipper
+	if getattr(sq, "consignee", None):
+		order.importer_consignee = sq.consignee
+	copy_operational_rep_fields_from_chain(order, source_doc=sq)
 	order.insert(ignore_permissions=True)
-	# Charges should be populated from Declaration Order, not automatically from Sales Quote
-	# order._populate_charges_from_sales_quote()
+	# before_save usually fills charges; ensure one-off create always gets bill_to / pay_to / sales_quote_link
+	if not (order.get("charges") or []):
+		order._populate_charges_from_sales_quote()
 	order.save(ignore_permissions=True)
 	try:
 		from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit

@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"Fhw0Wv1KaN\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Shortcuts</span>\",\"col\":12}},{\"id\":\"IgVKg6MeaQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Number\",\"col\":3}},{\"id\":\"Y5hjYWjEJH\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"jiqzPTDUlc\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"Pzjs7LNlZQ\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"YjSG51XOEx\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"mYMZf4EgeW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"gRz1Gdlv2C\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"c8GcGp15d0\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}}]",
+ "content": "[{\"id\": \"Fhw0Wv1KaN\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Shortcuts</span>\", \"col\": 12}}, {\"id\": \"IgVKg6MeaQ\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Job Number\", \"col\": 3}}, {\"id\": \"Y5hjYWjEJH\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"jiqzPTDUlc\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\", \"col\": 12}}, {\"id\": \"Pzjs7LNlZQ\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters\", \"col\": 4}}, {\"id\": \"YjSG51XOEx\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings\", \"col\": 4}}, {\"id\": \"mYMZf4EgeW\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"gRz1Gdlv2C\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Recognition & accruals\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Multimode revenue & cost\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Billing & dashboards\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"OTIF & productivity\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Customs & security\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Projects, inventory & ESG\", \"col\": 4}}]",
  "creation": "2026-01-15 15:39:25.269822",
  "custom_blocks": [],
  "docstatus": 0,
@@ -84,8 +84,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Reports",
-   "link_count": 1,
+   "label": "Recognition & accruals",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -99,6 +99,357 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Revenue Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Revenue Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Cost Analysis",
+   "link_count": 0,
+   "link_to": "Sea Freight Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Air Freight Cost Analysis",
+   "link_count": 0,
+   "link_to": "Air Freight Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Multimode revenue & cost",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Transport Cost per Job",
+   "link_count": 0,
+   "link_to": "Transport Cost per Job",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Route Cost Analysis",
+   "link_count": 0,
+   "link_to": "Route Cost Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cost Analysis Reports",
+   "link_count": 0,
+   "link_to": "Cost Analysis Reports",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Transport Job"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Consolidation Savings Report",
+   "link_count": 0,
+   "link_to": "Consolidation Savings Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Cost vs Revenue Report",
+   "link_count": 0,
+   "link_to": "Special Project Cost vs Revenue Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Billing & dashboards",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight Billing Status Report",
+   "link_count": 0,
+   "link_to": "Sea Freight Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Billing Status Report",
+   "link_count": 0,
+   "link_to": "Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Billing Status Report",
+   "link_count": 0,
+   "link_to": "Special Project Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project Billing"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sea Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Sea Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight Performance Dashboard",
+   "link_count": 0,
+   "link_to": "Air Freight Performance Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "OTIF & productivity",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "On-Time Delivery Report",
+   "link_count": 0,
+   "link_to": "On-Time Delivery Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Freight On-Time Performance Report",
+   "link_count": 0,
+   "link_to": "Sea Freight On-Time Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Sea Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Freight On-Time Performance Report",
+   "link_count": 0,
+   "link_to": "Air Freight On-Time Performance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Air Shipment"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Labor Productivity Report",
+   "link_count": 0,
+   "link_to": "Labor Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cross Module Summary Report",
+   "link_count": 0,
+   "link_to": "Cross Module Summary Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs & security",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Status Report",
+   "link_count": 0,
+   "link_to": "Declaration Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs Compliance Report",
+   "link_count": 0,
+   "link_to": "Customs Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Declaration"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Filing Compliance Report",
+   "link_count": 0,
+   "link_to": "Filing Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Manifest Status Report",
+   "link_count": 0,
+   "link_to": "Manifest Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Global Manifest"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Dangerous Goods Compliance Report",
+   "link_count": 0,
+   "link_to": "Dangerous Goods Compliance Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Projects, inventory & ESG",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Balance",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Warehouse Stock Ledger",
+   "link_count": 0,
+   "link_to": "Warehouse Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Profitability Report",
+   "link_count": 0,
+   "link_to": "Special Project Profitability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Projects by Customer Report",
+   "link_count": 0,
+   "link_to": "Special Projects by Customer Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Pipeline Report",
+   "link_count": 0,
+   "link_to": "Special Project Pipeline Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Special Project"
   }
  ],
  "modified": "2026-01-15 15:52:37.898218",
