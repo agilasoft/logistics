@@ -24,6 +24,7 @@ PAGE_MAP = {
     "cargonext_v1_astraea_press_release": "Cargonext-V1-Astraea-Press-Release",
     # Settings
     "logistics_settings": "Logistics-Settings",
+    "credit_management": "Credit-Management",
     "sea_freight_settings": "Sea-Freight-Settings",
     "air_freight_settings": "Air-Freight-Settings",
     "transport_settings": "Transport-Settings",
@@ -43,6 +44,8 @@ PAGE_MAP = {
     "master_bill": "Master-Bill",
     "shipper": "Shipper",
     "consignee": "Consignee",
+    "container_type": "Container-Type",
+    "container_management": "Container-Management",
     # Air Freight
     "air_booking": "Air-Booking",
     "air_shipment": "Air-Shipment",
@@ -85,7 +88,6 @@ PAGE_MAP = {
     "charges_tariff_revenue_cost_pattern": "Charges-Tariff-Revenue-Cost-Pattern",
     # Logistics (shared masters)
     "general_job": "General-Job",
-    "container_type": "Container-Type",
     # Job Management
     "job_management_module": "Job-Management-Module",
     "revenue_recognition_policy_accounts_and_dates": "Revenue-Recognition-Policy-Accounts-And-Dates",
@@ -153,6 +155,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Setup and Settings
 
 - [Logistics Settings](Logistics-Settings)
+- [Credit Management](Credit-Management) – holds, Subject DocTypes, apply-all, lifts
 - [Default Details and Relationships](Default-Details-And-Relationships) – Shipper, Consignee, Freight Agent, Carrier defaults
 - [Sea Freight Settings](Sea-Freight-Settings)
 - [Air Freight Settings](Air-Freight-Settings)
@@ -165,7 +168,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Sea Freight Module](Sea-Freight-Module) – Module overview and workflow
 - [Sea Booking](Sea-Booking) | [Sea Shipment](Sea-Shipment) | [Sea Consolidation](Sea-Consolidation) | [Master Bill](Master-Bill)
 - [Shipper](Shipper) | [Consignee](Consignee)
-- [Container Type](Container-Type)
+- [Container Type](Container-Type) | [Container Management](Container-Management)
 
 ## Air Freight
 
@@ -264,6 +267,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Setup and Settings**
 - [Logistics Settings](Logistics-Settings)
+- [Credit Management](Credit-Management)
 - [Default Details and Relationships](Default-Details-And-Relationships)
 - [Sea Freight Settings](Sea-Freight-Settings)
 - [Air Freight Settings](Air-Freight-Settings)
@@ -280,6 +284,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Shipper](Shipper)
 - [Consignee](Consignee)
 - [Container Type](Container-Type)
+- [Container Management](Container-Management)
 
 **Air Freight**
 - [Air Freight Module](Air-Freight-Module)
