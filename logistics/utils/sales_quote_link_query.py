@@ -150,6 +150,89 @@ def _corridor_match_sql_routing_legs_only(service_type: str) -> str:
 	return "(1=0)"
 
 
+def _customs_declaration_charge_match_sql() -> str:
+	"""SQL fragment (references ``sq``): Customs quotes matching Declaration Order filters.
+
+	Matches **Sales Quote Charge** (service_type Customs) OR **Sales Quote Customs** legacy rows:
+	``customs_authority``, ``declaration_type``, and broker (charge row broker empty = wildcard).
+
+	Legacy rows may carry ``transport_mode`` (Sea/Air/Road/Rail); when the job has a **Transport Mode**
+	link set, legacy rows must match that mode (via ``Transport Mode`` flags) or have blank transport_mode.
+	Unified charge rows have no transport mode and are not restricted by job transport mode.
+	"""
+	# job_transport_mode: NULL/empty = do not filter legacy rows by mode
+	return """(
+		EXISTS (
+			SELECT 1 FROM `tabSales Quote Charge` sqc
+			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
+			AND sqc.service_type = 'Customs'
+			AND TRIM(IFNULL(sqc.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
+			AND TRIM(IFNULL(sqc.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
+			AND (
+				IFNULL(sqc.customs_broker,'') = ''
+				OR TRIM(IFNULL(sqc.customs_broker,'')) = TRIM(IFNULL(%(customs_broker)s,''))
+			)
+		)
+		OR EXISTS (
+			SELECT 1 FROM `tabSales Quote Customs` leg
+			WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
+			AND TRIM(IFNULL(leg.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
+			AND TRIM(IFNULL(leg.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
+			AND (
+				IFNULL(leg.customs_broker,'') = ''
+				OR TRIM(IFNULL(leg.customs_broker,'')) = TRIM(IFNULL(%(customs_broker)s,''))
+			)
+			AND (
+				%(job_transport_mode)s IS NULL OR TRIM(IFNULL(%(job_transport_mode)s,'')) = ''
+				OR IFNULL(leg.transport_mode,'') = ''
+				OR EXISTS (
+					SELECT 1 FROM `tabTransport Mode` tm
+					WHERE tm.name = %(job_transport_mode)s
+					AND (
+						(leg.transport_mode = 'Sea' AND IFNULL(tm.sea, 0) = 1)
+						OR (leg.transport_mode = 'Air' AND IFNULL(tm.air, 0) = 1)
+						OR (leg.transport_mode IN ('Road', 'Rail') AND IFNULL(tm.transport, 0) = 1)
+					)
+				)
+			)
+		)
+	)"""
+
+
+def sales_quote_matches_declaration_order_filters(
+	sales_quote_name: str,
+	customs_authority: str,
+	declaration_type: str,
+	customs_broker: str,
+	job_transport_mode: str | None = None,
+) -> bool:
+	"""True if the Sales Quote has at least one Customs charge row matching Declaration Order scope."""
+	ca = (customs_authority or "").strip()
+	dt = (declaration_type or "").strip()
+	cb = (customs_broker or "").strip()
+	if not ca or not dt or not cb:
+		return False
+	jtm = (job_transport_mode or "").strip() or None
+	match_sql = _customs_declaration_charge_match_sql()
+	params = {
+		"name": sales_quote_name,
+		"customs_authority": ca,
+		"declaration_type": dt,
+		"customs_broker": cb,
+		"job_transport_mode": jtm,
+	}
+	row = frappe.db.sql(
+		f"""
+		SELECT 1 FROM `tabSales Quote` sq
+		WHERE sq.name = %(name)s
+		AND {match_sql}
+		LIMIT 1
+		""",
+		params,
+	)
+	return bool(row)
+
+
 def _corridor_match_sql(service_type: str) -> str:
 	"""SQL fragment (references ``sq``) — corridor match with routing precedence.
 
@@ -293,6 +376,10 @@ def fetch_eligible_regular_sales_quote_names(
 	limit: int = 100,
 	corridor_origin: str | None = None,
 	corridor_dest: str | None = None,
+	customs_authority: str | None = None,
+	declaration_type: str | None = None,
+	customs_broker: str | None = None,
+	job_transport_mode: str | None = None,
 ) -> list[str]:
 	"""Sales Quote names that have unified or legacy charge rows for ``service_type``.
 
@@ -302,6 +389,10 @@ def fetch_eligible_regular_sales_quote_names(
 	When ``corridor_origin`` and ``corridor_dest`` are both non-empty, only quotes whose corridor
 	matches: if the quote has **routing legs**, only a matching **routing leg** counts; otherwise
 	unified charges, legacy child, or header fields (same as before).
+
+	For **Customs**, when ``customs_authority``, ``declaration_type``, and ``customs_broker`` are all
+	non-empty, **Declaration Order** filters apply instead of corridor matching (see
+	``sales_quote_matches_declaration_order_filters``).
 	"""
 	service_type = (service_type or "").strip()
 	if service_type not in SERVICE_LEGACY_TABLE:
@@ -311,9 +402,20 @@ def fetch_eligible_regular_sales_quote_names(
 	co = (corridor_origin or "").strip()
 	cd = (corridor_dest or "").strip()
 	use_corridor = bool(co and cd)
+	ca = (customs_authority or "").strip()
+	dt = (declaration_type or "").strip()
+	cb = (customs_broker or "").strip()
+	use_customs_filters = service_type == "Customs" and bool(ca and dt and cb)
 
 	params: dict[str, Any] = {"service_type": service_type, "limit": limit}
-	if use_corridor:
+	if use_customs_filters:
+		jtm = (job_transport_mode or "").strip() or None
+		params["customs_authority"] = ca
+		params["declaration_type"] = dt
+		params["customs_broker"] = cb
+		params["job_transport_mode"] = jtm
+		eligibility = _customs_declaration_charge_match_sql()
+	elif use_corridor:
 		params["corridor_origin"] = co
 		params["corridor_dest"] = cd
 		eligibility = _corridor_match_sql(service_type)

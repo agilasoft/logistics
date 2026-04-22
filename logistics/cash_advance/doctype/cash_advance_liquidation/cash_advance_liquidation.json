@@ -1,0 +1,233 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CAL.{#####}",
+ "creation": "2026-04-22 18:00:00.000000",
+ "default_sort_field": "modified",
+ "default_sort_order": "DESC",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_section",
+  "cash_advance_request",
+  "column_break_src",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "job_number",
+  "column_break_dim",
+  "fund_source",
+  "posting_date",
+  "book_cash_balance",
+  "payee",
+  "payee_name",
+  "request_date",
+  "liquidation_due_date",
+  "liquidation_date",
+  "section_items",
+  "items",
+  "calculate",
+  "total_requested",
+  "total_liquidated",
+  "unliquidated",
+  "remarks",
+  "liquidation_journal_entry"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Cash advance"
+  },
+  {
+   "fieldname": "cash_advance_request",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cash Advance Request",
+   "options": "Cash Advance Request",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_src",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_dim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fund_source",
+   "fieldtype": "Link",
+   "label": "Fund Source (Liquidation)",
+   "options": "Account",
+   "description": "Bank or Cash account for unused cash return or additional payout (required on submit)."
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
+  },
+  {
+   "default": "1",
+   "fieldname": "book_cash_balance",
+   "fieldtype": "Check",
+   "label": "Book unused / excess cash vs. advance total",
+   "description": "When checked, posts the difference between the linked request total and liquidated expenses to this fund source and A/R Employee (disable for partial liquidations settled separately)."
+  },
+  {
+   "fieldname": "payee",
+   "fieldtype": "Link",
+   "label": "Payee",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "payee_name",
+   "fieldtype": "Data",
+   "fetch_from": "payee.supplier_name",
+   "label": "Payee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_date",
+   "fieldtype": "Date",
+   "label": "Request Date"
+  },
+  {
+   "fieldname": "liquidation_due_date",
+   "fieldtype": "Date",
+   "label": "Liquidation Due Date"
+  },
+  {
+   "fieldname": "liquidation_date",
+   "fieldtype": "Date",
+   "label": "Liquidation Date"
+  },
+  {
+   "fieldname": "section_items",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Cash Advance Liquidation Item"
+  },
+  {
+   "fieldname": "calculate",
+   "fieldtype": "Button",
+   "label": "Calculate"
+  },
+  {
+   "fieldname": "total_requested",
+   "fieldtype": "Currency",
+   "label": "Total Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_liquidated",
+   "fieldtype": "Currency",
+   "label": "Total Liquidated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unliquidated",
+   "fieldtype": "Currency",
+   "label": "Unliquidated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "liquidation_journal_entry",
+   "fieldtype": "Link",
+   "label": "Liquidation Journal Entry",
+   "no_copy": 1,
+   "options": "Journal Entry",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "max_attachments": 0,
+ "modified": "2026-04-22 20:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Advance",
+ "name": "Cash Advance Liquidation",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

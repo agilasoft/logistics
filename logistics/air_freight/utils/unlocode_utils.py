@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 _COORD_RE = re.compile(
 	r"^\s*(?P<lat_d>\d{2})(?P<lat_m>\d{2})(?P<lat_h>[NS])\s+(?P<lon_d>\d{3})(?P<lon_m>\d{2})(?P<lon_h>[EW])\s*$",
@@ -38,9 +39,12 @@ def parse_un_coordinates(coord: str) -> tuple:
 
 
 @frappe.whitelist()
-def populate_unlocode_details(unlocode: str, doc: Any = None) -> Dict[str, Any]:
+def populate_unlocode_details(unlocode: str, doc: Any = None, refresh_external: bool = False) -> Dict[str, Any]:
 	"""
 	Return {status, message?, data} for desk; data is a flat field dict for UNLOCO.
+
+	:param refresh_external: If True, merge DataHub (and other external) fields over stored DB
+		values so e.g. Function-derived checkboxes update on bulk refresh.
 	"""
 	try:
 		if not unlocode:
@@ -50,7 +54,7 @@ def populate_unlocode_details(unlocode: str, doc: Any = None) -> Dict[str, Any]:
 		if len(code) != 5:
 			return {"status": "error", "message": _("UNLOCO code must be exactly 5 characters"), "data": {}}
 
-		unlocode_data = get_unlocode_data(code)
+		unlocode_data = get_unlocode_data(code, refresh_external=bool(cint(refresh_external)))
 
 		if unlocode_data:
 			unlocode_data.setdefault("unlocode", code)
@@ -109,6 +113,57 @@ _OVERLAY_FILL_KEYS = (
 	"data_source",
 )
 
+# Keys refreshed from DataHub / ``get_unlocode_from_database`` when forcing an update (Update All).
+_EXTERNAL_REFRESH_KEYS = (
+	"location_name",
+	"country",
+	"country_code",
+	"subdivision",
+	"city",
+	"location_type",
+	"iata_code",
+	"timezone",
+	"currency",
+	"language",
+	"utc_offset",
+	"operating_hours",
+	"description",
+	"status",
+	"data_source",
+	"latitude",
+	"longitude",
+	"has_post",
+	"has_customs",
+	"has_unload",
+	"has_airport",
+	"has_rail",
+	"has_road",
+	"has_store",
+	"has_terminal",
+	"has_discharge",
+	"has_seaport",
+	"has_outport",
+)
+
+
+def _merge_external_refresh(base: Dict[str, Any], fresh: Dict[str, Any]) -> None:
+	"""Overwrite ``base`` fields from ``fresh`` for codelist-driven data (e.g. Function checkboxes)."""
+	for key in _EXTERNAL_REFRESH_KEYS:
+		if key not in fresh:
+			continue
+		val = fresh[key]
+		if key.startswith("has_"):
+			if val is None:
+				continue
+			base[key] = 1 if val else 0
+			continue
+		if key in ("latitude", "longitude"):
+			base[key] = val
+			continue
+		if val is None:
+			continue
+		base[key] = val
+
 
 def _merge_unlocode_overlay(base: Dict[str, Any], overlay: Optional[Dict[str, Any]]) -> None:
 	"""Fill blank string / None scalar fields in base from overlay (e.g. DataHub after a sparse DB row)."""
@@ -162,6 +217,33 @@ def _backfill_country_from_unlocode_prefix(code: str, base: Dict[str, Any]) -> N
 		base["language"] = info["language"]
 
 
+def _apply_unece_function_capabilities(base: Dict[str, Any], code: str) -> None:
+	"""
+	Apply ``has_*`` checkboxes from the UNECE Function column: prefer the cached DataHub
+	code-list row, then optional ``tabUNLOCO.function`` (legacy / custom column).
+
+	Called after external merge when ``refresh_external`` is true so bulk jobs such as
+	``unloco_update_all_from_sources`` always align capabilities with the official list.
+	"""
+	from logistics.air_freight.utils.datahub_unlocode import (
+		function_field_to_unloco_capabilities,
+		get_codelist_function_field,
+	)
+
+	cc = (code or "").strip().upper()
+	fn = get_codelist_function_field(cc)
+	if fn is not None:
+		base.update(function_field_to_unloco_capabilities(fn))
+		return
+	try:
+		if frappe.db.has_column("UNLOCO", "function"):
+			row_fn = frappe.db.get_value("UNLOCO", {"unlocode": cc}, "function")
+			if row_fn and str(row_fn).strip():
+				base.update(function_field_to_unloco_capabilities(str(row_fn).strip()))
+	except Exception:
+		pass
+
+
 def _unloco_db_row_to_dict(existing: Any) -> Dict[str, Any]:
 	return {
 		"location_name": existing[1] or "",
@@ -194,7 +276,7 @@ def _unloco_db_row_to_dict(existing: Any) -> Dict[str, Any]:
 	}
 
 
-def get_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
+def get_unlocode_data(unlocode: str, refresh_external: bool = False) -> Optional[Dict[str, Any]]:
 	try:
 		code = unlocode.strip().upper()
 		existing = frappe.db.get_value(
@@ -234,6 +316,13 @@ def get_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
 
 		if existing:
 			base = _unloco_db_row_to_dict(existing)
+			if refresh_external:
+				fresh = get_unlocode_from_database(code)
+				if fresh:
+					_merge_external_refresh(base, fresh)
+				_apply_unece_function_capabilities(base, code)
+				_backfill_country_from_unlocode_prefix(code, base)
+				return base
 			if _is_blank_str(base.get("country")) or _is_blank_str(base.get("country_code")):
 				fresh = get_unlocode_from_database(code)
 				_merge_unlocode_overlay(base, fresh)
@@ -452,6 +541,10 @@ def populate_fields_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, Any]:
 	if unlocode_data.get("data_source") is not None:
 		out["data_source"] = unlocode_data["data_source"]
 
+	# Capability checkboxes: if the key exists on the source row (DB merge always includes
+	# these columns), always emit 0/1. Skipping when the DB value is NULL used to omit the
+	# key so Document.populate never cleared stale flags — desk Populate used set_value for
+	# every key returned, and merge paths can leave NULL until Function apply runs.
 	for key in (
 		"has_post",
 		"has_customs",
@@ -465,8 +558,9 @@ def populate_fields_from_data(unlocode_data: Dict[str, Any]) -> Dict[str, Any]:
 		"has_seaport",
 		"has_outport",
 	):
-		if key in unlocode_data and unlocode_data[key] is not None:
-			out[key] = 1 if unlocode_data[key] else 0
+		if key not in unlocode_data:
+			continue
+		out[key] = 1 if cint(unlocode_data[key]) else 0
 
 	return out
 

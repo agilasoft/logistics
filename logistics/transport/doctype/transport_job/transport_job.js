@@ -309,6 +309,9 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		// Ensure transport_job_type is always set
 		if (!frm.doc.transport_job_type) {
 			frm.set_value('transport_job_type', 'Non-Container');
@@ -683,26 +686,28 @@ frappe.ui.form.on('Transport Job', {
 							}
 						});
 					}, __('Create'));
-					frm.add_custom_button(__('Internal Job'), function() {
-						function _openInternalJobDlg() {
-							if (window.logistics_show_create_internal_job_dialog) {
-								window.logistics_show_create_internal_job_dialog(frm);
-							} else {
-								frappe.msgprint({
-									title: __('Not available'),
-									message: __(
-										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-									),
-									indicator: 'red',
-								});
+					if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+						frm.add_custom_button(__('Internal Job'), function() {
+							function _openInternalJobDlg() {
+								if (window.logistics_show_create_internal_job_dialog) {
+									window.logistics_show_create_internal_job_dialog(frm);
+								} else {
+									frappe.msgprint({
+										title: __('Not available'),
+										message: __(
+											'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
+										),
+										indicator: 'red',
+									});
+								}
 							}
-						}
-						if (window.logistics_show_create_internal_job_dialog) {
-							_openInternalJobDlg();
-						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=15', _openInternalJobDlg);
-						}
-					}, __('Create'));
+							if (window.logistics_show_create_internal_job_dialog) {
+								_openInternalJobDlg();
+							} else {
+								frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+							}
+						}, __('Create'));
+					}
 					frm.add_custom_button(__('Sales Invoice'), function() {
 						if (typeof show_create_sales_invoice_dialog === 'function') {
 							show_create_sales_invoice_dialog(frm);

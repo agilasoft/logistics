@@ -1436,6 +1436,9 @@ class AirShipment(Document):
 	
 	def validate(self):
 		"""Validate Air Shipment document"""
+		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+		validate_internal_job_main_link_unchanged(self)
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
 		apply_shipper_consignee_defaults(self)
@@ -1484,6 +1487,8 @@ class AirShipment(Document):
 		msgprint_sales_quote_validity_warnings(self)
 
 		if getattr(self, "sales_quote", None):
+			from frappe.utils import cint
+
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 				resolve_allow_linked_freight_bookings_for_internal_job,
 				resolve_single_main_air_booking_for_sales_quote,
@@ -1508,6 +1513,7 @@ class AirShipment(Document):
 				self.name,
 				allow_linked_sea_booking=allow_sea,
 				allow_linked_air_booking=allow_air,
+				allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
 			)
 
 		from logistics.job_management.logistics_job_status import (
@@ -2772,7 +2778,6 @@ class AirShipment(Document):
 		if not self.incoterm and settings.default_incoterm:
 			self.incoterm = settings.default_incoterm
 		# Only set service_level if default_service_level exists as a valid Logistics Service Level record
-		# Note: default_service_level is a Select field (text), but service_level is a Link field
 		if not self.service_level and settings.default_service_level:
 			# Check if the default_service_level value exists as a Logistics Service Level record
 			if frappe.db.exists("Logistics Service Level", settings.default_service_level):

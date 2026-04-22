@@ -23,13 +23,26 @@ class PermitApplication(Document):
 			if renewal_doc.status not in ["Approved", "Expired"]:
 				frappe.throw(_("Can only renew an Approved or Expired permit."))
 
-	def before_submit(self):
+		self._require_filing_data_after_draft()
+
+	def _require_filing_data_after_draft(self):
+		"""Once filed (or beyond), require dates and attachments. Draft-only edits stay relaxed."""
+		if not self.get("status") or self.status == "Draft" or self.status == "Rejected":
+			return
 		if not self.valid_from:
-			frappe.throw(_("Valid From is required to submit."))
+			frappe.throw(_("Valid From is required."))
 		if not self.valid_to:
-			frappe.throw(_("Valid To is required to submit."))
+			frappe.throw(_("Valid To is required."))
 		if not any(row.get("attachment") for row in (self.attachments or [])):
-			frappe.throw(_("At least one attachment is required to submit."))
+			frappe.throw(_("At least one attachment is required to file a permit application."))
+
+	def before_submit(self):
+		# Frappe submit runs only on workflow "Approve" (to Approved), not the toolbar, not filing
+		if self.get("status") != "Approved":
+			frappe.throw(
+				_("Use Workflow to file and approve. The Submit button is not used to file this form."),
+				title=_("Use Workflow to Approve"),
+			)
 
 	def _ensure_default_issuing_authority(self):
 		"""Default issuing authority from Permit Type if not set."""
@@ -79,3 +92,19 @@ class PermitApplication(Document):
 				elif self.approval_date:
 					self.valid_from = self.approval_date
 					self.valid_to = add_days(self.approval_date, permit_type.validity_period)
+		self._mark_renewal_superseded()
+
+	def _mark_renewal_superseded(self):
+		"""When this renewal is Approved, mark the prior permit (renewal_of) as Renewed."""
+		if self.status != "Approved" or not self.renewal_of:
+			return
+		previous = self.get_doc_before_save()
+		if previous and previous.get("status") == "Approved":
+			return
+		frappe.db.set_value(
+			"Permit Application",
+			self.renewal_of,
+			"status",
+			"Renewed",
+			update_modified=False,
+		)

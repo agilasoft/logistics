@@ -1,6 +1,8 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+frappe.provide("logistics");
+
 function _group_and_collapse_dash_alerts($container) {
 	if (window.logistics_group_and_collapse_dash_alerts) {
 		window.logistics_group_and_collapse_dash_alerts($container);
@@ -196,6 +198,7 @@ function _prompt_internal_customs_job_dialog(frm, sales_quote) {
 				primary_action_label: __("Create Internal Job"),
 				primary_action: function(values) {
 					frm.set_value("is_internal_job", 1);
+					frm.set_value("is_main_service", 0);
 					frm.set_value("main_job_type", values.main_job_type);
 					frm.set_value("main_job", values.main_job);
 					frm.set_value("company", values.company || frm.doc.company);
@@ -294,6 +297,9 @@ frappe.ui.form.on("Declaration Order", {
 	},
 	onload(frm) {
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 	},
 	setup(frm) {
 		frm._initial_sales_quote = frm.doc.sales_quote || null;
@@ -406,6 +412,17 @@ frappe.ui.form.on("Declaration Order", {
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
+			if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 0) {
+				frm.add_custom_button(__('Get Charges from Quotation'), function() {
+					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+						logistics.open_get_charges_from_quotation_dialog(frm);
+					} else {
+						frappe.msgprint(
+							__("Charges dialog is not ready. Please refresh the page and try again.")
+						);
+					}
+				}, __('Action'));
+			}
 			frm.add_custom_button(__('Get Milestones'), function() {
 				frm._logistics_template_populate_busy = true;
 				frappe.call({
@@ -522,6 +539,34 @@ frappe.ui.form.on("Declaration Order", {
 						}, __("Create"));
 					}
 				});
+			}, 100);
+		}
+
+		// Create > Internal Job (from internal_job_details; same behaviour as Declaration)
+		if (frm.doc.name && !frm.doc.__islocal) {
+			setTimeout(function() {
+				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+					frm.add_custom_button(__('Internal Job'), function() {
+						function _openInternalJobDlg() {
+							if (window.logistics_show_create_internal_job_dialog) {
+								window.logistics_show_create_internal_job_dialog(frm);
+							} else {
+								frappe.msgprint({
+									title: __('Not available'),
+									message: __(
+										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
+									),
+									indicator: 'red',
+								});
+							}
+						}
+						if (window.logistics_show_create_internal_job_dialog) {
+							_openInternalJobDlg();
+						} else {
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+						}
+					}, __('Create'));
+				}
 			}, 100);
 		}
 	},

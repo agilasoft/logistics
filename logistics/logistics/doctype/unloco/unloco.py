@@ -11,6 +11,19 @@ from frappe.model.document import Document
 
 
 class UNLOCO(Document):
+    def _consume_unloco_autopopulate_skip(self) -> bool:
+        """
+        After ``populate_unlocode_details(refresh_external=True)``, ``save()`` runs
+        ``validate`` / ``before_save``, each of which would call ``get_unlocode_data``
+        against the database row that is not updated yet — wiping merged fields
+        (notably Function-derived checkboxes). Skip those two rounds when requested.
+        """
+        n = getattr(self, "_unloco_skip_autopopulate_rounds", 0) or 0
+        if n <= 0:
+            return False
+        self._unloco_skip_autopopulate_rounds = n - 1
+        return True
+
     def validate(self):
         """Validate UNLOCO document"""
         # Validate UNLOCO code format
@@ -18,7 +31,7 @@ class UNLOCO(Document):
             frappe.throw(_("UNLOCO code must be exactly 5 characters long"))
 
         # Auto-populate details if enabled
-        if self.auto_populate and self.unlocode:
+        if self.auto_populate and self.unlocode and not self._consume_unloco_autopopulate_skip():
             self.populate_unlocode_details()
 
         if self.status:
@@ -31,30 +44,32 @@ class UNLOCO(Document):
                         title=_("Invalid Status"),
                     )
 
-    def populate_unlocode_details(self):
-        """Populate UNLOCO details from database or external sources"""
+    def populate_unlocode_details(self, refresh_external=False):
+        """Populate UNLOCO details from database or external sources."""
         try:
             from logistics.air_freight.utils.unlocode_utils import (
-                populate_unlocode_details,
+                populate_unlocode_details as fetch_unlocode_payload,
                 unwrap_populate_result,
+                update_document_fields,
             )
 
-            result = populate_unlocode_details(self.unlocode)
+            result = fetch_unlocode_payload(self.unlocode, refresh_external=refresh_external)
             details = unwrap_populate_result(result)
 
             if details:
-                for field_name, field_value in details.items():
-                    if hasattr(self, field_name) and field_value is not None:
-                        setattr(self, field_name, field_value)
-
-                self.last_updated = frappe.utils.now()
+                # Same application path as whitelist ``populate_unlocode_details(..., doc=…)``:
+                # do not skip falsy check values (0 / False) or keys would stay stale on save.
+                update_document_fields(self, details)
+                if refresh_external:
+                    # See _consume_unloco_autopopulate_skip (validate + before_save).
+                    self._unloco_skip_autopopulate_rounds = 2
 
         except Exception as e:
             frappe.log_error(f"UNLOCO details population error: {str(e)}")
 
     def before_save(self):
         """Auto-populate details before saving"""
-        if self.auto_populate and self.unlocode:
+        if self.auto_populate and self.unlocode and not self._consume_unloco_autopopulate_skip():
             self.populate_unlocode_details()
 
 
@@ -180,4 +195,63 @@ def run_get_all_unloco_job():
             frappe.db.commit()
     except Exception:
         frappe.log_error(frappe.get_traceback(), "UNLOCO Get All from DataHub job")
+        raise
+
+
+@frappe.whitelist()
+def start_update_all_unloco():
+    """
+    Queue a background job to re-run DataHub / overlay population on every UNLOCO row.
+
+    Requires System Manager and UNLOCO write permission.
+    """
+    frappe.only_for("System Manager")
+    if not frappe.has_permission("UNLOCO", "write"):
+        frappe.throw(_("Not permitted to update UNLOCO"))
+
+    frappe.enqueue(
+        "logistics.logistics.doctype.unloco.unloco.run_update_all_unloco_job",
+        queue="long",
+        timeout=4 * 60 * 60,
+        job_name="unloco_update_all_from_sources",
+        enqueue_after_commit=True,
+    )
+
+    return {"queued": True}
+
+
+def run_update_all_unloco_job():
+    """Background: refresh every UNLOCO via populate_unlocode_details; commit in batches."""
+    batch_size = 100
+    updated = 0
+    try:
+        from logistics.air_freight.utils.datahub_unlocode import (
+            ensure_datahub_un_locode_files,
+            is_datahub_un_locode_enabled,
+        )
+
+        if is_datahub_un_locode_enabled():
+            ensure_datahub_un_locode_files()
+
+        names = frappe.get_all("UNLOCO", pluck="name", order_by="name")
+        batch_count = 0
+        for name in names:
+            try:
+                doc = frappe.get_doc("UNLOCO", name)
+                doc.populate_unlocode_details(refresh_external=True)
+                doc.save()
+                updated += 1
+            except Exception as e:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    f"UNLOCO Update All: {name}: {e!s}",
+                )
+            batch_count += 1
+            if batch_count >= batch_size:
+                frappe.db.commit()
+                batch_count = 0
+        frappe.db.commit()
+        frappe.logger().info(f"UNLOCO Update All finished: {updated} document(s) saved")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "UNLOCO Update All job")
         raise

@@ -413,6 +413,10 @@
 	/**
 	 * After navigating to the created job (e.g. Transport Order), reload the source Air/Sea Shipment
 	 * so Internal Job Details and links stay in sync. Must run after route + form load AJAX to avoid races.
+	 *
+	 * Only reload when the user is still on the source form. If we already routed to the new document,
+	 * reloading the hidden shipment form runs Form.refresh → refresh_header, which overwrites the desk
+	 * title/breadcrumbs (wrong doctype shown) and can race with loading the new form ("… not found").
 	 */
 	function _reloadSourceFreightShipmentAfterNavigate(frm) {
 		if (
@@ -424,7 +428,17 @@
 		) {
 			return;
 		}
+		var sourceName = frm.docname || frm.doc.name;
 		frappe.after_ajax(function () {
+			var route = frappe.get_route && frappe.get_route();
+			if (
+				!route ||
+				route[0] !== "Form" ||
+				route[1] !== frm.doctype ||
+				(route[2] || "") !== String(sourceName)
+			) {
+				return;
+			}
 			frm.reload_doc();
 		});
 	}
@@ -838,11 +852,14 @@
 			freeze: true,
 			freeze_message: __("Loading options..."),
 			callback: function (r) {
-				var choices = (r.message && r.message.choices) || [];
+				var msg = r.message || {};
+				var choices = msg.choices || [];
 				if (!choices.length) {
 					frappe.msgprint({
 						title: __("Create Internal Job"),
-						message: __("No internal jobs can be created from this document."),
+						message:
+							msg.blocked_message ||
+							__("No internal jobs can be created from this document."),
 						indicator: "orange",
 					});
 					return;

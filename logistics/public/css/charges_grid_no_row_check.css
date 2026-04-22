@@ -1,0 +1,20 @@
+/*
+ * Hide bulk row-selection checkboxes on logistics charge child tables.
+ * Same UX across sea/air freight, transport, warehousing, customs, pricing, etc.
+ * (Frappe always renders .row-check; allow_bulk_edit only gates CSV upload.)
+ *
+ * Sales Quote is excluded via .logistics-show-charge-row-check on the control wrapper:
+ * Frappe only shows the grid footer "Delete" button when a row is selected; hiding
+ * checkboxes made bulk delete unavailable there.
+ */
+.frappe-control[data-fieldname="charges"]:not(.logistics-show-charge-row-check) .form-grid .row-check,
+.frappe-control[data-fieldname="commercial_invoice_charges"] .form-grid .row-check,
+.frappe-control[data-fieldname="consolidation_charges"] .form-grid .row-check {
+	display: none !important;
+}
+
+.frappe-control[data-fieldname="charges"]:not(.logistics-show-charge-row-check) .form-grid .row-index,
+.frappe-control[data-fieldname="commercial_invoice_charges"] .form-grid .row-index,
+.frappe-control[data-fieldname="consolidation_charges"] .form-grid .row-index {
+	left: 0 !important;
+}

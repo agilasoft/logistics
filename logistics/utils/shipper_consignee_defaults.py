@@ -98,6 +98,7 @@ def _apply_shipper_sea_shipment(doc, s):
 		[
 			("sending_agent", "sea_default_sending_agent"),
 			("receiving_agent", "sea_default_receiving_agent"),
+			("freight_consolidator", "sea_default_freight_consolidator"),
 			("document_list_template", "sea_default_document_template"),
 			("milestone_template", "sea_default_milestone_template"),
 			("tc_name", "sea_default_tc_name"),
@@ -191,6 +192,7 @@ def _apply_consignee_sea_shipment(doc, c):
 		c,
 		[
 			("receiving_agent", "sea_default_receiving_agent"),
+			("freight_consolidator", "sea_default_freight_consolidator"),
 			("document_list_template", "sea_default_document_template"),
 			("milestone_template", "sea_default_milestone_template"),
 			("tc_name", "sea_default_tc_name"),

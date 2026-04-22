@@ -56,6 +56,9 @@ class SeaBooking(Document):
 	
 	def validate(self):
 		"""Validate Sea Booking data"""
+		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+		validate_internal_job_main_link_unchanged(self)
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
 		apply_shipper_consignee_defaults(self)
@@ -119,12 +122,15 @@ class SeaBooking(Document):
 			and frappe.db.exists("Sales Quote", self.quote)
 		)
 		if self.sales_quote or _quote_is_sales_quote:
+			from frappe.utils import cint
+
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 				resolve_allow_linked_freight_bookings_for_internal_job,
 				validate_one_off_quote_not_converted,
 			)
 
 			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
 			if self.sales_quote:
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
@@ -132,6 +138,7 @@ class SeaBooking(Document):
 					self.name,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
+					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 				)
 			if _quote_is_sales_quote:
 				validate_one_off_quote_not_converted(
@@ -140,6 +147,7 @@ class SeaBooking(Document):
 					self.name,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
+					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 				)
 		
 		# Handle sales_quote field clearing - reset One-off quote if cleared
@@ -460,19 +468,20 @@ class SeaBooking(Document):
 			}, as_dict=True)
 		existing_bookings = [c for c in booking_candidates if not self._container_returned(c.container_no)]
 
-		# Check for duplicates in submitted Sea Shipments (allow reuse when container returned)
+		# Same rules as Sea Shipment.validate_duplicates: any non-cancelled shipment; draft always
+		# blocks reuse; submitted blocks unless the container is considered returned.
 		shipment_candidates = frappe.db.sql("""
-			SELECT DISTINCT ss.name, sfc.container_no
+			SELECT DISTINCT ss.name, ss.docstatus, sfc.container_no
 			FROM `tabSea Shipment` ss
 			INNER JOIN `tabSea Freight Containers` sfc ON sfc.parent = ss.name
 			WHERE sfc.container_no IN %(container_numbers)s
-			AND ss.docstatus = 1
+			AND ss.docstatus != 2
 		""", {
 			"container_numbers": container_numbers
 		}, as_dict=True)
 		existing_shipments = [
 			c for c in shipment_candidates
-			if not self._container_returned(c.container_no, other_shipment_name=c.name)
+			if c.docstatus == 0 or not self._container_returned(c.container_no, other_shipment_name=c.name)
 		]
 
 		# Build error message if duplicates found
@@ -1181,42 +1190,68 @@ class SeaBooking(Document):
 			
 			# Get default currency
 			default_currency = frappe.get_system_settings("currency") or "USD"
-			
-			# Map unit_type from Sales Quote to Sea Booking Charges unit_type
-			# Sea Booking Charges unit_type options: Distance, Weight, Volume, Package, Piece, Job, Trip, TEU, Operation Time
-			unit_type_mapping = {
-				"Weight": "Weight",
-				"Chargeable Weight": "Chargeable Weight",
-				"Volume": "Volume",
-				"Package": "Package",
-				"Piece": "Piece",
-				"Container": "TEU",  # Map Container to TEU
-				"Shipment": "Job"  # Map Shipment to Job
+
+			quote_unit_type = (_get("unit_type") or "").strip() or None
+
+			# Map Sales Quote Charge unit_type → Sea Booking Charge (same options + a few renames).
+			# The old small dict defaulted unknown quote values to "Package", so TEU/Job/Trip/etc. never copied.
+			_sea_booking_charge_unit_types = frozenset(
+				{
+					"Distance",
+					"Weight",
+					"Chargeable Weight",
+					"Volume",
+					"Package",
+					"Piece",
+					"Job",
+					"Trip",
+					"TEU",
+					"Container",
+					"Operation Time",
+				}
+			)
+			_quote_only_unit_type_map = {
+				"Shipment": "Job",  # legacy Sales Quote Sea Freight
+				"Item Count": "Piece",
+				"Handling Unit": "Package",
 			}
-			mapped_unit_type = unit_type_mapping.get(sqsf_record.unit_type, "Package")
-			
-			# Get quantity based on unit type
+
+			def _map_quote_unit_type_to_sea_booking_charge(raw):
+				if not raw:
+					return "Package"
+				if raw in _sea_booking_charge_unit_types:
+					return raw
+				return _quote_only_unit_type_map.get(raw, "Package")
+
+			mapped_unit_type = _map_quote_unit_type_to_sea_booking_charge(quote_unit_type)
+
+			# Get quantity based on unit type (use quote row value, not only mapped label)
 			quantity = 0
-			if sqsf_record.unit_type == "Chargeable Weight":
+			if quote_unit_type == "Chargeable Weight":
 				chargeable_qty = getattr(self, "chargeable", None)
 				if chargeable_qty in (None, ""):
 					chargeable_qty = getattr(self, "chargeable_weight", None)
 				quantity = flt(chargeable_qty or 0)
-			elif sqsf_record.unit_type == "Weight":
+			elif quote_unit_type == "Weight":
 				quantity = flt(self.total_weight) or 0
-			elif sqsf_record.unit_type == "Volume":
+			elif quote_unit_type == "Volume":
 				quantity = flt(self.total_volume) or 0
-			elif sqsf_record.unit_type == "Package" or sqsf_record.unit_type == "Piece":
-				if hasattr(self, 'packages') and self.packages:
+			elif quote_unit_type in ("Package", "Piece", "Handling Unit"):
+				if hasattr(self, "packages") and self.packages:
 					quantity = len(self.packages)
 				else:
 					quantity = 1
-			elif sqsf_record.unit_type == "Container":
-				if hasattr(self, 'containers') and self.containers:
+			elif quote_unit_type == "Item Count":
+				if hasattr(self, "packages") and self.packages:
+					quantity = len(self.packages)
+				else:
+					quantity = 1
+			elif quote_unit_type in ("Container", "TEU"):
+				if hasattr(self, "containers") and self.containers:
 					quantity = len(self.containers)
 				else:
 					quantity = 1
-			elif sqsf_record.unit_type == "Shipment":
+			elif quote_unit_type in ("Shipment", "Job", "Trip", "Distance", "Operation Time"):
 				quantity = 1
 			else:
 				quantity = 1
@@ -1310,12 +1345,12 @@ class SeaBooking(Document):
 				elif sqsf_calc_method_normalized_lower in ["fixed amount", "flat rate"]:
 					calc_method_final = "Flat Rate"
 				else:
-					calc_method_final = "Per Unit" if sqsf_record.get("unit_type") else "Flat Rate"
+					calc_method_final = "Per Unit" if quote_unit_type else "Flat Rate"
 			else:
 				calc_method_final = sqsf_calc_method_normalized
 			
 			if calc_method_final not in valid_calc_methods:
-				calc_method_final = "Per Unit" if sqsf_record.get("unit_type") else "Flat Rate"
+				calc_method_final = "Per Unit" if quote_unit_type else "Flat Rate"
 			
 			# Determine charge_category: first from Sales Quote record, then from item, then default
 			charge_category = "Other"
@@ -1504,7 +1539,7 @@ class SeaBooking(Document):
 				})
 		
 		# Validate link fields
-		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
+		if self.service_level and not frappe.db.exists("Logistics Service Level", self.service_level):
 			missing_fields.append({
 				"field": "service_level",
 				"label": "Service Level",
@@ -1567,7 +1602,10 @@ class SeaBooking(Document):
 		if not readiness["is_ready"]:
 			messages = [field["message"] for field in readiness["missing_fields"]]
 			frappe.throw(_("Cannot convert to Sea Shipment. Missing or invalid fields:\n{0}").format("\n".join(f"- {msg}" for msg in messages)))
-	
+
+		self.validate_fcl_container_numbers_required()
+		self.validate_container_numbers()
+
 	@frappe.whitelist()
 	def convert_to_shipment(self):
 		"""
@@ -1634,6 +1672,9 @@ class SeaBooking(Document):
 			sea_shipment.additional_terms = self.additional_terms
 			sea_shipment.shipping_line = self.shipping_line
 			sea_shipment.freight_agent = self.freight_agent
+			sea_shipment.freight_consolidator = frappe.db.get_value(
+				"Sea Booking", self.name, "freight_consolidator"
+			)
 			sea_shipment.house_type = self.house_type
 			# Normalize legacy house_type values
 			if sea_shipment.house_type == "Direct":
@@ -2056,7 +2097,7 @@ class SeaBooking(Document):
 			# Final validation check before insert - ensure all link fields are valid
 			# This prevents errors during insert/after_insert hooks
 			if hasattr(sea_shipment, 'service_level') and sea_shipment.service_level:
-				if not frappe.db.exists("Service Level Agreement", sea_shipment.service_level):
+				if not frappe.db.exists("Logistics Service Level", sea_shipment.service_level):
 					sea_shipment.service_level = None
 			if hasattr(sea_shipment, 'release_type') and sea_shipment.release_type:
 				if not frappe.db.exists("Release Type", sea_shipment.release_type):
@@ -2070,7 +2111,7 @@ class SeaBooking(Document):
 				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
 					# Clear potentially invalid link fields
 					if hasattr(sea_shipment, 'service_level') and sea_shipment.service_level:
-						if not frappe.db.exists("Service Level Agreement", sea_shipment.service_level):
+						if not frappe.db.exists("Logistics Service Level", sea_shipment.service_level):
 							sea_shipment.service_level = None
 					if hasattr(sea_shipment, 'release_type') and sea_shipment.release_type:
 						if not frappe.db.exists("Release Type", sea_shipment.release_type):
@@ -2092,7 +2133,7 @@ class SeaBooking(Document):
 				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
 					# Clear potentially invalid link fields
 					if hasattr(sea_shipment, 'service_level') and sea_shipment.service_level:
-						if not frappe.db.exists("Service Level Agreement", sea_shipment.service_level):
+						if not frappe.db.exists("Logistics Service Level", sea_shipment.service_level):
 							sea_shipment.service_level = None
 					if hasattr(sea_shipment, 'release_type') and sea_shipment.release_type:
 						if not frappe.db.exists("Release Type", sea_shipment.release_type):

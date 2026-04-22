@@ -71,6 +71,16 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Sea Consolidation Plan",
+   "link_count": 0,
+   "link_to": "Sea Consolidation Plan",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Sales Invoice",
    "link_count": 0,
    "link_to": "Sales Invoice",
@@ -453,6 +463,14 @@
    "format": "{} Pending",
    "label": "Sea Consolidation",
    "link_to": "Sea Consolidation",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "List",
+   "label": "Sea Consolidation Plan",
+   "link_to": "Sea Consolidation Plan",
    "stats_filter": "[]",
    "type": "DocType"
   },

@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"1AkPPekmRW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Customs Operations Dashboard\",\"col\":12}},{\"id\":\"V7mVnGcUvD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"r5ls3QYtex\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"xQAOS3w6ic\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration Order\",\"col\":3}},{\"id\":\"3qsC2I3W0H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"2tDCwDpjF1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Permit Application\",\"col\":3}},{\"id\":\"u3zXE-nmub\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Exemption Certificate\",\"col\":3}},{\"id\":\"1I3Fy0fjfj\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"X7yGOv6S8N\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"GxN38APLJD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"8V7FWXDdkd\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Data\",\"col\":4}},{\"id\":\"9V1fPOH_1l\",\"type\":\"card\",\"data\":{\"card_name\":\"Global Customs\",\"col\":4}},{\"id\":\"Gs49r4wtAe\",\"type\":\"card\",\"data\":{\"card_name\":\"Documentation\",\"col\":4}},{\"id\":\"4vKgf_tbYp\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"44ffXtoNZ6\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"BQGcuSx3vf\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"ZVjvu15N-B\",\"type\":\"card\",\"data\":{\"card_name\":\"Status Reports\",\"col\":4}},{\"id\":\"TwjXt1me4K\",\"type\":\"card\",\"data\":{\"card_name\":\"Compliance Reports\",\"col\":4}},{\"id\":\"4zTKH_oZGI\",\"type\":\"card\",\"data\":{\"card_name\":\"Value Reports\",\"col\":4}},{\"id\":\"DeclAnly2026\",\"type\":\"card\",\"data\":{\"card_name\":\"Declaration Analytics\",\"col\":4}}]",
+ "content": "[{\"id\":\"1AkPPekmRW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Customs Operations Dashboard\",\"col\":12}},{\"id\":\"V7mVnGcUvD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"r5ls3QYtex\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"xQAOS3w6ic\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration Order\",\"col\":3}},{\"id\":\"3qsC2I3W0H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"2tDCwDpjF1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Permit Application\",\"col\":3}},{\"id\":\"u3zXE-nmub\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Exemption Certificate\",\"col\":3}},{\"id\":\"1I3Fy0fjfj\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"X7yGOv6S8N\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"GxN38APLJD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"8V7FWXDdkd\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Data\",\"col\":4}},{\"id\":\"9V1fPOH_1l\",\"type\":\"card\",\"data\":{\"card_name\":\"Global Customs\",\"col\":4}},{\"id\":\"Gs49r4wtAe\",\"type\":\"card\",\"data\":{\"card_name\":\"Documentation\",\"col\":4}},{\"id\":\"4vKgf_tbYp\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"44ffXtoNZ6\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"BQGcuSx3vf\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"ZVjvu15N-B\",\"type\":\"card\",\"data\":{\"card_name\":\"Status Reports\",\"col\":4}},{\"id\":\"TwjXt1me4K\",\"type\":\"card\",\"data\":{\"card_name\":\"Compliance Reports\",\"col\":4}},{\"id\":\"4zTKH_oZGI\",\"type\":\"card\",\"data\":{\"card_name\":\"Value Reports\",\"col\":4}}]",
  "creation": "2025-05-22 14:58:21.255920",
  "custom_blocks": [
   {
@@ -191,324 +191,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Declaration Analytics",
-   "link_count": 20,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customs Declaration Executive Snapshot",
-   "link_count": 0,
-   "link_to": "Customs Declaration Executive Snapshot",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Authority Workload Concentration",
-   "link_count": 0,
-   "link_to": "Declaration Authority Workload Concentration",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Branch Performance View",
-   "link_count": 0,
-   "link_to": "Declaration Branch Performance View",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Customer Value Concentration",
-   "link_count": 0,
-   "link_to": "Declaration Customer Value Concentration",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Destination Country Trade Concentration",
-   "link_count": 0,
-   "link_to": "Declaration Destination Country Trade Concentration",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Incoterm Commercial Mix",
-   "link_count": 0,
-   "link_to": "Declaration Incoterm Commercial Mix",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Job Status Pipeline Mix",
-   "link_count": 0,
-   "link_to": "Declaration Job Status Pipeline Mix",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Monthly Clearance Volume And Value",
-   "link_count": 0,
-   "link_to": "Declaration Monthly Clearance Volume And Value",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Monthly Throughput Index",
-   "link_count": 0,
-   "link_to": "Declaration Monthly Throughput Index",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Open Draft Aging Backlog",
-   "link_count": 0,
-   "link_to": "Declaration Open Draft Aging Backlog",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Origin Country Trade Concentration",
-   "link_count": 0,
-   "link_to": "Declaration Origin Country Trade Concentration",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Overdue Clearance Pressure",
-   "link_count": 0,
-   "link_to": "Declaration Overdue Clearance Pressure",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Owner Workload Review",
-   "link_count": 0,
-   "link_to": "Declaration Owner Workload Review",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Payment Status Risk Pipeline",
-   "link_count": 0,
-   "link_to": "Declaration Payment Status Risk Pipeline",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Status Pipeline Mix",
-   "link_count": 0,
-   "link_to": "Declaration Status Pipeline Mix",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Submission Health Ratio",
-   "link_count": 0,
-   "link_to": "Declaration Submission Health Ratio",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Transport Mode Corridor Mix",
-   "link_count": 0,
-   "link_to": "Declaration Transport Mode Corridor Mix",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Type Regulatory Mix",
-   "link_count": 0,
-   "link_to": "Declaration Type Regulatory Mix",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Weekly Clearance Volume And Value",
-   "link_count": 0,
-   "link_to": "Declaration Weekly Clearance Volume And Value",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Declaration Weekly Throughput Index",
-   "link_count": 0,
-   "link_to": "Declaration Weekly Throughput Index",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Declaration",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Master Data",
-   "link_count": 8,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Commodity",
-   "link_count": 0,
-   "link_to": "Commodity",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customs Authority",
-   "link_count": 0,
-   "link_to": "Customs Authority",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Permit Type",
-   "link_count": 0,
-   "link_to": "Permit Type",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Exemption Type",
-   "link_count": 0,
-   "link_to": "Exemption Type",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Exemption Certificate",
-   "link_count": 0,
-   "link_to": "Exemption Certificate",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Other Commodity Code",
-   "link_count": 0,
-   "link_to": "Other Commodity Code",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "CI Charge Code",
-   "link_count": 0,
-   "link_to": "CI Charge Code",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Product Code",
-   "link_count": 0,
-   "link_to": "Declaration Product Code",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Documentation",
    "link_count": 3,
    "link_type": "DocType",
@@ -544,10 +226,69 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Master Data",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Commodity",
+   "link_count": 0,
+   "link_to": "Commodity",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customs Authority",
+   "link_count": 0,
+   "link_to": "Customs Authority",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exemption Certificate",
+   "link_count": 0,
+   "link_to": "Exemption Certificate",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "CI Charge Code",
+   "link_count": 0,
+   "link_to": "CI Charge Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Product Code",
+   "link_count": 0,
+   "link_to": "Declaration Product Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-04-16 15:10:25.802843",
- "modified_by": "Administrator",
+ "modified": "2026-04-22 09:42:48.520544",
+ "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Customs",
  "number_cards": [],

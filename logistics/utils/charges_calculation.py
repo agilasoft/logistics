@@ -850,8 +850,12 @@ _AIR_BOOKING_DISBURSEMENT_PAIRS = (
     ("cost_tariff", "revenue_tariff"),
 )
 
-_SALES_QUOTE_DISBURSEMENT_PAIRS = (
+_CHANGE_REQUEST_DISBURSEMENT_PAIRS = (
     ("cost_calculation_method", "calculation_method"),
+)
+
+_SALES_QUOTE_CHARGE_DISBURSEMENT_PAIRS = (
+    ("cost_calculation_method", "revenue_calculation_method"),
     ("cost_quantity", "quantity"),
     ("cost_uom", "uom"),
     ("cost_currency", "currency"),
@@ -866,8 +870,8 @@ _SALES_QUOTE_DISBURSEMENT_PAIRS = (
 )
 
 DISBURSEMENT_FIELD_MAP = {
-    "Sales Quote Charge": _SALES_QUOTE_DISBURSEMENT_PAIRS,
-    "Change Request Charge": _SALES_QUOTE_DISBURSEMENT_PAIRS,
+    "Sales Quote Charge": _SALES_QUOTE_CHARGE_DISBURSEMENT_PAIRS,
+    "Change Request Charge": _CHANGE_REQUEST_DISBURSEMENT_PAIRS,
     "Transport Order Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
     "Transport Job Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
     + (("buying_currency", "selling_currency"),),

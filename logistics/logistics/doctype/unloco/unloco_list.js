@@ -167,6 +167,39 @@ function setup_unloco_list_actions(listview) {
         }
         listview.page.add_inner_button(__('Get All UNLOCO'), runGetAll);
     }
+
+    if (is_system_manager && listview.can_write && !listview._unloco_update_all_action_setup) {
+        listview._unloco_update_all_action_setup = true;
+        var runUpdateAll = function () {
+            frappe.confirm(
+                __(
+                    'This queues a background job to re-populate every UNLOCO from DataHub (when enabled) and other sources. Existing rows are updated. The job may run for a long time. Continue?'
+                ),
+                function () {
+                    frappe.call({
+                        method: 'logistics.logistics.doctype.unloco.unloco.start_update_all_unloco',
+                        freeze: true,
+                        freeze_message: __('Queueing job...'),
+                        callback: function (r) {
+                            if (!r.exc) {
+                                frappe.show_alert({
+                                    message: __(
+                                        'Job queued. UNLOCO records are updated in batches on the background worker. Refresh the list later.'
+                                    ),
+                                    indicator: 'green',
+                                });
+                            }
+                            listview.refresh();
+                        },
+                    });
+                }
+            );
+        };
+        if (typeof listview.page.add_action_item === 'function') {
+            listview.page.add_action_item(__('Update All'), runUpdateAll, false);
+        }
+        listview.page.add_inner_button(__('Update All'), runUpdateAll);
+    }
 }
 
 frappe.listview_settings['UNLOCO'] = {

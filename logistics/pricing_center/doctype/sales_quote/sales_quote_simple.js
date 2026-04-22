@@ -57,7 +57,7 @@ function test_calculation(frm) {
             args: {
                 line_data: JSON.stringify({
                     item_code: "TEST",
-                    calculation_method: "Per Unit",
+                    revenue_calculation_method: "Per Unit",
                     quantity: 10,
                     unit_rate: 100,
                     unit_type: "Weight"

@@ -1,13 +1,11 @@
 /* Air Freight operations custom block — tab + toolbar overrides (with Air Booking dashboard CSS) */
 #sfw_ops_heat:checked ~ .ab-tab-bar label[for="sfw_ops_heat"],
-#sfw_ops_wf:checked ~ .ab-tab-bar label[for="sfw_ops_wf"],
 #sfw_ops_alert:checked ~ .ab-tab-bar label[for="sfw_ops_alert"] {
   font-weight: 600;
   color: #212529;
   border-bottom-color: #212529;
 }
 #sfw_ops_heat:checked ~ .ab-ro-body .ab-tab-panel-route,
-#sfw_ops_wf:checked ~ .ab-ro-body .ab-tab-panel-milestones,
 #sfw_ops_alert:checked ~ .ab-ro-body .ab-tab-panel-alerts {
   display: block;
 }
@@ -145,16 +143,6 @@
   height: 420px;
   border-radius: 0;
   border: none;
-}
-.sfw-ops-dash .sfw-ops-wf-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ro-text-strong);
-  margin-bottom: 0.35rem;
-}
-.sfw-ops-dash .sfw-ops-wf-desc {
-  margin-bottom: 0.75rem;
-  max-width: 42rem;
 }
 .sfw-ops-dash .log-ab-banner.alert {
   border-radius: 8px;

@@ -30,12 +30,14 @@ fixtures = [
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
 	"/assets/logistics/css/get_charges_from_quotation.css?v=3",
+	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 ]
 app_include_js = [
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/internal_job_create_from_source.js?v=15",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=17",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
+	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=3",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
@@ -151,6 +153,8 @@ doctype_js = {
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/customs/doctype/declaration_order_charges/declaration_order_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
+		# Same Get Charges from Quotation UI as Air / Sea / Transport (list, preview, Apply).
+		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Transport Order": [
 		"logistics/public/js/shipper_consignee_defaults.js",
@@ -195,6 +199,8 @@ doctype_js = {
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
+	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
+	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -433,6 +439,7 @@ user_data_fields = [
 after_migrate = [
 	"logistics.job_management.recognition_migrate.after_migrate",
 	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
+	"logistics.cash_advance.install.after_migrate",
 ]
 
 # Authentication and authorization

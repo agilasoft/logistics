@@ -16,6 +16,9 @@ from logistics.utils.operational_rep_fields import copy_operational_rep_fields_f
 
 class Declaration(Document):
 	def validate(self):
+		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+		validate_internal_job_main_link_unchanged(self)
 		self._validate_declaration_order_unique()
 		self._validate_etd_eta()
 		self.update_payment_status()

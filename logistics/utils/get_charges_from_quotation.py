@@ -7,7 +7,7 @@
 the Sales Quote** document (create booking/order actions). They are **not** selectable in
 **Action → Get Charges from Quotation**; linkage is set only during that create flow.
 
-**Regular Sales Quotes**: users **create** Sea Booking, Air Booking, or Transport Order first,
+**Regular Sales Quotes**: users **create** Sea Booking, Air Booking, Transport Order, or Declaration Order first,
 then use **Action → Get Charges from Quotation** to pick a quotation and apply **charges**
 (+ **routing legs** on Sea/Air where applicable). The ``sales_quote`` link is **read-only** on
 the form and is written only by create-from-quote or by the apply step.
@@ -16,9 +16,15 @@ the form and is written only by create-from-quote or by the apply step.
 (``local_customer`` on Sea/Air, ``customer`` on Transport Order) are listed and may be applied.
 
 **Corridor match**: Sea/Air jobs use ``origin_port`` / ``destination_port``; Transport Order uses
-``location_from`` / ``location_to``. If a Sales Quote has **routing legs**, the job corridor must
+``location_from`` / ``location_to``. **Declaration Order** uses ``customs_authority``,
+``declaration_type``, ``customs_broker``, and optionally ``transport_mode`` (with **Sales Quote
+Charge** / **Sales Quote Customs** rows as described in ``sales_quote_link_query``), not POL/POD
+as the primary gate.
+
+If a Sales Quote has **routing legs**, the job corridor must
 match a **routing leg** (origin/destination and mode). If it has **no** routing legs, the corridor
-may match unified charges, legacy lines, or header ports/locations. Preview/apply enforce the same rule.
+may match unified charges, legacy lines, or header ports/locations. Preview/apply enforce the same rule
+(for non–Declaration Order jobs).
 
 **Submitted only**: Only **submitted** Sales Quotes (``docstatus`` = 1) are listed; draft quotations
 are excluded.
@@ -35,13 +41,15 @@ from frappe import _
 from frappe.utils import cint
 
 from logistics.utils.charge_service_type import implied_service_type_for_doctype
+from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_sales_quote_doc
 from logistics.utils.sales_quote_link_query import (
 	fetch_eligible_regular_sales_quote_names,
+	sales_quote_matches_declaration_order_filters,
 	sales_quote_matches_job_corridor,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 
-JOB_DOCTYPES = frozenset({"Sea Booking", "Air Booking", "Transport Order"})
+JOB_DOCTYPES = frozenset({"Sea Booking", "Air Booking", "Transport Order", "Declaration Order"})
 
 
 def _sales_quote_row_eligible_for_gcfq_list(name: str, expected_customer: str) -> bool:
@@ -86,12 +94,19 @@ def assert_one_off_sales_quote_job_rules(doc):
 def _job_customer(doc) -> str | None:
 	if doc.doctype in ("Sea Booking", "Air Booking"):
 		return (getattr(doc, "local_customer", None) or "").strip() or None
-	if doc.doctype == "Transport Order":
+	if doc.doctype in ("Transport Order", "Declaration Order"):
 		return (getattr(doc, "customer", None) or "").strip() or None
 	return None
 
 
-def _gcfq_list_filters_payload(doctype: str, customer: str, origin: str, dest: str, service_type: str) -> dict:
+def _gcfq_list_filters_payload(
+	doctype: str,
+	customer: str,
+	origin: str,
+	dest: str,
+	service_type: str,
+	**kwargs,
+) -> dict:
 	"""Structured labels/values + rule lines for the Get Charges from Quotation dialog."""
 	if doctype == "Transport Order":
 		return {
@@ -110,6 +125,41 @@ def _gcfq_list_filters_payload(doctype: str, customer: str, origin: str, dest: s
 				_(
 					"If the quotation has routing legs, origin and destination must match a leg; "
 					"otherwise they may match charges, legacy lines, or header fields"
+				),
+				_("Respects your permission to read Sales Quote records"),
+			],
+		}
+	if doctype == "Declaration Order":
+		extra = [
+			{"label": _("Customs Authority"), "value": kwargs.get("customs_authority") or ""},
+			{"label": _("Declaration Type"), "value": kwargs.get("declaration_type") or ""},
+			{"label": _("Customs Broker"), "value": kwargs.get("customs_broker") or ""},
+		]
+		tm = (kwargs.get("transport_mode_display") or "").strip()
+		if tm:
+			extra.append({"label": _("Transport Mode"), "value": tm})
+		pol = (kwargs.get("port_of_loading") or "").strip()
+		pod = (kwargs.get("port_of_discharge") or "").strip()
+		if pol or pod:
+			extra.append({"label": _("Port of Loading"), "value": pol})
+			extra.append({"label": _("Port of Discharge"), "value": pod})
+		return {
+			"service_type": service_type,
+			"customer_label": _("Customer"),
+			"customer": customer,
+			"extra_criteria": extra,
+			"rules": [
+				_("Submitted quotations only (draft quotations are excluded)"),
+				_("Regular quotations only (One-off quotations are excluded)"),
+				_("Valid until is not set or is on or after today"),
+				_("Status is not Lost or Expired"),
+				_(
+					"Customs charge lines must match Customs Authority, Declaration Type, and Customs Broker "
+					"(blank broker on a quotation line matches any broker)"
+				),
+				_(
+					"When Transport Mode is set, legacy customs lines with a transport mode must match it; "
+					"unified Customs charge lines are not filtered by mode"
 				),
 				_("Respects your permission to read Sales Quote records"),
 			],
@@ -146,7 +196,31 @@ def _job_corridor(doc) -> tuple[str | None, str | None]:
 		o = (getattr(doc, "location_from", None) or "").strip()
 		d = (getattr(doc, "location_to", None) or "").strip()
 		return (o or None, d or None)
+	if doc.doctype == "Declaration Order":
+		o = (getattr(doc, "port_of_loading", None) or "").strip()
+		d = (getattr(doc, "port_of_discharge", None) or "").strip()
+		return (o or None, d or None)
 	return (None, None)
+
+
+def _declaration_order_customs_keys(doc):
+	"""Return (authority, declaration_type, broker, transport_mode_link_or_none)."""
+	ca = (getattr(doc, "customs_authority", None) or "").strip()
+	dt = (getattr(doc, "declaration_type", None) or "").strip()
+	cb = (getattr(doc, "customs_broker", None) or "").strip()
+	jtm = (getattr(doc, "transport_mode", None) or "").strip() or None
+	return ca, dt, cb, jtm
+
+
+def _declaration_customs_mismatch_message_for_preview(doc, sales_quote: str) -> str | None:
+	ca, dt, cb, jtm = _declaration_order_customs_keys(doc)
+	if not ca or not dt or not cb:
+		return str(
+			_("Set Customs Authority, Declaration Type, and Customs Broker before loading charges from a quotation.")
+		)
+	if not sales_quote_matches_declaration_order_filters(sales_quote, ca, dt, cb, jtm):
+		return str(_("Sales Quote {0} does not match this document's customs scope.").format(sales_quote))
+	return None
 
 
 def _corridor_mismatch_message_for_preview(doc, service_type: str, sales_quote: str) -> str | None:
@@ -167,6 +241,16 @@ def _assert_sales_quote_corridor_matches_job(doc, service_type: str, sales_quote
 		frappe.throw(
 			_("Sales Quote {0} does not match this document's origin and destination.").format(sales_quote)
 		)
+
+
+def _assert_sales_quote_matches_declaration_order(doc, sales_quote: str):
+	ca, dt, cb, jtm = _declaration_order_customs_keys(doc)
+	if not ca or not dt or not cb:
+		frappe.throw(
+			_("Set Customs Authority, Declaration Type, and Customs Broker before loading charges from a quotation.")
+		)
+	if not sales_quote_matches_declaration_order_filters(sales_quote, ca, dt, cb, jtm):
+		frappe.throw(_("Sales Quote {0} does not match this document's customs scope.").format(sales_quote))
 
 
 @contextmanager
@@ -219,30 +303,73 @@ def list_sales_quotes_for_job(doctype: str, docname: str):
 			"filters": None,
 		}
 
-	origin, dest = _job_corridor(doc)
-	if not origin or not dest:
-		return {
-			"quotes": [],
-			"message": _("Set origin and destination on this document before loading charges from a quotation."),
-			"filters": None,
-		}
+	if doctype == "Declaration Order":
+		ca, dt, cb, jtm = _declaration_order_customs_keys(doc)
+		if not ca or not dt or not cb:
+			return {
+				"quotes": [],
+				"message": _(
+					"Set Customs Authority, Declaration Type, and Customs Broker before loading charges from a quotation."
+				),
+				"filters": None,
+			}
+		origin, dest = _job_corridor(doc)
+		tm_disp = ""
+		if jtm:
+			tm_disp = frappe.db.get_value("Transport Mode", jtm, "mode_name") or jtm
+		filters_payload = _gcfq_list_filters_payload(
+			doctype,
+			customer,
+			origin or "",
+			dest or "",
+			service_type,
+			customs_authority=ca,
+			declaration_type=dt,
+			customs_broker=cb,
+			transport_mode_display=tm_disp,
+			port_of_loading=(getattr(doc, "port_of_loading", None) or "").strip(),
+			port_of_discharge=(getattr(doc, "port_of_discharge", None) or "").strip(),
+		)
+		names = fetch_eligible_regular_sales_quote_names(
+			service_type,
+			customer=customer,
+			reference_doctype=doctype,
+			reference_name=docname,
+			limit=150,
+			customs_authority=ca,
+			declaration_type=dt,
+			customs_broker=cb,
+			job_transport_mode=jtm,
+		)
+		empty_msg = _("No matching Sales Quotes found for this customs scope.")
+	else:
+		origin, dest = _job_corridor(doc)
+		if not origin or not dest:
+			_corridor_msg = _("Set origin and destination on this document before loading charges from a quotation.")
+			return {
+				"quotes": [],
+				"message": _corridor_msg,
+				"filters": None,
+			}
 
-	filters_payload = _gcfq_list_filters_payload(doctype, customer, origin, dest, service_type)
+		filters_payload = _gcfq_list_filters_payload(doctype, customer, origin, dest, service_type)
 
-	names = fetch_eligible_regular_sales_quote_names(
-		service_type,
-		customer=customer,
-		reference_doctype=doctype,
-		reference_name=docname,
-		limit=150,
-		corridor_origin=origin,
-		corridor_dest=dest,
-	)
+		names = fetch_eligible_regular_sales_quote_names(
+			service_type,
+			customer=customer,
+			reference_doctype=doctype,
+			reference_name=docname,
+			limit=150,
+			corridor_origin=origin,
+			corridor_dest=dest,
+		)
+		empty_msg = _("No matching Sales Quotes found for this corridor.")
+
 	names = [n for n in names if _sales_quote_row_eligible_for_gcfq_list(n, customer)]
 	if not names:
 		return {
 			"quotes": [],
-			"message": _("No matching Sales Quotes found for this corridor."),
+			"message": empty_msg,
 			"filters": filters_payload,
 		}
 
@@ -290,7 +417,10 @@ def preview_quotation_charges_for_job(doctype: str, docname: str, sales_quote: s
 	if not customer or (sq.customer or "").strip() != (customer or "").strip():
 		return {"error": _("Sales Quote customer does not match this document.")}
 
-	corr_err = _corridor_mismatch_message_for_preview(doc, service_type, sales_quote)
+	if doctype == "Declaration Order":
+		corr_err = _declaration_customs_mismatch_message_for_preview(doc, sales_quote)
+	else:
+		corr_err = _corridor_mismatch_message_for_preview(doc, service_type, sales_quote)
 	if corr_err:
 		return {"error": corr_err}
 
@@ -304,6 +434,10 @@ def preview_quotation_charges_for_job(doctype: str, docname: str, sales_quote: s
 		return populate_charges_from_sales_quote(docname, sales_quote)
 	if doctype == "Transport Order":
 		from logistics.transport.doctype.transport_order.transport_order import populate_charges_from_sales_quote
+
+		return populate_charges_from_sales_quote(docname, sales_quote)
+	if doctype == "Declaration Order":
+		from logistics.customs.doctype.declaration_order.declaration_order import populate_charges_from_sales_quote
 
 		return populate_charges_from_sales_quote(docname, sales_quote)
 
@@ -342,11 +476,15 @@ def apply_quotation_charges_to_job(doctype: str, docname: str, sales_quote: str)
 	service_type = implied_service_type_for_doctype(doctype)
 	if not service_type:
 		frappe.throw(_("Could not determine service type for {0}.").format(doctype))
-	_assert_sales_quote_corridor_matches_job(doc, service_type, sales_quote)
+	if doctype == "Declaration Order":
+		_assert_sales_quote_matches_declaration_order(doc, sales_quote)
+	else:
+		_assert_sales_quote_corridor_matches_job(doc, service_type, sales_quote)
 
 	doc.flags.skip_sales_quote_on_change = True
 	doc.sales_quote = sales_quote
 	_sync_quote_fields(doc)
+	copy_operational_rep_fields_from_sales_quote_doc(doc, sq)
 
 	if doc.meta.has_field("routing_legs"):
 		apply_sales_quote_routing_to_booking(doc, sq)
@@ -359,6 +497,8 @@ def apply_quotation_charges_to_job(doctype: str, docname: str, sales_quote: str)
 			if hasattr(doc, "_normalize_charges_before_save"):
 				doc._normalize_charges_before_save()
 		elif doctype == "Transport Order":
+			doc._populate_charges_from_sales_quote()
+		elif doctype == "Declaration Order":
 			doc._populate_charges_from_sales_quote()
 
 	try:

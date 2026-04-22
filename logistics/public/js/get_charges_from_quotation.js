@@ -1,5 +1,5 @@
 // Copyright (c) 2026, AgilaSoft and contributors
-// Shared: Action → Get Charges from Quotation (Sea Booking, Air Booking, Transport Order)
+// Shared: Action → Get Charges from Quotation (Sea Booking, Air Booking, Transport Order, Declaration Order)
 
 frappe.provide("logistics");
 
@@ -20,12 +20,16 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	}
 
 	var cust =
-		frm.doctype === "Transport Order"
+		frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
 			? frm.doc.customer
 			: frm.doc.local_customer;
 	if (!cust) {
 		frappe.msgprint(
-			__(frm.doctype === "Transport Order" ? "Set Customer first." : "Set Local Customer first.")
+			__(
+				frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
+					? "Set Customer first."
+					: "Set Local Customer first."
+			)
 		);
 		return;
 	}
@@ -33,6 +37,15 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	if (frm.doctype === "Transport Order") {
 		if (!frm.doc.location_from || !frm.doc.location_to) {
 			frappe.msgprint(__("Set Location From and Location To before loading charges from a quotation."));
+			return;
+		}
+	} else if (frm.doctype === "Declaration Order") {
+		if (!frm.doc.customs_authority || !frm.doc.declaration_type || !frm.doc.customs_broker) {
+			frappe.msgprint(
+				__(
+					"Set Customs Authority, Declaration Type, and Customs Broker before loading charges from a quotation."
+				)
+			);
 			return;
 		}
 	} else {
@@ -85,7 +98,8 @@ function _gcfq_filters_criteria_html(filters) {
 	var o = filters.origin != null ? String(filters.origin) : "";
 	var dLbl = filters.destination_label != null ? String(filters.destination_label) : "";
 	var dest = filters.destination != null ? String(filters.destination) : "";
-	return (
+	var extra = filters.extra_criteria;
+	var open =
 		'<div class="logistics-gcfq-filters">' +
 		'<div class="logistics-gcfq-filters-title">' +
 		__("List filter criteria") +
@@ -102,21 +116,38 @@ function _gcfq_filters_criteria_html(filters) {
 		"</dt>" +
 		"<dd>" +
 		frappe.utils.escape_html(cust) +
-		"</dd>" +
-		"<dt>" +
-		frappe.utils.escape_html(oLbl) +
-		"</dt>" +
-		"<dd>" +
-		frappe.utils.escape_html(o) +
-		"</dd>" +
-		"<dt>" +
-		frappe.utils.escape_html(dLbl) +
-		"</dt>" +
-		"<dd>" +
-		frappe.utils.escape_html(dest) +
-		"</dd>" +
-		"</dl></div>"
-	);
+		"</dd>";
+	var mid = "";
+	if (Array.isArray(extra) && extra.length) {
+		extra.forEach(function (row) {
+			if (!row || typeof row !== "object") {
+				return;
+			}
+			var lbl = row.label != null ? String(row.label) : "";
+			var val = row.value != null ? String(row.value) : "";
+			mid +=
+				"<dt>" +
+				frappe.utils.escape_html(lbl) +
+				"</dt><dd>" +
+				frappe.utils.escape_html(val) +
+				"</dd>";
+		});
+	} else {
+		mid +=
+			"<dt>" +
+			frappe.utils.escape_html(oLbl) +
+			"</dt>" +
+			"<dd>" +
+			frappe.utils.escape_html(o) +
+			"</dd>" +
+			"<dt>" +
+			frappe.utils.escape_html(dLbl) +
+			"</dt>" +
+			"<dd>" +
+			frappe.utils.escape_html(dest) +
+			"</dd>";
+	}
+	return open + mid + "</dl></div>";
 }
 
 /** @param {Record<string, unknown>|null|undefined} filters */

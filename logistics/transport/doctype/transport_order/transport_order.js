@@ -205,6 +205,9 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		// Suppress "Transport Order X not found" when form is new/unsaved (package grid triggers API before save)
 		if (frm.is_new() || frm.doc.__islocal) {
 			if (!frappe._original_msgprint) {
@@ -595,6 +598,34 @@ frappe.ui.form.on("Transport Order", {
 				}
 				});
 			}, 300);
+		}
+
+		// Create > Internal Job (from internal_job_details; same behaviour as Transport Job)
+		if (frm.doc.name && !frm.doc.__islocal && !skip_db_queries) {
+			setTimeout(function() {
+				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+					frm.add_custom_button(__('Internal Job'), function() {
+						function _openInternalJobDlg() {
+							if (window.logistics_show_create_internal_job_dialog) {
+								window.logistics_show_create_internal_job_dialog(frm);
+							} else {
+								frappe.msgprint({
+									title: __('Not available'),
+									message: __(
+										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
+									),
+									indicator: 'red',
+								});
+							}
+						}
+						if (window.logistics_show_create_internal_job_dialog) {
+							_openInternalJobDlg();
+						} else {
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+						}
+					}, __('Create'));
+				}
+			}, 100);
 		}
 		
 		// Update vehicle_type required state based on consolidate checkbox

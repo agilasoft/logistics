@@ -131,8 +131,7 @@
    "fieldname": "default_service_level",
    "fieldtype": "Link",
    "label": "Default Service Level",
-   "options": "Service Level Agreement",
-   "link_filters": "[[\"Service Level Agreement\", \"enabled\", \"=\", 1]]"
+   "options": "Logistics Service Level"
   },
   {
    "fieldname": "location_settings_section",

@@ -452,6 +452,14 @@
    "type": "DocType"
   },
   {
+   "color": "Cyan",
+   "doc_view": "List",
+   "label": "Air Consolidation Plan",
+   "link_to": "Air Consolidation Plan",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
    "color": "Grey",
    "doc_view": "List",
    "label": "Master Air Waybill",

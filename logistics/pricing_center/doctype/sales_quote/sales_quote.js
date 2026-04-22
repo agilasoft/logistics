@@ -1,6 +1,12 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+/** Set before navigating to an order/booking created from a One-off Sales Quote (Main Service / Internal Job lock on load). */
+function logistics_set_one_off_order_route_nav() {
+	frappe.route_options = frappe.route_options || {};
+	frappe.route_options.logistics_one_off_order_route = true;
+}
+
 /** Open Transport Order form and refresh desk breadcrumbs (avoids stale doctype in navbar after navigating from Sales Quote). */
 function logistics_set_route_to_transport_order(docname) {
 	frappe.set_route("Form", "Transport Order", docname).then(function () {
@@ -10,6 +16,59 @@ function logistics_set_route_to_transport_order(docname) {
 				frappe.breadcrumbs.add(meta.module, "Transport Order");
 			}
 		});
+	});
+}
+
+/** Maps service_type to Load Type checkbox fieldnames (see Load Type DocType). */
+const SERVICE_TYPE_LOAD_TYPE_FLAG = {
+	Air: "air",
+	Sea: "sea",
+	Transport: "transport",
+	Customs: "customs",
+	Warehousing: "warehousing",
+};
+
+/** Clear Load Type when it does not match the row/header service (stale e.g. air-only ULD on a Sea row). */
+function logistics_sanitize_sales_quote_load_types(frm) {
+	if (!frm.doc) return;
+	const names = new Set();
+	const headerFlag = SERVICE_TYPE_LOAD_TYPE_FLAG[frm.doc.main_service];
+	if (frm.doc.quotation_type === "One-off" && frm.doc.load_type && headerFlag) {
+		names.add(frm.doc.load_type);
+	}
+	(frm.doc.charges || []).forEach((row) => {
+		const f = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
+		if (f && row.load_type) {
+			names.add(row.load_type);
+		}
+	});
+	if (!names.size) return;
+	frappe.call({
+		method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_load_type_service_flags",
+		args: { load_types: [...names] },
+		callback: function (r) {
+			const flags = r.message || {};
+			let changed = false;
+			if (frm.doc.quotation_type === "One-off" && frm.doc.load_type && headerFlag) {
+				const fl = flags[frm.doc.load_type];
+				if (!fl || !fl[headerFlag]) {
+					frm.set_value("load_type", "");
+					changed = true;
+				}
+			}
+			(frm.doc.charges || []).forEach((row) => {
+				const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
+				if (!flag || !row.load_type) return;
+				const fl = flags[row.load_type];
+				if (!fl || !fl[flag]) {
+					frappe.model.set_value(row.doctype, row.name, "load_type", "");
+					changed = true;
+				}
+			});
+			if (changed) {
+				frm.refresh_field("charges");
+			}
+		},
 	});
 }
 
@@ -53,8 +112,13 @@ frappe.ui.form.on("Sales Quote", {
 	},
 	
 	onload(frm) {
+		frm.events._show_sales_quote_charges_row_checkboxes(frm);
 		frm.events._clear_default_empty_charge_row(frm);
+		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
+		if (!frm.is_new()) {
+			setTimeout(() => logistics_sanitize_sales_quote_load_types(frm), 100);
+		}
 		// Preload vehicle types cache for load_types in Transport charges
 		const transport_charges = (frm.doc.charges || []).filter(c => c.service_type === "Transport");
 		if (transport_charges.length) {
@@ -152,6 +216,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events._set_child_param_readonly(frm);
 		frm.events._sync_quotation_type_to_children(frm);
 		frm.refresh_field("charges");
+		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 	},
 
 	naming_series(frm) {
@@ -211,6 +276,19 @@ frappe.ui.form.on("Sales Quote", {
 		// Legacy child tables (sea_freight, air_freight, transport) removed in Phase 3; params now on Sales Quote Charge
 	},
 
+	/** One-off quotes: Main Job on routing legs is fixed; lock is_main_job on the grid (same idea as is_main_service on orders). */
+	_apply_one_off_routing_leg_main_job_readonly(frm) {
+		const grid = frm.fields_dict.routing_legs && frm.fields_dict.routing_legs.grid;
+		if (!grid || typeof grid.update_docfield_property !== "function") {
+			return;
+		}
+		if (frm.doc.quotation_type === "One-off") {
+			grid.update_docfield_property("is_main_job", "read_only", 1);
+		} else if (!frm.doc.docstatus) {
+			grid.update_docfield_property("is_main_job", "read_only", 0);
+		}
+	},
+
 	_sync_quotation_type_to_children(frm) {
 		const qt = frm.doc.quotation_type || "Regular";
 		(frm.doc.charges || []).forEach(row => { row.quotation_type = qt; });
@@ -227,13 +305,31 @@ frappe.ui.form.on("Sales Quote", {
 				frm.events.apply_default_uoms_for_tab(frm, frm.doc.main_service.toLowerCase(), prefix);
 			}
 		}
+		if (frm.doc.quotation_type === "One-off" && frm.doc.load_type) {
+			const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[frm.doc.main_service];
+			if (flag) {
+				frappe.db.get_value("Load Type", frm.doc.load_type, flag, (r) => {
+					if (r && r[flag]) return;
+					frm.set_value("load_type", "");
+				});
+			}
+		}
 	},
 
 	routing_legs_add(frm, cdt, cdn) {
 		// Leg order is determined by child table idx (no separate Leg field).
+		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
+	},
+
+	_show_sales_quote_charges_row_checkboxes(frm) {
+		const fd = frm.fields_dict.charges;
+		if (fd && fd.$wrapper && fd.$wrapper.length) {
+			fd.$wrapper.addClass("logistics-show-charge-row-check");
+		}
 	},
 
 	refresh(frm) {
+		frm.events._show_sales_quote_charges_row_checkboxes(frm);
 		// Keep naming_series locked in all states.
 		frm.events._lock_naming_series(frm);
 		// Lock quotation_type only for existing documents.
@@ -285,6 +381,7 @@ frappe.ui.form.on("Sales Quote", {
 			}
 		});
 		frm.events._set_child_param_readonly(frm);
+		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 		// Update primary button state
 		// Use setTimeout to ensure form state is fully updated after refresh
 		setTimeout(function() {
@@ -301,6 +398,7 @@ frappe.ui.form.on("Sales Quote", {
 			const load_types = [...new Set(transport_charges.map(r => r.load_type).filter(Boolean))];
 			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
 		}
+		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 
 		// Add custom button to create Transport Order if main_service = Transport
@@ -535,26 +633,49 @@ frappe.ui.form.on("Sales Quote", {
 		});
 	},
 	
+	setup_load_type_query(frm) {
+		frm.set_query("load_type", function () {
+			const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[frm.doc.main_service];
+			const filters = { is_active: 1 };
+			if (flag) {
+				filters[flag] = 1;
+			}
+			return { filters };
+		});
+		frm.set_query("load_type", "charges", function (doc, cdt, cdn) {
+			let row = frappe.get_doc(cdt, cdn);
+			if (!row || !row.service_type) {
+				row = (doc.charges || []).find((r) => r.name === cdn);
+			}
+			const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row && row.service_type];
+			const filters = { is_active: 1 };
+			if (flag) {
+				filters[flag] = 1;
+			}
+			return { filters };
+		});
+	},
+
 	setup_vehicle_type_query(frm) {
-		// Set up get_query for vehicle_type in Transport services based on row's load_type
-		if (frm.fields_dict.services) {
-			frm.set_query('vehicle_type', 'services', function(doc, cdt, cdn) {
+		// Set up get_query for vehicle_type in Transport charges based on row's load_type
+		if (frm.fields_dict.charges) {
+			frm.set_query("vehicle_type", "charges", function (doc, cdt, cdn) {
 				const row = frappe.get_doc(cdt, cdn);
 				if (row.service_type !== "Transport") return { filters: {} };
 				const load_type = row.load_type;
 				if (!load_type) return { filters: { is_active: 1 } };
-				
+
 				if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
 				const allowed = frm.allowed_vehicle_types_cache[load_type];
 				if (allowed && allowed.length > 0) {
 					return { filters: { is_active: 1, name: ["in", allowed] } };
 				}
-				
+
 				if (!frm._loading_vehicle_types) frm._loading_vehicle_types = {};
 				if (!frm._loading_vehicle_types[load_type]) {
 					frm._loading_vehicle_types[load_type] = true;
-					frm.events.load_allowed_vehicle_types(frm, load_type, function() {
-						frm.refresh_field('services');
+					frm.events.load_allowed_vehicle_types(frm, load_type, function () {
+						frm.refresh_field("charges");
 						if (frm._loading_vehicle_types) delete frm._loading_vehicle_types[load_type];
 					});
 				}
@@ -1005,6 +1126,13 @@ const SERVICE_TYPE_ITEM_FIELD_MAP = {
 frappe.ui.form.on('Sales Quote Charge', {
 	service_type: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
+		const lt_flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
+		if (row.load_type && lt_flag) {
+			frappe.db.get_value("Load Type", row.load_type, lt_flag, (r) => {
+				if (r && r[lt_flag]) return;
+				frappe.model.set_value(cdt, cdn, "load_type", "");
+			});
+		}
 		// Clear item_code when service_type changes to prevent incompatible selections
 		if (row.item_code) {
 			frappe.model.set_value(cdt, cdn, 'item_code', '');
@@ -1081,7 +1209,7 @@ frappe.ui.form.on('Sales Quote Charge', {
 			frm.refresh_field('charges');
 		});
 	},
-	calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	unit_rate: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
@@ -1142,6 +1270,7 @@ function create_transport_order_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing order
+				logistics_set_one_off_order_route_nav();
 				logistics_set_route_to_transport_order(r.name);
 				return;
 			}
@@ -1227,7 +1356,11 @@ function show_transport_order_confirmation(frm) {
 								message: __("Transport Order {0} has been created successfully.", [r.message.transport_order]),
 								indicator: "green"
 							});
-							frappe.route_options = { "__clear_scheduled_date": true };
+							frappe.route_options = frappe.route_options || {};
+							frappe.route_options.__clear_scheduled_date = true;
+							if (frm.doc.quotation_type === "One-off") {
+								frappe.route_options.logistics_one_off_order_route = true;
+							}
 							setTimeout(function() {
 								logistics_set_route_to_transport_order(r.message.transport_order);
 							}, 100);
@@ -1238,6 +1371,10 @@ function show_transport_order_confirmation(frm) {
 								indicator: "blue"
 							});
 							if (r.message.transport_order) {
+								frappe.route_options = frappe.route_options || {};
+								if (frm.doc.quotation_type === "One-off") {
+									frappe.route_options.logistics_one_off_order_route = true;
+								}
 								setTimeout(function() {
 									logistics_set_route_to_transport_order(r.message.transport_order);
 								}, 100);
@@ -1313,6 +1450,9 @@ function show_air_booking_confirmation(frm) {
 								}
 								function try_navigate(attempt) {
 									if (attempt > 15) {
+										if (frm.doc.quotation_type === "One-off") {
+											logistics_set_one_off_order_route_nav();
+										}
 										frappe.set_route("Form", "Air Booking", air_booking_name);
 										return;
 									}
@@ -1321,6 +1461,9 @@ function show_air_booking_confirmation(frm) {
 										args: { docname: air_booking_name },
 										callback: function(res) {
 											if (res.message === true) {
+												if (frm.doc.quotation_type === "One-off") {
+													logistics_set_one_off_order_route_nav();
+												}
 												frappe.set_route("Form", "Air Booking", air_booking_name);
 											} else {
 												setTimeout(function() { try_navigate(attempt + 1); }, 300);
@@ -1444,6 +1587,7 @@ function create_air_booking_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing booking
+				logistics_set_one_off_order_route_nav();
 				frappe.set_route("Form", "Air Booking", r.name);
 				return;
 			}
@@ -1467,6 +1611,7 @@ function create_sea_booking_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing booking
+				logistics_set_one_off_order_route_nav();
 				frappe.set_route("Form", "Sea Booking", r.name);
 				return;
 			}
@@ -1514,11 +1659,21 @@ function show_sea_booking_confirmation(frm) {
 						if (r.exc) return;
 						if (r.message && r.message.success && r.message.sea_booking) {
 							frappe.msgprint({ title: __("Sea Booking Created"), message: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking]), indicator: "green" });
-							setTimeout(function() { frappe.set_route("Form", "Sea Booking", r.message.sea_booking); }, 100);
+							setTimeout(function() {
+								if (frm.doc.quotation_type === "One-off") {
+									logistics_set_one_off_order_route_nav();
+								}
+								frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+							}, 100);
 						} else if (r.message && r.message.message) {
 							frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
 							if (r.message.sea_booking) {
-								setTimeout(function() { frappe.set_route("Form", "Sea Booking", r.message.sea_booking); }, 100);
+								setTimeout(function() {
+									if (frm.doc.quotation_type === "One-off") {
+										logistics_set_one_off_order_route_nav();
+									}
+									frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+								}, 100);
 							}
 						}
 					},
@@ -1539,6 +1694,13 @@ function show_sea_booking_confirmation(frm) {
 	});
 }
 
+function _set_route_to_declaration_order_from_one_off(do_name) {
+	frappe.route_options = frappe.route_options || {};
+	frappe.route_options.logistics_declaration_order_one_off = true;
+	frappe.route_options.logistics_one_off_order_route = true;
+	frappe.set_route("Form", "Declaration Order", do_name);
+}
+
 function create_declaration_order_from_sales_quote(frm) {
 	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
@@ -1549,7 +1711,7 @@ function create_declaration_order_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				Promise.resolve(frm.reload_doc()).then(function() {
-					frappe.set_route("Form", "Declaration Order", r.name);
+					_set_route_to_declaration_order_from_one_off(r.name);
 				});
 				return;
 			}
@@ -1632,14 +1794,14 @@ function show_declaration_order_confirmation(frm) {
 											indicator: "green"
 										});
 										Promise.resolve(frm.reload_doc()).then(function() {
-											frappe.set_route("Form", "Declaration Order", do_name);
+											_set_route_to_declaration_order_from_one_off(do_name);
 										});
 									} else if (r.message && r.message.message) {
 										frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
 										if (r.message.declaration_order) {
 											var do_name_alt = r.message.declaration_order;
 											Promise.resolve(frm.reload_doc()).then(function() {
-												frappe.set_route("Form", "Declaration Order", do_name_alt);
+												_set_route_to_declaration_order_from_one_off(do_name_alt);
 											});
 										}
 									}

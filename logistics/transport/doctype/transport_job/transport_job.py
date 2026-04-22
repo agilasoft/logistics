@@ -11,6 +11,9 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
+        from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+        validate_internal_job_main_link_unchanged(self)
         from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
         apply_shipper_consignee_defaults(self)
