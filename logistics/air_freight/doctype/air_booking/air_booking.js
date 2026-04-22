@@ -250,6 +250,9 @@ function _ensure_air_booking_milestone_actual_end_editable_meta(frm) {
 
 frappe.ui.form.on('Air Booking', {
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		_apply_air_booking_settings_defaults(frm, false);
 		_logistics_set_charges_cannot_add_rows(frm);
 		_ensure_air_booking_milestone_actual_end_editable_meta(frm);

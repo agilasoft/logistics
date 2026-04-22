@@ -4,6 +4,12 @@ from frappe import _
 import json
 from datetime import datetime, timedelta
 
+from logistics.utils.consolidation_plan import (
+	assert_air_consolidation_plan_requirements,
+	clear_air_plan_links_for_consolidation,
+	sync_air_plan_item_links,
+)
+
 
 class AirConsolidation(Document):
     @frappe.whitelist()
@@ -96,6 +102,7 @@ class AirConsolidation(Document):
         self.calculate_consolidation_metrics()
         self.validate_dangerous_goods_compliance()
         self.validate_accounts()
+        assert_air_consolidation_plan_requirements(self)
     
     def before_save(self):
         """Actions before saving the document"""
@@ -128,6 +135,10 @@ class AirConsolidation(Document):
         self.update_related_air_freight_jobs()
         self.update_attached_jobs_table()
         self.send_consolidation_notifications()
+        sync_air_plan_item_links(self)
+    
+    def on_cancel(self):
+        clear_air_plan_links_for_consolidation(self.name)
     
     def validate_consolidation_data(self):
         """Validate consolidation data integrity"""

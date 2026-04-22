@@ -81,15 +81,12 @@ def effective_internal_job_detail_job_type(row):
 
 
 def on_validate_main_service_internal_job(doc, method=None):
-	"""Doc event: internal jobs cannot be tagged as main service."""
-	sq_name = doc.get("sales_quote")
-	if sq_name and frappe.db.exists("Sales Quote", sq_name):
-		qt = frappe.db.get_value("Sales Quote", sq_name, "quotation_type")
-		if qt == "One-off":
-			if hasattr(doc, "is_main_service"):
-				doc.is_main_service = 1
-			if hasattr(doc, "is_internal_job"):
-				doc.is_internal_job = 0
+	"""Doc event: Main Service and Internal Job are mutually exclusive.
+
+	If Internal Job is set, Main Service is cleared (including when both are 1 after client/race/dialog).
+	Does not throw. One-off–linked docs are not forced to main-only here — creation flows set flags;
+	internal jobs on One-off quotes must keep ``is_internal_job`` through validate.
+	"""
 	if not hasattr(doc, "is_internal_job") or not hasattr(doc, "is_main_service"):
 		return
 	if cint(getattr(doc, "is_internal_job", 0)):

@@ -9,6 +9,12 @@ from frappe import _
 from frappe.utils import flt, now_datetime, getdate
 from datetime import datetime, timedelta
 
+from logistics.utils.consolidation_plan import (
+	assert_sea_consolidation_plan_requirements,
+	clear_sea_plan_links_for_consolidation,
+	sync_sea_plan_item_links,
+)
+
 
 class SeaConsolidation(Document):
     def validate(self):
@@ -26,6 +32,7 @@ class SeaConsolidation(Document):
         self.validate_packages()
         self.validate_containers()
         self.validate_duplicate_containers()
+        assert_sea_consolidation_plan_requirements(self)
     
     def before_save(self):
         """Actions before saving the document"""
@@ -47,6 +54,10 @@ class SeaConsolidation(Document):
         self.update_related_sea_shipments()
         self.update_attached_shipments_table()
         self.send_consolidation_notifications()
+        sync_sea_plan_item_links(self)
+    
+    def on_cancel(self):
+        clear_sea_plan_links_for_consolidation(self.name)
     
     def validate_containers_iso6346(self):
         """Validate container numbers per ISO 6346."""

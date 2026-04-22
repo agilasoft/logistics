@@ -205,6 +205,9 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		// Suppress "Transport Order X not found" when form is new/unsaved (package grid triggers API before save)
 		if (frm.is_new() || frm.doc.__islocal) {
 			if (!frappe._original_msgprint) {

@@ -1,0 +1,220 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-20 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_main",
+  "naming_series",
+  "amended_from",
+  "plan_date",
+  "planner",
+  "column_break_1",
+  "company",
+  "branch",
+  "section_route",
+  "origin_port",
+  "destination_port",
+  "column_break_route",
+  "target_etd",
+  "target_eta",
+  "shipping_line",
+  "column_break_vessel",
+  "vessel_name",
+  "voyage_number",
+  "consolidation_type",
+  "remarks",
+  "section_items",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_main",
+   "fieldtype": "Section Break",
+   "label": "Plan"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Sea Consolidation Plan",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "SCP-.YYYY.-.#####\nSCP-{YYYY}-{####}",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plan_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Plan Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "planner",
+   "fieldtype": "Link",
+   "label": "Planner",
+   "options": "User"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_route",
+   "fieldtype": "Section Break",
+   "label": "Route and sailing"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "reqd": 1,
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "column_break_route",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "target_etd",
+   "fieldtype": "Datetime",
+   "label": "Target ETD",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_eta",
+   "fieldtype": "Datetime",
+   "label": "Target ETA",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "options": "Shipping Line",
+   "reqd": 1,
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "column_break_vessel",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "TBA",
+   "fieldname": "vessel_name",
+   "fieldtype": "Data",
+   "label": "Vessel Name",
+   "reqd": 1
+  },
+  {
+   "default": "TBA",
+   "fieldname": "voyage_number",
+   "fieldtype": "Data",
+   "label": "Voyage Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consolidation_type",
+   "fieldtype": "Select",
+   "label": "Consolidation Type",
+   "options": "Direct Consolidation\nTransit Consolidation\nBreak-Bulk Consolidation\nMulti-Port Consolidation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "section_items",
+   "fieldtype": "Section Break",
+   "label": "Shipments"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Sea Consolidation Plan Item"
+  }
+ ],
+ "is_submittable": 1,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-20 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Sea Freight",
+ "name": "Sea Consolidation Plan",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sea Freight Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

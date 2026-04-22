@@ -309,6 +309,9 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		// Ensure transport_job_type is always set
 		if (!frm.doc.transport_job_type) {
 			frm.set_value('transport_job_type', 'Non-Container');

@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-20 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "air_shipment",
+  "column_break_1",
+  "origin_port",
+  "destination_port",
+  "column_break_2",
+  "chargeable_weight_est",
+  "volume_est",
+  "linked_air_consolidation"
+ ],
+ "fields": [
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Air Shipment",
+   "options": "Air Shipment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin Port",
+   "options": "UNLOCO",
+   "read_only": 1,
+   "fetch_from": "air_shipment.origin_port"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination Port",
+   "options": "UNLOCO",
+   "read_only": 1,
+   "fetch_from": "air_shipment.destination_port"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "chargeable_weight_est",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight (est.)",
+   "precision": "2",
+   "read_only": 1,
+   "fetch_from": "air_shipment.chargeable"
+  },
+  {
+   "fieldname": "volume_est",
+   "fieldtype": "Float",
+   "label": "Volume (est.)",
+   "precision": "3",
+   "read_only": 1,
+   "fetch_from": "air_shipment.volume"
+  },
+  {
+   "fieldname": "linked_air_consolidation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Linked Air Consolidation",
+   "options": "Air Consolidation",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-20 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "Air Consolidation Plan Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

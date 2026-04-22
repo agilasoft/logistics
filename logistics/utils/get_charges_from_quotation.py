@@ -7,7 +7,7 @@
 the Sales Quote** document (create booking/order actions). They are **not** selectable in
 **Action → Get Charges from Quotation**; linkage is set only during that create flow.
 
-**Regular Sales Quotes**: users **create** Sea Booking, Air Booking, or Transport Order first,
+**Regular Sales Quotes**: users **create** Sea Booking, Air Booking, Transport Order, or Declaration Order first,
 then use **Action → Get Charges from Quotation** to pick a quotation and apply **charges**
 (+ **routing legs** on Sea/Air where applicable). The ``sales_quote`` link is **read-only** on
 the form and is written only by create-from-quote or by the apply step.
@@ -16,7 +16,9 @@ the form and is written only by create-from-quote or by the apply step.
 (``local_customer`` on Sea/Air, ``customer`` on Transport Order) are listed and may be applied.
 
 **Corridor match**: Sea/Air jobs use ``origin_port`` / ``destination_port``; Transport Order uses
-``location_from`` / ``location_to``. If a Sales Quote has **routing legs**, the job corridor must
+``location_from`` / ``location_to``; Declaration Order uses ``port_of_loading`` / ``port_of_discharge``.
+Customs quotations do not filter by corridor in SQL (match is always satisfied when ports are set).
+If a Sales Quote has **routing legs**, the job corridor must
 match a **routing leg** (origin/destination and mode). If it has **no** routing legs, the corridor
 may match unified charges, legacy lines, or header ports/locations. Preview/apply enforce the same rule.
 
@@ -41,7 +43,7 @@ from logistics.utils.sales_quote_link_query import (
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 
-JOB_DOCTYPES = frozenset({"Sea Booking", "Air Booking", "Transport Order"})
+JOB_DOCTYPES = frozenset({"Sea Booking", "Air Booking", "Transport Order", "Declaration Order"})
 
 
 def _sales_quote_row_eligible_for_gcfq_list(name: str, expected_customer: str) -> bool:
@@ -86,7 +88,7 @@ def assert_one_off_sales_quote_job_rules(doc):
 def _job_customer(doc) -> str | None:
 	if doc.doctype in ("Sea Booking", "Air Booking"):
 		return (getattr(doc, "local_customer", None) or "").strip() or None
-	if doc.doctype == "Transport Order":
+	if doc.doctype in ("Transport Order", "Declaration Order"):
 		return (getattr(doc, "customer", None) or "").strip() or None
 	return None
 
@@ -111,6 +113,23 @@ def _gcfq_list_filters_payload(doctype: str, customer: str, origin: str, dest: s
 					"If the quotation has routing legs, origin and destination must match a leg; "
 					"otherwise they may match charges, legacy lines, or header fields"
 				),
+				_("Respects your permission to read Sales Quote records"),
+			],
+		}
+	if doctype == "Declaration Order":
+		return {
+			"service_type": service_type,
+			"customer_label": _("Customer"),
+			"customer": customer,
+			"origin_label": _("Port of Loading"),
+			"origin": origin,
+			"destination_label": _("Port of Discharge"),
+			"destination": dest,
+			"rules": [
+				_("Submitted quotations only (draft quotations are excluded)"),
+				_("Regular quotations only (One-off quotations are excluded)"),
+				_("Valid until is not set or is on or after today"),
+				_("Status is not Lost or Expired"),
 				_("Respects your permission to read Sales Quote records"),
 			],
 		}
@@ -145,6 +164,10 @@ def _job_corridor(doc) -> tuple[str | None, str | None]:
 	if doc.doctype == "Transport Order":
 		o = (getattr(doc, "location_from", None) or "").strip()
 		d = (getattr(doc, "location_to", None) or "").strip()
+		return (o or None, d or None)
+	if doc.doctype == "Declaration Order":
+		o = (getattr(doc, "port_of_loading", None) or "").strip()
+		d = (getattr(doc, "port_of_discharge", None) or "").strip()
 		return (o or None, d or None)
 	return (None, None)
 
@@ -221,9 +244,13 @@ def list_sales_quotes_for_job(doctype: str, docname: str):
 
 	origin, dest = _job_corridor(doc)
 	if not origin or not dest:
+		if doctype == "Declaration Order":
+			_corridor_msg = _("Set Port of Loading and Port of Discharge before loading charges from a quotation.")
+		else:
+			_corridor_msg = _("Set origin and destination on this document before loading charges from a quotation.")
 		return {
 			"quotes": [],
-			"message": _("Set origin and destination on this document before loading charges from a quotation."),
+			"message": _corridor_msg,
 			"filters": None,
 		}
 
@@ -306,6 +333,10 @@ def preview_quotation_charges_for_job(doctype: str, docname: str, sales_quote: s
 		from logistics.transport.doctype.transport_order.transport_order import populate_charges_from_sales_quote
 
 		return populate_charges_from_sales_quote(docname, sales_quote)
+	if doctype == "Declaration Order":
+		from logistics.customs.doctype.declaration_order.declaration_order import populate_charges_from_sales_quote
+
+		return populate_charges_from_sales_quote(docname, sales_quote)
 
 	return {"error": _("Unsupported document type.")}
 
@@ -359,6 +390,8 @@ def apply_quotation_charges_to_job(doctype: str, docname: str, sales_quote: str)
 			if hasattr(doc, "_normalize_charges_before_save"):
 				doc._normalize_charges_before_save()
 		elif doctype == "Transport Order":
+			doc._populate_charges_from_sales_quote()
+		elif doctype == "Declaration Order":
 			doc._populate_charges_from_sales_quote()
 
 	try:

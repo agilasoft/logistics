@@ -1,6 +1,12 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+/** Set before navigating to an order/booking created from a One-off Sales Quote (Main Service / Internal Job lock on load). */
+function logistics_set_one_off_order_route_nav() {
+	frappe.route_options = frappe.route_options || {};
+	frappe.route_options.logistics_one_off_order_route = true;
+}
+
 /** Open Transport Order form and refresh desk breadcrumbs (avoids stale doctype in navbar after navigating from Sales Quote). */
 function logistics_set_route_to_transport_order(docname) {
 	frappe.set_route("Form", "Transport Order", docname).then(function () {
@@ -152,6 +158,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events._set_child_param_readonly(frm);
 		frm.events._sync_quotation_type_to_children(frm);
 		frm.refresh_field("charges");
+		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 	},
 
 	naming_series(frm) {
@@ -211,6 +218,19 @@ frappe.ui.form.on("Sales Quote", {
 		// Legacy child tables (sea_freight, air_freight, transport) removed in Phase 3; params now on Sales Quote Charge
 	},
 
+	/** One-off quotes: Main Job on routing legs is fixed; lock is_main_job on the grid (same idea as is_main_service on orders). */
+	_apply_one_off_routing_leg_main_job_readonly(frm) {
+		const grid = frm.fields_dict.routing_legs && frm.fields_dict.routing_legs.grid;
+		if (!grid || typeof grid.update_docfield_property !== "function") {
+			return;
+		}
+		if (frm.doc.quotation_type === "One-off") {
+			grid.update_docfield_property("is_main_job", "read_only", 1);
+		} else if (!frm.doc.docstatus) {
+			grid.update_docfield_property("is_main_job", "read_only", 0);
+		}
+	},
+
 	_sync_quotation_type_to_children(frm) {
 		const qt = frm.doc.quotation_type || "Regular";
 		(frm.doc.charges || []).forEach(row => { row.quotation_type = qt; });
@@ -231,6 +251,7 @@ frappe.ui.form.on("Sales Quote", {
 
 	routing_legs_add(frm, cdt, cdn) {
 		// Leg order is determined by child table idx (no separate Leg field).
+		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 	},
 
 	refresh(frm) {
@@ -285,6 +306,7 @@ frappe.ui.form.on("Sales Quote", {
 			}
 		});
 		frm.events._set_child_param_readonly(frm);
+		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 		// Update primary button state
 		// Use setTimeout to ensure form state is fully updated after refresh
 		setTimeout(function() {
@@ -1142,6 +1164,7 @@ function create_transport_order_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing order
+				logistics_set_one_off_order_route_nav();
 				logistics_set_route_to_transport_order(r.name);
 				return;
 			}
@@ -1227,7 +1250,11 @@ function show_transport_order_confirmation(frm) {
 								message: __("Transport Order {0} has been created successfully.", [r.message.transport_order]),
 								indicator: "green"
 							});
-							frappe.route_options = { "__clear_scheduled_date": true };
+							frappe.route_options = frappe.route_options || {};
+							frappe.route_options.__clear_scheduled_date = true;
+							if (frm.doc.quotation_type === "One-off") {
+								frappe.route_options.logistics_one_off_order_route = true;
+							}
 							setTimeout(function() {
 								logistics_set_route_to_transport_order(r.message.transport_order);
 							}, 100);
@@ -1238,6 +1265,10 @@ function show_transport_order_confirmation(frm) {
 								indicator: "blue"
 							});
 							if (r.message.transport_order) {
+								frappe.route_options = frappe.route_options || {};
+								if (frm.doc.quotation_type === "One-off") {
+									frappe.route_options.logistics_one_off_order_route = true;
+								}
 								setTimeout(function() {
 									logistics_set_route_to_transport_order(r.message.transport_order);
 								}, 100);
@@ -1313,6 +1344,9 @@ function show_air_booking_confirmation(frm) {
 								}
 								function try_navigate(attempt) {
 									if (attempt > 15) {
+										if (frm.doc.quotation_type === "One-off") {
+											logistics_set_one_off_order_route_nav();
+										}
 										frappe.set_route("Form", "Air Booking", air_booking_name);
 										return;
 									}
@@ -1321,6 +1355,9 @@ function show_air_booking_confirmation(frm) {
 										args: { docname: air_booking_name },
 										callback: function(res) {
 											if (res.message === true) {
+												if (frm.doc.quotation_type === "One-off") {
+													logistics_set_one_off_order_route_nav();
+												}
 												frappe.set_route("Form", "Air Booking", air_booking_name);
 											} else {
 												setTimeout(function() { try_navigate(attempt + 1); }, 300);
@@ -1444,6 +1481,7 @@ function create_air_booking_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing booking
+				logistics_set_one_off_order_route_nav();
 				frappe.set_route("Form", "Air Booking", r.name);
 				return;
 			}
@@ -1467,6 +1505,7 @@ function create_sea_booking_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				// Show existing booking
+				logistics_set_one_off_order_route_nav();
 				frappe.set_route("Form", "Sea Booking", r.name);
 				return;
 			}
@@ -1514,11 +1553,21 @@ function show_sea_booking_confirmation(frm) {
 						if (r.exc) return;
 						if (r.message && r.message.success && r.message.sea_booking) {
 							frappe.msgprint({ title: __("Sea Booking Created"), message: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking]), indicator: "green" });
-							setTimeout(function() { frappe.set_route("Form", "Sea Booking", r.message.sea_booking); }, 100);
+							setTimeout(function() {
+								if (frm.doc.quotation_type === "One-off") {
+									logistics_set_one_off_order_route_nav();
+								}
+								frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+							}, 100);
 						} else if (r.message && r.message.message) {
 							frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
 							if (r.message.sea_booking) {
-								setTimeout(function() { frappe.set_route("Form", "Sea Booking", r.message.sea_booking); }, 100);
+								setTimeout(function() {
+									if (frm.doc.quotation_type === "One-off") {
+										logistics_set_one_off_order_route_nav();
+									}
+									frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+								}, 100);
 							}
 						}
 					},
@@ -1539,6 +1588,13 @@ function show_sea_booking_confirmation(frm) {
 	});
 }
 
+function _set_route_to_declaration_order_from_one_off(do_name) {
+	frappe.route_options = frappe.route_options || {};
+	frappe.route_options.logistics_declaration_order_one_off = true;
+	frappe.route_options.logistics_one_off_order_route = true;
+	frappe.set_route("Form", "Declaration Order", do_name);
+}
+
 function create_declaration_order_from_sales_quote(frm) {
 	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
@@ -1549,7 +1605,7 @@ function create_declaration_order_from_sales_quote(frm) {
 					indicator: "orange"
 				});
 				Promise.resolve(frm.reload_doc()).then(function() {
-					frappe.set_route("Form", "Declaration Order", r.name);
+					_set_route_to_declaration_order_from_one_off(r.name);
 				});
 				return;
 			}
@@ -1632,14 +1688,14 @@ function show_declaration_order_confirmation(frm) {
 											indicator: "green"
 										});
 										Promise.resolve(frm.reload_doc()).then(function() {
-											frappe.set_route("Form", "Declaration Order", do_name);
+											_set_route_to_declaration_order_from_one_off(do_name);
 										});
 									} else if (r.message && r.message.message) {
 										frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
 										if (r.message.declaration_order) {
 											var do_name_alt = r.message.declaration_order;
 											Promise.resolve(frm.reload_doc()).then(function() {
-												frappe.set_route("Form", "Declaration Order", do_name_alt);
+												_set_route_to_declaration_order_from_one_off(do_name_alt);
 											});
 										}
 									}

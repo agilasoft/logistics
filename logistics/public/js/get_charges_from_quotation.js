@@ -1,5 +1,5 @@
 // Copyright (c) 2026, AgilaSoft and contributors
-// Shared: Action → Get Charges from Quotation (Sea Booking, Air Booking, Transport Order)
+// Shared: Action → Get Charges from Quotation (Sea Booking, Air Booking, Transport Order, Declaration Order)
 
 frappe.provide("logistics");
 
@@ -20,12 +20,16 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	}
 
 	var cust =
-		frm.doctype === "Transport Order"
+		frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
 			? frm.doc.customer
 			: frm.doc.local_customer;
 	if (!cust) {
 		frappe.msgprint(
-			__(frm.doctype === "Transport Order" ? "Set Customer first." : "Set Local Customer first.")
+			__(
+				frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
+					? "Set Customer first."
+					: "Set Local Customer first."
+			)
 		);
 		return;
 	}
@@ -33,6 +37,13 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	if (frm.doctype === "Transport Order") {
 		if (!frm.doc.location_from || !frm.doc.location_to) {
 			frappe.msgprint(__("Set Location From and Location To before loading charges from a quotation."));
+			return;
+		}
+	} else if (frm.doctype === "Declaration Order") {
+		if (!frm.doc.port_of_loading || !frm.doc.port_of_discharge) {
+			frappe.msgprint(
+				__("Set Port of Loading and Port of Discharge before loading charges from a quotation.")
+			);
 			return;
 		}
 	} else {

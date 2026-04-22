@@ -202,6 +202,7 @@
    "label": "Sales Quote",
    "no_copy": 1,
    "options": "Sales Quote",
+   "read_only": 1,
    "search_index": 1
   },
   {
@@ -235,11 +236,13 @@
   },
   {
    "collapsible": 1,
+   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
    "label": "Internal Jobs"
   },
   {
+   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
@@ -1062,7 +1065,7 @@
    "table_fieldname": "internal_job_details"
   }
  ],
- "modified": "2026-04-15 15:32:49.299288",
+ "modified": "2026-04-20 14:36:43.413744",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

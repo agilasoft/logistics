@@ -748,11 +748,13 @@
   },
   {
    "collapsible": 1,
+   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
    "label": "Internal Jobs"
   },
   {
+   "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",

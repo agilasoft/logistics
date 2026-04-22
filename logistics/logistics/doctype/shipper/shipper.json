@@ -144,7 +144,9 @@
   {
    "fieldname": "default_notify_party",
    "fieldtype": "Data",
-   "label": "Default Notify Party"
+   "label": "Default Notify Party",
+   "link_filters": "[]",
+   "options": "Address"
   },
   {
    "fieldname": "default_notify_party_address",
@@ -430,7 +432,7 @@
    "fieldname": "shipper_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "link_filters": "[[\"Address\",\"name\",\"like\",\"%%\"],[\"Address\",\"name\",\"like\",\"%%\"]]",
    "options": "Address"
   },
   {
@@ -477,7 +479,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-17 14:34:10.172544",
+ "modified": "2026-04-20 11:00:24.818127",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Shipper",

@@ -175,6 +175,9 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 
 frappe.ui.form.on('Air Shipment', {
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		_logistics_set_charges_cannot_add_rows(frm);
 	},
 	packages_on_form_rendered: function(frm) {

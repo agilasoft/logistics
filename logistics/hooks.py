@@ -37,6 +37,7 @@ app_include_js = [
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/internal_job_create_from_source.js?v=15",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
+	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=6",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=3",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
@@ -152,6 +153,8 @@ doctype_js = {
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/customs/doctype/declaration_order_charges/declaration_order_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
+		# Same Get Charges from Quotation UI as Air / Sea / Transport (list, preview, Apply).
+		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Transport Order": [
 		"logistics/public/js/shipper_consignee_defaults.js",

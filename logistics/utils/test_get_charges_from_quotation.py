@@ -45,6 +45,13 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		d.location_to = "B"
 		self.assertEqual(_job_corridor(d), ("A", "B"))
 
+	def test_job_corridor_declaration_order_ports(self):
+		d = MagicMock()
+		d.doctype = "Declaration Order"
+		d.port_of_loading = " USNYC "
+		d.port_of_discharge = "USLAX"
+		self.assertEqual(_job_corridor(d), ("USNYC", "USLAX"))
+
 	@patch("logistics.utils.get_charges_from_quotation.sales_quote_matches_job_corridor", return_value=False)
 	def test_corridor_mismatch_message_when_quote_no_match(self, _mock):
 		doc = MagicMock()

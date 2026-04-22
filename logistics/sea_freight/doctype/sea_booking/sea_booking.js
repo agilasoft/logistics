@@ -110,6 +110,9 @@ frappe.ui.form.on('Sea Booking', {
 		});
 	},
 	onload: function(frm) {
+		if (window.logistics && logistics.apply_one_off_route_options_onload) {
+			logistics.apply_one_off_route_options_onload(frm);
+		}
 		if (frm.is_new() || frm.doc.__islocal) {
 			if (!frappe._original_msgprint) {
 				frappe._original_msgprint = frappe.msgprint;
