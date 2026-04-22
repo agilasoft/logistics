@@ -239,9 +239,10 @@ def start_update_all_unloco():
 
 def run_update_all_unloco_job():
     """
-    Background: same payload as desk ``populate_unlocode_details`` (with ``refresh_external``),
-    but persist with ``frappe.db.set_value`` so checkbox and other merged fields are written
-    even when ``Document.save`` / validate side effects would leave rows unchanged.
+    Background: build the same field dict as desk populate via ``get_unlocode_data`` +
+    ``populate_fields_from_data`` (with ``refresh_external``), overlay UNECE Function from the
+    cached code-list for every ``has_*`` column, then ``frappe.db.set_value`` so checkboxes
+    persist without relying on ``Document.save`` or the HTTP whitelist response shape.
     """
     batch_size = 100
     updated = 0
@@ -250,10 +251,11 @@ def run_update_all_unloco_job():
             ensure_datahub_un_locode_files,
             is_datahub_un_locode_enabled,
         )
-        from logistics.air_freight.utils.unlocode_utils import (
-            populate_unlocode_details as fetch_unlocode_payload,
-            unwrap_populate_result,
+        from logistics.air_freight.utils.datahub_unlocode import (
+            function_field_to_unloco_capabilities,
+            get_codelist_function_field,
         )
+        from logistics.air_freight.utils.unlocode_utils import get_unlocode_data, populate_fields_from_data
 
         if is_datahub_un_locode_enabled():
             ensure_datahub_un_locode_files()
@@ -261,6 +263,19 @@ def run_update_all_unloco_job():
         table_columns = set(frappe.get_meta("UNLOCO").get_valid_columns())
         # Never bulk-overwrite identity / audit columns from populate payload.
         skip_columns = frozenset({"name", "unlocode", "creation", "owner"})
+        _has_keys = (
+            "has_post",
+            "has_customs",
+            "has_unload",
+            "has_airport",
+            "has_rail",
+            "has_road",
+            "has_store",
+            "has_terminal",
+            "has_discharge",
+            "has_seaport",
+            "has_outport",
+        )
 
         names = frappe.get_all("UNLOCO", pluck="name", order_by="name")
         batch_count = 0
@@ -269,15 +284,26 @@ def run_update_all_unloco_job():
                 code = (frappe.db.get_value("UNLOCO", name, "unlocode") or "").strip().upper()
                 if len(code) != 5:
                     continue
-                result = fetch_unlocode_payload(code, refresh_external=True)
-                details = unwrap_populate_result(result)
-                if not details:
+                # Same core logic as desk ``populate_unlocode_details`` (avoid unwrap / HTTP-only edge cases).
+                raw = get_unlocode_data(code, refresh_external=True)
+                if not raw:
+                    frappe.log_error(
+                        f"UNLOCO Update All: no get_unlocode_data for name={name} code={code}",
+                        "UNLOCO Update All: missing data",
+                    )
                     continue
+                raw.setdefault("unlocode", code)
+                details = populate_fields_from_data(raw)
                 row_updates = {
                     k: v
                     for k, v in details.items()
                     if k in table_columns and k not in skip_columns
                 }
+                fn = get_codelist_function_field(code)
+                if fn:
+                    for k, v in function_field_to_unloco_capabilities(fn).items():
+                        if k in table_columns and k not in skip_columns and k in _has_keys:
+                            row_updates[k] = 1 if v else 0
                 if not row_updates:
                     continue
                 row_updates["last_updated"] = frappe.utils.now()
