@@ -11,6 +11,19 @@ from frappe.model.document import Document
 
 
 class UNLOCO(Document):
+    def _consume_unloco_autopopulate_skip(self) -> bool:
+        """
+        After ``populate_unlocode_details(refresh_external=True)``, ``save()`` runs
+        ``validate`` / ``before_save``, each of which would call ``get_unlocode_data``
+        against the database row that is not updated yet — wiping merged fields
+        (notably Function-derived checkboxes). Skip those two rounds when requested.
+        """
+        n = getattr(self, "_unloco_skip_autopopulate_rounds", 0) or 0
+        if n <= 0:
+            return False
+        self._unloco_skip_autopopulate_rounds = n - 1
+        return True
+
     def validate(self):
         """Validate UNLOCO document"""
         # Validate UNLOCO code format
@@ -18,7 +31,7 @@ class UNLOCO(Document):
             frappe.throw(_("UNLOCO code must be exactly 5 characters long"))
 
         # Auto-populate details if enabled
-        if self.auto_populate and self.unlocode:
+        if self.auto_populate and self.unlocode and not self._consume_unloco_autopopulate_skip():
             self.populate_unlocode_details()
 
         if self.status:
@@ -48,13 +61,16 @@ class UNLOCO(Document):
                         setattr(self, field_name, field_value)
 
                 self.last_updated = frappe.utils.now()
+                if refresh_external:
+                    # See _consume_unloco_autopopulate_skip (validate + before_save).
+                    self._unloco_skip_autopopulate_rounds = 2
 
         except Exception as e:
             frappe.log_error(f"UNLOCO details population error: {str(e)}")
 
     def before_save(self):
         """Auto-populate details before saving"""
-        if self.auto_populate and self.unlocode:
+        if self.auto_populate and self.unlocode and not self._consume_unloco_autopopulate_skip():
             self.populate_unlocode_details()
 
 
