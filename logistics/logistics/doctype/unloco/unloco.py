@@ -50,17 +50,16 @@ class UNLOCO(Document):
             from logistics.air_freight.utils.unlocode_utils import (
                 populate_unlocode_details as fetch_unlocode_payload,
                 unwrap_populate_result,
+                update_document_fields,
             )
 
             result = fetch_unlocode_payload(self.unlocode, refresh_external=refresh_external)
             details = unwrap_populate_result(result)
 
             if details:
-                for field_name, field_value in details.items():
-                    if hasattr(self, field_name) and field_value is not None:
-                        setattr(self, field_name, field_value)
-
-                self.last_updated = frappe.utils.now()
+                # Same application path as whitelist ``populate_unlocode_details(..., doc=…)``:
+                # do not skip falsy check values (0 / False) or keys would stay stale on save.
+                update_document_fields(self, details)
                 if refresh_external:
                     # See _consume_unloco_autopopulate_skip (validate + before_save).
                     self._unloco_skip_autopopulate_rounds = 2
@@ -226,6 +225,14 @@ def run_update_all_unloco_job():
     batch_size = 100
     updated = 0
     try:
+        from logistics.air_freight.utils.datahub_unlocode import (
+            ensure_datahub_un_locode_files,
+            is_datahub_un_locode_enabled,
+        )
+
+        if is_datahub_un_locode_enabled():
+            ensure_datahub_un_locode_files()
+
         names = frappe.get_all("UNLOCO", pluck="name", order_by="name")
         batch_count = 0
         for name in names:

@@ -412,6 +412,33 @@ def datahub_row_to_unlocode_dict(unlocode: str, row: Dict[str, str]) -> Dict[str
 	return out
 
 
+def get_codelist_function_field(unlocode: str) -> Optional[str]:
+	"""
+	Raw UNECE ``Function`` column from the cached DataHub ``code-list.csv`` row, if any.
+
+	Used on forced refresh (e.g. Update All) so ``has_*`` checkboxes always follow the
+	official code-list even when ``get_unlocode_from_database`` falls back to inference
+	or returns a dict without capability keys.
+	"""
+	if not is_datahub_un_locode_enabled():
+		return None
+	u = (unlocode or "").strip().upper()
+	if len(u) != 5:
+		return None
+	try:
+		ensure_datahub_un_locode_files()
+		idx = _get_codelist_index()
+		if not idx:
+			return None
+		row = idx.get(u)
+		if not row:
+			return None
+		raw = (row.get("Function") or "").strip()
+		return raw or None
+	except Exception:
+		return None
+
+
 def get_unlocode_from_datahub(unlocode: str) -> Optional[Dict[str, Any]]:
 	if not is_datahub_un_locode_enabled():
 		return None

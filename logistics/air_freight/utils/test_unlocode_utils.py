@@ -214,9 +214,11 @@ class TestGetUnlocodeDataMerge(unittest.TestCase):
 		self.assertEqual(d.get("country"), "Netherlands")
 		self.assertEqual(d.get("country_code"), "NL")
 
+	@patch("logistics.air_freight.utils.unlocode_utils._apply_unece_function_capabilities")
 	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
 	@patch("frappe.db.get_value")
-	def test_refresh_external_overwrites_has_flags(self, mock_gv, mock_fresh):
+	def test_refresh_external_overwrites_has_flags(self, mock_gv, mock_fresh, mock_apply_caps):
+		mock_apply_caps.side_effect = lambda base, code: None
 		mock_gv.return_value = self._sparse_db_row(country="NL", country_code="NL")
 		mock_fresh.return_value = {
 			"location_name": "Rotterdam",
@@ -231,6 +233,31 @@ class TestGetUnlocodeDataMerge(unittest.TestCase):
 		self.assertEqual(d.get("has_seaport"), 1)
 		self.assertEqual(d.get("has_unload"), 1)
 		self.assertEqual(d.get("has_rail"), 1)
+
+	@patch("logistics.air_freight.utils.unlocode_utils._apply_unece_function_capabilities")
+	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
+	@patch("frappe.db.get_value")
+	def test_refresh_external_applies_codelist_function_when_fresh_omits_has(
+		self, mock_gv, mock_fresh, mock_apply_caps
+	):
+		"""Update All: UNECE Function step must drive has_* even if merge source has no capability keys."""
+		from logistics.air_freight.utils.datahub_unlocode import function_field_to_unloco_capabilities
+
+		mock_apply_caps.side_effect = lambda base, code: base.update(
+			function_field_to_unloco_capabilities("-----6--")
+		)
+		mock_gv.return_value = self._sparse_db_row(country="NL", country_code="NL")
+		mock_fresh.return_value = {
+			"location_name": "Rotterdam",
+			"country": "Netherlands",
+			"country_code": "NL",
+			"data_source": "DataHub.io",
+		}
+		d = get_unlocode_data("NLRTM", refresh_external=True)
+		self.assertEqual(d.get("has_terminal"), 1)
+		self.assertEqual(d.get("has_store"), 1)
+		self.assertEqual(d.get("has_unload"), 1)
+		self.assertEqual(d.get("has_seaport"), 0)
 
 	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
 	@patch("frappe.db.get_value")
