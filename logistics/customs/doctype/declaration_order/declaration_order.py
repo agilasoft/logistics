@@ -118,6 +118,9 @@ class DeclarationOrder(Document):
 
 	def validate(self):
 		"""Validate and handle Sales Quote link (One-off conversion and link-cleared reset)."""
+		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+		validate_internal_job_main_link_unchanged(self)
 		original_sales_quote = None
 		if not self.is_new():
 			try:

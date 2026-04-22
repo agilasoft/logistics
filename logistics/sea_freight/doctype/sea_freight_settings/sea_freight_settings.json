@@ -101,9 +101,9 @@
   },
   {
    "fieldname": "default_service_level",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Default Service Level",
-   "options": "Standard\nExpress\nEconomy\nPremium"
+   "options": "Logistics Service Level"
   },
   {
    "fieldname": "location_settings_section",

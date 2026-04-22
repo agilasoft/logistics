@@ -40,14 +40,12 @@ def _air_plan_required_for_match() -> tuple[str, ...]:
 
 
 def _sea_plan_required_for_match() -> tuple[str, ...]:
+	"""Fields required to run fetch; shipping_line / vessel / voyage are optional filters when set."""
 	return (
 		"company",
 		"branch",
 		"origin_port",
 		"destination_port",
-		"shipping_line",
-		"vessel_name",
-		"voyage_number",
 		"target_etd",
 	)
 
@@ -121,46 +119,47 @@ def get_strict_matching_air_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 
 
 def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> List[str]:
-	"""Strict match: house + MBL shipping line equal plan line, MBL vessel/voyage, same ETD date as target_etd."""
+	"""Match company, branch, ports, ETD date; apply shipping_line / MBL vessel / MBL voyage filters only when set on the plan."""
 	p = _plan_as_dict(plan)
 	if any(not p.get(f) for f in _sea_plan_required_for_match()):
 		return []
 	etd_date = getdate(p["target_etd"])
-	sl = p["shipping_line"]
+	conditions = [
+		"s.docstatus != 2",
+		"IFNULL(s.job_status, '') NOT IN ('Cancelled', 'Closed')",
+		"s.company = %(company)s",
+		"s.branch = %(branch)s",
+		"s.origin_port = %(origin)s",
+		"s.destination_port = %(dest)s",
+		"s.etd = %(etd_date)s",
+		"IFNULL(s.house_type, '') NOT IN ('Co-load Master', 'Blind Co-load Master')",
+	]
+	params: Dict[str, Any] = {
+		"company": p["company"],
+		"branch": p["branch"],
+		"origin": p["origin_port"],
+		"dest": p["destination_port"],
+		"etd_date": etd_date,
+	}
+	sl = (p.get("shipping_line") or "").strip()
+	if sl:
+		conditions.append("s.shipping_line = %(sl)s")
+		conditions.append("IFNULL(s.mbl_shipping_line, '') = %(sl)s")
+		params["sl"] = sl
 	vessel = (p.get("vessel_name") or "").strip()
+	if vessel:
+		conditions.append("UPPER(TRIM(IFNULL(s.mbl_vessel, ''))) = UPPER(TRIM(%(vessel)s))")
+		params["vessel"] = vessel
 	voyage = (p.get("voyage_number") or "").strip()
-	if not vessel or not voyage:
-		return []
-	rows = frappe.db.sql(
-		"""
-		SELECT DISTINCT s.name
-		FROM `tabSea Shipment` s
-		WHERE s.docstatus != 2
-			AND IFNULL(s.job_status, '') NOT IN ('Cancelled', 'Closed')
-			AND s.company = %(company)s
-			AND s.branch = %(branch)s
-			AND s.origin_port = %(origin)s
-			AND s.destination_port = %(dest)s
-			AND s.shipping_line = %(sl)s
-			AND IFNULL(s.mbl_shipping_line, '') = %(sl)s
-			AND s.etd = %(etd_date)s
-			AND UPPER(TRIM(IFNULL(s.mbl_vessel, ''))) = UPPER(TRIM(%(vessel)s))
-			AND UPPER(TRIM(IFNULL(s.mbl_voyage_no, ''))) = UPPER(TRIM(%(voyage)s))
-			AND IFNULL(s.house_type, '') NOT IN ('Co-load Master', 'Blind Co-load Master')
-		ORDER BY s.name
-		""",
-		{
-			"company": p["company"],
-			"branch": p["branch"],
-			"origin": p["origin_port"],
-			"dest": p["destination_port"],
-			"sl": sl,
-			"etd_date": etd_date,
-			"vessel": vessel,
-			"voyage": voyage,
-		},
-		as_dict=False,
+	if voyage:
+		conditions.append("UPPER(TRIM(IFNULL(s.mbl_voyage_no, ''))) = UPPER(TRIM(%(voyage)s))")
+		params["voyage"] = voyage
+	sql = (
+		"SELECT DISTINCT s.name FROM `tabSea Shipment` s WHERE "
+		+ " AND ".join(conditions)
+		+ " ORDER BY s.name"
 	)
+	rows = frappe.db.sql(sql, params, as_dict=False)
 	return [r[0] for r in rows]
 
 

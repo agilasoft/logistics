@@ -74,6 +74,7 @@ class SalesQuote(Document):
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.validate_one_off_required_parameters()
 		self.validate_additional_charge_job()
+		self.validate_load_type_matches_service()
 		self.validate_vehicle_type_load_type()
 		self.validate_vehicle_type_capacity()
 		self.validate_multimodal_main_job()
@@ -211,6 +212,49 @@ class SalesQuote(Document):
 		main_count = sum(1 for r in legs if getattr(r, "is_main_job", 0))
 		if main_count == 0:
 			frappe.throw(_("Multimodal routing requires at least one Main Job. Please check 'Main Job' on one or more legs."))
+
+	def validate_load_type_matches_service(self):
+		"""Load Type must have the checkbox for the current service mode enabled (air/sea/transport/customs/warehousing).
+
+		A Load Type may have several mode flags set; validation only checks that the flag matching the charge's
+		service_type (or one-off main_service) is enabled—not that other flags are off.
+		"""
+		service_to_field = {
+			"Air": "air",
+			"Sea": "sea",
+			"Transport": "transport",
+			"Customs": "customs",
+			"Warehousing": "warehousing",
+		}
+
+		def _check(load_type_name, service_label, field_name, context):
+			if not load_type_name or not field_name:
+				return
+			if not frappe.db.exists("Load Type", load_type_name):
+				return
+			if not frappe.db.get_value("Load Type", load_type_name, field_name):
+				frappe.throw(
+					_("Load Type '{0}' is not valid for {1}. Select a Load Type with '{2}' enabled.").format(
+						load_type_name,
+						context,
+						service_label,
+					),
+					title=_("Invalid Load Type"),
+				)
+
+		if getattr(self, "quotation_type", None) == "One-off" and not getattr(self, "additional_charge", 0):
+			main = getattr(self, "main_service", None)
+			lt = getattr(self, "load_type", None)
+			field = service_to_field.get(main)
+			if lt and field:
+				_check(lt, main, field, _("this quote's Main Service"))
+
+		for row in getattr(self, "charges", None) or []:
+			st = getattr(row, "service_type", None)
+			lt = getattr(row, "load_type", None)
+			field = service_to_field.get(st)
+			if lt and field:
+				_check(lt, st, field, _("charge row {0}").format(getattr(row, "idx", "") or ""))
 
 	def validate_customs_unit_types(self):
 		"""Ensure customs charge rows use unit types allowed by Declaration Order / Declaration Charges.
@@ -516,9 +560,9 @@ class SalesQuote(Document):
 			air_shipment.direction = getattr(self, 'direction', None)
 			# Use Air tab dimensions (fallback to old top-level for backward compat)
 			weight = getattr(self, 'air_weight', None) or getattr(self, 'weight', None)
-			air_shipment.weight = weight if weight and flt(weight) > 0 else None
+			air_shipment.total_weight = weight if weight and flt(weight) > 0 else None
 			volume = getattr(self, 'air_volume', None) or getattr(self, 'volume', None)
-			air_shipment.volume = volume if volume and flt(volume) > 0 else None
+			air_shipment.total_volume = volume if volume and flt(volume) > 0 else None
 			chargeable = getattr(self, 'air_chargeable', None) or getattr(self, 'chargeable', None)
 			air_shipment.chargeable = chargeable if chargeable and flt(chargeable) > 0 else None
 			air_shipment.service_level = getattr(self, 'service_level', None)
@@ -1280,6 +1324,30 @@ def _update_routing_leg_job(sales_quote_name, mode, job_type, job_no):
 
 
 @frappe.whitelist()
+def get_load_type_service_flags(load_types=None):
+	"""Return mode flags for Load Type names (client sanitization vs service_type)."""
+	import json
+
+	if isinstance(load_types, str):
+		load_types = json.loads(load_types)
+	if not load_types:
+		return {}
+	out = {}
+	for name in load_types:
+		if not name:
+			continue
+		row = frappe.db.get_value(
+			"Load Type",
+			name,
+			["air", "sea", "transport", "customs", "warehousing"],
+			as_dict=True,
+		)
+		if row:
+			out[name] = row
+	return out
+
+
+@frappe.whitelist()
 def get_vehicle_types_for_load_type(load_type):
 	"""
 	Get list of Vehicle Types that have the specified load_type in their allowed_load_types.
@@ -1507,9 +1575,9 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 				or air_shipment.get("chargeable_weight", 0)
 			)
 		elif sqaf_record.unit_type == "Weight":
-			quantity = flt(air_shipment.weight) or 0
+			quantity = flt(air_shipment.get("total_weight") or air_shipment.get("weight")) or 0
 		elif sqaf_record.unit_type == "Volume":
-			quantity = flt(air_shipment.volume) or 0
+			quantity = flt(air_shipment.get("total_volume") or air_shipment.get("volume")) or 0
 		elif sqaf_record.unit_type in ("Package", "Piece"):
 			if hasattr(air_shipment, 'packages') and air_shipment.packages:
 				quantity = len(air_shipment.packages)
@@ -1681,9 +1749,9 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 				or sea_shipment.get("chargeable_weight", 0)
 			)
 		elif sqsf_record.unit_type == "Weight":
-			quantity = flt(sea_shipment.weight) or 0
+			quantity = flt(sea_shipment.get("total_weight")) or 0
 		elif sqsf_record.unit_type == "Volume":
-			quantity = flt(sea_shipment.volume) or 0
+			quantity = flt(sea_shipment.get("total_volume")) or 0
 		elif sqsf_record.unit_type == "Package":
 			# Get package count from Sea Shipment if available
 			if hasattr(sea_shipment, 'packages') and sea_shipment.packages:
@@ -1942,6 +2010,18 @@ def resolve_single_main_air_booking_for_sales_quote(sales_quote_name):
 	return cand[0] if len(cand) == 1 else None
 
 
+# Main-service ops docs allowed to share a one-off quote already converted to a Declaration Order (same job chain).
+_DOCTYPES_MAIN_SERVICE_WITH_DECLARATION_ORDER_CONVERSION = frozenset(
+	(
+		"Transport Order",
+		"Sea Shipment",
+		"Air Shipment",
+		"Sea Booking",
+		"Air Booking",
+	)
+)
+
+
 def validate_one_off_quote_not_converted(
 	sales_quote_name: str,
 	current_doctype: str = None,
@@ -1949,7 +2029,7 @@ def validate_one_off_quote_not_converted(
 	allow_if_quote_converted_to: str = None,
 	allow_linked_sea_booking: str = None,
 	allow_linked_air_booking: str = None,
-	allow_main_transport_if_converted_to_declaration_order: bool = False,
+		allow_main_transport_if_converted_to_declaration_order: bool = False,
 ):
 	"""
 	Validate that One-off Sales Quote is not already converted or linked to another document.
@@ -1963,8 +2043,9 @@ def validate_one_off_quote_not_converted(
 			allow use — used when the current document is the next step in the same chain (e.g. Declaration from that Order).
 		allow_linked_sea_booking: Sea Booking name that may hold the same quote as this doc (e.g. Sea Shipment's parent booking, or main Sea leg for an internal-job Transport Order).
 		allow_linked_air_booking: Air Booking name for the same job chain (e.g. Air Shipment's parent booking).
-		allow_main_transport_if_converted_to_declaration_order: If True and current doc is a main Transport Order,
-			allow when the quote is already marked converted to a Declaration Order (customs leg submitted first; transport main leg is part of the same job chain).
+		allow_main_transport_if_converted_to_declaration_order: If True and current doc is a main-service Transport Order,
+			Sea/Air Shipment, or Sea/Air Booking, allow when the quote is already marked converted to a Declaration Order
+			(customs leg submitted first; freight main leg is part of the same job chain).
 		
 	Raises:
 		frappe.ValidationError: If quote is already converted or linked to another document
@@ -1989,10 +2070,10 @@ def validate_one_off_quote_not_converted(
 			# Same conversion chain: e.g. quote was converted to Declaration Order X, current doc is Declaration from that Order
 			if allow_if_quote_converted_to and converted_ref and converted_ref == allow_if_quote_converted_to.strip():
 				return
-			# Main Transport Order alongside a submitted Declaration Order (one-off quote covers customs + transport)
+			# Main freight/transport leg alongside a submitted Declaration Order (one-off quote covers customs + freight)
 			if (
 				allow_main_transport_if_converted_to_declaration_order
-				and (current_doctype or "") == "Transport Order"
+				and (current_doctype or "") in _DOCTYPES_MAIN_SERVICE_WITH_DECLARATION_ORDER_CONVERSION
 				and converted_ref
 				and converted_ref.startswith("Declaration Order ")
 			):

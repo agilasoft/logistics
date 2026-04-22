@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 _COORD_RE = re.compile(
 	r"^\s*(?P<lat_d>\d{2})(?P<lat_m>\d{2})(?P<lat_h>[NS])\s+(?P<lon_d>\d{3})(?P<lon_m>\d{2})(?P<lon_h>[EW])\s*$",
@@ -38,9 +39,12 @@ def parse_un_coordinates(coord: str) -> tuple:
 
 
 @frappe.whitelist()
-def populate_unlocode_details(unlocode: str, doc: Any = None) -> Dict[str, Any]:
+def populate_unlocode_details(unlocode: str, doc: Any = None, refresh_external: bool = False) -> Dict[str, Any]:
 	"""
 	Return {status, message?, data} for desk; data is a flat field dict for UNLOCO.
+
+	:param refresh_external: If True, merge DataHub (and other external) fields over stored DB
+		values so e.g. Function-derived checkboxes update on bulk refresh.
 	"""
 	try:
 		if not unlocode:
@@ -50,7 +54,7 @@ def populate_unlocode_details(unlocode: str, doc: Any = None) -> Dict[str, Any]:
 		if len(code) != 5:
 			return {"status": "error", "message": _("UNLOCO code must be exactly 5 characters"), "data": {}}
 
-		unlocode_data = get_unlocode_data(code)
+		unlocode_data = get_unlocode_data(code, refresh_external=bool(cint(refresh_external)))
 
 		if unlocode_data:
 			unlocode_data.setdefault("unlocode", code)
@@ -108,6 +112,57 @@ _OVERLAY_FILL_KEYS = (
 	"status",
 	"data_source",
 )
+
+# Keys refreshed from DataHub / ``get_unlocode_from_database`` when forcing an update (Update All).
+_EXTERNAL_REFRESH_KEYS = (
+	"location_name",
+	"country",
+	"country_code",
+	"subdivision",
+	"city",
+	"location_type",
+	"iata_code",
+	"timezone",
+	"currency",
+	"language",
+	"utc_offset",
+	"operating_hours",
+	"description",
+	"status",
+	"data_source",
+	"latitude",
+	"longitude",
+	"has_post",
+	"has_customs",
+	"has_unload",
+	"has_airport",
+	"has_rail",
+	"has_road",
+	"has_store",
+	"has_terminal",
+	"has_discharge",
+	"has_seaport",
+	"has_outport",
+)
+
+
+def _merge_external_refresh(base: Dict[str, Any], fresh: Dict[str, Any]) -> None:
+	"""Overwrite ``base`` fields from ``fresh`` for codelist-driven data (e.g. Function checkboxes)."""
+	for key in _EXTERNAL_REFRESH_KEYS:
+		if key not in fresh:
+			continue
+		val = fresh[key]
+		if key.startswith("has_"):
+			if val is None:
+				continue
+			base[key] = 1 if val else 0
+			continue
+		if key in ("latitude", "longitude"):
+			base[key] = val
+			continue
+		if val is None:
+			continue
+		base[key] = val
 
 
 def _merge_unlocode_overlay(base: Dict[str, Any], overlay: Optional[Dict[str, Any]]) -> None:
@@ -194,7 +249,7 @@ def _unloco_db_row_to_dict(existing: Any) -> Dict[str, Any]:
 	}
 
 
-def get_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
+def get_unlocode_data(unlocode: str, refresh_external: bool = False) -> Optional[Dict[str, Any]]:
 	try:
 		code = unlocode.strip().upper()
 		existing = frappe.db.get_value(
@@ -234,6 +289,12 @@ def get_unlocode_data(unlocode: str) -> Optional[Dict[str, Any]]:
 
 		if existing:
 			base = _unloco_db_row_to_dict(existing)
+			if refresh_external:
+				fresh = get_unlocode_from_database(code)
+				if fresh:
+					_merge_external_refresh(base, fresh)
+				_backfill_country_from_unlocode_prefix(code, base)
+				return base
 			if _is_blank_str(base.get("country")) or _is_blank_str(base.get("country_code")):
 				fresh = get_unlocode_from_database(code)
 				_merge_unlocode_overlay(base, fresh)

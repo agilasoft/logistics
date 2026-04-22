@@ -1,0 +1,280 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CA.{#####}",
+ "creation": "2026-04-22 00:00:00.000000",
+ "default_sort_field": "modified",
+ "default_sort_order": "DESC",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "accounting_section",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "job_number",
+  "column_break_acct",
+  "fund_source",
+  "payee",
+  "payee_name",
+  "employee_advance",
+  "date",
+  "releasing_and_liquidation",
+  "released_to",
+  "release_date",
+  "column_break_22",
+  "liquidation_due_date",
+  "liquidation_date",
+  "section_break_25",
+  "items",
+  "calculate",
+  "total_requested",
+  "total_liquidated",
+  "unliquidated",
+  "status_reason",
+  "refund_return",
+  "refunded",
+  "returned",
+  "refund_return_date",
+  "reference",
+  "from_to",
+  "advance_journal_entry"
+ ],
+ "fields": [
+  {
+   "fieldname": "accounting_section",
+   "fieldtype": "Section Break",
+   "label": "Accounting dimensions"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "options": "Job Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_acct",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fund_source",
+   "fieldtype": "Link",
+   "label": "Fund Source",
+   "options": "Account",
+   "description": "Bank or Cash account paid out for this advance (required on submit)."
+  },
+  {
+   "fieldname": "payee",
+   "fieldtype": "Link",
+   "label": "Payee",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "payee_name",
+   "fieldtype": "Data",
+   "fetch_from": "payee.supplier_name",
+   "label": "Payee Name",
+   "read_only": 1
+  },
+  {
+   "description": "Used as Reference Type on release and liquidation journal entries (ERPNext Employee Advance).",
+   "fieldname": "employee_advance",
+   "fieldtype": "Link",
+   "label": "Employee Advance",
+   "options": "Employee Advance"
+  },
+  {
+   "default": "Today",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Request Date"
+  },
+  {
+   "fieldname": "releasing_and_liquidation",
+   "fieldtype": "Section Break",
+   "label": "Releasing and Liquidation"
+  },
+  {
+   "fieldname": "released_to",
+   "fieldtype": "Link",
+   "label": "Release To",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "release_date",
+   "fieldtype": "Date",
+   "label": "Release Date"
+  },
+  {
+   "fieldname": "column_break_22",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "liquidation_due_date",
+   "fieldtype": "Date",
+   "label": "Liquidation Due Date"
+  },
+  {
+   "fieldname": "liquidation_date",
+   "fieldtype": "Date",
+   "label": "Liquidation Date"
+  },
+  {
+   "fieldname": "section_break_25",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Cash Advance Request Item"
+  },
+  {
+   "fieldname": "calculate",
+   "fieldtype": "Button",
+   "label": "Calculate"
+  },
+  {
+   "fieldname": "total_requested",
+   "fieldtype": "Currency",
+   "label": "Total Requested"
+  },
+  {
+   "fieldname": "total_liquidated",
+   "fieldtype": "Currency",
+   "label": "Total Liquidated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unliquidated",
+   "fieldtype": "Currency",
+   "label": "Unliquidated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status_reason",
+   "fieldtype": "Small Text",
+   "label": "Status Reason"
+  },
+  {
+   "fieldname": "refund_return",
+   "fieldtype": "Section Break",
+   "label": "Refund /Return"
+  },
+  {
+   "fieldname": "refunded",
+   "fieldtype": "Currency",
+   "label": "Refunded"
+  },
+  {
+   "fieldname": "returned",
+   "fieldtype": "Currency",
+   "label": "Returned"
+  },
+  {
+   "fieldname": "refund_return_date",
+   "fieldtype": "Date",
+   "label": "Refund/Return Date"
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "from_to",
+   "fieldtype": "Link",
+   "label": "From/To",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "advance_journal_entry",
+   "fieldtype": "Link",
+   "label": "Release Journal Entry",
+   "no_copy": 1,
+   "options": "Journal Entry",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Liquidation",
+   "link_doctype": "Cash Advance Liquidation",
+   "link_fieldname": "cash_advance_request"
+  }
+ ],
+ "max_attachments": 0,
+ "modified": "2026-04-22 20:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Advance",
+ "name": "Cash Advance Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

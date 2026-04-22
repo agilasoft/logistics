@@ -58,7 +58,8 @@ frappe.ui.form.on('UNLOCO', {
             frappe.call({
                 method: 'logistics.air_freight.utils.unlocode_utils.populate_unlocode_details',
                 args: {
-                    unlocode: frm.doc.unlocode
+                    unlocode: frm.doc.unlocode,
+                    refresh_external: 1,
                 },
                 callback: function(r) {
                     apply_unloco_populate_to_form(frm, r);
@@ -81,7 +82,8 @@ frappe.ui.form.on('UNLOCO', {
                 frappe.call({
                     method: 'logistics.air_freight.utils.unlocode_utils.populate_unlocode_details',
                     args: {
-                        unlocode: frm.doc.unlocode
+                        unlocode: frm.doc.unlocode,
+                        refresh_external: 1,
                     },
                     callback: function(r) {
                         apply_unloco_populate_to_form(frm, r);

@@ -31,9 +31,13 @@ _MBL_VIRTUAL_FIELD_SOURCES = (
 class SeaShipment(Document):
     def validate(self):
         """Validate Sea Shipment data"""
+        from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+        validate_internal_job_main_link_unchanged(self)
         from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
         apply_shipper_consignee_defaults(self)
+        self._sync_freight_consolidator_from_sea_booking()
         if self.is_new():
             from logistics.sea_freight.sea_freight_settings_defaults import (
                 apply_accounting_defaults_from_sea_freight_settings,
@@ -77,6 +81,8 @@ class SeaShipment(Document):
         msgprint_sales_quote_validity_warnings(self)
 
         if getattr(self, "sales_quote", None):
+            from frappe.utils import cint
+
             from logistics.pricing_center.doctype.sales_quote.sales_quote import (
                 resolve_allow_linked_freight_bookings_for_internal_job,
                 resolve_single_main_air_booking_for_sales_quote,
@@ -101,11 +107,22 @@ class SeaShipment(Document):
                 self.name,
                 allow_linked_sea_booking=allow_sea,
                 allow_linked_air_booking=allow_air,
+                allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
             )
 
         from logistics.job_management.logistics_job_status import sync_sea_shipment_job_status
 
         sync_sea_shipment_job_status(self)
+
+    def _sync_freight_consolidator_from_sea_booking(self):
+        """Keep Freight Consolidator aligned with the linked Sea Booking when set there."""
+        if not getattr(self, "sea_booking", None):
+            return
+        booking_fc = frappe.db.get_value(
+            "Sea Booking", self.sea_booking, "freight_consolidator"
+        )
+        if booking_fc:
+            self.freight_consolidator = booking_fc
 
     def validate_main_routing_legs_by_entry_type(self):
         """Allow additional Main leg for Transit/Transshipment while keeping Direct capped at one."""

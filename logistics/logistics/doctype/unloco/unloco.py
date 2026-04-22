@@ -31,15 +31,15 @@ class UNLOCO(Document):
                         title=_("Invalid Status"),
                     )
 
-    def populate_unlocode_details(self):
-        """Populate UNLOCO details from database or external sources"""
+    def populate_unlocode_details(self, refresh_external=False):
+        """Populate UNLOCO details from database or external sources."""
         try:
             from logistics.air_freight.utils.unlocode_utils import (
-                populate_unlocode_details,
+                populate_unlocode_details as fetch_unlocode_payload,
                 unwrap_populate_result,
             )
 
-            result = populate_unlocode_details(self.unlocode)
+            result = fetch_unlocode_payload(self.unlocode, refresh_external=refresh_external)
             details = unwrap_populate_result(result)
 
             if details:
@@ -180,4 +180,55 @@ def run_get_all_unloco_job():
             frappe.db.commit()
     except Exception:
         frappe.log_error(frappe.get_traceback(), "UNLOCO Get All from DataHub job")
+        raise
+
+
+@frappe.whitelist()
+def start_update_all_unloco():
+    """
+    Queue a background job to re-run DataHub / overlay population on every UNLOCO row.
+
+    Requires System Manager and UNLOCO write permission.
+    """
+    frappe.only_for("System Manager")
+    if not frappe.has_permission("UNLOCO", "write"):
+        frappe.throw(_("Not permitted to update UNLOCO"))
+
+    frappe.enqueue(
+        "logistics.logistics.doctype.unloco.unloco.run_update_all_unloco_job",
+        queue="long",
+        timeout=4 * 60 * 60,
+        job_name="unloco_update_all_from_sources",
+        enqueue_after_commit=True,
+    )
+
+    return {"queued": True}
+
+
+def run_update_all_unloco_job():
+    """Background: refresh every UNLOCO via populate_unlocode_details; commit in batches."""
+    batch_size = 100
+    updated = 0
+    try:
+        names = frappe.get_all("UNLOCO", pluck="name", order_by="name")
+        batch_count = 0
+        for name in names:
+            try:
+                doc = frappe.get_doc("UNLOCO", name)
+                doc.populate_unlocode_details(refresh_external=True)
+                doc.save()
+                updated += 1
+            except Exception as e:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    f"UNLOCO Update All: {name}: {e!s}",
+                )
+            batch_count += 1
+            if batch_count >= batch_size:
+                frappe.db.commit()
+                batch_count = 0
+        frappe.db.commit()
+        frappe.logger().info(f"UNLOCO Update All finished: {updated} document(s) saved")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "UNLOCO Update All job")
         raise

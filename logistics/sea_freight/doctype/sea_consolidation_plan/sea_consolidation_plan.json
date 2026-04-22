@@ -127,7 +127,6 @@
    "fieldtype": "Link",
    "label": "Shipping Line",
    "options": "Shipping Line",
-   "reqd": 1,
    "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
@@ -135,18 +134,14 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "TBA",
    "fieldname": "vessel_name",
    "fieldtype": "Data",
-   "label": "Vessel Name",
-   "reqd": 1
+   "label": "Vessel Name"
   },
   {
-   "default": "TBA",
    "fieldname": "voyage_number",
    "fieldtype": "Data",
-   "label": "Voyage Number",
-   "reqd": 1
+   "label": "Voyage Number"
   },
   {
    "fieldname": "consolidation_type",
@@ -175,7 +170,7 @@
  "is_submittable": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-20 00:00:00",
+ "modified": "2026-04-20 12:00:00",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation Plan",

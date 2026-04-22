@@ -97,6 +97,76 @@ class TestInferUnlocodeData(unittest.TestCase):
 		self.assertEqual(d.get("location_type"), "Other")
 
 
+class TestDatahubFunctionToCapabilities(unittest.TestCase):
+	def test_port_airport_combo(self):
+		from logistics.air_freight.utils.datahub_unlocode import function_field_to_unloco_capabilities
+
+		c = function_field_to_unloco_capabilities("1--4----")
+		self.assertEqual(c["has_seaport"], 1)
+		self.assertEqual(c["has_unload"], 1)
+		self.assertEqual(c["has_airport"], 1)
+		self.assertEqual(c["has_rail"], 0)
+		self.assertEqual(c["has_customs"], 0)
+
+	def test_road_border_customs(self):
+		from logistics.air_freight.utils.datahub_unlocode import (
+			function_field_to_unloco_capabilities,
+			_function_positions,
+			_primary_location_type,
+		)
+
+		c = function_field_to_unloco_capabilities("--3----B")
+		self.assertEqual(c["has_road"], 1)
+		self.assertEqual(c["has_customs"], 1)
+		self.assertEqual(c["has_seaport"], 0)
+		self.assertEqual(c["has_unload"], 0)
+		self.assertEqual(c["has_store"], 0)
+		fs = _function_positions("--3----B")
+		self.assertEqual(fs, ["3"])
+		self.assertEqual(_primary_location_type(fs, "--3----B"), "Border Crossing")
+
+	def test_multimodal_function_6_terminal_and_store(self):
+		from logistics.air_freight.utils.datahub_unlocode import function_field_to_unloco_capabilities
+
+		c = function_field_to_unloco_capabilities("-----6--")
+		self.assertEqual(c["has_terminal"], 1)
+		self.assertEqual(c["has_store"], 1)
+		self.assertEqual(c["has_unload"], 1)
+		self.assertEqual(c["has_seaport"], 0)
+
+	def test_fixed_transport_function_7_discharge(self):
+		from logistics.air_freight.utils.datahub_unlocode import function_field_to_unloco_capabilities
+
+		c = function_field_to_unloco_capabilities("------7-")
+		self.assertEqual(c["has_discharge"], 1)
+		self.assertEqual(c["has_unload"], 1)
+		self.assertEqual(c["has_terminal"], 0)
+
+	def test_inland_water_function_8_outport(self):
+		from logistics.air_freight.utils.datahub_unlocode import (
+			function_field_to_unloco_capabilities,
+			_function_positions,
+		)
+
+		c = function_field_to_unloco_capabilities("1------8")
+		self.assertEqual(c["has_seaport"], 1)
+		self.assertEqual(c["has_outport"], 1)
+		self.assertEqual(c["has_unload"], 1)
+		self.assertEqual(_function_positions("1------8"), ["1", "8"])
+
+	def test_unknown_zero_first_slot(self):
+		from logistics.air_freight.utils.datahub_unlocode import (
+			function_field_to_unloco_capabilities,
+			_function_positions,
+			_primary_location_type,
+		)
+
+		self.assertEqual(_function_positions("0-------"), [])
+		self.assertEqual(_primary_location_type([], "0-------"), "Other")
+		c = function_field_to_unloco_capabilities("0-------")
+		self.assertEqual(c["has_seaport"], 0)
+
+
 class TestDatahubResourceUrls(unittest.TestCase):
 	def test_datapackage_relative_paths_resolve_to_datahub(self):
 		from logistics.air_freight.utils.datahub_unlocode import DATAHUB_UN_LOCODE_DATASET, _merge_resource_urls
@@ -143,6 +213,24 @@ class TestGetUnlocodeDataMerge(unittest.TestCase):
 		self.assertIsNotNone(d)
 		self.assertEqual(d.get("country"), "Netherlands")
 		self.assertEqual(d.get("country_code"), "NL")
+
+	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
+	@patch("frappe.db.get_value")
+	def test_refresh_external_overwrites_has_flags(self, mock_gv, mock_fresh):
+		mock_gv.return_value = self._sparse_db_row(country="NL", country_code="NL")
+		mock_fresh.return_value = {
+			"location_name": "Rotterdam",
+			"country": "Netherlands",
+			"country_code": "NL",
+			"has_seaport": 1,
+			"has_unload": 1,
+			"has_rail": 1,
+			"data_source": "DataHub.io",
+		}
+		d = get_unlocode_data("NLRTM", refresh_external=True)
+		self.assertEqual(d.get("has_seaport"), 1)
+		self.assertEqual(d.get("has_unload"), 1)
+		self.assertEqual(d.get("has_rail"), 1)
 
 	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
 	@patch("frappe.db.get_value")

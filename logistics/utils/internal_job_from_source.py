@@ -23,6 +23,32 @@ CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
 	{"Transport Order", "Declaration Order", "Air Booking", "Sea Booking", "Inbound Order"}
 )
 
+
+def _source_internal_job_nested_block_message() -> str:
+	return _(
+		"This document is already an internal job linked to a main job. Create additional internal jobs from the main service document, not from this one."
+	)
+
+
+def is_source_internal_job_linked_to_main(parent_doc: Any) -> bool:
+	"""True when the document is an internal job that already references a main (cannot spawn another internal job from it)."""
+	from frappe.utils import cint
+
+	if not cint(getattr(parent_doc, "is_internal_job", 0)):
+		return False
+	mjt = (getattr(parent_doc, "main_job_type", None) or "").strip()
+	mj = (getattr(parent_doc, "main_job", None) or "").strip()
+	return bool(mjt and mj)
+
+
+def ensure_operational_source_can_create_internal_job(parent_doc: Any) -> None:
+	"""Reject Create Internal Job when the source is already a linked internal job."""
+	if is_source_internal_job_linked_to_main(parent_doc):
+		frappe.throw(
+			_source_internal_job_nested_block_message(),
+			title=_("Cannot create internal job"),
+		)
+
 _SERVICE_LOWER_FOR_JOB_TYPE: dict[str, str] = {
 	"Transport Order": "transport",
 	"Declaration Order": "customs",
@@ -374,6 +400,12 @@ def get_internal_job_creation_choices(
 	doc = frappe.get_doc(source_doctype, source_name)
 	doc.check_permission("read")
 
+	if is_source_internal_job_linked_to_main(doc):
+		return {
+			"choices": [],
+			"blocked_message": _source_internal_job_nested_block_message(),
+		}
+
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
 	flags = get_quote_module_flags(
@@ -460,6 +492,34 @@ def get_internal_job_creation_preview(
 
 	doc = frappe.get_doc(source_doctype, source_name)
 	doc.check_permission("read")
+
+	from frappe.utils import cint
+
+	if is_source_internal_job_linked_to_main(doc):
+		idx_block = coerce_internal_job_detail_idx(internal_job_detail_idx)
+		customer = getattr(doc, "local_customer", None) or getattr(doc, "customer", None)
+		jt_preview = (job_type or "").strip()
+		return {
+			"job_type": jt_preview,
+			"detail_idx": idx_block,
+			"uses_job_detail_row": idx_block is not None,
+			"creatable": False,
+			"not_creatable_message": _source_internal_job_nested_block_message(),
+			"source_context": {
+				"source_doctype": source_doctype,
+				"source_name": source_name,
+				"customer": customer,
+				"company": getattr(doc, "company", None),
+				"sales_quote": getattr(doc, "sales_quote", None),
+				"source_is_internal_job": bool(cint(getattr(doc, "is_internal_job", 0))),
+				"source_main_job_type": getattr(doc, "main_job_type", None),
+				"source_main_job": getattr(doc, "main_job", None),
+				"from_main_service_shipment": False,
+			},
+			"target_internal_job": None,
+			"job_detail_parameters": {},
+			"charges": [],
+		}
 
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
@@ -675,6 +735,14 @@ def create_internal_job_from_operational_source(
 	jt = (job_type or "").strip()
 	if jt not in CREATABLE_INTERNAL_JOB_TYPES:
 		frappe.throw(_("Invalid job type."))
+
+	if not source_name or not frappe.db.exists(source_doctype, source_name):
+		frappe.throw(_("Invalid source document."))
+	if source_doctype not in ("Air Shipment", "Sea Shipment", "Transport Job", "Declaration"):
+		frappe.throw(_("Unsupported source type."))
+	_src = frappe.get_doc(source_doctype, source_name)
+	_src.check_permission("read")
+	ensure_operational_source_can_create_internal_job(_src)
 
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 

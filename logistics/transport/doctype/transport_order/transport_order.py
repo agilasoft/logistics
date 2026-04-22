@@ -75,6 +75,9 @@ def _sync_quote_and_sales_quote(doc):
 
 class TransportOrder(Document):
     def validate(self):
+        from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+        validate_internal_job_main_link_unchanged(self)
         # Preserve quote field value before syncing (to prevent it from being cleared)
         # Get original values from database if document exists
         original_quote = None

@@ -64,7 +64,7 @@
    "label": "Volume (est.)",
    "precision": "3",
    "read_only": 1,
-   "fetch_from": "air_shipment.volume"
+   "fetch_from": "air_shipment.total_volume"
   },
   {
    "fieldname": "linked_air_consolidation",

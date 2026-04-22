@@ -455,26 +455,28 @@ frappe.ui.form.on('Air Shipment', {
 						show_create_purchase_invoice_dialog(frm);
 					}, __('Create'));
 				}
-				frm.add_custom_button(__('Internal Job'), function() {
-					function _openInternalJobDlg() {
-						if (window.logistics_show_create_internal_job_dialog) {
-							window.logistics_show_create_internal_job_dialog(frm);
-						} else {
-							frappe.msgprint({
-								title: __('Not available'),
-								message: __(
-									'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-								),
-								indicator: 'red',
-							});
+				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+					frm.add_custom_button(__('Internal Job'), function() {
+						function _openInternalJobDlg() {
+							if (window.logistics_show_create_internal_job_dialog) {
+								window.logistics_show_create_internal_job_dialog(frm);
+							} else {
+								frappe.msgprint({
+									title: __('Not available'),
+									message: __(
+										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
+									),
+									indicator: 'red',
+								});
+							}
 						}
-					}
-					if (window.logistics_show_create_internal_job_dialog) {
-						_openInternalJobDlg();
-					} else {
-						frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=15', _openInternalJobDlg);
-					}
-				}, __('Create'));
+						if (window.logistics_show_create_internal_job_dialog) {
+							_openInternalJobDlg();
+						} else {
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+						}
+					}, __('Create'));
+				}
 				var _do_from_ij = _declaration_order_name_from_internal_job_details(frm);
 				if (_do_from_ij) {
 					frm.add_custom_button(__('View Declaration Order'), function() {

@@ -99,6 +99,9 @@ def _normalize_packing_group_for_shipment(value):
 class AirBooking(Document):
 	def validate(self):
 		"""Validate Air Booking data"""
+		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+
+		validate_internal_job_main_link_unchanged(self)
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
 		apply_shipper_consignee_defaults(self)
@@ -120,12 +123,15 @@ class AirBooking(Document):
 			and frappe.db.exists("Sales Quote", self.quote)
 		)
 		if self.sales_quote or _quote_is_sales_quote:
+			from frappe.utils import cint
+
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 				resolve_allow_linked_freight_bookings_for_internal_job,
 				validate_one_off_quote_not_converted,
 			)
 
 			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+			_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
 			if self.sales_quote:
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
@@ -133,6 +139,7 @@ class AirBooking(Document):
 					self.name,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
+					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 				)
 			if _quote_is_sales_quote:
 				validate_one_off_quote_not_converted(
@@ -141,6 +148,7 @@ class AirBooking(Document):
 					self.name,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
+					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 				)
 		
 		# Handle sales_quote field clearing - reset One-off quote if cleared
@@ -312,7 +320,6 @@ class AirBooking(Document):
 		self._set_link_default_if_exists("cost_center", "Cost Center", settings.default_cost_center)
 		self._set_link_default_if_exists("profit_center", "Profit Center", settings.default_profit_center)
 		self._set_link_default_if_exists("incoterm", "Incoterm", settings.default_incoterm)
-		# Settings stores Service Level Agreement while booking uses Logistics Service Level.
 		self._set_link_default_if_exists("service_level", "Logistics Service Level", settings.default_service_level)
 
 		# Location settings
@@ -1831,7 +1838,7 @@ class AirBooking(Document):
 		missing_fields = []
 		
 		# Validate link fields that will be copied
-		if self.service_level and not frappe.db.exists("Service Level Agreement", self.service_level):
+		if self.service_level and not frappe.db.exists("Logistics Service Level", self.service_level):
 			missing_fields.append({
 				"field": "service_level",
 				"label": "Service Level",
@@ -2235,7 +2242,7 @@ class AirBooking(Document):
 			# Final validation check before insert - ensure all link fields are valid
 			# This prevents errors during insert/after_insert hooks
 			if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
-				if not frappe.db.exists("Service Level Agreement", air_shipment.service_level):
+				if not frappe.db.exists("Logistics Service Level", air_shipment.service_level):
 					air_shipment.service_level = None
 			if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
 				if not frappe.db.exists("Release Type", air_shipment.release_type):
@@ -2249,7 +2256,7 @@ class AirBooking(Document):
 				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
 					# Clear potentially invalid link fields
 					if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
-						if not frappe.db.exists("Service Level Agreement", air_shipment.service_level):
+						if not frappe.db.exists("Logistics Service Level", air_shipment.service_level):
 							air_shipment.service_level = None
 					if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
 						if not frappe.db.exists("Release Type", air_shipment.release_type):
@@ -2267,7 +2274,7 @@ class AirBooking(Document):
 				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
 					# Clear potentially invalid link fields
 					if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
-						if not frappe.db.exists("Service Level Agreement", air_shipment.service_level):
+						if not frappe.db.exists("Logistics Service Level", air_shipment.service_level):
 							air_shipment.service_level = None
 					if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
 						if not frappe.db.exists("Release Type", air_shipment.release_type):

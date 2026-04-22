@@ -224,28 +224,32 @@
    "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
    "fieldname": "is_main_service",
    "fieldtype": "Check",
-   "label": "Main Service"
+   "label": "Main Service",
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "default": "0",
    "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
    "fieldname": "is_internal_job",
    "fieldtype": "Check",
-   "label": "Internal Job"
+   "label": "Internal Job",
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
-   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration"
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
-   "options": "main_job_type"
+   "options": "main_job_type",
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "collapsible": 1,
@@ -281,7 +285,7 @@
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "label": "Transport Mode",
-   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "link_filters": "[[\"Transport Mode\",\"is_active\",\"=\",1],[\"Transport Mode\",\"sea\",\"=\",1]]",
    "options": "Transport Mode"
   },
   {
@@ -289,7 +293,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport",
+   "options": "Import\nExport\nDomestic",
    "reqd": 1
   },
   {
@@ -760,6 +764,7 @@
    "fieldtype": "Link",
    "label": "Sales Rep",
    "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Employee"
   },
   {
@@ -767,6 +772,7 @@
    "fieldtype": "Link",
    "label": "Operations Rep",
    "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Employee"
   },
   {
@@ -774,6 +780,7 @@
    "fieldtype": "Link",
    "label": "Customer Service Rep",
    "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "no_copy": 1,
    "options": "Employee"
   },
   {
@@ -1035,8 +1042,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-20 14:08:18.095991",
- "modified_by": "Administrator",
+ "modified": "2026-04-22 18:26:01.112787",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Sea Booking",
  "naming_rule": "By \"Naming Series\" field",

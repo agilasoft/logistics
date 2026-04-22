@@ -2,9 +2,10 @@
 // For license information, please see license.txt
 
 /**
- * Main Job (is_main_service) and Internal Job (is_internal_job) are mutually exclusive:
- * checking one clears the other on the same form interaction (no refresh).
- * `frappe.ui.form.on` requires a string doctype — do not pass an array as the first argument.
+ * Main Service (is_main_service) and Internal Job (is_internal_job) are mutually exclusive.
+ * Native checkbox `change` on each control reads the live checked state and immediately
+ * `frm.set_value`s the other field off so the grid updates in the same interaction.
+ * Refresh also normalizes when both are on (programmatic / One-off / dialog loads).
  */
 (function () {
 	"use strict";
@@ -27,87 +28,110 @@
 		"Release Order",
 	];
 
+	var CHANGE_NS = ".logistics_ms_ij_exclusive";
+
 	function has_both_fields(frm) {
 		var ms = frm.get_docfield("is_main_service") || (frm.fields_dict && frm.fields_dict.is_main_service);
 		var ij = frm.get_docfield("is_internal_job") || (frm.fields_dict && frm.fields_dict.is_internal_job);
 		return !!(ms && ij);
 	}
 
-	/** Prefer control value: field triggers often run before `frm.doc` reflects the new check state. */
-	function field_check_cint(frm, fieldname) {
-		var fd = frm.fields_dict && frm.fields_dict[fieldname];
-		if (fd && typeof fd.get_value === "function") {
-			try {
-				return frappe.utils.cint(fd.get_value());
-			} catch (e) {
-				/* ignore */
-			}
-		}
-		return frappe.utils.cint(frm.doc[fieldname]);
+	function input_checked($inp) {
+		return $inp && $inp.length && !!$inp.prop("checked");
 	}
 
-	function both_checked(frm) {
-		return field_check_cint(frm, "is_main_service") && field_check_cint(frm, "is_internal_job");
+	function both_checked_from_doc(frm) {
+		return (
+			cint(frm.doc.is_main_service) && cint(frm.doc.is_internal_job)
+		);
 	}
 
 	/**
-	 * When the user checks Main Service, Internal Job must turn off — and vice versa.
-	 * Do not rely on `frm.doc` alone: checkbox handlers can fire before the model updates.
+	 * Bind once per refresh to the real checkbox inputs so `change` runs after the click toggles DOM.
 	 */
-	function enforce_main_service_excludes_internal(frm) {
-		if (!frm || !frm.doc || !has_both_fields(frm)) return;
-		if (field_check_cint(frm, "is_main_service")) {
-			frm.set_value("is_internal_job", 0);
+	function bind_mutually_exclusive_checkboxes(frm) {
+		if (!frm || !frm.doc || !has_both_fields(frm)) {
+			return;
+		}
+		var ms = frm.fields_dict.is_main_service;
+		var ij = frm.fields_dict.is_internal_job;
+		if (!ms || !ij) {
+			return;
+		}
+
+		function wire() {
+			var $ms = ms.$input;
+			var $ij = ij.$input;
+			if (!$ms || !$ms.length || !$ij || !$ij.length) {
+				return false;
+			}
+			$ms.off("change" + CHANGE_NS);
+			$ij.off("change" + CHANGE_NS);
+
+			$ms.on("change" + CHANGE_NS, function () {
+				if (input_checked($ms)) {
+					frm.set_value("is_internal_job", 0);
+				}
+			});
+			$ij.on("change" + CHANGE_NS, function () {
+				if (input_checked($ij)) {
+					frm.set_value("is_main_service", 0);
+				}
+			});
+			return true;
+		}
+
+		if (!wire()) {
+			setTimeout(function () {
+				if (frm && frm.doc) {
+					wire();
+				}
+			}, 0);
 		}
 	}
 
-	function enforce_internal_excludes_main_service(frm) {
-		if (!frm || !frm.doc || !has_both_fields(frm)) return;
-		if (field_check_cint(frm, "is_internal_job")) {
-			frm.set_value("is_main_service", 0);
-		}
-	}
-
-	/** Run now and on later ticks so we catch doc/control sync delays (Declaration Order, One-off, etc.). */
-	function defer_enforce(frm, fn) {
-		fn(frm);
-		setTimeout(function () {
-			fn(frm);
-		}, 0);
-		setTimeout(function () {
-			fn(frm);
-		}, 50);
-	}
-
-	/** If both are still on after refresh/async set_value (e.g. One-off), normalize once. */
 	function normalize_if_both_checked(frm) {
-		if (!frm || !frm.doc || !has_both_fields(frm)) return;
-		if (both_checked(frm)) {
+		if (!frm || !frm.doc || !has_both_fields(frm)) {
+			return;
+		}
+		if (both_checked_from_doc(frm)) {
 			frm.set_value("is_main_service", 0);
 		}
 	}
 
 	function schedule_normalize_if_both_checked(frm) {
-		if (!frm || !frm.doc) return;
-		// Run after other refresh hooks and microtasks (Promise.all from One-off script).
+		if (!frm || !frm.doc) {
+			return;
+		}
 		setTimeout(function () {
 			normalize_if_both_checked(frm);
 		}, 0);
-		setTimeout(function () {
-			normalize_if_both_checked(frm);
-		}, 100);
+	}
+
+	/** When Frappe updates checks via `set_value` (no native `change`), doc is already current. */
+	function on_main_service_form_change(frm) {
+		if (!frm || !frm.doc || !has_both_fields(frm)) {
+			return;
+		}
+		if (cint(frm.doc.is_main_service)) {
+			frm.set_value("is_internal_job", 0);
+		}
+	}
+
+	function on_internal_job_form_change(frm) {
+		if (!frm || !frm.doc || !has_both_fields(frm)) {
+			return;
+		}
+		if (cint(frm.doc.is_internal_job)) {
+			frm.set_value("is_main_service", 0);
+		}
 	}
 
 	var field_handlers = {
-		is_main_service: function (frm) {
-			if (!frm || !frm.doc || !has_both_fields(frm)) return;
-			defer_enforce(frm, enforce_main_service_excludes_internal);
-		},
-		is_internal_job: function (frm) {
-			if (!frm || !frm.doc || !has_both_fields(frm)) return;
-			defer_enforce(frm, enforce_internal_excludes_main_service);
-		},
+		is_main_service: on_main_service_form_change,
+		is_internal_job: on_internal_job_form_change,
 		refresh: function (frm) {
+			bind_mutually_exclusive_checkboxes(frm);
 			schedule_normalize_if_both_checked(frm);
 		},
 	};

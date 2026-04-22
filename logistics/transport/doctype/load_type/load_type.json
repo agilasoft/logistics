@@ -13,6 +13,8 @@
   "air",
   "sea",
   "transport",
+  "customs",
+  "warehousing",
   "transport_tab",
   "can_be_consolidated",
   "can_handle_consolidation",
@@ -76,6 +78,18 @@
    "fieldname": "transport",
    "fieldtype": "Check",
    "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "customs",
+   "fieldtype": "Check",
+   "label": "Customs"
+  },
+  {
+   "default": "0",
+   "fieldname": "warehousing",
+   "fieldtype": "Check",
+   "label": "Warehousing"
   },
   {
    "default": "0",

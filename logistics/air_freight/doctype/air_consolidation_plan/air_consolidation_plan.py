@@ -198,8 +198,8 @@ def _build_air_consolidation_from_plan_doc(plan):
 				"consignee": s.consignee,
 				"package_type": "Box",
 				"package_count": 1,
-				"package_weight": s.weight or s.chargeable or 1,
-				"package_volume": s.volume or 0,
+				"package_weight": s.total_weight or s.chargeable or 1,
+				"package_volume": s.total_volume or 0,
 			},
 		)
 

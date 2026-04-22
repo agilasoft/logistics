@@ -56,7 +56,7 @@
    "label": "Weight (est.)",
    "precision": "2",
    "read_only": 1,
-   "fetch_from": "sea_shipment.weight"
+   "fetch_from": "sea_shipment.total_weight"
   },
   {
    "fieldname": "volume_est",
@@ -64,7 +64,7 @@
    "label": "Volume (est.)",
    "precision": "3",
    "read_only": 1,
-   "fetch_from": "sea_shipment.volume"
+   "fetch_from": "sea_shipment.total_volume"
   },
   {
    "fieldname": "linked_sea_consolidation",

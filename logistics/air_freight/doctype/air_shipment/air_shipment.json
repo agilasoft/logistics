@@ -823,7 +823,8 @@
    "description": "Primary operational job for this Sales Quote leg: when Separate Billings per Service Type is off, quote charges from all service types can roll into this document.",
    "fieldname": "is_main_service",
    "fieldtype": "Check",
-   "label": "Main Service"
+   "label": "Main Service",
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "default": "0",
@@ -839,7 +840,7 @@
    "fieldtype": "Select",
    "label": "Main Job Type",
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only": 1
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "depends_on": "eval:doc.is_internal_job",
@@ -847,7 +848,7 @@
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
    "options": "main_job_type",
-   "read_only": 1
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "fieldname": "quote_reference_section",

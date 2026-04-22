@@ -257,12 +257,93 @@ def _get_codelist_index() -> Optional[Dict[str, Dict[str, str]]]:
 	return idx
 
 
+def _function_string(function_field: str) -> str:
+	"""Normalised 8-character UN/LOCODE Function column (UNECE Recommendation 16)."""
+	return (function_field or "").ljust(8)[:8]
+
+
 def _function_positions(function_field: str) -> List[str]:
-	s = (function_field or "").ljust(8)[:8]
-	return [str(i + 1) for i, ch in enumerate(s) if ch != "-"]
+	"""
+	Active UN/LOCODE function **codes** (slots 1–8) per UNECE: slot *i* (1-based) is active only
+	when column position *i* contains digit ``str(i)`` (DataHub codelist follows this strictly),
+	except slot 8 which uses ``8`` (inland water) or ``B`` (border — excluded here; see
+	:func:`_primary_location_type`).
+	"""
+	s = _function_string(function_field)
+	out: List[str] = []
+	for i in range(7):
+		if s[i] == str(i + 1):
+			out.append(str(i + 1))
+	if len(s) >= 8 and s[7] == "8":
+		out.append("8")
+	return out
 
 
-def _primary_location_type(functions: List[str]) -> str:
+def function_field_to_unloco_capabilities(function_field: str) -> Dict[str, int]:
+	"""
+	Map the 8-character ``Function`` column to UNLOCO check fields using UNCEFACT
+	``unlcdf:1`` … ``unlcdf:8`` / ``B`` semantics (see Recommendation 16, Function column).
+
+	Strict rule: for slots 1–7, only digit *n* in position *n* activates that function.
+	Slot 8: ``8`` = inland water transport; ``B`` = cross-border (legacy; customs-related).
+
+	Checkbox alignment (no UN digit → left unset): ``has_store`` is set for function **6**
+	(multimodal: ICD / container depot storage). ``has_unload`` is set for functions **1, 6, 7, 8**
+	where UNECE text refers to cargo handling or load/discharge. ``has_outport`` is used for
+	function **8** (inland water ports) as the closest UNLOCO water-side flag besides ``has_seaport``.
+	"""
+	s = _function_string(function_field)
+	f1 = s[0] == "1"
+	f2 = s[1] == "2"
+	f3 = s[2] == "3"
+	f4 = s[3] == "4"
+	f5 = s[4] == "5"
+	f6 = s[5] == "6"
+	f7 = s[6] == "7"
+	f8 = len(s) >= 8 and s[7] == "8"
+	fb = len(s) >= 8 and s[7] == "B"
+
+	cap: Dict[str, int] = {
+		"has_post": 0,
+		"has_customs": 0,
+		"has_unload": 0,
+		"has_airport": 0,
+		"has_rail": 0,
+		"has_road": 0,
+		"has_store": 0,
+		"has_terminal": 0,
+		"has_discharge": 0,
+		"has_seaport": 0,
+		"has_outport": 0,
+	}
+	if fb:
+		cap["has_customs"] = 1
+	if f1:
+		cap["has_seaport"] = 1
+	if f2:
+		cap["has_rail"] = 1
+	if f3:
+		cap["has_road"] = 1
+	if f4:
+		cap["has_airport"] = 1
+	if f5:
+		cap["has_post"] = 1
+	if f6:
+		cap["has_terminal"] = 1
+		cap["has_store"] = 1
+	if f7:
+		cap["has_discharge"] = 1
+	if f8:
+		cap["has_outport"] = 1
+	if f1 or f6 or f7 or f8:
+		cap["has_unload"] = 1
+	return cap
+
+
+def _primary_location_type(functions: List[str], function_field: str = "") -> str:
+	s = _function_string(function_field)
+	if len(s) >= 8 and s[7] == "B":
+		return "Border Crossing"
 	order = [
 		("4", "Airport"),
 		("1", "Port"),
@@ -314,7 +395,7 @@ def datahub_row_to_unlocode_dict(unlocode: str, row: Dict[str, str]) -> Dict[str
 		"country_code": cc,
 		"subdivision": sub,
 		"city": "",
-		"location_type": _primary_location_type(functions),
+		"location_type": _primary_location_type(functions, function_field),
 		"iata_code": iata,
 		"description": (
 			f"UN/LOCODE via DataHub (UNECE-derived). Status {raw_status or 'n/a'}; "
@@ -327,6 +408,7 @@ def datahub_row_to_unlocode_dict(unlocode: str, row: Dict[str, str]) -> Dict[str
 	if lat is not None and lon is not None:
 		out["latitude"] = lat
 		out["longitude"] = lon
+	out.update(function_field_to_unloco_capabilities(function_field))
 	return out
 
 

@@ -193,7 +193,7 @@
    "fieldtype": "Check",
    "label": "Main Service",
    "no_copy": 1,
-   "read_only_depends_on": "eval:doc.air_shipment || doc.sea_shipment || doc.transport_order"
+   "read_only_depends_on": "eval: (doc.is_internal_job && doc.main_job_type && doc.main_job) || doc.air_shipment || doc.sea_shipment || doc.transport_order"
   },
   {
    "fieldname": "sales_quote",
@@ -214,7 +214,7 @@
    "fieldtype": "Check",
    "label": "Internal Job",
    "no_copy": 1,
-   "read_only_depends_on": "eval:doc.air_shipment || doc.sea_shipment || doc.transport_order"
+   "read_only_depends_on": "eval: (doc.is_internal_job && doc.main_job_type && doc.main_job) || doc.air_shipment || doc.sea_shipment || doc.transport_order"
   },
   {
    "depends_on": "eval:doc.is_internal_job",

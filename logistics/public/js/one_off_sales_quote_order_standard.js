@@ -48,22 +48,22 @@
 		// leave both checked (skip_ij_clear below would not clear Internal Job).
 		if (
 			main_fields.indexOf("is_main_service") !== -1 &&
-			!frappe.utils.cint(frm.doc.is_main_service) &&
-			!(frm.doctype === "Declaration Order" && frappe.utils.cint(frm.doc.is_internal_job))
+			!cint(frm.doc.is_main_service) &&
+			!(frm.doctype === "Declaration Order" && cint(frm.doc.is_internal_job))
 		) {
 			tasks.push(Promise.resolve(frm.set_value("is_main_service", 1)));
 		}
 		// One-off locks Main Service read-only; mutual-exclusive set_value may not clear it when Internal Job
 		// is turned on (e.g. internal-job dialog). Always drop Main Service if Internal Job is set on DO.
-		if (frm.doctype === "Declaration Order" && frappe.utils.cint(frm.doc.is_internal_job)) {
+		if (frm.doctype === "Declaration Order" && cint(frm.doc.is_internal_job)) {
 			tasks.push(Promise.resolve(frm.set_value("is_main_service", 0)));
 		}
-		if (main_fields.indexOf("is_main_job") !== -1 && !frappe.utils.cint(frm.doc.is_main_job)) {
+		if (main_fields.indexOf("is_main_job") !== -1 && !cint(frm.doc.is_main_job)) {
 			tasks.push(Promise.resolve(frm.set_value("is_main_job", 1)));
 		}
 		// Declaration Order can be an Internal Job (customs with no quote charges); do not clear the flag.
 		var skip_ij_clear = frm.doctype === "Declaration Order";
-		if (has_ij && frappe.utils.cint(frm.doc.is_internal_job) && !skip_ij_clear) {
+		if (has_ij && cint(frm.doc.is_internal_job) && !skip_ij_clear) {
 			tasks.push(Promise.resolve(frm.set_value("is_internal_job", 0)));
 		}
 		if (tasks.length) {
@@ -85,10 +85,29 @@
 
 		function unlock_when_allowed() {
 			if (!is_draft) return;
+			var linkedIJ =
+				cint(frm.doc.is_internal_job) &&
+				(frm.doc.main_job_type || "").toString().trim() &&
+				(frm.doc.main_job || "").toString().trim();
 			main_fields.forEach(function (fn) {
+				if (fn === "is_main_service" && linkedIJ) {
+					return;
+				}
 				frm.set_df_property(fn, "read_only", 0);
 			});
-			if (has_ij) frm.set_df_property("is_internal_job", "read_only", 0);
+			if (has_ij) {
+				if (!linkedIJ) {
+					frm.set_df_property("is_internal_job", "read_only", 0);
+				}
+			}
+			if (linkedIJ) {
+				if (frm.fields_dict.is_main_service) {
+					frm.refresh_field("is_main_service");
+				}
+				if (has_ij && frm.fields_dict.is_internal_job) {
+					frm.refresh_field("is_internal_job");
+				}
+			}
 		}
 
 		// Must run before the empty sales_quote check: onload can fire before frm.doc.sales_quote is set

@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-04-22 00:00:00.000000",
+ "default_sort_field": "modified",
+ "default_sort_order": "DESC",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "request_section",
+  "item_code",
+  "description",
+  "column_break_4",
+  "amount_requested",
+  "liquidation_section",
+  "reference_no",
+  "date",
+  "amount_liquidated",
+  "attachment",
+  "column_break_12",
+  "particulars"
+ ],
+ "fields": [
+  {
+   "fieldname": "request_section",
+   "fieldtype": "Section Break",
+   "label": "Charge"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Charge Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "fetch_from": "item_code.item_name",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount_requested",
+   "fieldtype": "Currency",
+   "label": "Amount Requested"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "liquidation_section",
+   "fieldtype": "Section Break",
+   "label": "Liquidation"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "amount_liquidated",
+   "fieldtype": "Currency",
+   "label": "Amount Liquidated"
+  },
+  {
+   "fieldname": "attachment",
+   "fieldtype": "Attach",
+   "label": "Attachment"
+  },
+  {
+   "fieldname": "column_break_12",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "particulars",
+   "fieldtype": "Long Text",
+   "label": "Particulars"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "max_attachments": 0,
+ "modified": "2026-04-22 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Advance",
+ "name": "Cash Advance Request Item",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

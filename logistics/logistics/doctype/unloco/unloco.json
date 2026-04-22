@@ -16,17 +16,17 @@
   "location_type",
   "status",
   "column_break_aaha",
-  "has_post",
-  "has_customs",
+  "has_seaport",
   "has_unload",
-  "has_airport",
   "has_rail",
   "has_road",
-  "has_store",
+  "has_airport",
+  "has_post",
   "has_terminal",
+  "has_store",
   "has_discharge",
-  "has_seaport",
   "has_outport",
+  "has_customs",
   "coordinates_tab",
   "latitude",
   "longitude",
@@ -143,6 +143,87 @@
    "options": "AA - Approved by competent national government agency\nAC - Approved by Customs authority\nAF - Approved by national facilitation body\nAS - Approved by national standardisation body\nRL - Recognised location\nRN - Request from national authority\nRQ - Request under consideration\nRR - Request rejected\nUR - Under review by the secretariat\nXX - Entry that will be removed from the next issue of UN/LOCODE"
   },
   {
+   "fieldname": "column_break_aaha",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 1 = digit 1 (maritime transport / sea port, UNECE Rec. 16). Filled from DataHub codelist.",
+   "fieldname": "has_seaport",
+   "fieldtype": "Check",
+   "label": "Has Seaport"
+  },
+  {
+   "default": "0",
+   "description": "Cargo handling / load and discharge tied to active Function codes 1, 6, 7, or 8 (maritime, multimodal, fixed transport, or inland water). Filled from DataHub.",
+   "fieldname": "has_unload",
+   "fieldtype": "Check",
+   "label": "Has Unload"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 2 = digit 2 (rail terminal). Filled from DataHub codelist.",
+   "fieldname": "has_rail",
+   "fieldtype": "Check",
+   "label": "Has Rail"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 3 = digit 3 (road terminal). Filled from DataHub codelist.",
+   "fieldname": "has_road",
+   "fieldtype": "Check",
+   "label": "Has Road"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 4 = digit 4 (airport / air transport). Filled from DataHub codelist.",
+   "fieldname": "has_airport",
+   "fieldtype": "Check",
+   "label": "Has Airport"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 5 = digit 5 (IMPC / postal exchange, UPU). Filled from DataHub codelist.",
+   "fieldname": "has_post",
+   "fieldtype": "Check",
+   "label": "Has Post"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 6 = digit 6 (multimodal facility: ICD, inland freight terminal, etc.). Filled from DataHub codelist.",
+   "fieldname": "has_terminal",
+   "fieldtype": "Check",
+   "label": "Has Terminal"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function 6 includes container depot and temporary storage (same digit 6 as multimodal). Filled from DataHub.",
+   "fieldname": "has_store",
+   "fieldtype": "Check",
+   "label": "Has Store"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 7 = digit 7 (fixed transport installation; load/discharge). Filled from DataHub codelist.",
+   "fieldname": "has_discharge",
+   "fieldtype": "Check",
+   "label": "Has Discharge"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 8 = digit 8 (inland water transport: river or lake port). Filled from DataHub codelist.",
+   "fieldname": "has_outport",
+   "fieldtype": "Check",
+   "label": "Has Outport"
+  },
+  {
+   "default": "0",
+   "description": "UN/LOCODE Function column: position 8 = letter B (border crossing; legacy UNECE code). Often implies customs presence. Filled from DataHub.",
+   "fieldname": "has_customs",
+   "fieldtype": "Check",
+   "label": "Has Customs"
+  },
+  {
    "fieldname": "coordinates_tab",
    "fieldtype": "Tab Break",
    "label": "Coordinates"
@@ -236,83 +317,6 @@
    "fieldname": "operating_hours",
    "fieldtype": "Text",
    "label": "Operating Hours"
-  },
-  {
-   "default": "0",
-   "description": "Has postal exchange office",
-   "fieldname": "has_post",
-   "fieldtype": "Check",
-   "label": "Has Post"
-  },
-  {
-   "default": "0",
-   "description": "Has customs office",
-   "fieldname": "has_customs",
-   "fieldtype": "Check",
-   "label": "Has Customs"
-  },
-  {
-   "default": "0",
-   "description": "Has unloading facilities",
-   "fieldname": "has_unload",
-   "fieldtype": "Check",
-   "label": "Has Unload"
-  },
-  {
-   "default": "0",
-   "description": "Has airport facilities",
-   "fieldname": "has_airport",
-   "fieldtype": "Check",
-   "label": "Has Airport"
-  },
-  {
-   "default": "0",
-   "description": "Has railway facilities",
-   "fieldname": "has_rail",
-   "fieldtype": "Check",
-   "label": "Has Rail"
-  },
-  {
-   "default": "0",
-   "description": "Has road transport facilities",
-   "fieldname": "has_road",
-   "fieldtype": "Check",
-   "label": "Has Road"
-  },
-  {
-   "default": "0",
-   "description": "Has storage facilities",
-   "fieldname": "has_store",
-   "fieldtype": "Check",
-   "label": "Has Store"
-  },
-  {
-   "default": "0",
-   "description": "Has terminal facilities",
-   "fieldname": "has_terminal",
-   "fieldtype": "Check",
-   "label": "Has Terminal"
-  },
-  {
-   "default": "0",
-   "description": "Has discharge facilities",
-   "fieldname": "has_discharge",
-   "fieldtype": "Check",
-   "label": "Has Discharge"
-  },
-  {
-   "default": "0",
-   "description": "Has seaport facilities",
-   "fieldname": "has_seaport",
-   "fieldtype": "Check",
-   "label": "Has Seaport"
-  },
-  {
-   "default": "0",
-   "description": "Has outport facilities",
-   "fieldname": "has_outport",
-   "fieldtype": "Check",
-   "label": "Has Outport"
   },
   {
    "fieldname": "regulatory_tab",
@@ -526,16 +530,12 @@
    "fieldname": "disabled",
    "fieldtype": "Check",
    "label": "Disabled"
-  },
-  {
-   "fieldname": "column_break_aaha",
-   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-11 14:43:55.684947",
+ "modified": "2026-04-22 23:15:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "UNLOCO",

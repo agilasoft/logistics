@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:code",
  "creation": "2025-05-22 13:12:15.590068",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -12,7 +13,8 @@
   {
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code"
+   "label": "Code",
+   "unique": 1
   },
   {
    "fieldname": "description",
@@ -23,10 +25,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-28 22:52:00.631221",
- "modified_by": "Administrator",
+ "modified": "2026-04-22 09:46:39.793212",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Logistics",
  "name": "Container ISO Type",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -43,6 +46,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "description",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

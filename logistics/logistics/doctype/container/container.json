@@ -101,8 +101,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Container Type",
-   "options": "Container Type",
-   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
   },
   {
    "fieldname": "seal_number",
@@ -120,13 +120,13 @@
    "fieldname": "current_location_type",
    "fieldtype": "Link",
    "label": "Location Type",
-   "options": "DocType"
+   "options": "Transport Zone"
   },
   {
    "fieldname": "current_location",
-   "fieldtype": "Dynamic Link",
+   "fieldtype": "Link",
    "label": "Current Location",
-   "options": "current_location_type"
+   "options": "Transport Zone"
   },
   {
    "fieldname": "current_location_name",
@@ -138,8 +138,8 @@
    "fieldname": "owner_carrier",
    "fieldtype": "Link",
    "label": "Owner Carrier",
-   "options": "Shipping Line",
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
   },
   {
    "fieldname": "column_break_1",
@@ -220,8 +220,8 @@
    "fieldname": "deposit_currency",
    "fieldtype": "Link",
    "label": "Deposit Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "fieldname": "deposit_paid_date",
@@ -249,13 +249,13 @@
    "fieldname": "return_location_type",
    "fieldtype": "Link",
    "label": "Return Location Type",
-   "options": "DocType"
+   "options": "Transport Zone"
   },
   {
    "fieldname": "return_location",
-   "fieldtype": "Dynamic Link",
+   "fieldtype": "Link",
    "label": "Return Location",
-   "options": "return_location_type"
+   "options": "Transport Zone"
   },
   {
    "fieldname": "section_deposits",
@@ -306,10 +306,10 @@
    "label": "Refund Readiness"
   },
   {
+   "description": "Populate from Logistics Settings template using Refresh checklist. Mandatory lines must be Received or Waived before posting refund journal entries.",
    "fieldname": "section_refund_readiness",
    "fieldtype": "Section Break",
-   "label": "Required documents for refund",
-   "description": "Populate from Logistics Settings template using Refresh checklist. Mandatory lines must be Received or Waived before posting refund journal entries."
+   "label": "Required documents for refund"
   },
   {
    "fieldname": "refund_readiness",
@@ -320,8 +320,8 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-26 17:15:33.695062",
- "modified_by": "Administrator",
+ "modified": "2026-04-22 18:58:10.607273",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Logistics",
  "name": "Container",
  "owner": "Administrator",
