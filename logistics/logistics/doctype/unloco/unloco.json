@@ -155,7 +155,7 @@
   },
   {
    "default": "0",
-   "description": "Cargo handling / load and discharge tied to active Function codes 1, 6, 7, or 8 (maritime, multimodal, fixed transport, or inland water). Filled from DataHub.",
+   "description": "Cargo handling / load and discharge for active UNECE Function codes 1–4 and 6–8 (maritime, rail, road, air, multimodal, fixed transport, or inland water; postal 5 excluded). Filled from DataHub.",
    "fieldname": "has_unload",
    "fieldtype": "Check",
    "label": "Has Unload"

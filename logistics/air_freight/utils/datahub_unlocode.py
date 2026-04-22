@@ -287,10 +287,10 @@ def function_field_to_unloco_capabilities(function_field: str) -> Dict[str, int]
 	Strict rule: for slots 1–7, only digit *n* in position *n* activates that function.
 	Slot 8: ``8`` = inland water transport; ``B`` = cross-border (legacy; customs-related).
 
-	Checkbox alignment (no UN digit → left unset): ``has_store`` is set for function **6**
-	(multimodal: ICD / container depot storage). ``has_unload`` is set for functions **1, 6, 7, 8**
-	where UNECE text refers to cargo handling or load/discharge. ``has_outport`` is used for
-	function **8** (inland water ports) as the closest UNLOCO water-side flag besides ``has_seaport``.
+	Checkbox alignment: ``has_store`` is set for function **6** (multimodal / ICD storage).
+	``has_unload`` is set for functions **1–4 and 6–8** (water, rail, road, air, multimodal,
+	fixed transport, inland water; postal **5** excluded). ``has_outport`` is for function **8**
+	(inland water) besides ``has_seaport``.
 	"""
 	s = _function_string(function_field)
 	f1 = s[0] == "1"
@@ -335,7 +335,9 @@ def function_field_to_unloco_capabilities(function_field: str) -> Dict[str, int]
 		cap["has_discharge"] = 1
 	if f8:
 		cap["has_outport"] = 1
-	if f1 or f6 or f7 or f8:
+	# Cargo handling / load–discharge: include rail (2), road (3), and airport (4), not only
+	# maritime (1), multimodal (6), fixed transport (7), and inland water (8). Postal (5) is excluded.
+	if f1 or f2 or f3 or f4 or f6 or f7 or f8:
 		cap["has_unload"] = 1
 	return cap
 
