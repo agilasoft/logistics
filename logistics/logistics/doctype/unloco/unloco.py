@@ -8,6 +8,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 
 
 class UNLOCO(Document):
@@ -24,15 +25,29 @@ class UNLOCO(Document):
         self._unloco_skip_autopopulate_rounds = n - 1
         return True
 
+    def _should_run_autopopulate_on_save(self) -> bool:
+        """
+        Re-fetching on every save would call ``get_unlocode_data`` against the **database** row,
+        which is still the pre-save snapshot, and would overwrite checkbox (and other) edits the
+        user just made on the form. Only re-run when the code changes, on first insert, or when
+        Auto-Populate is turned on for an existing row.
+        """
+        if self.is_new():
+            return True
+        previous = self.get_doc_before_save()
+        if not previous:
+            return False
+        if (previous.get("unlocode") or "").strip().upper() != (self.unlocode or "").strip().upper():
+            return True
+        if cint(self.auto_populate) and not cint(previous.get("auto_populate")):
+            return True
+        return False
+
     def validate(self):
         """Validate UNLOCO document"""
         # Validate UNLOCO code format
         if self.unlocode and len(self.unlocode) != 5:
             frappe.throw(_("UNLOCO code must be exactly 5 characters long"))
-
-        # Auto-populate details if enabled
-        if self.auto_populate and self.unlocode and not self._consume_unloco_autopopulate_skip():
-            self.populate_unlocode_details()
 
         if self.status:
             field = frappe.get_meta("UNLOCO").get_field("status")
@@ -68,8 +83,10 @@ class UNLOCO(Document):
             frappe.log_error(f"UNLOCO details population error: {str(e)}")
 
     def before_save(self):
-        """Auto-populate details before saving"""
-        if self.auto_populate and self.unlocode and not self._consume_unloco_autopopulate_skip():
+        """Auto-populate only when UNLOCO code or auto-populate flag changes (see ``_should_run_autopopulate_on_save``)."""
+        if not self.auto_populate or not self.unlocode or self._consume_unloco_autopopulate_skip():
+            return
+        if self._should_run_autopopulate_on_save():
             self.populate_unlocode_details()
 
 
@@ -221,7 +238,12 @@ def start_update_all_unloco():
 
 
 def run_update_all_unloco_job():
-    """Background: refresh every UNLOCO via populate_unlocode_details; commit in batches."""
+    """
+    Background: build the same field dict as desk populate via ``get_unlocode_data`` +
+    ``populate_fields_from_data`` (with ``refresh_external``), overlay UNECE Function from the
+    cached code-list for every ``has_*`` column, then ``frappe.db.set_value`` so checkboxes
+    persist without relying on ``Document.save`` or the HTTP whitelist response shape.
+    """
     batch_size = 100
     updated = 0
     try:
@@ -229,17 +251,63 @@ def run_update_all_unloco_job():
             ensure_datahub_un_locode_files,
             is_datahub_un_locode_enabled,
         )
+        from logistics.air_freight.utils.datahub_unlocode import (
+            function_field_to_unloco_capabilities,
+            get_codelist_function_field,
+        )
+        from logistics.air_freight.utils.unlocode_utils import get_unlocode_data, populate_fields_from_data
 
         if is_datahub_un_locode_enabled():
             ensure_datahub_un_locode_files()
+
+        table_columns = set(frappe.get_meta("UNLOCO").get_valid_columns())
+        # Never bulk-overwrite identity / audit columns from populate payload.
+        skip_columns = frozenset({"name", "unlocode", "creation", "owner"})
+        _has_keys = (
+            "has_post",
+            "has_customs",
+            "has_unload",
+            "has_airport",
+            "has_rail",
+            "has_road",
+            "has_store",
+            "has_terminal",
+            "has_discharge",
+            "has_seaport",
+            "has_outport",
+        )
 
         names = frappe.get_all("UNLOCO", pluck="name", order_by="name")
         batch_count = 0
         for name in names:
             try:
-                doc = frappe.get_doc("UNLOCO", name)
-                doc.populate_unlocode_details(refresh_external=True)
-                doc.save()
+                code = (frappe.db.get_value("UNLOCO", name, "unlocode") or "").strip().upper()
+                if len(code) != 5:
+                    continue
+                # Same core logic as desk ``populate_unlocode_details`` (avoid unwrap / HTTP-only edge cases).
+                raw = get_unlocode_data(code, refresh_external=True)
+                if not raw:
+                    frappe.log_error(
+                        f"UNLOCO Update All: no get_unlocode_data for name={name} code={code}",
+                        "UNLOCO Update All: missing data",
+                    )
+                    continue
+                raw.setdefault("unlocode", code)
+                details = populate_fields_from_data(raw)
+                row_updates = {
+                    k: v
+                    for k, v in details.items()
+                    if k in table_columns and k not in skip_columns
+                }
+                fn = get_codelist_function_field(code)
+                if fn:
+                    for k, v in function_field_to_unloco_capabilities(fn).items():
+                        if k in table_columns and k not in skip_columns and k in _has_keys:
+                            row_updates[k] = 1 if v else 0
+                if not row_updates:
+                    continue
+                row_updates["last_updated"] = frappe.utils.now()
+                frappe.db.set_value("UNLOCO", name, row_updates, update_modified=True)
                 updated += 1
             except Exception as e:
                 frappe.log_error(
@@ -251,7 +319,7 @@ def run_update_all_unloco_job():
                 frappe.db.commit()
                 batch_count = 0
         frappe.db.commit()
-        frappe.logger().info(f"UNLOCO Update All finished: {updated} document(s) saved")
+        frappe.logger().info(f"UNLOCO Update All finished: {updated} row(s) updated")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "UNLOCO Update All job")
         raise

@@ -119,11 +119,19 @@ class TestDatahubFunctionToCapabilities(unittest.TestCase):
 		self.assertEqual(c["has_road"], 1)
 		self.assertEqual(c["has_customs"], 1)
 		self.assertEqual(c["has_seaport"], 0)
-		self.assertEqual(c["has_unload"], 0)
+		self.assertEqual(c["has_unload"], 1)
 		self.assertEqual(c["has_store"], 0)
 		fs = _function_positions("--3----B")
 		self.assertEqual(fs, ["3"])
 		self.assertEqual(_primary_location_type(fs, "--3----B"), "Border Crossing")
+
+	def test_airport_only_sets_unload(self):
+		from logistics.air_freight.utils.datahub_unlocode import function_field_to_unloco_capabilities
+
+		c = function_field_to_unloco_capabilities("---4----")
+		self.assertEqual(c["has_airport"], 1)
+		self.assertEqual(c["has_unload"], 1)
+		self.assertEqual(c["has_seaport"], 0)
 
 	def test_multimodal_function_6_terminal_and_store(self):
 		from logistics.air_freight.utils.datahub_unlocode import function_field_to_unloco_capabilities
