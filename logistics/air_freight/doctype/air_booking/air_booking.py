@@ -557,6 +557,31 @@ class AirBooking(Document):
 
 		packages = getattr(self, "packages", []) or []
 		company = getattr(self, "company", None)
+		# region agent log
+		try:
+			import json as _ab_json
+			import time as _ab_time
+			_pkg0 = packages[0] if packages else {}
+			_ab_payload = {
+				"sessionId": "8bf7dd",
+				"hypothesisId": "H3",
+				"location": "air_booking.py:recalculate_package_volumes_api",
+				"message": "entry state",
+				"data": {
+					"company": company,
+					"packages_len": len(packages),
+					"will_call_get_default_uoms": bool(company),
+					"pkg0_dim_uom": (_pkg0.get("dimension_uom") if isinstance(_pkg0, dict) else getattr(_pkg0, "dimension_uom", None)),
+					"pkg0_vol_uom": (_pkg0.get("volume_uom") if isinstance(_pkg0, dict) else getattr(_pkg0, "volume_uom", None)),
+				},
+				"timestamp": int(_ab_time.time() * 1000),
+			}
+			open("/home/frappe/frappe-bench/apps/logistics/.cursor/debug-8bf7dd.log", "a").write(
+				_ab_json.dumps(_ab_payload) + "\n"
+			)
+		except Exception:
+			pass
+		# endregion
 		defaults = get_default_uoms(company=company) if company else {}
 		result = []
 		for pkg in packages:

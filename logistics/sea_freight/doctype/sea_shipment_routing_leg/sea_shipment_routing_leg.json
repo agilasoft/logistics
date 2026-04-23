@@ -7,6 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "mode",
+  "transport_mode_air",
+  "transport_mode_sea",
   "type",
   "status",
   "charter_route",
@@ -39,6 +41,22 @@
    "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
   },
   {
+   "default": "0",
+   "fieldname": "transport_mode_air",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Transport Mode (Air)",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "transport_mode_sea",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Transport Mode (Sea)",
+   "read_only": 1
+  },
+  {
    "fieldname": "type",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -68,27 +86,27 @@
    "label": "Notes"
   },
   {
-   "depends_on": "eval:doc.mode === 'Sea'",
+   "depends_on": "eval:doc.transport_mode_sea",
    "fieldname": "section_break_sea",
    "fieldtype": "Section Break",
    "label": "Vessel & Voyage"
   },
   {
-   "depends_on": "eval:doc.mode === 'Sea'",
+   "depends_on": "eval:doc.transport_mode_sea",
    "fieldname": "vessel",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Vessel"
   },
   {
-   "depends_on": "eval:doc.mode === 'Sea'",
+   "depends_on": "eval:doc.transport_mode_sea",
    "fieldname": "voyage_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Voyage No"
   },
   {
-   "depends_on": "eval:doc.mode === 'Sea'",
+   "depends_on": "eval:doc.transport_mode_sea",
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -97,20 +115,20 @@
    "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
   },
   {
-   "depends_on": "eval:doc.mode === 'Air'",
+   "depends_on": "eval:doc.transport_mode_air",
    "fieldname": "section_break_air",
    "fieldtype": "Section Break",
    "label": "Flight"
   },
   {
-   "depends_on": "eval:doc.mode === 'Air'",
+   "depends_on": "eval:doc.transport_mode_air",
    "fieldname": "flight_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Flight No"
   },
   {
-   "depends_on": "eval:doc.mode === 'Air'",
+   "depends_on": "eval:doc.transport_mode_air",
    "fieldname": "airline",
    "fieldtype": "Link",
    "in_list_view": 1,

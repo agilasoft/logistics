@@ -74,6 +74,7 @@ doctype_js = {
 	# Charge parent doctypes: dialogs first, then charge script + handlers
 	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
 	"Air Booking": [
+		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
@@ -84,6 +85,7 @@ doctype_js = {
 		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Air Shipment": [
+		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/internal_job_create_from_source.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
@@ -103,6 +105,7 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Sea Booking": [
+		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/sea_freight_accounting_defaults.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
@@ -112,6 +115,7 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Sea Shipment": [
+		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/internal_job_create_from_source.js",
 		"logistics/public/js/sea_freight_accounting_defaults.js",
 		"logistics/public/js/shipper_consignee_defaults.js",

@@ -8,6 +8,8 @@ from __future__ import annotations
 import frappe
 from frappe.model.document import Document
 
+from logistics.utils.transport_mode_flags import get_air_sea_flags_for_transport_mode
+
 
 def get_booking_routing_rows_from_sales_quote(
 	sales_quote_doc: Document,
@@ -23,6 +25,7 @@ def get_booking_routing_rows_from_sales_quote(
 	for leg in getattr(sales_quote_doc, "routing_legs", None) or []:
 		# Align with Sales Quote Routing Leg default (Road) when missing
 		mode = getattr(leg, "mode", None) or "Road"
+		air_flag, sea_flag = get_air_sea_flags_for_transport_mode(mode)
 		row = {
 			"mode": mode,
 			"type": getattr(leg, "type", None) or "Main",
@@ -33,12 +36,14 @@ def get_booking_routing_rows_from_sales_quote(
 			"discharge_port": getattr(leg, "destination", None),
 			"etd": getattr(leg, "etd", None),
 			"eta": getattr(leg, "eta", None),
+			"transport_mode_air": air_flag,
+			"transport_mode_sea": sea_flag,
 		}
 		if booking_doc and getattr(booking_doc, "doctype", None) == "Sea Booking":
-			if mode == "Sea" and getattr(booking_doc, "shipping_line", None):
+			if sea_flag and getattr(booking_doc, "shipping_line", None):
 				row["shipping_line"] = booking_doc.shipping_line
 		elif booking_doc and getattr(booking_doc, "doctype", None) == "Air Booking":
-			if mode == "Air" and getattr(booking_doc, "airline", None):
+			if air_flag and getattr(booking_doc, "airline", None):
 				row["airline"] = booking_doc.airline
 		rows.append(row)
 	return rows
