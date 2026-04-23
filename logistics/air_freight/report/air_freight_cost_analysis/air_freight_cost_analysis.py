@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.air_freight.air_shipment_charges_report_sql import AFC_COST_AMOUNT
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -120,14 +122,17 @@ def get_data(filters):
 			aship.destination_port,
 			aship.airline,
 			aship.chargeable,
-			COALESCE(SUM(CASE WHEN aschg.charge_type = 'Freight' THEN aschg.total_amount ELSE 0 END), 0) as freight_cost,
-			COALESCE(SUM(CASE WHEN aschg.charge_type = 'Fuel Surcharge' THEN aschg.total_amount ELSE 0 END), 0) as fuel_surcharge,
-			COALESCE(SUM(CASE WHEN aschg.charge_type IN ('Handling', 'Terminal Handling') THEN aschg.total_amount ELSE 0 END), 0) as handling_cost,
-			COALESCE(SUM(CASE WHEN aschg.charge_type = 'Customs Clearance' THEN aschg.total_amount ELSE 0 END), 0) as customs_cost,
-			COALESCE(SUM(CASE WHEN aschg.charge_type NOT IN ('Freight', 'Fuel Surcharge', 'Handling', 'Terminal Handling', 'Customs Clearance') THEN aschg.total_amount ELSE 0 END), 0) as other_costs,
-			COALESCE(SUM(aschg.total_amount), 0) as total_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_category = 'Freight' THEN {afc_cost} ELSE 0 END), 0) as freight_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_category IN ('Fuel Surcharge', 'Security Surcharge', 'War Risk Surcharge') THEN {afc_cost} ELSE 0 END), 0) as fuel_surcharge,
+			COALESCE(SUM(CASE WHEN aschg.charge_category = 'Terminal Handling' THEN {afc_cost} ELSE 0 END), 0) as handling_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_category = 'Customs Clearance' THEN {afc_cost} ELSE 0 END), 0) as customs_cost,
+			COALESCE(SUM(CASE WHEN aschg.charge_category IS NULL OR aschg.charge_category NOT IN (
+				'Freight', 'Fuel Surcharge', 'Security Surcharge', 'War Risk Surcharge', 'Terminal Handling',
+				'Customs Clearance'
+			) THEN {afc_cost} ELSE 0 END), 0) as other_costs,
+			COALESCE(SUM({afc_cost}), 0) as total_cost,
 			CASE 
-				WHEN aship.chargeable > 0 THEN COALESCE(SUM(aschg.total_amount), 0) / aship.chargeable
+				WHEN aship.chargeable > 0 THEN COALESCE(SUM({afc_cost}), 0) / aship.chargeable
 				ELSE 0
 			END as cost_per_kg,
 			aship.company
@@ -142,7 +147,7 @@ def get_data(filters):
 			aship.name
 		ORDER BY
 			aship.booking_date DESC, aship.name DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, afc_cost=AFC_COST_AMOUNT), filters, as_dict=1)
 	
 	return data
 

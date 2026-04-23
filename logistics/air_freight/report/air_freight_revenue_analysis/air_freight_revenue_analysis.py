@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.air_freight.air_shipment_charges_report_sql import AFC_SELLING_AMOUNT
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -102,7 +104,7 @@ def get_data(filters):
 			aship.origin_port,
 			aship.destination_port,
 			aship.chargeable,
-			COALESCE(SUM(aschg.total_amount), 0) as total_charges,
+			COALESCE(SUM({afc_selling}), 0) as total_charges,
 			COALESCE(aship.revenue_amount, 0) as revenue_amount,
 			aship.billing_status,
 			COALESCE(MAX(aschg.currency), aship.billing_currency, 'USD') as currency,
@@ -118,7 +120,7 @@ def get_data(filters):
 			aship.name
 		ORDER BY
 			aship.booking_date DESC, aship.name DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, afc_selling=AFC_SELLING_AMOUNT), filters, as_dict=1)
 	
 	return data
 

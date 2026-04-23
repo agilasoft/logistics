@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.sea_freight.sea_shipment_charges_report_sql import SFC_COST_AMOUNT
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -139,16 +141,19 @@ def get_data(filters):
 			sship.shipping_line,
 			sship.vessel_name,
 			sship.chargeable,
-			COALESCE(SUM(CASE WHEN sfc.charge_type = 'Freight' THEN sfc.total_amount ELSE 0 END), 0) as freight_cost,
-			COALESCE(SUM(CASE WHEN sfc.charge_type = 'Fuel Surcharge' THEN sfc.total_amount ELSE 0 END), 0) as fuel_surcharge,
-			COALESCE(SUM(CASE WHEN sfc.charge_type IN ('Handling', 'Terminal Handling') THEN sfc.total_amount ELSE 0 END), 0) as handling_cost,
-			COALESCE(SUM(CASE WHEN sfc.charge_type = 'Port Charges' THEN sfc.total_amount ELSE 0 END), 0) as port_charges,
-			COALESCE(SUM(CASE WHEN sfc.charge_type = 'Customs Clearance' THEN sfc.total_amount ELSE 0 END), 0) as customs_cost,
-			COALESCE(SUM(CASE WHEN sfc.charge_type IN ('Detention', 'Demurrage') THEN sfc.total_amount ELSE 0 END), 0) as detention_demurrage,
-			COALESCE(SUM(CASE WHEN sfc.charge_type NOT IN ('Freight', 'Fuel Surcharge', 'Handling', 'Terminal Handling', 'Port Charges', 'Customs Clearance', 'Detention', 'Demurrage') THEN sfc.total_amount ELSE 0 END), 0) as other_costs,
-			COALESCE(SUM(sfc.total_amount), 0) as total_cost,
+			COALESCE(SUM(CASE WHEN sfc.charge_category = 'Freight' THEN {sfc_cost} ELSE 0 END), 0) as freight_cost,
+			COALESCE(SUM(CASE WHEN sfc.charge_category IN ('Fuel Surcharge', 'Security Surcharge', 'War Risk Surcharge') THEN {sfc_cost} ELSE 0 END), 0) as fuel_surcharge,
+			COALESCE(SUM(CASE WHEN sfc.charge_category = 'Terminal Handling' THEN {sfc_cost} ELSE 0 END), 0) as handling_cost,
+			COALESCE(SUM(CASE WHEN sfc.charge_category = 'Port Charges' THEN {sfc_cost} ELSE 0 END), 0) as port_charges,
+			COALESCE(SUM(CASE WHEN sfc.charge_category = 'Customs Clearance' THEN {sfc_cost} ELSE 0 END), 0) as customs_cost,
+			COALESCE(SUM(CASE WHEN sfc.charge_category IN ('Detention', 'Demurrage') THEN {sfc_cost} ELSE 0 END), 0) as detention_demurrage,
+			COALESCE(SUM(CASE WHEN sfc.charge_category IS NULL OR sfc.charge_category NOT IN (
+				'Freight', 'Fuel Surcharge', 'Security Surcharge', 'War Risk Surcharge', 'Terminal Handling',
+				'Port Charges', 'Customs Clearance', 'Detention', 'Demurrage'
+			) THEN {sfc_cost} ELSE 0 END), 0) as other_costs,
+			COALESCE(SUM({sfc_cost}), 0) as total_cost,
 			CASE 
-				WHEN sship.chargeable > 0 THEN COALESCE(SUM(sfc.total_amount), 0) / sship.chargeable
+				WHEN sship.chargeable > 0 THEN COALESCE(SUM({sfc_cost}), 0) / sship.chargeable
 				ELSE 0
 			END as cost_per_kg,
 			sship.company
@@ -163,7 +168,7 @@ def get_data(filters):
 			sship.name
 		ORDER BY
 			sship.booking_date DESC, sship.name DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, sfc_cost=SFC_COST_AMOUNT), filters, as_dict=1)
 	
 	return data
 

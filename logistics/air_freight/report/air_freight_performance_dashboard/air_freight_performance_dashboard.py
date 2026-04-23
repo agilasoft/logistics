@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.air_freight.air_shipment_charges_report_sql import AFC_SELLING_AMOUNT
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -71,12 +73,12 @@ def get_data(filters):
 	# Revenue
 	revenue_data = frappe.db.sql("""
 		SELECT
-			COALESCE(SUM(aschg.total_amount), 0) as total_revenue
+			COALESCE(SUM({afc_selling}), 0) as total_revenue
 		FROM `tabAir Shipment` aship
 		LEFT JOIN `tabAir Shipment Charges` aschg ON aschg.parent = aship.name
 		WHERE aship.docstatus = 1 {conditions}
 		GROUP BY aship.name
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, afc_selling=AFC_SELLING_AMOUNT), filters, as_dict=1)
 	
 	total_revenue = sum(flt(row.total_revenue) for row in revenue_data)
 	

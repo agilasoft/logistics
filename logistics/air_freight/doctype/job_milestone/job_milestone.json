@@ -11,6 +11,7 @@
   "job_number",
   "milestone",
   "status",
+  "icon",
   "column_break_vxxu",
   "planned_start",
   "planned_end",
@@ -71,12 +72,17 @@
    "fieldname": "actual_end",
    "fieldtype": "Datetime",
    "label": "Actual End"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Icon",
+   "label": "Icon"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-28 07:33:09.203764",
+ "modified": "2026-04-23 12:00:41.912462",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Job Milestone",

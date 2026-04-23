@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.sea_freight.sea_shipment_charges_report_sql import SFC_SELLING_AMOUNT_BARE
+
 
 def execute(filters=None):
 	columns = get_columns()
@@ -42,7 +44,7 @@ def get_data(filters):
 			SUM(COALESCE(charge_agg.total_charges, 0)) as total_revenue
 		FROM `tabSea Shipment` ss
 		LEFT JOIN (
-			SELECT parent, SUM(total_amount) as total_charges
+			SELECT parent, SUM({sfc_selling_bare}) as total_charges
 			FROM `tabSea Shipment Charges`
 			GROUP BY parent
 		) charge_agg ON charge_agg.parent = ss.name
@@ -50,7 +52,7 @@ def get_data(filters):
 		{conditions}
 		GROUP BY ss.origin_port, ss.destination_port
 		ORDER BY total_shipments DESC, total_revenue DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, sfc_selling_bare=SFC_SELLING_AMOUNT_BARE), filters, as_dict=1)
 	for row in data:
 		chargeable = flt(row.get("total_chargeable"))
 		revenue = flt(row.get("total_revenue"))

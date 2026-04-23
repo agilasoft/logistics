@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.air_freight.air_shipment_charges_report_sql import AFC_SELLING_AMOUNT
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -124,10 +126,10 @@ def get_data(filters):
 			AVG(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL
 				THEN TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival)
 				ELSE NULL END) as avg_arrival_delay,
-			COALESCE(SUM(aschg.total_amount), 0) as total_revenue,
+			COALESCE(SUM({afc_selling}), 0) as total_revenue,
 			CASE
 				WHEN COUNT(DISTINCT aship.name) > 0
-				THEN COALESCE(SUM(aschg.total_amount), 0) / COUNT(DISTINCT aship.name)
+				THEN COALESCE(SUM({afc_selling}), 0) / COUNT(DISTINCT aship.name)
 				ELSE 0
 			END as avg_revenue_per_shipment
 		FROM
@@ -142,7 +144,7 @@ def get_data(filters):
 			aship.airline
 		ORDER BY
 			total_shipments DESC, on_time_percentage DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, afc_selling=AFC_SELLING_AMOUNT), filters, as_dict=1)
 	
 	return data
 
