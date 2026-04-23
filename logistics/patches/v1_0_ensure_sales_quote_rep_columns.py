@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # Licensed under the MIT License. See license.txt
 
-"""Sync Sales Quote table so rep columns (e.g. sales_rep) exist for permission/match SQL in link search."""
+"""Sync `tabSales Quote` with DocType metadata (company, rep columns, etc.) for permission match SQL."""
 
 import frappe
 

@@ -15,6 +15,20 @@ from frappe.utils import cint
 from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
 
 
+def _ensure_sales_quote_columns_for_permissions() -> None:
+	"""If DB is behind DocType (e.g. missing ``company``), ``get_match_cond`` can emit invalid SQL."""
+	if not frappe.db.table_exists("Sales Quote") or not frappe.db.exists("DocType", "Sales Quote"):
+		return
+	try:
+		if frappe.db.has_column("Sales Quote", "company"):
+			return
+	except frappe.db.TableMissingError:
+		return
+
+	frappe.db.updatedb("Sales Quote")
+	frappe.client_cache.delete_value("table_columns::tabSales Quote")
+
+
 def _parse_filters(filters: Any) -> dict:
 	if filters is None:
 		return {}
@@ -352,6 +366,7 @@ def sales_quote_by_service_link_search(
 	else:
 		where_block = f"{eligibility} AND {one_off_where} {excluded_cond}"
 
+	_ensure_sales_quote_columns_for_permissions()
 	match_cond = get_match_cond("Sales Quote")
 
 	sql = f"""
@@ -436,6 +451,7 @@ def fetch_eligible_regular_sales_quote_names(
 		params["customer"] = customer.strip()
 		customer_cond = "AND TRIM(IFNULL(sq.customer,'')) = %(customer)s"
 
+	_ensure_sales_quote_columns_for_permissions()
 	match_cond = get_match_cond("Sales Quote")
 	sql = f"""
 		SELECT sq.name
