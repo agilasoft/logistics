@@ -112,7 +112,7 @@ def get_data(filters):
 			sship.chargeable,
 			sship.total_containers,
 			COALESCE(SUM({sfc_selling}), 0) as total_charges,
-			COALESCE(sship.revenue_amount, 0) as revenue_amount,
+			COALESCE(sship.recognized_revenue, sship.estimated_revenue, 0) as revenue_amount,
 			sship.billing_status,
 			COALESCE(MAX(sfc.currency), sship.currency, 'USD') as currency,
 			sship.company
