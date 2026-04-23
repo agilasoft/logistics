@@ -451,7 +451,7 @@ def get_milestone_template_items(product_type, applies_to, direction=None, entry
 		"Milestone Template Item",
 		filters={"parent": template_name},
 		fields=[
-			"milestone", "icon", "date_basis", "planned_days_offset",
+			"milestone", "date_basis", "planned_days_offset",
 			"update_trigger_type", "sync_parent_date_field", "sync_direction",
 			"trigger_field", "trigger_condition", "trigger_value", "trigger_action",
 		],
@@ -517,7 +517,7 @@ def populate_milestones_from_template(doctype, docname):
 			"Milestone Template Item",
 			filters={"parent": template_name},
 			fields=[
-				"milestone", "icon", "date_basis", "planned_days_offset",
+				"milestone", "date_basis", "planned_days_offset",
 				"update_trigger_type", "sync_parent_date_field", "sync_direction",
 				"trigger_field", "trigger_condition", "trigger_value", "trigger_action",
 			],
