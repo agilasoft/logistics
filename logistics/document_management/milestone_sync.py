@@ -48,7 +48,7 @@ def apply_milestone_sync_in_place(doc, method=None):
 		filters={"parent": template_name},
 		fields=[
 			"milestone", "date_basis", "sync_parent_date_field", "sync_direction",
-			"update_trigger_type", "trigger_type",
+			"update_trigger_type",
 			"trigger_field", "trigger_condition", "trigger_value", "trigger_action",
 		],
 		order_by="idx asc",
@@ -70,7 +70,7 @@ def apply_milestone_sync_in_place(doc, method=None):
 			item = item_by_milestone.get(key)
 			if item:
 				row.automation_planned_date_basis = (item.get("date_basis") or "").strip() or None
-				row.automation_update_trigger_type = (item.get("update_trigger_type") or item.get("trigger_type") or "").strip() or None
+				row.automation_update_trigger_type = (item.get("update_trigger_type") or "").strip() or None
 				row.automation_sync_parent_date_field = (item.get("sync_parent_date_field") or "").strip() or None
 				row.automation_sync_direction = (item.get("sync_direction") or "").strip() or None
 				row.automation_trigger_field = (item.get("trigger_field") or "").strip() or None
@@ -177,7 +177,7 @@ def apply_milestone_sync_and_triggers(doc, method=None):
 			filters={"parent": template_name},
 			fields=[
 				"milestone", "date_basis", "sync_parent_date_field", "sync_direction",
-				"update_trigger_type", "trigger_type",
+				"update_trigger_type",
 				"trigger_field", "trigger_condition", "trigger_value", "trigger_action",
 			],
 			order_by="idx asc",
@@ -210,7 +210,7 @@ def apply_milestone_sync_and_triggers(doc, method=None):
 				item = item_by_milestone.get(row_milestone_key)
 				if item:
 					row.automation_planned_date_basis = (item.get("date_basis") or "").strip() or None
-					row.automation_update_trigger_type = (item.get("update_trigger_type") or item.get("trigger_type") or "").strip() or None
+					row.automation_update_trigger_type = (item.get("update_trigger_type") or "").strip() or None
 					row.automation_sync_parent_date_field = (item.get("sync_parent_date_field") or "").strip() or None
 					row.automation_sync_direction = (item.get("sync_direction") or "").strip() or None
 					row.automation_trigger_field = (item.get("trigger_field") or "").strip() or None
