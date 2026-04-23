@@ -32,6 +32,19 @@ def ensure_sales_invoice_name_for_server_insert(si) -> None:
     else:
         si.name = make_autoname("hash", "Sales Invoice")
 
+
+def job_dimension_link_field_writable(field) -> bool:
+    """Allow writing only if a Link field's target DocType exists (legacy options e.g. Job Costing Number)."""
+    if not field:
+        return False
+    if field.fieldtype != "Link":
+        return True
+    opt = (field.options or "").strip()
+    if not opt:
+        return True
+    return bool(frappe.db.exists("DocType", opt))
+
+
 SALES_JOB_DOCTYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration")
 
 # Child table doctype for charges (for tagging sales_invoice_status / sales_invoice)
@@ -230,9 +243,11 @@ def create_sales_invoice_from_job(
     # job_number (current dimension) and legacy job_costing_number on some sites / restores
     job_ref = getattr(job, "job_number", None) or getattr(job, "job_costing_number", None)
     if job_ref:
-        if si_meta.get_field("job_number"):
+        f_jn = si_meta.get_field("job_number")
+        if f_jn and job_dimension_link_field_writable(f_jn):
             si.job_number = job_ref
-        if si_meta.get_field("job_costing_number"):
+        f_jc = si_meta.get_field("job_costing_number")
+        if f_jc and job_dimension_link_field_writable(f_jc):
             si.job_costing_number = job_ref
     if getattr(job, "sales_quote", None) and si_meta.get_field("quotation_no"):
         si.quotation_no = job.sales_quote
@@ -273,9 +288,11 @@ def create_sales_invoice_from_job(
         if getattr(job, "profit_center", None):
             item_payload["profit_center"] = job.profit_center
         if job_ref:
-            if si_item_meta.get_field("job_number"):
+            it_jn = si_item_meta.get_field("job_number")
+            if it_jn and job_dimension_link_field_writable(it_jn):
                 item_payload["job_number"] = job_ref
-            if si_item_meta.get_field("job_costing_number"):
+            it_jc = si_item_meta.get_field("job_costing_number")
+            if it_jc and job_dimension_link_field_writable(it_jc):
                 item_payload["job_costing_number"] = job_ref
         row = si.append("items", item_payload)
         if has_ref:

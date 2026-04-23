@@ -5,7 +5,10 @@ import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 
-from logistics.invoice_integration.sales_invoice_api import ensure_sales_invoice_name_for_server_insert
+from logistics.invoice_integration.sales_invoice_api import (
+    ensure_sales_invoice_name_for_server_insert,
+    job_dimension_link_field_writable,
+)
 
 @frappe.whitelist()
 def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict[str, Any]:
@@ -183,22 +186,28 @@ def create_sales_invoice_from_job(
         si.currency = chosen_currency
 
     job_ref = getattr(job, "job_number", None) or getattr(job, "job_costing_number", None)
+    si_meta_wh = frappe.get_meta("Sales Invoice")
     if job_ref:
-        if "job_number" in sif:
+        f_jn = si_meta_wh.get_field("job_number")
+        if f_jn and job_dimension_link_field_writable(f_jn):
             si.job_number = job_ref
-        if "job_costing_number" in sif:
+        f_jc = si_meta_wh.get_field("job_costing_number")
+        if f_jc and job_dimension_link_field_writable(f_jc):
             si.job_costing_number = job_ref
 
     sif_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
+    si_item_meta_wh = frappe.get_meta("Sales Invoice Item")
     for r in valid_rows:
         row_payload = {"item_code": r["item_code"], "qty": r["qty"] or 0.0, "rate": r["rate"] or 0.0}
         if "uom" in sif_item_fields and r.get("uom"): row_payload["uom"] = r["uom"]
         if "item_name" in sif_item_fields and r.get("item_name"): row_payload["item_name"] = r["item_name"]
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
         if job_ref:
-            if "job_number" in sif_item_fields:
+            it_jn = si_item_meta_wh.get_field("job_number")
+            if it_jn and job_dimension_link_field_writable(it_jn):
                 row_payload["job_number"] = job_ref
-            if "job_costing_number" in sif_item_fields:
+            it_jc = si_item_meta_wh.get_field("job_costing_number")
+            if it_jc and job_dimension_link_field_writable(it_jc):
                 row_payload["job_costing_number"] = job_ref
         if "reference_doctype" in sif_item_fields and "reference_name" in sif_item_fields:
             row_payload["reference_doctype"] = "Warehouse Job"
