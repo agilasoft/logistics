@@ -2290,25 +2290,10 @@ class AirBooking(Document):
 					air_shipment.insert(ignore_permissions=True)
 				else:
 					raise
-			
-			# Save the Air Shipment (after_insert may have already saved it, but we save again to be sure)
-			try:
-				air_shipment.save(ignore_permissions=True)
-			except (frappe.ValidationError, frappe.LinkValidationError) as e:
-				# If validation fails due to invalid link fields, clear them and try again
-				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
-					# Clear potentially invalid link fields
-					if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
-						if not frappe.db.exists("Logistics Service Level", air_shipment.service_level):
-							air_shipment.service_level = None
-					if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
-						if not frappe.db.exists("Release Type", air_shipment.release_type):
-							air_shipment.release_type = None
-					# Try save again
-					air_shipment.save(ignore_permissions=True)
-				else:
-					raise
-			
+			# Do not call save() here: insert() already persists the document and runs post-save hooks.
+			# A follow-up save() triggers TimestampMismatchError when DB modified differs from the
+			# in-memory copy (see e.g. Transport Order create_job_from_order: reload + single writer).
+
 			# Ensure commit before client navigates (avoids "not found" on form load)
 			frappe.db.commit()
 			

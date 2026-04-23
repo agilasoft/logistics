@@ -63,9 +63,9 @@ def get_columns():
 			"width": 150
 		},
 		{
-			"fieldname": "actual_departure",
-			"label": _("Actual Departure"),
-			"fieldtype": "Datetime",
+			"fieldname": "atd",
+			"label": _("ATD"),
+			"fieldtype": "Date",
 			"width": 150
 		},
 		{
@@ -82,9 +82,9 @@ def get_columns():
 			"width": 150
 		},
 		{
-			"fieldname": "actual_arrival",
-			"label": _("Actual Arrival"),
-			"fieldtype": "Datetime",
+			"fieldname": "ata",
+			"label": _("ATA"),
+			"fieldtype": "Date",
 			"width": 150
 		},
 		{
@@ -121,25 +121,25 @@ def get_data(filters):
 			sship.shipping_line,
 			sship.vessel_name,
 			sship.etd,
-			sship.actual_departure,
+			sship.atd,
 			CASE 
-				WHEN sship.etd IS NOT NULL AND sship.actual_departure IS NOT NULL
-				THEN TIMESTAMPDIFF(DAY, sship.etd, sship.actual_departure)
+				WHEN sship.etd IS NOT NULL AND sship.atd IS NOT NULL
+				THEN TIMESTAMPDIFF(DAY, sship.etd, sship.atd)
 				ELSE NULL
 			END as departure_delay_days,
 			sship.eta,
-			sship.actual_arrival,
+			sship.ata,
 			CASE 
-				WHEN sship.eta IS NOT NULL AND sship.actual_arrival IS NOT NULL
-				THEN TIMESTAMPDIFF(DAY, sship.eta, sship.actual_arrival)
+				WHEN sship.eta IS NOT NULL AND sship.ata IS NOT NULL
+				THEN TIMESTAMPDIFF(DAY, sship.eta, sship.ata)
 				ELSE NULL
 			END as arrival_delay_days,
 			CASE 
-				WHEN sship.eta IS NOT NULL AND sship.actual_arrival IS NOT NULL
-					AND TIMESTAMPDIFF(DAY, sship.eta, sship.actual_arrival) <= 0
+				WHEN sship.eta IS NOT NULL AND sship.ata IS NOT NULL
+					AND TIMESTAMPDIFF(DAY, sship.eta, sship.ata) <= 0
 				THEN 'On Time'
-				WHEN sship.eta IS NOT NULL AND sship.actual_arrival IS NOT NULL
-					AND TIMESTAMPDIFF(DAY, sship.eta, sship.actual_arrival) > 0
+				WHEN sship.eta IS NOT NULL AND sship.ata IS NOT NULL
+					AND TIMESTAMPDIFF(DAY, sship.eta, sship.ata) > 0
 				THEN 'Delayed'
 				ELSE 'Pending'
 			END as on_time_status,
@@ -172,11 +172,11 @@ def get_conditions(filters):
 	
 	if filters.get("on_time_status"):
 		if filters.on_time_status == "On Time":
-			conditions.append("sship.eta IS NOT NULL AND sship.actual_arrival IS NOT NULL AND TIMESTAMPDIFF(DAY, sship.eta, sship.actual_arrival) <= 0")
+			conditions.append("sship.eta IS NOT NULL AND sship.ata IS NOT NULL AND TIMESTAMPDIFF(DAY, sship.eta, sship.ata) <= 0")
 		elif filters.on_time_status == "Delayed":
-			conditions.append("sship.eta IS NOT NULL AND sship.actual_arrival IS NOT NULL AND TIMESTAMPDIFF(DAY, sship.eta, sship.actual_arrival) > 0")
+			conditions.append("sship.eta IS NOT NULL AND sship.ata IS NOT NULL AND TIMESTAMPDIFF(DAY, sship.eta, sship.ata) > 0")
 		elif filters.on_time_status == "Pending":
-			conditions.append("(sship.eta IS NULL OR sship.actual_arrival IS NULL)")
+			conditions.append("(sship.eta IS NULL OR sship.ata IS NULL)")
 	
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
