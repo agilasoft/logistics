@@ -1,7 +1,11 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # For license information, please see license.txt
 
-"""Populate transport_mode_air / transport_mode_sea on booking & shipment routing legs from Transport Mode."""
+"""Populate transport_mode_air / transport_mode_sea on booking & shipment routing legs from Transport Mode.
+
+Replaces v1_0_backfill_routing_leg_transport_mode_flags: Meta has no ``db_table`` on this Frappe version;
+use ``frappe.utils.get_table_name`` (same as ORM) for physical table names.
+"""
 
 import frappe
 from frappe.utils import get_table_name
