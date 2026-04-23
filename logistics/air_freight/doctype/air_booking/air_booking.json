@@ -480,7 +480,7 @@
   },
   {
    "default": "IATA",
-   "description": "IATA: Uses standard 6000 divisor (167 kg/m\u00b3). Custom: Uses airline-specific divisor or override.",
+   "description": "IATA: volumetric 1 kg per 6000 cm\u00b3 (1000/6 kg/m\u00b3). Custom: airline-specific divisor or override.",
    "fieldname": "volume_to_weight_factor_type",
    "fieldtype": "Select",
    "label": "Volume to Weight Factor Type",

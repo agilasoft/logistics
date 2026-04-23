@@ -53,25 +53,25 @@ def get_columns():
 		{
 			"fieldname": "etd",
 			"label": _("ETD"),
-			"fieldtype": "Datetime",
+			"fieldtype": "Date",
 			"width": 130
 		},
 		{
-			"fieldname": "actual_departure",
-			"label": _("Actual Departure"),
-			"fieldtype": "Datetime",
+			"fieldname": "atd",
+			"label": _("ATD"),
+			"fieldtype": "Date",
 			"width": 130
 		},
 		{
 			"fieldname": "eta",
 			"label": _("ETA"),
-			"fieldtype": "Datetime",
+			"fieldtype": "Date",
 			"width": 130
 		},
 		{
-			"fieldname": "actual_arrival",
-			"label": _("Actual Arrival"),
-			"fieldtype": "Datetime",
+			"fieldname": "ata",
+			"label": _("ATA"),
+			"fieldtype": "Date",
 			"width": 130
 		},
 		{
@@ -113,24 +113,24 @@ def get_data(filters):
 			aship.destination_port,
 			aship.airline,
 			aship.etd,
-			aship.actual_departure,
+			aship.atd,
 			aship.eta,
-			aship.actual_arrival,
+			aship.ata,
 			CASE
-				WHEN aship.etd IS NOT NULL AND aship.actual_departure IS NOT NULL
-				THEN TIMESTAMPDIFF(HOUR, aship.etd, aship.actual_departure)
+				WHEN aship.etd IS NOT NULL AND aship.atd IS NOT NULL
+				THEN TIMESTAMPDIFF(HOUR, aship.etd, aship.atd)
 				ELSE NULL
 			END as departure_delay,
 			CASE
-				WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL
-				THEN TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival)
+				WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL
+				THEN TIMESTAMPDIFF(HOUR, aship.eta, aship.ata)
 				ELSE NULL
 			END as arrival_delay,
 			CASE
-				WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL THEN
+				WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL THEN
 					CASE
-						WHEN TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) <= 0 THEN 'On Time'
-						WHEN TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) <= 24 THEN 'Delayed < 24hrs'
+						WHEN TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) <= 0 THEN 'On Time'
+						WHEN TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) <= 24 THEN 'Delayed < 24hrs'
 						ELSE 'Delayed > 24hrs'
 					END
 				ELSE 'Pending'
@@ -164,9 +164,9 @@ def get_conditions(filters):
 	
 	if filters.get("on_time_status"):
 		if filters.get("on_time_status") == "On Time":
-			conditions.append("TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) <= 0")
+			conditions.append("aship.eta IS NOT NULL AND aship.ata IS NOT NULL AND TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) <= 0")
 		elif filters.get("on_time_status") == "Delayed":
-			conditions.append("TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) > 0")
+			conditions.append("aship.eta IS NOT NULL AND aship.ata IS NOT NULL AND TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) > 0")
 	
 	return " AND " + " AND ".join(conditions) if conditions else ""
 

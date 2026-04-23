@@ -553,7 +553,11 @@ class AirBooking(Document):
 	@frappe.whitelist()
 	def recalculate_package_volumes_api(self):
 		"""Recalculate volume for each package from dimensions (Dimension Volume UOM Conversion). Returns list of {name, volume} for client to apply."""
-		from logistics.utils.measurements import calculate_volume_from_dimensions, get_default_uoms
+		from logistics.utils.measurements import (
+			calculate_volume_from_dimensions,
+			get_default_uoms,
+			get_package_line_volume_multiplier,
+		)
 
 		packages = getattr(self, "packages", []) or []
 		company = getattr(self, "company", None)
@@ -600,10 +604,11 @@ class AirBooking(Document):
 				result.append({"name": name, "volume": 0})
 				continue
 			try:
-				vol = calculate_volume_from_dimensions(
+				base = calculate_volume_from_dimensions(
 					length=length, width=width, height=height,
 					dimension_uom=dimension_uom, volume_uom=volume_uom, company=company
 				)
+				vol = base * get_package_line_volume_multiplier(pkg)
 				result.append({"name": name, "volume": vol})
 			except Exception:
 				result.append({"name": name, "volume": 0})
@@ -626,12 +631,13 @@ class AirBooking(Document):
 		
 		# Validate divisor is positive
 		if divisor <= 0:
-			IATA_DIVISOR = 1000000.0 / 167.0  # IATA standard: exactly 167 kg/m³
+			from logistics.utils.measurements import IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
+
 			frappe.log_error(
-				f"Invalid divisor ({divisor}) for Air Booking {self.name}. Using IATA standard {IATA_DIVISOR:.2f}.",
+				f"Invalid divisor ({divisor}) for Air Booking {self.name}. Using IATA standard {IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG:.2f}.",
 				"Air Booking - Invalid Divisor"
 			)
-			divisor = IATA_DIVISOR  # Default to IATA standard
+			divisor = IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
 		
 		# Get and validate volume and weight
 		volume = flt(self.volume or 0)
@@ -678,18 +684,16 @@ class AirBooking(Document):
 	
 	def get_volume_to_weight_divisor(self):
 		"""Get the volume to weight divisor based on factor type and airline settings"""
-		# IATA standard: 167 kg/m³
-		# Divisor calculation: 1,000,000 cm³ / 167 kg = 5988.02 (exactly 1,000,000 / 167)
-		IATA_DIVISOR = 1000000.0 / 167.0  # = 5988.023952095808, gives exactly 167 kg/m³
-		
-		# Default to IATA standard
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
+
+		# IATA: 1 kg per 6000 cm³ => density 1000/6 kg/m³; divisor = 1e6 cm³/m³ / density = 6000
+		IATA_DIVISOR = IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
+
 		divisor = IATA_DIVISOR
-		
-		# Get factor type (default to IATA if not set)
+
 		factor_type = self.volume_to_weight_factor_type or "IATA"
-		
+
 		if factor_type == "IATA":
-			# IATA standard: divisor that gives exactly 167 kg/m³
 			divisor = IATA_DIVISOR
 		elif factor_type == "Custom":
 			# Check if custom divisor is overridden on Air Booking

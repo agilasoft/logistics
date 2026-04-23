@@ -547,6 +547,35 @@ def compute_density_factor(
 		return None
 
 
+# IATA volumetric standard: 1 kg per 6000 cm³ of volume (exact rational kg/m³ for m³-rated volume).
+IATA_VOLUMETRIC_DENSITY_KG_M3 = 1000.0 / 6.0
+IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG = 1_000_000.0 / IATA_VOLUMETRIC_DENSITY_KG_M3
+
+_TRANSPORT_PACKAGE_DOCTYPES = frozenset({"Transport Order Package", "Transport Job Package"})
+
+
+def get_package_line_volume_multiplier(row: Any) -> float:
+	"""
+	Scale single-unit volume to total line volume: multiply L×W×H volume by this value.
+
+	- Transport Order/Job Package: ``flt(no_of_packs or quantity or 1)`` (aligned with total_packages).
+	- Other package child rows: ``flt(no_of_packs or 0)``.
+
+	``row`` may be a Frappe Document or a dict (e.g. client/API payload).
+	"""
+	def _get(key: str, default=None):
+		if isinstance(row, dict):
+			return row.get(key, default)
+		return getattr(row, key, default)
+
+	doctype = _get("doctype")
+	no_p = _get("no_of_packs")
+	qty = _get("quantity")
+	if doctype in _TRANSPORT_PACKAGE_DOCTYPES:
+		return flt(no_p or qty or 1)
+	return flt(no_p or 0)
+
+
 def calculate_volume_from_dimensions(
 	length: float,
 	width: float,

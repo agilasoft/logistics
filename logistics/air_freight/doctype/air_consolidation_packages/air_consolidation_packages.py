@@ -162,8 +162,9 @@ class AirConsolidationPackages(Document):
     def calculate_volume_weight(self):
         """Calculate volume weight for the package"""
         if self.package_volume:
-            # IATA standard volume weight factor: 167 kg/m³
-            volume_weight = self.package_volume * 167
+            from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+            volume_weight = self.package_volume * IATA_VOLUMETRIC_DENSITY_KG_M3
             return volume_weight
         return 0
     

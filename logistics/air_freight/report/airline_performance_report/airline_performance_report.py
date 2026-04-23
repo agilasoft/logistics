@@ -109,22 +109,22 @@ def get_data(filters):
 			SUM(aship.weight) as total_weight,
 			SUM(aship.volume) as total_volume,
 			SUM(aship.chargeable) as total_chargeable,
-			SUM(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL 
-				AND TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) <= 0 THEN 1 ELSE 0 END) as on_time_shipments,
-			SUM(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL 
-				AND TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) > 0 THEN 1 ELSE 0 END) as delayed_shipments,
+			SUM(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL 
+				AND TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) <= 0 THEN 1 ELSE 0 END) as on_time_shipments,
+			SUM(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL 
+				AND TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) > 0 THEN 1 ELSE 0 END) as delayed_shipments,
 			CASE
-				WHEN COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL THEN 1 END) > 0
-				THEN (SUM(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL 
-					AND TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) <= 0 THEN 1 ELSE 0 END) * 100.0) /
-					COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL THEN 1 END)
+				WHEN COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL THEN 1 END) > 0
+				THEN (SUM(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL 
+					AND TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) <= 0 THEN 1 ELSE 0 END) * 100.0) /
+					COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL THEN 1 END)
 				ELSE 0
 			END as on_time_percentage,
-			AVG(CASE WHEN aship.etd IS NOT NULL AND aship.actual_departure IS NOT NULL
-				THEN TIMESTAMPDIFF(HOUR, aship.etd, aship.actual_departure)
+			AVG(CASE WHEN aship.etd IS NOT NULL AND aship.atd IS NOT NULL
+				THEN TIMESTAMPDIFF(HOUR, aship.etd, aship.atd)
 				ELSE NULL END) as avg_departure_delay,
-			AVG(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL
-				THEN TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival)
+			AVG(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL
+				THEN TIMESTAMPDIFF(HOUR, aship.eta, aship.ata)
 				ELSE NULL END) as avg_arrival_delay,
 			COALESCE(SUM({afc_selling}), 0) as total_revenue,
 			CASE

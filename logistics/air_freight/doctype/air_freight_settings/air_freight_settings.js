@@ -23,7 +23,7 @@ frappe.ui.form.on('Air Freight Settings', {
 		// Validate volume to weight factor
 		if (frm.doc.volume_to_weight_factor && frm.doc.volume_to_weight_factor <= 0) {
 			frappe.msgprint(__("Volume to Weight Factor must be greater than 0"));
-			frm.set_value('volume_to_weight_factor', 167); // IATA standard
+			frm.set_value('volume_to_weight_factor', 1000 / 6); // IATA: 1 kg / 6000 cm³
 		}
 	},
 	

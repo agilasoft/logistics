@@ -75,6 +75,7 @@ class AirBookingPackages(Document):
 		from logistics.utils.measurements import (
 			calculate_volume_from_dimensions,
 			get_default_uoms,
+			get_package_line_volume_multiplier,
 		)
 		dimension_uom = getattr(self, "dimension_uom", None)
 		volume_uom = getattr(self, "volume_uom", None)
@@ -83,7 +84,7 @@ class AirBookingPackages(Document):
 			defaults = get_default_uoms(company=company)
 			dimension_uom = dimension_uom or defaults.get("dimension")
 			volume_uom = volume_uom or defaults.get("volume")
-		self.volume = calculate_volume_from_dimensions(
+		base = calculate_volume_from_dimensions(
 			length=self.length,
 			width=self.width,
 			height=self.height,
@@ -91,3 +92,4 @@ class AirBookingPackages(Document):
 			volume_uom=volume_uom,
 			company=company,
 		)
+		self.volume = base * get_package_line_volume_multiplier(self)

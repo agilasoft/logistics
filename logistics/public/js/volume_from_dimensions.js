@@ -14,6 +14,18 @@
 		return PACKAGE_DOCTYPES.indexOf(doctype) >= 0;
 	}
 
+	function logistics_package_line_volume_multiplier(row) {
+		if (!row) return 1;
+		var dt = row.doctype;
+		var n = parseFloat(row.no_of_packs || 0);
+		var q = parseFloat(row.quantity || 0);
+		if (dt === 'Transport Order Package' || dt === 'Transport Job Package') {
+			return n || q || 1;
+		}
+		return n || 0;
+	}
+	window.logistics_package_line_volume_multiplier = logistics_package_line_volume_multiplier;
+
 	function _volume_from_dimensions_fallback(frm, cdt, cdn, grid_row, grid_field) {
 		grid_field = grid_field || 'packages';
 		if (!frm || !cdt || !cdn) return;
@@ -42,6 +54,8 @@
 					if (r && r.message && !r.message.error && r.message.volume != null && !isNaN(parseFloat(r.message.volume))) {
 						volume = parseFloat(r.message.volume);
 					}
+					var row = frappe.get_doc(cdt, cdn);
+					volume *= logistics_package_line_volume_multiplier(row);
 					frappe.model.set_value(cdt, cdn, 'volume', volume);
 					_refresh_volume_field(frm, cdt, cdn, grid_row, grid_field);
 					if (frm.trigger) frm.trigger('volume', cdt, cdn);
@@ -95,14 +109,14 @@
 		var cdn = grid_row.doc.name;
 		var wrapper = grid_row.grid_form && grid_row.grid_form.wrapper;
 		if (!wrapper || !wrapper.length) return;
-		var dim_sel = 'input[data-fieldname="length"], input[data-fieldname="width"], input[data-fieldname="height"], input[data-fieldname="dimension_uom"], input[data-fieldname="volume_uom"]';
+		var dim_sel = 'input[data-fieldname="length"], input[data-fieldname="width"], input[data-fieldname="height"], input[data-fieldname="dimension_uom"], input[data-fieldname="volume_uom"], input[data-fieldname="no_of_packs"], input[data-fieldname="quantity"], select[data-fieldname="no_of_packs"], select[data-fieldname="quantity"]';
 		wrapper.off('change.' + event_ns).on('change.' + event_ns, dim_sel, function(ev) {
 			var $form = $(ev.target).closest('.form-in-grid');
-			['length', 'width', 'height', 'dimension_uom', 'volume_uom'].forEach(function(fn) {
+			['length', 'width', 'height', 'dimension_uom', 'volume_uom', 'no_of_packs', 'quantity'].forEach(function(fn) {
 				var $in = $form.find('input[data-fieldname="' + fn + '"]');
 				if ($in.length) {
 					var v = $in.val();
-					if (fn === 'length' || fn === 'width' || fn === 'height') v = parseFloat(v) || 0;
+					if (fn === 'length' || fn === 'width' || fn === 'height' || fn === 'no_of_packs' || fn === 'quantity') v = parseFloat(v) || 0;
 					frappe.model.set_value(cdt, cdn, fn, v);
 				}
 			});
@@ -115,7 +129,7 @@
 	// Document-level fallback: trigger only on blur (change)
 	$(document).off('change.logistics_volume').on(
 		'change.logistics_volume',
-		'.form-in-grid input[data-fieldname="length"], .form-in-grid input[data-fieldname="width"], .form-in-grid input[data-fieldname="height"], .form-in-grid input[data-fieldname="dimension_uom"], .form-in-grid input[data-fieldname="volume_uom"]',
+		'.form-in-grid input[data-fieldname="length"], .form-in-grid input[data-fieldname="width"], .form-in-grid input[data-fieldname="height"], .form-in-grid input[data-fieldname="dimension_uom"], .form-in-grid input[data-fieldname="volume_uom"], .form-in-grid input[data-fieldname="no_of_packs"], .form-in-grid input[data-fieldname="quantity"], .form-in-grid select[data-fieldname="no_of_packs"], .form-in-grid select[data-fieldname="quantity"]',
 		function(ev) {
 			var grid_row = frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form();
 			if (!grid_row) grid_row = frappe.cur_frm && frappe.cur_frm.cur_grid;
@@ -126,11 +140,11 @@
 			var cdt = grid_row.doc.doctype;
 			var cdn = grid_row.doc.name;
 			var $form = $(ev.target).closest('.form-in-grid');
-			['length', 'width', 'height', 'dimension_uom', 'volume_uom'].forEach(function(fn) {
-				var $in = $form.find('input[data-fieldname="' + fn + '"]');
+			['length', 'width', 'height', 'dimension_uom', 'volume_uom', 'no_of_packs', 'quantity'].forEach(function(fn) {
+				var $in = $form.find('input[data-fieldname="' + fn + '"], select[data-fieldname="' + fn + '"]');
 				if ($in.length) {
 					var v = $in.val();
-					if (fn === 'length' || fn === 'width' || fn === 'height') v = parseFloat(v) || 0;
+					if (fn === 'length' || fn === 'width' || fn === 'height' || fn === 'no_of_packs' || fn === 'quantity') v = parseFloat(v) || 0;
 					frappe.model.set_value(cdt, cdn, fn, v);
 				}
 			});

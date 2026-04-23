@@ -2158,11 +2158,13 @@ class AirShipment(Document):
 		
 		# Get settings for volume to weight factor
 		settings = self.get_air_freight_settings()
-		volume_to_weight_factor = 167  # Default IATA standard
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		volume_to_weight_factor = IATA_VOLUMETRIC_DENSITY_KG_M3
 		chargeable_weight_calculation = "Higher of Both"  # Default
 		
 		if settings:
-			volume_to_weight_factor = settings.volume_to_weight_factor or 167
+			volume_to_weight_factor = settings.volume_to_weight_factor or IATA_VOLUMETRIC_DENSITY_KG_M3
 			chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
 		
 		# Calculate chargeable weight based on settings

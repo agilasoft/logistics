@@ -728,6 +728,7 @@ class TransportOrder(Document):
             from logistics.utils.measurements import (
                 convert_weight, convert_volume, calculate_volume_from_dimensions,
                 get_default_uoms, get_aggregation_volume_uom,
+                get_package_line_volume_multiplier,
             )
             default_uoms = get_default_uoms(self.company)
             weight_uom = default_uoms['weight']
@@ -768,6 +769,7 @@ class TransportOrder(Document):
                             volume_uom=volume_uom,
                             company=self.company
                         )
+                        pkg_volume *= get_package_line_volume_multiplier(pkg)
                         total_volume += pkg_volume
 
                 # Pallets
