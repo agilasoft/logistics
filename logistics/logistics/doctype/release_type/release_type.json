@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2025-05-31 00:44:59.568072",
@@ -51,7 +52,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-27 20:10:48.709238",
+ "modified": "2026-04-23 16:38:34.764303",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Release Type",

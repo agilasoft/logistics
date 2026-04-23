@@ -137,10 +137,8 @@
   "sales_rep",
   "operations_rep",
   "customer_service_rep",
-  "section_break_elec",
-  "section_break_billing",
+  "section_break_vmta",
   "billing_status",
-  "column_break_billing",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
@@ -1001,16 +999,6 @@
    "options": "Sea Freight Packages"
   },
   {
-   "fieldname": "section_break_elec",
-   "fieldtype": "Section Break"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_billing",
-   "fieldtype": "Section Break",
-   "label": "Billing"
-  },
-  {
    "default": "Not Billed",
    "fieldname": "billing_status",
    "fieldtype": "Select",
@@ -1019,13 +1007,10 @@
    "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
   },
   {
-   "fieldname": "column_break_billing",
-   "fieldtype": "Column Break"
-  },
-  {
    "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
+   "label": "Charges",
    "options": "Sea Shipment Charges"
   },
   {
@@ -1559,6 +1544,10 @@
    "label": "Load Type",
    "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
    "options": "Load Type"
+  },
+  {
+   "fieldname": "section_break_vmta",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -1606,7 +1595,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-21 15:49:38.094385",
+ "modified": "2026-04-23 16:29:42.281084",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",
