@@ -9,9 +9,28 @@ Charges are pre-filtered by header (e.g. customer/bill_to, invoice_type).
 
 import frappe
 from frappe import _
+from frappe.model.naming import get_default_naming_series, make_autoname, set_name_by_naming_series
 from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List
 import json
+
+
+def ensure_sales_invoice_name_for_server_insert(si) -> None:
+    """
+    Sales Invoice may use autoname 'prompt', which requires a name before insert.
+    When creating from the server, derive the name from naming_series (including
+    Invoice Type / DocType default) or fall back to a hash id if no series exists.
+    """
+    if getattr(si, "name", None):
+        return
+    meta = frappe.get_meta("Sales Invoice")
+    autoname = (meta.autoname or "").lower()
+    if not autoname.startswith("prompt"):
+        return
+    if si.naming_series or get_default_naming_series("Sales Invoice"):
+        set_name_by_naming_series(si)
+    else:
+        si.name = make_autoname("hash", "Sales Invoice")
 
 SALES_JOB_DOCTYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration")
 
@@ -191,6 +210,7 @@ def create_sales_invoice_from_job(
         naming_series = frappe.db.get_value("Invoice Type", invoice_type, "naming_series")
 
     si = frappe.new_doc("Sales Invoice")
+    si_meta = frappe.get_meta("Sales Invoice")
     si.customer = customer
     si.company = job.company
     si.posting_date = posting_date or today()
@@ -199,18 +219,22 @@ def create_sales_invoice_from_job(
     if naming_series:
         si.naming_series = naming_series
     if invoice_type:
-        if frappe.get_meta("Sales Invoice").get_field("invoice_type"):
+        if si_meta.get_field("invoice_type"):
             si.invoice_type = invoice_type
-        if frappe.get_meta("Sales Invoice").get_field("custom_invoice_type"):
+        if si_meta.get_field("custom_invoice_type"):
             si.custom_invoice_type = invoice_type
-
     for dim in ("branch", "cost_center", "profit_center", "project"):
         if getattr(job, dim, None):
-            if frappe.get_meta("Sales Invoice").get_field(dim):
+            if si_meta.get_field(dim):
                 setattr(si, dim, getattr(job, dim))
-    if getattr(job, "job_number", None) and frappe.get_meta("Sales Invoice").get_field("job_number"):
-        si.job_number = job.job_number
-    if getattr(job, "sales_quote", None) and frappe.get_meta("Sales Invoice").get_field("quotation_no"):
+    # job_number (current dimension) and legacy job_costing_number on some sites / restores
+    job_ref = getattr(job, "job_number", None) or getattr(job, "job_costing_number", None)
+    if job_ref:
+        if si_meta.get_field("job_number"):
+            si.job_number = job_ref
+        if si_meta.get_field("job_costing_number"):
+            si.job_costing_number = job_ref
+    if getattr(job, "sales_quote", None) and si_meta.get_field("quotation_no"):
         si.quotation_no = job.sales_quote
 
     base_remarks = si.remarks or ""
@@ -248,12 +272,18 @@ def create_sales_invoice_from_job(
             item_payload["cost_center"] = job.cost_center
         if getattr(job, "profit_center", None):
             item_payload["profit_center"] = job.profit_center
+        if job_ref:
+            if si_item_meta.get_field("job_number"):
+                item_payload["job_number"] = job_ref
+            if si_item_meta.get_field("job_costing_number"):
+                item_payload["job_costing_number"] = job_ref
         row = si.append("items", item_payload)
         if has_ref:
             row.reference_doctype = job_type
             row.reference_name = job_name
 
     si.set_missing_values()
+    ensure_sales_invoice_name_for_server_insert(si)
     si.insert(ignore_permissions=True)
 
     if frappe.get_meta(job_type).get_field("sales_invoice"):

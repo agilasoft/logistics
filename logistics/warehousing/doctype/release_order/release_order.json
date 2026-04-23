@@ -223,7 +223,7 @@
    "label": "Main Job Type",
    "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval:doc.air_shipment || doc.sea_shipment || doc.transport_order"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
@@ -232,7 +232,7 @@
    "label": "Main Job",
    "no_copy": 1,
    "options": "main_job_type",
-   "read_only_depends_on": "eval:doc.air_shipment || doc.sea_shipment || doc.transport_order"
+   "read_only": 1
   },
   {
    "collapsible": 1,

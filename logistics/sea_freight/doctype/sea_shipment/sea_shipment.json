@@ -350,7 +350,7 @@
    "fieldtype": "Select",
    "label": "Main Job Type",
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
@@ -358,7 +358,7 @@
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
    "options": "main_job_type",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "fieldname": "quote_reference_section",

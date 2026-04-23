@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 
+from logistics.invoice_integration.sales_invoice_api import ensure_sales_invoice_name_for_server_insert
+
 @frappe.whitelist()
 def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict[str, Any]:
     if not warehouse_job:
@@ -180,17 +182,31 @@ def create_sales_invoice_from_job(
     if chosen_currency and "currency" in sif:
         si.currency = chosen_currency
 
+    job_ref = getattr(job, "job_number", None) or getattr(job, "job_costing_number", None)
+    if job_ref:
+        if "job_number" in sif:
+            si.job_number = job_ref
+        if "job_costing_number" in sif:
+            si.job_costing_number = job_ref
+
     sif_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
     for r in valid_rows:
         row_payload = {"item_code": r["item_code"], "qty": r["qty"] or 0.0, "rate": r["rate"] or 0.0}
         if "uom" in sif_item_fields and r.get("uom"): row_payload["uom"] = r["uom"]
         if "item_name" in sif_item_fields and r.get("item_name"): row_payload["item_name"] = r["item_name"]
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
+        if job_ref:
+            if "job_number" in sif_item_fields:
+                row_payload["job_number"] = job_ref
+            if "job_costing_number" in sif_item_fields:
+                row_payload["job_costing_number"] = job_ref
         if "reference_doctype" in sif_item_fields and "reference_name" in sif_item_fields:
             row_payload["reference_doctype"] = "Warehouse Job"
             row_payload["reference_name"] = job.name
         si.append("items", row_payload)
 
+    si.set_missing_values()
+    ensure_sales_invoice_name_for_server_insert(si)
     si.insert()
     
     # Update Warehouse Job with Sales Invoice reference and lifecycle
