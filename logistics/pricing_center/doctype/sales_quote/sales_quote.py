@@ -1975,18 +1975,17 @@ def resolve_allow_linked_freight_bookings_for_internal_job(doc):
 def resolve_single_main_sea_booking_for_sales_quote(sales_quote_name):
 	"""If exactly one non-cancelled main Sea Booking references this Sales Quote, return its name.
 
-	Mirrors ``validate_one_off`` link fields (``sales_quote`` or legacy ``quote``). Used when a Sea
-	Shipment carries the quote but ``sea_booking`` is not set yet.
+	Used when a Sea Shipment carries the quote but ``sea_booking`` is not set yet.
 	"""
 	if not sales_quote_name:
 		return None
 	cand = frappe.get_all(
 		"Sea Booking",
-		filters={"docstatus": ["!=", 2], "is_main_service": 1},
-		or_filters=[
-			["sales_quote", "=", sales_quote_name],
-			["quote", "=", sales_quote_name],
-		],
+		filters={
+			"docstatus": ["!=", 2],
+			"is_main_service": 1,
+			"sales_quote": sales_quote_name,
+		},
 		pluck="name",
 		limit=2,
 	)
@@ -1999,11 +1998,11 @@ def resolve_single_main_air_booking_for_sales_quote(sales_quote_name):
 		return None
 	cand = frappe.get_all(
 		"Air Booking",
-		filters={"docstatus": ["!=", 2], "is_main_service": 1},
-		or_filters=[
-			["sales_quote", "=", sales_quote_name],
-			["quote", "=", sales_quote_name],
-		],
+		filters={
+			"docstatus": ["!=", 2],
+			"is_main_service": 1,
+			"sales_quote": sales_quote_name,
+		},
 		pluck="name",
 		limit=2,
 	)
@@ -2091,19 +2090,15 @@ def validate_one_off_quote_not_converted(
 		# This prevents the same quote from being used in multiple documents
 		linked_documents = []
 		
-		# Check Air Booking - can use sales_quote or quote field depending on quote_type.
-		# Only main-service bookings "consume" the one-off link; internal/satellite jobs may still carry a copied quote.
+		# Check Air Booking — main-service bookings "consume" the one-off link.
 		air_bookings = frappe.get_all(
 			"Air Booking",
 			filters={
 				"name": ["!=", current_docname or ""],
 				"docstatus": ["!=", 2],  # Exclude cancelled documents
 				"is_main_service": 1,
+				"sales_quote": sales_quote_name,
 			},
-			or_filters=[
-				["sales_quote", "=", sales_quote_name],
-				["quote", "=", sales_quote_name]
-			],
 			fields=["name", "docstatus"],
 			limit=1
 		)
@@ -2114,19 +2109,15 @@ def validate_one_off_quote_not_converted(
 			else:
 				linked_documents.append(f"Air Booking: {abn}")
 		
-		# Check Sea Booking - can use sales_quote or quote field depending on quote_type.
-		# Only main-service bookings "consume" the one-off link; internal/satellite jobs may still carry a copied quote.
+		# Check Sea Booking — main-service bookings "consume" the one-off link.
 		sea_bookings = frappe.get_all(
 			"Sea Booking",
 			filters={
 				"name": ["!=", current_docname or ""],
 				"docstatus": ["!=", 2],  # Exclude cancelled documents
 				"is_main_service": 1,
+				"sales_quote": sales_quote_name,
 			},
-			or_filters=[
-				["sales_quote", "=", sales_quote_name],
-				["quote", "=", sales_quote_name]
-			],
 			fields=["name", "docstatus"],
 			limit=1
 		)

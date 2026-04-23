@@ -2507,7 +2507,7 @@ def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]
 			one_off_sales_quote_link_filters_for_service,
 		)
 
-		# Quotes already linked to another Air Booking (One-Off path: ``quote`` or ``sales_quote``)
+		# Quotes already linked to another Air Booking (One-Off path via ``sales_quote``)
 		used_rows = frappe.get_all(
 			"Air Booking",
 			filters={
@@ -2515,13 +2515,13 @@ def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]
 				"name": ["!=", air_booking_name or ""],
 				"docstatus": ["!=", 2],
 				"is_main_service": 1,
+				"sales_quote": ["is", "set"],
 			},
-			or_filters=[["quote", "is", "set"], ["sales_quote", "is", "set"]],
-			fields=["quote", "sales_quote"],
+			fields=["sales_quote"],
 		)
 		used_quotes = []
 		for row in used_rows:
-			ref = (row.get("quote") or row.get("sales_quote") or "").strip()
+			ref = (row.get("sales_quote") or "").strip()
 			if ref:
 				used_quotes.append(ref)
 

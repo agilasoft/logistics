@@ -111,7 +111,11 @@ def get_data(filters):
 			COALESCE(aship.billing_amount, 0) as billing_amount,
 			aship.billing_date,
 			aship.sales_invoice,
-			COALESCE(MAX(aschg.currency), aship.billing_currency, 'USD') as currency,
+			COALESCE(
+				MAX(aschg.currency),
+				(SELECT c.default_currency FROM `tabCompany` c WHERE c.name = aship.company LIMIT 1),
+				'USD'
+			) as currency,
 			DATEDIFF(CURDATE(), aship.booking_date) as days_since_booking,
 			aship.company
 		FROM
