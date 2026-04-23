@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.sea_freight.sea_shipment_charges_report_sql import SFC_SELLING_AMOUNT
+
 
 def execute(filters=None):
 	columns = get_columns()
@@ -36,7 +38,7 @@ def get_data(filters):
 			ss.booking_date,
 			ss.local_customer as customer,
 			COALESCE(ss.billing_status, 'Not Billed') as billing_status,
-			COALESCE(SUM(sfc.total_amount), 0) as total_charges,
+			COALESCE(SUM({sfc_selling}), 0) as total_charges,
 			COALESCE(MAX(sfc.currency), 'USD') as currency,
 			DATEDIFF(CURDATE(), ss.booking_date) as days_since_booking,
 			ss.company
@@ -46,7 +48,7 @@ def get_data(filters):
 		{conditions}
 		GROUP BY ss.name
 		ORDER BY ss.booking_date DESC, ss.name DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, sfc_selling=SFC_SELLING_AMOUNT), filters, as_dict=1)
 	return data
 
 

@@ -4,16 +4,17 @@
 """Populate transport_mode_air / transport_mode_sea on booking & shipment routing legs from Transport Mode."""
 
 import frappe
-from frappe.model.meta import get_meta
+from frappe.utils import get_table_name
 
 
 def execute():
 	if not frappe.db.exists("DocType", "Transport Mode"):
 		return
 
-	tm_table = get_meta("Transport Mode").db_table
-	if not frappe.db.table_exists(tm_table):
+	if not frappe.db.table_exists("Transport Mode"):
 		return
+
+	tm_table = get_table_name("Transport Mode")
 
 	child_doctypes = [
 		"Air Booking Routing Leg",
@@ -24,12 +25,12 @@ def execute():
 	for dt in child_doctypes:
 		if not frappe.db.exists("DocType", dt):
 			continue
-		table = get_meta(dt).db_table
-		if not frappe.db.table_exists(table):
+		if not frappe.db.table_exists(dt):
 			continue
+		leg_table = get_table_name(dt)
 		frappe.db.sql(
 			f"""
-			UPDATE `{table}` AS leg
+			UPDATE `{leg_table}` AS leg
 			LEFT JOIN `{tm_table}` AS tm ON tm.name = leg.mode
 			SET leg.transport_mode_air = IFNULL(tm.air, 0),
 				leg.transport_mode_sea = IFNULL(tm.sea, 0)

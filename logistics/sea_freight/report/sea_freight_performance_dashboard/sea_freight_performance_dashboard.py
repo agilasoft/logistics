@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.sea_freight.sea_shipment_charges_report_sql import SFC_SELLING_AMOUNT
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -71,12 +73,12 @@ def get_data(filters):
 	# Revenue
 	revenue_data = frappe.db.sql("""
 		SELECT
-			COALESCE(SUM(sfc.total_amount), 0) as total_revenue
+			COALESCE(SUM({sfc_selling}), 0) as total_revenue
 		FROM `tabSea Shipment` sship
 		LEFT JOIN `tabSea Shipment Charges` sfc ON sfc.parent = sship.name
 		WHERE sship.docstatus = 1 {conditions}
 		GROUP BY sship.name
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, sfc_selling=SFC_SELLING_AMOUNT), filters, as_dict=1)
 	
 	total_revenue = sum(flt(row.total_revenue) for row in revenue_data)
 	

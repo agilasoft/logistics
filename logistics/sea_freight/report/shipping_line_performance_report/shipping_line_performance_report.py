@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.sea_freight.sea_shipment_charges_report_sql import SFC_SELLING_AMOUNT_BARE
+
 
 def execute(filters=None):
 	columns = get_columns()
@@ -62,7 +64,7 @@ def get_data(filters):
 			END as avg_revenue_per_shipment
 		FROM `tabSea Shipment` ss
 		LEFT JOIN (
-			SELECT parent, SUM(total_amount) as total_charges
+			SELECT parent, SUM({sfc_selling_bare}) as total_charges
 			FROM `tabSea Shipment Charges`
 			GROUP BY parent
 		) charge_agg ON charge_agg.parent = ss.name
@@ -70,7 +72,7 @@ def get_data(filters):
 		{conditions}
 		GROUP BY ss.shipping_line
 		ORDER BY total_shipments DESC, on_time_percentage DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, sfc_selling_bare=SFC_SELLING_AMOUNT_BARE), filters, as_dict=1)
 	return data
 
 
