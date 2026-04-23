@@ -62,6 +62,31 @@ def get_default_uoms(company: Optional[str] = None) -> Dict[str, Optional[str]]:
 		"chargeable_weight": getattr(settings, "default_chargeable_weight_uom", None) or None,
 	}
 	missing = []
+	# region agent log
+	try:
+		import json as _agent_json
+		import time as _agent_time
+		_agent_payload = {
+			"sessionId": "8bf7dd",
+			"hypothesisId": "H1",
+			"location": "measurements.py:get_default_uoms",
+			"message": "logistics settings default uoms read",
+			"data": {
+				"company_arg": company,
+				"dimension": out.get("dimension"),
+				"volume": out.get("volume"),
+				"weight": out.get("weight"),
+				"chargeable_weight": out.get("chargeable_weight"),
+				"settings_name": getattr(settings, "name", None),
+			},
+			"timestamp": int(_agent_time.time() * 1000),
+		}
+		open("/home/frappe/frappe-bench/apps/logistics/.cursor/debug-8bf7dd.log", "a").write(
+			_agent_json.dumps(_agent_payload) + "\n"
+		)
+	except Exception:
+		pass
+	# endregion
 	if not out["dimension"]:
 		missing.append(_("Default Dimension UOM"))
 	if not out["volume"]:
@@ -69,6 +94,24 @@ def get_default_uoms(company: Optional[str] = None) -> Dict[str, Optional[str]]:
 	if not out["weight"]:
 		missing.append(_("Default Weight UOM"))
 	if missing:
+		# region agent log
+		try:
+			import json as _agent_json2
+			import time as _agent_time2
+			_agent_payload2 = {
+				"sessionId": "8bf7dd",
+				"hypothesisId": "H2",
+				"location": "measurements.py:get_default_uoms",
+				"message": "throwing for missing uoms",
+				"data": {"missing_keys": ["dimension", "volume", "weight"] if len(missing) == 3 else "partial", "missing_count": len(missing)},
+				"timestamp": int(_agent_time2.time() * 1000),
+			}
+			open("/home/frappe/frappe-bench/apps/logistics/.cursor/debug-8bf7dd.log", "a").write(
+				_agent_json2.dumps(_agent_payload2) + "\n"
+			)
+		except Exception:
+			pass
+		# endregion
 		frappe.throw(
 			_("Logistics Settings: please set {0}.").format(", ".join(missing)),
 			title=_("UOM Required"),

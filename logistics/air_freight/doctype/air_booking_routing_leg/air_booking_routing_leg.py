@@ -3,6 +3,11 @@
 
 from frappe.model.document import Document
 
+from logistics.utils.transport_mode_flags import sync_flags_to_routing_leg
+
 
 class AirBookingRoutingLeg(Document):
 	"""Child table for routing legs. Order is determined by idx."""
+
+	def validate(self):
+		sync_flags_to_routing_leg(self)
