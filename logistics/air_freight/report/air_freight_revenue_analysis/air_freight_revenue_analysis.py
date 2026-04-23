@@ -107,7 +107,11 @@ def get_data(filters):
 			COALESCE(SUM({afc_selling}), 0) as total_charges,
 			COALESCE(aship.recognized_revenue, aship.estimated_revenue, 0) as revenue_amount,
 			aship.billing_status,
-			COALESCE(MAX(aschg.currency), aship.billing_currency, 'USD') as currency,
+			COALESCE(
+				MAX(aschg.currency),
+				(SELECT c.default_currency FROM `tabCompany` c WHERE c.name = aship.company LIMIT 1),
+				'USD'
+			) as currency,
 			aship.company
 		FROM
 			`tabAir Shipment` aship
