@@ -105,7 +105,7 @@ def get_data(filters):
 			aship.destination_port,
 			aship.chargeable,
 			COALESCE(SUM({afc_selling}), 0) as total_charges,
-			COALESCE(aship.revenue_amount, 0) as revenue_amount,
+			COALESCE(aship.recognized_revenue, aship.estimated_revenue, 0) as revenue_amount,
 			aship.billing_status,
 			COALESCE(MAX(aschg.currency), aship.billing_currency, 'USD') as currency,
 			aship.company
