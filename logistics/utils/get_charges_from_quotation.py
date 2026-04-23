@@ -21,10 +21,9 @@ the form and is written only by create-from-quote or by the apply step.
 Charge** / **Sales Quote Customs** rows as described in ``sales_quote_link_query``), not POL/POD
 as the primary gate.
 
-If a Sales Quote has **routing legs**, the job corridor must
-match a **routing leg** (origin/destination and mode). If it has **no** routing legs, the corridor
-may match unified charges, legacy lines, or header ports/locations. Preview/apply enforce the same rule
-(for non–Declaration Order jobs).
+The quotation must have a **charge row** (unified or legacy) or **header** ports/locations that
+match that corridor. **Sales Quote** routing legs are not used for this filter. Preview/apply
+enforce the same rule (for non–Declaration Order jobs).
 
 **Submitted only**: Only **submitted** Sales Quotes (``docstatus`` = 1) are listed; draft quotations
 are excluded.
@@ -123,8 +122,8 @@ def _gcfq_list_filters_payload(
 				_("Valid until is not set or is on or after today"),
 				_("Status is not Lost or Expired"),
 				_(
-					"If the quotation has routing legs, origin and destination must match a leg; "
-					"otherwise they may match charges, legacy lines, or header fields"
+					"Origin and destination must match a charge row (or legacy line) on the quotation, "
+					"or the quotation header — not Sales Quote routing legs"
 				),
 				_("Respects your permission to read Sales Quote records"),
 			],
@@ -178,8 +177,8 @@ def _gcfq_list_filters_payload(
 			_("Valid until is not set or is on or after today"),
 			_("Status is not Lost or Expired"),
 			_(
-				"If the quotation has routing legs, origin and destination must match a leg; "
-				"otherwise they may match charges, legacy lines, or header fields"
+				"Origin and destination must match a charge row (or legacy line) on the quotation, "
+				"or the quotation header — not Sales Quote routing legs"
 			),
 			_("Respects your permission to read Sales Quote records"),
 		],

@@ -81,16 +81,8 @@ def _legacy_exists_clause(service_type: str) -> str:
 	)"""
 
 
-def _has_sales_quote_routing_legs_sql() -> str:
-	"""SQL fragment (references ``sq``): true if this Sales Quote has at least one routing leg row."""
-	return """EXISTS (
-		SELECT 1 FROM `tabSales Quote Routing Leg` rlx
-		WHERE rlx.parent = sq.name AND rlx.parenttype = 'Sales Quote'
-	)"""
-
-
 def _corridor_match_sql_charges_header_legacy(service_type: str) -> str:
-	"""SQL fragment — corridor via unified charges, legacy child rows, or header only (no routing legs table)."""
+	"""SQL fragment — corridor via unified charges, legacy child rows, or header (Sales Quote) fields."""
 	st = (service_type or "").strip()
 	co, cd = "%(corridor_origin)s", "%(corridor_dest)s"
 	if st in ("Sea", "Air"):
@@ -135,32 +127,6 @@ def _corridor_match_sql_charges_header_legacy(service_type: str) -> str:
 			IFNULL(sq.location_from,'') = {co} AND IFNULL(sq.location_to,'') = {cd}
 		)"""
 		return f"({unified}{legacy}{parent_loc})"
-	return "(1=0)"
-
-
-def _corridor_match_sql_routing_legs_only(service_type: str) -> str:
-	"""SQL fragment — job O/D must match a Sales Quote Routing Leg (origin/destination + mode flags)."""
-	st = (service_type or "").strip()
-	co, cd = "%(corridor_origin)s", "%(corridor_dest)s"
-	if st in ("Sea", "Air"):
-		tm_flag = "IFNULL(tm.air, 0) = 1" if st == "Air" else "IFNULL(tm.sea, 0) = 1"
-		return f"""EXISTS (
-			SELECT 1 FROM `tabSales Quote Routing Leg` rl
-			INNER JOIN `tabTransport Mode` tm ON tm.name = rl.mode
-			WHERE rl.parent = sq.name AND rl.parenttype = 'Sales Quote'
-			AND IFNULL(rl.origin,'') = {co}
-			AND IFNULL(rl.destination,'') = {cd}
-			AND {tm_flag}
-		)"""
-	if st == "Transport":
-		return f"""EXISTS (
-			SELECT 1 FROM `tabSales Quote Routing Leg` rl
-			INNER JOIN `tabTransport Mode` tm ON tm.name = rl.mode
-			WHERE rl.parent = sq.name AND rl.parenttype = 'Sales Quote'
-			AND IFNULL(rl.origin,'') = {co}
-			AND IFNULL(rl.destination,'') = {cd}
-			AND IFNULL(tm.transport, 0) = 1
-		)"""
 	return "(1=0)"
 
 
@@ -248,19 +214,14 @@ def sales_quote_matches_declaration_order_filters(
 
 
 def _corridor_match_sql(service_type: str) -> str:
-	"""SQL fragment (references ``sq``) — corridor match with routing precedence.
+	"""SQL fragment (references ``sq``) — job O/D vs unified charge rows, legacy charge rows, or header ports/locations.
 
-	If the quote has **Routing Legs**, the job origin/destination must match a leg (and transport mode).
-	If it has **no** routing legs, matching uses unified charges, legacy rows, or header ports/locations only.
+	Sales Quote routing legs are not used for corridor filtering (Get Charges from Quotation list/preview/apply).
 	"""
 	st = (service_type or "").strip()
 	if st not in ("Sea", "Air", "Transport"):
 		return "(1=1)"
-	has_legs = _has_sales_quote_routing_legs_sql()
-	no_legs = f"(NOT {has_legs})"
-	non_routing = _corridor_match_sql_charges_header_legacy(service_type)
-	routing_only = _corridor_match_sql_routing_legs_only(service_type)
-	return f"(({no_legs}) AND ({non_routing})) OR (({has_legs}) AND ({routing_only}))"
+	return _corridor_match_sql_charges_header_legacy(service_type)
 
 
 def sales_quote_matches_job_corridor(
@@ -269,7 +230,7 @@ def sales_quote_matches_job_corridor(
 	corridor_origin: str,
 	corridor_dest: str,
 ) -> bool:
-	"""True if the Sales Quote has at least one corridor match for Get Charges from Quotation (same rules as list filter)."""
+	"""True if charge rows or header O/D on the Sales Quote match the job corridor (same rules as list filter)."""
 	o = (corridor_origin or "").strip()
 	d = (corridor_dest or "").strip()
 	if not o or not d:
@@ -401,9 +362,9 @@ def fetch_eligible_regular_sales_quote_names(
 	Returns **Regular** quotations only (Action → Get Charges from Quotation — excludes One-off and Project).
 	Only **submitted** quotes (``docstatus`` = 1) are returned.
 
-	When ``corridor_origin`` and ``corridor_dest`` are both non-empty, only quotes whose corridor
-	matches: if the quote has **routing legs**, only a matching **routing leg** counts; otherwise
-	unified charges, legacy child, or header fields (same as before).
+	When ``corridor_origin`` and ``corridor_dest`` are both non-empty, only quotes where the corridor
+	matches **Sales Quote Charge** (unified) rows, legacy service charge rows, or header
+	origin/destination (Sales Quote). Routing legs on the quote are not used for this filter.
 
 	For **Customs**, when ``customs_authority``, ``declaration_type``, and ``customs_broker`` are all
 	non-empty, **Declaration Order** filters apply instead of corridor matching (see

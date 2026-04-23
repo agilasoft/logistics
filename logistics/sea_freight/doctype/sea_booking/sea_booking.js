@@ -24,7 +24,12 @@ function _is_milestone_tracking_enabled(frm) {
 	}
 	return frappe.db.get_single_value("Sea Freight Settings", "enable_milestone_tracking")
 		.then(function(value) {
-			frm._milestone_tracking_enabled = Number(value || 0) === 1;
+			// Match doctype default (1): NULL/legacy unset rows must not hide the tab.
+			if (value === undefined || value === null || value === "") {
+				frm._milestone_tracking_enabled = true;
+			} else {
+				frm._milestone_tracking_enabled = Number(value) === 1;
+			}
 			return frm._milestone_tracking_enabled;
 		})
 		.catch(function() {
