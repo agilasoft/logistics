@@ -216,11 +216,18 @@ function _calculate_volume_from_dimensions_api(length, width, height, dimension_
 			var crow = frappe.get_doc(cdt, cdn);
 			var mult = 1;
 			if (typeof window.logistics_package_line_volume_multiplier === 'function') {
-				mult = window.logistics_package_line_volume_multiplier(crow);
+				mult = window.logistics_package_line_volume_multiplier(crow, cdt, cdn);
 			} else if (crow) {
-				var dt = crow.doctype;
+				var dt = crow.doctype || cdt;
 				var n = parseFloat(crow.no_of_packs || 0);
 				var q = parseFloat(crow.quantity || 0);
+				var gf = frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form();
+				if (gf && gf.doc && gf.doc.doctype === cdt && gf.doc.name === cdn) {
+					var pn = parseFloat(gf.doc.no_of_packs);
+					if (!isNaN(pn)) n = pn;
+					var pq = parseFloat(gf.doc.quantity);
+					if (!isNaN(pq)) q = pq;
+				}
 				mult = (dt === 'Transport Order Package' || dt === 'Transport Job Package') ? (n || q || 1) : (n || 0);
 			}
 			volume *= mult;

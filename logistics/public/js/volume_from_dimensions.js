@@ -14,11 +14,22 @@
 		return PACKAGE_DOCTYPES.indexOf(doctype) >= 0;
 	}
 
-	function logistics_package_line_volume_multiplier(row) {
+	function logistics_package_line_volume_multiplier(row, cdt, cdn) {
 		if (!row) return 1;
-		var dt = row.doctype;
-		var n = parseFloat(row.no_of_packs || 0);
-		var q = parseFloat(row.quantity || 0);
+		var dt = row.doctype || cdt;
+		var n = parseFloat(row.no_of_packs);
+		if (isNaN(n)) n = 0;
+		var q = parseFloat(row.quantity);
+		if (isNaN(q)) q = 0;
+		// Open grid row doc often has the latest no_of_packs before locals sync (async volume callback).
+		var gf = frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form();
+		if (gf && gf.doc && cdt && cdn && gf.doc.doctype === cdt && gf.doc.name === cdn) {
+			var pn = parseFloat(gf.doc.no_of_packs);
+			if (!isNaN(pn)) n = pn;
+			var pq = parseFloat(gf.doc.quantity);
+			if (!isNaN(pq)) q = pq;
+			if (!row.doctype && gf.doc.doctype) dt = gf.doc.doctype;
+		}
 		if (dt === 'Transport Order Package' || dt === 'Transport Job Package') {
 			return n || q || 1;
 		}
@@ -55,7 +66,7 @@
 						volume = parseFloat(r.message.volume);
 					}
 					var row = frappe.get_doc(cdt, cdn);
-					volume *= logistics_package_line_volume_multiplier(row);
+					volume *= logistics_package_line_volume_multiplier(row, cdt, cdn);
 					frappe.model.set_value(cdt, cdn, 'volume', volume);
 					_refresh_volume_field(frm, cdt, cdn, grid_row, grid_field);
 					if (frm.trigger) frm.trigger('volume', cdt, cdn);
