@@ -138,6 +138,9 @@
   "operations_rep",
   "customer_service_rep",
   "section_break_elec",
+  "section_break_billing",
+  "billing_status",
+  "column_break_billing",
   "charges",
   "profitability_section_break",
   "profitability_section_html",
@@ -1000,6 +1003,24 @@
   {
    "fieldname": "section_break_elec",
    "fieldtype": "Section Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_billing",
+   "fieldtype": "Section Break",
+   "label": "Billing"
+  },
+  {
+   "default": "Not Billed",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Billing Status",
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "fieldname": "column_break_billing",
+   "fieldtype": "Column Break"
   },
   {
    "allow_on_submit": 1,
