@@ -47,6 +47,7 @@ app_include_js = [
 	"/assets/logistics/js/profitability_form.js?v=4",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
+	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
 ]
 
 # include js, css files in header of web template
