@@ -110,6 +110,10 @@ function _gcfq_filters_criteria_html(filters) {
 	var dLbl = filters.destination_label != null ? String(filters.destination_label) : "";
 	var dest = filters.destination != null ? String(filters.destination) : "";
 	var extra = filters.extra_criteria;
+	var airlineOnly =
+		filters.airline_only_mode === true || filters.airline_only_mode === 1;
+	var hasCorridor =
+		(o && String(o).trim() !== "") || (dest && String(dest).trim() !== "");
 	var open =
 		'<div class="logistics-gcfq-filters">' +
 		'<div class="logistics-gcfq-filters-title">' +
@@ -128,8 +132,11 @@ function _gcfq_filters_criteria_html(filters) {
 		"<dd>" +
 		frappe.utils.escape_html(cust) +
 		"</dd>";
-	var mid = "";
-	if (Array.isArray(extra) && extra.length) {
+
+	function appendExtraRows() {
+		if (!Array.isArray(extra) || !extra.length) {
+			return;
+		}
 		extra.forEach(function (row) {
 			if (!row || typeof row !== "object") {
 				return;
@@ -143,6 +150,31 @@ function _gcfq_filters_criteria_html(filters) {
 				frappe.utils.escape_html(val) +
 				"</dd>";
 		});
+	}
+
+	var mid = "";
+	if (airlineOnly && Array.isArray(extra) && extra.length) {
+		// e.g. Air Booking: only airline is used to narrow the list (ports not set)
+		appendExtraRows();
+	} else if (Array.isArray(extra) && extra.length && !hasCorridor) {
+		// e.g. Declaration Order: customs fields from parent, no port corridor on payload
+		appendExtraRows();
+	} else if (Array.isArray(extra) && extra.length && hasCorridor) {
+		// e.g. Air Booking: origin, destination, and airline all filter the list
+		mid +=
+			"<dt>" +
+			frappe.utils.escape_html(oLbl) +
+			"</dt>" +
+			"<dd>" +
+			frappe.utils.escape_html(o) +
+			"</dd>" +
+			"<dt>" +
+			frappe.utils.escape_html(dLbl) +
+			"</dt>" +
+			"<dd>" +
+			frappe.utils.escape_html(dest) +
+			"</dd>";
+		appendExtraRows();
 	} else {
 		mid +=
 			"<dt>" +

@@ -594,6 +594,7 @@
   {
    "fieldname": "house_awb_no",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "House AWB Number"
   },
   {
@@ -1398,7 +1399,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-23 16:28:52.967958",
+ "modified": "2026-04-24 15:17:55.640939",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

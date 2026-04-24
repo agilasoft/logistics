@@ -342,7 +342,6 @@ frappe.ui.form.on("Sales Quote", {
 		// Delegated click handler for Weight/Qty Break buttons (bypasses form event system if needed)
 		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
 			const $ctrl = $(e.target).closest(
-				'[data-fieldname="selling_weight_break"], [data-fieldname="cost_weight_break"], ' +
 				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"]'
 			);
 			if (!$ctrl.length) return;
@@ -372,9 +371,7 @@ frappe.ui.form.on("Sales Quote", {
 			e.preventDefault();
 			e.stopPropagation();
 			const record_type = fieldname.indexOf("cost_") === 0 ? "Cost" : "Selling";
-			if (fieldname.indexOf("weight_break") !== -1 && typeof window.open_weight_break_rate_dialog === "function") {
-				window.open_weight_break_rate_dialog(frm, row_doc, record_type);
-			} else if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
+			if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
 				window.open_qty_break_rate_dialog(frm, row_doc, record_type);
 			} else {
 				frappe.msgprint({ title: __("Error"), message: __("Dialog not loaded. Please refresh the page."), indicator: "red" });

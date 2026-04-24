@@ -554,29 +554,20 @@ class SeaBooking(Document):
 		"""
 		if not container_no:
 			return False
-		# If we have a specific shipment, use its shipping_status first (same as Sea Shipment logic)
+		# Resolve by equipment number to the active Container (avoids stale child-row links to inactive rows)
+		try:
+			from logistics.container_management.api import (
+				container_row_indicates_empty_returned,
+				is_container_management_enabled,
+			)
+			if is_container_management_enabled() and container_row_indicates_empty_returned(container_no):
+				return True
+		except Exception:
+			pass
 		if other_shipment_name:
 			shipping_status = frappe.db.get_value("Sea Shipment", other_shipment_name, "shipping_status")
 			if shipping_status in ("Empty Container Returned", "Closed"):
 				return True
-		try:
-			from logistics.container_management.api import (
-				is_container_management_enabled,
-				sea_container_row_field_to_doc_name,
-			)
-			if is_container_management_enabled():
-				container_name = sea_container_row_field_to_doc_name(container_no)
-				if container_name:
-					row = frappe.db.get_value(
-						"Container", container_name, ["return_status", "status"], as_dict=True
-					)
-					if row:
-						if row.get("return_status") == "Returned":
-							return True
-						if row.get("status") in ("Empty Returned", "Closed"):
-							return True
-		except Exception:
-			pass
 		return False
 	
 	def before_submit(self):

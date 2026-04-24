@@ -863,20 +863,11 @@ class SeaShipment(Document):
             return False
         try:
             from logistics.container_management.api import (
+                container_row_indicates_empty_returned,
                 is_container_management_enabled,
-                sea_container_row_field_to_doc_name,
             )
-            if is_container_management_enabled():
-                container_name = sea_container_row_field_to_doc_name(container_no)
-                if container_name:
-                    row = frappe.db.get_value(
-                        "Container", container_name, ["return_status", "status"], as_dict=True
-                    )
-                    if row:
-                        if row.get("return_status") == "Returned":
-                            return True
-                        if row.get("status") in ("Empty Returned", "Closed"):
-                            return True
+            if is_container_management_enabled() and container_row_indicates_empty_returned(container_no):
+                return True
         except Exception:
             pass
         # Fallback: use the other shipment's shipping_status

@@ -123,6 +123,35 @@ def expand_sea_container_no_for_sql_in(container_no_field):
 	return found
 
 
+def container_row_indicates_empty_returned(container_no_field):
+	"""
+	True if Container Management shows this equipment as empty returned / closed.
+
+	Resolves by ISO equipment number to the *active* Container (``get_container_by_number``) so
+	duplicate checks do not read a stale child-row link to an older inactive Container that was
+	never updated when the same box was re-assigned or returned.
+	"""
+	if not is_container_management_enabled() or not container_no_field:
+		return False
+	eq = sea_container_row_field_to_equipment_number(container_no_field)
+	if not eq:
+		return False
+	# Prefer active container for this number; fall back to link resolution only if needed
+	name = get_container_by_number(eq)
+	if not name:
+		name = sea_container_row_field_to_doc_name(container_no_field)
+	if not name:
+		return False
+	row = frappe.db.get_value("Container", name, ["return_status", "status"], as_dict=True)
+	if not row:
+		return False
+	if row.get("return_status") == "Returned":
+		return True
+	if row.get("status") in ("Empty Returned", "Closed"):
+		return True
+	return False
+
+
 @frappe.whitelist()
 def get_container_by_number_api(container_number):
 	"""Whitelisted: get Container name by number."""

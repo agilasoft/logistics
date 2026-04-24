@@ -227,6 +227,7 @@ def _gcfq_list_filters_payload(
 	}
 	if extra_criteria:
 		out["extra_criteria"] = extra_criteria
+	out["airline_only_mode"] = airline_only
 	return out
 
 

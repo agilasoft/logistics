@@ -3,97 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        /* IATA Air Waybill (Resolution 600) style layout—grids, field numbers, monospace serials. */
+        /* IATA Air Waybill — Resolution 600a-style face layout: numbered boxes 1–22, neutral AWB grid. */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 6.2pt; line-height: 1.05; color: #000; background: white; }
-        .awb-outer { width: 100%; max-width: 200mm; margin: 0 auto; padding: 0; }
+        body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 7pt; line-height: 1.12; color: #000; background: white; text-rendering: geometricPrecision; }
+        .awb-outer { width: 100%; max-width: 202mm; margin: 0 auto; padding: 0; }
+        .hawb-outer-head { text-align: right; font-size: 6.5pt; font-weight: 900; letter-spacing: 0.03em; margin-bottom: 0.35mm; padding-right: 0.2mm; }
+        .hawb-outer-head .hawb-lbl { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
         .awb-form { border: 2px solid #000; background: #fff; }
         .g { width: 100%; border-collapse: collapse; table-layout: fixed; border: none; }
-        .g td, .g th { border: 1px solid #000; vertical-align: top; padding: 0.2mm 0.35mm; }
+        .g td, .g th { border: 1px solid #000; vertical-align: top; padding: 0.4mm 0.55mm; }
         .cell-r { position: relative; }
-        .fnum { position: absolute; left: 0.3mm; top: 0.15mm; font-size: 5.5pt; font-weight: 900; line-height: 1; }
-        .iata-lbl { display: block; font-size: 4.5pt; font-weight: 700; text-transform: none; line-height: 1.05; margin-bottom: 0.1mm; padding-top: 1.3mm; }
-        .iata-txt { font-size: 6.5pt; line-height: 1.05; font-weight: 400; word-wrap: break-word; }
-        .iata-txt b { font-weight: 700; }
+        .fnum { position: absolute; left: 0.45mm; top: 0.25mm; font-size: 6.5pt; font-weight: 900; line-height: 1; }
+        .iata-lbl { display: block; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.08; margin-bottom: 0.25mm; padding-top: 2mm; }
+        .iata-txt { font-size: 7.5pt; line-height: 1.12; font-weight: 700; text-transform: uppercase; word-wrap: break-word; }
+        .iata-txt-sm { font-size: 5.5pt; font-weight: 700; text-transform: uppercase; }
+        .iata-txt-legal { font-size: 5pt; font-weight: 400; text-transform: none; line-height: 1.12; text-align: justify; }
+        .iata-txt b { font-weight: 800; }
+        .carrier-col { text-align: center; padding: 0.6mm 0.7mm !important; }
+        .carrier-col .c-logo { margin: 0 auto 0.5mm; }
+        .carrier-col .c-addr { font-size: 5.5pt; font-weight: 700; text-transform: uppercase; line-height: 1.15; }
+        .carrier-col .c-addr-natural { font-size: 5.5pt; font-weight: 600; text-transform: none; line-height: 1.2; }
+        .carrier-col .c-contact { font-size: 4.5pt; margin-top: 0.35mm; text-transform: none; }
+        .th-diag { position: relative; height: 7mm; padding: 0 !important; vertical-align: middle !important; }
+        .th-diag-inner { position: relative; width: 100%; height: 7mm; }
+        .th-diag-inner::before { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+            background: linear-gradient(to bottom left, transparent 48.5%, #000 49%, #000 51%, transparent 51.5%); pointer-events: none; }
+        .th-diag .d-tl { position: absolute; left: 0.35mm; bottom: 0.25mm; font-size: 4.6pt; font-weight: 700; line-height: 1; z-index: 1; }
+        .th-diag .d-br { position: absolute; right: 0.35mm; top: 0.25mm; font-size: 4.6pt; font-weight: 700; line-height: 1; z-index: 1; }
         .awb-mono { font-family: "Courier New", Courier, "Liberation Mono", monospace; }
-        .awb-panel { text-align: right; padding: 0.2mm 0.4mm; vertical-align: top; }
-        .nnego { font-size: 4.5pt; font-weight: 900; letter-spacing: 0.02em; text-align: center; border: 1px solid #000; padding: 0.1mm 0.2mm; margin-bottom: 0.1mm; }
-        .awb-h1 { font-size: 7pt; font-weight: 900; line-height: 1; margin-bottom: 0.1mm; }
-        .h-hawb { font-size: 5.5pt; font-weight: 700; }
-        .serial-line { font-size: 9.5pt; font-weight: 900; letter-spacing: 0.04em; line-height: 1; margin: 0.1mm 0; }
-        .mawb-sub { font-size: 5.5pt; line-height: 1.05; }
-        .copy-line { font-size: 4.8pt; font-weight: 700; margin-top: 0.2mm; }
+        .awb-panel { text-align: right; padding: 0.4mm 0.7mm 0.5mm; vertical-align: top; }
+        .nnego { font-size: 5.2pt; font-weight: 900; letter-spacing: 0.02em; text-align: center; border: 1px solid #000; padding: 0.18mm 0.3mm; margin-bottom: 0.2mm; }
+        .awb-h1 { font-size: 8.5pt; font-weight: 900; line-height: 1; margin-bottom: 0.2mm; }
+        .h-hawb { font-size: 6.5pt; font-weight: 700; }
+        .serial-line { font-size: 12pt; font-weight: 900; letter-spacing: 0.06em; line-height: 1.1; margin: 0.2mm 0; }
+        .mawb-sub { font-size: 6.5pt; line-height: 1.1; }
+        .copy-line { font-size: 5.5pt; font-weight: 700; margin-top: 0.45mm; }
         .ref-strip { font-size: 5.2pt; line-height: 1.1; text-align: left; }
-        .logo-img { max-width: 24mm; max-height: 6.5mm; object-fit: contain; display: block; margin: 0 0 0.1mm auto; }
-        .logo-ph { width: 24mm; height: 5.5mm; background: #ececec; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 4.5pt; color: #666; margin: 0 0 0.1mm auto; }
-        .condensed { text-align: justify; font-size: 4.5pt; line-height: 1.04; border: 1px solid #000; padding: 0.2mm 0.35mm; }
-        .cond-title { text-align: center; font-weight: 900; font-size: 5.5pt; margin-bottom: 0.1mm; }
-        .f-banner { border: 1.2pt double #000; text-align: center; font-size: 6.8pt; font-weight: 900; padding: 0.15mm; line-height: 1.05; }
-        .mini-h { font-size: 3.8pt; font-weight: 700; line-height: 1; }
-        .r-cell { text-align: center; font-size: 5.5pt; }
-        .r-center { text-align: center; font-size: 5.5pt; }
+        .logo-img { max-width: 36mm; max-height: 14mm; object-fit: contain; display: block; margin: 0 0 0.2mm auto; }
+        .logo-ph { width: 28mm; height: 8mm; background: #ececec; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 5.5pt; color: #666; margin: 0 0 0.2mm auto; }
+        .condensed { text-align: justify; font-size: 5.3pt; line-height: 1.1; border: 1px solid #000; padding: 0.4mm 0.55mm; }
+        .cond-title { text-align: center; font-weight: 900; font-size: 6.5pt; margin-bottom: 0.2mm; }
+        .f-banner { border: 1.4pt double #000; text-align: center; font-size: 6pt; font-weight: 900; padding: 0.3mm; line-height: 1.1; }
+        .mini-h { font-size: 4.6pt; font-weight: 700; line-height: 1.05; }
+        .r-cell { text-align: center; font-size: 4pt; }
+        .r-center { text-align: center; font-size: 4pt; }
         .cargo-t { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #000; }
-        .cargo-t th { border: 1px solid #000; padding: 0.1mm; font-size: 4.2pt; font-weight: 700; text-align: center; background: #e6e6e6; line-height: 1.0; }
-        .cargo-t td { border: 1px solid #000; padding: 0.12mm 0.18mm; font-size: 5.5pt; line-height: 1.04; vertical-align: top; }
-        .addr-clip, .addr-clip-sm, .h10-clip, .marks-clip { line-height: 1.05; }
+        .cargo-t th { border: 1px solid #000; padding: 0.25mm; font-size: 5.5pt; font-weight: 800; text-align: center; text-transform: uppercase; background: #fff; line-height: 1.05; }
+        .cargo-t td { border: 1px solid #000; padding: 0.28mm 0.3mm; font-size: 4pt; line-height: 1.1; vertical-align: top; }
+        .cargo-t tr.cargo-totals td { font-weight: 800; background: #fafafa; }
         .cargo-t td.n { text-align: right; }
         .cargo-t td.c { text-align: center; }
-        .marks { background: #e8e8e8; font-weight: 700; text-align: center; font-size: 5.5pt; }
-        /* Bottom: IATA prepaid / collect + other charges (as sample form) */
-        .iata-bottom { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #000; }
-        .iata-bottom > tbody > tr > td { border: 1px solid #000; vertical-align: top; padding: 0; }
-        .iata-bottom .fin-wrap { width: 51%; }
-        .iata-bottom .oc-wrap { width: 49%; border-left: 1px solid #000; }
-        .r-col-in { border: 1px solid #000; border-left: none; }
-        .fin-ppcc { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 5.5pt; }
-        .fin-ppcc th { border: 1px solid #000; text-align: center; font-size: 4.5pt; font-weight: 800; padding: 0.08mm; }
-        .fin-ppcc td { border: 1px solid #000; padding: 0.08mm 0.15mm; vertical-align: top; }
-        .fin-ppcc td.fin-tab {
-            text-align: center; font-size: 2.75pt; font-weight: 800; line-height: 0.95;
-            padding: 0.01mm 0.06mm 0.02mm !important; letter-spacing: -0.04em; vertical-align: middle;
+        .marks { background: #e8e8e8; font-weight: 700; text-align: center; font-size: 3.5pt; }
+        /* Bottom block: IATA HAWB prepaid/collect grid (left) + other charges / cert / execution (right) */
+        .hawb-bottom { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #000; border-top: 0; }
+        .hawb-bottom > tbody > tr > td { border: 1px solid #000; vertical-align: top; padding: 0; }
+        .hawb-bl { width: 33%; }
+        .hawb-br { width: 67%; }
+        .hawb-lc { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .hawb-lc td { border: 1px solid #000; vertical-align: top; padding: 0; }
+        .hawb-tab {
+            font-size: 4.5pt; font-weight: 800; text-transform: uppercase; text-align: center; letter-spacing: 0.04em;
+            background: #dedede; padding: 0.4mm 0.6mm; line-height: 1.05;
+            border-bottom: 1px solid #000;
         }
-        .fin-val { min-height: 2.2mm; }
-        .fin-val td { min-height: 2.2mm; }
-        .fin-mono { font-family: "Courier New", Courier, "Liberation Mono", monospace; font-size: 5.5pt; }
-        .fin-shade { background: #d4d4d4; height: 1.8mm; border: 1px solid #000; padding: 0 !important; }
-        .fin-mini { font-size: 3.6pt; font-weight: 800; text-align: center; margin-bottom: 0.05mm; line-height: 1.05; }
-        .fin-split { padding: 0.1mm !important; }
-        .fin-split .fin-val { min-height: 2.5mm !important; }
-        .tcc-row { font-size: 4.7pt; font-weight: 800; display: table; width: 100%; }
-        .tcc-l { display: table-cell; text-align: left; width: 60%; }
-        .tcc-r { display: table-cell; text-align: right; font-family: "Courier New", Courier, monospace; }
-        .oc-body { min-height: 0; padding: 0.08mm 0.1mm; overflow: auto; max-height: 40mm; }
-        .oc-title { text-align: center; font-size: 4.5pt; font-weight: 800; border-bottom: 1px solid #000; padding: 0.1mm; letter-spacing: 0.02em; }
-        .oc-line { display: table; width: 100%; font-family: "Courier New", Courier, "Liberation Mono", monospace; font-size: 4.6pt; line-height: 1.1; padding: 0.03mm 0.2mm; }
-        .oc-l { display: table-cell; text-align: left; width: 72%; }
-        .oc-r { display: table-cell; text-align: right; white-space: nowrap; }
-        .cert-iat { text-align: justify; font-size: 4.4pt; line-height: 1.04; padding: 0.15mm 0.25mm; border-top: 1px solid #000; }
-        .sh-wrap { border-top: 1px solid #000; padding: 0.1mm 0.25mm 0.12mm; }
-        .sh-name { text-align: center; font-family: "Courier New", Courier, monospace; font-size: 5.5pt; font-weight: 700; }
-        .sh-dot { border-bottom: 1px dotted #000; min-height: 2.2mm; margin: 0.1mm 0.3mm; }
-        .sh-lbl { text-align: center; font-size: 3.8pt; font-weight: 700; }
-        .exec-bar { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 4.8pt; }
-        .exec-bar td { border: 1px solid #000; border-top: 1px solid #000; vertical-align: top; padding: 0.15mm 0.25mm; }
-        .exec-bar td + td { border-left: 1px dotted #000; }
-        .ex-lb { font-size: 3.5pt; font-weight: 800; }
-        .ex-val { font-family: "Courier New", Courier, monospace; font-size: 5.2pt; font-weight: 700; min-height: 2.8mm; }
-        .ex-car { text-align: left; }
-        .hawb-corner { text-align: right; vertical-align: bottom !important; }
-        .hawb-big { font-family: "Courier New", Courier, monospace; font-size: 9.5pt; font-weight: 900; letter-spacing: 0.03em; line-height: 1; padding: 0.1mm 0.2mm 0.15mm !important; }
-        .f-foot { text-align: center; font-size: 5.2pt; font-weight: 800; padding: 0.12mm; border: 1px solid #000; border-top: none; font-style: normal; }
-        .meta-foot { font-size: 4.2pt; margin-top: 0.1mm; padding: 0.05mm 0; border-top: 1px solid #ccc; }
-        @page { size: A4 portrait; margin: 2.5mm 3.5mm; }
+        .hawb-pc-h { font-size: 3.8pt; font-weight: 700; text-transform: uppercase; text-align: center; padding: 0.2mm 0; line-height: 1; }
+        .hawb-amt { min-height: 5.5mm; font-size: 3.5pt; }
+        .hawb-amt .hawb-pc-h { border-bottom: 1px solid #bbb; }
+        .hawb-shade { background: #c8c8c8; min-height: 4mm; border: 1px solid #000; }
+        .hawb-oc-box { border: none; border-bottom: 1px solid #000; min-height: 18mm; padding: 0.45mm 0.55mm; }
+        .hawb-oc-title { font-size: 4.5pt; font-weight: 800; text-transform: uppercase; text-align: center; background: #dedede; border: 1px solid #000; border-bottom: none; padding: 0.35mm; letter-spacing: 0.05em; }
+        .hawb-oc-lines { border: 1px solid #000; border-top: 0; padding: 0.45mm 0.55mm; min-height: 22mm; font-size: 3.5pt; line-height: 1.25; }
+        .oc-line { font-family: "Courier New", Courier, "Liberation Mono", monospace; font-size: 3.5pt; letter-spacing: 0.02em; }
+        .hawb-cert-r { border: 1px solid #000; border-top: 0; padding: 0.45mm 0.55mm; font-size: 3.5pt; line-height: 1.12; text-align: justify; }
+        .hawb-cert-r b { font-weight: 800; }
+        .hawb-sign-name { padding: 0.35mm 0.55mm 0; font-family: "Courier New", Courier, "Liberation Mono", monospace; font-size: 4.5pt; font-weight: 700; }
+        .hawb-dotted { border: none; border-bottom: 1px dotted #000; min-height: 4mm; margin: 0 0.55mm; }
+        .hawb-slbl { font-size: 4.6pt; font-weight: 700; text-align: center; padding: 0.15mm 0.55mm 0.35mm; }
+        .hawb-exec { width: 100%; border-collapse: collapse; border-top: 1px solid #000; }
+        .hawb-exec td { border: 1px solid #000; vertical-align: top; padding: 0.35mm 0.45mm; width: 33.33%; }
+        .hawb-exec-mono { font-family: "Courier New", Courier, "Liberation Mono", monospace; font-size: 4.5pt; font-weight: 700; min-height: 4mm; }
+        .hawb-exec-corner { position: relative; text-align: right; vertical-align: bottom !important; }
+        .hawb-exec-num { font-family: "Courier New", Courier, "Liberation Mono", monospace; font-size: 8.5pt; font-weight: 900; letter-spacing: 0.04em; padding: 0.2mm 0; }
+        .f-foot { text-align: center; font-size: 5pt; font-weight: 900; padding: 0.25mm; background: #d2d2d2; border: 1px solid #000; }
+        .meta-foot { font-size: 5.5pt; margin-top: 0.2mm; padding: 0.1mm 0; border-top: 1px solid #ccc; }
+        @page { size: A4 portrait; margin: 4.5mm 5mm; }
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .awb-form { zoom: 0.91; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .addr-clip { max-height: 10mm; overflow: hidden; }
-            .addr-clip-sm { max-height: 7mm; overflow: hidden; }
-            .h10-clip { max-height: 4.5mm; overflow: hidden; }
-            .marks-clip { max-height: 3.5mm; overflow: hidden; }
-            .oc-body { max-height: 16mm !important; overflow: hidden !important; }
-            .g tr, .iata-bottom tr, .cargo-t tr, .fin-ppcc tr, .exec-bar tr { page-break-inside: avoid; }
-            .awb-form, .awb-outer { page-break-after: avoid; page-break-inside: avoid; }
-            .no-print-1p { display: none !important; }
+            .g tr { page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -117,6 +113,7 @@
 {% if frappe.db.exists("IATA Settings", "IATA Settings") %}
 {% set iata_cass = frappe.db.get_value("IATA Settings", "IATA Settings", "cass_participant_code") or "" %}
 {% endif %}
+{% set iata_cass = iata_cass or "28-3 0124/0004" %}
 {% set legs = doc.routing_legs or [] %}
 {% set leg1 = legs[0] if legs|length > 0 else None %}
 {% set leg2 = legs[1] if legs|length > 1 else None %}
@@ -139,6 +136,22 @@
 {% macro airport_code(code) -%}
     {%- if code -%}{{ frappe.db.get_value("UNLOCO", code, "unlocode") or code }}{%- endif -%}
 {%- endmacro %}
+{% macro port_city_upper(code) -%}
+{%- if code -%}
+{%- set u = frappe.db.get_value("UNLOCO", code, ["location_name", "unlocode"], as_dict=True) -%}
+{{ ((u.location_name or u.unlocode or "")|upper) if u else "" }}
+{%- endif -%}
+{%- endmacro %}
+{% macro leg_iata(leg) -%}
+{%- if leg and leg.airline -%}{{ frappe.db.get_value("Airline", leg.airline, "iata_code") or "" }}{%- endif -%}
+{%- endmacro %}
+{% macro flight_date_cell(leg, dt) -%}
+{%- if leg -%}
+{%- set ai = frappe.db.get_value("Airline", leg.airline, "iata_code") or "" if leg.airline else "" -%}
+{%- set fi = ((ai ~ (leg.flight_no or ""))|replace(" ", "")) -%}
+{%- if dt -%}{{ fi }}/{{ frappe.utils.getdate(dt).day }}{%- else -%}{{ fi }}{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
 {% set inc = (doc.incoterm or "")|string|upper|replace(" ", "")|trim %}
 {% if inc in ['CIF', 'CIP', 'CFR', 'CPT', 'DAP', 'DPU', 'DDP', 'DDU'] %}
   {% set chgs = 'PP' %}
@@ -153,402 +166,354 @@
   {% set freight_prepaid = true %}
   {% set freight_banner = 'FREIGHT AS ARRANGED' %}
 {% endif %}
-{% set exec_d_str = "" %}
-{% if doc.booking_date %}{% set _bd = frappe.utils.getdate(doc.booking_date) %}{% set exec_d_str = _bd.strftime("%d-%b-%y") %}{% endif %}
-{% set u_origin = frappe.db.get_value("UNLOCO", doc.origin_port, ["city", "country", "country_code"], as_dict=True) if doc.origin_port else None %}
-{% set at_place = "—" %}
-{% if u_origin and u_origin.city %}
-{% set at_place = (u_origin.city|upper|replace(" ", "")) ~ ("." ~ (u_origin.country|upper|replace(" ", "")) if u_origin.country else ("." ~ (u_origin.country_code|upper) if u_origin.country_code else "")) %}
-{% elif doc.origin_port %}
-{% set at_place = airport_code(doc.origin_port) or "—" %}
+{% set sign_party = (doc.shipper_contact_display.split('\n')[0]|trim if doc.shipper_contact_display else (doc.shipper or '')) %}
+{% set exec_date_str = '' %}
+{% if doc.booking_date %}
+{% set _bd = frappe.utils.getdate(doc.booking_date) %}
+{% set exec_date_str = _bd.strftime('%d-%b-%y') %}
 {% endif %}
-{% set sign_name = "" %}
-{% if doc.operations_rep and frappe.db.exists("Employee", doc.operations_rep) %}{% set sign_name = frappe.db.get_value("Employee", doc.operations_rep, "employee_name") or "" %}{% elif doc.sales_rep and frappe.db.exists("Employee", doc.sales_rep) %}{% set sign_name = frappe.db.get_value("Employee", doc.sales_rep, "employee_name") or "" %}{% endif %}
-{% set issuer_name = (company_doc.company_name if company_doc else (default_company or "")) %}
-{% macro ocharge_right(row) -%}
-{%- if row.estimated_revenue is not none and (row.estimated_revenue|float(0) != 0) -%}{{ frappe.utils.fmt_money(row.estimated_revenue, currency=(row.selling_currency or curr)) if curr or row.selling_currency else frappe.utils.fmt_money(row.estimated_revenue) }}{%- else -%}AS AGREED{%- endif -%}
-{%- endmacro %}
+{% set exec_place_str = '' %}
+{% if company_doc and company_doc.address %}
+{% set _ad = frappe.get_doc('Address', company_doc.address) %}
+{% set _cty = (_ad.city or '')|trim %}
+{% set _ctry = (_ad.country or '')|trim %}
+{% set exec_place_str = (_cty + '.' + _ctry)|upper|replace(' ', '') %}
+{% endif %}
+{% set shipper_code = frappe.db.get_value("Shipper", doc.shipper, "code") if doc.shipper else "" %}
+{% set consignee_code = frappe.db.get_value("Consignee", doc.consignee, "code") if doc.consignee else "" %}
+{% set origin_short = port_city_upper(doc.origin_port) %}
+{% set dest_short = port_city_upper(doc.destination_port) %}
+{% set ca = None %}
+{% if company_doc and company_doc.address %}
+{% set ca = frappe.get_doc("Address", company_doc.address) %}
+{% endif %}
+{% set agent_city = ((ca.city or '')|upper) if ca else '' %}
+{% set pkg0 = doc.packages[0] if doc.packages and (doc.packages|length > 0) else None %}
+{% set hs_tariff = None %}
+{% if pkg0 and pkg0.hs_code %}
+{% set hs_tariff = frappe.db.get_value("Customs Tariff Number", pkg0.hs_code, "tariff_number") %}
+{% endif %}
+{% set hs_display = (hs_tariff or (pkg0.hs_code if pkg0 else '') or '') %}
+{% set commodity_item_display = '' %}
+{% if pkg0 and pkg0.commodity %}
+{% set commodity_item_display = frappe.db.get_value("Commodity", pkg0.commodity, "iata_commodity_code") or frappe.db.get_value("Commodity", pkg0.commodity, "code") or '' %}
+{% endif %}
 
     <div class="awb-outer">
+        <div class="hawb-outer-head"><span class="hawb-lbl">HAWB NO:</span> <span class="awb-mono">{{ hawb_raw }}</span></div>
         <div class="awb-form">
-            {# (1) Shipper + AWB / House serial (IATA right column) #}
-            <table class="g" style="border-bottom:2px solid #000;">
+            {# Header: 45% party | 15% account | 40% branding (rowspan 2) + accounting under branding #}
+            <table class="g">
                 <colgroup>
-                    <col style="width: 56%;">
-                    <col style="width: 44%;">
+                    <col style="width: 45%;">
+                    <col style="width: 15%;">
+                    <col style="width: 40%;">
                 </colgroup>
                 <tr>
-                    <td class="cell-r">
+                    <td class="cell-r" style="min-height: 26mm;">
                         <span class="fnum">1</span>
                         <span class="iata-lbl">Shipper’s Name and Address</span>
-                        <div class="iata-txt addr-clip">
-                            {% if doc.shipper %}<b>{{ doc.shipper }}</b><br>{% endif %}
+                        <div class="iata-txt" style="text-align: left;">
+                            {% if doc.shipper %}{{ doc.shipper }}<br>{% endif %}
                             {% if doc.shipper_address_display %}{{ doc.shipper_address_display|replace('\n', '<br>')|safe }}{% endif %}
                             {% if doc.shipper_contact_display %}<br>{{ doc.shipper_contact_display|replace('\n', '<br>')|safe }}{% endif %}
                         </div>
                     </td>
-                    <td class="awb-panel">
+                    <td class="cell-r" style="min-height: 26mm;">
+                        <span class="iata-lbl">Shipper’s Account Number</span>
+                        <div class="iata-txt">{{ shipper_code or '' }}</div>
+                    </td>
+                    <td class="carrier-col cell-r" rowspan="2" style="vertical-align: top;">
                         {% if company_doc and company_doc.company_logo %}
-                        <img src="{{ company_doc.company_logo }}" alt="" class="logo-img" />
+                        <img src="{{ company_doc.company_logo }}" alt="" class="logo-img c-logo" style="margin-left:auto;margin-right:auto;" />
                         {% elif company_doc and company_doc.logo %}
-                        <img src="{{ company_doc.logo }}" alt="" class="logo-img" />
+                        <img src="{{ company_doc.logo }}" alt="" class="logo-img c-logo" style="margin-left:auto;margin-right:auto;" />
                         {% elif company_doc and company_doc.image %}
-                        <img src="{{ company_doc.image }}" alt="" class="logo-img" />
+                        <img src="{{ company_doc.image }}" alt="" class="logo-img c-logo" style="margin-left:auto;margin-right:auto;" />
                         {% else %}
-                        <div class="logo-ph">logo</div>
+                        <div class="logo-ph c-logo" style="margin-left:auto;margin-right:auto;">logo</div>
+                        {% if company_doc %}<div class="c-addr" style="margin-top:0.3mm;">{{ company_doc.company_name|upper }}</div>{% endif %}
                         {% endif %}
-                        <div class="nnego">NOT NEGOTIABLE</div>
-                        <div class="awb-h1">Air Waybill</div>
-                        <div class="h-hawb">House Air Waybill (HAWB)</div>
-                        <div class="ref-strip">HAWB No. &nbsp; <span class="awb-mono serial-line">{{ awb_11(hawb_raw) }}</span></div>
-                        <div class="mawb-sub awb-mono">MAWB &nbsp; {{ awb_11(mawb_no) if mawb_no else '—' }}</div>
-                        {% if doc.booking_reference or doc.name %}
-                        <div class="mawb-sub">Ref.: {{ doc.booking_reference or doc.name }}</div>
+                        {% if ca %}
+                        <div class="c-addr-natural" style="margin-top: 0.35mm; text-align: center;">
+                            {% if ca.address_line1 %}{{ ca.address_line1 }}{% endif %}{% if ca.address_line2 %} {{ ca.address_line2 }}{% endif %}<br>
+                            {% if ca.city %}{{ ca.city }}{% endif %}{% if ca.state %}, {{ ca.state }}{% endif %}{% if ca.pincode %} {{ ca.pincode }}{% endif %}{% if ca.country %} {{ ca.country }}{% endif %}
+                        </div>
                         {% endif %}
-                        <div class="copy-line">Consignment as listed — subject to conditions of contract</div>
+                        {% if company_doc %}
+                        <div class="c-contact" style="text-align: center;">
+                            {% if company_doc.phone_no %}Tel: {{ company_doc.phone_no }}{% endif %}
+                            {% if company_doc.email %}{% if company_doc.phone_no %} {% endif %}Email: {{ company_doc.email }}{% endif %}
+                        </div>
+                        {% endif %}
                     </td>
                 </tr>
-            </table>
-
-            {# (2) Consignee #}
-            <table class="g">
                 <tr>
-                    <td class="cell-r">
+                    <td class="cell-r" style="min-height: 22mm; max-height: 34mm; overflow: hidden;">
                         <span class="fnum">2</span>
                         <span class="iata-lbl">Consignee’s Name and Address</span>
-                        <div class="iata-txt addr-clip-sm">
-                            {% if doc.consignee %}<b>{{ doc.consignee }}</b><br>{% endif %}
+                        <div class="iata-txt" style="text-align: left;">
+                            {% if doc.consignee %}{{ doc.consignee }}<br>{% endif %}
                             {% if doc.consignee_address_display %}{{ doc.consignee_address_display|replace('\n', '<br>')|safe }}{% endif %}
                             {% if doc.consignee_contact_display %}<br>{{ doc.consignee_contact_display|replace('\n', '<br>')|safe }}{% endif %}
                         </div>
                     </td>
-                </tr>
-            </table>
-
-            {# (3) Agent / (4) Accounting #}
-            <table class="g">
-                <tr>
-                    <td class="cell-r" style="width: 50%;">
-                        <span class="fnum">3</span>
-                        <span class="iata-lbl">Issuing Carrier’s Agent—Name and City</span>
-                        <div class="iata-txt">{{ doc.freight_agent or '' }}{% if company_doc and company_doc.address %}{% set _addr = frappe.get_doc("Address", company_doc.address) %}{% if _addr and _addr.city %}, {{ _addr.city }}{% endif %}{% endif %}</div>
+                    <td class="cell-r">
+                        <span class="iata-lbl">Consignee’s Account Number</span>
+                        <div class="iata-txt">{{ consignee_code or '' }}</div>
                     </td>
-                    <td class="cell-r" style="width: 50%;">
+                </tr>
+                <tr>
+                    <td class="cell-r" colspan="2" style="min-height: 12mm;">
+                        <span class="fnum">3</span>
+                        <span class="iata-lbl">Issuing Carrier’s Agent Name and City</span>
+                        <div class="iata-txt" style="text-align: left;">
+                            {% if doc.freight_agent %}{{ doc.freight_agent }}{% endif %}
+                            {% if agent_city %}<br>{{ agent_city }}{% endif %}
+                        </div>
+                    </td>
+                    <td class="cell-r" style="vertical-align: top;">
                         <span class="fnum">4</span>
                         <span class="iata-lbl">Accounting Information</span>
-                        <div class="iata-txt">
-                            {% if doc.local_customer %}{% set cn = frappe.db.get_value("Customer", doc.local_customer, "customer_name") %}<b>{{ cn or doc.local_customer }}</b>{% endif %}
-                            {% if doc.agent_reference %}<br>Agent ref.: {{ doc.agent_reference }}{% endif %}
-                            <br>Shipment: <b>{{ doc.name }}</b>{% if doc.incoterm %} &nbsp;·&nbsp; {{ doc.incoterm }}{% endif %}
-                        </div>
+                        <div class="iata-txt" style="text-align: center;">{{ freight_banner|upper }}</div>
                     </td>
                 </tr>
-            </table>
-
-            {# Agent IATA / Account #}
-            <table class="g">
                 <tr>
-                    <td class="cell-r" style="width: 50%;">
-                        <span class="iata-lbl" style="padding-top:0;">Agent’s IATA Code</span>
-                        <div class="iata-txt awb-mono">{{ iata_cass or '' }}</div>
-                    </td>
-                    <td class="cell-r" style="width: 50%;">
-                        <span class="iata-lbl" style="padding-top:0;">Account No.</span>
-                        <div class="iata-txt awb-mono">{{ doc.booking_reference or '' }}</div>
-                    </td>
-                </tr>
-            </table>
-
-            {# Notify (optional) #}
-            <table class="g">
-                <tr>
-                    <td class="cell-r">
-                        <span class="iata-lbl" style="padding-top:0;">Notifying Party (Name and Full Address) — as applicable</span>
-                        <div class="iata-txt addr-clip-sm">
-                            {{ doc.notify_party or '' }}
-                            {% if doc.notify_party_address %}<br>{{ doc.notify_party_address|replace('\n', '<br>')|safe }}{% endif %}
-                        </div>
-                    </td>
-                </tr>
-            </table>
-
-            {# (5) + legal intro #}
-            <div class="condensed">
-                <div class="cond-title">NOT NEGOTIABLE — AIR WAYBILL</div>
-                <span style="font-weight:700;">Issued by</span>
-                {{ doc.freight_agent or (company_doc.company_name if company_doc else '_______________________') }}{% if company_doc and company_doc.address %}{% set company_address = frappe.get_doc("Address", company_doc.address) %} — {{ company_address.city or '' }}{% endif %}.
-                Copies 1, 2 and 3 of this air waybill are originals and of equal validity. It is agreed that the goods described herein are accepted in apparent good order and condition (except as noted) for carriage
-                <b>SUBJECT TO THE CONDITIONS OF CONTRACT ON THE REVERSE HEREOF. ALL GOODS MAY BE CARRIED VIA ANY STOPPING PLACES WHICH THE CARRIER DEEMS APPROPRIATE. THE SHIPPER’S ATTENTION IS DRAWN TO THE NOTICE CONCERNING CARRIERS’ LIMITATION OF LIABILITY.</b> Shipper may increase such limitation of liability by declaring a higher value for carriage and paying a supplemental charge, if so required.
-            </div>
-            <div class="f-banner">{{ freight_banner }}</div>
-
-            {# (5) Airport of departure + routing + (16)–(18) etc. IATA small grid #}
-            <table class="g">
-                <tr>
-                    <td rowspan="2" class="cell-r" style="width: 34%;">
-                        <span class="fnum">5</span>
-                        <span class="iata-lbl">Airport of Departure (First Carrier) and Requested Routing</span>
-                        <div class="iata-txt"><b>{{ unloco_label(doc.origin_port) }}</b>
-                        {% if airline_iata %}<br>Carrier: <span class="awb-mono">{{ airline_iata }}</span>{% endif %}</div>
-                    </td>
-                    <td style="width: 6%;" class="r-cell"><span class="mini-h">To</span><br><b>{% if leg1 %}{{ airport_code(leg1.discharge_port) }}{% elif doc.destination_port %}{{ airport_code(doc.destination_port) }}{% endif %}</b></td>
-                    <td style="width: 20%;" class="r-cell"><span class="mini-h">By First Carrier</span><br>{% if leg1 %}{{ leg1.flight_no or '' }}{% if leg1.airline %}/ {{ leg1.airline }}{% endif %}{% elif mawb_doc %}{{ mawb_doc.flight_no or '' }}{% endif %}</td>
-                    <td style="width: 6%;" class="r-cell"><span class="mini-h">To</span><br><b>{% if leg2 %}{{ airport_code(leg2.discharge_port) }}{% endif %}</b></td>
-                    <td style="width: 10%;" class="r-cell"><span class="mini-h">By</span><br>{% if leg2 %}{{ leg2.flight_no or '' }}{% if leg2.airline %}/ {{ leg2.airline }}{% endif %}{% endif %}</td>
-                    <td style="width: 6%;" class="r-cell"><span class="mini-h">To</span><br><b>{% if leg3 %}{{ airport_code(leg3.discharge_port) }}{% endif %}</b></td>
-                    <td style="width: 7%;" class="r-cell"><span class="mini-h">By</span><br>{% if leg3 %}{{ leg3.flight_no or '' }}{% if leg3.airline %}/ {{ leg3.airline }}{% endif %}{% endif %}</td>
-                </tr>
-                <tr>
-                    <td colspan="6" class="cell-r">
-                        <span class="iata-lbl" style="padding-top:0;">(7) Optional shipping information &nbsp;—&nbsp; {{ doc.sending_agent or '—' }} / {{ doc.receiving_agent or '—' }}</span>
-                    </td>
-                </tr>
-            </table>
-
-            <table class="g">
-                <tr>
-                    <td class="r-cell" style="width: 7%;">
-                        <span class="iata-lbl" style="padding-top:0; text-align:center;">Currency</span>
-                        <div class="awb-mono" style="font-size:7.5pt;">{{ curr or '—' }}</div>
-                    </td>
-                    <td class="r-cell" style="width: 5%;">
-                        <span class="mini-h">CHGS<br>code</span>
-                        <div class="awb-mono" style="font-size:7.5pt; font-weight:700;">{{ chgs }}</div>
-                    </td>
-                    <td class="r-cell" style="width: 8%;">
-                        <span class="mini-h">WT/VAL<br>PPD</span>
-                        <div class="awb-mono" style="font-size:7.5pt; font-weight:700;">{{ 'X' if freight_prepaid else '—' }}</div>
-                    </td>
-                    <td class="r-center" style="width: 8%;">
-                        <span class="mini-h">COLL</span>
-                        <div class="awb-mono" style="font-size:7.5pt; font-weight:700;">{{ 'X' if not freight_prepaid else '—' }}</div>
-                    </td>
-                    <td class="r-center" style="width: 8%;">
-                        <span class="mini-h">Other<br>PPD</span>
-                        <div class="awb-mono" style="font-size:7.5pt; font-weight:700;">{{ 'X' if freight_prepaid else '—' }}</div>
-                    </td>
-                    <td class="r-center" style="width: 8%;">
-                        <span class="mini-h">COLL</span>
-                        <div class="awb-mono" style="font-size:7.5pt; font-weight:700;">{{ 'X' if not freight_prepaid else '—' }}</div>
-                    </td>
-                    <td class="cell-r" style="width: 28%;" rowspan="1">
-                        <span class="iata-lbl" style="padding-top:0;">Declared Value for Carriage</span>
-                        <div class="iata-txt">{% if doc.insurance is not none and (doc.insurance|float(0) > 0) %}Declared / insured as per applicable rules{% else %}<b class="awb-mono">NVD</b>{% endif %}</div>
-                    </td>
-                </tr>
-            </table>
-
-            {# 8, 8A, 9 #}
-            <table class="g">
-                <tr>
-                    <td class="cell-r" style="width: 38%;">
-                        <span class="fnum">8</span>
-                        <span class="iata-lbl">Airport of Destination</span>
-                        <div class="iata-txt"><b>{{ unloco_label(doc.destination_port) }}</b></div>
+                    <td class="cell-r" style="width: 30%;">
+                        <span class="iata-lbl" style="padding-top: 0;">Agent’s IATA Code</span>
+                        <div class="iata-txt awb-mono" style="font-size: 6.5pt;">{{ iata_cass or '' }}</div>
                     </td>
                     <td class="cell-r" style="width: 30%;">
-                        <span class="iata-lbl" style="padding-top:0;">(8A) Flight / Date</span>
-                        <div class="iata-txt awb-mono">{% if mawb_doc %}{{ mawb_doc.flight_no or '' }}{% endif %}{% if doc.etd %} &nbsp;{{ frappe.utils.formatdate(doc.etd, 'dd MMM yyyy') }}{% elif mawb_doc and mawb_doc.flight_date %} &nbsp;{{ frappe.utils.formatdate(mawb_doc.flight_date, 'dd MMM yyyy') }}{% endif %}</div>
+                        <span class="iata-lbl" style="padding-top: 0;">Account No.</span>
+                        <div class="iata-txt awb-mono" style="font-size: 6.5pt;">{{ doc.booking_reference or '' }}</div>
                     </td>
-                    <td class="cell-r" style="width: 16%;">
-                        <span class="fnum">9</span>
-                        <span class="iata-lbl" style="padding-top:0;">Amount of Insurance</span>
-                        <div class="iata-txt awb-mono">{% if doc.insurance is not none and (doc.insurance|float(0) > 0) %}{{ frappe.utils.fmt_money(doc.insurance, currency=curr) if curr else frappe.utils.fmt_money(doc.insurance) }}{% else %}<b>XXX</b>{% endif %}</div>
-                    </td>
-                    <td class="cell-r" style="width: 16%;">
-                        <span class="iata-lbl" style="padding-top:0;">Declared Value for Customs</span>
-                        <div class="iata-txt awb-mono">{% if doc.goods_value is not none %}{{ frappe.utils.fmt_money(doc.goods_value, currency=curr) if curr else frappe.utils.fmt_money(doc.goods_value) }}{% else %}<b>NCV</b>{% endif %}</div>
-                    </td>
+                    <td class="cell-r" style="width: 40%;">&nbsp;</td>
                 </tr>
             </table>
 
-            {# 10 #}
+            {# (5)(6)(7) — single row: departure | reference | optional #}
             <table class="g">
                 <tr>
-                    <td class="cell-r">
-                        <span class="fnum">10</span>
-                        <span class="iata-lbl">Handling Information (including optional SCI)</span>
-                        <div class="iata-txt h10-clip" style="font-size:5.5pt; line-height:1.04;">
-                            {% if doc.additional_terms %}{{ doc.additional_terms|truncate(200) }}{% else %}Please notify consignee upon arrival. Documents as per manifest / booking.{% endif %}
-                            {% if doc.contains_dangerous_goods %} <b>— DANGEROUS GOODS per applicable DGR.</b>{% endif %}
-                        </div>
+                    <td class="cell-r" style="width: 36%;">
+                        <span class="fnum">5</span>
+                        <span class="iata-lbl">Airport of Departure (Addr. of First Carrier) and Requested Routing</span>
+                        <div class="iata-txt">{{ origin_short or unloco_label(doc.origin_port) }}</div>
+                    </td>
+                    <td class="cell-r" style="width: 22%;">
+                        <span class="fnum">6</span>
+                        <span class="iata-lbl">Reference Number</span>
+                        <div class="iata-txt awb-mono">{{ doc.booking_reference or doc.name }}</div>
+                    </td>
+                    <td class="cell-r" style="width: 42%;">
+                        <span class="fnum">7</span>
+                        <span class="iata-lbl">Optional Shipping Information</span>
+                        <div class="iata-txt-sm">{% if doc.sending_agent or doc.receiving_agent %}{{ doc.sending_agent or '—' }} / {{ doc.receiving_agent or '—' }}{% endif %}</div>
                     </td>
                 </tr>
             </table>
 
-            {# Consignment table #}
+            {# Routing + currency / charges + NVD / NCV (one band) #}
+            <table class="g">
+                <tr>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="mini-h">to</span><br><span class="iata-txt-sm">{% if leg1 %}{{ airport_code(leg1.discharge_port) }}{% elif doc.destination_port %}{{ airport_code(doc.destination_port) }}{% endif %}</span></td>
+                    <td class="r-cell cell-r" style="width: 6%;"><span class="mini-h">By First<br>Carrier</span><br><span class="iata-txt-sm">{% if leg1 %}{{ leg_iata(leg1) }}{% elif airline_iata %}{{ airline_iata }}{% endif %}</span></td>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="mini-h">to</span><br><span class="iata-txt-sm">{% if leg2 %}{{ airport_code(leg2.discharge_port) }}{% endif %}</span></td>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="mini-h">by</span><br><span class="iata-txt-sm">{% if leg2 %}{{ leg_iata(leg2) }}{% endif %}</span></td>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="mini-h">to</span><br><span class="iata-txt-sm">{% if leg3 %}{{ airport_code(leg3.discharge_port) }}{% endif %}</span></td>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="mini-h">by</span><br><span class="iata-txt-sm">{% if leg3 %}{{ leg_iata(leg3) }}{% endif %}</span></td>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="fnum">12</span><span class="iata-lbl" style="padding-top:1.8mm; text-align:center;">Currency</span><div class="iata-txt-sm">{{ curr or '' }}</div></td>
+                    <td class="r-cell cell-r" style="width: 5%;"><span class="fnum">13</span><span class="iata-lbl" style="padding-top:1.8mm; text-align:center;">CHGS<br>Code</span><div class="iata-txt-sm">{{ chgs }}</div></td>
+                    <td class="r-cell cell-r" style="width: 4%;"><span class="fnum">14</span><span class="mini-h" style="display:block;padding-top:1.5mm;">WT/VAL<br>PPD</span><div class="iata-txt-sm">{{ 'X' if freight_prepaid else '—' }}</div></td>
+                    <td class="r-cell cell-r" style="width: 4%;"><span class="mini-h" style="display:block;padding-top:1.5mm;">COLL</span><div class="iata-txt-sm">{{ 'X' if not freight_prepaid else '—' }}</div></td>
+                    <td class="r-cell cell-r" style="width: 4%;"><span class="fnum">15</span><span class="mini-h" style="display:block;padding-top:1.5mm;">Other<br>PPD</span><div class="iata-txt-sm">{{ 'X' if freight_prepaid else '—' }}</div></td>
+                    <td class="r-cell cell-r" style="width: 4%;"><span class="mini-h" style="display:block;padding-top:1.5mm;">COLL</span><div class="iata-txt-sm">{{ 'X' if not freight_prepaid else '—' }}</div></td>
+                    <td class="cell-r" style="width: 13%;"><span class="fnum">16</span><span class="iata-lbl">Declared Value for Carriage</span><div class="iata-txt">{% if doc.insurance is not none and (doc.insurance|float(0) > 0) %}AS DECLARED{% else %}NVD{% endif %}</div></td>
+                    <td class="cell-r" style="width: 13%;"><span class="fnum">17</span><span class="iata-lbl">Declared Value for Customs</span><div class="iata-txt">{% if doc.goods_value is not none %}{{ frappe.utils.fmt_money(doc.goods_value, currency=curr) if curr else frappe.utils.fmt_money(doc.goods_value) }}{% else %}NCV{% endif %}</div></td>
+                </tr>
+            </table>
+
+            {# Destination | two flight/date | insurance (sample face — no separate liability column) #}
+            <table class="g">
+                <tr>
+                    <td class="cell-r" style="width: 28%;">
+                        <span class="fnum">8</span>
+                        <span class="iata-lbl">Airport of Destination</span>
+                        <div class="iata-txt">{{ dest_short or unloco_label(doc.destination_port) }}</div>
+                    </td>
+                    <td class="cell-r" style="width: 24%;">
+                        <span class="fnum">8A</span>
+                        <span class="iata-lbl">Requested Flight/Date</span>
+                        <div class="iata-txt awb-mono">{% if leg1 %}{{ flight_date_cell(leg1, doc.etd) }}{% elif mawb_doc %}{{ (airline_iata ~ (mawb_doc.flight_no or ''))|replace(' ', '') }}{% if doc.etd %}/{{ frappe.utils.getdate(doc.etd).day }}{% elif mawb_doc.flight_date %}/{{ frappe.utils.getdate(mawb_doc.flight_date).day }}{% endif %}{% endif %}</div>
+                    </td>
+                    <td class="cell-r" style="width: 24%;">
+                        <span class="iata-lbl" style="padding-top:2mm;">Requested Flight/Date</span>
+                        <div class="iata-txt awb-mono">{{ flight_date_cell(leg2, doc.eta) }}</div>
+                    </td>
+                    <td class="cell-r" style="width: 24%;">
+                        <span class="fnum">9</span>
+                        <span class="iata-lbl">Amount of Insurance</span>
+                        <div class="iata-txt">{% if doc.insurance is not none and (doc.insurance|float(0) > 0) %}{{ frappe.utils.fmt_money(doc.insurance, currency=curr) if curr else frappe.utils.fmt_money(doc.insurance) }}{% else %}XXX{% endif %}</div>
+                    </td>
+                </tr>
+            </table>
+
+            {# Handling + SCI #}
+            <table class="g">
+                <tr>
+                    <td class="cell-r" style="width: 88%; min-height: 12mm;">
+                        <span class="fnum">10</span>
+                        <span class="iata-lbl">Handling Information</span>
+                        <div class="iata-txt-sm" style="font-weight:700;">
+                            {% if doc.additional_terms %}{{ doc.additional_terms|replace('\n', ' ') }}{% else %}PLEASE NOTIFY CONSIGNEE UPON ARRIVAL. DOCUMENTS AS PER MANIFEST.{% endif %}
+                            {% if doc.contains_dangerous_goods %} — DANGEROUS GOODS AS PER IATA DGR.{% endif %}
+                        </div>
+                    </td>
+                    <td class="cell-r" style="width: 12%; min-height: 12mm;">
+                        <span class="fnum">21</span>
+                        <span class="iata-lbl">SCI</span>
+                        <div class="iata-txt-sm">&nbsp;</div>
+                    </td>
+                </tr>
+            </table>
+
+            {# Consignment detail — column layout per sample HAWB #}
             <table class="cargo-t">
                 <thead>
                     <tr>
-                        <th style="width:5%;">No. of<br>Pieces<br>RCP</th>
-                        <th style="width:8%;">Gross<br>Weight</th>
-                        <th style="width:5%;">kg lb</th>
-                        <th style="width:10%;">Rate Class<br>Commodity<br>Item No.</th>
-                        <th style="width:8%;">Chargeable<br>Weight</th>
-                        <th style="width:7%;">Rate<br>charge</th>
-                        <th style="width:8%;">Total</th>
-                        <th style="width:49%;">Nature and Quantity of Goods<br>(incl. Dimensions of Volume)</th>
+                        <th style="width:5%;">No. Of<br>Pieces<br>RCP</th>
+                        <th style="width:7%;">Gross<br>Weight</th>
+                        <th style="width:4%;">kg/lb</th>
+                        <th style="width:5%;">Rate<br>Class</th>
+                        <th style="width:6%;">Commodity<br>Item No.</th>
+                        <th style="width:7%;">Chargeable<br>Weight</th>
+                        <th class="th-diag" style="width:6%;"><div class="th-diag-inner"><span class="d-br">Charge</span><span class="d-tl">Rate</span></div></th>
+                        <th style="width:7%;">Total</th>
+                        <th style="width:53%;">Nature and Quantity of Goods<br>(incl. Dimensions or Volume)</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="c" style="font-weight:700;">{{ doc.packs or '' }}</td>
-                        <td class="n">{% if doc.total_weight is not none %}{{ "%.2f"|format(doc.total_weight) }}{% endif %}</td>
-                        <td class="c">{% if doc.total_weight_uom %}{{ frappe.db.get_value("UOM", doc.total_weight_uom, "uom_name") or doc.total_weight_uom }}{% else %}K (kg){% endif %}</td>
-                        <td>{% if doc.load_type %}{{ doc.load_type }}{% endif %}</td>
-                        <td class="n">{% if doc.chargeable is not none %}{{ "%.2f"|format(doc.chargeable) }}{% endif %}</td>
-                        <td class="c"></td>
-                        <td class="c"></td>
-                        <td>
-                            <b>{{ (doc.description or '')|truncate(300) }}</b>
+                        <td class="c iata-txt-sm">{{ doc.packs or '' }}</td>
+                        <td class="n iata-txt-sm">{% if doc.total_weight is not none %}{{ "%.1f"|format(doc.total_weight) }}{% endif %}</td>
+                        <td class="c iata-txt-sm">{% if doc.total_weight_uom %}{% set _un = frappe.db.get_value("UOM", doc.total_weight_uom, "uom_name") or doc.total_weight_uom %}{{ (_un[0]|upper) if _un else 'K' }}{% else %}K{% endif %}</td>
+                        <td class="c iata-txt-sm">{% if doc.load_type %}{{ doc.load_type }}{% endif %}</td>
+                        <td class="c iata-txt-sm">{{ commodity_item_display }}</td>
+                        <td class="n iata-txt-sm">{% if doc.chargeable is not none %}{{ "%.1f"|format(doc.chargeable) }}{% endif %}</td>
+                        <td class="c iata-txt-sm"></td>
+                        <td class="c iata-txt-sm">As Agreed</td>
+                        <td class="iata-txt-sm" style="text-align:left; font-weight:700;">
+                            {% if doc.description %}SAID TO CONTAIN: {{ doc.description|upper }}{% endif %}
+                            {% if hs_display %}<br>HS CODE: {{ hs_display|string|upper }}{% endif %}
                             {% if doc.packages and doc.packages|length > 0 %}
-                            <br><span style="font-size:3.8pt; line-height:1.0;">{% for p in (doc.packages or [])[:2] %}{% if p.length or p.width or p.height %}<br>Dim.: {{ p.length or '—' }}×{{ p.width or '—' }}×{{ p.height or '—' }}{% if p.dimension_uom %} {{ frappe.db.get_value('UOM', p.dimension_uom, 'uom_name') or p.dimension_uom }}{% endif %}{% endif %}{% endfor %}</span>
+                            {% for p in doc.packages %}{% if p.length or p.width or p.height %}
+                            {% set _np = (p.no_of_packs|int) if p.no_of_packs is not none else 1 %}
+                            {% set _du = ((frappe.db.get_value('UOM', p.dimension_uom, 'uom_name') or 'CM')|upper) %}
+                            <br>DIM: {{ (p.length|int) if p.length else '—' }}X{{ (p.width|int) if p.width else '—' }}X{{ (p.height|int) if p.height else '—' }}({{ _np }}){{ _du }}
+                            {% endif %}{% endfor %}
                             {% endif %}
                             {% if doc.total_volume is not none %}
-                            <br>Vol.: {{ "%.2f"|format(doc.total_volume) }}{% if doc.total_volume_uom %} {{ frappe.db.get_value("UOM", doc.total_volume_uom, "uom_name") or doc.total_volume_uom }}{% endif %}
+                            <br><span style="font-size:3pt;">VOL.: {{ "%.3f"|format(doc.total_volume) }}{% if doc.total_volume_uom %} {{ frappe.db.get_value("UOM", doc.total_volume_uom, "uom_name") or doc.total_volume_uom }}{% endif %}</span>
                             {% endif %}
                         </td>
                     </tr>
+                    <tr class="cargo-totals">
+                        <td class="c iata-txt-sm">{{ doc.packs or '' }}</td>
+                        <td class="n iata-txt-sm">{% if doc.total_weight is not none %}{{ "%.1f"|format(doc.total_weight) }}{% endif %}</td>
+                        <td colspan="7"></td>
+                    </tr>
                     <tr>
-                        <td colspan="7" class="marks marks-clip">
-                            Shipping marks &amp; numbers — {{ airport_code(doc.destination_port) or '' }}{% if doc.marks_and_nos %}<br>{{ doc.marks_and_nos|replace('\n', ' ')|truncate(100)|safe }}{% endif %}
+                        <td colspan="8" class="marks">
+                            Shipping marks &amp; numbers — {{ airport_code(doc.destination_port) or '' }}{% if doc.marks_and_nos %}<br>{{ doc.marks_and_nos|replace('\n', '<br>')|safe }}{% endif %}
                         </td>
                         <td></td>
                     </tr>
                 </tbody>
             </table>
 
-            <table class="iata-bottom" cellspacing="0" cellpadding="0">
+            <table class="hawb-bottom">
                 <tr>
-                    <td class="fin-wrap" style="vertical-align: top;">
-                        <table class="fin-ppcc" cellspacing="0" cellpadding="0">
+                    <td class="hawb-bl">
+                        <table class="hawb-lc">
+                            <tr><td colspan="2" class="hawb-tab">Weight Charge</td></tr>
                             <tr>
-                                <th class="fin-mono">Prepaid</th>
-                                <th class="fin-mono">Collect</th>
+                                <td class="hawb-amt" style="width:50%;"><div class="hawb-pc-h">Prepaid</div></td>
+                                <td class="hawb-amt" style="width:50%;"><div class="hawb-pc-h">Collect</div></td>
                             </tr>
+                            <tr><td colspan="2" class="hawb-tab">Valuation Charge</td></tr>
                             <tr>
-                                <td colspan="2" class="fin-tab">Weight Charge</td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Prepaid</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Collect</div></td>
                             </tr>
-                            <tr class="fin-val">
-                                <td class="fin-mono fin-val"></td>
-                                <td class="fin-mono fin-val"></td>
-                            </tr>
+                            <tr><td colspan="2" class="hawb-tab">Tax</td></tr>
                             <tr>
-                                <td colspan="2" class="fin-tab">Valuation Charge</td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Prepaid</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Collect</div></td>
                             </tr>
-                            <tr class="fin-val">
-                                <td class="fin-mono fin-val"></td>
-                                <td class="fin-mono fin-val"></td>
-                            </tr>
+                            <tr><td colspan="2" class="hawb-tab">Total Other Charges Due Agent</td></tr>
                             <tr>
-                                <td colspan="2" class="fin-tab">Tax</td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Prepaid</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Collect</div></td>
                             </tr>
-                            <tr class="fin-val">
-                                <td class="fin-mono fin-val"></td>
-                                <td class="fin-mono fin-val"></td>
-                            </tr>
+                            <tr><td colspan="2" class="hawb-tab">Total Other Charges Due Carrier</td></tr>
                             <tr>
-                                <td colspan="2" class="fin-tab">Total Other Charges Due Agent</td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Prepaid</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Collect</div></td>
                             </tr>
-                            <tr class="fin-val">
-                                <td class="fin-mono fin-val"></td>
-                                <td class="fin-mono fin-val"></td>
+                            <tr><td colspan="2" class="hawb-shade"></td></tr>
+                            <tr>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Total Prepaid</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Total Collect</div></td>
                             </tr>
                             <tr>
-                                <td colspan="2" class="fin-tab">Total Other Charges Due Carrier</td>
-                            </tr>
-                            <tr class="fin-val">
-                                <td class="fin-mono fin-val"></td>
-                                <td class="fin-mono fin-val"></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Currency Conversion Rates</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">CC. Charges in Dest. Currency</div></td>
                             </tr>
                             <tr>
-                                <td colspan="2" class="fin-shade">&nbsp;</td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">For Carrier’s use only at Destination</div></td>
+                                <td class="hawb-amt"><div class="hawb-pc-h">Charges at Destination</div></td>
                             </tr>
-                            <tr>
-                                <td class="fin-split">
-                                    <div class="fin-mini">Total Prepaid</div>
-                                    <div class="fin-mono fin-val" style="min-height:2.6mm;"></div>
-                                </td>
-                                <td class="fin-split">
-                                    <div class="fin-mini">Total Collect</div>
-                                    <div class="fin-mono fin-val" style="min-height:2.6mm;"></div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="fin-split">
-                                    <div class="fin-mini">Currency<br>Conversion Rates</div>
-                                    <div class="fin-mono fin-val" style="min-height:2.4mm;"></div>
-                                </td>
-                                <td class="fin-split">
-                                    <div class="fin-mini">CC. Charges in Dest. Currency</div>
-                                    <div class="fin-mono fin-val" style="min-height:2.4mm;"></div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="fin-split">
-                                    <div class="fin-mini" style="font-size:3.4pt; line-height:1;">For Carrier’s use only at Destination</div>
-                                    <div class="fin-mono fin-val" style="min-height:2.4mm;"></div>
-                                </td>
-                                <td class="fin-split">
-                                    <div class="fin-mini">Charges at Destination</div>
-                                    <div class="fin-mono fin-val" style="min-height:2.4mm;"></div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="tcc-row" colspan="2">
-                                    <span class="tcc-l">Total Collect Charges</span>
-                                    <span class="tcc-r fin-mono"></span>
-                                </td>
-                            </tr>
+                            <tr><td colspan="2" class="hawb-tab">Total Collect Charges</td></tr>
+                            <tr><td colspan="2" class="hawb-amt" style="min-height:6mm;"></td></tr>
                         </table>
                     </td>
-                    <td class="oc-wrap" style="vertical-align: top;">
-                        <div class="r-col-in">
-                            <div class="oc-title">Other Charges</div>
-                            <div class="oc-body">
-                            {% if doc.charges and doc.charges|length > 0 %}
-                                {% for row in (doc.charges or [])[:5] %}
-                                <div class="oc-line">
-                                    <span class="oc-l">A {{ (row.item_name or row.description or "CHARGE")|striptags|upper|replace("  ", " ")|replace('\n', ' ')|trim }}</span>
-                                    <span class="oc-r">{{ ocharge_right(row) }}</span>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <div class="oc-line"><span class="oc-l">A INTERNATIONAL FREIGHT</span><span class="oc-r">AS AGREED</span></div>
-                                <div class="oc-line"><span class="oc-l">A EXPORT CUSTOMS CLEARANCE</span><span class="oc-r">AS AGREED</span></div>
-                                <div class="oc-line"><span class="oc-l">A MANIFEST FEE</span><span class="oc-r">AS AGREED</span></div>
-                                <div class="oc-line"><span class="oc-l">A ORIGIN CARGOWISE AUTOMATION FEE</span><span class="oc-r">AS AGREED</span></div>
+                    <td class="hawb-br">
+                        <div class="hawb-oc-title">Other Charges</div>
+                        <div class="hawb-oc-lines">
+                            {% set oc_ns = namespace(found=false) %}
+                            {% for c in doc.charges or [] %}
+                            {% set lbl = (c.item_name or c.description or c.item_code or '')|trim %}
+                            {% if lbl and c.charge_type != 'Cost' %}
+                            {% set oc_ns.found = true %}
+                            <div class="oc-line">{{ lbl|upper }} AS AGREED</div>
                             {% endif %}
-                            </div>
-                            <div class="cert-iat">
-                                Shipper certifies that the particulars on the face hereof are correct and that <b>insofar as any part of the consignment contains dangerous goods, such part is properly described by name and is in proper condition for carriage by air according to the applicable Dangerous Goods Regulations.</b>
-                            </div>
-                            <div class="sh-wrap">
-                                {% if sign_name %}<div class="sh-name">{{ sign_name|upper }}</div>{% else %}<div class="sh-name">&nbsp;</div>{% endif %}
-                                <div class="sh-dot"></div>
-                                <div class="sh-lbl">Signature of Shipper or his Agent</div>
-                            </div>
+                            {% endfor %}
+                            {% if not oc_ns.found %}
+                            <div class="oc-line" style="color:#666;">—</div>
+                            {% endif %}
                         </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="padding:0;border-top:1px solid #000;">
-                        <table class="exec-bar" cellspacing="0" cellpadding="0">
+                        <div class="hawb-cert-r">
+                            Shipper certifies that the particulars on the face hereof are correct and that <b>insofar as any part of the consignment contains dangerous goods, such part is properly described by name and is in proper condition for carriage by air according to the applicable Dangerous Goods Regulations.</b>
+                        </div>
+                        {% if sign_party %}<div class="hawb-sign-name">{{ sign_party|upper }}</div>{% endif %}
+                        <div class="hawb-dotted"></div>
+                        <div class="hawb-slbl">Signature of Shipper or his Agent</div>
+                        <table class="hawb-exec">
                             <tr>
-                                <td style="width:24%;" class="ex-car">
-                                    <div class="ex-lb">Executed on (date)</div>
-                                    <div class="ex-val">{% if exec_d_str %}{{ exec_d_str }}{% else %}—{% endif %}</div>
+                                <td>
+                                    <div class="hawb-exec-mono">{% if exec_date_str %}{{ exec_date_str }}{% endif %}</div>
+                                    <div class="hawb-dotted"></div>
+                                    <div class="hawb-slbl">Executed on (date)</div>
                                 </td>
-                                <td style="width:24%;" class="ex-car">
-                                    <div class="ex-lb">at (place)</div>
-                                    <div class="ex-val">{{ at_place if at_place else "—" }}</div>
+                                <td>
+                                    <div class="hawb-exec-mono">{% if exec_place_str %}{{ exec_place_str }}{% endif %}</div>
+                                    <div class="hawb-dotted"></div>
+                                    <div class="hawb-slbl">at (place)</div>
                                 </td>
-                                <td style="width:31%;" class="ex-car">
-                                    <div class="ex-lb">Signature of Issuing Carrier or its Agent</div>
-                                    <div class="ex-val">{% if issuer_name %}{{ issuer_name|upper }}{% else %}—{% endif %}</div>
-                                </td>
-                                <td class="hawb-corner" style="width:21%;">
-                                    <div class="hawb-big awb-mono">{{ awb_11(hawb_raw) }}</div>
+                                <td class="hawb-exec-corner">
+                                    {% if company_doc %}<div class="hawb-exec-mono" style="text-align:left;">{{ company_doc.company_name|upper }}</div>{% endif %}
+                                    <div class="hawb-dotted"></div>
+                                    <div class="hawb-slbl">Signature of Issuing Carrier or its Agent</div>
+                                    <div class="hawb-exec-num">{{ awb_11(hawb_raw) }}</div>
                                 </td>
                             </tr>
                         </table>
@@ -556,15 +521,15 @@
                 </tr>
             </table>
 
-            <div class="f-foot">Original 3 - (for Consignee)</div>
+            <div class="f-foot">ORIGINAL 2 (FOR CONSIGNEE)</div>
             {% if doc.terms %}
-            <div class="no-print-1p" style="font-size:4.8pt; line-height:1.05; border:1px solid #aaa; border-top:0; padding:0.2mm; max-height:4mm; overflow: hidden;">
-                <b>Terms (summary)</b> {{ doc.terms|striptags|truncate(180) }}
+            <div style="font-size:2.9pt; line-height:1.1; border:1px solid #aaa; border-top:0; padding:0.35mm; max-height:6mm; overflow: hidden;">
+                <b>Terms (summary)</b> {{ doc.terms|striptags|truncate(420) }}
             </div>
             {% endif %}
         </div>
 
-        <div class="meta-foot no-print-1p">
+        <div class="meta-foot">
             {% if doc.amended_from %}Amend.: {{ doc.amended_from }} · {% endif %}Status: {% if doc.docstatus == 0 %}Draft{% elif doc.docstatus == 1 %}Submitted{% elif doc.docstatus == 2 %}Cancelled{% else %}{{ doc.docstatus }}{% endif %}{% if company_doc %} — {{ company_doc.name }}{% elif default_company %} — {{ default_company }}{% endif %}
         </div>
     </div>
