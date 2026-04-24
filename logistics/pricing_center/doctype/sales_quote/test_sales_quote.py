@@ -302,6 +302,58 @@ class TestSalesQuote(FrappeTestCase):
 		self.assertNotIn(sq_specific.name, names_bb)
 		self.assertIn(sq_any.name, names_bb)
 
+	def test_get_charges_from_quotation_list_airline_only_when_ports_unset(self):
+		"""Air Booking: airline set without origin/destination lists quotes by airline, not O/D."""
+		from logistics.utils.get_charges_from_quotation import list_sales_quotes_for_job
+
+		create_test_airline("TST-OC", "Test Airline OC")
+
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"quotation_type": "Regular",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": "Air",
+			}
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"airline": "TST-OC",
+			},
+		)
+		sq.insert()
+		sq.submit()
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Air Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"airline": "TST-OC",
+			}
+		)
+		booking.insert()
+
+		out = list_sales_quotes_for_job("Air Booking", booking.name)
+		names = [r["name"] for r in (out.get("quotes") or [])]
+		self.assertIn(sq.name, names)
+		self.assertIsNone(out.get("message"))
+		filters = out.get("filters") or {}
+		extra = filters.get("extra_criteria") or []
+		self.assertTrue(any((e.get("value") == "TST-OC") for e in extra if isinstance(e, dict)))
+
 	def test_get_charges_from_quotation_excludes_draft_sales_quote(self):
 		"""Draft Sales Quotes must not appear in Get Charges from Quotation."""
 		from logistics.utils.get_charges_from_quotation import list_sales_quotes_for_job

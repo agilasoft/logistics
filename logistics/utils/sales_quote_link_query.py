@@ -89,6 +89,25 @@ def _air_corridor_job_airline_sql(alias: str) -> str:
 	)"""
 
 
+def _airline_only_match_sql() -> str:
+	"""SQL fragment: at least one Air row (unified or legacy) with blank or matching job airline. No O/D."""
+	unified = f"""EXISTS (
+		SELECT 1 FROM `tabSales Quote Charge` sqc
+		WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
+		AND sqc.service_type = 'Air'
+		{_air_corridor_job_airline_sql("sqc")}
+	)"""
+	legacy = ""
+	legacy_dt = SERVICE_LEGACY_TABLE.get("Air")
+	if legacy_dt and frappe.db.table_exists(legacy_dt):
+		legacy = f""" OR EXISTS (
+			SELECT 1 FROM `tab{legacy_dt}` leg
+			WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
+			{_air_corridor_job_airline_sql("leg")}
+		)"""
+	return f"({unified}{legacy})"
+
+
 def _corridor_match_sql_charges_header_legacy(
 	service_type: str, job_airline: str | None = None
 ) -> str:
@@ -286,6 +305,25 @@ def sales_quote_matches_job_corridor(
 	return bool(row)
 
 
+def sales_quote_matches_job_airline_only(sales_quote_name: str, job_airline: str) -> bool:
+	"""True if the quote has an Air line (or legacy) with blank airline or same as ``job_airline`` (no O/D gate)."""
+	ja = (job_airline or "").strip()
+	if not ja:
+		return False
+	match_sql = _airline_only_match_sql()
+	params: dict[str, Any] = {"name": sales_quote_name, "job_airline": ja}
+	row = frappe.db.sql(
+		f"""
+		SELECT 1 FROM `tabSales Quote` sq
+		WHERE sq.name = %(name)s
+		AND {match_sql}
+		LIMIT 1
+		""",
+		params,
+	)
+	return bool(row)
+
+
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def sales_quote_by_service_link_search(
@@ -399,6 +437,10 @@ def fetch_eligible_regular_sales_quote_names(
 	For **Air**, when ``job_airline`` is non-empty, only quotes where the matching row or header has blank
 	airline (any carrier) or the same airline are included.
 
+	For **Air** only: when the job has ``job_airline`` but ``corridor_origin`` / ``corridor_dest`` are not
+	both set, the corridor filter is **not** used; only airline matching applies (unified/legacy Air rows),
+	same as Get Charges from Quotation when the booking has an airline but ports are not filled yet.
+
 	For **Customs**, when ``customs_authority``, ``declaration_type``, and ``customs_broker`` are all
 	non-empty, **Declaration Order** filters apply instead of corridor matching (see
 	``sales_quote_matches_declaration_order_filters``).
@@ -415,6 +457,8 @@ def fetch_eligible_regular_sales_quote_names(
 	dt = (declaration_type or "").strip()
 	cb = (customs_broker or "").strip()
 	use_customs_filters = service_type == "Customs" and bool(ca and dt and cb)
+	ja = (job_airline or "").strip() if service_type == "Air" else ""
+	use_airline_only = service_type == "Air" and bool(ja) and not use_corridor
 
 	params: dict[str, Any] = {"service_type": service_type, "limit": limit}
 	if use_customs_filters:
@@ -427,10 +471,12 @@ def fetch_eligible_regular_sales_quote_names(
 	elif use_corridor:
 		params["corridor_origin"] = co
 		params["corridor_dest"] = cd
-		ja = (job_airline or "").strip() if service_type == "Air" else ""
 		if ja:
 			params["job_airline"] = ja
 		eligibility = _corridor_match_sql(service_type, job_airline=ja or None)
+	elif use_airline_only:
+		params["job_airline"] = ja
+		eligibility = _airline_only_match_sql()
 	else:
 		legacy_sql = _legacy_exists_clause(service_type)
 		eligibility = f"""( EXISTS (

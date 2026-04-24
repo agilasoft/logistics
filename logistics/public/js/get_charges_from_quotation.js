@@ -48,6 +48,17 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 			);
 			return;
 		}
+	} else if (frm.doctype === "Air Booking") {
+		var hasOdpair = frm.doc.origin_port && frm.doc.destination_port;
+		var hasAirline = (frm.doc.airline && String(frm.doc.airline).trim()) ? true : false;
+		if (!hasOdpair && !hasAirline) {
+			frappe.msgprint(
+				__(
+					"Set Origin Port and Destination Port, or set Airline, before loading charges from a quotation."
+				)
+			);
+			return;
+		}
 	} else {
 		if (!frm.doc.origin_port || !frm.doc.destination_port) {
 			frappe.msgprint(__("Set Origin Port and Destination Port before loading charges from a quotation."));
