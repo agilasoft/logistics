@@ -59,6 +59,7 @@
   "documents_section",
   "document_expiring_soon_days",
   "document_informational_days",
+  "block_submit_if_required_documents_pending",
   "milestones_section",
   "milestone_impending_days",
   "milestone_informational_days",
@@ -411,6 +412,13 @@
    "label": "Information (Days)",
    "default": 30,
    "description": "Documents required or expiring within this many days (beyond Warning window) show as Information (blue). Must be greater than Warning (Days) for Information alerts to appear."
+  },
+  {
+   "default": "0",
+   "fieldname": "block_submit_if_required_documents_pending",
+   "fieldtype": "Check",
+   "label": "Prevent submit if required document incomplete",
+   "description": "When enabled, submit is blocked on logistics forms that use the Documents table until every required row reaches Received, Verified, or Done (Pending, Uploaded, Overdue, Expired, and Rejected count as incomplete)."
   },
   {
    "fieldname": "milestones_section",

@@ -4,47 +4,48 @@
     <meta charset="UTF-8">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; line-height: 1.16; color: #000; background: white; }
-        .order-container { width: 100%; max-width: 198mm; margin: 0 auto; padding: 0; background: white; position: relative; }
-        .logo-placeholder { width: 36mm; max-height: 16mm; background: #e8e8e8; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #666; }
-        .company-logo { max-width: 40mm; max-height: 16mm; object-fit: contain; display: block; }
-        .company-name { font-size: 9.5pt; font-weight: bold; line-height: 1.1; }
-        .company-address { font-size: 6.5pt; line-height: 1.14; }
-        .vat-reg { font-size: 6.5pt; margin-top: 0.3mm; }
-        .main-body { display: block; border: 1.5px solid #000; padding: 0.8mm; position: relative; }
+        /* Single A4 page: tight typography and spacing */
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 6.5pt; line-height: 1.1; color: #000; background: white; }
+        .order-container { width: 100%; max-width: 202mm; margin: 0 auto; padding: 0; background: white; position: relative; }
+        .logo-placeholder { width: 32mm; max-height: 12mm; background: #e8e8e8; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #666; }
+        .company-logo { max-width: 36mm; max-height: 12mm; object-fit: contain; display: block; }
+        .company-name { font-size: 8.5pt; font-weight: bold; line-height: 1.05; }
+        .company-address { font-size: 6pt; line-height: 1.1; }
+        .vat-reg { font-size: 6pt; margin-top: 0.15mm; }
+        .main-body { display: block; border: 1.5px solid #000; padding: 0.45mm; position: relative; }
         .hbl-right-col { text-align: right; vertical-align: top; }
-        .hbl-label { font-weight: bold; font-size: 7pt; margin-bottom: 0; }
-        .hbl-number-box { font-size: 11.5pt; font-weight: 900; line-height: 1; background: white; letter-spacing: 0.02em; }
-        .hbl-sub { font-size: 6.5pt; margin-top: 0.3mm; }
-        .doc-title-hbl { font-size: 9.5pt; font-weight: 900; margin-top: 0.3mm; line-height: 1.1; text-align: right; }
-        .reference-number { font-size: 6.5pt; font-weight: normal; margin-top: 0.12mm; }
+        .hbl-label { font-weight: bold; font-size: 6.5pt; margin-bottom: 0; }
+        .hbl-number-box { font-size: 10pt; font-weight: 900; line-height: 1; background: white; letter-spacing: 0.02em; }
+        .hbl-sub { font-size: 6pt; margin-top: 0.15mm; }
+        .doc-title-hbl { font-size: 8.5pt; font-weight: 900; margin-top: 0.2mm; line-height: 1.05; text-align: right; }
+        .reference-number { font-size: 6pt; font-weight: normal; margin-top: 0.08mm; }
         .bl-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .bl-grid td, .bl-grid th { border: 1px solid #000; vertical-align: top; padding: 0.5mm 0.65mm; }
-        .bl-hdr { font-size: 5.5pt; font-weight: bold; display: block; margin-bottom: 0; line-height: 1.1; }
-        .bl-val { font-size: 7.5pt; line-height: 1.12; word-wrap: break-word; }
+        .bl-grid td, .bl-grid th { border: 1px solid #000; vertical-align: top; padding: 0.3mm 0.45mm; }
+        .bl-hdr { font-size: 5pt; font-weight: bold; display: block; margin-bottom: 0; line-height: 1.05; }
+        .bl-val { font-size: 6.5pt; line-height: 1.08; word-wrap: break-word; }
         .bl-val strong { font-weight: bold; }
-        .fwd-notice { border: 1px solid #000; padding: 0.6mm 0.8mm; margin: 0; font-size: 5.5pt; line-height: 1.14; text-align: justify; }
-        .fwd-title { text-align: center; font-weight: bold; font-size: 6.5pt; margin-bottom: 0.4mm; }
-        .freight-banner { border: 1.5pt double #000; text-align: center; font-size: 8.5pt; font-weight: bold; padding: 0.45mm; margin: 0; line-height: 1.1; }
+        .fwd-notice { border: 1px solid #000; padding: 0.35mm 0.45mm; margin: 0; font-size: 5pt; line-height: 1.08; text-align: justify; }
+        .fwd-title { text-align: center; font-weight: bold; font-size: 5.5pt; margin-bottom: 0.2mm; }
+        .freight-banner { border: 1.5pt double #000; text-align: center; font-size: 7pt; font-weight: bold; padding: 0.28mm; margin: 0; line-height: 1.05; }
         .cargo-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; table-layout: fixed; }
-        .cargo-table th { border: 1px solid #000; padding: 0.35mm; font-size: 5.5pt; font-weight: bold; text-align: center; background: #e4e4e4; line-height: 1.08; }
-        .cargo-table td { border: 1px solid #000; padding: 0.4mm 0.45mm; font-size: 7pt; line-height: 1.12; vertical-align: top; }
+        .cargo-table th { border: 1px solid #000; padding: 0.22mm; font-size: 5pt; font-weight: bold; text-align: center; background: #e4e4e4; line-height: 1.05; }
+        .cargo-table td { border: 1px solid #000; padding: 0.25mm 0.35mm; font-size: 6.5pt; line-height: 1.08; vertical-align: top; }
         .cargo-table td.num { text-align: right; }
         .cargo-table td.ct { text-align: center; }
-        .marks-cell { background: #e8e8e8; font-weight: bold; text-align: center; font-size: 6.5pt; padding: 0.5mm !important; }
-        .ref-mini { width: 100%; border-collapse: collapse; font-size: 5.5pt; }
-        .ref-mini td { border: 1px solid #000; padding: 0.25mm 0.4mm; vertical-align: top; }
-        .cert-box { border: 1px solid #000; padding: 0.5mm 0.6mm; font-size: 5.5pt; line-height: 1.12; text-align: justify; }
+        .marks-cell { background: #e8e8e8; font-weight: bold; text-align: center; font-size: 5.5pt; padding: 0.3mm !important; }
+        .ref-mini { width: 100%; border-collapse: collapse; font-size: 5pt; }
+        .ref-mini td { border: 1px solid #000; padding: 0.18mm 0.3mm; vertical-align: top; }
+        .cert-box { border: 1px solid #000; padding: 0.35mm 0.45mm; font-size: 5pt; line-height: 1.08; text-align: justify; }
         .sig-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; }
-        .sig-table td { border: 1px solid #000; padding: 0.4mm; vertical-align: top; }
-        .sl { font-size: 5.5pt; font-weight: bold; margin-bottom: 0.2mm; }
-        .sig-line { border-top: 1px solid #000; margin-top: 2.5mm; padding-top: 0.2mm; font-size: 5.5pt; text-align: center; }
-        .footer-banner { text-align: center; font-size: 7.5pt; font-weight: bold; padding: 0.4mm; background: #d0d0d0; border: 1px solid #000; }
-        .footer-section { margin-top: 0.4mm; padding: 0.2mm 0; border-top: 1px solid #000; font-size: 6pt; }
-        @page { size: A4 portrait; margin: 5mm 6mm 5mm 6mm; }
+        .sig-table td { border: 1px solid #000; padding: 0.3mm; vertical-align: top; }
+        .sl { font-size: 5pt; font-weight: bold; margin-bottom: 0.12mm; }
+        .sig-line { border-top: 1px solid #000; margin-top: 1.2mm; padding-top: 0.15mm; font-size: 5pt; text-align: center; }
+        .footer-banner { text-align: center; font-size: 6.5pt; font-weight: bold; padding: 0.28mm; background: #d0d0d0; border: 1px solid #000; }
+        .footer-section { margin-top: 0.25mm; padding: 0.15mm 0; border-top: 1px solid #000; font-size: 5.5pt; }
+        @page { size: A4 portrait; margin: 3mm 4mm 3mm 4mm; }
         @media print {
             body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            tr { break-inside: avoid; page-break-inside: avoid; }
+            .main-body, .order-container { page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -73,9 +74,9 @@
     {%- endif -%}
 {%- endmacro %}
 {% macro port_code(code) -%}{{ frappe.db.get_value("UNLOCO", code, "unlocode") or code or '' }}{%- endmacro %}
-{# Float fields may arrive as str from API/print path — coerce before "%.f"|format #}
-{% macro fmt0(v) -%}{%- if v is not none and v != '' -%}{{ "%.0f"|format(v|float) }}{%- else -%}—{%- endif -%}{%- endmacro %}
-{% macro fmt3(v) -%}{%- if v is not none and v != '' -%}{{ "%.3f"|format(v|float) }}{%- else -%}—{%- endif -%}{%- endmacro %}
+{# Numeric fields may be str/Data (e.g. total_weight); use Frappe flt so "%f"|format gets a real number #}
+{% macro fmt0(v) -%}{%- if v is not none and v != '' -%}{{ "%.0f"|format(v|flt) }}{%- else -%}—{%- endif -%}{%- endmacro %}
+{% macro fmt3(v) -%}{%- if v is not none and v != '' -%}{{ "%.3f"|format(v|flt) }}{%- else -%}—{%- endif -%}{%- endmacro %}
 {% set vessel_disp = (doc.mbl_vessel or (mbl_doc.vessel if mbl_doc else None) or (leg0.vessel if leg0 else None) or "") %}
 {% set voyage_disp = (doc.mbl_voyage_no or (mbl_doc.voyage_no if mbl_doc else None) or (leg0.voyage_no if leg0 else None) or "") %}
 {% set slink = doc.shipping_line or doc.mbl_shipping_line or (leg0.shipping_line if leg0 else None) %}
@@ -95,6 +96,13 @@
 {% else %}
   {% set freight_banner = 'FREIGHT AS PER AGREEMENT' %}
 {% endif %}
+{# Cap repeating rows so the layout stays on one A4 page #}
+{% set hbl_pkg_limit = 8 %}
+{% set hbl_ctn_limit = 6 %}
+{% set pkgs_all = doc.packages if doc.packages else [] %}
+{% set pkgs_show = pkgs_all[:hbl_pkg_limit] %}
+{% set ctns_all = doc.containers if doc.containers else [] %}
+{% set ctns_show = ctns_all[:hbl_ctn_limit] %}
 
     <div class="order-container">
         <div class="main-body">
@@ -105,7 +113,7 @@
                     <col style="width: 28%;">
                 </colgroup>
                 <tr>
-                    <td style="vertical-align: top; padding: 0.5mm; min-height: 14mm;">
+                    <td style="vertical-align: top; padding: 0.35mm; min-height: 10mm;">
                         {% if company_doc %}
                             {% if company_doc.company_logo %}
                                 <img src="{{ company_doc.company_logo }}" alt="" class="company-logo" />
@@ -120,7 +128,7 @@
                             <div class="logo-placeholder">—</div>
                         {% endif %}
                     </td>
-                    <td style="vertical-align: top; padding: 0.5mm 0.5mm 0.5mm 0.8mm;">
+                    <td style="vertical-align: top; padding: 0.35mm 0.35mm 0.35mm 0.5mm;">
                         {% if company_doc %}
                         <div class="company-name">{{ company_doc.company_name or default_company or doc.company }}</div>
                         <div class="company-address">
@@ -146,7 +154,7 @@
                         <div class="company-name">Non-Vessel Operating Common Carrier</div>
                         {% endif %}
                     </td>
-                    <td class="hbl-right-col" style="vertical-align: top; padding: 0.5mm;">
+                    <td class="hbl-right-col" style="vertical-align: top; padding: 0.35mm;">
                         <div>
                             <div class="hbl-label">HBL / HOUSE B/L NO.</div>
                             <div class="hbl-number-box">{{ hbl_display }}</div>
@@ -155,7 +163,7 @@
                                 {% if doc.name %}&nbsp;|&nbsp; Job: {{ doc.name }}{% endif %}
                             </div>
                         </div>
-                        <div style="margin-top: 1mm;">
+                        <div style="margin-top: 0.4mm;">
                             <div class="doc-title-hbl">HOUSE BILL OF LADING</div>
                             <div class="reference-number">{{ doc.name }}{% if doc.sea_booking %} &nbsp;·&nbsp; {{ doc.sea_booking }}{% endif %}</div>
                         </div>
@@ -165,18 +173,12 @@
 
             <table class="bl-grid" style="margin-top:0; border-top:2px solid #000;">
                 <tr>
-                    <td style="width:34%;">
-                        <span class="bl-hdr">References (operational / CW1-style)</span>
-                        <span class="bl-val">Customer ref.: <strong>{% if doc.local_customer %}{{ frappe.db.get_value("Customer", doc.local_customer, "customer_name") or doc.local_customer }}{% else %}—{% endif %}</strong></span>
-                        {% if doc.sales_quote %}<br><span class="bl-val">Quote: {{ doc.sales_quote }}</span>{% endif %}
-                        {% if doc.job_number %}<br><span class="bl-val">Job / File: {{ doc.job_number }}</span>{% endif %}
-                    </td>
-                    <td style="width:33%;">
+                    <td style="width:50%;">
                         <span class="bl-hdr">Ocean (Master) B/L No. — SCAC / Carrier</span>
                         <span class="bl-val"><strong>{{ mbl_no or '—' }}</strong>
                         {% if scac %}&nbsp;·&nbsp; SCAC: {{ scac }}{% endif %}</span>
                     </td>
-                    <td style="width:33%;">
+                    <td style="width:50%;">
                         <span class="bl-hdr">Booking &amp; agent</span>
                         <span class="bl-val">Bkg: {{ bkg_ref or '—' }}{% if agt_ref %} &nbsp;|&nbsp; Agt: {{ agt_ref }}{% endif %}</span>
                     </td>
@@ -185,7 +187,7 @@
 
             <table class="bl-grid">
                 <tr>
-                    <td style="width:50%; min-height: 20mm; max-height: 26mm; overflow: hidden;">
+                    <td style="width:50%; min-height: 12mm; max-height: 18mm; overflow: hidden;">
                         <span class="bl-hdr">Shipper (full name and address)</span>
                         <div class="bl-val">
                             {% if doc.shipper %}<strong>{{ doc.shipper }}</strong><br>{% endif %}
@@ -193,7 +195,7 @@
                             {% if doc.shipper_contact_display %}<br>{{ doc.shipper_contact_display|replace('\n', '<br>')|safe }}{% endif %}
                         </div>
                     </td>
-                    <td style="width:50%; min-height: 20mm; max-height: 26mm; overflow: hidden;">
+                    <td style="width:50%; min-height: 12mm; max-height: 18mm; overflow: hidden;">
                         <span class="bl-hdr">Consignee (full name and address — not negotiable B/L unless consigned “To order”)</span>
                         <div class="bl-val">
                             {% if doc.consignee %}<strong>{{ doc.consignee }}</strong><br>{% endif %}
@@ -206,7 +208,7 @@
 
             <table class="bl-grid">
                 <tr>
-                    <td colspan="2" style="min-height: 12mm;">
+                    <td colspan="2" style="min-height: 7mm; max-height: 14mm; overflow: hidden;">
                         <span class="bl-hdr">Notify party (importer / broker for arrival notice)</span>
                         <div class="bl-val">
                             {{ doc.notify_party or '' }}
@@ -287,7 +289,7 @@
                 <tr>
                     <td style="width:33%;">
                         <span class="bl-hdr">Incoterm / trade term</span>
-                        <div class="bl-val">{{ doc.incoterm or '—' }} {% if doc.additional_terms %}( {{ doc.additional_terms|truncate(120) }} ){% endif %}</div>
+                        <div class="bl-val">{{ doc.incoterm or '—' }} {% if doc.additional_terms %}( {{ doc.additional_terms|truncate(70) }} ){% endif %}</div>
                     </td>
                     <td style="width:17%;">
                         <span class="bl-hdr">Type of move (house)</span>
@@ -339,7 +341,7 @@
                     <td style="width:38%;" class="bl-hdr">Reference no. (BKG / PO / INV / HBL / contract)</td>
                     <td style="width:40%;" class="bl-hdr">Country / region</td>
                 </tr>
-                {% for r in doc.reference_numbers[:8] %}
+                {% for r in doc.reference_numbers[:4] %}
                 <tr>
                     <td>{{ r.reference_type or '' }}</td>
                     <td>{{ r.reference_number or '' }}</td>
@@ -362,8 +364,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                {% if doc.packages and doc.packages|length > 0 %}
-                    {% for p in doc.packages %}
+                {% if pkgs_show|length > 0 %}
+                    {% for p in pkgs_show %}
                     <tr>
                         <td class="ct">{{ fmt0(p.no_of_packs) }}</td>
                         <td class="ct">—</td>
@@ -379,6 +381,11 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    {% if pkgs_all|length > hbl_pkg_limit %}
+                    <tr>
+                        <td colspan="7" class="ct" style="font-size:5pt;color:#444;font-style:italic;">+ {{ pkgs_all|length - hbl_pkg_limit }} more package line(s) — see shipment in system.</td>
+                    </tr>
+                    {% endif %}
                 {% else %}
                     <tr>
                         <td class="ct">{{ fmt0(doc.packs) }}</td>
@@ -407,8 +414,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                {% if doc.containers and doc.containers|length > 0 %}
-                    {% for c in doc.containers %}
+                {% if ctns_show|length > 0 %}
+                    {% for c in ctns_show %}
                     <tr>
                         <td>
                             <strong>
@@ -421,13 +428,16 @@
                         <td>{{ c.mode or "—" }}{% if c.other_references %} &nbsp;{{ c.other_references }}{% endif %}</td>
                     </tr>
                     {% endfor %}
+                    {% if ctns_all|length > hbl_ctn_limit %}
+                    <tr><td colspan="4" class="ct" style="font-size:5pt;color:#444;font-style:italic;">+ {{ ctns_all|length - hbl_ctn_limit }} more container(s) — see shipment in system.</td></tr>
+                    {% endif %}
                 {% else %}
                     <tr><td colspan="4" class="ct" style="color:#666;">FCL / LCL — container details to follow on carrier MBL or packing list as applicable</td></tr>
                 {% endif %}
                 </tbody>
             </table>
 
-            <table class="bl-grid" style="margin:0.3mm 0 0.3mm 0;">
+            <table class="bl-grid" style="margin:0.2mm 0 0.2mm 0;">
                 <tr>
                     <td style="width:25%;"><span class="bl-hdr">Total packages (shipper’s count)</span><div class="bl-val">{% if doc.total_packages is not none and doc.total_packages != '' %}{{ fmt0(doc.total_packages) }}{% else %}{% if doc.packs is not none and doc.packs != '' %}{{ fmt0(doc.packs) }}{% else %}—{% endif %}{% endif %}</div></td>
                     <td style="width:25%;"><span class="bl-hdr">Gross weight</span><div class="bl-val">{% if doc.total_weight is not none and doc.total_weight != '' %}{{ fmt3(doc.total_weight) }}{% if doc.total_weight_uom %} {{ frappe.db.get_value("UOM", doc.total_weight_uom, "uom_name") or doc.total_weight_uom }}{% endif %}{% else %}—{% endif %}</div></td>
@@ -444,7 +454,7 @@
                 <tr>
                     <td style="width:50%;">
                         <div class="sl">Place and date of issue (house B/L)</div>
-                        <div class="bl-val" style="font-size:8pt; margin:1mm 0 1mm 0;">
+                        <div class="bl-val" style="font-size:7pt; margin:0.4mm 0 0.4mm 0;">
                             <strong>{{ port_code(pol) or '—' }}</strong>
                             {% if doc.booking_date %}&nbsp;·&nbsp; {{ frappe.utils.formatdate(doc.booking_date, 'dd MMM yyyy') }}{% endif %}
                         </div>
@@ -453,7 +463,7 @@
                     </td>
                     <td style="width:50%;">
                         <div class="sl">Carrier side – master B/L cross-reference (informational)</div>
-                        <div class="bl-val" style="min-height:8mm;">Vessel: {{ vessel_disp or '—' }} &nbsp;|&nbsp; MBL: {{ mbl_no or '—' }}</div>
+                        <div class="bl-val" style="min-height:5mm;">Vessel: {{ vessel_disp or '—' }} &nbsp;|&nbsp; MBL: {{ mbl_no or '—' }}</div>
                         <div class="sig-line">Data as per carrier MBL; discrepancies to be reported prior to release</div>
                     </td>
                 </tr>
@@ -461,8 +471,8 @@
 
             <div class="footer-banner">NON-NEGOTIABLE — COPY (HOUSE B/L)</div>
             {% if doc.terms %}
-            <div style="font-size:5.8pt; line-height:1.1; border:1px solid #ccc; padding:0.4mm; margin-top:0.2mm; max-height:6mm; overflow: hidden;">
-                <strong>Contract terms (excerpt):</strong> {{ doc.terms|striptags|truncate(280) }}
+            <div style="font-size:5pt; line-height:1.05; border:1px solid #ccc; padding:0.25mm; margin-top:0.15mm; max-height:4mm; overflow: hidden;">
+                <strong>Contract terms (excerpt):</strong> {{ doc.terms|striptags|truncate(160) }}
             </div>
             {% endif %}
         </div>

@@ -295,6 +295,7 @@ for _dt in _doc_milestone_doctypes:
 			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
 			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
 		],
+		"before_submit": "logistics.document_management.api.enforce_required_job_documents_before_submit",
 	}
 	# Exclude Declaration Order from automatic on_update hook to prevent timestamp mismatches
 	# Declaration Order uses user-initiated template population (like Air Booking and Sea Booking)
