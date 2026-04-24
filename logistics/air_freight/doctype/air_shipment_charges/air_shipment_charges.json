@@ -70,14 +70,15 @@
   "cost_weight_break",
   "cost_qty_break",
   "section_break_status",
+  "cl3",
   "sales_invoice",
   "sales_invoice_status",
+  "wip_recognition_journal_entry",
+  "wip_adjustment_journal_entry",
   "column_break_4",
   "purchase_invoice",
   "purchase_invoice_status",
-  "wip_recognition_journal_entry",
   "accrual_recognition_journal_entry",
-  "wip_adjustment_journal_entry",
   "accrual_adjustment_journal_entry",
   "other_services_section",
   "other_service_type",
@@ -186,8 +187,8 @@
    "fieldname": "item_tax_template",
    "fieldtype": "Link",
    "label": "Item Tax Template",
-   "options": "Item Tax Template",
-   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
   },
   {
    "fieldname": "invoice_type",
@@ -250,19 +251,19 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1,
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "rate",
@@ -348,17 +349,17 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Bill To",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'"
   },
   {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "column_break_cost",
@@ -383,17 +384,17 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "unit_cost",
@@ -477,17 +478,17 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "buying_currency",
    "fieldtype": "Link",
    "label": "Buying Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "revenue_calc_notes",
@@ -508,16 +509,14 @@
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
    "fieldname": "selling_weight_break",
-   "fieldtype": "HTML",
-   "label": "Selling weight breaks",
-   "options": "<div></div>"
+   "fieldtype": "Button",
+   "label": "Weight Break"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method=='Weight Break'",
    "fieldname": "cost_weight_break",
-   "fieldtype": "HTML",
-   "label": "Cost weight breaks",
-   "options": "<div></div>"
+   "fieldtype": "Button",
+   "label": "Weight Break"
   },
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Qty Break'",
@@ -632,8 +631,8 @@
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff",
-   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
+   "options": "Tariff"
   },
   {
    "fieldname": "column_break_tzln",
@@ -643,20 +642,24 @@
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff",
-   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
+   "options": "Tariff"
   },
   {
    "fieldname": "weight_breaks_section",
    "fieldtype": "Section Break",
    "label": "Weight Breaks"
+  },
+  {
+   "fieldname": "cl3",
+   "fieldtype": "Column Break"
   }
  ],
  "hide_toolbar": 1,
  "in_create": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 15:50:22.657737",
+ "modified": "2026-04-24 18:09:12.446430",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment Charges",

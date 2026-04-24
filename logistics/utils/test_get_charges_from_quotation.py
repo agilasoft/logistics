@@ -21,7 +21,8 @@ from frappe.tests.utils import FrappeTestCase
 
 from logistics.utils.get_charges_from_quotation import (
 	_corridor_mismatch_message_for_preview,
-	_job_corridor,
+	_effective_declaration_order_filter_fields,
+	_effective_sea_air_transport_corridor,
 )
 
 
@@ -33,26 +34,45 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 
 		frappe.db.rollback()
 
-	def test_job_corridor_air_strips(self):
+	def test_effective_corridor_air_strips(self):
 		d = MagicMock()
 		d.doctype = "Air Booking"
 		d.origin_port = " USLAX "
 		d.destination_port = "USJFK"
-		self.assertEqual(_job_corridor(d), ("USLAX", "USJFK"))
+		d.airline = ""
+		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("USLAX", "USJFK", None))
 
-	def test_job_corridor_transport(self):
+	def test_effective_corridor_transport(self):
 		d = MagicMock()
 		d.doctype = "Transport Order"
 		d.location_from = "A"
 		d.location_to = "B"
-		self.assertEqual(_job_corridor(d), ("A", "B"))
+		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("A", "B", None))
 
-	def test_job_corridor_declaration_order_ports(self):
+	def test_effective_corridor_override(self):
+		d = MagicMock()
+		d.doctype = "Air Booking"
+		d.origin_port = "A"
+		d.destination_port = "B"
+		d.airline = "AL1"
+		self.assertEqual(
+			_effective_sea_air_transport_corridor(d, {"origin_port": "O1"}),
+			("O1", "B", "AL1"),
+		)
+
+	def test_effective_declaration_order_fields(self):
 		d = MagicMock()
 		d.doctype = "Declaration Order"
+		d.customs_authority = " CA "
+		d.declaration_type = "Import"
+		d.customs_broker = "BR"
+		d.transport_mode = "TM"
 		d.port_of_loading = " USNYC "
 		d.port_of_discharge = "USLAX"
-		self.assertEqual(_job_corridor(d), ("USNYC", "USLAX"))
+		self.assertEqual(
+			_effective_declaration_order_filter_fields(d, {}),
+			("CA", "Import", "BR", "TM", "USNYC", "USLAX"),
+		)
 
 	@patch("logistics.utils.get_charges_from_quotation.sales_quote_matches_job_corridor", return_value=False)
 	def test_corridor_mismatch_message_when_quote_no_match(self, _mock):
@@ -60,7 +80,8 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		doc.doctype = "Air Booking"
 		doc.origin_port = "USLAX"
 		doc.destination_port = "USJFK"
-		msg = _corridor_mismatch_message_for_preview(doc, "Air", "SQ-TEST-001")
+		doc.airline = ""
+		msg = _corridor_mismatch_message_for_preview(doc, "Air", "SQ-TEST-001", {})
 		self.assertIsNotNone(msg)
 		self.assertIn("SQ-TEST-001", msg)
 
@@ -69,11 +90,14 @@ def run():
 	"""Smoke-test helpers on a live site (no DB writes)."""
 	from unittest.mock import MagicMock
 
-	from logistics.utils.get_charges_from_quotation import _job_corridor
+	from logistics.utils.get_charges_from_quotation import _effective_sea_air_transport_corridor
 
 	d = MagicMock()
 	d.doctype = "Air Booking"
 	d.origin_port = " X "
 	d.destination_port = "Y"
-	assert _job_corridor(d) == ("X", "Y"), _job_corridor(d)
+	d.airline = ""
+	assert _effective_sea_air_transport_corridor(d, {}) == ("X", "Y", None), _effective_sea_air_transport_corridor(
+		d, {}
+	)
 	print("logistics.utils.test_get_charges_from_quotation.run: OK")

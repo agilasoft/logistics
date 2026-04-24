@@ -1,6 +1,6 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // Weight Break and Qty Break dialogs - loaded first for Sales Quote and charge doctypes
-// Shared weight-break editor markup + inline grid mounting (see charge_break_buttons.js).
+// Shared weight-break / qty-break editor markup and dialogs (see charge_break_buttons.js for grid + row buttons).
 
 (function() {
 	"use strict";
@@ -16,6 +16,28 @@
 		"Declaration Charges",
 		"Declaration Order Charges",
 	];
+
+	/** Any child DocType that ships freight-style weight-break row buttons (reference → Sales Quote Weight Break). */
+	window.logistics_charge_child_doctype_has_weight_break_buttons = function(dt) {
+		if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+			return false;
+		}
+		var m = frappe.meta.docfield_map[dt];
+		var sw = m.selling_weight_break;
+		var cw = m.cost_weight_break;
+		return (sw && sw.fieldtype === "Button") || (cw && cw.fieldtype === "Button");
+	};
+
+	/** Same pattern for qty-break row buttons. */
+	window.logistics_charge_child_doctype_has_qty_break_buttons = function(dt) {
+		if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+			return false;
+		}
+		var m = frappe.meta.docfield_map[dt];
+		var sq = m.selling_qty_break;
+		var cq = m.cost_qty_break;
+		return (sq && sq.fieldtype === "Button") || (cq && cq.fieldtype === "Button");
+	};
 
 	function _wb_reference_from_row(row) {
 		var reference_doctype = row.doctype || (row.parentfield === "charges" ? "Sales Quote Charge" : "Sales Quote Air Freight");
@@ -68,7 +90,7 @@
 		);
 	}
 
-	window.logistics_weight_break_editor_markup = function(include_save_button) {
+	function _logistics_weight_break_editor_shell_fallback(include_save_button) {
 		var save_btn = include_save_button
 			? '<button type="button" class="btn btn-xs btn-primary logistics-wb-save mt-2">' + __("Save weight breaks") + "</button>"
 			: "";
@@ -90,6 +112,33 @@
 			save_btn +
 			"</div>"
 		);
+	}
+
+	window.logistics_fetch_weight_break_editor_shell = function(include_save_button, callback) {
+		if (typeof callback !== "function") {
+			return;
+		}
+		var key = include_save_button ? "1" : "0";
+		window._logistics_wb_shell_cache = window._logistics_wb_shell_cache || {};
+		if (window._logistics_wb_shell_cache[key]) {
+			callback(window._logistics_wb_shell_cache[key]);
+			return;
+		}
+		frappe.call({
+			method: "logistics.utils.weight_break_editor_html.get_weight_break_editor_shell_html",
+			args: { include_save_button: include_save_button ? 1 : 0 },
+			callback: function(r) {
+				var html =
+					r.message && r.message.html
+						? r.message.html
+						: _logistics_weight_break_editor_shell_fallback(include_save_button);
+				window._logistics_wb_shell_cache[key] = html;
+				callback(html);
+			},
+			error: function() {
+				callback(_logistics_weight_break_editor_shell_fallback(include_save_button));
+			},
+		});
 	};
 
 	window.logistics_populate_weight_break_editor = function($root, weight_breaks, currency) {
@@ -131,7 +180,18 @@
 		var types = window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || [];
 		Object.keys(frm.fields_dict).forEach(function(fn) {
 			var grid = frm.fields_dict[fn] && frm.fields_dict[fn].grid;
-			if (grid && grid.doctype && types.indexOf(grid.doctype) !== -1) {
+			if (!grid || !grid.doctype) {
+				return;
+			}
+			var dt = grid.doctype;
+			var by_list = types.indexOf(dt) !== -1;
+			var by_meta_wb =
+				window.logistics_charge_child_doctype_has_weight_break_buttons &&
+				window.logistics_charge_child_doctype_has_weight_break_buttons(dt);
+			var by_meta_qb =
+				window.logistics_charge_child_doctype_has_qty_break_buttons &&
+				window.logistics_charge_child_doctype_has_qty_break_buttons(dt);
+			if (by_list || by_meta_wb || by_meta_qb) {
 				frm.refresh_field(fn);
 			}
 		});
@@ -197,7 +257,10 @@
 			});
 			return;
 		}
-		var currency = row.currency || row.cost_currency || "USD";
+		var currency =
+			record_type === "Cost"
+				? row.cost_currency || row.currency || "USD"
+				: row.currency || row.cost_currency || "USD";
 		frappe.call({
 			method: "logistics.pricing_center.doctype.sales_quote_weight_break.sales_quote_weight_break.get_weight_breaks",
 			args: {
@@ -211,40 +274,43 @@
 					return;
 				}
 				var weight_breaks = r.message.weight_breaks || [];
-				var table_html = logistics_weight_break_editor_markup(false);
-
-				var dialog = new frappe.ui.Dialog({
-					title: record_type === "Cost" ? __("Manage Cost Weight Breaks") : __("Manage Selling Weight Breaks"),
-					size: "large",
-					fields: [
-						{ fieldname: "weight_breaks_section", fieldtype: "Section Break", label: __("Weight Breaks") },
-						{ fieldname: "weight_breaks_html", fieldtype: "HTML", options: table_html },
-					],
-					primary_action_label: __("Save"),
-					primary_action: function() {
-						var $root = dialog.$wrapper.find(".logistics-wb-editor").first();
-						var to_save = window.logistics_collect_weight_break_rows_from_editor($root, currency);
-						window.logistics_save_weight_breaks_for_reference(
-							reference_doctype,
-							reference_no,
-							record_type,
-							to_save,
-							frm,
-							function(ok) {
-								if (ok) {
-									dialog.hide();
+				window.logistics_fetch_weight_break_editor_shell(false, function(table_html) {
+					var dialog = new frappe.ui.Dialog({
+						title: record_type === "Cost" ? __("Manage Cost Weight Breaks") : __("Manage Selling Weight Breaks"),
+						size: "large",
+						fields: [
+							{ fieldname: "weight_breaks_section", fieldtype: "Section Break", label: __("Weight Breaks") },
+							{ fieldname: "weight_breaks_html", fieldtype: "HTML", options: table_html },
+						],
+						primary_action_label: __("Save"),
+						primary_action: function() {
+							var $root = dialog.$wrapper.find(".logistics-wb-editor").first();
+							var to_save = window.logistics_collect_weight_break_rows_from_editor($root, currency);
+							window.logistics_save_weight_breaks_for_reference(
+								reference_doctype,
+								reference_no,
+								record_type,
+								to_save,
+								frm,
+								function(ok) {
+									if (ok) {
+										dialog.hide();
+									}
 								}
-							}
-						);
-					},
-				});
-				dialog.show();
+							);
+						},
+					});
+					dialog.show();
 
-				dialog.$wrapper.one("shown.bs.modal", function() {
-					var $html_field = dialog.fields_dict.weight_breaks_html && dialog.fields_dict.weight_breaks_html.$wrapper;
-					var $root = $html_field ? $html_field.find(".logistics-wb-editor").first() : dialog.$wrapper.find(".logistics-wb-editor").first();
-					window.logistics_populate_weight_break_editor($root, weight_breaks, currency);
-					window.logistics_bind_weight_break_editor_controls($root, currency);
+					dialog.$wrapper.one("shown.bs.modal", function() {
+						var $html_field =
+							dialog.fields_dict.weight_breaks_html && dialog.fields_dict.weight_breaks_html.$wrapper;
+						var $root = $html_field
+							? $html_field.find(".logistics-wb-editor").first()
+							: dialog.$wrapper.find(".logistics-wb-editor").first();
+						window.logistics_populate_weight_break_editor($root, weight_breaks, currency);
+						window.logistics_bind_weight_break_editor_controls($root, currency);
+					});
 				});
 			},
 		});
@@ -376,4 +442,73 @@
 			},
 		});
 	};
+
+	// Grid row "Weight Break" buttons: ControlButton only triggers frappe.ui.form.on when
+	// script_manager.has_handlers(...) is true; in expanded child row forms that path is unreliable.
+	// Capture on document so we open the dialog before the event reaches the inner <button>.
+	(function _logistics_install_charge_break_row_button_click_capture() {
+		if (window.__logistics_charge_break_row_button_capture_installed) {
+			return;
+		}
+		window.__logistics_charge_break_row_button_capture_installed = true;
+		document.addEventListener(
+			"click",
+			function(ev) {
+				var t = ev.target;
+				if (!t || String(t.tagName || "").toUpperCase() !== "BUTTON") {
+					return;
+				}
+				if (!t.closest || !t.closest(".form-in-grid")) {
+					return;
+				}
+				var wrap = t.closest(".frappe-control[data-fieldname]");
+				if (!wrap || !wrap.fieldobj) {
+					return;
+				}
+				var fo = wrap.fieldobj;
+				var fn = fo.df && fo.df.fieldname;
+				if (!fo.frm || !fo.docname) {
+					return;
+				}
+				var row = frappe.get_doc(fo.doctype, fo.docname);
+				if (!row) {
+					return;
+				}
+				if (fn === "selling_weight_break" || fn === "cost_weight_break") {
+					var known_wb = (window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || []).indexOf(fo.doctype) !== -1;
+					var meta_wb =
+						window.logistics_charge_child_doctype_has_weight_break_buttons &&
+						window.logistics_charge_child_doctype_has_weight_break_buttons(fo.doctype);
+					if (!known_wb && !meta_wb) {
+						return;
+					}
+					if (typeof window.open_weight_break_rate_dialog !== "function") {
+						return;
+					}
+					ev.preventDefault();
+					ev.stopPropagation();
+					ev.stopImmediatePropagation();
+					window.open_weight_break_rate_dialog(fo.frm, row, fn === "cost_weight_break" ? "Cost" : "Selling");
+					return;
+				}
+				if (fn === "selling_qty_break" || fn === "cost_qty_break") {
+					var known_qb = (window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || []).indexOf(fo.doctype) !== -1;
+					var meta_qb =
+						window.logistics_charge_child_doctype_has_qty_break_buttons &&
+						window.logistics_charge_child_doctype_has_qty_break_buttons(fo.doctype);
+					if (!known_qb && !meta_qb) {
+						return;
+					}
+					if (typeof window.open_qty_break_rate_dialog !== "function") {
+						return;
+					}
+					ev.preventDefault();
+					ev.stopPropagation();
+					ev.stopImmediatePropagation();
+					window.open_qty_break_rate_dialog(fo.frm, row, fn === "cost_qty_break" ? "Cost" : "Selling");
+				}
+			},
+			true
+		);
+	})();
 })();

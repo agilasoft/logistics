@@ -20,14 +20,10 @@
 	min-height: 2rem;
 }
 
-/* Filter criteria (document fields + server rules) above the quotation table */
+/* Filter criteria — title + bordered 2-column grid (matches Get Charges dialog mockup) */
 .logistics-gcfq-filters {
 	font-size: 12px;
 	color: #36414c;
-	background: #f7fafc;
-	border: 1px solid #d1d8dd;
-	border-radius: 6px;
-	padding: 10px 12px 12px;
 	margin-bottom: 12px;
 }
 
@@ -38,23 +34,67 @@
 	color: #36414c;
 }
 
-.logistics-gcfq-filters-dl {
+.logistics-gcfq-filters-grid {
 	display: grid;
-	grid-template-columns: minmax(8rem, 11rem) 1fr;
-	gap: 4px 12px;
-	margin: 0 0 10px;
-	align-items: start;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px 14px;
+	padding: 12px 14px;
+	border: 1px solid #d1d8dd;
+	border-radius: 6px;
+	background: #fafbfc;
 }
 
-.logistics-gcfq-filters-dl dt {
-	margin: 0;
+.logistics-gcfq-filter-cell {
+	min-width: 0;
+}
+
+.logistics-gcfq-filter-label {
+	display: block;
+	font-size: 11px;
 	font-weight: 600;
 	color: #74808b;
+	margin-bottom: 4px;
 }
 
-.logistics-gcfq-filters-dl dd {
-	margin: 0;
-	word-break: break-word;
+.logistics-gcfq-filter-label--muted {
+	font-weight: 500;
+	color: #b8c2cc;
+}
+
+.logistics-gcfq-filter-input.form-control {
+	height: 30px;
+	padding: 4px 10px;
+	font-size: 12px;
+	color: #36414c;
+	background-color: #fff;
+	border-radius: 4px;
+	cursor: default;
+}
+
+.logistics-gcfq-filter-input.form-control::placeholder {
+	color: #b8c2cc;
+}
+
+.logistics-gcfq-filters-grid .frappe-control {
+	margin-bottom: 0;
+}
+
+.logistics-gcfq-filters-grid .frappe-control .control-label {
+	display: none;
+}
+
+.gcfq-filter-actions {
+	margin-top: 10px;
+}
+
+.gcfq-dialog-dynamic {
+	min-height: 1.5rem;
+}
+
+/* Amber status strip under the filter grid */
+.logistics-gcfq-status-alert {
+	margin-top: 12px;
+	border-radius: 4px;
 }
 
 .logistics-gcfq-filters-rules-title {
@@ -77,7 +117,7 @@
 	margin-bottom: 4px;
 }
 
-.logistics-gcfq-filters--below-cards {
+.logistics-gcfq-filters-rules-block {
 	margin-top: 14px;
 	margin-bottom: 0;
 }

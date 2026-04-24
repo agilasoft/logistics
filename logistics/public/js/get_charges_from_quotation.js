@@ -4,9 +4,338 @@
 frappe.provide("logistics");
 
 var GET_CHARGES_TITLE_LIST = __("Get Charges from Quotation");
+var GCFQ_FILTER_GRID_SLOTS = 8;
+
+var DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded";
 
 /**
- * Open dialog: expandable cards per Sales Quote (charge preview) → Apply.
+ * Per–job-type filter fields (editable). Keys must match server GCFQ_FILTER_KEYS.
+ * @param {frappe.ui.form.Form} frm
+ */
+function _gcfq_filter_specs(frm) {
+	var d = frm.doctype;
+	if (d === "Sea Booking") {
+		return [
+			{
+				key: "_svc",
+				readonly: true,
+				label: __("Service type"),
+				value: __("Sea"),
+			},
+			{
+				key: "_cust",
+				readonly: true,
+				label: __("Local Customer"),
+				value: frm.doc.local_customer || "",
+			},
+			{
+				key: "origin_port",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Origin Port"),
+				value: frm.doc.origin_port || "",
+			},
+			{
+				key: "destination_port",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Destination Port"),
+				value: frm.doc.destination_port || "",
+			},
+		];
+	}
+	if (d === "Air Booking") {
+		return [
+			{
+				key: "_svc",
+				readonly: true,
+				label: __("Service type"),
+				value: __("Air"),
+			},
+			{
+				key: "_cust",
+				readonly: true,
+				label: __("Local Customer"),
+				value: frm.doc.local_customer || "",
+			},
+			{
+				key: "origin_port",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Origin Port"),
+				value: frm.doc.origin_port || "",
+			},
+			{
+				key: "destination_port",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Destination Port"),
+				value: frm.doc.destination_port || "",
+			},
+			{
+				key: "airline",
+				fieldtype: "Link",
+				options: "Airline",
+				label: __("Airline"),
+				value: frm.doc.airline || "",
+			},
+		];
+	}
+	if (d === "Transport Order") {
+		var locSpecs = [
+			{
+				key: "_svc",
+				readonly: true,
+				label: __("Service type"),
+				value: __("Transport"),
+			},
+			{
+				key: "_cust",
+				readonly: true,
+				label: __("Customer"),
+				value: frm.doc.customer || "",
+			},
+		];
+		if (frm.doc.location_type) {
+			locSpecs.push(
+				{
+					key: "location_from",
+					fieldtype: "Dynamic Link",
+					options: "location_type",
+					label: __("Location From"),
+					value: frm.doc.location_from || "",
+					get_options: function () {
+						return frm.doc.location_type || "";
+					},
+				},
+				{
+					key: "location_to",
+					fieldtype: "Dynamic Link",
+					options: "location_type",
+					label: __("Location To"),
+					value: frm.doc.location_to || "",
+					get_options: function () {
+						return frm.doc.location_type || "";
+					},
+				}
+			);
+		} else {
+			locSpecs.push(
+				{
+					key: "location_from",
+					fieldtype: "Data",
+					label: __("Location From"),
+					value: frm.doc.location_from || "",
+				},
+				{
+					key: "location_to",
+					fieldtype: "Data",
+					label: __("Location To"),
+					value: frm.doc.location_to || "",
+				}
+			);
+		}
+		return locSpecs;
+	}
+	if (d === "Declaration Order") {
+		return [
+			{
+				key: "_svc",
+				readonly: true,
+				label: __("Service type"),
+				value: __("Customs"),
+			},
+			{
+				key: "_cust",
+				readonly: true,
+				label: __("Customer"),
+				value: frm.doc.customer || "",
+			},
+			{
+				key: "customs_authority",
+				fieldtype: "Link",
+				options: "Customs Authority",
+				label: __("Customs Authority"),
+				value: frm.doc.customs_authority || "",
+			},
+			{
+				key: "declaration_type",
+				fieldtype: "Select",
+				select_options: DECLARATION_TYPE_OPTIONS,
+				label: __("Declaration Type"),
+				value: frm.doc.declaration_type || "",
+			},
+			{
+				key: "customs_broker",
+				fieldtype: "Link",
+				options: "Broker",
+				label: __("Customs Broker"),
+				value: frm.doc.customs_broker || "",
+			},
+			{
+				key: "transport_mode",
+				fieldtype: "Link",
+				options: "Transport Mode",
+				label: __("Transport Mode"),
+				value: frm.doc.transport_mode || "",
+			},
+			{
+				key: "port_of_loading",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Port of Loading/Entry"),
+				value: frm.doc.port_of_loading || "",
+			},
+			{
+				key: "port_of_discharge",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Port of Discharge/Exit"),
+				value: frm.doc.port_of_discharge || "",
+			},
+		];
+	}
+	return [];
+}
+
+function _gcfq_pad_specs(specs, n) {
+	var out = specs.slice();
+	while (out.length < n) {
+		out.push({
+			placeholder: true,
+			readonly: true,
+			label: __("Filter field"),
+			value: "",
+			key: null,
+		});
+	}
+	return out.slice(0, n);
+}
+
+function _gcfq_mount_filter_cell($grid, spec, frm, dialog, idx) {
+	var $cell = $('<div class="logistics-gcfq-filter-cell">').appendTo($grid);
+	if (spec.placeholder) {
+		$cell.append(
+			$('<label class="logistics-gcfq-filter-label logistics-gcfq-filter-label--muted">').text(
+				spec.label
+			)
+		);
+		$cell.append(
+			$(
+				'<input type="text" class="form-control input-sm logistics-gcfq-filter-input" readonly tabindex="-1">'
+			).attr("placeholder", __("—"))
+		);
+		return;
+	}
+	$cell.append($('<label class="logistics-gcfq-filter-label">').text(spec.label));
+	if (spec.readonly) {
+		var $inp = $(
+			'<input type="text" class="form-control input-sm logistics-gcfq-filter-input" readonly tabindex="-1">'
+		).val(spec.value || "");
+		$cell.append($inp);
+		dialog._gcfq_filter_controls.push({
+			key: spec.key,
+			read_only: true,
+			get_value: function () {
+				return spec.value || "";
+			},
+		});
+		return;
+	}
+	var df = {
+		fieldname: "gcfq_filter_" + idx,
+		label: "",
+		fieldtype: spec.fieldtype,
+		options: spec.options || "",
+	};
+	if (spec.fieldtype === "Select" && spec.select_options) {
+		df.options = spec.select_options;
+	}
+	if (spec.fieldtype === "Dynamic Link" && spec.get_options) {
+		df.get_options = spec.get_options;
+	}
+	var ctrl = frappe.ui.form.make_control({
+		df: df,
+		parent: $cell,
+		render_input: true,
+	});
+	ctrl.set_value(spec.value || "");
+	dialog._gcfq_filter_controls.push({
+		key: spec.key,
+		read_only: false,
+		get_value: function () {
+			return ctrl.get_value();
+		},
+		control: ctrl,
+	});
+}
+
+function _gcfq_capture_initial_filter_snapshot(dialog) {
+	dialog._gcfq_initial_filter_values = {};
+	(dialog._gcfq_filter_controls || []).forEach(function (c) {
+		if (!c.key || c.key.charAt(0) === "_") {
+			return;
+		}
+		if (c.read_only) {
+			return;
+		}
+		var v = c.get_value();
+		dialog._gcfq_initial_filter_values[c.key] = v == null ? "" : String(v).trim();
+	});
+}
+
+/**
+ * Only send keys the user changed vs. dialog open. Omitting a key lets the server use the saved document
+ * (avoids empty Link controls overwriting booking airline / ports).
+ */
+function _gcfq_collect_filter_overrides(dialog) {
+	var o = {};
+	var init = dialog._gcfq_initial_filter_values || {};
+	(dialog._gcfq_filter_controls || []).forEach(function (c) {
+		if (!c.key || c.key.charAt(0) === "_") {
+			return;
+		}
+		if (c.read_only) {
+			return;
+		}
+		var v = c.get_value();
+		var s = v == null ? "" : String(v).trim();
+		if (!Object.prototype.hasOwnProperty.call(init, c.key)) {
+			o[c.key] = s;
+			return;
+		}
+		var i = String(init[c.key] == null ? "" : init[c.key]).trim();
+		if (s === i) {
+			return;
+		}
+		o[c.key] = s;
+	});
+	return o;
+}
+
+function _gcfq_mount_filter_panel($parent, frm, dialog, reloadList) {
+	$parent.empty();
+	dialog._gcfq_filter_controls = [];
+	var $box = $('<div class="logistics-gcfq-filters">').appendTo($parent);
+	$box.append(
+		$('<div class="logistics-gcfq-filters-title">').text(__("List filter criteria"))
+	);
+	var $grid = $('<div class="logistics-gcfq-filters-grid">').appendTo($box);
+	var specs = _gcfq_pad_specs(_gcfq_filter_specs(frm), GCFQ_FILTER_GRID_SLOTS);
+	specs.forEach(function (spec, idx) {
+		_gcfq_mount_filter_cell($grid, spec, frm, dialog, idx);
+	});
+	var $actions = $('<div class="gcfq-filter-actions">').appendTo($box);
+	$("<button type='button' class='btn btn-sm btn-default'>")
+		.text(__("Apply filters"))
+		.appendTo($actions)
+		.on("click", function () {
+			reloadList();
+		});
+}
+
+/**
+ * Open dialog: filter grid → expandable cards per Sales Quote (charge preview) → Apply.
  * @param {frappe.ui.form.Form} frm
  */
 logistics.open_get_charges_from_quotation_dialog = function (frm) {
@@ -34,38 +363,6 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 		return;
 	}
 
-	if (frm.doctype === "Transport Order") {
-		if (!frm.doc.location_from || !frm.doc.location_to) {
-			frappe.msgprint(__("Set Location From and Location To before loading charges from a quotation."));
-			return;
-		}
-	} else if (frm.doctype === "Declaration Order") {
-		if (!frm.doc.customs_authority || !frm.doc.declaration_type || !frm.doc.customs_broker) {
-			frappe.msgprint(
-				__(
-					"Set Customs Authority, Declaration Type, and Customs Broker before loading charges from a quotation."
-				)
-			);
-			return;
-		}
-	} else if (frm.doctype === "Air Booking") {
-		var hasOdpair = frm.doc.origin_port && frm.doc.destination_port;
-		var hasAirline = (frm.doc.airline && String(frm.doc.airline).trim()) ? true : false;
-		if (!hasOdpair && !hasAirline) {
-			frappe.msgprint(
-				__(
-					"Set Origin Port and Destination Port, or set Airline, before loading charges from a quotation."
-				)
-			);
-			return;
-		}
-	} else {
-		if (!frm.doc.origin_port || !frm.doc.destination_port) {
-			frappe.msgprint(__("Set Origin Port and Destination Port before loading charges from a quotation."));
-			return;
-		}
-	}
-
 	var d = new frappe.ui.Dialog({
 		title: GET_CHARGES_TITLE_LIST,
 		size: "large",
@@ -83,114 +380,40 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 		},
 	});
 
+	d.onhide = function () {
+		(d._gcfq_filter_controls || []).forEach(function (c) {
+			if (c.control && c.control.$wrapper) {
+				c.control.$wrapper.remove();
+			}
+		});
+		d._gcfq_filter_controls = [];
+	};
+
 	d.show();
 	d.$wrapper.addClass("logistics-gcfq-dialog");
 
 	var $wrap = d.$wrapper.find(".quotation-list");
 	$wrap.addClass("logistics-gcfq-quotation-list");
-	_load_quote_list(frm, d, $wrap);
+	$wrap.empty();
+	var $filterMount = $('<div class="logistics-gcfq-filters-mount">').appendTo($wrap);
+	var $dynamic = $('<div class="gcfq-dialog-dynamic">').appendTo($wrap);
+
+	function reloadList() {
+		_load_quote_list(frm, d, $dynamic);
+	}
+
+	_gcfq_mount_filter_panel($filterMount, frm, d, reloadList);
+	// Defer snapshot + first load so Link/Select controls finish populating (avoids sending "" overrides).
+	setTimeout(function () {
+		_gcfq_capture_initial_filter_snapshot(d);
+		reloadList();
+	}, 0);
 };
 
 function _set_dialog_title(dialog, title) {
 	if (dialog && dialog.set_title) {
 		dialog.set_title(title);
 	}
-}
-
-/** @param {Record<string, unknown>|null|undefined} filters */
-function _gcfq_filters_criteria_html(filters) {
-	if (!filters || typeof filters !== "object") {
-		return "";
-	}
-	var st = filters.service_type != null ? String(filters.service_type) : "";
-	var custLbl = filters.customer_label != null ? String(filters.customer_label) : "";
-	var cust = filters.customer != null ? String(filters.customer) : "";
-	var oLbl = filters.origin_label != null ? String(filters.origin_label) : "";
-	var o = filters.origin != null ? String(filters.origin) : "";
-	var dLbl = filters.destination_label != null ? String(filters.destination_label) : "";
-	var dest = filters.destination != null ? String(filters.destination) : "";
-	var extra = filters.extra_criteria;
-	var airlineOnly =
-		filters.airline_only_mode === true || filters.airline_only_mode === 1;
-	var hasCorridor =
-		(o && String(o).trim() !== "") || (dest && String(dest).trim() !== "");
-	var open =
-		'<div class="logistics-gcfq-filters">' +
-		'<div class="logistics-gcfq-filters-title">' +
-		__("List filter criteria") +
-		"</div>" +
-		'<dl class="logistics-gcfq-filters-dl">' +
-		"<dt>" +
-		__("Service type (from document)") +
-		"</dt>" +
-		"<dd>" +
-		frappe.utils.escape_html(st) +
-		"</dd>" +
-		"<dt>" +
-		frappe.utils.escape_html(custLbl) +
-		"</dt>" +
-		"<dd>" +
-		frappe.utils.escape_html(cust) +
-		"</dd>";
-
-	function appendExtraRows() {
-		if (!Array.isArray(extra) || !extra.length) {
-			return;
-		}
-		extra.forEach(function (row) {
-			if (!row || typeof row !== "object") {
-				return;
-			}
-			var lbl = row.label != null ? String(row.label) : "";
-			var val = row.value != null ? String(row.value) : "";
-			mid +=
-				"<dt>" +
-				frappe.utils.escape_html(lbl) +
-				"</dt><dd>" +
-				frappe.utils.escape_html(val) +
-				"</dd>";
-		});
-	}
-
-	var mid = "";
-	if (airlineOnly && Array.isArray(extra) && extra.length) {
-		// e.g. Air Booking: only airline is used to narrow the list (ports not set)
-		appendExtraRows();
-	} else if (Array.isArray(extra) && extra.length && !hasCorridor) {
-		// e.g. Declaration Order: customs fields from parent, no port corridor on payload
-		appendExtraRows();
-	} else if (Array.isArray(extra) && extra.length && hasCorridor) {
-		// e.g. Air Booking: origin, destination, and airline all filter the list
-		mid +=
-			"<dt>" +
-			frappe.utils.escape_html(oLbl) +
-			"</dt>" +
-			"<dd>" +
-			frappe.utils.escape_html(o) +
-			"</dd>" +
-			"<dt>" +
-			frappe.utils.escape_html(dLbl) +
-			"</dt>" +
-			"<dd>" +
-			frappe.utils.escape_html(dest) +
-			"</dd>";
-		appendExtraRows();
-	} else {
-		mid +=
-			"<dt>" +
-			frappe.utils.escape_html(oLbl) +
-			"</dt>" +
-			"<dd>" +
-			frappe.utils.escape_html(o) +
-			"</dd>" +
-			"<dt>" +
-			frappe.utils.escape_html(dLbl) +
-			"</dt>" +
-			"<dd>" +
-			frappe.utils.escape_html(dest) +
-			"</dd>";
-	}
-	return open + mid + "</dl></div>";
 }
 
 /** @param {Record<string, unknown>|null|undefined} filters */
@@ -203,7 +426,7 @@ function _gcfq_filters_rules_html(filters) {
 		return "";
 	}
 	var parts = [
-		'<div class="logistics-gcfq-filters logistics-gcfq-filters--below-cards">',
+		'<div class="logistics-gcfq-filters-rules-block">',
 		'<div class="logistics-gcfq-filters-rules-title">' + __("Also required") + "</div>",
 		'<ul class="logistics-gcfq-filters-rules">',
 	];
@@ -320,12 +543,18 @@ function _gcfq_card_loading_html() {
 	);
 }
 
-function _gcfq_load_card_preview($pv, frm, sales_quote, onDone) {
+function _gcfq_load_card_preview($pv, frm, sales_quote, dialog, onDone) {
 	$pv.removeData("gcfq-charges-count");
 	$pv.html(_gcfq_card_loading_html());
+	var fo = _gcfq_collect_filter_overrides(dialog);
 	frappe.call({
 		method: "logistics.utils.get_charges_from_quotation.preview_quotation_charges_for_job",
-		args: { doctype: frm.doctype, docname: frm.doc.name, sales_quote: sales_quote },
+		args: {
+			doctype: frm.doctype,
+			docname: frm.doc.name,
+			sales_quote: sales_quote,
+			filter_overrides: fo,
+		},
 		callback: function (r) {
 			if (!r || r.exc) {
 				$pv.html(
@@ -370,12 +599,14 @@ function _gcfq_apply_quotation(frm, sales_quote, dialog) {
 			[sales_quote]
 		),
 		function () {
+			var fo = _gcfq_collect_filter_overrides(dialog);
 			frappe.call({
 				method: "logistics.utils.get_charges_from_quotation.apply_quotation_charges_to_job",
 				args: {
 					doctype: frm.doctype,
 					docname: frm.doc.name,
 					sales_quote: sales_quote,
+					filter_overrides: fo,
 				},
 				freeze: true,
 				freeze_message: __("Applying…"),
@@ -434,7 +665,7 @@ function _gcfq_bind_quote_cards($wrap, frm, dialog) {
 		}
 		var sq = $card.attr("data-sales-quote") || "";
 		var $btn = $card.find(".gcfq-card-apply");
-		_gcfq_load_card_preview($pv, frm, sq, function (cnt) {
+		_gcfq_load_card_preview($pv, frm, sq, dialog, function (cnt) {
 			$pv.data("gcfq-loaded", true);
 			$btn.prop("disabled", !cnt);
 		});
@@ -454,7 +685,7 @@ function _gcfq_bind_quote_cards($wrap, frm, dialog) {
 		if (!$pv.data("gcfq-loaded")) {
 			$card.addClass("open");
 			var $btn = $(this);
-			_gcfq_load_card_preview($pv, frm, sq, function (cnt) {
+			_gcfq_load_card_preview($pv, frm, sq, dialog, function (cnt) {
 				$pv.data("gcfq-loaded", true);
 				$btn.prop("disabled", !cnt);
 				if (cnt) {
@@ -475,28 +706,34 @@ function _gcfq_bind_quote_cards($wrap, frm, dialog) {
 	});
 }
 
-function _load_quote_list(frm, dialog, $wrap) {
+function _load_quote_list(frm, dialog, $dynamic) {
 	_set_dialog_title(dialog, GET_CHARGES_TITLE_LIST);
-	$wrap.html('<p class="text-muted">' + __("Loading quotations…") + "</p>");
+	var filter_overrides = _gcfq_collect_filter_overrides(dialog);
+
+	$dynamic.html('<p class="text-muted">' + __("Loading quotations…") + "</p>");
 
 	frappe.call({
 		method: "logistics.utils.get_charges_from_quotation.list_sales_quotes_for_job",
-		args: { doctype: frm.doctype, docname: frm.doc.name },
+		args: {
+			doctype: frm.doctype,
+			docname: frm.doc.name,
+			filter_overrides: filter_overrides,
+		},
 		callback: function (r) {
 			if (!r || r.exc) {
-				$wrap.html('<div class="alert alert-danger">' + __("Failed to load quotations.") + "</div>");
+				$dynamic.html(
+					'<div class="alert alert-danger">' + __("Failed to load quotations.") + "</div>"
+				);
 				return;
 			}
 			var msg = (r.message && r.message.message) || "";
 			var quotes = (r.message && r.message.quotes) || [];
 			var filters = r.message && r.message.filters;
-			var criteriaHtml = _gcfq_filters_criteria_html(filters);
 			var rulesHtml = _gcfq_filters_rules_html(filters);
 
 			if (!quotes.length) {
-				$wrap.html(
-					criteriaHtml +
-						'<div class="alert alert-warning">' +
+				$dynamic.html(
+					'<div class="alert alert-warning logistics-gcfq-status-alert mb-0">' +
 						frappe.utils.escape_html(msg || __("No matching Sales Quotes found.")) +
 						"</div>" +
 						rulesHtml
@@ -505,9 +742,6 @@ function _load_quote_list(frm, dialog, $wrap) {
 			}
 
 			var $root = $('<div class="logistics-gcfq-list-root">');
-			if (criteriaHtml) {
-				$root.append(criteriaHtml);
-			}
 
 			var $searchWrap = $('<div class="gcfq-quote-search-wrap">');
 			var $searchInput = $("<input>")
@@ -593,8 +827,8 @@ function _load_quote_list(frm, dialog, $wrap) {
 				$root.append(rulesHtml);
 			}
 
-			$wrap.empty().append($root);
-			_gcfq_bind_quote_cards($wrap, frm, dialog);
+			$dynamic.empty().append($root);
+			_gcfq_bind_quote_cards($dynamic, frm, dialog);
 			_gcfq_bind_quote_search($root);
 		},
 	});

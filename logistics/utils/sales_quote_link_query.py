@@ -83,9 +83,10 @@ def _legacy_exists_clause(service_type: str) -> str:
 
 def _air_corridor_job_airline_sql(alias: str) -> str:
 	"""When ``job_airline`` query param is set: quote row/header airline blank = any carrier."""
+	# Case-insensitive: Link names can differ in casing between booking and charge row.
 	return f""" AND (
 		IFNULL({alias}.airline,'') = ''
-		OR {alias}.airline = %(job_airline)s
+		OR LOWER(TRIM(IFNULL({alias}.airline,''))) = LOWER(TRIM(%(job_airline)s))
 	)"""
 
 

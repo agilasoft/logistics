@@ -233,16 +233,14 @@
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
    "fieldname": "selling_weight_break",
-   "fieldtype": "HTML",
-   "label": "Selling weight breaks",
-   "options": "<div></div>"
+   "fieldtype": "Button",
+   "label": "Weight Break"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method=='Weight Break'",
    "fieldname": "cost_weight_break",
-   "fieldtype": "HTML",
-   "label": "Cost weight breaks",
-   "options": "<div></div>"
+   "fieldtype": "Button",
+   "label": "Weight Break"
   },
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Qty Break'",

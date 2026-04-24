@@ -1,0 +1,19 @@
+{# Shell for charge-line weight break editor; rows filled client-side. #}
+<div class="logistics-wb-editor">
+	<table class="table table-bordered table-sm">
+		<thead>
+			<tr>
+				<th>{{ _("Break Type") }}</th>
+				<th>{{ _("Weight Break") }}</th>
+				<th>{{ _("Unit Rate") }}</th>
+				<th>{{ _("Currency") }}</th>
+				<th style="width:40px"></th>
+			</tr>
+		</thead>
+		<tbody class="logistics-wb-tbody"></tbody>
+	</table>
+	<button type="button" class="btn btn-xs btn-secondary mt-2 logistics-wb-add-row">{{ _("Add row") }}</button>
+	{% if include_save_button %}
+	<button type="button" class="btn btn-xs btn-primary logistics-wb-save mt-2">{{ _("Save weight breaks") }}</button>
+	{% endif %}
+</div>
