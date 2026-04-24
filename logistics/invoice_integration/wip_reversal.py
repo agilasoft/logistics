@@ -22,7 +22,10 @@ from frappe.utils import flt
 
 from logistics.job_management.charge_recognition_je import set_wip_adjustment_je_on_charges
 from logistics.job_management.gl_item_dimension import get_item_dimension_fieldname_on_gl_entry, item_row_dict
-from logistics.job_management.recognition_engine import resolve_policy_row_for_job
+from logistics.job_management.recognition_engine import (
+	apply_journal_entry_posting_header_from_job,
+	resolve_policy_row_for_job,
+)
 from logistics.invoice_integration.lifecycle import get_jobs_linked_to_sales_invoice
 from logistics.invoice_integration.recognition_voucher_reversal import (
 	append_logistics_reversal_marker,
@@ -145,6 +148,7 @@ def post_wip_reversal_journal_multi(
 	je.user_remark = user_remark
 
 	totals_per_job = []
+	header_job = None
 
 	for job, je_pairs in segments:
 		if not je_pairs:
@@ -153,6 +157,8 @@ def post_wip_reversal_journal_multi(
 		_policy, param_row = resolve_policy_row_for_job(job)
 		if not param_row:
 			continue
+		if header_job is None:
+			header_job = job
 		wip_acc = param_row.get("wip_account")
 		liab_acc = param_row.get("revenue_liability_account")
 		if not wip_acc or not liab_acc:
@@ -198,6 +204,9 @@ def post_wip_reversal_journal_multi(
 
 	if not len(getattr(je, "accounts", []) or []):
 		return None
+
+	if header_job:
+		apply_journal_entry_posting_header_from_job(je, header_job)
 
 	je.insert()
 	je.submit()

@@ -17,7 +17,10 @@ from frappe.utils import flt
 
 from logistics.job_management.charge_recognition_je import set_accrual_adjustment_je_on_charges
 from logistics.job_management.gl_item_dimension import get_item_dimension_fieldname_on_gl_entry, item_row_dict
-from logistics.job_management.recognition_engine import get_recognition_policy_for_job
+from logistics.job_management.recognition_engine import (
+	apply_journal_entry_posting_header_from_job,
+	get_recognition_policy_for_job,
+)
 from logistics.invoice_integration.recognition_voucher_reversal import (
 	append_logistics_reversal_marker,
 	reversal_journal_entry_exists_for_voucher,
@@ -95,6 +98,7 @@ def post_cost_accrual_reversal_journal_multi(
 	je.user_remark = user_remark
 
 	totals_per_job = []
+	header_job = None
 
 	for job, je_pairs in segments:
 		if not je_pairs:
@@ -103,6 +107,8 @@ def post_cost_accrual_reversal_journal_multi(
 		policy = get_recognition_policy_for_job(jcn)
 		if not policy:
 			continue
+		if header_job is None:
+			header_job = job
 		cost_acc = policy.get("cost_accrual_account")
 		liab_acc = policy.get("accrued_cost_liability_account")
 		if not cost_acc or not liab_acc:
@@ -148,6 +154,9 @@ def post_cost_accrual_reversal_journal_multi(
 
 	if not len(getattr(je, "accounts", []) or []):
 		return None
+
+	if header_job:
+		apply_journal_entry_posting_header_from_job(je, header_job)
 
 	je.insert()
 	je.submit()
