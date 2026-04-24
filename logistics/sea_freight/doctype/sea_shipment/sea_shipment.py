@@ -48,7 +48,6 @@ class SeaShipment(Document):
         self._normalize_house_type()
         update_parent_dg_compliance_status(self)
         self.validate_accounts()
-        self.validate_required_fields()
         self.validate_dates()
         self.validate_duplicates()
         try:
@@ -149,7 +148,8 @@ class SeaShipment(Document):
             )
     
     def before_submit(self):
-        """Block submission when DG is Non-Compliant and shipment contains dangerous goods."""
+        """Validate required data before submit; block DG non-compliance."""
+        self.validate_required_fields_for_submit()
         try:
             contains_dg = bool(getattr(self, "contains_dangerous_goods", 0))
             dg_status = (getattr(self, "dg_compliance_status", "") or "").strip()
@@ -578,8 +578,8 @@ class SeaShipment(Document):
                 "Job Number Sync Error"
             )
 
-    def validate_required_fields(self):
-        """Validate required fields for Sea Shipment"""
+    def validate_required_fields_for_submit(self):
+        """Enforce party/routing/booking links when submitting (draft saves may omit them)."""
         if not self.booking_date:
             frappe.throw(_("Booking Date is required"))
         
@@ -1264,7 +1264,7 @@ class SeaShipment(Document):
             )
 
             charge_fields = [
-                "item_code", "item_name", "calculation_method", "uom", "currency",
+                "item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
                 "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
                 "maximum_charge", "base_amount", "estimated_revenue", "service_type",
             ] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)

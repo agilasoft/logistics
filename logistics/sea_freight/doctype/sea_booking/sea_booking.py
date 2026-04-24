@@ -166,7 +166,6 @@ class SeaBooking(Document):
 
 		assert_one_off_sales_quote_job_rules(self)
 		
-		self.validate_required_fields()
 		self.validate_dates()
 		self.validate_accounts()
 		self.validate_main_routing_legs_by_entry_type()
@@ -582,6 +581,7 @@ class SeaBooking(Document):
 	
 	def before_submit(self):
 		"""Validate quote reference before submitting the Sea Booking."""
+		self.validate_required_fields_for_submit()
 		# Ensure quote field values are preserved - sync quote and sales_quote before submission
 		_sync_quote_and_sales_quote(self)
 		
@@ -633,8 +633,8 @@ class SeaBooking(Document):
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
 			reset_one_off_quote_on_cancel(current_sales_quote)
 	
-	def validate_required_fields(self):
-		"""Validate required fields"""
+	def validate_required_fields_for_submit(self):
+		"""Enforce header party/routing fields when submitting (draft saves may omit them)."""
 		if not self.booking_date:
 			frappe.throw(_("Booking Date is required"))
 		
@@ -945,7 +945,7 @@ class SeaBooking(Document):
 
 			# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
-				"name", "item_code", "item_name", "calculation_method", "uom", "currency",
+				"name", "item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"bill_to", "pay_to", "service_type",
@@ -1043,7 +1043,7 @@ class SeaBooking(Document):
 
 			# Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
-				"item_code", "item_name", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"bill_to", "pay_to", "service_type",
@@ -1185,6 +1185,10 @@ class SeaBooking(Document):
 			def _get(key, default=None):
 				return sqsf_record.get(key, default) if isinstance(sqsf_record, dict) else getattr(sqsf_record, key, default)
 
+			def _quote_rev_method():
+				v = _get("revenue_calculation_method") or _get("calculation_method")
+				return (str(v).strip() if v is not None and v != "" else "")
+
 			# Get the item details
 			item_doc = frappe.get_doc("Item", _get("item_code"))
 			
@@ -1256,30 +1260,34 @@ class SeaBooking(Document):
 			else:
 				quantity = 1
 			
-			# Calculate selling amount based on calculation method
+			# Calculate selling amount based on calculation method (quote row uses revenue_calculation_method on Sales Quote Charge)
+			_sq_rev_method = _quote_rev_method()
+			_sq_unit_rate = flt(_get("unit_rate")) or 0
 			selling_amount = 0
-			if sqsf_record.calculation_method == "Per Unit":
-				selling_amount = (sqsf_record.unit_rate or 0) * quantity
+			if _sq_rev_method == "Per Unit":
+				selling_amount = _sq_unit_rate * quantity
 				# Apply minimum/maximum charge
-				if sqsf_record.minimum_charge and selling_amount < flt(sqsf_record.minimum_charge):
-					selling_amount = flt(sqsf_record.minimum_charge)
-				if sqsf_record.maximum_charge and selling_amount > flt(sqsf_record.maximum_charge):
-					selling_amount = flt(sqsf_record.maximum_charge)
-			elif sqsf_record.calculation_method == "Fixed Amount":
-				selling_amount = sqsf_record.unit_rate or 0
-			elif sqsf_record.calculation_method == "Base Plus Additional":
-				base = flt(sqsf_record.base_amount) or 0
-				additional = (sqsf_record.unit_rate or 0) * max(0, quantity - 1)
+				_sq_min_ch = _get("minimum_charge")
+				_sq_max_ch = _get("maximum_charge")
+				if _sq_min_ch and selling_amount < flt(_sq_min_ch):
+					selling_amount = flt(_sq_min_ch)
+				if _sq_max_ch and selling_amount > flt(_sq_max_ch):
+					selling_amount = flt(_sq_max_ch)
+			elif _sq_rev_method == "Fixed Amount":
+				selling_amount = _sq_unit_rate
+			elif _sq_rev_method == "Base Plus Additional":
+				base = flt(_get("base_amount")) or 0
+				additional = _sq_unit_rate * max(0, quantity - 1)
 				selling_amount = base + additional
-			elif sqsf_record.calculation_method == "First Plus Additional":
-				min_qty = flt(sqsf_record.minimum_quantity) or 1
+			elif _sq_rev_method == "First Plus Additional":
+				min_qty = flt(_get("minimum_quantity")) or 1
 				if quantity <= min_qty:
-					selling_amount = sqsf_record.unit_rate or 0
+					selling_amount = _sq_unit_rate
 				else:
-					additional = (sqsf_record.unit_rate or 0) * (quantity - min_qty)
-					selling_amount = (sqsf_record.unit_rate or 0) + additional
+					additional = _sq_unit_rate * (quantity - min_qty)
+					selling_amount = _sq_unit_rate + additional
 			else:
-				selling_amount = sqsf_record.unit_rate or 0
+				selling_amount = _sq_unit_rate
 			
 			# Determine charge_type: first from Sales Quote Sea Freight record, then from item, then default
 			charge_type = "Revenue"
@@ -1291,7 +1299,7 @@ class SeaBooking(Document):
 				charge_type = item_doc.custom_charge_type
 			
 			# Normalize calculation_method for Sea Booking Charges
-			sqsf_calc_method = (sqsf_record.get("calculation_method") or "").strip()
+			sqsf_calc_method = _quote_rev_method()
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
 				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
@@ -1579,6 +1587,7 @@ class SeaBooking(Document):
 		"""
 		# Validate dates before conversion
 		self.validate_dates()
+		self.validate_required_fields_for_submit()
 		
 		# Check if both quote and charges are empty
 		quote_type = getattr(self, "quote_type", None)
@@ -2450,6 +2459,7 @@ def populate_charges_from_sales_quote(
 			"name",
 			"item_code",
 			"item_name",
+			"revenue_calculation_method",
 			"calculation_method",
 			"uom",
 			"currency",

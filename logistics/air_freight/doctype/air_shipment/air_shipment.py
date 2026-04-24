@@ -2645,24 +2645,27 @@ class AirShipment(Document):
 	def _map_sales_quote_air_freight_to_charge(self, sqaf_record):
 		"""Map sales_quote_air_freight record to air_shipment_charges format"""
 		try:
+			def _af_r(key, default=None):
+				return sqaf_record.get(key, default) if isinstance(sqaf_record, dict) else getattr(sqaf_record, key, default)
+
 			# Get the item details to fetch additional required fields
-			item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+			item_doc = frappe.get_doc("Item", _af_r("item_code"))
 			
 			# Get default currency from system settings
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
 			# Map unit_type to quantity
 			quantity = 0
-			if sqaf_record.unit_type == "Chargeable Weight":
+			if _af_r("unit_type") == "Chargeable Weight":
 				chargeable_qty = getattr(self, "chargeable", None)
 				if chargeable_qty in (None, ""):
 					chargeable_qty = getattr(self, "chargeable_weight", None)
 				quantity = flt(chargeable_qty or 0)
-			elif sqaf_record.unit_type == "Weight":
+			elif _af_r("unit_type") == "Weight":
 				quantity = flt(self.total_weight) or 0
-			elif sqaf_record.unit_type == "Volume":
+			elif _af_r("unit_type") == "Volume":
 				quantity = flt(self.total_volume) or 0
-			elif sqaf_record.unit_type in ("Package", "Piece"):
+			elif _af_r("unit_type") in ("Package", "Piece"):
 				quantity = len(self.packages) if (hasattr(self, 'packages') and self.packages) else 1
 			else:
 				quantity = 1
@@ -2675,15 +2678,15 @@ class AirShipment(Document):
 					charge_category = item_doc.custom_charge_category or "Other"
 			
 			charge_data = {
-				"item_code": sqaf_record.item_code,
-				"item_name": sqaf_record.item_name or item_doc.item_name,
+				"item_code": _af_r("item_code"),
+				"item_name": _af_r("item_name") or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_category": charge_category,
-				"revenue_calculation_method": sqaf_record.calculation_method or "Per Unit",
-				"rate": sqaf_record.unit_rate or 0,
-				"currency": sqaf_record.currency or default_currency,
+				"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or "Per Unit",
+				"rate": _af_r("unit_rate") or 0,
+				"currency": _af_r("currency") or default_currency,
 				"quantity": quantity,
-				"unit_of_measure": sqaf_record.uom or None,
+				"unit_of_measure": _af_r("uom") or None,
 				"billing_status": "To Bill",
 			}
 
@@ -3097,7 +3100,7 @@ def populate_charges_from_sales_quote(docname=None):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)

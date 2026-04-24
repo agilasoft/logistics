@@ -60,11 +60,20 @@ class TestSeaShipment(FrappeTestCase):
 		self.assertEqual(shipment.company, self.company)
 		self.assertEqual(shipment.local_customer, self.customer)
 
-	def test_sea_shipment_required_fields(self):
-		"""Test that required fields are enforced"""
-		shipment = frappe.get_doc({"doctype": "Sea Shipment", "booking_date": today()})
-		with self.assertRaises((frappe.ValidationError, frappe.MandatoryError)):
-			shipment.insert()
+	def test_sea_shipment_required_fields_enforced_on_submit(self):
+		"""Party/routing/booking links are enforced on submit; draft save is allowed without them."""
+		shipment = frappe.get_doc({
+			"doctype": "Sea Shipment",
+			"booking_date": today(),
+			"company": self.company,
+			"branch": self.branch,
+			"cost_center": self.cost_center,
+			"profit_center": self.profit_center,
+		})
+		shipment.insert()
+		self.assertTrue(shipment.name)
+		with self.assertRaises(frappe.ValidationError):
+			shipment.submit()
 
 	def test_sea_shipment_with_packages(self):
 		"""Test creating Sea Shipment with packages"""

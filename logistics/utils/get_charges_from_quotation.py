@@ -15,8 +15,9 @@ the form and is written only by create-from-quote or by the apply step.
 **Customer match**: only Sales Quotes whose ``customer`` matches the job's customer
 (``local_customer`` on Sea/Air, ``customer`` on Transport Order) are listed and may be applied.
 
-**Corridor match**: Sea/Air jobs use ``origin_port`` / ``destination_port``; Transport Order uses
-``location_from`` / ``location_to``. **Declaration Order** uses ``customs_authority``,
+**Corridor match**: Sea/Air jobs use ``origin_port`` / ``destination_port``; **Air Booking** also matches
+``airline`` when it is set (quotation charge row or header airline must match or be blank for that row).
+Transport Order uses ``location_from`` / ``location_to``. **Declaration Order** uses ``customs_authority``,
 ``declaration_type``, ``customs_broker``, and optionally ``transport_mode`` (with **Sales Quote
 Charge** / **Sales Quote Customs** rows as described in ``sales_quote_link_query``), not POL/POD
 as the primary gate.
@@ -98,6 +99,14 @@ def _job_customer(doc) -> str | None:
 	return None
 
 
+def _job_airline_for_gcfq(doc) -> str | None:
+	"""Airline link on Air Booking for Get Charges from Quotation filtering; ``None`` if unset (no airline gate)."""
+	if doc.doctype != "Air Booking":
+		return None
+	al = (getattr(doc, "airline", None) or "").strip()
+	return al or None
+
+
 def _gcfq_list_filters_payload(
 	doctype: str,
 	customer: str,
@@ -163,7 +172,29 @@ def _gcfq_list_filters_payload(
 				_("Respects your permission to read Sales Quote records"),
 			],
 		}
-	return {
+	al = (kwargs.get("airline") or "").strip()
+	extra_criteria = []
+	if al:
+		extra_criteria.append({"label": _("Airline"), "value": al})
+	rules = [
+		_("Submitted quotations only (draft quotations are excluded)"),
+		_("Regular quotations only (One-off quotations are excluded)"),
+		_("Valid until is not set or is on or after today"),
+		_("Status is not Lost or Expired"),
+		_(
+			"Origin and destination must match a charge row (or legacy line) on the quotation, "
+			"or the quotation header — not Sales Quote routing legs"
+		),
+	]
+	if al:
+		rules.append(
+			_(
+				"When Airline is set on the booking, the quotation must match that airline on a charge row "
+				"or header (blank airline on a quotation line matches any carrier)"
+			)
+		)
+	rules.append(_("Respects your permission to read Sales Quote records"))
+	out = {
 		"service_type": service_type,
 		"customer_label": _("Local Customer"),
 		"customer": customer,
@@ -171,18 +202,11 @@ def _gcfq_list_filters_payload(
 		"origin": origin,
 		"destination_label": _("Destination Port"),
 		"destination": dest,
-		"rules": [
-			_("Submitted quotations only (draft quotations are excluded)"),
-			_("Regular quotations only (One-off quotations are excluded)"),
-			_("Valid until is not set or is on or after today"),
-			_("Status is not Lost or Expired"),
-			_(
-				"Origin and destination must match a charge row (or legacy line) on the quotation, "
-				"or the quotation header — not Sales Quote routing legs"
-			),
-			_("Respects your permission to read Sales Quote records"),
-		],
+		"rules": rules,
 	}
+	if extra_criteria:
+		out["extra_criteria"] = extra_criteria
+	return out
 
 
 def _job_corridor(doc) -> tuple[str | None, str | None]:
@@ -227,7 +251,14 @@ def _corridor_mismatch_message_for_preview(doc, service_type: str, sales_quote: 
 	origin, dest = _job_corridor(doc)
 	if not origin or not dest:
 		return str(_("Set origin and destination on this document before loading charges from a quotation."))
-	if not sales_quote_matches_job_corridor(sales_quote, service_type, origin, dest):
+	ja = _job_airline_for_gcfq(doc)
+	if not sales_quote_matches_job_corridor(sales_quote, service_type, origin, dest, job_airline=ja):
+		if ja:
+			return str(
+				_("Sales Quote {0} does not match this document's air corridor (ports and airline).").format(
+					sales_quote
+				)
+			)
 		return str(_("Sales Quote {0} does not match this document's origin and destination.").format(sales_quote))
 	return None
 
@@ -236,7 +267,14 @@ def _assert_sales_quote_corridor_matches_job(doc, service_type: str, sales_quote
 	origin, dest = _job_corridor(doc)
 	if not origin or not dest:
 		frappe.throw(_("Set origin and destination on this document before loading charges from a quotation."))
-	if not sales_quote_matches_job_corridor(sales_quote, service_type, origin, dest):
+	ja = _job_airline_for_gcfq(doc)
+	if not sales_quote_matches_job_corridor(sales_quote, service_type, origin, dest, job_airline=ja):
+		if ja:
+			frappe.throw(
+				_("Sales Quote {0} does not match this document's air corridor (ports and airline).").format(
+					sales_quote
+				)
+			)
 		frappe.throw(
 			_("Sales Quote {0} does not match this document's origin and destination.").format(sales_quote)
 		)
@@ -351,7 +389,15 @@ def list_sales_quotes_for_job(doctype: str, docname: str):
 				"filters": None,
 			}
 
-		filters_payload = _gcfq_list_filters_payload(doctype, customer, origin, dest, service_type)
+		job_airline = _job_airline_for_gcfq(doc) if doctype == "Air Booking" else None
+		filters_payload = _gcfq_list_filters_payload(
+			doctype,
+			customer,
+			origin,
+			dest,
+			service_type,
+			**({"airline": job_airline} if job_airline else {}),
+		)
 
 		names = fetch_eligible_regular_sales_quote_names(
 			service_type,
@@ -361,6 +407,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str):
 			limit=150,
 			corridor_origin=origin,
 			corridor_dest=dest,
+			job_airline=job_airline,
 		)
 		empty_msg = _("No matching Sales Quotes found for this corridor.")
 

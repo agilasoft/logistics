@@ -90,6 +90,22 @@ function _sea_shipment_volume_fallback(frm, cdt, cdn, grid_row) {
 	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
 }
 
+/** Virtual MBL read-only fields: filled from Master Bill via server (no DB columns on Sea Shipment). */
+function _apply_master_bill_virtuals(frm) {
+	frappe.call({
+		method: 'logistics.sea_freight.doctype.sea_shipment.sea_shipment.get_master_bill_virtuals',
+		args: { master_bill: frm.doc.master_bill || '' },
+		callback: function(r) {
+			if (!r.message) {
+				return;
+			}
+			Object.keys(r.message).forEach(function(fieldname) {
+				frm.set_value(fieldname, r.message[fieldname]);
+			});
+		},
+	});
+}
+
 function _show_create_from_shipment_review_dialog(frm, target_label, on_continue) {
 	var is_internal = !!frm.doc.is_internal_job;
 	var message = is_internal
@@ -134,6 +150,9 @@ frappe.ui.form.on('Sea Shipment', {
 			logistics.apply_one_off_route_options_onload(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (frm.doc.master_bill) {
+			_apply_master_bill_virtuals(frm);
+		}
 	},
 	packages_on_form_rendered: function(frm) {
 		if (window.logistics_attach_packages_change_listener) {
@@ -259,6 +278,10 @@ frappe.ui.form.on('Sea Shipment', {
 				frm.trigger('consignee_contact');
 			}
 		});
+	},
+
+	master_bill: function(frm) {
+		_apply_master_bill_virtuals(frm);
 	},
 
 	company: function(frm) {
@@ -400,6 +423,18 @@ frappe.ui.form.on('Sea Shipment', {
 				frm.layout.wrapper.off('click.milestone_html');
 			}
 		});
+
+		// Profitability (from GL) section in Charges tab
+		setTimeout(function() {
+			_load_sea_shipment_profitability_html(frm);
+		}, 100);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.profitability_html').on('click.profitability_html', '[data-fieldname="charges_tab"]', function() {
+				setTimeout(function() {
+					_load_sea_shipment_profitability_html(frm);
+				}, 50);
+			});
+		}
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
@@ -550,6 +585,25 @@ frappe.ui.form.on('Sea Shipment', {
 	},
 });
 
+/** Profitability (from GL); requires `profitability_section_html` and `logistics.profitability.load_profitability_html`. */
+function _load_sea_shipment_profitability_html(frm) {
+	if (!window.logistics || !logistics.profitability || !logistics.profitability.load_profitability_html) {
+		return;
+	}
+	if (!frm.fields_dict || !frm.fields_dict.profitability_section_html || !frm.fields_dict.profitability_section_html.$wrapper) {
+		return;
+	}
+	logistics.profitability.load_profitability_html(frm);
+}
+
+function _sea_shipment_reload_doc_then_profitability(frm) {
+	frm.reload_doc().then(function() {
+		setTimeout(function() {
+			_load_sea_shipment_profitability_html(frm);
+		}, 150);
+	});
+}
+
 /**
  * Add WIP & Accrual recognition buttons to Sea Shipment (Post: WIP and Accrual; Recognition: adjust/close).
  * Inline here so buttons show even when recognition_client.js is not loaded.
@@ -598,7 +652,7 @@ function _sea_shipment_add_recognition_buttons(frm) {
 							var reason = r.message.message || __('Nothing to recognize (already recognized or below minimum)');
 							frappe.msgprint({ title: __('Recognition'), message: reason, indicator: 'blue' });
 						}
-						frm.reload_doc();
+						_sea_shipment_reload_doc_then_profitability(frm);
 					}
 				}
 			});
@@ -615,7 +669,12 @@ function _sea_shipment_add_recognition_buttons(frm) {
 					args: { doctype: d.doctype, docname: d.name, adjustment_amount: values.adjustment_amount, adjustment_date: values.adjustment_date },
 					freeze: true,
 					freeze_message: __('Creating WIP Adjustment...'),
-					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('WIP Adjustment created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
+					callback: function(r) {
+						if (r.message) {
+							frappe.show_alert({ message: __('WIP Adjustment created: {0}', [r.message]), indicator: 'green' });
+							_sea_shipment_reload_doc_then_profitability(frm);
+						}
+					}
 				});
 			}, __('Adjust WIP'), __('Create'));
 		}, __('Recognition'));
@@ -631,7 +690,12 @@ function _sea_shipment_add_recognition_buttons(frm) {
 					args: { doctype: d.doctype, docname: d.name, adjustment_amount: values.adjustment_amount, adjustment_date: values.adjustment_date },
 					freeze: true,
 					freeze_message: __('Creating Accrual Adjustment...'),
-					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('Accrual Adjustment created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
+					callback: function(r) {
+						if (r.message) {
+							frappe.show_alert({ message: __('Accrual Adjustment created: {0}', [r.message]), indicator: 'green' });
+							_sea_shipment_reload_doc_then_profitability(frm);
+						}
+					}
 				});
 			}, __('Adjust Accruals'), __('Create'));
 		}, __('Recognition'));
@@ -653,7 +717,7 @@ function _sea_shipment_add_recognition_buttons(frm) {
 								if (r.message.wip_journal_entry) msg.push(__('WIP closed: {0}', [r.message.wip_journal_entry]));
 								if (r.message.accrual_journal_entry) msg.push(__('Accrual closed: {0}', [r.message.accrual_journal_entry]));
 								if (msg.length) frappe.show_alert({ message: msg.join(' | '), indicator: 'green' });
-								frm.reload_doc();
+								_sea_shipment_reload_doc_then_profitability(frm);
 							}
 						}
 					});

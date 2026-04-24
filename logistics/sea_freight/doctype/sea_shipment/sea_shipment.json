@@ -293,8 +293,7 @@
    "in_list_view": 1,
    "label": "Shipper",
    "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
-   "options": "Shipper",
-   "reqd": 1
+   "options": "Shipper"
   },
   {
    "fieldname": "consignee",
@@ -302,23 +301,20 @@
    "in_list_view": 1,
    "label": "Consignee",
    "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
-   "options": "Consignee",
-   "reqd": 1
+   "options": "Consignee"
   },
   {
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_standard_filter": 1,
-   "label": "Booking Date",
-   "reqd": 1
+   "label": "Booking Date"
   },
   {
    "fieldname": "sea_booking",
    "fieldtype": "Link",
    "label": "Sea Booking",
    "options": "Sea Booking",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "sales_quote",
@@ -395,8 +391,7 @@
    "in_list_view": 1,
    "label": "Origin Port",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
-   "options": "UNLOCO",
-   "reqd": 1
+   "options": "UNLOCO"
   },
   {
    "fieldname": "destination_port",
@@ -404,8 +399,7 @@
    "in_list_view": 1,
    "label": "Destination Port",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
-   "options": "UNLOCO",
-   "reqd": 1
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_nbco",
@@ -417,8 +411,7 @@
    "in_list_view": 1,
    "label": "Local Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
-   "options": "Customer",
-   "reqd": 1
+   "options": "Customer"
   },
   {
    "fieldname": "transport_mode",
@@ -452,8 +445,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport\nDomestic",
-   "reqd": 1
+   "options": "Import\nExport\nDomestic"
   },
   {
    "fieldname": "freight_agent",

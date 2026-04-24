@@ -365,6 +365,10 @@ def ensure_documents_and_milestones_from_template(doc, method=None):
 					f"Error applying milestone sync/triggers for {doctype} {name}: {e}",
 					"Milestone Sync/Trigger Error",
 				)
+		# populate_* and milestone_sync load a separate Document instance and may save again.
+		# Without reloading, this instance keeps an older `modified` than the DB and the client
+		# gets a stale timestamp → TimestampMismatchError on the next save (same as Declaration Order note in hooks).
+		doc.reload()
 	finally:
 		frappe.flags.in_ensure_documents_milestones = False
 

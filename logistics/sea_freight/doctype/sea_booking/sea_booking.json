@@ -207,8 +207,7 @@
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Booking Date",
-   "reqd": 1
+   "label": "Booking Date"
   },
   {
    "fieldname": "sales_quote",
@@ -293,8 +292,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport\nDomestic",
-   "reqd": 1
+   "options": "Import\nExport\nDomestic"
   },
   {
    "fieldname": "shipping_line",
@@ -316,8 +314,7 @@
    "in_list_view": 1,
    "label": "Local Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
-   "options": "Customer",
-   "reqd": 1
+   "options": "Customer"
   },
   {
    "fieldname": "freight_agent",

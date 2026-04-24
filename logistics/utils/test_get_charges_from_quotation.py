@@ -3,8 +3,10 @@
 
 """Unit tests for Get Charges from Quotation corridor helpers.
 
-Integration test for list filtering lives in
-``logistics.pricing_center.doctype.sales_quote.test_sales_quote.TestSalesQuote.test_get_charges_from_quotation_list_filters_by_air_corridor``.
+Integration tests for list filtering live in
+``logistics.pricing_center.doctype.sales_quote.test_sales_quote.TestSalesQuote.test_get_charges_from_quotation_list_filters_by_air_corridor``
+and
+``logistics.pricing_center.doctype.sales_quote.test_sales_quote.TestSalesQuote.test_get_charges_from_quotation_list_filters_by_airline_when_set``.
 
 Manual check (initialized bench site):
 

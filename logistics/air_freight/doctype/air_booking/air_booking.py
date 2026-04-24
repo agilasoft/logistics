@@ -167,7 +167,6 @@ class AirBooking(Document):
 
 		assert_one_off_sales_quote_job_rules(self)
 		
-		self.validate_required_fields()
 		self.validate_dates()
 		self.validate_accounts()
 		try:
@@ -190,8 +189,8 @@ class AirBooking(Document):
 
 		msgprint_sales_quote_validity_warnings(self)
 
-	def validate_required_fields(self):
-		"""Validate required fields"""
+	def validate_required_fields_for_submit(self):
+		"""Enforce header party/routing fields when submitting (draft saves may omit them)."""
 		if not self.booking_date:
 			frappe.throw(_("Booking Date is required"))
 		
@@ -402,6 +401,7 @@ class AirBooking(Document):
 
 	def before_submit(self):
 		"""Validate packages and required dates before submitting the Air Booking."""
+		self.validate_required_fields_for_submit()
 		# Validate quote is not empty
 		quote_type = getattr(self, "quote_type", None)
 		has_quote = False
@@ -1006,7 +1006,7 @@ class AirBooking(Document):
 			# Get records from Sales Quote Charge (filtered by main service / internal job) or Sales Quote Air Freight (legacy)
 			# Full field list for legacy Sales Quote Air Freight (has cost_minimum_unit_rate, cost_base_quantity)
 			charge_fields_legacy = [
-				"item_code", "item_name", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
@@ -1079,21 +1079,26 @@ class AirBooking(Document):
 				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
 			]
 			for sqaf_record in sales_quote_air_freight_records:
-				if sqaf_record.get("calculation_method"):
-					original = sqaf_record["calculation_method"]
+				_raw_method = sqaf_record.get("revenue_calculation_method") or sqaf_record.get("calculation_method")
+				if _raw_method:
+					original = _raw_method
 					# Quick normalization check - if it contains invalid patterns, normalize it
 					method_str = str(original).strip()
 					method_lower = method_str.lower()
 					invalid_patterns = ["m³", "m^3", "m3", "per m³", "per m3", "per kg", "per package", "per shipment"]
 					if any(pattern in method_lower for pattern in invalid_patterns) or method_str not in valid_calc_methods:
 						if "per" in method_lower and any(unit in method_lower for unit in ["m3", "kg", "kilogram", "package", "shipment", "piece"]):
-							sqaf_record['calculation_method'] = "Per Unit"
+							sqaf_record["revenue_calculation_method"] = "Per Unit"
+							if "calculation_method" in sqaf_record:
+								sqaf_record["calculation_method"] = "Per Unit"
 							frappe.logger().info(
 								f"[Air Booking] Normalized calculation_method in fetched record: '{original}' → 'Per Unit' "
 								f"for item {sqaf_record.get('item_code', 'Unknown')}"
 							)
 						elif method_str not in valid_calc_methods:
-							sqaf_record['calculation_method'] = "Per Unit"
+							sqaf_record["revenue_calculation_method"] = "Per Unit"
+							if "calculation_method" in sqaf_record:
+								sqaf_record["calculation_method"] = "Per Unit"
 							frappe.logger().info(
 								f"[Air Booking] Normalized invalid calculation_method in fetched record: '{original}' → 'Per Unit' "
 								f"for item {sqaf_record.get('item_code', 'Unknown')}"
@@ -1107,7 +1112,7 @@ class AirBooking(Document):
 				frappe.logger().info(
 					f"[Air Booking] _populate_charges_from_sales_quote: Record {idx+1}/{len(sales_quote_air_freight_records)} - "
 					f"item_code: {sqaf_record.get('item_code', 'N/A')}, "
-					f"calculation_method: '{sqaf_record.get('calculation_method', 'N/A')}', "
+					f"calculation_method: '{sqaf_record.get('revenue_calculation_method') or sqaf_record.get('calculation_method', 'N/A')}', "
 					f"unit_type: {sqaf_record.get('unit_type', 'N/A')}, "
 					f"uom: {sqaf_record.get('uom', 'N/A')}"
 				)
@@ -1118,7 +1123,7 @@ class AirBooking(Document):
 			for sqaf_record in sales_quote_air_freight_records:
 				try:
 					item_code = sqaf_record.get('item_code', 'Unknown')
-					original_calc_method = sqaf_record.get('calculation_method', 'N/A')
+					original_calc_method = sqaf_record.get("revenue_calculation_method") or sqaf_record.get("calculation_method", "N/A")
 					frappe.logger().info(
 						f"[Air Booking] _populate_charges_from_sales_quote: Mapping charge for item {item_code}, "
 						f"original calculation_method: '{original_calc_method}'"
@@ -1542,14 +1547,15 @@ class AirBooking(Document):
 				return None
 			
 			# Get the item details
-			if not frappe.db.exists("Item", sqaf_record.item_code):
+			_sq_item = _sq_row_get("item_code")
+			if not frappe.db.exists("Item", _sq_item):
 				frappe.log_error(
-					f"Item {sqaf_record.item_code} does not exist",
+					f"Item {_sq_item} does not exist",
 					"Air Booking - Invalid Item Code"
 				)
 				return None
 			
-			item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+			item_doc = frappe.get_doc("Item", _sq_item)
 			
 			# Get default currency
 			default_currency = frappe.get_system_settings("currency") or "USD"
@@ -1598,7 +1604,7 @@ class AirBooking(Document):
 			if hasattr(item_doc, 'description') and item_doc.description:
 				description = item_doc.description
 			else:
-				description = sqaf_record.item_name or item_doc.item_name
+				description = _sq_row_get("item_name") or item_doc.item_name
 			
 			# Get item_tax_template and invoice_type from item if available
 			item_tax_template = None
@@ -1609,8 +1615,9 @@ class AirBooking(Document):
 			if hasattr(item_doc, 'invoice_type'):
 				invoice_type = item_doc.invoice_type
 			
-			# Get the original calculation_method from Sales Quote Air Freight
-			sqaf_calc_method = (sqaf_record.get("calculation_method") or "").strip()
+			# Get the original calculation_method from Sales Quote Charge (revenue_calculation_method) or legacy Air Freight
+			_raw_sq_rev = _sq_row_get("revenue_calculation_method") or _sq_row_get("calculation_method") or ""
+			sqaf_calc_method = str(_raw_sq_rev).strip() if _raw_sq_rev is not None else ""
 			item_code = sqaf_record.get('item_code', 'Unknown')
 			
 			# Define valid calculation methods for Air Booking Charges
@@ -1776,20 +1783,20 @@ class AirBooking(Document):
 				_sq_link = self.quote
 			charge_data = {
 				"service_type": service_type,
-				"item_code": sqaf_record.item_code,
-				"item_name": sqaf_record.item_name or item_doc.item_name,
+				"item_code": _sq_row_get("item_code"),
+				"item_name": _sq_row_get("item_name") or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_category": charge_category,
 				"description": description,  # Added: description from item
 				"item_tax_template": item_tax_template,  # Added: item_tax_template from item
 				"invoice_type": invoice_type,  # Added: invoice_type from item
 				"revenue_calculation_method": calculation_method,
-				"rate": sqaf_record.unit_rate or 0,
-				"currency": sqaf_record.currency or default_currency,
+				"rate": _sq_row_get("unit_rate") or 0,
+				"currency": _sq_row_get("currency") or default_currency,
 				"quantity": quantity,
 				"uom": uom_record_name,  # Use actual UOM record name, not normalized string
 				"unit_of_measure": normalized_uom,  # Keep normalized value for unit_of_measure if needed
-				"unit_type": sqaf_record.get("unit_type"),
+				"unit_type": _sq_row_get("unit_type"),
 				"billing_status": "To Bill",
 				"bill_to": _sq_row_get("bill_to"),
 				"pay_to": _sq_row_get("pay_to"),
@@ -1920,6 +1927,7 @@ class AirBooking(Document):
 		Raises:
 			frappe.ValidationError: If required fields are missing
 		"""
+		self.validate_required_fields_for_submit()
 		# Check if both quote and charges are empty
 		quote_type = getattr(self, "quote_type", None)
 		has_quote = False
@@ -2602,7 +2610,7 @@ def populate_charges_from_sales_quote(
 		# Fetch charges from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",  # Added charge_category
 			"bill_to",
@@ -2766,7 +2774,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
 			# Cost fields

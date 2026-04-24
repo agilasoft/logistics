@@ -616,7 +616,24 @@ frappe.ui.form.on('Air Booking', {
 		// Defer HTML field loading so the new doc is visible on the server (avoids "Air Booking ... not found")
 		var docname = frm.doc.name;
 		var isNew = !docname || frm.doc.__islocal;
-		if (isNew) return;
+		if (isNew) {
+			// Clear virtual HTML fields: the form is often reused, so a previous saved booking can leave
+			// loaded dashboard/documents/milestone HTML in the DOM; we do not fetch until the doc is saved.
+			if (frm.fields_dict.dashboard_html) {
+				frm.fields_dict.dashboard_html.$wrapper.html(
+					'<div class="text-muted" style="padding: 1rem;">' +
+						__("Save this booking to load the dashboard.") +
+						"</div>"
+				);
+			}
+			if (frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.empty();
+			}
+			if (frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.empty();
+			}
+			return;
+		}
 
 		function load_html_fields() {
 			if (!frm || frm.doc.name !== docname || frm.doc.__islocal) return;
