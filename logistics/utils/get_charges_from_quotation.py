@@ -309,6 +309,19 @@ def _gcfq_list_filters_payload(
 	return out
 
 
+def _gcfq_missing_corridor_user_message(doctype: str) -> str:
+	"""Shown when Get Charges from Quotation needs a corridor but O/D (or transport locations) are missing."""
+	if doctype == "Transport Order":
+		return _("Set location from and location to in the filters above (or on the document).")
+	if doctype == "Air Booking":
+		return _(
+			"Set origin port and destination port in the filters above (or on the document). "
+			"If both ports are empty, set an airline instead."
+		)
+	# Sea Booking
+	return _("Set origin port and destination port in the filters above (or on the document).")
+
+
 def _corridor_mismatch_message_for_preview(
 	doc, service_type: str, sales_quote: str, overrides: dict | None = None
 ) -> str | None:
@@ -324,9 +337,7 @@ def _corridor_mismatch_message_for_preview(
 			)
 		return None
 	if not origin or not dest:
-		return str(
-			_("Set origin and destination in the filters or on the document before loading charges from a quotation.")
-		)
+		return str(_gcfq_missing_corridor_user_message(doc.doctype))
 	if not sales_quote_matches_job_corridor(sales_quote, service_type, origin, dest, job_airline=ja):
 		if ja:
 			return str(
@@ -352,11 +363,7 @@ def _assert_sales_quote_corridor_matches_job(
 			)
 		return
 	if not origin or not dest:
-		frappe.throw(
-			_(
-				"Set origin and destination in the filters or on the document before loading charges from a quotation."
-			)
-		)
+		frappe.throw(_gcfq_missing_corridor_user_message(doc.doctype))
 	if not sales_quote_matches_job_corridor(sales_quote, service_type, origin, dest, job_airline=ja):
 		if ja:
 			frappe.throw(
@@ -472,9 +479,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 		job_airline = (job_airline or "").strip() or None if doctype == "Air Booking" else None
 		airline_only = _gcfq_airline_only_effective(service_type, job_airline, origin, dest)
 		if (not origin or not dest) and not (doctype == "Air Booking" and job_airline):
-			_corridor_msg = _(
-				"Set origin and destination in the filters above (or on the document). For Air Booking you can use an airline only."
-			)
+			_corridor_msg = _gcfq_missing_corridor_user_message(doctype)
 			filters_payload = _gcfq_list_filters_payload(
 				doctype,
 				customer,
