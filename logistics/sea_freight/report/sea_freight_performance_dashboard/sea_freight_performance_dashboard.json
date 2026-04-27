@@ -25,6 +25,6 @@
    "role": "System Manager"
   }
  ],
- "timeout": 0
+ "timeout": 0,
+ "json": "{}"
 }
-

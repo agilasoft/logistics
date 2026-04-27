@@ -40,14 +40,14 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		d.origin_port = " USLAX "
 		d.destination_port = "USJFK"
 		d.airline = ""
-		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("USLAX", "USJFK", None))
+		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("USLAX", "USJFK", None, None))
 
 	def test_effective_corridor_transport(self):
 		d = MagicMock()
 		d.doctype = "Transport Order"
 		d.location_from = "A"
 		d.location_to = "B"
-		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("A", "B", None))
+		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("A", "B", None, None))
 
 	def test_effective_corridor_override(self):
 		d = MagicMock()
@@ -57,7 +57,7 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		d.airline = "AL1"
 		self.assertEqual(
 			_effective_sea_air_transport_corridor(d, {"origin_port": "O1"}),
-			("O1", "B", "AL1"),
+			("O1", "B", "AL1", None),
 		)
 
 	def test_effective_declaration_order_fields(self):
@@ -97,7 +97,7 @@ def run():
 	d.origin_port = " X "
 	d.destination_port = "Y"
 	d.airline = ""
-	assert _effective_sea_air_transport_corridor(d, {}) == ("X", "Y", None), _effective_sea_air_transport_corridor(
+	assert _effective_sea_air_transport_corridor(d, {}) == ("X", "Y", None, None), _effective_sea_air_transport_corridor(
 		d, {}
 	)
 	print("logistics.utils.test_get_charges_from_quotation.run: OK")

@@ -18,11 +18,10 @@ frappe.ui.form.on('Transport Terminal', {
 
     // Primary Address query → only addresses linked to this Transport Terminal
     frm.set_query('transportterminal_primary_address', function (doc) {
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
       return {
-        filters: {
-          link_doctype: 'Transport Terminal',
-          link_name: doc.name
-        },
+        query: 'frappe.contacts.doctype.address.address.address_query',
+        filters: { link_doctype: 'Transport Terminal', link_name: doc.name },
       };
     });
   },

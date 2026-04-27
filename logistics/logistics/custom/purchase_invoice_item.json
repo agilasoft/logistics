@@ -19,6 +19,16 @@
    "insert_after": "reference_doctype",
    "hidden": 1,
    "description": "Logistics job/shipment name"
+  },
+  {
+   "dt": "Purchase Invoice Item",
+   "fieldname": "logistics_container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "insert_after": "reference_name",
+   "hidden": 1,
+   "description": "Optional: pin this PI line to a specific container for container-deposit sync when the job lists multiple containers."
   }
  ],
  "custom_perms": [],

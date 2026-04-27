@@ -244,6 +244,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number",
    "description": "For revenue/cost recognition"
   }

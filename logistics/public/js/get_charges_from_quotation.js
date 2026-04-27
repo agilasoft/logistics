@@ -42,6 +42,13 @@ function _gcfq_filter_specs(frm) {
 				label: __("Destination Port"),
 				value: frm.doc.destination_port || "",
 			},
+			{
+				key: "shipping_line",
+				fieldtype: "Link",
+				options: "Shipping Line",
+				label: __("Shipping Line"),
+				value: frm.doc.shipping_line || "",
+			},
 		];
 	}
 	if (d === "Air Booking") {
@@ -313,6 +320,27 @@ function _gcfq_collect_filter_overrides(dialog) {
 	return o;
 }
 
+function _gcfq_bind_filter_change_reload(dialog, reloadList) {
+	var timer;
+	function schedule() {
+		if (timer) {
+			clearTimeout(timer);
+		}
+		timer = setTimeout(function () {
+			timer = null;
+			reloadList();
+		}, 350);
+	}
+	(dialog._gcfq_filter_controls || []).forEach(function (c) {
+		if (c.read_only) {
+			return;
+		}
+		if (c.control && c.control.$wrapper) {
+			c.control.$wrapper.on("change", schedule);
+		}
+	});
+}
+
 function _gcfq_mount_filter_panel($parent, frm, dialog, reloadList) {
 	$parent.empty();
 	dialog._gcfq_filter_controls = [];
@@ -325,6 +353,7 @@ function _gcfq_mount_filter_panel($parent, frm, dialog, reloadList) {
 	specs.forEach(function (spec, idx) {
 		_gcfq_mount_filter_cell($grid, spec, frm, dialog, idx);
 	});
+	_gcfq_bind_filter_change_reload(dialog, reloadList);
 	var $actions = $('<div class="gcfq-filter-actions">').appendTo($box);
 	$("<button type='button' class='btn btn-sm btn-default'>")
 		.text(__("Apply filters"))
@@ -864,3 +893,101 @@ function _gcfq_unit_rate_display(c) {
 	}
 	return frappe.utils.escape_html(text);
 }
+
+/**
+ * Header quantity snapshot for calculate_charge_row while the parent form has unsaved packing/routing changes.
+ * Server loads parent via get_doc (DB); merging this keeps revenue/cost quantities aligned with the desk.
+ * @param {frappe.ui.form.Form} frm
+ * @returns {string|null} JSON string or null
+ */
+logistics.charge_row_parent_overrides = function (frm) {
+	if (!frm || !frm.doc) {
+		return null;
+	}
+	var d = frm.doc;
+	var dt = frm.doctype;
+	var keys = [];
+	if (dt === "Air Booking" || dt === "Air Shipment") {
+		keys = [
+			"total_weight",
+			"weight",
+			"chargeable_weight",
+			"chargeable",
+			"total_volume",
+			"volume",
+			"total_pieces",
+			"total_packages",
+			"pieces",
+		];
+	} else if (dt === "Sea Booking" || dt === "Sea Shipment") {
+		keys = [
+			"total_weight",
+			"weight",
+			"total_volume",
+			"volume",
+			"total_pieces",
+			"total_packages",
+			"total_teu",
+			"teu",
+			"total_containers",
+			"pieces",
+		];
+	} else if (dt === "Sea Consolidation") {
+		keys = [
+			"total_weight",
+			"weight",
+			"chargeable_weight",
+			"chargeable",
+			"total_volume",
+			"volume",
+			"total_packages",
+			"total_pieces",
+			"total_teu",
+			"teu",
+			"total_containers",
+			"pieces",
+		];
+	} else if (dt === "Transport Order" || dt === "Transport Job") {
+		keys = [
+			"total_weight",
+			"weight",
+			"total_volume",
+			"volume",
+			"total_distance",
+			"distance",
+			"total_pieces",
+			"total_packages",
+			"pieces",
+		];
+	} else if (dt === "Declaration" || dt === "Declaration Order") {
+		keys = [
+			"total_weight",
+			"weight",
+			"total_volume",
+			"volume",
+			"total_pieces",
+			"total_packages",
+			"pieces",
+		];
+	} else if (dt === "Warehouse Job") {
+		keys = [
+			"total_weight",
+			"weight",
+			"total_volume",
+			"volume",
+			"total_pieces",
+			"total_packages",
+			"pieces",
+		];
+	} else {
+		return null;
+	}
+	var o = {};
+	keys.forEach(function (k) {
+		var v = d[k];
+		if (v !== undefined && v !== null && v !== "") {
+			o[k] = v;
+		}
+	});
+	return Object.keys(o).length ? JSON.stringify(o) : null;
+};

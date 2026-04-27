@@ -432,7 +432,6 @@
    "fieldname": "shipper_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "link_filters": "[[\"Address\",\"name\",\"like\",\"%%\"],[\"Address\",\"name\",\"like\",\"%%\"]]",
    "options": "Address"
   },
   {
@@ -440,7 +439,6 @@
    "fieldname": "pick_address",
    "fieldtype": "Link",
    "label": "Pick Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {

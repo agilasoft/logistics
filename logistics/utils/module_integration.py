@@ -1509,7 +1509,6 @@ def create_inbound_order_from_air_shipment(
 	if not customer:
 		frappe.throw(_("Air Shipment must have Local Customer to create Inbound Order."))
 	order = frappe.new_doc("Inbound Order")
-	order.air_shipment = air_shipment_name
 	order.customer = customer
 	order.contract = _get_customer_warehouse_contract(customer) or ""
 	order.shipper = shipment.shipper
@@ -1574,7 +1573,6 @@ def create_inbound_order_from_sea_shipment(
 	if not customer:
 		frappe.throw(_("Sea Shipment must have Local Customer to create Inbound Order."))
 	order = frappe.new_doc("Inbound Order")
-	order.sea_shipment = sea_shipment_name
 	order.customer = customer
 	order.contract = _get_customer_warehouse_contract(customer) or ""
 	order.shipper = shipment.shipper
@@ -1656,8 +1654,6 @@ def create_inbound_order_from_transport_job(
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_transport_packages_to_inbound_order(job, order)
-	# Source link and GL job must win over any quote/routing defaults applied from Internal Job Detail.
-	order.transport_job = transport_job_name
 	if getattr(job, "job_number", None):
 		order.job_number = job.job_number
 	order.insert(ignore_permissions=True)
@@ -1898,6 +1894,7 @@ def create_inbound_order_from_declaration(
 ):
 	"""Create an Inbound Order from a Declaration when the quote allows warehousing."""
 	from frappe import _
+	from frappe.utils import cint
 
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
@@ -1943,6 +1940,12 @@ def create_inbound_order_from_declaration(
 	order.project = getattr(dec, "project", None)
 	if getattr(dec, "job_number", None):
 		order.job_number = dec.job_number
+	copy_sales_quote_fields_to_target(dec, order)
+	is_ij = cint(getattr(dec, "is_internal_job", 0))
+	if is_ij or ij_row:
+		order.is_internal_job = 1
+		order.main_job_type = "Declaration"
+		order.main_job = dec.name
 	default_item = _get_default_warehouse_item(customer)
 	if default_item:
 		order.append("items", {"item": default_item, "quantity": 1})

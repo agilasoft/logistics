@@ -14,8 +14,11 @@
   "change_request_charge",
   "charge_type",
   "charge_category",
+  "freight_taxes_section",
+  "apply_95_5_rule",
+  "taxable_freight_item",
+  "taxable_freight_item_tax_template",
   "column_break_core",
-  "tariff",
   "quotation_type",
   "section_break_summary",
   "bill_to",
@@ -136,17 +139,40 @@
    "options": "Freight\nFuel Surcharge\nTerminal Handling\nPort Charges\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nDetention\nDemurrage\nOther"
   },
   {
+   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fieldname": "freight_taxes_section",
+   "fieldtype": "Section Break",
+   "label": "Taxes"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fieldname": "apply_95_5_rule",
+   "fieldtype": "Check",
+   "label": "Apply 95/5 rule"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0], [\"Item\", \"custom_charge_category\", \"=\", \"Freight\"]]",
+   "options": "Item"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item_tax_template",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
+  },
+  {
    "fieldname": "column_break_core",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "tariff",
-   "fieldtype": "Link",
-   "label": "Tariff",
-   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
-   "options": "Tariff"
-  },
-  {
+   "depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
@@ -154,6 +180,7 @@
    "options": "Tariff"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
@@ -261,13 +288,13 @@
    "options": "Transport Mode"
   },
   {
-   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Customs\",\"Warehousing\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Warehousing\"].includes(doc.service_type)",
    "fieldname": "section_break_common_params",
    "fieldtype": "Section Break",
    "label": "Common Parameters"
   },
   {
-   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Customs\",\"Warehousing\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Warehousing\"].includes(doc.service_type)",
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
@@ -617,7 +644,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-22 10:38:37.334052",
+ "modified": "2026-04-27 17:35:48.742467",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Charge",

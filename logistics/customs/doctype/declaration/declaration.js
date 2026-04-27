@@ -178,6 +178,18 @@ function _auto_set_payment_status(frm) {
 	frm.set_value("payment_status", "Pending");
 }
 
+function _declaration_sync_exemption_row_total(frm, cdt, cdn) {
+	var row = locals[cdt] && locals[cdt][cdn];
+	if (!row) {
+		return;
+	}
+	var total =
+		flt(row.exempted_duty) + flt(row.exempted_tax) + flt(row.exempted_fee);
+	if (Math.abs(flt(row.total_exempted) - total) > 1e-9) {
+		frappe.model.set_value(cdt, cdn, "total_exempted", total);
+	}
+}
+
 /** Mirrors `Declaration.calculate_total_payable` (duty + tax + other − exemptions). */
 function _declaration_recalculate_total_payable(frm) {
 	var duty = flt(frm.doc.duty_amount);
@@ -531,6 +543,28 @@ frappe.ui.form.on("Declaration", {
 		// --- Create and Post menus - use setTimeout so they appear after form ready ---
 		if (frm.doc.name && !frm.doc.__islocal) {
 			setTimeout(function() {
+				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+					frm.add_custom_button(__('Internal Job'), function() {
+						function _openInternalJobDlg() {
+							if (window.logistics_show_create_internal_job_dialog) {
+								window.logistics_show_create_internal_job_dialog(frm);
+							} else {
+								frappe.msgprint({
+									title: __('Not available'),
+									message: __(
+										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
+									),
+									indicator: 'red',
+								});
+							}
+						}
+						if (window.logistics_show_create_internal_job_dialog) {
+							_openInternalJobDlg();
+						} else {
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+						}
+					}, __('Create'));
+				}
 				// Post menu
 				frm.add_custom_button(__('Standard Costs'), function() {
 					frappe.call({
@@ -570,13 +604,16 @@ frappe.ui.form.on("Declaration", {
 });
 
 frappe.ui.form.on("Declaration Exemption", {
-	exempted_duty(frm) {
+	exempted_duty(frm, cdt, cdn) {
+		_declaration_sync_exemption_row_total(frm, cdt, cdn);
 		_declaration_recalculate_total_payable(frm);
 	},
-	exempted_tax(frm) {
+	exempted_tax(frm, cdt, cdn) {
+		_declaration_sync_exemption_row_total(frm, cdt, cdn);
 		_declaration_recalculate_total_payable(frm);
 	},
-	exempted_fee(frm) {
+	exempted_fee(frm, cdt, cdn) {
+		_declaration_sync_exemption_row_total(frm, cdt, cdn);
 		_declaration_recalculate_total_payable(frm);
 	},
 });

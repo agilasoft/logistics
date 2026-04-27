@@ -14,6 +14,11 @@ from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List
 import json
 
+from logistics.utils.freight_95_5 import (
+    apply_freight_95_post_missing_values,
+    build_sales_invoice_item_payloads_for_charge,
+)
+
 
 def ensure_sales_invoice_name_for_server_insert(si) -> None:
     """
@@ -164,6 +169,8 @@ def get_eligible_charges_for_sales_invoice(
             "revenue": revenue,
             "quantity": 1,
             "rate": revenue,
+            "apply_95_5_rule": int(bool(getattr(ch, "apply_95_5_rule", 0))),
+            "taxable_freight_item": getattr(ch, "taxable_freight_item", None),
         })
     return {
         "eligible_charges": eligible,
@@ -259,15 +266,8 @@ def create_sales_invoice_from_job(
     si_item_meta = frappe.get_meta("Sales Invoice Item")
     has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
 
+    freight_95_line_indices: List[int] = []
     for doc_idx, ch, revenue, item_code, item_name in cost_rows:
-        # Quantity = 1, estimated revenue as unit rate
-        item_payload = {
-            "item_code": item_code,
-            "item_name": item_name,
-            "qty": 1,
-            "rate": revenue,
-        }
-        # Description: include Calc Notes (revenue_calc_notes, charge_description, or calculation_notes)
         calc_notes = getattr(ch, "revenue_calc_notes", None) or getattr(ch, "calculation_notes", None)
         desc_parts = []
         if getattr(ch, "description", None):
@@ -276,30 +276,35 @@ def create_sales_invoice_from_job(
             desc_parts.append(ch.charge_description)
         if calc_notes:
             desc_parts.append(calc_notes)
-        if desc_parts:
-            item_payload["description"] = "\n".join(desc_parts)
+        description = "\n".join(desc_parts) if desc_parts else None
+        currency = None
         if job_type == "Sea Shipment":
-            if getattr(ch, "selling_currency", None) or getattr(ch, "currency", None):
-                item_payload["currency"] = getattr(ch, "selling_currency", None) or getattr(ch, "currency", None)
-            if getattr(ch, "item_tax_template", None):
-                item_payload["item_tax_template"] = ch.item_tax_template
-        if getattr(job, "cost_center", None):
-            item_payload["cost_center"] = job.cost_center
-        if getattr(job, "profit_center", None):
-            item_payload["profit_center"] = job.profit_center
-        if job_ref:
-            it_jn = si_item_meta.get_field("job_number")
-            if it_jn and job_dimension_link_field_writable(it_jn):
-                item_payload["job_number"] = job_ref
-            it_jc = si_item_meta.get_field("job_costing_number")
-            if it_jc and job_dimension_link_field_writable(it_jc):
-                item_payload["job_costing_number"] = job_ref
-        row = si.append("items", item_payload)
-        if has_ref:
-            row.reference_doctype = job_type
-            row.reference_name = job_name
+            currency = getattr(ch, "selling_currency", None) or getattr(ch, "currency", None)
+
+        payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
+            ch,
+            flt(revenue),
+            item_code=item_code,
+            item_name=item_name,
+            description=description,
+            job_type=job_type,
+            company=job.company,
+            currency=currency,
+            cost_center=getattr(job, "cost_center", None),
+            profit_center=getattr(job, "profit_center", None),
+            job_ref=job_ref,
+            si_item_meta=si_item_meta,
+            reference_doctype=job_type if has_ref else None,
+            reference_name=job_name if has_ref else None,
+        )
+        start_idx = len(si.items)
+        for p in payloads:
+            si.append("items", p)
+        for rel in clear_rel:
+            freight_95_line_indices.append(start_idx + rel)
 
     si.set_missing_values()
+    apply_freight_95_post_missing_values(si, freight_95_line_indices)
     ensure_sales_invoice_name_for_server_insert(si)
     si.insert(ignore_permissions=True)
 

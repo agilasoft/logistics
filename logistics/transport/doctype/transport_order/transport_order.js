@@ -815,6 +815,71 @@ function _warn_if_missing_service_charges(frm, service_type) {
 	}
 }
 
+function _recalculate_transport_order_charge_rows(frm, done) {
+	var charges = frm.doc.charges || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Transport Order Charges",
+				parenttype: "Transport Order",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides:
+					window.logistics && logistics.charge_row_parent_overrides
+						? logistics.charge_row_parent_overrides(frm)
+						: null,
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && row.name) {
+					if (r.message.estimated_revenue != null) {
+						frappe.model.set_value("Transport Order Charges", row.name, "estimated_revenue", r.message.estimated_revenue);
+					}
+					if (r.message.estimated_cost != null) {
+						frappe.model.set_value("Transport Order Charges", row.name, "estimated_cost", r.message.estimated_cost);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Transport Order Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value("Transport Order Charges", row.name, "cost_quantity", r.message.cost_quantity);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value("Transport Order Charges", row.name, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value("Transport Order Charges", row.name, "cost_calc_notes", r.message.cost_calc_notes || "");
+					}
+					if (window.logistics && logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Transport Order Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function() {
+				run_next();
+			},
+		});
+	}
+	run_next();
+}
+
 function _populate_charges_from_sales_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
 	var sales_quote = frm.doc.sales_quote;
@@ -881,13 +946,15 @@ function _populate_charges_from_sales_quote(frm) {
 						});
 					});
 					frm.refresh_field('charges');
-					if (r.message.charges_count > 0) {
-						frappe.msgprint({
-							title: __("Charges Updated"),
-							message: __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, sales_quote]),
-							indicator: 'green'
-						});
-					}
+					_recalculate_transport_order_charge_rows(frm, function() {
+						if (r.message.charges_count > 0) {
+							frappe.msgprint({
+								title: __("Charges Updated"),
+								message: __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, sales_quote]),
+								indicator: 'green'
+							});
+						}
+					});
 					_warn_if_missing_service_charges(frm, "Transport");
 				} else {
 					frm.clear_table('charges');

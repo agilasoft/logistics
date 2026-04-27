@@ -19,21 +19,40 @@ from logistics.utils.consolidation_plan import (
 class SeaConsolidation(Document):
     def validate(self):
         """Validate Sea Consolidation document"""
-        self.validate_dates()
-        self.validate_containers_iso6346()
-        self.validate_consolidation_data()
-        self.validate_route_consistency()
-        self.validate_capacity_constraints()
-        self.validate_attached_shipments_compatibility()
-        self.validate_shipments_not_in_multiple_consolidations()
-        self.calculate_consolidation_metrics()
-        self.validate_dangerous_goods_compliance()
-        self.validate_accounts()
-        self.validate_packages()
-        self.validate_containers()
-        self.validate_duplicate_containers()
-        assert_sea_consolidation_plan_requirements(self)
+        from logistics.utils.charges_calculation import (
+            clear_charge_resolution_parent,
+            register_charge_resolution_parent,
+        )
+
+        register_charge_resolution_parent(self)
+        try:
+            self.validate_dates()
+            self.validate_containers_iso6346()
+            self.validate_route_consistency()
+            self.validate_capacity_constraints()
+            self.validate_attached_shipments_compatibility()
+            self.validate_shipments_not_in_multiple_consolidations()
+            self.calculate_consolidation_metrics()
+            self.validate_dangerous_goods_compliance()
+            self.validate_accounts()
+            self.validate_packages()
+            self.validate_containers()
+            self.validate_duplicate_containers()
+            assert_sea_consolidation_plan_requirements(self)
+            self._sync_charges_with_parent_actuals()
     
+        finally:
+            clear_charge_resolution_parent(self)
+
+    def _sync_charges_with_parent_actuals(self):
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(self.flags, "ignore_charges_sync", False):
+            return
+        for charge in self.get("consolidation_charges") or []:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=self)
+
     def before_save(self):
         """Actions before saving the document"""
         self._auto_populate_routing_from_ports()
@@ -59,6 +78,12 @@ class SeaConsolidation(Document):
     def on_cancel(self):
         clear_sea_plan_links_for_consolidation(self.name)
     
+    def before_submit(self):
+        if not self.consolidation_packages and not self.consolidation_containers:
+            frappe.throw(_("At least one package or container must be added to the consolidation"))
+        if not self.consolidation_routes:
+            frappe.throw(_("At least one route must be defined for the consolidation"))
+    
     def validate_containers_iso6346(self):
         """Validate container numbers per ISO 6346."""
         from logistics.utils.container_validation import validate_container_number, get_strict_validation_setting
@@ -71,14 +96,6 @@ class SeaConsolidation(Document):
                 if not valid:
                     frappe.throw(_("Container {0}: {1}").format(i, err), title=_("Invalid Container Number"))
 
-    def validate_consolidation_data(self):
-        """Validate consolidation data integrity"""
-        if not self.consolidation_packages and not self.consolidation_containers:
-            frappe.throw(_("At least one package or container must be added to the consolidation"))
-        
-        if not self.consolidation_routes:
-            frappe.throw(_("At least one route must be defined for the consolidation"))
-    
     def validate_dates(self):
         """Validate date consistency"""
         if self.etd and self.eta:

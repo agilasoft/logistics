@@ -14,9 +14,42 @@ import json
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from logistics.utils.rate_calculation_engine import RateCalculationEngine
+
+# During parent Document.validate(), child rows may run validate() before the DB row reflects new totals.
+# Register the in-memory parent so charge math uses fresh aggregates (weight, chargeable, volume, …).
+_CHARGE_RESOLUTION_PARENT_KEY = "_logistics_charge_resolution_parent"
+
+
+def register_charge_resolution_parent(doc: Any) -> None:
+    """Call at start of operational parent validate(); pair with clear_charge_resolution_parent in finally."""
+    if not doc or not getattr(doc, "doctype", None) or not getattr(doc, "name", None):
+        return
+    if str(doc.name).startswith("new-") or doc.name in ("new", ""):
+        return
+    cache = getattr(frappe.local, _CHARGE_RESOLUTION_PARENT_KEY, None)
+    if cache is None:
+        cache = {}
+        setattr(frappe.local, _CHARGE_RESOLUTION_PARENT_KEY, cache)
+    cache[(doc.doctype, doc.name)] = doc
+
+
+def clear_charge_resolution_parent(doc: Any) -> None:
+    """Call in finally after parent validate()."""
+    if not doc or not getattr(doc, "doctype", None) or not getattr(doc, "name", None):
+        return
+    cache = getattr(frappe.local, _CHARGE_RESOLUTION_PARENT_KEY, None)
+    if not cache:
+        return
+    cache.pop((doc.doctype, doc.name), None)
+    if not cache:
+        try:
+            delattr(frappe.local, _CHARGE_RESOLUTION_PARENT_KEY)
+        except AttributeError:
+            pass
+
 
 # Field mapping: charge doctypes use revenue_calculation_method (revenue) and cost_calculation_method (cost)
 REVENUE_METHOD_FIELDS = ("revenue_calculation_method", "calculation_method")  # calculation_method for backward compat
@@ -59,6 +92,54 @@ PARENT_QUANTITY_FIELDS = {
     "Transport Job": ("total_weight", "total_volume", "total_distance", "total_pieces"),
     "Warehouse Job": ("total_weight", "total_volume", "total_pieces"),
 }
+
+# Allowed keys for client-supplied parent snapshot (calculate_charge_row); blocks arbitrary setattr.
+CHARGE_PARENT_OVERRIDE_ALLOWLIST = frozenset(
+    {
+        "weight",
+        "volume",
+        "chargeable",
+        "chargeable_weight",
+        "pieces",
+        "total_weight",
+        "total_volume",
+        "total_pieces",
+        "total_packages",
+        "total_distance",
+        "distance",
+        "total_teu",
+        "teu",
+        "total_containers",
+        "total_operation_time",
+        "operation_time",
+        "transport_weight",
+        "transport_volume",
+        "sea_weight",
+        "sea_volume",
+        "air_weight",
+        "air_volume",
+    }
+)
+
+
+def _apply_charge_parent_overrides(parent_doc: Any, parent_overrides: Any) -> None:
+    """Merge JSON snapshot from desk (unsaved header totals) onto loaded parent for charge math."""
+    if not parent_doc or not parent_overrides:
+        return
+    if isinstance(parent_overrides, str):
+        try:
+            parent_overrides = json.loads(parent_overrides)
+        except Exception:
+            return
+    if not isinstance(parent_overrides, dict):
+        return
+    for key, val in parent_overrides.items():
+        if key not in CHARGE_PARENT_OVERRIDE_ALLOWLIST or val is None:
+            continue
+        try:
+            setattr(parent_doc, key, val)
+        except Exception:
+            pass
 
 
 def _get_field(doc: Any, *field_names: str, default=None):
@@ -127,6 +208,7 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         return {
             "actual_quantity": 0,
             "actual_weight": 0,
+            "actual_chargeable_weight": 0,
             "actual_volume": 0,
             "actual_distance": 0,
             "actual_pieces": 0,
@@ -144,6 +226,9 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
             "total_weight", "chargeable_weight", "weight", "chargeable",
             "air_weight", "sea_weight", "transport_weight"
         ) or 0
+    )
+    chargeable_weight = flt(
+        _get_field(parent_doc, "chargeable", "chargeable_weight") or 0
     )
     volume = flt(
         _get_field(
@@ -188,6 +273,7 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
     return {
         "actual_quantity": weight or volume or pieces or distance or teu or containers or 1,
         "actual_weight": weight,
+        "actual_chargeable_weight": chargeable_weight,
         "actual_volume": volume,
         "actual_distance": distance,
         "actual_pieces": pieces,
@@ -221,6 +307,11 @@ def _get_quantity_for_calculation_method(
     # Per Unit, Base Plus Additional, First Plus Additional, Location-based
     ut = (unit_type or "Weight").strip().lower()
     if ut == "weight":
+        return flt(actual_data.get("actual_weight") or 0)
+    if ut == "chargeable weight":
+        cw = flt(actual_data.get("actual_chargeable_weight") or 0)
+        if cw > 0:
+            return cw
         return flt(actual_data.get("actual_weight") or 0)
     if ut == "volume":
         return flt(actual_data.get("actual_volume") or 0)
@@ -289,10 +380,15 @@ def _resolve_parent_doc_for_charge(charge_doc: Any, parent_doc: Optional[Any]) -
     if parent_doc is not None:
         return parent_doc
     parent_name = getattr(charge_doc, "parent", None)
-    if not parent_name or str(parent_name).startswith("new-") or parent_name in ("new", ""):
+    parenttype = getattr(charge_doc, "parenttype", None)
+    if not parent_name or not parenttype or str(parent_name).startswith("new-") or parent_name in ("new", ""):
         return None
+    cache = getattr(frappe.local, _CHARGE_RESOLUTION_PARENT_KEY, None) or {}
+    cached = cache.get((parenttype, parent_name))
+    if cached is not None:
+        return cached
     try:
-        return frappe.get_doc(charge_doc.parenttype, parent_name)
+        return frappe.get_doc(parenttype, parent_name)
     except Exception:
         return None
 
@@ -322,85 +418,301 @@ INTERNAL_JOB_MAIN_JOB_TYPES = (
 )
 
 
-def _find_matching_rate_in_tariff(tariff_name: str, item_code: str) -> Optional[Dict]:
-    """Find matching rate in tariff by item_code. Tariff has transport_rates child table."""
+# (table_name, field on child row to match against charge item_code)
+TARIFF_RATE_TABLES = (
+    ("air_freight_rates", "item_code"),
+    ("sea_freight_rates", "item_code"),
+    ("transport_rates", "item_code"),
+    ("customs_rates", "item_code"),
+    ("warehouse_rates", "item_charge"),
+)
+
+SERVICE_PREFERRED_TARIFF_TABLE = {
+    "Air": "air_freight_rates",
+    "Sea": "sea_freight_rates",
+    "Transport": "transport_rates",
+    "Customs": "customs_rates",
+    "Warehousing": "warehouse_rates",
+}
+
+
+def _tariff_rate_row_to_rate_data(rate) -> Optional[Dict]:
+    """Build uniform rate_data for _fetch_rates_from_tariff from any Tariff child row."""
+    d = rate.as_dict() if hasattr(rate, "as_dict") else dict(rate)
+    raw = d.get("rate")
+    if raw is None or raw == "":
+        raw = d.get("rate_value")
+    rate_num = flt(raw or 0)
+    method = (d.get("calculation_method") or "Per Unit").strip()
+    return {
+        "calculation_method": method,
+        "rate": rate_num,
+        "unit_type": d.get("unit_type") or "Weight",
+        "currency": d.get("currency") or "USD",
+        "minimum_quantity": flt(d.get("minimum_quantity", 0) or 0),
+        "minimum_charge": flt(d.get("minimum_charge", 0) or 0),
+        "maximum_charge": flt(d.get("maximum_charge", 0) or 0),
+        "base_amount": flt(d.get("base_amount", 0) or 0),
+        "uom": d.get("uom"),
+    }
+
+
+def _find_tariff_rate_match(
+    tariff_name: str,
+    item_code: str,
+    service_type: Optional[str] = None,
+) -> Optional[Tuple[Dict, Any, str]]:
+    """
+    Find matching rate row on Tariff by item (or warehouse item_charge). Returns
+    (normalized rate_data dict, raw child row, table_name), or None.
+    """
     if not tariff_name or not item_code:
         return None
     try:
         tariff_doc = frappe.get_doc("Tariff", tariff_name)
-        rates = getattr(tariff_doc, "transport_rates", None) or []
-        for rate in rates:
-            if getattr(rate, "item_code", None) == item_code:
-                return rate.as_dict() if hasattr(rate, "as_dict") else dict(rate)
-        return None
     except Exception:
         return None
+
+    tables: List[tuple] = list(TARIFF_RATE_TABLES)
+    pref = SERVICE_PREFERRED_TARIFF_TABLE.get((service_type or "").strip())
+    if pref:
+        tables = [t for t in tables if t[0] == pref] + [t for t in tables if t[0] != pref]
+
+    seen_tables: set = set()
+    for table_name, item_field in tables:
+        if table_name in seen_tables:
+            continue
+        seen_tables.add(table_name)
+        rows = getattr(tariff_doc, table_name, None) or []
+        for rate in rows:
+            if getattr(rate, item_field, None) != item_code:
+                continue
+            return (_tariff_rate_row_to_rate_data(rate), rate, table_name)
+    return None
+
+
+# Meta + pricing fields applied via _apply_tariff_rate_data_to_charge (not copied from raw row)
+TARIFF_CONTEXT_COPY_SKIP = frozenset(
+    {
+        "name",
+        "idx",
+        "owner",
+        "creation",
+        "modified",
+        "modified_by",
+        "docstatus",
+        "parent",
+        "parentfield",
+        "parenttype",
+        "doctype",
+        "item_code",
+        "item",
+        "item_name",
+        "description",
+        "is_active",
+        "valid_from",
+        "valid_to",
+        "calculation_method",
+        "rate",
+        "rate_value",
+        "currency",
+        "minimum_charge",
+        "maximum_charge",
+        "minimum_quantity",
+        "base_amount",
+        "uom",
+        "unit_type",
+    }
+)
+
+# Air tariff uses UNLOCO airport fields; Sales Quote Charge uses origin/destination_port
+TARIFF_TO_CHARGE_FIELD_ALIASES = {
+    "origin_airport": "origin_port",
+    "destination_airport": "destination_port",
+}
+
+
+def _copy_tariff_line_context_to_charge(charge_doc: Any, rate_row: Any) -> None:
+    """Copy route, equipment, and other line fields from a Tariff child row onto the charge when the field exists."""
+    if not rate_row:
+        return
+    d = rate_row.as_dict() if hasattr(rate_row, "as_dict") else dict(rate_row)
+    child_dt = d.get("doctype") or ""
+    for key, val in d.items():
+        if key in TARIFF_CONTEXT_COPY_SKIP or val is None or val == "":
+            continue
+        # FCL/LCL etc. on sea rate — do not overwrite charge Service Type (Air/Sea/Transport/…)
+        if key == "service_type" and child_dt == "Sea Freight Rate":
+            continue
+        target = TARIFF_TO_CHARGE_FIELD_ALIASES.get(key, key)
+        if not hasattr(charge_doc, target):
+            continue
+        try:
+            setattr(charge_doc, target, val)
+        except Exception:
+            pass
+
+
+def _fill_item_name_on_charge_from_item(charge_doc: Any) -> None:
+    ic = _get_item_code_from_charge(charge_doc)
+    if not ic or not hasattr(charge_doc, "item_name"):
+        return
+    iname = frappe.db.get_value("Item", ic, "item_name")
+    if iname:
+        charge_doc.item_name = iname
+
+
+# Fields to send back to desk so tariff rate + context populate the child row in the grid
+CHARGE_ROW_CLIENT_EXPORT_FIELDS = (
+    "revenue_calculation_method",
+    "calculation_method",
+    "unit_rate",
+    "rate",
+    "unit_type",
+    "currency",
+    "quantity",
+    "uom",
+    "minimum_quantity",
+    "minimum_charge",
+    "maximum_charge",
+    "base_amount",
+    "item_name",
+    "cost_calculation_method",
+    "unit_cost",
+    "cost_unit_type",
+    "cost_currency",
+    "cost_quantity",
+    "cost_uom",
+    "cost_minimum_quantity",
+    "cost_minimum_charge",
+    "cost_maximum_charge",
+    "cost_base_amount",
+    "use_tariff_in_revenue",
+    "use_tariff_in_cost",
+    "load_type",
+    "vehicle_type",
+    "container_type",
+    "location_type",
+    "location_from",
+    "location_to",
+    "origin_port",
+    "destination_port",
+    "shipping_line",
+    "airline",
+    "air_house_type",
+    "sea_house_type",
+    "freight_agent",
+    "freight_agent_sea",
+    "transport_mode",
+    "direction",
+    "customs_authority",
+    "declaration_type",
+    "customs_broker",
+    "customs_charge_category",
+    "pick_mode",
+    "drop_mode",
+    "transport_template",
+)
+
+
+def _charge_row_sync_dict_for_client(charge_doc: Any) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for f in CHARGE_ROW_CLIENT_EXPORT_FIELDS:
+        if hasattr(charge_doc, f):
+            out[f] = getattr(charge_doc, f)
+    return out
+
+
+def _apply_tariff_rate_data_revenue(charge_doc: Any, rate_data: Dict) -> None:
+    method = rate_data.get("calculation_method") or "Per Unit"
+    if hasattr(charge_doc, "revenue_calculation_method"):
+        charge_doc.revenue_calculation_method = method
+    if hasattr(charge_doc, "calculation_method"):
+        charge_doc.calculation_method = method
+    rate_val = rate_data.get("rate", 0)
+    if hasattr(charge_doc, "rate"):
+        charge_doc.rate = rate_val
+    if hasattr(charge_doc, "unit_rate"):
+        charge_doc.unit_rate = rate_val
+    if hasattr(charge_doc, "unit_type"):
+        charge_doc.unit_type = rate_data.get("unit_type")
+    if hasattr(charge_doc, "currency"):
+        charge_doc.currency = rate_data.get("currency") or "USD"
+    if hasattr(charge_doc, "minimum_quantity"):
+        charge_doc.minimum_quantity = rate_data.get("minimum_quantity", 0)
+    if hasattr(charge_doc, "minimum_charge"):
+        charge_doc.minimum_charge = rate_data.get("minimum_charge", 0)
+    if hasattr(charge_doc, "maximum_charge"):
+        charge_doc.maximum_charge = rate_data.get("maximum_charge", 0)
+    if hasattr(charge_doc, "base_amount"):
+        charge_doc.base_amount = rate_data.get("base_amount", 0)
+    if hasattr(charge_doc, "uom"):
+        charge_doc.uom = rate_data.get("uom")
+
+
+def _apply_tariff_rate_data_cost(charge_doc: Any, rate_data: Dict) -> None:
+    method = rate_data.get("calculation_method") or "Per Unit"
+    if hasattr(charge_doc, "cost_calculation_method"):
+        charge_doc.cost_calculation_method = method
+    if hasattr(charge_doc, "unit_cost"):
+        charge_doc.unit_cost = rate_data.get("rate", 0)
+    if hasattr(charge_doc, "cost_unit_type"):
+        charge_doc.cost_unit_type = rate_data.get("unit_type")
+    if hasattr(charge_doc, "cost_currency"):
+        charge_doc.cost_currency = rate_data.get("currency") or "USD"
+    if hasattr(charge_doc, "cost_minimum_quantity"):
+        charge_doc.cost_minimum_quantity = rate_data.get("minimum_quantity", 0)
+    if hasattr(charge_doc, "cost_minimum_charge"):
+        charge_doc.cost_minimum_charge = rate_data.get("minimum_charge", 0)
+    if hasattr(charge_doc, "cost_maximum_charge"):
+        charge_doc.cost_maximum_charge = rate_data.get("maximum_charge", 0)
+    if hasattr(charge_doc, "cost_base_amount"):
+        charge_doc.cost_base_amount = rate_data.get("base_amount", 0)
+    if hasattr(charge_doc, "cost_uom"):
+        charge_doc.cost_uom = rate_data.get("uom")
 
 
 def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
     """
-    When use_tariff_in_revenue or use_tariff_in_cost is set, fetch from revenue_tariff
-    or cost_tariff respectively and populate rate fields. Falls back to tariff if specific
-    one not set.
+    When item_code and revenue_tariff and/or cost_tariff are set, load the matching line from the
+    Tariff doctype: fill revenue/cost rate fields, route & equipment from the line where applicable,
+    and turn on the corresponding Use Tariff checkboxes. (use_tariff_in_* is not required to fetch.)
     """
+    if getattr(charge_doc, "_logistics_tariff_fetch_applied", False):
+        return
     item_code = _get_item_code_from_charge(charge_doc)
     if not item_code:
         return
 
-    # Revenue: use revenue_tariff, fallback to tariff
-    rev_tariff = getattr(charge_doc, "revenue_tariff", None) or getattr(charge_doc, "tariff", None)
-    if getattr(charge_doc, "use_tariff_in_revenue", False) and rev_tariff:
-        rate_data = _find_matching_rate_in_tariff(rev_tariff, item_code)
-        if rate_data:
-            method = rate_data.get("calculation_method") or "Per Unit"
-            if hasattr(charge_doc, "revenue_calculation_method"):
-                charge_doc.revenue_calculation_method = method
-            if hasattr(charge_doc, "calculation_method"):
-                charge_doc.calculation_method = method
-            rate_val = rate_data.get("rate", 0)
-            if hasattr(charge_doc, "rate"):
-                charge_doc.rate = rate_val
-            if hasattr(charge_doc, "unit_rate"):
-                charge_doc.unit_rate = rate_val
-            if hasattr(charge_doc, "unit_type"):
-                charge_doc.unit_type = rate_data.get("unit_type")
-            if hasattr(charge_doc, "currency"):
-                charge_doc.currency = rate_data.get("currency") or "USD"
-            if hasattr(charge_doc, "minimum_quantity"):
-                charge_doc.minimum_quantity = rate_data.get("minimum_quantity", 0)
-            if hasattr(charge_doc, "minimum_charge"):
-                charge_doc.minimum_charge = rate_data.get("minimum_charge", 0)
-            if hasattr(charge_doc, "maximum_charge"):
-                charge_doc.maximum_charge = rate_data.get("maximum_charge", 0)
-            if hasattr(charge_doc, "base_amount"):
-                charge_doc.base_amount = rate_data.get("base_amount", 0)
-            if hasattr(charge_doc, "uom"):
-                charge_doc.uom = rate_data.get("uom")
+    st = getattr(charge_doc, "service_type", None)
 
-    # Cost: use cost_tariff, fallback to tariff
+    # Revenue: revenue_tariff (legacy: generic tariff) + item
+    rev_tariff = getattr(charge_doc, "revenue_tariff", None) or getattr(charge_doc, "tariff", None)
+    if rev_tariff:
+        match = _find_tariff_rate_match(rev_tariff, item_code, st)
+        if match:
+            rate_data, rate_row, _tname = match
+            _apply_tariff_rate_data_revenue(charge_doc, rate_data)
+            _copy_tariff_line_context_to_charge(charge_doc, rate_row)
+            if hasattr(charge_doc, "use_tariff_in_revenue"):
+                charge_doc.use_tariff_in_revenue = 1
+
+    # Cost: cost_tariff (legacy: generic tariff) + item
     cost_tariff = getattr(charge_doc, "cost_tariff", None) or getattr(charge_doc, "tariff", None)
-    if getattr(charge_doc, "use_tariff_in_cost", False) and cost_tariff:
-        rate_data = _find_matching_rate_in_tariff(cost_tariff, item_code)
-        if rate_data:
-            method = rate_data.get("calculation_method") or "Per Unit"
-            if hasattr(charge_doc, "cost_calculation_method"):
-                charge_doc.cost_calculation_method = method
-            if hasattr(charge_doc, "unit_cost"):
-                charge_doc.unit_cost = rate_data.get("rate", 0)
-            if hasattr(charge_doc, "cost_unit_type"):
-                charge_doc.cost_unit_type = rate_data.get("unit_type")
-            if hasattr(charge_doc, "cost_currency"):
-                charge_doc.cost_currency = rate_data.get("currency") or "USD"
-            if hasattr(charge_doc, "cost_minimum_quantity"):
-                charge_doc.cost_minimum_quantity = rate_data.get("minimum_quantity", 0)
-            if hasattr(charge_doc, "cost_minimum_charge"):
-                charge_doc.cost_minimum_charge = rate_data.get("minimum_charge", 0)
-            if hasattr(charge_doc, "cost_maximum_charge"):
-                charge_doc.cost_maximum_charge = rate_data.get("maximum_charge", 0)
-            if hasattr(charge_doc, "cost_base_amount"):
-                charge_doc.cost_base_amount = rate_data.get("base_amount", 0)
-            if hasattr(charge_doc, "cost_uom"):
-                charge_doc.cost_uom = rate_data.get("uom")
+    if cost_tariff:
+        match = _find_tariff_rate_match(cost_tariff, item_code, st)
+        if match:
+            rate_data, rate_row, _tname = match
+            _apply_tariff_rate_data_cost(charge_doc, rate_data)
+            _copy_tariff_line_context_to_charge(charge_doc, rate_row)
+            if hasattr(charge_doc, "use_tariff_in_cost"):
+                charge_doc.use_tariff_in_cost = 1
+
+    _fill_item_name_on_charge_from_item(charge_doc)
+    try:
+        charge_doc._logistics_tariff_fetch_applied = True
+    except Exception:
+        pass
 
 
 def _prepare_rate_data(
@@ -643,6 +955,8 @@ def _calculate_charge_amount(
             actual_data["actual_quantity"] = row_qty
             if ut == "weight":
                 actual_data["actual_weight"] = row_qty
+            elif ut == "chargeable weight":
+                actual_data["actual_chargeable_weight"] = row_qty
             elif ut == "volume":
                 actual_data["actual_volume"] = row_qty
             elif ut in ("piece", "package"):
@@ -657,17 +971,26 @@ def _calculate_charge_amount(
                 actual_data["actual_operation_time"] = row_qty
 
     if is_revenue:
-        if getattr(charge_doc, "quantity", None) is None or (
-            isinstance(getattr(charge_doc, "quantity", None), (int, float))
-            and flt(charge_doc.quantity) == 0
-        ):
+        # Sales Quote: keep non-zero row quantity for estimating; operational: always follow parent actuals (same as cost).
+        if parent_is_sales_quote:
+            if getattr(charge_doc, "quantity", None) is None or (
+                isinstance(getattr(charge_doc, "quantity", None), (int, float))
+                and flt(charge_doc.quantity) == 0
+            ):
+                charge_doc.quantity = derived_qty
+        else:
             charge_doc.quantity = derived_qty
         result["quantity"] = flt(getattr(charge_doc, "quantity", None) or derived_qty)
     else:
-        if getattr(charge_doc, "cost_quantity", None) is None or (
-            isinstance(getattr(charge_doc, "cost_quantity", None), (int, float))
-            and flt(charge_doc.cost_quantity) == 0
-        ):
+        # Sales Quote: keep user/quote line cost_quantity when already set (estimating).
+        # Operational docs: cost_quantity always follows parent actuals + cost_unit_type / method.
+        if parent_is_sales_quote:
+            if getattr(charge_doc, "cost_quantity", None) is None or (
+                isinstance(getattr(charge_doc, "cost_quantity", None), (int, float))
+                and flt(charge_doc.cost_quantity) == 0
+            ):
+                charge_doc.cost_quantity = derived_qty
+        else:
             charge_doc.cost_quantity = derived_qty
         result["cost_quantity"] = flt(
             getattr(charge_doc, "cost_quantity", None) or derived_qty
@@ -774,6 +1097,7 @@ def _calculate_charge_amount(
         if actual_data.get("actual_weight", 0) <= 0 and actual_data.get("actual_volume", 0) <= 0:
             actual_data["actual_weight"] = qty_val
             actual_data["actual_volume"] = qty_val
+            actual_data["actual_chargeable_weight"] = qty_val
             actual_data["actual_pieces"] = max(actual_data.get("actual_pieces", 0), qty_val)
 
     try:
@@ -783,6 +1107,15 @@ def _calculate_charge_amount(
             result["amount"] = flt(res.get("amount", 0))
             result["calc_notes"] = res.get("calculation_details", "")
             result["success"] = True
+            # Align cost qty with engine when it reports units used (skip Flat Rate etc. where qty is 0)
+            if (
+                not is_revenue
+                and not parent_is_sales_quote
+                and res.get("quantity_used") is not None
+                and flt(res.get("quantity_used")) > 0
+            ):
+                charge_doc.cost_quantity = flt(res.get("quantity_used"))
+                result["cost_quantity"] = flt(res.get("quantity_used"))
         else:
             result["calc_notes"] = f"Charge calculation failed: {res.get('error', 'Unknown error')}"
             result["error"] = res.get("error")
@@ -956,7 +1289,13 @@ def apply_disbursement_charge_calculation_if_applicable(doc: Any, parent_doc: Op
 
 
 @frappe.whitelist()
-def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: str):
+def calculate_charge_row(
+    doctype: str,
+    parenttype: str,
+    parent: str,
+    row_data: str,
+    parent_overrides: Optional[str] = None,
+):
     """
     Recalculate estimated_revenue, estimated_cost, actual_revenue, and actual_cost for a charge row.
     Used by client-side form events when user changes rate (or unit_rate on quote rows), calculation_method, etc.
@@ -994,6 +1333,8 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
                 parent_doc = frappe.get_doc(parenttype, parent)
             except Exception:
                 pass
+        if parent_doc and parent_overrides and parenttype != "Sales Quote":
+            _apply_charge_parent_overrides(parent_doc, parent_overrides)
 
         charge_type = getattr(doc, "charge_type", None) or row_dict.get("charge_type")
         if charge_type == "Disbursement":
@@ -1023,6 +1364,7 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
                 "quantity": cq_f,
                 "cost_quantity": cq_f,
                 "disbursement_mirror": disbursement_mirror,
+                "row_updates": _charge_row_sync_dict_for_client(doc),
             }
 
         rev = calculate_charge_revenue(doc, parent_doc)
@@ -1044,6 +1386,7 @@ def calculate_charge_row(doctype: str, parenttype: str, parent: str, row_data: s
             "quantity": rev.get("quantity"),
             "cost_quantity": cost.get("cost_quantity"),
             "disbursement_mirror": None,
+            "row_updates": _charge_row_sync_dict_for_client(doc),
         }
     except Exception as e:
         frappe.log_error(f"Charge row calculation error: {str(e)}")

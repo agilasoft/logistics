@@ -31,27 +31,95 @@ _MBL_VIRTUAL_FIELD_SOURCES = (
 class SeaShipment(Document):
     def validate(self):
         """Validate Sea Shipment data"""
-        from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+        from logistics.utils.charges_calculation import (
+            clear_charge_resolution_parent,
+            register_charge_resolution_parent,
+        )
 
-        validate_internal_job_main_link_unchanged(self)
-        from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+        register_charge_resolution_parent(self)
+        try:
+            from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-        apply_shipper_consignee_defaults(self)
-        self._sync_freight_consolidator_from_sea_booking()
-        if self.is_new():
-            from logistics.sea_freight.sea_freight_settings_defaults import (
-                apply_accounting_defaults_from_sea_freight_settings,
-            )
+            validate_internal_job_main_link_unchanged(self)
+            from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
-            apply_accounting_defaults_from_sea_freight_settings(self)
-        # Normalize legacy house_type values
-        self._normalize_house_type()
-        update_parent_dg_compliance_status(self)
-        self.validate_accounts()
-        self.validate_dates()
-        self.validate_duplicates()
+            apply_shipper_consignee_defaults(self)
+            self._sync_freight_consolidator_from_sea_booking()
+            if self.is_new():
+                from logistics.sea_freight.sea_freight_settings_defaults import (
+                    apply_accounting_defaults_from_sea_freight_settings,
+                )
+
+                apply_accounting_defaults_from_sea_freight_settings(self)
+            # Normalize legacy house_type values
+            self._normalize_house_type()
+            update_parent_dg_compliance_status(self)
+            self.validate_accounts()
+            self.validate_dates()
+            self.validate_duplicates()
+            self._prepare_header_totals_for_charge_calculation()
+            self._sync_charges_with_parent_actuals()
+            self._update_packing_summary()
+            self._apply_uom_defaults()
+            self.validate_weight_volume()
+            self.validate_packages()
+            self.validate_containers()
+            self.validate_master_bill()
+            self.validate_main_routing_legs_by_entry_type()
+            try:
+                from logistics.job_management.recognition_engine import (
+                    sync_job_recognition_fields_from_policy,
+                )
+
+                sync_job_recognition_fields_from_policy(self)
+            except Exception:
+                pass
+
+            from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+            msgprint_sales_quote_validity_warnings(self)
+
+            if getattr(self, "sales_quote", None):
+                from frappe.utils import cint
+
+                from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                    resolve_allow_linked_freight_bookings_for_internal_job,
+                    resolve_single_main_air_booking_for_sales_quote,
+                    resolve_single_main_sea_booking_for_sales_quote,
+                    validate_one_off_quote_not_converted,
+                )
+
+                allow_sea = (getattr(self, "sea_booking", None) or "").strip() or None
+                allow_air = None
+                r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+                if r_sea:
+                    allow_sea = allow_sea or (r_sea or "").strip() or None
+                if r_air:
+                    allow_air = (r_air or "").strip() or None
+                if not allow_sea:
+                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+                if not allow_air:
+                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+                validate_one_off_quote_not_converted(
+                    self.sales_quote,
+                    self.doctype,
+                    self.name,
+                    allow_linked_sea_booking=allow_sea,
+                    allow_linked_air_booking=allow_air,
+                    allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
+                )
+
+            from logistics.job_management.logistics_job_status import sync_sea_shipment_job_status
+
+            sync_sea_shipment_job_status(self)
+
+        finally:
+            clear_charge_resolution_parent(self)
+
+    def _prepare_header_totals_for_charge_calculation(self):
         try:
             from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+
             apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
         except Exception:
             pass
@@ -59,59 +127,15 @@ class SeaShipment(Document):
             self.aggregate_volume_from_packages()
             self.aggregate_weight_from_packages()
         self._ensure_total_volume_weight()
-        self._update_packing_summary()
-        self._apply_uom_defaults()
-        self.validate_weight_volume()
-        self.validate_packages()
-        self.validate_containers()
-        self.validate_master_bill()
-        self.validate_main_routing_legs_by_entry_type()
-        try:
-            from logistics.job_management.recognition_engine import (
-                sync_job_recognition_fields_from_policy,
-            )
 
-            sync_job_recognition_fields_from_policy(self)
-        except Exception:
-            pass
-
-        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
-
-        msgprint_sales_quote_validity_warnings(self)
-
-        if getattr(self, "sales_quote", None):
-            from frappe.utils import cint
-
-            from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-                resolve_allow_linked_freight_bookings_for_internal_job,
-                resolve_single_main_air_booking_for_sales_quote,
-                resolve_single_main_sea_booking_for_sales_quote,
-                validate_one_off_quote_not_converted,
-            )
-
-            allow_sea = (getattr(self, "sea_booking", None) or "").strip() or None
-            allow_air = None
-            r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-            if r_sea:
-                allow_sea = allow_sea or (r_sea or "").strip() or None
-            if r_air:
-                allow_air = (r_air or "").strip() or None
-            if not allow_sea:
-                allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-            if not allow_air:
-                allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-            validate_one_off_quote_not_converted(
-                self.sales_quote,
-                self.doctype,
-                self.name,
-                allow_linked_sea_booking=allow_sea,
-                allow_linked_air_booking=allow_air,
-                allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
-            )
-
-        from logistics.job_management.logistics_job_status import sync_sea_shipment_job_status
-
-        sync_sea_shipment_job_status(self)
+    def _sync_charges_with_parent_actuals(self):
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(self.flags, "ignore_charges_sync", False):
+            return
+        for charge in self.get("charges") or []:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=self)
 
     def _sync_freight_consolidator_from_sea_booking(self):
         """Keep Freight Consolidator aligned with the linked Sea Booking when set there."""
@@ -870,9 +894,18 @@ class SeaShipment(Document):
                 return True
         except Exception:
             pass
-        # Fallback: use the other shipment's shipping_status
-        shipping_status = frappe.db.get_value("Sea Shipment", other_shipment_name, "shipping_status")
-        return shipping_status in ("Empty Container Returned", "Closed")
+        # Fallback: use the other shipment's job/shipping status
+        row = frappe.db.get_value(
+            "Sea Shipment",
+            other_shipment_name,
+            ["shipping_status", "job_status"],
+            as_dict=True,
+        )
+        if not row:
+            return False
+        if (row.get("job_status") or "") in ("Completed", "Closed", "Cancelled"):
+            return True
+        return (row.get("shipping_status") or "") in ("Empty Container Returned", "Closed")
     
     def validate_master_bill(self):
         """Validate Master Bill if linked"""
@@ -1444,6 +1477,13 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             return [shipment.local_customer]
         return [customer]
 
+    from logistics.utils.freight_95_5 import (
+        apply_freight_95_post_missing_values,
+        build_sales_invoice_item_payloads_for_charge,
+    )
+
+    si_item_meta = frappe.get_meta("Sales Invoice Item")
+    freight_95_line_indices = []
     for charge in shipment.charges or []:
         if customer not in _si_customers_for_charge(charge):
             continue
@@ -1454,33 +1494,39 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             or flt(getattr(charge, "base_amount", None))
             or flt(getattr(charge, "estimated_revenue", None))
         )
-        if not charge.charge_item:
+        item_code = getattr(charge, "item_code", None) or getattr(charge, "charge_item", None)
+        if not item_code:
             continue
-        item_payload = {
-            "item_code": charge.charge_item,
-            "item_name": charge.charge_name or charge.charge_item,
-            "description": charge.charge_description,
-            "qty": 1,
-            "rate": selling_rate,
-            "currency": charge.selling_currency or None,
-            "item_tax_template": charge.item_tax_template or None,
-        }
-
-        if getattr(shipment, "cost_center", None):
-            item_payload["cost_center"] = shipment.cost_center
-        if getattr(shipment, "profit_center", None):
-            item_payload["profit_center"] = shipment.profit_center
-        si_item_meta = frappe.get_meta("Sales Invoice Item")
-        if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
-            item_payload["reference_doctype"] = "Sea Shipment"
-            item_payload["reference_name"] = shipment.name
-
-        invoice.append("items", item_payload)
+        item_name = getattr(charge, "item_name", None) or getattr(charge, "charge_name", None) or item_code
+        description = getattr(charge, "charge_description", None) or getattr(charge, "description", None)
+        job_ref = getattr(shipment, "job_number", None)
+        payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
+            charge,
+            flt(selling_rate),
+            item_code=item_code,
+            item_name=item_name,
+            description=description,
+            job_type="Sea Shipment",
+            company=shipment.company,
+            currency=getattr(charge, "selling_currency", None) or getattr(charge, "currency", None),
+            cost_center=getattr(shipment, "cost_center", None),
+            profit_center=getattr(shipment, "profit_center", None),
+            job_ref=job_ref,
+            si_item_meta=si_item_meta,
+            reference_doctype="Sea Shipment",
+            reference_name=shipment.name,
+        )
+        start_idx = len(invoice.items)
+        for p in payloads:
+            invoice.append("items", p)
+        for rel in clear_rel:
+            freight_95_line_indices.append(start_idx + rel)
 
     if not invoice.items:
         frappe.throw(_("No matching charges found for the selected customer and invoice type."))
 
     invoice.set_missing_values()
+    apply_freight_95_post_missing_values(invoice, freight_95_line_indices)
     invoice.insert(ignore_permissions=True)
     
     # Update Sea Shipment with Sales Invoice reference and lifecycle

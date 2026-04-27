@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import format_date, today, flt, getdate
+from frappe.utils import format_date, today, flt, getdate, cint
 
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.party_address_contact_from_masters import (
@@ -1447,6 +1447,8 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
+			"charge_type", "charge_category",
+			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
 			"revenue_tariff", "cost_tariff", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
@@ -1634,14 +1636,12 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 		elif _af_r("unit_type") == "Shipment" or calculation_method == "Flat Rate":
 			quantity = 1
 		
-		# Determine charge_type and charge_category from item or use defaults
-		charge_type = "Other"
-		charge_category = "Other"
-		
-		if hasattr(item_doc, 'custom_charge_type'):
-			charge_type = item_doc.custom_charge_type or "Other"
-			if hasattr(item_doc, 'custom_charge_category'):
-				charge_category = item_doc.custom_charge_category or "Other"
+		charge_type = _af_r("charge_type") or (
+			item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
+		) or "Other"
+		charge_category = _af_r("charge_category") or (
+			item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
+		) or "Other"
 		
 		normalized_uom = _normalize_uom_for_air_booking_charges(
 			_af_r("uom"),
@@ -1680,6 +1680,13 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 		if _af_r("maximum_charge"):
 			charge_data["maximum_charge"] = _af_r("maximum_charge")
 
+		if _af_r("apply_95_5_rule") is not None:
+			charge_data["apply_95_5_rule"] = cint(_af_r("apply_95_5_rule"))
+		if _af_r("taxable_freight_item"):
+			charge_data["taxable_freight_item"] = _af_r("taxable_freight_item")
+		if _af_r("taxable_freight_item_tax_template"):
+			charge_data["taxable_freight_item_tax_template"] = _af_r("taxable_freight_item_tax_template")
+
 		return charge_data
 
 	except Exception as e:
@@ -1714,6 +1721,8 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
+			"charge_type", "charge_category",
+			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
 			"revenue_tariff", "cost_tariff", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
@@ -1847,11 +1856,13 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		else:
 			selling_amount = _sf_ur
 		
-		# Determine charge_type from item or use default
-		charge_type = "Other"
-		if hasattr(item_doc, 'custom_charge_type'):
-			charge_type = item_doc.custom_charge_type or "Other"
-		
+		charge_type = _sf_r("charge_type") or (
+			item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
+		) or "Other"
+		charge_category = _sf_r("charge_category") or (
+			item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
+		) or "Other"
+
 		_sq_st = (
 			sqsf_record.get("service_type")
 			if isinstance(sqsf_record, dict)
@@ -1863,6 +1874,7 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"charge_item": _sf_r("item_code"),
 			"charge_name": _sf_r("item_name") or item_doc.item_name,
 			"charge_type": charge_type,
+			"charge_category": charge_category,
 			"charge_description": _sf_r("item_name") or item_doc.item_name,
 			"bill_to": getattr(sqsf_record, "bill_to", None) or (sea_shipment.local_customer if hasattr(sea_shipment, 'local_customer') else None),
 			"pay_to": getattr(sqsf_record, "pay_to", None),
@@ -1882,6 +1894,13 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		# Add minimum charge if available
 		if _sf_r("minimum_charge"):
 			charge_data["minimum"] = _sf_r("minimum_charge")
+
+		if _sf_r("apply_95_5_rule") is not None:
+			charge_data["apply_95_5_rule"] = cint(_sf_r("apply_95_5_rule"))
+		if _sf_r("taxable_freight_item"):
+			charge_data["taxable_freight_item"] = _sf_r("taxable_freight_item")
+		if _sf_r("taxable_freight_item_tax_template"):
+			charge_data["taxable_freight_item_tax_template"] = _sf_r("taxable_freight_item_tax_template")
 
 		return charge_data
 
@@ -2097,7 +2116,9 @@ def validate_one_off_quote_not_converted(
 		allow_linked_air_booking: Air Booking name for the same job chain (e.g. Air Shipment's parent booking).
 		allow_main_transport_if_converted_to_declaration_order: If True and current doc is a main-service Transport Order,
 			Sea/Air Shipment, or Sea/Air Booking, allow when the quote is already marked converted to a Declaration Order
-			(customs leg submitted first; freight main leg is part of the same job chain).
+			(customs leg submitted first; freight main leg is part of the same job chain). For Transport Order, this
+			may also be True for an internal-job order when it is tied to the same chain (caller passes True only if
+			linked Sea/Air booking resolution succeeded).
 		
 	Raises:
 		frappe.ValidationError: If quote is already converted or linked to another document

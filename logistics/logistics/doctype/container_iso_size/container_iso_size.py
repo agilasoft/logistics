@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class ContainerMake(Document):
+class ContainerISOSize(Document):
 	pass

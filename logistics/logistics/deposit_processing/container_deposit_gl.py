@@ -2,10 +2,12 @@
 # For license information, please see license.txt
 
 """
-Journal Entry posting for container deposits per design:
-- Pending carrier pay: Dr clearing, Cr Debtors (party Customer).
-- Pending refund from carrier: Dr Debtors (party Customer), Cr clearing.
-- Bank settlement: reversing / clearing pairs against Debtors and Bank.
+Container deposit (PI-only path):
+- Purchase Invoice: expense hits Sea Freight Settings CD Pending Refund Request (see container_deposit_pi).
+- Request CD Refund: Journal Entry Dr AR-Shipping Lines (Customer) / Cr CD Pending Refund Request.
+- Operational charges: standalone Container Charge rows (link Container) reduce rolled-up deposit_amount.
+
+Legacy clearing/bank carrier Journal Entry actions were removed; carrier payment is via PI only.
 """
 
 import frappe
@@ -33,30 +35,6 @@ def _company_for_row(container_doc, deposit_row):
 		or frappe.db.get_single_value("Global Defaults", "default_company")
 		or (frappe.get_all("Company", filters={}, limit_page_length=1, pluck="name") or [None])[0]
 	)
-
-
-def _debtors_account(company):
-	s = _settings()
-	if s.get("container_deposit_debtors_account"):
-		return s.container_deposit_debtors_account
-	acc = frappe.db.get_value("Company", company, "default_receivable_account")
-	if not acc:
-		frappe.throw(_("Set Default Receivable Account for Company {0} or Debtors override in Logistics Settings.").format(company))
-	return acc
-
-
-def _clearing_account():
-	s = _settings()
-	if not s.get("container_deposit_clearing_account"):
-		frappe.throw(_("Set Deposit clearing account in Logistics Settings (Container deposits section)."))
-	return s.container_deposit_clearing_account
-
-
-def _bank_account(company):
-	acc = frappe.db.get_value("Company", company, "default_bank_account")
-	if not acc:
-		frappe.throw(_("Set default bank account for Company {0}.").format(company))
-	return acc
 
 
 def _job_dimensions(job_number):
@@ -106,10 +84,44 @@ def _append_je_line(je, account, debit, credit, party_type=None, party=None, job
 	je.append("accounts", row)
 
 
-def _assert_not_linked(row):
-	if row.get("reference_doctype") == "Journal Entry" and row.get("reference_name"):
-		if frappe.db.get_value("Journal Entry", row.reference_name, "docstatus") == 1:
-			frappe.throw(_("This line is already linked to submitted Journal Entry {0}.").format(row.reference_name))
+def total_container_charges_for_container(container_name):
+	"""Sum Container Charge.total_amount for this container (non-cancelled documents)."""
+	if not container_name:
+		return 0.0
+	r = frappe.db.sql(
+		"""
+		SELECT COALESCE(SUM(total_amount), 0) FROM `tabContainer Charge`
+		WHERE container = %s AND IFNULL(docstatus, 0) != 2
+		""",
+		(container_name,),
+	)
+	return flt(r[0][0] if r else 0)
+
+
+def _pay_carrier_pi_base(container_doc):
+	return sum(
+		flt(r.deposit_amount)
+		for r in container_doc.get("deposits") or []
+		if (r.get("event_type") or "") == "Pay Carrier"
+		and flt(r.deposit_amount) > 0
+		and r.get("purchase_invoice")
+	)
+
+
+def pro_rata_charge_allocation_for_row(container_doc, deposit_row):
+	total_ch = total_container_charges_for_container(container_doc.name)
+	if total_ch <= 0:
+		return 0.0
+	base = _pay_carrier_pi_base(container_doc)
+	if base <= 0:
+		return 0.0
+	row_amt = flt(deposit_row.deposit_amount)
+	return total_ch * (row_amt / base)
+
+
+def net_refund_amount_after_charges(container_doc, deposit_row):
+	gross = flt(deposit_row.deposit_amount)
+	return max(gross - pro_rata_charge_allocation_for_row(container_doc, deposit_row), 0)
 
 
 def assert_refund_readiness(container_doc):
@@ -166,133 +178,6 @@ def materialize_refund_readiness(container_name):
 	return doc.name
 
 
-@frappe.whitelist()
-def create_pending_carrier_pay_je(container_name, child_row_name):
-	"""Dr clearing, Cr Debtors — pending payment to carrier (AR policy)."""
-	container = frappe.get_doc("Container", container_name)
-	row = _get_deposit_row(container, child_row_name)
-	_require_job_number_if_enabled(row)
-	_require_debtor_for_ar(row)
-	_assert_not_linked(row)
-	amt = flt(row.deposit_amount)
-	if amt <= 0:
-		frappe.throw(_("Deposit amount must be positive."), title=_("Container deposit"))
-	company = _company_for_row(container, row)
-	clearing = _clearing_account()
-	debtors = _debtors_account(company)
-
-	je = frappe.new_doc("Journal Entry")
-	je.company = company
-	je.posting_date = row.deposit_date or getdate(nowdate())
-	je.voucher_type = "Journal Entry"
-	je.user_remark = _("Container deposit pending carrier pay {0}").format(container_name)
-
-	_append_je_line(je, clearing, amt, 0, job_number=row.get("job_number"))
-	_append_je_line(je, debtors, 0, amt, party_type="Customer", party=row.debtor_party, job_number=row.get("job_number"))
-
-	je.insert()
-	je.submit()
-
-	frappe.db.set_value(
-		"Container Deposit",
-		row.name,
-		{"reference_doctype": "Journal Entry", "reference_name": je.name},
-	)
-
-	return je.name
-
-
-@frappe.whitelist()
-def create_pending_refund_from_carrier_je(container_name, child_row_name):
-	"""Dr Debtors, Cr clearing — carrier refund requested, not yet at bank."""
-	container = frappe.get_doc("Container", container_name)
-	assert_refund_readiness(container)
-	row = _get_deposit_row(container, child_row_name)
-	_require_job_number_if_enabled(row)
-	_require_debtor_for_ar(row)
-	_assert_not_linked(row)
-	amt = flt(row.refund_amount or row.deposit_amount)
-	if amt <= 0:
-		frappe.throw(_("Refund amount (or deposit amount) must be positive."), title=_("Container deposit"))
-	company = _company_for_row(container, row)
-	clearing = _clearing_account()
-	debtors = _debtors_account(company)
-
-	je = frappe.new_doc("Journal Entry")
-	je.company = company
-	je.posting_date = row.refund_date or row.deposit_date or getdate(nowdate())
-	je.voucher_type = "Journal Entry"
-	je.user_remark = _("Container deposit pending refund from carrier {0}").format(container_name)
-
-	_append_je_line(je, debtors, amt, 0, party_type="Customer", party=row.debtor_party, job_number=row.get("job_number"))
-	_append_je_line(je, clearing, 0, amt, job_number=row.get("job_number"))
-
-	je.insert()
-	je.submit()
-
-	frappe.db.set_value(
-		"Container Deposit",
-		row.name,
-		{"reference_doctype": "Journal Entry", "reference_name": je.name},
-	)
-
-	return je.name
-
-
-@frappe.whitelist()
-def create_bank_settle_carrier_pay_je(container_name, child_row_name):
-	"""After pending carrier pay (Cr Debtors): Dr Debtors, Cr Bank."""
-	container = frappe.get_doc("Container", container_name)
-	row = _get_deposit_row(container, child_row_name)
-	_require_debtor_for_ar(row)
-	amt = flt(row.deposit_amount)
-	if amt <= 0:
-		frappe.throw(_("Deposit amount must be positive."), title=_("Container deposit"))
-	company = _company_for_row(container, row)
-	debtors = _debtors_account(company)
-	bank = _bank_account(company)
-
-	je = frappe.new_doc("Journal Entry")
-	je.company = company
-	je.posting_date = getdate(nowdate())
-	je.voucher_type = "Journal Entry"
-	je.user_remark = _("Container deposit bank pay carrier {0}").format(container_name)
-
-	_append_je_line(je, debtors, amt, 0, party_type="Customer", party=row.debtor_party, job_number=row.get("job_number"))
-	_append_je_line(je, bank, 0, amt, job_number=row.get("job_number"))
-
-	je.insert()
-	je.submit()
-	return je.name
-
-
-@frappe.whitelist()
-def create_bank_receive_carrier_refund_je(container_name, child_row_name):
-	"""After pending refund (Dr Debtors): Dr Bank, Cr Debtors."""
-	container = frappe.get_doc("Container", container_name)
-	row = _get_deposit_row(container, child_row_name)
-	_require_debtor_for_ar(row)
-	amt = flt(row.refund_amount or row.deposit_amount)
-	if amt <= 0:
-		frappe.throw(_("Refund amount must be positive."), title=_("Container deposit"))
-	company = _company_for_row(container, row)
-	debtors = _debtors_account(company)
-	bank = _bank_account(company)
-
-	je = frappe.new_doc("Journal Entry")
-	je.company = company
-	je.posting_date = getdate(nowdate())
-	je.voucher_type = "Journal Entry"
-	je.user_remark = _("Container deposit bank receive carrier refund {0}").format(container_name)
-
-	_append_je_line(je, bank, amt, 0, job_number=row.get("job_number"))
-	_append_je_line(je, debtors, 0, amt, party_type="Customer", party=row.debtor_party, job_number=row.get("job_number"))
-
-	je.insert()
-	je.submit()
-	return je.name
-
-
 def _get_deposit_row(container_doc, child_row_name):
 	for r in container_doc.get("deposits") or []:
 		if r.name == child_row_name:
@@ -300,8 +185,90 @@ def _get_deposit_row(container_doc, child_row_name):
 	frappe.throw(_("Deposit row not found."), title=_("Container deposit"))
 
 
+def _container_eligible_for_cd_refund_request(container_doc):
+	rs = getattr(container_doc, "return_status", None) or ""
+	st = getattr(container_doc, "status", None) or ""
+	if rs == "Returned":
+		return True
+	if st in ("Empty Returned", "Closed"):
+		return True
+	return False
+
+
+@frappe.whitelist()
+def create_request_cd_refund_journal_entry(container_name, child_row_name):
+	"""Dr AR-Shipping Lines (Customer), Cr CD Pending Refund Request — after container is returned."""
+	container = frappe.get_doc("Container", container_name)
+	if not _container_eligible_for_cd_refund_request(container):
+		frappe.throw(
+			_("Container must be returned (empty returned / closed) before requesting CD refund."),
+			title=_("Request CD Refund"),
+		)
+	assert_refund_readiness(container)
+	row = _get_deposit_row(container, child_row_name)
+	if not row.get("purchase_invoice"):
+		frappe.throw(
+			_("This deposit line is not linked to a container-deposit Purchase Invoice."),
+			title=_("Request CD Refund"),
+		)
+	if frappe.db.get_value("Purchase Invoice", row.purchase_invoice, "docstatus") != 1:
+		frappe.throw(_("Purchase Invoice must be submitted."), title=_("Request CD Refund"))
+	if row.get("refund_request_journal_entry"):
+		frappe.throw(_("Refund request Journal Entry already exists for this line."), title=_("Request CD Refund"))
+	if flt(row.deposit_amount) <= 0:
+		frappe.throw(_("Deposit amount must be positive."), title=_("Request CD Refund"))
+	amt = net_refund_amount_after_charges(container, row)
+	if amt <= 0:
+		frappe.throw(
+			_("Nothing to refund after container charges (net is zero or negative)."),
+			title=_("Request CD Refund"),
+		)
+	_require_debtor_for_ar(row)
+	try:
+		sf = frappe.get_single("Sea Freight Settings")
+	except Exception:
+		sf = None
+	if not sf:
+		frappe.throw(_("Sea Freight Settings not found."), title=_("Request CD Refund"))
+	pending = sf.get("container_deposit_pending_refund_account")
+	ar_acc = sf.get("container_deposit_ar_shipping_lines_account")
+	if not pending or not ar_acc:
+		frappe.throw(
+			_("Set CD Pending Refund Request and AR-Shipping Lines in Sea Freight Settings."),
+			title=_("Request CD Refund"),
+		)
+	ar_doc = frappe.get_doc("Account", ar_acc)
+	if getattr(ar_doc, "account_type", None) != "Receivable":
+		frappe.throw(_("AR-Shipping Lines must be a Receivable account."), title=_("Request CD Refund"))
+	company = _company_for_row(container, row)
+	_require_job_number_if_enabled(row)
+
+	je = frappe.new_doc("Journal Entry")
+	je.company = company
+	je.posting_date = getdate(nowdate())
+	je.voucher_type = "Journal Entry"
+	je.user_remark = _("Container deposit refund request {0}").format(container_name)
+
+	_append_je_line(
+		je,
+		ar_acc,
+		amt,
+		0,
+		party_type="Customer",
+		party=row.debtor_party,
+		job_number=row.get("job_number"),
+	)
+	_append_je_line(je, pending, 0, amt, job_number=row.get("job_number"))
+
+	je.insert()
+	je.submit()
+
+	frappe.db.set_value("Container Deposit", row.name, "refund_request_journal_entry", je.name)
+	return je.name
+
+
 def sync_deposit_header_from_child_rows(container_doc):
-	"""Roll up child lines into header summary fields."""
+	"""Roll up child deposit lines into header summary; subtract standalone Container Charge totals."""
 	rows = container_doc.get("deposits") or []
 	net = 0
 	cur = None
@@ -320,7 +287,13 @@ def sync_deposit_header_from_child_rows(container_doc):
 			cur = r.deposit_currency
 		if r.get("deposit_date") and amt:
 			last_paid = r.deposit_date
-	container_doc.deposit_amount = max(net, 0)
+
+	charges_sum = total_container_charges_for_container(container_doc.name)
+	meta = getattr(container_doc, "meta", None) or frappe.get_meta(container_doc.doctype)
+	if meta.has_field("container_charges_total"):
+		container_doc.container_charges_total = charges_sum
+
+	container_doc.deposit_amount = max(net - charges_sum, 0)
 	if cur:
 		container_doc.deposit_currency = cur
 	if last_paid:

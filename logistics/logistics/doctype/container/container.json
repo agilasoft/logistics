@@ -44,6 +44,8 @@
   "deposit_history_tab",
   "section_deposits",
   "deposits",
+  "section_container_charges_summary",
+  "container_charges_total",
   "refund_readiness_tab",
   "section_refund_readiness",
   "refund_readiness",
@@ -267,6 +269,20 @@
    "fieldtype": "Table",
    "label": "Deposits",
    "options": "Container Deposit"
+  },
+  {
+   "collapsible": 1,
+   "description": "Sum of **Container Charge** documents linked to this container (standalone records). Deducted from the deposit roll-up below. Enter charges via Container Charge, not here.",
+   "fieldname": "section_container_charges_summary",
+   "fieldtype": "Section Break",
+   "label": "Charges (Container Charge)"
+  },
+  {
+   "description": "Total of Container Charge.total_amount for this container (non-cancelled). Subtracted from deposit roll-up.",
+   "fieldname": "container_charges_total",
+   "fieldtype": "Currency",
+   "label": "Total charges",
+   "read_only": 1
   },
   {
    "fieldname": "section_links",

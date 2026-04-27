@@ -2,13 +2,10 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Declaration Order Charges", {
-	charge_type: function(frm, cdt, cdn) {
-		var row = locals[cdt] && locals[cdt][cdn];
-		if (row && row.charge_type === "Disbursement") {
-			_calculate_charge_row(frm, cdt, cdn);
-		}
-	},
+	item_code: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	charge_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
@@ -31,7 +28,11 @@ function _calculate_charge_row(frm, cdt, cdn) {
 			doctype: "Declaration Order Charges",
 			parenttype: "Declaration Order",
 			parent: frm.doc.name || "new",
-			row_data: JSON.stringify(row)
+			row_data: JSON.stringify(row),
+			parent_overrides:
+				window.logistics && logistics.charge_row_parent_overrides
+					? logistics.charge_row_parent_overrides(frm)
+					: null,
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {

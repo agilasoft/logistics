@@ -14,7 +14,10 @@
   "air",
   "sea",
   "rail",
-  "road"
+  "road",
+  "locations_tab",
+  "section_served_unlocs",
+  "served_unlocs"
  ],
  "fields": [
   {
@@ -64,6 +67,22 @@
    "fieldname": "road",
    "fieldtype": "Check",
    "label": "Road"
+  },
+  {
+   "fieldname": "locations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Locations"
+  },
+  {
+   "fieldname": "section_served_unlocs",
+   "fieldtype": "Section Break",
+   "label": "UNLOCO coverage"
+  },
+  {
+   "fieldname": "served_unlocs",
+   "fieldtype": "Table",
+   "label": "Served UNLOCOs",
+   "options": "CTO Unloco"
   }
  ],
  "grid_page_length": 50,

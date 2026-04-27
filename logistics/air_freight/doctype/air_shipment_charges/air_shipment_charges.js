@@ -45,7 +45,11 @@ function _calculate_charge_row(frm, cdt, cdn) {
 			doctype: "Air Shipment Charges",
 			parenttype: "Air Shipment",
 			parent: frm.doc.name || "new",
-			row_data: JSON.stringify(row)
+			row_data: JSON.stringify(row),
+			parent_overrides:
+				window.logistics && logistics.charge_row_parent_overrides
+					? logistics.charge_row_parent_overrides(frm)
+					: null,
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {

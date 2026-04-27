@@ -11,75 +11,98 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""
-        from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+        from logistics.utils.charges_calculation import (
+            clear_charge_resolution_parent,
+            register_charge_resolution_parent,
+        )
 
-        validate_internal_job_main_link_unchanged(self)
-        from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
-
-        apply_shipper_consignee_defaults(self)
-        # DEBUG: Log all validation calls
+        register_charge_resolution_parent(self)
         try:
-            frappe.log_error(
-                f"Transport Job {self.name} validate() called - transport_job_type: {repr(self.get('transport_job_type'))}, "
-                f"container_type: {repr(self.get('container_type'))}, container_no: {repr(self.get('container_no'))}",
-                "Transport Job Validate Debug"
-            )
-        except Exception:
-            pass
-        
-        # Reset status and docstatus for new/duplicated documents
-        # When duplicating, both status and docstatus are copied from the original, so we need to reset them
-        if self.is_new():
-            # Always reset docstatus to 0 for new documents (duplicates may have docstatus = 1)
-            self.docstatus = 0
-            # Always reset status to Draft for new documents (duplicates may have status = Submitted/In Progress/Completed)
-            self.status = "Draft"
-        
-        self.validate_required_fields()
-        # Validate transport job type - only when it IS set (like Transport Order does)
-        # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
-        self._validate_transport_job_type()
-        self._validate_load_type_compatibility()
-        self.validate_legs()
-        self.validate_accounts()
-        self.validate_status_transition()
-        
-        # Prevent duplicate Transport Jobs for the same transport_order
-        self._validate_no_duplicate_transport_order()
-        try:
-            from logistics.job_management.recognition_engine import sync_job_recognition_fields_from_policy
-            sync_job_recognition_fields_from_policy(self)
-        except Exception:
-            pass
-        
-        # Copy service level from Transport Order when transport_order is set
-        self._copy_service_level_from_order()
-        
-        # Capacity validation
-        self.validate_vehicle_type_capacity()
-        self.validate_capacity()
+            from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-        # Convert package measurements when UOM was changed (e.g. after import)
+            validate_internal_job_main_link_unchanged(self)
+            from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+            apply_shipper_consignee_defaults(self)
+            # DEBUG: Log all validation calls
+            try:
+                frappe.log_error(
+                    f"Transport Job {self.name} validate() called - transport_job_type: {repr(self.get('transport_job_type'))}, "
+                    f"container_type: {repr(self.get('container_type'))}, container_no: {repr(self.get('container_no'))}",
+                    "Transport Job Validate Debug"
+                )
+            except Exception:
+                pass
+        
+            # Reset status and docstatus for new/duplicated documents
+            # When duplicating, both status and docstatus are copied from the original, so we need to reset them
+            if self.is_new():
+                # Always reset docstatus to 0 for new documents (duplicates may have docstatus = 1)
+                self.docstatus = 0
+                # Always reset status to Draft for new documents (duplicates may have status = Submitted/In Progress/Completed)
+                self.status = "Draft"
+        
+            self.validate_required_fields()
+            # Validate transport job type - only when it IS set (like Transport Order does)
+            # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
+            self._validate_transport_job_type()
+            self._validate_load_type_compatibility()
+            self.validate_legs()
+            self.validate_accounts()
+            self.validate_status_transition()
+        
+            # Prevent duplicate Transport Jobs for the same transport_order
+            self._validate_no_duplicate_transport_order()
+            try:
+                from logistics.job_management.recognition_engine import sync_job_recognition_fields_from_policy
+                sync_job_recognition_fields_from_policy(self)
+            except Exception:
+                pass
+        
+            # Copy service level from Transport Order when transport_order is set
+            self._copy_service_level_from_order()
+        
+            # Capacity validation
+            self.validate_vehicle_type_capacity()
+            self.validate_capacity()
+
+            # Convert package measurements when UOM was changed (e.g. after import)
+            self._prepare_header_totals_for_charge_calculation()
+            self._sync_charges_with_parent_actuals()
+
+            from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+            msgprint_sales_quote_validity_warnings(self)
+
+            # DEBUG: Log after validation
+            try:
+                frappe.log_error(
+                    f"Transport Job {self.name} validate() completed successfully",
+                    "Transport Job Validate Debug"
+                )
+            except Exception:
+                pass
+
+        finally:
+            clear_charge_resolution_parent(self)
+
+    def _prepare_header_totals_for_charge_calculation(self):
         try:
             from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+
             apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
         except Exception:
             pass
-
         self._update_packing_summary()
 
-        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
-
-        msgprint_sales_quote_validity_warnings(self)
-
-        # DEBUG: Log after validation
-        try:
-            frappe.log_error(
-                f"Transport Job {self.name} validate() completed successfully",
-                "Transport Job Validate Debug"
-            )
-        except Exception:
-            pass
+    def _sync_charges_with_parent_actuals(self):
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(self.flags, "ignore_charges_sync", False):
+            return
+        for charge in self.get("charges") or []:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=self)
 
     def before_save(self):
         """Calculate sustainability metrics and create job costing number before saving"""
@@ -1590,7 +1613,14 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     # Use charges from Transport Job
     charges = job.get("charges") or []
     si_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
-    
+    from logistics.utils.freight_95_5 import (
+        apply_freight_95_post_missing_values,
+        build_sales_invoice_item_payloads_for_charge,
+    )
+
+    si_item_meta = frappe.get_meta("Sales Invoice Item")
+    freight_95_line_indices = []
+
     # Check if there are any charges with item_code
     valid_charges_count = 0
     if charges:
@@ -1624,37 +1654,36 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             else:
                 rate = 0
             
-            item_payload = {
-                "item_code": item_code,
-                "item_name": item_name,
-                "qty": qty,
-                "rate": rate
-            }
-            
-            # Add UOM if available
+            total_rev = flt(qty) * flt(rate)
             uom = getattr(charge, "uom", None)
-            if uom and "uom" in si_item_fields:
-                item_payload["uom"] = uom
-            
-            # Add description if available (use item_name or revenue_calc_notes)
-            description = getattr(charge, "revenue_calc_notes", None)
-            if description and "description" in si_item_fields:
-                item_payload["description"] = description
-            elif item_name and "description" in si_item_fields:
-                item_payload["description"] = item_name
-            
-            # Add accounting fields to Sales Invoice Item
-            if getattr(job, "cost_center", None) and "cost_center" in si_item_fields:
-                item_payload["cost_center"] = job.cost_center
-            if getattr(job, "profit_center", None) and "profit_center" in si_item_fields:
-                item_payload["profit_center"] = job.profit_center
-            # Link to job for Recognition Engine and lifecycle tracking
-            if "reference_doctype" in si_item_fields and "reference_name" in si_item_fields:
-                item_payload["reference_doctype"] = job.doctype
-                item_payload["reference_name"] = job.name
-            
-            si.append("items", item_payload)
-            items_created += 1
+            desc_for_item = None
+            if "description" in si_item_fields:
+                desc_for_item = getattr(charge, "revenue_calc_notes", None) or item_name
+
+            payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
+                charge,
+                total_rev,
+                item_code=item_code,
+                item_name=item_name,
+                description=desc_for_item,
+                job_type="Transport Job",
+                company=job.company,
+                cost_center=getattr(job, "cost_center", None),
+                profit_center=getattr(job, "profit_center", None),
+                job_ref=getattr(job, "job_number", None),
+                si_item_meta=si_item_meta,
+                reference_doctype=job.doctype if "reference_doctype" in si_item_fields else None,
+                reference_name=job.name if "reference_name" in si_item_fields else None,
+                line_qty=qty,
+                line_rate=rate,
+                uom=uom,
+            )
+            start_idx = len(si.items)
+            for p in payloads:
+                si.append("items", p)
+            for rel in clear_rel:
+                freight_95_line_indices.append(start_idx + rel)
+            items_created += len(payloads)
     else:
         # Fallback: Create a single item if no charges
         item_name = f"Transport Job: {job.name}"
@@ -1697,6 +1726,7 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     
     # Set missing values and insert
     si.set_missing_values()
+    apply_freight_95_post_missing_values(si, freight_95_line_indices)
     si.insert(ignore_permissions=True)
     
     # Update Transport Job with Sales Invoice reference and lifecycle
@@ -1742,6 +1772,13 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
     base_remarks = invoice.remarks or ""
     note = _("Auto-created from Transport Job {0}").format(job.name)
     invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+    from logistics.utils.freight_95_5 import (
+        apply_freight_95_post_missing_values,
+        build_sales_invoice_item_payloads_for_charge,
+    )
+
+    si_item_meta = frappe.get_meta("Sales Invoice Item")
+    freight_95_line_indices = []
     for ch in job.charges:
         line_rate = flt(getattr(ch, "rate", 0) or getattr(ch, "unit_rate", 0))
         rev = flt(
@@ -1753,10 +1790,32 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
         item_code = getattr(ch, "item_code", None)
         if not item_code:
             continue
-        invoice.append("items", {"item_code": item_code, "qty": 1, "rate": rev})
+        item_name = getattr(ch, "item_name", None) or item_code
+        has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
+        payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
+            ch,
+            rev,
+            item_code=item_code,
+            item_name=item_name,
+            description=None,
+            job_type="Transport Job",
+            company=job.company,
+            cost_center=getattr(job, "cost_center", None),
+            profit_center=getattr(job, "profit_center", None),
+            job_ref=getattr(job, "job_number", None),
+            si_item_meta=si_item_meta,
+            reference_doctype="Transport Job" if has_ref else None,
+            reference_name=job.name if has_ref else None,
+        )
+        start_idx = len(invoice.items)
+        for p in payloads:
+            invoice.append("items", p)
+        for rel in clear_rel:
+            freight_95_line_indices.append(start_idx + rel)
     if not invoice.items:
         frappe.throw(_("No charge items with revenue found."))
     invoice.set_missing_values()
+    apply_freight_95_post_missing_values(invoice, freight_95_line_indices)
     invoice.insert(ignore_permissions=True)
     if frappe.get_meta("Transport Job").get_field("sales_invoice"):
         frappe.db.set_value("Transport Job", job_name, "sales_invoice", invoice.name, update_modified=False)

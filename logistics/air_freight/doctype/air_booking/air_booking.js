@@ -52,6 +52,72 @@ function _warn_if_missing_service_charges(frm, service_type) {
 	}
 }
 
+/** Recalculate every charges grid row (estimated revenue/cost, quantities) using current booking context. */
+function _recalculate_air_booking_charge_rows(frm, done) {
+	var charges = frm.doc.charges || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Air Booking Charges",
+				parenttype: "Air Booking",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides:
+					window.logistics && logistics.charge_row_parent_overrides
+						? logistics.charge_row_parent_overrides(frm)
+						: null,
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && row.name) {
+					if (r.message.estimated_revenue != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "estimated_revenue", r.message.estimated_revenue);
+					}
+					if (r.message.estimated_cost != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "estimated_cost", r.message.estimated_cost);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "cost_quantity", r.message.cost_quantity);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value("Air Booking Charges", row.name, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value("Air Booking Charges", row.name, "cost_calc_notes", r.message.cost_calc_notes || "");
+					}
+					if (window.logistics && logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Air Booking Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function() {
+				run_next();
+			},
+		});
+	}
+	run_next();
+}
+
 function _apply_air_booking_settings_defaults(frm, force_reload) {
 	if (!frm.is_new() && !frm.doc.__islocal) return;
 	if (frm._applying_air_booking_defaults) return;
@@ -991,19 +1057,21 @@ function _populate_charges_from_quote(frm) {
 						});
 					});
 					frm.refresh_field('charges');
-					if (r.message.charges_count > 0) {
-						var message = success_message_template;
-						if (quote_type === 'One-Off Quote') {
-							message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
-						} else {
-							message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+					_recalculate_air_booking_charge_rows(frm, function() {
+						if (r.message.charges_count > 0) {
+							var message = success_message_template;
+							if (quote_type === 'One-Off Quote') {
+								message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
+							} else {
+								message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+							}
+							frappe.msgprint({
+								title: __("Charges Updated"),
+								message: message,
+								indicator: 'green'
+							});
 						}
-						frappe.msgprint({
-							title: __("Charges Updated"),
-							message: message,
-							indicator: 'green'
-						});
-					}
+					});
 				} else {
 					frm.clear_table('charges');
 					frm.refresh_field('charges');

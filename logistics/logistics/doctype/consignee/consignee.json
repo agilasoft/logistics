@@ -408,7 +408,6 @@
    "fieldname": "consignee_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -416,7 +415,6 @@
    "fieldname": "delivery_address",
    "fieldtype": "Link",
    "label": "Delivery Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {

@@ -45,7 +45,7 @@ def get_data(filters):
 			sc.status,
 			sc.origin_port,
 			sc.destination_port,
-			(SELECT COUNT(DISTINCT parent) FROM `tabSea Consolidation Shipments` WHERE parent = sc.name) as total_shipments,
+			(SELECT COUNT(*) FROM `tabSea Consolidation Shipments` WHERE parent = sc.name) as total_shipments,
 			sc.total_containers,
 			sc.total_weight,
 			sc.total_volume,

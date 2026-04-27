@@ -250,6 +250,7 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
   },
   {
@@ -1069,7 +1070,7 @@
    "table_fieldname": "internal_job_details"
   }
  ],
- "modified": "2026-04-20 14:36:43.413744",
+ "modified": "2026-04-27 14:32:47.939441",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

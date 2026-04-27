@@ -123,8 +123,10 @@
   },
   {
    "fieldname": "iso_size",
-   "fieldtype": "Data",
-   "label": "ISO Size"
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "ISO Size",
+   "options": "Container ISO Size"
   },
   {
    "fieldname": "iso_description",

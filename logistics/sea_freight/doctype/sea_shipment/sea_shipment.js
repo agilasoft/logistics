@@ -144,6 +144,29 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _sea_shipment_set_query_shipping_line_cto(frm) {
+	frm.set_query("origin_cto", function() {
+		if (!frm.doc.shipping_line || !frm.doc.origin_port) {
+			return { filters: { name: ["in", []] } };
+		}
+		return {
+			query:
+				"logistics.sea_freight.doctype.shipping_line.shipping_line.shipping_line_cto_by_line_and_port_search",
+			filters: { shipping_line: frm.doc.shipping_line, port: frm.doc.origin_port },
+		};
+	});
+	frm.set_query("destination_cto", function() {
+		if (!frm.doc.shipping_line || !frm.doc.destination_port) {
+			return { filters: { name: ["in", []] } };
+		}
+		return {
+			query:
+				"logistics.sea_freight.doctype.shipping_line.shipping_line.shipping_line_cto_by_line_and_port_search",
+			filters: { shipping_line: frm.doc.shipping_line, port: frm.doc.destination_port },
+		};
+	});
+}
+
 frappe.ui.form.on('Sea Shipment', {
 	onload: function(frm) {
 		if (window.logistics && logistics.apply_one_off_route_options_onload) {
@@ -234,6 +257,20 @@ frappe.ui.form.on('Sea Shipment', {
 				}
 			};
 		});
+		_sea_shipment_set_query_shipping_line_cto(frm);
+	},
+
+	shipping_line: function(frm) {
+		frm.set_value("origin_cto", "");
+		frm.set_value("destination_cto", "");
+	},
+
+	origin_port: function(frm) {
+		frm.set_value("origin_cto", "");
+	},
+
+	destination_port: function(frm) {
+		frm.set_value("destination_cto", "");
 	},
 
 	override_volume_weight: function(frm) {

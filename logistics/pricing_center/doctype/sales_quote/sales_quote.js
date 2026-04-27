@@ -426,15 +426,6 @@ frappe.ui.form.on("Sales Quote", {
 					}, __("Action"));
 				}
 			});
-
-			// Inbound Order is not created directly from Sales Quote.
-			frm.add_custom_button(__("Inbound Order"), function() {
-				frappe.msgprint({
-					title: __("Create > Inbound Order"),
-					message: __("Inbound Order is created from Shipment/Job (Air Shipment, Sea Shipment, Transport Job, or Declaration), not directly from Sales Quote."),
-					indicator: "blue"
-				});
-			}, __("Create"));
 		}
 		
 		// Add custom button to create Declaration Order if quote is One-Off and submitted (unified or legacy)
@@ -1122,7 +1113,11 @@ const SERVICE_TYPE_ITEM_FIELD_MAP = {
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
 	service_type: function(frm, cdt, cdn) {
-		const row = frappe.get_doc(cdt, cdn);
+		let row = frappe.get_doc(cdt, cdn);
+		if (row.service_type === "Customs" && row.load_type) {
+			frappe.model.set_value(cdt, cdn, "load_type", "");
+			row = frappe.get_doc(cdt, cdn);
+		}
 		const lt_flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
 		if (row.load_type && lt_flag) {
 			frappe.db.get_value("Load Type", row.load_type, lt_flag, (r) => {
@@ -1181,7 +1176,14 @@ frappe.ui.form.on('Sales Quote Charge', {
 				});
 			}
 		}
+		// Recalc revenue/cost when item changes (tariff + engine depend on item_code)
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
 	},
+	tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	revenue_tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_tariff_in_revenue: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_tariff_in_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	
 	charge_type: function(frm, cdt, cdn) {
 		// Refresh charges so Revenue/Cost fields show/hide based on charge_type
@@ -1226,6 +1228,9 @@ frappe.ui.form.on('Sales Quote Charge', {
 
 function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 	if (!cdn) return;
+	if (frm && frm._syncing_sq_charge_from_tariff) {
+		return;
+	}
 	var row = locals[cdt] && locals[cdt][cdn];
 	if (!row) return;
 	frappe.call({
@@ -1238,6 +1243,18 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
+				if (r.message.row_updates && typeof r.message.row_updates === "object") {
+					frm._syncing_sq_charge_from_tariff = true;
+					try {
+						$.each(r.message.row_updates, function (key, v) {
+							if (v !== undefined && v !== null) {
+								frappe.model.set_value(cdt, cdn, key, v);
+							}
+						});
+					} finally {
+						frm._syncing_sq_charge_from_tariff = false;
+					}
+				}
 				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
 				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
 				if (r.message.quantity != null) {

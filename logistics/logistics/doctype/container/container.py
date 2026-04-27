@@ -183,6 +183,31 @@ def get_linked_transport_jobs_html(container):
 	return doc.get_linked_transport_jobs_html()
 
 
+@frappe.whitelist()
+def validate_container_number_for_form(container_number=None):
+	"""
+	ISO 6346 check for the Container form (live feedback + client validate hook).
+	Mirrors Container._validate_container_number_format (same strict flag and bypass header).
+	"""
+	container_number = normalize_container_number(container_number or "")
+	if not container_number:
+		return {"valid": True, "message": ""}
+	try:
+		bypass = frappe.get_request_header("X-Container-Validation-Bypass") == "1"
+	except RuntimeError:
+		bypass = False
+	strict = get_strict_validation_setting()
+	valid, err = validate_container_number(
+		container_number,
+		strict=strict,
+		allow_bypass=bypass,
+	)
+	out = {"valid": bool(valid), "message": ""}
+	if not valid and err:
+		out["message"] = str(err)
+	return out
+
+
 def calculate_penalties_for_container(container_name):
 	"""
 	Calculate demurrage/detention penalties for a container using linked Sea Shipment milestones

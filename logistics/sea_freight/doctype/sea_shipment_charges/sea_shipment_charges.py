@@ -10,6 +10,7 @@ from logistics.utils.charges_calculation import (
     calculate_charge_cost,
 )
 from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
+from logistics.utils.freight_95_5 import validate_freight_95_5_row
 
 
 class SeaShipmentCharges(Document):
@@ -17,6 +18,7 @@ class SeaShipmentCharges(Document):
 
     def validate(self):
         validate_charge_item_not_manual_other_service(self, "Sea Shipment Charges", "charge_item")
+        validate_freight_95_5_row(self)
         self._calculate_charges()
 
     def _calculate_charges(self, parent_doc=None):

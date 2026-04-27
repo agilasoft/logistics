@@ -6,9 +6,13 @@ from frappe.model.document import Document
 from frappe.utils import flt
 from frappe import _
 from logistics.warehousing.api_parts.billing_methods import get_billing_quantity
+from logistics.utils.freight_95_5 import validate_freight_95_5_row
 
 
 class WarehouseJobCharges(Document):
+	def validate(self):
+		validate_freight_95_5_row(self)
+
 	def before_save(self):
 		"""Automatically compute billing quantities based on billing method"""
 		self._compute_billing_quantities()

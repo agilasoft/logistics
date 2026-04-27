@@ -19,7 +19,10 @@
   "refund_amount",
   "refund_date",
   "reference_doctype",
-  "reference_name"
+  "reference_name",
+  "container",
+  "purchase_invoice",
+  "refund_request_journal_entry"
  ],
  "fields": [
   {
@@ -43,6 +46,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {
@@ -112,6 +116,28 @@
    "fieldtype": "Dynamic Link",
    "label": "Reference",
    "options": "reference_doctype",
+   "read_only": 1
+  },
+  {
+   "description": "Container this line belongs to (for list/report filters when loaded outside parent).",
+   "fieldname": "container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "refund_request_journal_entry",
+   "fieldtype": "Link",
+   "label": "Refund request JE",
+   "options": "Journal Entry",
    "read_only": 1
   }
  ],

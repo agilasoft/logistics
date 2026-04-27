@@ -32,6 +32,10 @@
   "detention_rate_per_day",
   "column_break_penalty",
   "demurrage_rate_per_day",
+  "container_deposit_gl_section",
+  "container_deposit_pending_refund_account",
+  "column_break_cd_gl",
+  "container_deposit_ar_shipping_lines_account",
   "alert_settings_section",
   "enable_delay_alerts",
   "enable_penalty_alerts",
@@ -209,6 +213,29 @@
    "fieldname": "demurrage_rate_per_day",
    "fieldtype": "Currency",
    "label": "Demurrage Rate per Day"
+  },
+  {
+   "collapsible": 1,
+   "description": "GL accounts for container-deposit Purchase Invoices (Dr pending refund / Cr payables) and Request CD Refund Journal Entry (Dr AR-Shipping Lines / Cr pending refund).",
+   "fieldname": "container_deposit_gl_section",
+   "fieldtype": "Section Break",
+   "label": "Container deposit (GL)"
+  },
+  {
+   "fieldname": "container_deposit_pending_refund_account",
+   "fieldtype": "Link",
+   "label": "CD Pending Refund Request",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_cd_gl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "container_deposit_ar_shipping_lines_account",
+   "fieldtype": "Link",
+   "label": "AR-Shipping Lines",
+   "options": "Account"
   },
   {
    "fieldname": "alert_settings_section",

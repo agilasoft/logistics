@@ -118,51 +118,90 @@ class DeclarationOrder(Document):
 
 	def validate(self):
 		"""Validate and handle Sales Quote link (One-off conversion and link-cleared reset)."""
-		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+		from logistics.utils.charges_calculation import (
+			clear_charge_resolution_parent,
+			register_charge_resolution_parent,
+		)
 
-		validate_internal_job_main_link_unchanged(self)
-		original_sales_quote = None
-		if not self.is_new():
-			try:
-				original_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
-			except Exception:
-				pass
-		if not original_sales_quote:
-			original_sales_quote = getattr(self, "sales_quote", None)
+		register_charge_resolution_parent(self)
+		try:
+			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-		if self.sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-				resolve_allow_linked_freight_bookings_for_internal_job,
-				validate_one_off_quote_not_converted,
-			)
+			validate_internal_job_main_link_unchanged(self)
+			original_sales_quote = None
+			if not self.is_new():
+				try:
+					original_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
+				except Exception:
+					pass
+			if not original_sales_quote:
+				original_sales_quote = getattr(self, "sales_quote", None)
 
-			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-			validate_one_off_quote_not_converted(
-				self.sales_quote,
-				self.doctype,
-				self.name,
-				allow_linked_sea_booking=allow_sea,
-				allow_linked_air_booking=allow_air,
-			)
+			if self.sales_quote:
+				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_bookings_for_internal_job,
+					validate_one_off_quote_not_converted,
+				)
 
-		# Handle sales_quote field clearing - reset One-off quote if cleared
-		if not self.is_new() and original_sales_quote and not self.sales_quote:
-			try:
-				if frappe.db.exists("Sales Quote", original_sales_quote):
-					sq = frappe.get_doc("Sales Quote", original_sales_quote)
-					if sq.quotation_type == "One-off":
-						from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-						reset_one_off_quote_on_cancel(original_sales_quote)
-			except Exception:
-				pass
+				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				validate_one_off_quote_not_converted(
+					self.sales_quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+				)
 
-		self._validate_etd_eta()
+			# Handle sales_quote field clearing - reset One-off quote if cleared
+			if not self.is_new() and original_sales_quote and not self.sales_quote:
+				try:
+					if frappe.db.exists("Sales Quote", original_sales_quote):
+						sq = frappe.get_doc("Sales Quote", original_sales_quote)
+						if sq.quotation_type == "One-off":
+							from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+							reset_one_off_quote_on_cancel(original_sales_quote)
+				except Exception:
+					pass
 
-		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+			self._validate_etd_eta()
 
-		msgprint_sales_quote_validity_warnings(self)
+			from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
 
-		apply_internal_job_main_charge_overlay(self)
+			msgprint_sales_quote_validity_warnings(self)
+
+			apply_internal_job_main_charge_overlay(self)
+
+			self._sync_charges_with_parent_actuals()
+
+		finally:
+			clear_charge_resolution_parent(self)
+
+	def _sync_charges_with_parent_actuals(self):
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		if getattr(self.flags, "ignore_charges_sync", False):
+			return
+		for charge in self.get("charges") or []:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=self)
+
+	def _apply_actuals_to_charge_dicts(self, charge_dicts):
+		if not charge_dicts:
+			return
+		for row_dict in charge_dicts:
+			row = frappe.new_doc("Declaration Order Charges")
+			row.update(row_dict)
+			row.calculate_charge_amount(parent_doc=self)
+			row_dict["quantity"] = row.quantity
+			row_dict["cost_quantity"] = row.cost_quantity
+			row_dict["estimated_revenue"] = row.estimated_revenue
+			row_dict["estimated_cost"] = row.estimated_cost
+			if hasattr(row, "revenue_calc_notes"):
+				row_dict["revenue_calc_notes"] = row.revenue_calc_notes
+			if hasattr(row, "cost_calc_notes"):
+				row_dict["cost_calc_notes"] = row.cost_calc_notes
+			if hasattr(row, "rate"):
+				row_dict["rate"] = row.rate
 
 	def _validate_etd_eta(self):
 		"""Departure must not be after arrival (same calendar day allowed)."""
@@ -565,6 +604,8 @@ def populate_charges_from_sales_quote(
 		if should_apply_internal_job_main_charge_overlay(parent):
 			charges = build_internal_job_declaration_charge_dicts(parent)
 			if charges:
+				if isinstance(parent, Document):
+					parent._apply_actuals_to_charge_dicts(charges)
 				return {
 					"charges": charges,
 					"charges_count": len(charges),
@@ -640,6 +681,8 @@ def populate_charges_from_sales_quote(
 				row["charge_type"] = "Revenue"
 			if row:
 				charges.append(row)
+		if isinstance(parent, Document) and charges:
+			parent._apply_actuals_to_charge_dicts(charges)
 		return {
 			"charges": charges,
 			"charges_count": len(charges),

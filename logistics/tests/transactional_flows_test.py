@@ -279,7 +279,7 @@ def _test_air_shipment_to_inbound_order(company, customer, shipper, consignee):
             raise frappe.ValidationError("No inbound order returned")
 
         order = frappe.get_doc("Inbound Order", order_name)
-        assert order.air_shipment == shipment_name, "Order not linked to shipment"
+        assert order.customer == customer, "Inbound Order customer should match shipment"
 
         return {"flow": flow, "status": "pass", "shipment": shipment_name, "order": order_name}
     except Exception as e:

@@ -16,29 +16,50 @@ from logistics.utils.operational_rep_fields import copy_operational_rep_fields_f
 
 class Declaration(Document):
 	def validate(self):
-		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+		from logistics.utils.charges_calculation import (
+			clear_charge_resolution_parent,
+			register_charge_resolution_parent,
+		)
 
-		validate_internal_job_main_link_unchanged(self)
-		self._validate_declaration_order_unique()
-		self._validate_etd_eta()
-		self.update_payment_status()
+		register_charge_resolution_parent(self)
 		try:
-			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
-			apply_measurement_uom_conversion_to_children(self, "commercial_invoice_line_items", company=getattr(self, "company", None))
-		except Exception:
-			pass
-		try:
-			from logistics.job_management.recognition_engine import (
-				sync_job_recognition_fields_from_policy,
-			)
+			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-			sync_job_recognition_fields_from_policy(self)
-		except Exception:
-			pass
+			validate_internal_job_main_link_unchanged(self)
+			self._validate_declaration_order_unique()
+			self._validate_etd_eta()
+			self.update_payment_status()
+			try:
+				from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+				apply_measurement_uom_conversion_to_children(self, "commercial_invoice_line_items", company=getattr(self, "company", None))
+			except Exception:
+				pass
+			try:
+				from logistics.job_management.recognition_engine import (
+					sync_job_recognition_fields_from_policy,
+				)
 
-		from logistics.job_management.logistics_job_status import sync_declaration_job_status
+				sync_job_recognition_fields_from_policy(self)
+			except Exception:
+				pass
 
-		sync_declaration_job_status(self)
+			from logistics.job_management.logistics_job_status import sync_declaration_job_status
+
+			sync_declaration_job_status(self)
+
+			self._sync_charges_with_parent_actuals()
+
+		finally:
+			clear_charge_resolution_parent(self)
+
+	def _sync_charges_with_parent_actuals(self):
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		if getattr(self.flags, "ignore_charges_sync", False):
+			return
+		for charge in self.get("charges") or []:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=self)
 
 	def _validate_etd_eta(self):
 		"""Departure must not be after arrival (same calendar day allowed)."""
@@ -85,9 +106,10 @@ class Declaration(Document):
 		run_propagate_on_link(self)
 		apply_shipper_consignee_defaults(self)
 		apply_default_transport_document_type(self)
+		# Exemptions first: total_payable uses get_total_exempted_amount() (row total_exempted).
+		self.calculate_exemptions()
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
-		self.calculate_exemptions()
 		self.calculate_sustainability_metrics()
 		self.update_processing_dates()
 		# Sync Job Number to Declaration Order if it exists
@@ -254,7 +276,7 @@ class Declaration(Document):
 				try:
 					exemption_type = frappe.get_doc("Exemption Type", type_code)
 				except frappe.DoesNotExistError:
-					continue
+					exemption_type = None
 			
 			# Calculate exempted amounts based on exemption type
 			if exemption_type:
@@ -269,6 +291,8 @@ class Declaration(Document):
 					if exemption_type.maximum_value and exempted_duty > exemption_type.maximum_value:
 						exempted_duty = exemption_type.maximum_value
 					exemption.exempted_duty = exempted_duty
+				else:
+					exemption.exempted_duty = 0
 				
 				# Calculate exempted tax
 				if self.tax_amount:
@@ -277,6 +301,8 @@ class Declaration(Document):
 					if exemption_type.maximum_value and exempted_tax > exemption_type.maximum_value:
 						exempted_tax = exemption_type.maximum_value
 					exemption.exempted_tax = exempted_tax
+				else:
+					exemption.exempted_tax = 0
 				
 				# Calculate exempted fees
 				if self.other_charges:
@@ -285,6 +311,8 @@ class Declaration(Document):
 					if exemption_type.maximum_value and exempted_fee > exemption_type.maximum_value:
 						exempted_fee = exemption_type.maximum_value
 					exemption.exempted_fee = exempted_fee
+				else:
+					exemption.exempted_fee = 0
 			
 			# Calculate total exempted
 			exemption.total_exempted = (
@@ -1594,36 +1622,47 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	# Use charges from Declaration
 	charges = declaration.get("charges") or []
 	si_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
-	
+	from logistics.utils.freight_95_5 import (
+		apply_freight_95_post_missing_values,
+		build_sales_invoice_item_payloads_for_charge,
+	)
+
+	si_item_meta = frappe.get_meta("Sales Invoice Item")
+	has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
+	freight_95_line_indices = []
+
 	if charges:
 		# Create items from charges
 		for charge in charges:
 			if not charge.item_code:
 				continue
-			
-			item = si.append('items', {})
-			item.item_code = charge.item_code
-			item.qty = charge.quantity or 1
-			item.rate = charge.estimated_revenue or charge.unit_rate or 0
-			
-			# Set description
-			if charge.item_name:
-				item.item_name = charge.item_name
-			
-			# Set UOM if available
-			if charge.uom:
-				item.uom = charge.uom
-			
-			# Set cost center and profit center
-			if declaration.cost_center:
-				item.cost_center = declaration.cost_center
-			if declaration.profit_center:
-				item.profit_center = declaration.profit_center
-			# Link to declaration for Recognition Engine and lifecycle tracking
-			si_item_meta = frappe.get_meta("Sales Invoice Item")
-			if si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name"):
-				item.reference_doctype = "Declaration"
-				item.reference_name = declaration.name
+			qty = flt(charge.quantity or 1)
+			rate_line = flt(charge.estimated_revenue or charge.unit_rate or 0)
+			total_rev = qty * rate_line
+			item_name = getattr(charge, "item_name", None) or charge.item_code
+			payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
+				charge,
+				total_rev,
+				item_code=charge.item_code,
+				item_name=item_name,
+				description=item_name if "description" in si_item_fields else None,
+				job_type="Declaration",
+				company=declaration.company,
+				cost_center=declaration.cost_center,
+				profit_center=declaration.profit_center,
+				job_ref=getattr(declaration, "job_number", None),
+				si_item_meta=si_item_meta,
+				reference_doctype="Declaration" if has_ref else None,
+				reference_name=declaration.name if has_ref else None,
+				line_qty=qty,
+				line_rate=rate_line,
+				uom=getattr(charge, "uom", None),
+			)
+			start_idx = len(si.items)
+			for p in payloads:
+				si.append("items", p)
+			for rel in clear_rel:
+				freight_95_line_indices.append(start_idx + rel)
 	
 	# If no charges, create a default item
 	if not charges:
@@ -1641,6 +1680,8 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 			item.reference_name = declaration.name
 	
 	# Insert and save
+	si.set_missing_values()
+	apply_freight_95_post_missing_values(si, freight_95_line_indices)
 	si.insert(ignore_permissions=True)
 	si.save(ignore_permissions=True)
 	
