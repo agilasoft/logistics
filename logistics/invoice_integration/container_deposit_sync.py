@@ -82,7 +82,7 @@ def sync_container_deposits_on_purchase_invoice_submit(pi_doc):
 	header_ref_dt = pi_doc.get("reference_doctype") or ""
 	header_ref_name = pi_doc.get("reference_name") or ""
 
-	aggregates = defaultdict(float)
+	aggregates = defaultdict(lambda: {"amount": 0.0, "item_code": None})
 	meta = frappe.get_meta("Purchase Invoice Item")
 	has_lc = bool(meta.get_field("logistics_container"))
 
@@ -130,19 +130,23 @@ def sync_container_deposits_on_purchase_invoice_submit(pi_doc):
 		amt = _line_amount_company_currency(pi_doc, row)
 		if amt <= 0:
 			continue
-		aggregates[(container_name, job_dt, job_nm)] += amt
+		key = (container_name, job_dt, job_nm)
+		aggregates[key]["amount"] += amt
+		if not aggregates[key]["item_code"]:
+			aggregates[key]["item_code"] = row.item_code
 
-	for (container_name, job_dt, job_nm), total in aggregates.items():
+	for (container_name, job_dt, job_nm), agg in aggregates.items():
 		_upsert_deposit_row_for_pi(
 			container_name=container_name,
 			pi_doc=pi_doc,
 			job_dt=job_dt,
 			job_nm=job_nm,
-			amount=total,
+			amount=agg["amount"],
+			item_code=agg.get("item_code"),
 		)
 
 
-def _upsert_deposit_row_for_pi(container_name, pi_doc, job_dt, job_nm, amount):
+def _upsert_deposit_row_for_pi(container_name, pi_doc, job_dt, job_nm, amount, item_code=None):
 	if not frappe.db.exists("Container", container_name):
 		return
 	job = frappe.get_doc(job_dt, job_nm)
@@ -160,6 +164,7 @@ def _upsert_deposit_row_for_pi(container_name, pi_doc, job_dt, job_nm, amount):
 	payload = {
 		"event_type": "Pay Carrier",
 		"job_number": job_number,
+		"item_code": item_code,
 		"container": container_name,
 		"company": company,
 		"debtor_party": debtor,
@@ -198,7 +203,7 @@ def clear_container_deposits_on_purchase_invoice_cancel(pi_doc):
 		)
 		frappe.throw(
 			_(
-				"Cannot cancel Purchase Invoice while Request CD Refund Journal Entries exist. "
+				"Cannot cancel Purchase Invoice while Request Deposit Refund Journal Entries exist. "
 				"Cancel or reverse them first: {0}"
 			).format(je_list),
 			title=_("Container deposit"),

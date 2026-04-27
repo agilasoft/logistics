@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026, www.agilasoft.com and contributors
 """
-Purchase Invoice: route container-deposit item lines to CD Pending Refund Request (Sea Freight Settings).
+Purchase Invoice: route container-deposit item lines to Deposits Pending for Refund Request (Sea Freight Settings).
 
-Submitted PI posts Dr CD Pending Refund Request / Cr Payables for those lines (standard ERPNext PI GL).
+Submitted PI posts Dr Deposits Pending for Refund Request / Cr Payables for those lines (standard ERPNext PI GL).
 """
 
 from __future__ import unicode_literals
@@ -19,6 +19,11 @@ def _pending_refund_account():
 	except Exception:
 		return None
 	return sf.get("container_deposit_pending_refund_account")
+
+
+def get_container_deposit_pending_refund_account():
+	"""Sea Freight Settings: Deposits Pending for Refund Request account (for PI expense and charge hints)."""
+	return _pending_refund_account()
 
 
 def item_is_container_deposit(item_code):

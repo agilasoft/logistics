@@ -277,10 +277,12 @@ doc_events = {
 	"Purchase Invoice": {
 		"validate": [
 			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
+			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
 			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		],
 		"before_submit": [
 			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
+			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
 			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		],
 		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",

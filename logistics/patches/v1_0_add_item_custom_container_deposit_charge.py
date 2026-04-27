@@ -24,7 +24,7 @@ def execute():
 			"fieldname": "custom_container_deposit_charge",
 			"fieldtype": "Check",
 			"label": "Container deposit charge",
-			"description": "When set, Purchase Invoice lines for Sea Shipment / Declaration can post expense to CD Pending Refund Request (Sea Freight Settings).",
+			"description": "When set, Purchase Invoice lines for Sea Shipment / Declaration can post expense to Deposits Pending for Refund Request (Sea Freight Settings).",
 			"insert_after": insert_after,
 		}
 	).insert(ignore_permissions=True)

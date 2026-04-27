@@ -10,6 +10,7 @@
   "service_type",
   "item_code",
   "item_name",
+  "container_deposit_pending_refund_gl",
   "charge_type",
   "charge_category",
   "freight_taxes_section",
@@ -683,6 +684,13 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Item Name"
+  },
+  {
+   "description": "When the Item is a container-deposit charge, shows Sea Freight Settings \u201cDeposits Pending for Refund Request\u201d for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
+   "fieldname": "container_deposit_pending_refund_gl",
+   "fieldtype": "Data",
+   "label": "Deposit pending refund GL",
+   "read_only": 1
   },
   {
    "fieldname": "description",

@@ -79,6 +79,29 @@ frappe.ui.form.on("Container", {
 	refresh: function (frm) {
 		_schedule_container_number_iso_check(frm);
 		if (!frm.is_new()) {
+			frm.page.add_action_item(__("Request Deposit Refund"), function () {
+				if (!_container_eligible_for_cd_refund_request(frm)) {
+					frappe.msgprint(
+						__(
+							"Container must be returned (Empty Returned / Closed or Return status Returned) before requesting a deposit refund."
+						)
+					);
+					return;
+				}
+				_prompt_cd_refund_deposit_row(frm, __("Request Deposit Refund"), function (row_name) {
+					frappe.call({
+						method:
+							"logistics.logistics.deposit_processing.container_deposit_gl.create_request_cd_refund_journal_entry",
+						args: { container_name: frm.doc.name, child_row_name: row_name },
+						callback: function (r) {
+							if (!r.exc) {
+								frm.reload_doc();
+								frappe.show_alert({ message: __("Journal Entry {0}", [r.message]), indicator: "green" });
+							}
+						},
+					});
+				});
+			});
 			frm.add_custom_button(__("Refresh refund checklist"), function () {
 				frappe.call({
 					method: "logistics.logistics.deposit_processing.container_deposit_gl.materialize_refund_readiness",
@@ -90,34 +113,7 @@ frappe.ui.form.on("Container", {
 						}
 					},
 				});
-			});
-			frm.add_custom_button(
-				__("Request CD Refund"),
-				function () {
-					if (!_container_eligible_for_cd_refund_request(frm)) {
-						frappe.msgprint(
-							__(
-								"Container must be returned (Empty Returned / Closed or Return status Returned) before requesting CD refund."
-							)
-						);
-						return;
-					}
-					_prompt_cd_refund_deposit_row(frm, __("Request CD Refund (Dr AR / Cr pending refund)"), function (row_name) {
-						frappe.call({
-							method:
-								"logistics.logistics.deposit_processing.container_deposit_gl.create_request_cd_refund_journal_entry",
-							args: { container_name: frm.doc.name, child_row_name: row_name },
-							callback: function (r) {
-								if (!r.exc) {
-									frm.reload_doc();
-									frappe.show_alert({ message: __("Journal Entry {0}", [r.message]), indicator: "green" });
-								}
-							},
-						});
-					});
-				},
-				__("Container deposit")
-			);
+			}, __("Container deposit"));
 		}
 		if (frm.doc.__islocal || !frm.doc.name) return;
 		frappe.call({

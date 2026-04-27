@@ -8,6 +8,7 @@
   "event_type",
   "deposit_type",
   "job_number",
+  "item_code",
   "company",
   "debtor_party",
   "column_break_hdr",
@@ -48,6 +49,14 @@
    "label": "Job Number",
    "no_copy": 1,
    "options": "Job Number"
+  },
+  {
+   "description": "Container-deposit Item from the linked Purchase Invoice (for GL dimensions).",
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1
   },
   {
    "fieldname": "company",

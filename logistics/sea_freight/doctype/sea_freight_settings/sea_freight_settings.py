@@ -12,8 +12,8 @@ class SeaFreightSettings(Document):
 
 	def validate_container_deposit_accounts(self):
 		for fname, label in (
-			("container_deposit_pending_refund_account", _("CD Pending Refund Request")),
-			("container_deposit_ar_shipping_lines_account", _("AR-Shipping Lines")),
+			("container_deposit_pending_refund_account", _("Deposits Pending for Refund Request")),
+			("container_deposit_ar_shipping_lines_account", _("Container Deposit Receivable Account")),
 		):
 			acc = self.get(fname)
 			if not acc:
@@ -25,6 +25,6 @@ class SeaFreightSettings(Document):
 			at = frappe.db.get_value("Account", ar, "account_type")
 			if at != "Receivable":
 				frappe.throw(
-					_("AR-Shipping Lines must be a Receivable account."),
+					_("Container Deposit Receivable Account must be a Receivable account."),
 					title=_("Sea Freight Settings"),
 				)
