@@ -315,6 +315,7 @@
    "label": "Use Tariff in Revenue"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
@@ -328,6 +329,7 @@
    "label": "Use Tariff in Cost"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",

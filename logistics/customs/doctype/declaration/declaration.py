@@ -1167,6 +1167,42 @@ def link_or_create_declaration_order_for_declaration(declaration_name: str) -> D
 	}
 
 
+# Must match Declaration.transport_mode options in declaration.json
+_DECLARATION_TRANSPORT_MODE_SELECT = frozenset({"Sea", "Air", "Road", "Rail", "Courier", "Post"})
+
+
+def _transport_mode_link_to_declaration_select(transport_mode_link: Optional[str]) -> Optional[str]:
+	"""Map Declaration Order Transport Mode (Link; name is mode_code e.g. AIR) to Declaration Select (e.g. Air)."""
+	if not transport_mode_link:
+		return None
+	link = str(transport_mode_link).strip()
+	if not link:
+		return None
+	# Link `name` is often the same as mode_code (uppercase). Declaration uses title-case Select options.
+	if link in _DECLARATION_TRANSPORT_MODE_SELECT:
+		return link
+	titled_link = link.title()
+	if titled_link in _DECLARATION_TRANSPORT_MODE_SELECT:
+		return titled_link
+	row = frappe.db.get_value(
+		"Transport Mode",
+		link,
+		["mode_name", "mode_code"],
+		as_dict=True,
+	)
+	if row:
+		for candidate in (row.get("mode_name"), row.get("mode_code")):
+			if not candidate:
+				continue
+			s = str(candidate).strip()
+			if s in _DECLARATION_TRANSPORT_MODE_SELECT:
+				return s
+			titled = s.title()
+			if titled in _DECLARATION_TRANSPORT_MODE_SELECT:
+				return titled
+	return None
+
+
 def _copy_order_to_declaration(declaration: Document, order: Document, sales_quote: Document):
 	"""Copy all information from Declaration Order to Declaration."""
 	# Core references
@@ -1210,7 +1246,7 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.exporter_shipper = order.exporter_shipper
 	declaration.importer_consignee = order.importer_consignee
 	declaration.declaration_type = order.declaration_type
-	declaration.transport_mode = order.transport_mode
+	declaration.transport_mode = _transport_mode_link_to_declaration_select(order.transport_mode)
 
 	# Transport information
 	declaration.vessel_flight_number = order.vessel_flight_number
