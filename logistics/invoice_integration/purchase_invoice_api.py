@@ -8,6 +8,7 @@ Create Purchase Invoice from logistics job/shipment costs.
 
 import frappe
 from frappe import _
+from frappe.model.naming import get_default_naming_series
 from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List, Tuple
 import json
@@ -35,6 +36,20 @@ CHARGE_CONFIG = {
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)
 PI_EXCLUDED_STATUSES = ("Requested", "Invoiced", "Posted", "Paid")
+
+
+def _purchase_invoice_naming_context() -> Dict[str, Any]:
+    """Describe Purchase Invoice naming so the client can collect series/name before insert (draft)."""
+    meta = frappe.get_meta("Purchase Invoice")
+    autoname = (meta.autoname or "").lower()
+    options = [o for o in meta.get_naming_series_options() if o]
+    return {
+        "autoname": meta.autoname,
+        "needs_purchase_invoice_name": autoname.startswith("prompt"),
+        "naming_series_options": options,
+        "default_naming_series": get_default_naming_series("Purchase Invoice") if autoname.startswith("naming_series:") else None,
+        "show_naming_series": autoname.startswith("naming_series:") and len(options) > 1,
+    }
 
 
 def _sea_shipment_row_cost(ch) -> float:
@@ -107,6 +122,7 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
             "default_supplier": None,
             "default_posting_date": today(),
             "company": job.company,
+            "pi_naming": _purchase_invoice_naming_context(),
         }
 
     # Build list for dialog: use position in cost_rows as the index we pass back (0, 1, 2, ...)
@@ -132,6 +148,7 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
         "default_supplier": default_supplier,
         "default_posting_date": today(),
         "company": job.company,
+        "pi_naming": _purchase_invoice_naming_context(),
     }
 
 
@@ -145,6 +162,8 @@ def create_purchase_invoice(
     bill_no: Optional[str] = None,
     bill_date: Optional[str] = None,
     selected_charge_indices: Optional[str] = None,
+    naming_series: Optional[str] = None,
+    purchase_invoice_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create Purchase Invoice from job/shipment costs.
@@ -159,6 +178,9 @@ def create_purchase_invoice(
         bill_date: Optional supplier bill date
         selected_charge_indices: Optional JSON list of integers (indices into eligible charges).
             If provided, only these charges are included; otherwise all eligible charges are included.
+        naming_series: Optional Naming Series (when Purchase Invoice uses naming_series autoname and multiple series exist).
+        purchase_invoice_name: Required when Purchase Invoice uses Prompt naming — same as entering the name on the
+            standard form before save/submit.
 
     Returns:
         dict with ok, message, purchase_invoice
@@ -220,6 +242,8 @@ def create_purchase_invoice(
             ).format(suppliers, resolved_supplier)
         )
 
+    pi_naming = _purchase_invoice_naming_context()
+
     # Create Purchase Invoice
     pi = frappe.new_doc("Purchase Invoice")
     pi.supplier = resolved_supplier
@@ -227,6 +251,8 @@ def create_purchase_invoice(
     pi.posting_date = posting_date or today()
     if due_date:
         pi.due_date = due_date
+    if naming_series and (pi_naming["autoname"] or "").lower().startswith("naming_series:"):
+        pi.naming_series = naming_series
     if bill_no:
         pi.bill_no = bill_no
     if bill_date:
@@ -270,7 +296,19 @@ def create_purchase_invoice(
             row.reference_name = job_name
 
     pi.set_missing_values()
-    pi.insert(ignore_permissions=True)
+
+    insert_kw: Dict[str, Any] = {"ignore_permissions": True}
+    if pi_naming["needs_purchase_invoice_name"]:
+        doc_name = (purchase_invoice_name or "").strip()
+        if not doc_name:
+            frappe.throw(
+                _(
+                    "Purchase Invoice name is required with your current naming rule. "
+                    "Enter it in the dialog before creating the draft; you can submit the invoice later from the form."
+                )
+            )
+        insert_kw["set_name"] = doc_name
+    pi.insert(**insert_kw)
 
     # Update job
     frappe.db.set_value(job_type, job_name, "purchase_invoice", pi.name, update_modified=False)

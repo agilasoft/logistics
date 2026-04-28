@@ -288,6 +288,9 @@ class SeaShipment(Document):
                 total_teus += flt(teu) or 0
         self.total_teus = total_teus
         self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
+        from logistics.sea_freight.container_row_metrics import sync_sea_freight_container_child_rows
+
+        sync_sea_freight_container_child_rows(self)
 
     def _apply_uom_defaults(self):
         """Apply UOM defaults from Logistics Settings when not set."""
@@ -994,9 +997,12 @@ class SeaShipment(Document):
         """Append a single Main leg from origin_port to destination_port."""
         if not self.origin_port or not self.destination_port:
             return
+        leg_mode = getattr(self, "load_type", None)
+        if leg_mode and not frappe.db.exists("Load Type", leg_mode):
+            leg_mode = None
         leg = {
             "leg_order": 1,
-            "mode": "Sea",
+            "mode": leg_mode,
             "type": "Main",
             "status": "Planned",
             "load_port": self.origin_port,

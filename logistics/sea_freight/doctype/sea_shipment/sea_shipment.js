@@ -850,5 +850,14 @@ frappe.ui.form.on('Sea Freight Containers', {
 	},
 	type: function(frm) {
 		_refresh_packing_summary_debounced(frm);
+	},
+	packages_in_container: function(frm) {
+		_refresh_packing_summary_debounced(frm);
+	},
+	weight_in_container: function(frm) {
+		_refresh_packing_summary_debounced(frm);
+	},
+	volume_in_container: function(frm) {
+		_refresh_packing_summary_debounced(frm);
 	}
 });

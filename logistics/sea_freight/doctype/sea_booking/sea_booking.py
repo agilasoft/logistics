@@ -420,6 +420,9 @@ class SeaBooking(Document):
 		self.total_teus = total_teus
 		
 		self.total_packages = sum(flt(getattr(p, "no_of_packs", 0) or 0) for p in packages)
+		from logistics.sea_freight.container_row_metrics import sync_sea_freight_container_child_rows
+
+		sync_sea_freight_container_child_rows(self)
 	
 	@frappe.whitelist()
 	def aggregate_volume_from_packages_api(self):
@@ -654,6 +657,17 @@ class SeaBooking(Document):
 				return True
 		return False
 	
+	def validate_ready_for_sea_shipment_on_submit(self):
+		"""Enforce the same accounting and detail rules as Sea Shipment conversion at submit time."""
+		readiness = self.check_conversion_readiness()
+		if not readiness["is_ready"]:
+			messages = [field["message"] for field in readiness["missing_fields"]]
+			frappe.throw(
+				_("Cannot submit Sea Booking. Missing or invalid fields:\n{0}").format(
+					"\n".join(f"- {msg}" for msg in messages)
+				)
+			)
+
 	def before_submit(self):
 		"""Validate quote reference before submitting the Sea Booking."""
 		self.validate_required_fields_for_submit()
@@ -674,6 +688,8 @@ class SeaBooking(Document):
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
 
 		throw_if_missing_destination_service_charge(self)
+
+		self.validate_ready_for_sea_shipment_on_submit()
 		
 		# Validate container numbers for duplicates
 		self.validate_fcl_container_numbers_required()
@@ -1937,7 +1953,14 @@ class SeaBooking(Document):
 						"mode": container.mode,
 						"delivery_modes": container.delivery_modes,
 						"sealed_by": container.sealed_by,
-						"other_references": container.other_references
+						"other_references": container.other_references,
+						"size": getattr(container, "size", None),
+						"packages_in_container": getattr(container, "packages_in_container", None),
+						"weight_in_container": getattr(container, "weight_in_container", None),
+						"volume_in_container": getattr(container, "volume_in_container", None),
+						"max_weight": getattr(container, "max_weight", None),
+						"max_volume": getattr(container, "max_volume", None),
+						"utilization_percentage": getattr(container, "utilization_percentage", None),
 					})
 			
 			# Copy packages if they exist (from Sea Booking Packages to Sea Freight Packages)

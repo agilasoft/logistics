@@ -65,7 +65,8 @@
    "fieldname": "mode",
    "fieldtype": "Link",
    "label": "Mode",
-   "options": "Freight Mode"
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
+   "options": "Load Type"
   },
   {
    "fieldname": "delivery_mode",

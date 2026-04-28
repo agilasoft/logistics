@@ -32,13 +32,12 @@
  ],
  "fields": [
   {
-   "default": "Sea",
    "fieldname": "mode",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Mode",
-   "options": "Transport Mode",
-   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1]]",
+   "options": "Load Type"
   },
   {
    "default": "0",

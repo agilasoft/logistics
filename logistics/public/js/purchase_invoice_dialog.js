@@ -75,19 +75,44 @@
 					return (value || "").toString().trim();
 				}
 
+				var piNaming = data.pi_naming || {};
+				var headerFields = [
+					{ fieldname: "header_section", fieldtype: "Section Break", label: __("Header Details") }
+				];
+				if (piNaming.needs_purchase_invoice_name) {
+					headerFields.push({
+						fieldname: "purchase_invoice_name",
+						fieldtype: "Data",
+						label: __("Purchase Invoice Name"),
+						reqd: 1,
+						description: __("Same as on the standard Purchase Invoice form: set the name before saving the draft. Submit the invoice when ready.")
+					});
+				}
+				if (piNaming.show_naming_series && piNaming.naming_series_options && piNaming.naming_series_options.length) {
+					headerFields.push({
+						fieldname: "naming_series",
+						fieldtype: "Select",
+						label: __("Naming Series"),
+						options: piNaming.naming_series_options.join("\n"),
+						default: piNaming.default_naming_series || piNaming.naming_series_options[0],
+						reqd: 1
+					});
+				}
+				headerFields.push(
+					{ fieldname: "posting_date", fieldtype: "Date", label: __("Posting Date"), default: default_posting },
+					{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" },
+					{ fieldname: "due_date", fieldtype: "Date", label: __("Due Date"), default: default_due },
+					{ fieldname: "bill_no", fieldtype: "Data", label: __("Supplier Bill No"), description: __("Reference number from supplier invoice") },
+					{ fieldname: "bill_date", fieldtype: "Date", label: __("Supplier Bill Date") }
+				);
+
 				var dialog = new frappe.ui.Dialog({
 					title: __("Create Purchase Invoice"),
 					size: "large",
 					fields: [
 						{ fieldname: "charges_section", fieldtype: "Section Break", label: __("Charges to Include") },
-						{ fieldname: "charges_html", fieldtype: "HTML", options: table_html },
-						{ fieldname: "header_section", fieldtype: "Section Break", label: __("Header Details") },
-						{ fieldname: "posting_date", fieldtype: "Date", label: __("Posting Date"), default: default_posting },
-						{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" },
-						{ fieldname: "due_date", fieldtype: "Date", label: __("Due Date"), default: default_due },
-						{ fieldname: "bill_no", fieldtype: "Data", label: __("Supplier Bill No"), description: __("Reference number from supplier invoice") },
-						{ fieldname: "bill_date", fieldtype: "Date", label: __("Supplier Bill Date") }
-					],
+						{ fieldname: "charges_html", fieldtype: "HTML", options: table_html }
+					].concat(headerFields),
 					primary_action_label: __("Create Purchase Invoice"),
 					primary_action: function(values) {
 						var indices = [];
@@ -114,7 +139,9 @@
 								due_date: values.due_date || undefined,
 								bill_no: values.bill_no || undefined,
 								bill_date: values.bill_date || undefined,
-								selected_charge_indices: JSON.stringify(indices)
+								selected_charge_indices: JSON.stringify(indices),
+								naming_series: values.naming_series || undefined,
+								purchase_invoice_name: values.purchase_invoice_name || undefined
 							},
 							callback: function(create_r) {
 								if (create_r.message && create_r.message.ok) {

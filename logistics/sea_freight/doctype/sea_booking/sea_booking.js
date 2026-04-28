@@ -1056,6 +1056,21 @@ frappe.ui.form.on('Sea Booking Containers', {
 			_refresh_packing_summary_api(frm);
 		}
 	},
+	packages_in_container: function(frm) {
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
+	},
+	weight_in_container: function(frm) {
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
+	},
+	volume_in_container: function(frm) {
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
+	},
 	form_render: function(frm) {
 		// Skip if a grid dialog/row editor is open (prevents freeze and row editor closing)
 		if (_is_grid_dialog_open()) return;
