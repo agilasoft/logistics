@@ -640,74 +640,18 @@ class SeaConsolidation(Document):
     
     @frappe.whitelist()
     def get_dashboard_html(self):
-        """Generate HTML for Dashboard tab: Run Sheet layout with map and milestones (aligned with Sea Shipment)."""
+        """Generate HTML for Dashboard tab: same tabbed layout as Sea Booking / Sea Shipment (Route, Milestones, Alerts)."""
         try:
-            from logistics.document_management.api import get_document_alerts_html, get_dashboard_alerts_html
-            from logistics.document_management.dashboard_layout import (
-                build_run_sheet_style_dashboard,
-                build_map_segments_from_routing_legs,
-                get_unloco_coords,
+            from logistics.document_management.logistics_form_dashboard import (
+                build_sea_consolidation_dashboard_config,
+                render_logistics_form_dashboard_html,
             )
-            status = self.get("status") or "Draft"
-            header_items = [
-                ("Status", status),
-                ("ETD", str(self.etd) if self.etd else "—"),
-                ("ETA", str(self.eta) if self.eta else "—"),
-                ("Packages", str(sum(getattr(p, "package_count", 0) or 0 for p in (self.consolidation_packages or [])))),
-                ("Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
-            ]
-            if self.shipping_line:
-                header_items.append(("Shipping Line", self.shipping_line))
-            try:
-                doc_alerts = get_document_alerts_html("Sea Consolidation", self.name or "new")
-            except Exception:
-                doc_alerts = ""
-            milestone_rows = list(self.get("milestones") or [])
-            milestone_details = {}
-            if milestone_rows:
-                names = [m.milestone for m in milestone_rows if m.milestone]
-                if names:
-                    for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
-                        milestone_details[lm.name] = lm.description or lm.name
-            cards_html = ""
-            for i, m in enumerate(milestone_rows, 1):
-                st = (m.status or "Planned").lower().replace(" ", "-")
-                desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-                planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-                actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-                cards_html += f"""
-                <div class="dash-card {st}">
-                    <div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-                    <div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-                    <span class="card-badge {st}">{m.status or "Planned"}</span>
-                </div>"""
-            routes = getattr(self, "consolidation_routes", None) or []
-            legs_for_map = [{"idx": i, "load_port": getattr(r, "origin_port", None), "discharge_port": getattr(r, "destination_port", None), "type": getattr(r, "route_type", "Direct")} for i, r in enumerate(routes, 1)]
-            map_segments = build_map_segments_from_routing_legs(legs_for_map)
-            map_points = []
-            if not map_segments:
-                o = get_unloco_coords(self.origin_port)
-                d = get_unloco_coords(self.destination_port)
-                if o:
-                    map_points.append(o)
-                if d and (not map_points or (d.get("lat") != map_points[-1].get("lat")) or (d.get("lon") != map_points[-1].get("lon"))):
-                    map_points.append(d)
-            alerts_html = get_dashboard_alerts_html("Sea Consolidation", self.name or "new")
-            return build_run_sheet_style_dashboard(
-                header_title=self.name or "Sea Consolidation",
-                header_subtitle="Sea Consolidation",
-                header_items=header_items,
-                cards_html=cards_html or "<div class=\"text-muted\">No milestones. Use Get Milestones in Milestones tab.</div>",
-                map_points=map_points,
-                map_segments=map_segments,
-                map_id_prefix="sea-cons-dash-map",
-                doc_alerts_html=doc_alerts,
-                alerts_html=alerts_html,
-                straight_line=True,
-                origin_label=self.origin_port or None,
-                destination_label=self.destination_port or None,
-                route_below_html="",
+            from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
+
+            dash = render_logistics_form_dashboard_html(
+                self, build_sea_consolidation_dashboard_config(self)
             )
+            return get_sales_quote_validity_dashboard_html(self) + dash
         except Exception as e:
             frappe.log_error(f"Sea Consolidation get_dashboard_html: {str(e)}", "Sea Consolidation Dashboard")
             return "<div class='alert alert-warning'>Error loading dashboard.</div>"

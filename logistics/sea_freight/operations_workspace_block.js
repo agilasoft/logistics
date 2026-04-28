@@ -701,11 +701,21 @@ function renderAlerts(root, summary, items) {
     };
     var counts = { danger: danger, warning: warning, info: info };
     var groupsHtml = "";
+    var MAX_ALERT_ROWS_PER_GROUP = 10;
     order.forEach(function (level) {
       var cnt = counts[level];
       if (!cnt) return;
       var label = (labels[level] || "").replace("%s", String(cnt));
-      var bodyInner = groups[level].join("");
+      var rowHtmls = groups[level];
+      var shown = rowHtmls.slice(0, MAX_ALERT_ROWS_PER_GROUP);
+      var bodyInner = shown.join("");
+      var restCount = rowHtmls.length - shown.length;
+      if (restCount > 0) {
+        bodyInner +=
+          '<div class="text-muted small" style="padding: 8px 12px 4px;">' +
+          frappe.utils.escape_html(__("and %s more alerts").replace("%s", String(restCount))) +
+          "</div>";
+      }
       groupsHtml +=
         '<div class="dash-alert-group dash-alert-group-' +
         level +
@@ -727,6 +737,12 @@ function renderAlerts(root, summary, items) {
     section.innerHTML =
       groupsHtml ||
       '<div class="text-muted small">' + __("No alerts for listed shipments.") + "</div>";
+    section.querySelectorAll(".dash-alert-group-body").forEach(function (bod) {
+      bod.style.setProperty("max-height", "300px");
+      bod.style.setProperty("min-height", "0");
+      bod.style.setProperty("overflow-y", "auto");
+      bod.style.setProperty("overflow-x", "hidden");
+    });
     section.querySelectorAll(".dash-alert-group-header").forEach(function (h) {
       h.addEventListener("click", function () {
         var g = h.closest(".dash-alert-group");

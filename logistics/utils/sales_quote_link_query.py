@@ -9,10 +9,22 @@ import json
 from typing import Any
 
 import frappe
+from frappe import _
 from frappe.desk.reportview import get_match_cond
 from frappe.utils import cint
 
 from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
+
+_SALES_QUOTE_TABLE_COLUMNS_KEY = "table_columns::tabSales Quote"
+
+
+def _invalidate_sales_quote_table_column_cache() -> None:
+	"""Bust column list cache used by ``has_column`` — same key is read via client_cache and frappe.cache."""
+	for delete in (frappe.cache.delete_value, frappe.client_cache.delete_value):
+		try:
+			delete(_SALES_QUOTE_TABLE_COLUMNS_KEY)
+		except Exception:
+			pass
 
 
 def _ensure_sales_quote_columns_for_permissions() -> None:
@@ -20,13 +32,38 @@ def _ensure_sales_quote_columns_for_permissions() -> None:
 	if not frappe.db.table_exists("Sales Quote") or not frappe.db.exists("DocType", "Sales Quote"):
 		return
 	try:
+		# Stale ``table_columns::*`` can make ``has_column`` look current and skip ``updatedb``.
+		_invalidate_sales_quote_table_column_cache()
 		if frappe.db.has_column("Sales Quote", "company"):
 			return
 	except frappe.db.TableMissingError:
 		return
 
 	frappe.db.updatedb("Sales Quote")
-	frappe.client_cache.delete_value("table_columns::tabSales Quote")
+	_invalidate_sales_quote_table_column_cache()
+
+
+def _sales_quote_match_cond() -> str:
+	"""Permission SQL for raw queries on ``Sales Quote``; relies on ``company`` column."""
+	_ensure_sales_quote_columns_for_permissions()
+	if not frappe.db.has_column("Sales Quote", "company"):
+		frappe.throw(
+			_(
+				"The Sales Quote table is missing required columns (for example `company`). "
+				"Please run `bench migrate` for this site and reload."
+			),
+			title=_("Database out of date"),
+		)
+	raw = get_match_cond("Sales Quote")
+	if not raw:
+		return raw
+	# Raw queries use ``FROM `tabSales Quote` sq``; ``get_match_cond`` qualifies columns as
+	# ``(`tabSales Quote`.`company` ...)``. MariaDB/MySQL reject ``tabSales Quote``.col in WHERE
+	# when the table is aliased as ``sq`` (Error 1054 Unknown column).
+	fixed = raw.replace("`tabSales Quote`", "sq")
+	if frappe.db.db_type == "postgres":
+		fixed = fixed.replace('"tabSales Quote"', "sq")
+	return fixed
 
 
 def _parse_filters(filters: Any) -> dict:
@@ -488,8 +525,7 @@ def sales_quote_by_service_link_search(
 	else:
 		where_block = f"{eligibility} AND {one_off_where} {excluded_cond}"
 
-	_ensure_sales_quote_columns_for_permissions()
-	match_cond = get_match_cond("Sales Quote")
+	match_cond = _sales_quote_match_cond()
 
 	sql = f"""
 		SELECT sq.name
@@ -576,8 +612,7 @@ def fetch_eligible_regular_sales_quote_names(
 		params["customer"] = customer.strip()
 		customer_cond = "AND TRIM(IFNULL(sq.customer,'')) = %(customer)s"
 
-	_ensure_sales_quote_columns_for_permissions()
-	match_cond = get_match_cond("Sales Quote")
+	match_cond = _sales_quote_match_cond()
 	sql = f"""
 		SELECT sq.name
 		FROM `tabSales Quote` sq

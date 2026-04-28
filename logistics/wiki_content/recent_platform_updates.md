@@ -2,6 +2,8 @@
 
 **This page summarizes major behaviour and documentation changes** in the Logistics (CargoNext) app on the current development line. Use it with the linked deep-dive articles for billing, recognition, and pricing.
 
+For the **v1 (Astraea) umbrella summary**, see [CargoNext v1 — Release Notes](welcome/release-notes-v1).
+
 **Navigation:** Home > Introduction > Recent Platform Updates
 
 ## 1. Sales Quote → bookings and orders (charge lines)

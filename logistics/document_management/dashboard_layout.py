@@ -177,7 +177,8 @@ RUN_SHEET_LAYOUT_CSS = """
 .dash-alert-group.dash-alert-group-warning .dash-alert-group-header { background: #fff3cd; color: #856404; }
 .dash-alert-group.dash-alert-group-info .dash-alert-group-header { background: #d1ecf1; color: #0c5460; }
 .dash-alert-group-chevron { font-size: 10px; transition: transform 0.2s ease; }
-.dash-alert-group-body { padding: 6px 12px 12px; }
+.run-sheet-dash .dash-alert-group-body,
+.dash-alert-group-body { padding: 6px 12px 12px; min-height: 0; max-height: 300px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .dash-alert-group.collapsed .dash-alert-group-body { display: none; }
 /* Dangerous Goods under origin/destination: green = compliant, red = non-compliant */
 .dg-alert-compliant { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }

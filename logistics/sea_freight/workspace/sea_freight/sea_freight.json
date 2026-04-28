@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"mm7rxCtQGZ\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Sea Freight Operations Dashboard\",\"col\":12}},{\"id\":\"kJbEC7VixN\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FvdZiDiccY\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"cOpPisjZoB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"yzT5a0lxSA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Booking\",\"col\":3}},{\"id\":\"sRjDM_OMBz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Shipment\",\"col\":3}},{\"id\":\"aDLLlm2IFm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Consolidation\",\"col\":3}},{\"id\":\"zzsLPl3JFG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Master Bill\",\"col\":3}},{\"id\":\"t5Pi_PIhhh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Management\",\"col\":3}},{\"id\":\"95JHp6T1ff\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"g-MslxRXkU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"7U-lNFTP-G\",\"type\":\"card\",\"data\":{\"card_name\":\"Sea Freight Process\",\"col\":4}},{\"id\":\"GYa5CDBkfG\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}},{\"id\":\"o4h6D5XFhD\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"_SrDDtJ1gT\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"nGrk4a4DrA\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"M_wmlfz5l6\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"SRC0uvoL4n\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"5s99HLNFPu\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Analysis Report\",\"col\":4}},{\"id\":\"-6mClESTKk\",\"type\":\"card\",\"data\":{\"card_name\":\"Analytics & Insights\",\"col\":4}}]",
+ "content": "[{\"id\":\"mm7rxCtQGZ\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Sea Freight Operations Dashboard\",\"col\":12}},{\"id\":\"kJbEC7VixN\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"FvdZiDiccY\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"cOpPisjZoB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quote\",\"col\":3}},{\"id\":\"yzT5a0lxSA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Booking\",\"col\":3}},{\"id\":\"sRjDM_OMBz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shipment\",\"col\":3}},{\"id\":\"aDLLlm2IFm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sea Consolidation\",\"col\":3}},{\"id\":\"zzsLPl3JFG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Master Bill\",\"col\":3}},{\"id\":\"t5Pi_PIhhh\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Container Management\",\"col\":3}},{\"id\":\"95JHp6T1ff\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"Ucb5Cj_s4o\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"g-MslxRXkU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"7U-lNFTP-G\",\"type\":\"card\",\"data\":{\"card_name\":\"Sea Freight Process\",\"col\":4}},{\"id\":\"GYa5CDBkfG\",\"type\":\"card\",\"data\":{\"card_name\":\"Organizations\",\"col\":4}},{\"id\":\"o4h6D5XFhD\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"_SrDDtJ1gT\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"nGrk4a4DrA\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"M_wmlfz5l6\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"SRC0uvoL4n\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"5s99HLNFPu\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Analysis Report\",\"col\":4}},{\"id\":\"-6mClESTKk\",\"type\":\"card\",\"data\":{\"card_name\":\"Analytics & Insights\",\"col\":4}}]",
  "creation": "2025-05-22 17:00:22.124219",
  "custom_blocks": [
   {
@@ -410,7 +410,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-04-27 23:32:12.021961",
+ "modified": "2026-04-28 00:28:16.200427",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight",
@@ -433,7 +433,7 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Sales Quote",
+   "label": "Quote",
    "link_to": "Sales Quote",
    "stats_filter": "[]",
    "type": "DocType"
@@ -441,7 +441,7 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Sea Booking",
+   "label": "Booking",
    "link_to": "Sea Booking",
    "stats_filter": "[]",
    "type": "DocType"
@@ -450,7 +450,7 @@
    "color": "Blue",
    "doc_view": "List",
    "format": "{} Open",
-   "label": "Sea Shipment",
+   "label": "Shipment",
    "link_to": "Sea Shipment",
    "stats_filter": "[]",
    "type": "DocType"

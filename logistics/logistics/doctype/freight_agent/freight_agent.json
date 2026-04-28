@@ -9,6 +9,7 @@
  "field_order": [
   "code",
   "freight_agent_name",
+  "default_unloco",
   "is_active",
   "column_break_pbzu",
   "tab_2_tab",
@@ -30,6 +31,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Freight Agent Name"
+  },
+  {
+   "fieldname": "default_unloco",
+   "fieldtype": "Link",
+   "label": "Default UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "default": "1",

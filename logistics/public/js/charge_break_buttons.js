@@ -4,17 +4,13 @@
 // Child tables are detected via LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS and meta (see charge_break_dialogs.js).
 
 var CHARGE_DOCTYPES_WITH_BREAKS =
-	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || [
-		"Air Booking Charges",
-		"Air Shipment Charges",
-		"Sea Booking Charges",
-		"Sea Shipment Charges",
-		"Sea Consolidation Charges",
-		"Transport Order Charges",
-		"Transport Job Charges",
-		"Declaration Charges",
-		"Declaration Order Charges",
-	];
+	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS ||
+	[].concat(
+		["Sea Booking Charges", "Sea Shipment Charges", "Sea Consolidation Charges"],
+		["Air Booking Charges", "Air Shipment Charges"],
+		["Declaration Charges", "Declaration Order Charges"],
+		["Transport Order Charges", "Transport Job Charges"]
+	);
 
 var CHARGE_PARENT_DOCTYPES = [
 	"Air Booking",

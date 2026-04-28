@@ -5,17 +5,25 @@
 (function() {
 	"use strict";
 
-	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [
-		"Air Booking Charges",
-		"Air Shipment Charges",
+	/** Sea Freight — booking / shipment / consolidation charge child tables (Weight Break & Qty Break row buttons). */
+	window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES = [
 		"Sea Booking Charges",
 		"Sea Shipment Charges",
 		"Sea Consolidation Charges",
-		"Transport Order Charges",
-		"Transport Job Charges",
-		"Declaration Charges",
-		"Declaration Order Charges",
 	];
+	/** Air Freight — booking & shipment charge child tables. */
+	window.LOGISTICS_AIR_FREIGHT_CHARGE_DOCTYPES = ["Air Booking Charges", "Air Shipment Charges"];
+	/** Customs — declaration & declaration order charge child tables. */
+	window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES = ["Declaration Charges", "Declaration Order Charges"];
+	/** Transport — order & job charge child tables. */
+	window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES = ["Transport Order Charges", "Transport Job Charges"];
+
+	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [].concat(
+		window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES,
+		window.LOGISTICS_AIR_FREIGHT_CHARGE_DOCTYPES,
+		window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES,
+		window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES
+	);
 
 	/** Any child DocType that ships freight-style weight-break row buttons (reference → Sales Quote Weight Break). */
 	window.logistics_charge_child_doctype_has_weight_break_buttons = function(dt) {
@@ -446,6 +454,92 @@
 	// Grid row "Weight Break" buttons: ControlButton only triggers frappe.ui.form.on when
 	// script_manager.has_handlers(...) is true; in expanded child row forms that path is unreliable.
 	// Capture on document so we open the dialog before the event reaches the inner <button>.
+	/**
+	 * Calculation Method drives depends_on for Weight Break / Qty Break Button fields above it in field_order.
+	 * Re-run layout dependency when it changes (grid_form.refresh_field can skip layout.refresh_dependency in some cases).
+	 */
+	(function _logistics_register_charge_calc_method_break_visibility() {
+		if (window.__logistics_charge_calc_method_visibility_hooks) {
+			return;
+		}
+		window.__logistics_charge_calc_method_visibility_hooks = true;
+
+		function _logistics_child_row_calc_visibility_hook_rows() {
+			var freight = window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || [];
+			var rows = [];
+			freight.forEach(function(dt) {
+				rows.push({ doctype: dt, fields: ["revenue_calculation_method", "cost_calculation_method"] });
+			});
+			if (freight.indexOf("Sales Quote Charge") === -1) {
+				rows.push({
+					doctype: "Sales Quote Charge",
+					fields: ["revenue_calculation_method", "cost_calculation_method"],
+				});
+			}
+			rows.push(
+				{
+					doctype: "Sales Quote Air Freight",
+					fields: ["calculation_method", "cost_calculation_method"],
+				},
+				{
+					doctype: "Sales Quote Sea Freight",
+					fields: ["calculation_method", "cost_calculation_method"],
+				},
+				{
+					doctype: "Warehouse Contract Item",
+					fields: [
+						"calculation_method",
+						"unit_type",
+						"volume_calculation_method",
+						"storage_charge",
+						"inbound_charge",
+						"outbound_charge",
+						"transfer_charge",
+						"vas_charge",
+						"stocktake_charge",
+						"billing_method",
+					],
+				}
+			);
+			return rows;
+		}
+
+		function deferRefreshChargeBreakDepends(doc) {
+			var name = doc && doc.name;
+			if (!name) {
+				return;
+			}
+			setTimeout(function() {
+				var gridRow =
+					typeof frappe.ui.form.get_open_grid_form === "function" &&
+					frappe.ui.form.get_open_grid_form();
+				if (!gridRow || !gridRow.doc || gridRow.doc.name !== name) {
+					return;
+				}
+				if (gridRow.grid_form && gridRow.grid_form.layout) {
+					gridRow.grid_form.layout.refresh_dependency();
+					gridRow.grid_form.layout.refresh_sections();
+				}
+				if (typeof gridRow.refresh_dependency === "function") {
+					gridRow.refresh_dependency();
+				}
+			}, 0);
+		}
+		function attachCalcMethodHooks(dt, fieldnames) {
+			if (!dt || !fieldnames || !fieldnames.length) {
+				return;
+			}
+			fieldnames.forEach(function(fname) {
+				frappe.model.on(dt, fname, function(fieldname, value, doc) {
+					deferRefreshChargeBreakDepends(doc);
+				});
+			});
+		}
+		_logistics_child_row_calc_visibility_hook_rows().forEach(function(row) {
+			attachCalcMethodHooks(row.doctype, row.fields);
+		});
+	})();
+
 	(function _logistics_install_charge_break_row_button_click_capture() {
 		if (window.__logistics_charge_break_row_button_capture_installed) {
 			return;

@@ -137,7 +137,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Default origin port UNLOCO code",
    "fieldname": "default_origin_port",
    "fieldtype": "Link",
    "label": "Default Origin Port",
@@ -145,7 +144,6 @@
    "options": "UNLOCO"
   },
   {
-   "description": "Default destination port UNLOCO code",
    "fieldname": "default_destination_port",
    "fieldtype": "Link",
    "label": "Default Destination Port",
@@ -368,7 +366,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-04-28 00:13:09.344310",
+ "modified": "2026-04-28 00:30:57.494619",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Settings",

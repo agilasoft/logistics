@@ -509,6 +509,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "link_filters": "[[\"Job Number\", \"job_type\", \"=\", \"Sea Shipment\"]]",
    "no_copy": 1,
    "options": "Job Number"
   },

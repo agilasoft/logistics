@@ -747,6 +747,135 @@ def build_air_shipment_dashboard_config(doc):
 	}
 
 
+def build_sea_consolidation_meta_cluster_html(doc):
+	"""Two-column meta: type, date, ETD, ETA, priority | agent, routes, shipments, packages, weight, MBL, vessel."""
+
+	def _ab_meta_row(ic, val, label=None):
+		span = (
+			f'<span class="ab-meta-k">{escape_html(label)}:</span>{escape_html(str(val))}'
+			if label
+			else escape_html(str(val))
+		)
+		return f'<div class="ab-meta-row"><i class="fa {escape_html(ic)}"></i><span>{span}</span></div>'
+
+	meta_primary_parts = []
+	if getattr(doc, "consolidation_type", None):
+		meta_primary_parts.append(_ab_meta_row("fa-sitemap", doc.consolidation_type, "Type"))
+	if getattr(doc, "consolidation_date", None):
+		meta_primary_parts.append(_ab_meta_row("fa-calendar", str(doc.consolidation_date), "Date"))
+	if getattr(doc, "etd", None):
+		meta_primary_parts.append(_ab_meta_row("fa-ship", str(doc.etd), "ETD"))
+	if getattr(doc, "eta", None):
+		meta_primary_parts.append(_ab_meta_row("fa-anchor", str(doc.eta), "ETA"))
+	if getattr(doc, "priority", None) and str(doc.priority).strip() and str(doc.priority) != "Normal":
+		meta_primary_parts.append(_ab_meta_row("fa-flag", doc.priority, "Priority"))
+	meta_primary_inner = "".join(meta_primary_parts)
+	meta_primary = f'<div class="ab-summary-meta-rows">{meta_primary_inner}</div>' if meta_primary_inner else ""
+
+	routes = doc.get("consolidation_routes") or []
+	n_att = len(doc.get("attached_sea_shipments") or [])
+	sec_lines = []
+	if getattr(doc, "consolidation_agent", None):
+		sec_lines.append(("fa-user", "Agent", doc.consolidation_agent))
+	sec_lines.append(("fa-road", "Routes", str(len(routes))))
+	sec_lines.append(("fa-link", "Shipments", str(n_att)))
+	if doc.get("total_packages") is not None:
+		sec_lines.append(("fa-cube", "Packages", str(doc.total_packages or 0)))
+	if getattr(doc, "total_weight", None) is not None:
+		sec_lines.append(
+			(
+				"fa-balance-scale",
+				"Weight",
+				frappe.format_value(doc.total_weight or 0, df=dict(fieldtype="Float")),
+			)
+		)
+	if getattr(doc, "master_bill", None):
+		sec_lines.append(("fa-file-text-o", "MBL", doc.master_bill))
+	if getattr(doc, "vessel_name", None):
+		vv = doc.vessel_name
+		if getattr(doc, "voyage_number", None):
+			vv = f"{vv} / {doc.voyage_number}"
+		sec_lines.append(("fa-ship", "Vessel", vv))
+	sec_inner = "".join(
+		f'<div class="ab-sec-line"><i class="fa {escape_html(ic)}"></i>'
+		f'<span class="ab-sec-val"><span class="ab-sec-k">{escape_html(lbl)}:</span>'
+		f"{escape_html(str(val))}</span></div>"
+		for ic, lbl, val in sec_lines
+	)
+	meta_secondary = f'<div class="ab-secondary-meta">{sec_inner}</div>' if sec_inner else ""
+
+	if meta_primary and meta_secondary:
+		return (
+			f'<div class="log-ab-meta-cluster">'
+			f'<div class="log-ab-meta-col log-ab-meta-col--primary">{meta_primary}</div>'
+			f'<div class="log-ab-meta-col log-ab-meta-col--secondary">{meta_secondary}</div>'
+			f"</div>"
+		)
+	if meta_primary:
+		return (
+			f'<div class="log-ab-meta-cluster">'
+			f'<div class="log-ab-meta-col log-ab-meta-col--primary">{meta_primary}</div>'
+			f"</div>"
+		)
+	if meta_secondary:
+		return (
+			f'<div class="log-ab-meta-cluster">'
+			f'<div class="log-ab-meta-col log-ab-meta-col--secondary">{meta_secondary}</div>'
+			f"</div>"
+		)
+	return ""
+
+
+def _sea_consolidation_routes_as_map_legs(doc):
+	"""Child rows -> load_port/discharge_port dicts for build_map_segments_from_routing_legs."""
+	routes = getattr(doc, "consolidation_routes", None) or []
+	out = []
+	for i, r in enumerate(routes, 1):
+		out.append(
+			{
+				"idx": i,
+				"load_port": getattr(r, "origin_port", None),
+				"discharge_port": getattr(r, "destination_port", None),
+				"type": getattr(r, "route_type", None) or "Direct",
+			}
+		)
+	return out
+
+
+def build_sea_consolidation_dashboard_config(doc):
+	from logistics.document_management.dashboard_layout import build_map_segments_from_routing_legs
+
+	status = doc.get("status") or "Draft"
+	pkgs = doc.total_packages
+	if pkgs is None:
+		pkgs = sum(getattr(p, "package_count", 0) or 0 for p in (doc.consolidation_packages or []))
+	header_items = [
+		("Status", status),
+		("ETD", str(doc.etd) if doc.etd else "—"),
+		("ETA", str(doc.eta) if doc.eta else "—"),
+		("Type", doc.consolidation_type or "—"),
+		("Packages", str(pkgs or 0)),
+		("Weight", frappe.format_value(doc.total_weight or 0, df=dict(fieldtype="Float"))),
+	]
+	hero_html = build_shipping_line_hero_html(doc, header_items)
+	map_segments = build_map_segments_from_routing_legs(_sea_consolidation_routes_as_map_legs(doc))
+	cfg = {
+		"doctype": "Sea Consolidation",
+		"map_id_prefix": "sea-consolidation-dash-map",
+		"header_items": header_items,
+		"hero_html": hero_html,
+		"meta_cluster_html": build_sea_consolidation_meta_cluster_html(doc),
+		"scroll_doctype": "Sea Consolidation",
+		"ring_status_from": "workflow",
+		"ring_status_field": "status",
+		"include_default_dg": False,
+	}
+	if map_segments:
+		cfg["map_points"] = []
+		cfg["map_segments"] = map_segments
+	return cfg
+
+
 def build_sea_shipment_dashboard_config(doc):
 	status = doc.get("status") or (
 		"Submitted" if doc.docstatus == 1 else "Cancelled" if doc.docstatus == 2 else "Draft"

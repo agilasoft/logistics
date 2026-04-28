@@ -193,6 +193,9 @@ doctype_js = {
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
 	],
+	"Warehouse Contract": [
+		"logistics/public/js/charge_break_dialogs.js",
+	],
 	"General Job": [
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
@@ -266,6 +269,12 @@ _doc_milestone_doctypes = [
 ]
 
 doc_events = {
+	"Customer": {
+		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
+	},
+	"Supplier": {
+		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
+	},
 	"Accounting Dimension": {
 		"after_insert": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
