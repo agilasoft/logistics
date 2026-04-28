@@ -574,31 +574,6 @@ class SeaBooking(Document):
 				title=_("Duplicate Container Numbers")
 			)
 
-	def validate_fcl_container_numbers_required(self):
-		"""For FCL bookings, require Container No on at least one row and disallow empty container rows."""
-		if (getattr(self, "transport_mode", None) or "").strip() != "FCL":
-			return
-
-		containers = getattr(self, "containers", None) or []
-		if not containers:
-			frappe.throw(
-				_("For FCL mode, add at least one container with Container No before submitting."),
-				title=_("Missing Container No"),
-			)
-
-		empty_rows = []
-		for row in containers:
-			if not (getattr(row, "container_no", None) or "").strip():
-				empty_rows.append(getattr(row, "idx", None) or "?")
-
-		if empty_rows:
-			frappe.throw(
-				_("For FCL mode, Container No is mandatory. Fill Container No in row(s): {0}.").format(
-					", ".join(str(r) for r in empty_rows)
-				),
-				title=_("Missing Container No"),
-			)
-	
 	def _container_returned(
 		self, container_no, other_shipment_name=None, other_booking_name=None
 	):
@@ -691,8 +666,7 @@ class SeaBooking(Document):
 
 		self.validate_ready_for_sea_shipment_on_submit()
 		
-		# Validate container numbers for duplicates
-		self.validate_fcl_container_numbers_required()
+		# Duplicate container checks when numbers are entered (FCL Container No enforced on Sea Shipment submit)
 		self.validate_container_numbers()
 	
 	def after_submit(self):
@@ -1704,7 +1678,6 @@ class SeaBooking(Document):
 			messages = [field["message"] for field in readiness["missing_fields"]]
 			frappe.throw(_("Cannot convert to Sea Shipment. Missing or invalid fields:\n{0}").format("\n".join(f"- {msg}" for msg in messages)))
 
-		self.validate_fcl_container_numbers_required()
 		self.validate_container_numbers()
 
 	@frappe.whitelist()

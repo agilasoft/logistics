@@ -9,6 +9,9 @@ from logistics.utils.document_date_validation import (
     throw_if_left_date_after_right,
     is_future_date,
 )
+from logistics.utils.sea_fcl_container_validation import (
+    validate_fcl_container_numbers_required,
+)
 from logistics.utils.dg_fields import update_parent_dg_compliance_status
 
 # Virtual MBL display fields: (fieldname on Sea Shipment, column on Master Bill)
@@ -174,6 +177,7 @@ class SeaShipment(Document):
     def before_submit(self):
         """Validate required data before submit; block DG non-compliance."""
         self.validate_required_fields_for_submit()
+        validate_fcl_container_numbers_required(self)
         try:
             contains_dg = bool(getattr(self, "contains_dangerous_goods", 0))
             dg_status = (getattr(self, "dg_compliance_status", "") or "").strip()
