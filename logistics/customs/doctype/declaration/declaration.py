@@ -1004,6 +1004,9 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 	except frappe.TimestampMismatchError:
 		frappe.log_error("Timestamp mismatch when creating Declaration from Declaration Order", "Declaration Creation Error")
 		frappe.throw(_("The declaration was modified during creation. Please try again."), title=_("Creation Error"))
+	except frappe.ValidationError:
+		# Must follow TimestampMismatchError (a subclass); surface real validation messages to the user.
+		raise
 	except Exception as e:
 		frappe.log_error(f"Error creating Declaration from Declaration Order: {str(e)}", "Declaration Creation Error")
 		# Provide user-friendly error message
