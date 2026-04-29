@@ -249,7 +249,10 @@ class SeaConsolidation(Document):
         
         # Calculate cost per kg
         if self.chargeable_weight and self.chargeable_weight > 0:
-            total_cost = sum(charge.total_amount or 0 for charge in self.consolidation_charges)
+            total_cost = sum(
+                flt(charge.estimated_cost or charge.buying_amount or 0)
+                for charge in self.consolidation_charges
+            )
             self.cost_per_kg = total_cost / self.chargeable_weight
         else:
             self.cost_per_kg = 0
@@ -489,12 +492,11 @@ class SeaConsolidation(Document):
             self.status = "In Progress"
     
     def calculate_total_charges(self):
-        """Calculate total charges from consolidation charges"""
+        """Sum consolidation charge costs (estimated cost, else buying amount)."""
         total = 0
         for charge in self.consolidation_charges:
-            if charge.total_amount:
-                total += flt(charge.total_amount)
-        
+            total += flt(charge.estimated_cost or charge.buying_amount or 0)
+
         return total
     
     def optimize_consolidation_ratio(self):

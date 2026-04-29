@@ -103,6 +103,33 @@ CHARGE_PARENT_DOCTYPES.forEach(function(doctype) {
 	});
 });
 
+/** Toolbar default: Selling dialogs unless the child table only defines cost-side break buttons (e.g. Sea Consolidation Charges). */
+function _weight_break_side_for_child_doctype(dt) {
+	if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+		return "Selling";
+	}
+	var m = frappe.meta.docfield_map[dt];
+	var sw = m.selling_weight_break && m.selling_weight_break.fieldtype === "Button";
+	var cw = m.cost_weight_break && m.cost_weight_break.fieldtype === "Button";
+	if (cw && !sw) {
+		return "Cost";
+	}
+	return "Selling";
+}
+
+function _qty_break_side_for_child_doctype(dt) {
+	if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+		return "Selling";
+	}
+	var m = frappe.meta.docfield_map[dt];
+	var sq = m.selling_qty_break && m.selling_qty_break.fieldtype === "Button";
+	var cq = m.cost_qty_break && m.cost_qty_break.fieldtype === "Button";
+	if (cq && !sq) {
+		return "Cost";
+	}
+	return "Selling";
+}
+
 function _grid_is_logistics_charge_breaks_table(grid) {
 	if (!grid || !grid.doctype) {
 		return false;
@@ -150,7 +177,8 @@ function _add_break_buttons_to_charge_grid(frm) {
 			$wb.on("click", function() {
 				var row = _get_selected_charge_row(frm, item.fieldname);
 				if (row) {
-					window.open_weight_break_rate_dialog && window.open_weight_break_rate_dialog(frm, row, "Selling");
+					var wbSide = _weight_break_side_for_child_doctype(grid.doctype);
+					window.open_weight_break_rate_dialog && window.open_weight_break_rate_dialog(frm, row, wbSide);
 				} else {
 					frappe.msgprint({
 						title: __("Select Row"),
@@ -166,7 +194,8 @@ function _add_break_buttons_to_charge_grid(frm) {
 			$qb.on("click", function() {
 				var row = _get_selected_charge_row(frm, item.fieldname);
 				if (row) {
-					window.open_qty_break_rate_dialog && window.open_qty_break_rate_dialog(frm, row, "Selling");
+					var qbSide = _qty_break_side_for_child_doctype(grid.doctype);
+					window.open_qty_break_rate_dialog && window.open_qty_break_rate_dialog(frm, row, qbSide);
 				} else {
 					frappe.msgprint({
 						title: __("Select Row"),
