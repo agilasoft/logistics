@@ -2678,20 +2678,11 @@ class AirShipment(Document):
 			# Get default currency from system settings
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Map unit_type to quantity
-			quantity = 0
-			if _af_r("unit_type") == "Chargeable Weight":
-				chargeable_qty = getattr(self, "chargeable", None)
-				if chargeable_qty in (None, ""):
-					chargeable_qty = getattr(self, "chargeable_weight", None)
-				quantity = flt(chargeable_qty or 0)
-			elif _af_r("unit_type") == "Weight":
-				quantity = flt(self.total_weight) or 0
-			elif _af_r("unit_type") == "Volume":
-				quantity = flt(self.total_volume) or 0
-			elif _af_r("unit_type") in ("Package", "Piece"):
-				quantity = len(self.packages) if (hasattr(self, 'packages') and self.packages) else 1
-			else:
+			from logistics.utils.charges_calculation import get_quantity_from_parent_by_unit_type
+
+			ut = _af_r("unit_type")
+			quantity = get_quantity_from_parent_by_unit_type(self, ut)
+			if ut in ("Package", "Piece") and flt(quantity) <= 0:
 				quantity = 1
 			
 			charge_type = "Other"
@@ -2710,9 +2701,18 @@ class AirShipment(Document):
 				"rate": _af_r("unit_rate") or 0,
 				"currency": _af_r("currency") or default_currency,
 				"quantity": quantity,
-				"unit_of_measure": _af_r("uom") or None,
+				"uom": _af_r("uom") or None,
+				"unit_type": ut,
 				"billing_status": "To Bill",
 			}
+			if _af_r("cost_calculation_method"):
+				charge_data["cost_calculation_method"] = _af_r("cost_calculation_method")
+			if _af_r("unit_cost") is not None:
+				charge_data["unit_cost"] = _af_r("unit_cost")
+			if _af_r("cost_unit_type"):
+				charge_data["cost_unit_type"] = _af_r("cost_unit_type")
+			if _af_r("cost_currency"):
+				charge_data["cost_currency"] = _af_r("cost_currency")
 
 			return charge_data
 			

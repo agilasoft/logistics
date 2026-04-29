@@ -38,7 +38,7 @@ app_include_js = [
 	"/assets/logistics/js/internal_job_create_from_source.js?v=17",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=8",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=10",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=1",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",

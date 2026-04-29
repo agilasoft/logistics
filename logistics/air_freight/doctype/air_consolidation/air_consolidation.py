@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt
 import json
 from datetime import datetime, timedelta
 
@@ -336,12 +337,18 @@ class AirConsolidation(Document):
         
         for charge in self.consolidation_charges:
             if charge.revenue_calculation_method == "Per Unit":
-                if getattr(charge, "unit_type", None) == "Weight":
+                ut = getattr(charge, "unit_type", None)
+                if ut == "Weight":
                     charge.base_amount = charge.rate * self.chargeable_weight
-                elif getattr(charge, "unit_type", None) == "Volume":
+                elif ut == "Chargeable Weight":
+                    cq = flt(self.chargeable_weight or 0)
+                    if cq <= 0:
+                        cq = flt(self.total_weight or 0)
+                    charge.base_amount = charge.rate * cq
+                elif ut == "Volume":
                     charge.base_amount = charge.rate * self.total_volume
-                elif getattr(charge, "unit_type", None) == "Package":
-                    charge.base_amount = charge.rate * self.total_packages
+                elif ut in ("Package", "Piece"):
+                    charge.base_amount = charge.rate * (self.total_packages or 0)
                 else:
                     charge.base_amount = charge.rate * (charge.quantity or 0)
             elif charge.revenue_calculation_method == "Flat Rate":

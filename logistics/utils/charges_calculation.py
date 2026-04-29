@@ -109,9 +109,10 @@ CHARGE_PARENT_OVERRIDE_ALLOWLIST = frozenset(
         "distance",
         "total_teu",
         "teu",
-        "total_containers",
-        "total_operation_time",
-        "operation_time",
+    "total_containers",
+    "total_handling_units",
+    "total_operation_time",
+    "operation_time",
         "transport_weight",
         "transport_volume",
         "sea_weight",
@@ -215,6 +216,10 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
             "actual_teu": 0,
             "actual_containers": 0,
             "actual_operation_time": 0,
+            "actual_item_count": 0,
+            "actual_handling_units": 0,
+            "actual_trips": 0,
+            "actual_days": 0,
         }
 
     parent_doctype = getattr(parent_doc, "doctype", None) or parent_doc.get("doctype")
@@ -270,8 +275,31 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         _get_field(parent_doc, "total_operation_time", "operation_time", "actual_hours") or 0
     )
 
+    products = getattr(parent_doc, "project_products", None) or getattr(parent_doc, "products", None) or []
+    if isinstance(products, (list, tuple)):
+        item_count = len(products)
+    else:
+        item_count = 0
+    if item_count <= 0 and hasattr(parent_doc, "packages") and parent_doc.packages:
+        pk = parent_doc.packages
+        item_count = len(pk) if isinstance(pk, (list, tuple)) else (cint(pk) if pk else 0)
+
+    handling_units = flt(_get_field(parent_doc, "total_handling_units") or 0)
+    if handling_units <= 0 and hasattr(parent_doc, "items") and parent_doc.items:
+        hus = set()
+        for it in parent_doc.items:
+            hu = getattr(it, "handling_unit", None)
+            if hu:
+                hus.add(hu)
+        handling_units = float(len(hus)) if hus else 0.0
+
+    legs = getattr(parent_doc, "legs", None) or getattr(parent_doc, "routing_legs", None) or []
+    trip_count = float(len(legs)) if legs else 0.0
+
+    calendar_days = flt(_get_field(parent_doc, "total_days", "calendar_days", "billing_days") or 0)
+
     return {
-        "actual_quantity": weight or volume or pieces or distance or teu or containers or 1,
+        "actual_quantity": weight or volume or pieces or distance or teu or containers or item_count or handling_units or trip_count or 1,
         "actual_weight": weight,
         "actual_chargeable_weight": chargeable_weight,
         "actual_volume": volume,
@@ -280,6 +308,10 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         "actual_teu": teu,
         "actual_containers": containers,
         "actual_operation_time": operation_time,
+        "actual_item_count": float(item_count),
+        "actual_handling_units": handling_units,
+        "actual_trips": trip_count,
+        "actual_days": calendar_days if calendar_days > 0 else operation_time,
     }
 
 
@@ -323,9 +355,41 @@ def _get_quantity_for_calculation_method(
         return flt(actual_data.get("actual_teu") or 0)
     if ut == "container":
         return flt(actual_data.get("actual_containers") or 0)
-    if ut in ("day", "operation time"):
+    if ut == "operation time":
         return flt(actual_data.get("actual_operation_time") or 1)
+    if ut == "day":
+        d = flt(actual_data.get("actual_days") or 0)
+        if d > 0:
+            return d
+        return flt(actual_data.get("actual_operation_time") or 1)
+    if ut == "item count":
+        return flt(actual_data.get("actual_item_count") or 0)
+    if ut == "handling unit":
+        hu = flt(actual_data.get("actual_handling_units") or 0)
+        return hu if hu > 0 else 1.0
+    if ut == "job":
+        return 1.0
+    if ut == "trip":
+        t = flt(actual_data.get("actual_trips") or 0)
+        return t if t > 0 else 1.0
+    if ut == "shipment":
+        return 1.0
     return flt(actual_data.get("actual_quantity") or 0)
+
+
+def get_quantity_from_parent_by_unit_type(parent_doc: Any, unit_type: Optional[str]) -> float:
+    """Resolve quantity from an operational parent (Air Booking, Air Shipment, …) by ``unit_type``.
+
+    Uses the same aggregates as ``calculate_charge_row`` so Sales Quote → Booking/Shipment
+    charge mapping stays aligned with grid calculations.
+    """
+    if not parent_doc:
+        return 1.0
+    ut = (unit_type or "").strip()
+    if not ut:
+        return 1.0
+    actual_data = _get_parent_actual_data(None, parent_doc)
+    return _get_quantity_for_calculation_method(actual_data, "Per Unit", ut, is_revenue=True)
 
 
 def _normalize_calculation_method(method: str, unit_type: str) -> tuple:
@@ -967,8 +1031,19 @@ def _calculate_charge_amount(
                 actual_data["actual_teu"] = row_qty
             elif ut == "container":
                 actual_data["actual_containers"] = row_qty
-            elif ut in ("day", "operation time"):
+            elif ut == "operation time":
                 actual_data["actual_operation_time"] = row_qty
+            elif ut == "day":
+                actual_data["actual_days"] = row_qty
+                actual_data["actual_operation_time"] = row_qty
+            elif ut == "item count":
+                actual_data["actual_item_count"] = row_qty
+            elif ut == "handling unit":
+                actual_data["actual_handling_units"] = row_qty
+            elif ut == "trip":
+                actual_data["actual_trips"] = row_qty
+            elif ut == "job":
+                actual_data["actual_quantity"] = row_qty
 
     if is_revenue:
         # Sales Quote: keep non-zero row quantity for estimating; operational: always follow parent actuals (same as cost).
@@ -1093,8 +1168,16 @@ def _calculate_charge_amount(
     if line_qty is not None and flt(line_qty) > 0:
         qty_val = flt(line_qty)
         actual_data["actual_quantity"] = qty_val
-        # When parent has no weight/volume/etc, use charge row quantity for unit-type lookup
-        if actual_data.get("actual_weight", 0) <= 0 and actual_data.get("actual_volume", 0) <= 0:
+        # When parent has no weight/volume/etc, use charge row quantity for generic Per Unit lookup.
+        # Do not spread into weight fields for unit types that use dedicated aggregates (item lines, HU count, …).
+        ut_spread = (unit_type or "Weight").strip().lower()
+        if ut_spread not in (
+            "item count",
+            "handling unit",
+            "job",
+            "trip",
+            "shipment",
+        ) and actual_data.get("actual_weight", 0) <= 0 and actual_data.get("actual_volume", 0) <= 0:
             actual_data["actual_weight"] = qty_val
             actual_data["actual_volume"] = qty_val
             actual_data["actual_chargeable_weight"] = qty_val

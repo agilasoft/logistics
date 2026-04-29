@@ -6,10 +6,12 @@
 from __future__ import unicode_literals
 
 import frappe
+from frappe import _
 from frappe.utils import get_datetime, now_datetime
 
 from logistics.utils.validation_user_messages import (
 	milestone_actual_end_without_start_message,
+	milestone_actual_future_dates_message,
 	milestone_actual_range_invalid_message,
 	milestone_completed_before_planned_start_message,
 	milestone_date_validation_title,
@@ -44,6 +46,7 @@ def validate_milestone_date_ranges(milestone_doc):
 	"""
 	Ensure planned/actual intervals are not inverted.
 	Planned Start and Actual Start must be on or before their respective end (same timestamp allowed).
+	Actual Start and Actual End must not be later than the current moment (use Planned dates for the future).
 	"""
 	if not milestone_doc:
 		return
@@ -70,6 +73,18 @@ def validate_milestone_date_ranges(milestone_doc):
 
 	actual_start = _dt(milestone_doc.get("actual_start"))
 	actual_end = _dt(milestone_doc.get("actual_end"))
+
+	now = now_datetime()
+	bad_labels = []
+	if actual_start and actual_start > now:
+		bad_labels.append(_("Actual Start"))
+	if actual_end and actual_end > now:
+		bad_labels.append(_("Actual End"))
+	if bad_labels:
+		frappe.throw(
+			milestone_actual_future_dates_message(", ".join(bad_labels)),
+			title=milestone_date_validation_title(),
+		)
 
 	if actual_end and not actual_start:
 		frappe.throw(

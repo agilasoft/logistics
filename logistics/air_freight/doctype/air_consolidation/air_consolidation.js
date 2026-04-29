@@ -767,9 +767,11 @@ function update_charge_calculation(frm, cdt, cdn) {
     if (row.revenue_calculation_method === 'Per Unit') {
         if (row.unit_type === 'Weight' && frm.doc.chargeable_weight) {
             row.quantity = frm.doc.chargeable_weight;
+        } else if (row.unit_type === 'Chargeable Weight') {
+            row.quantity = frm.doc.chargeable_weight || frm.doc.total_weight || 0;
         } else if (row.unit_type === 'Volume' && frm.doc.total_volume) {
             row.quantity = frm.doc.total_volume;
-        } else if (row.unit_type === 'Package' && frm.doc.total_packages) {
+        } else if ((row.unit_type === 'Package' || row.unit_type === 'Piece') && frm.doc.total_packages) {
             row.quantity = frm.doc.total_packages;
         }
     }

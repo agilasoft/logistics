@@ -81,6 +81,14 @@ def milestone_date_validation_title():
 	return _("Invalid milestone dates")
 
 
+def milestone_actual_future_dates_message(field_labels_str):
+	return _(
+		"{0} cannot be later than the current date and time. Actual dates record events that have already occurred.\n\n"
+		"What to do: Correct those fields to a past or present moment, or clear them until the milestone happens. "
+		"Use Planned Start and Planned End for future scheduling."
+	).format(field_labels_str)
+
+
 def booking_date_future_warning_message():
 	return _(
 		"The booking date is later than today.\n\n"

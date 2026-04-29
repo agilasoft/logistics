@@ -991,3 +991,200 @@ logistics.charge_row_parent_overrides = function (frm) {
 	});
 	return Object.keys(o).length ? JSON.stringify(o) : null;
 };
+
+/**
+ * Mirror logistics.utils.charges_calculation._get_quantity_for_calculation_method (Per Unit)
+ * for Air Booking / Air Shipment headers so quantity updates when unit_type changes on the desk.
+ * @param {object} d Parent doc (frm.doc)
+ * @param {string|null|undefined} unit_type
+ * @returns {number}
+ */
+logistics.resolve_air_parent_quantity_by_unit_type = function (d, unit_type) {
+	if (!d || !unit_type || !String(unit_type).trim()) {
+		return 1;
+	}
+	var ut = String(unit_type).trim().toLowerCase();
+	var flt = frappe.utils.flt;
+
+	function pick_weight() {
+		var order = ["total_weight", "chargeable_weight", "weight", "chargeable", "air_weight"];
+		for (var i = 0; i < order.length; i++) {
+			var k = order[i];
+			if (d[k] !== undefined && d[k] !== null && d[k] !== "") {
+				return flt(d[k]);
+			}
+		}
+		return 0;
+	}
+	function pick_chargeable() {
+		var order = ["chargeable", "chargeable_weight"];
+		for (var i = 0; i < order.length; i++) {
+			var k = order[i];
+			if (d[k] !== undefined && d[k] !== null && d[k] !== "") {
+				return flt(d[k]);
+			}
+		}
+		return 0;
+	}
+	function pick_volume() {
+		var order = ["total_volume", "volume", "air_volume"];
+		for (var i = 0; i < order.length; i++) {
+			var k = order[i];
+			if (d[k] !== undefined && d[k] !== null && d[k] !== "") {
+				return flt(d[k]);
+			}
+		}
+		return 0;
+	}
+	function pick_pieces() {
+		var p = flt(d.total_pieces);
+		if (p) {
+			return p;
+		}
+		p = flt(d.total_packages);
+		if (p) {
+			return p;
+		}
+		p = flt(d.pieces);
+		if (p) {
+			return p;
+		}
+		if (d.packages && d.packages.length) {
+			return flt(d.packages.length);
+		}
+		return 0;
+	}
+
+	if (ut === "weight") {
+		return pick_weight();
+	}
+	if (ut === "chargeable weight") {
+		var cw = pick_chargeable();
+		if (cw > 0) {
+			return cw;
+		}
+		return pick_weight();
+	}
+	if (ut === "volume") {
+		return pick_volume();
+	}
+	if (ut === "package" || ut === "piece") {
+		return pick_pieces();
+	}
+	if (ut === "distance") {
+		return flt(d.total_distance || d.distance || 0);
+	}
+	if (ut === "teu") {
+		return flt(d.total_teu || d.teu || 0);
+	}
+	if (ut === "container") {
+		return flt(d.total_containers || 0);
+	}
+	if (ut === "operation time") {
+		var ot = flt(d.total_operation_time || d.operation_time || d.actual_hours || 0);
+		return ot > 0 ? ot : 1;
+	}
+	if (ut === "job" || ut === "shipment") {
+		return 1;
+	}
+	if (ut === "trip") {
+		var legs = d.legs || d.routing_legs || [];
+		var t = legs.length ? flt(legs.length) : 0;
+		return t > 0 ? t : 1;
+	}
+	var fallback = pick_weight() || pick_volume() || pick_pieces();
+	return fallback > 0 ? fallback : 1;
+};
+
+/**
+ * Repaint one child-table cell in the parent form grid (list view updates immediately).
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt Child doctype
+ * @param {string} cdn Child row name
+ * @param {string} fieldname
+ */
+logistics.refresh_charge_grid_cell = function (frm, cdt, cdn, fieldname) {
+	if (!frm || !frm.fields_dict || !cdt || !cdn || !fieldname) {
+		return;
+	}
+	var parentfield = null;
+	(frappe.meta.get_docfields(frm.doctype) || []).forEach(function (df) {
+		if (df.fieldtype === "Table" && df.options === cdt) {
+			parentfield = df.fieldname;
+		}
+	});
+	if (!parentfield) {
+		return;
+	}
+	var grid = frm.fields_dict[parentfield] && frm.fields_dict[parentfield].grid;
+	if (!grid) {
+		return;
+	}
+	var grid_row = grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn];
+	if (!grid_row && grid.grid_rows && grid.grid_rows.length) {
+		for (var i = 0; i < grid.grid_rows.length; i++) {
+			var gr = grid.grid_rows[i];
+			if (gr.doc && gr.doc.name === cdn) {
+				grid_row = gr;
+				break;
+			}
+		}
+	}
+	if (grid_row && grid_row.refresh_field) {
+		grid_row.refresh_field(fieldname);
+		return;
+	}
+	if (frm.refresh_field) {
+		frm.refresh_field(parentfield);
+	}
+};
+
+/**
+ * When unit_type / cost_unit_type changes: write quantity to the model and refresh the grid cell
+ * immediately (mutating locals alone does not update the charge grid until save).
+ * Uses row._logistics_skip_charge_recalc so the quantity/cost_quantity triggers do not re-RPC.
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt
+ * @param {string} cdn
+ * @param {"revenue"|"cost"} side
+ */
+logistics.sync_air_charge_qty_for_unit_type_to_grid = function (frm, cdt, cdn, side) {
+	if (!frm || !frm.doc || !cdt || !cdn || !locals[cdt] || !locals[cdt][cdn]) {
+		return;
+	}
+	var row = locals[cdt][cdn];
+	var is_cost = side === "cost";
+	var method = is_cost ? row.cost_calculation_method : row.revenue_calculation_method;
+	if (method && method !== "Per Unit") {
+		return;
+	}
+	var ut = is_cost ? row.cost_unit_type : row.unit_type;
+	if (!ut) {
+		return;
+	}
+	var q = logistics.resolve_air_parent_quantity_by_unit_type(frm.doc, ut);
+	var field = is_cost ? "cost_quantity" : "quantity";
+	row._logistics_skip_charge_recalc = field;
+	frappe.model.set_value(cdt, cdn, field, q);
+	logistics.refresh_charge_grid_cell(frm, cdt, cdn, field);
+	setTimeout(function () {
+		if (row._logistics_skip_charge_recalc === field) {
+			row._logistics_skip_charge_recalc = null;
+		}
+	}, 250);
+};
+
+/**
+ * @deprecated Use sync_air_charge_qty_for_unit_type_to_grid — kept for any external callers.
+ */
+logistics.prefill_air_charge_qty_for_unit_type_change = function (frm, row, side) {
+	if (!frm || !row) {
+		return;
+	}
+	var cdn = row.name;
+	if (!cdn) {
+		return;
+	}
+	var cdt = row.doctype;
+	logistics.sync_air_charge_qty_for_unit_type_to_grid(frm, cdt, cdn, side);
+};

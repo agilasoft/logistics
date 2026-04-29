@@ -1628,27 +1628,12 @@ class AirBooking(Document):
 			# Get default currency
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Get quantity based on unit_type
-			quantity = 0
+			# Quantity by unit_type — align with logistics.utils.charges_calculation (booking/shipment charges grid)
+			from logistics.utils.charges_calculation import get_quantity_from_parent_by_unit_type
+
 			unit_type = sqaf_record.get("unit_type")
-			if unit_type == "Chargeable Weight":
-				chargeable_qty = getattr(self, "chargeable", None)
-				if chargeable_qty in (None, ""):
-					chargeable_qty = getattr(self, "chargeable_weight", None)
-				quantity = flt(chargeable_qty or 0)
-			elif unit_type == "Weight":
-				quantity = flt(self.weight) or 0
-			elif unit_type == "Volume":
-				quantity = flt(self.volume) or 0
-			elif unit_type in ["Package", "Piece"]:
-				if hasattr(self, 'packages') and self.packages:
-					quantity = len(self.packages)
-				else:
-					quantity = 1
-			elif unit_type == "Shipment":
-				quantity = 1
-			elif not unit_type:
-				# Default quantity for fixed/flat rate charges
+			quantity = get_quantity_from_parent_by_unit_type(self, unit_type)
+			if unit_type in ("Package", "Piece") and flt(quantity) <= 0:
 				quantity = 1
 			
 			charge_type = _sq_row_get("charge_type") or (
