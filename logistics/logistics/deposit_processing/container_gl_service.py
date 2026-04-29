@@ -27,7 +27,7 @@ def _pending_refund_account_for_company(company):
 	"""Pending-refund GL account for ``company`` (reads DB; does not rely on Sea Freight Settings doc permission)."""
 	if not company:
 		return None
-	if not frappe.db.table_exists("tabSea Freight Settings"):
+	if not frappe.db.table_exists("Sea Freight Settings"):
 		return None
 	return frappe.db.get_value(
 		"Sea Freight Settings",
@@ -38,7 +38,7 @@ def _pending_refund_account_for_company(company):
 
 def _all_pending_refund_accounts():
 	"""Distinct Deposits Pending accounts configured across all Sea Freight Settings rows (SQL; not permission-filtered)."""
-	if not frappe.db.table_exists("tabSea Freight Settings"):
+	if not frappe.db.table_exists("Sea Freight Settings"):
 		return []
 	rows = frappe.db.sql(
 		"""
