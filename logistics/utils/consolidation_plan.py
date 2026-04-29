@@ -119,7 +119,8 @@ def get_strict_matching_air_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 
 
 def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> List[str]:
-	"""Match company, branch, ports, ETD date; apply shipping_line / MBL vessel / MBL voyage filters only when set on the plan."""
+	"""Match company, branch, ports, ETD date; when plan has carrier / vessel / voyage, filter by
+	shipment header + MBL fields. Empty MBL fields on the shipment still match (e.g. draft/duplicated jobs)."""
 	p = _plan_as_dict(plan)
 	if any(not p.get(f) for f in _sea_plan_required_for_match()):
 		return []
@@ -144,15 +145,25 @@ def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 	sl = (p.get("shipping_line") or "").strip()
 	if sl:
 		conditions.append("s.shipping_line = %(sl)s")
-		conditions.append("IFNULL(s.mbl_shipping_line, '') = %(sl)s")
+		# Shipment often has carrier on the header before MBL line is filled (e.g. duplicates).
+		conditions.append(
+			"(IFNULL(s.mbl_shipping_line, '') = '' OR IFNULL(s.mbl_shipping_line, '') = %(sl)s)"
+		)
 		params["sl"] = sl
 	vessel = (p.get("vessel_name") or "").strip()
 	if vessel:
-		conditions.append("UPPER(TRIM(IFNULL(s.mbl_vessel, ''))) = UPPER(TRIM(%(vessel)s))")
+		# If MBL vessel is not set yet, do not exclude (still match ports/date/carrier).
+		conditions.append(
+			"(IFNULL(TRIM(s.mbl_vessel), '') = '' "
+			"OR UPPER(TRIM(IFNULL(s.mbl_vessel, ''))) = UPPER(TRIM(%(vessel)s)))"
+		)
 		params["vessel"] = vessel
 	voyage = (p.get("voyage_number") or "").strip()
 	if voyage:
-		conditions.append("UPPER(TRIM(IFNULL(s.mbl_voyage_no, ''))) = UPPER(TRIM(%(voyage)s))")
+		conditions.append(
+			"(IFNULL(TRIM(s.mbl_voyage_no), '') = '' "
+			"OR UPPER(TRIM(IFNULL(s.mbl_voyage_no, ''))) = UPPER(TRIM(%(voyage)s)))"
+		)
 		params["voyage"] = voyage
 	sql = (
 		"SELECT DISTINCT s.name FROM `tabSea Shipment` s WHERE "

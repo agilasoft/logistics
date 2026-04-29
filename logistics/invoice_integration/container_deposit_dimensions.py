@@ -47,7 +47,7 @@ def sync_container_deposit_pi_accounting_dimensions(doc, method=None):
 		if k not in job_keyed_containers:
 			job_keyed_containers[k] = _job_containers(job_dt, job_nm)
 
-	for idx, (row, job_dt, job_nm) in enumerate(cd_job_keys):
+	for row, job_dt, job_nm in cd_job_keys:
 		job_number = frappe.db.get_value(job_dt, job_nm, "job_number")
 		if job_number:
 			for k, v in reference_dimension_row_dict(
@@ -61,8 +61,7 @@ def sync_container_deposit_pi_accounting_dimensions(doc, method=None):
 			container_name = row.logistics_container
 		elif len(containers) == 1:
 			container_name = containers[0]
-		elif len(containers) > 1:
-			container_name = containers[idx % len(containers)]
+		# Multiple containers: only explicit logistics_container link or allocation dialog (no round-robin).
 
 		if container_name:
 			for k, v in reference_dimension_row_dict(

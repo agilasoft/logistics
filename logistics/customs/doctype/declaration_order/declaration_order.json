@@ -227,6 +227,7 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
    "read_only": 1
   },
@@ -235,6 +236,7 @@
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
    "read_only": 1
   },
@@ -1070,7 +1072,7 @@
    "table_fieldname": "internal_job_details"
   }
  ],
- "modified": "2026-04-27 14:32:47.939441",
+ "modified": "2026-04-28 18:54:41.259469",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",

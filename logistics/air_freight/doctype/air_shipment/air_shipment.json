@@ -841,6 +841,7 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
    "read_only": 1
   },
@@ -849,6 +850,7 @@
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
    "read_only": 1
   },

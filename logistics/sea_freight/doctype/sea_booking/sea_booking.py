@@ -27,6 +27,7 @@ from logistics.utils.sales_quote_routing import (
 	apply_sales_quote_routing_to_booking,
 	routing_legs_for_api_response,
 )
+from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
 
 
 def _sync_quote_and_sales_quote(doc):
@@ -379,8 +380,8 @@ class SeaBooking(Document):
 	def get_chargeable_weight_calculation_method(self):
 		"""Sea Freight Settings: 'Actual Weight', 'Volume Weight', or 'Higher of Both' (default)."""
 		try:
-			settings = frappe.get_single("Sea Freight Settings")
-			method = getattr(settings, "chargeable_weight_calculation", None)
+			settings = SeaFreightSettings.get_settings(self.company)
+			method = getattr(settings, "chargeable_weight_calculation", None) if settings else None
 			if method in ("Actual Weight", "Volume Weight", "Higher of Both"):
 				return method
 		except Exception:
@@ -394,8 +395,8 @@ class SeaBooking(Document):
 		Example: factor = 1000 kg/m³ → divisor = 1000
 		"""
 		try:
-			settings = frappe.get_single("Sea Freight Settings")
-			factor = getattr(settings, "volume_to_weight_factor", None)
+			settings = SeaFreightSettings.get_settings(self.company)
+			factor = getattr(settings, "volume_to_weight_factor", None) if settings else None
 			if factor:
 				# Convert factor (kg/m³) to divisor: divisor = 1,000,000 / factor
 				return flt(1000000.0 / flt(factor))

@@ -43,6 +43,7 @@ class TestContainerDepositPIFlow(UnitTestCase):
 			docstatus = 0
 			reference_doctype = ""
 			reference_name = ""
+			company = "_Test Company"
 
 			def __init__(self):
 				self.items = [_Item()]
@@ -73,8 +74,8 @@ class TestContainerDepositPIFlow(UnitTestCase):
 			"get_all",
 			return_value=[
 				{
-					"name": "cdrow1",
-					"refund_request_journal_entry": "JE-CD-1",
+					"name": "rl1",
+					"journal_entry": "JE-CD-1",
 					"parent": "CONT-1",
 				}
 			],

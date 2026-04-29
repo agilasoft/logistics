@@ -122,12 +122,15 @@ class SeaConsolidationPlan(Document):
 
 
 def _build_sea_consolidation_from_plan_doc(plan):
-	cost_center = frappe.db.get_single_value("Sea Freight Settings", "default_cost_center")
-	profit_center = frappe.db.get_single_value("Sea Freight Settings", "default_profit_center")
+	from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
+	ss = SeaFreightSettings.get_settings(plan.company)
+	cost_center = ss.default_cost_center if ss else None
+	profit_center = ss.default_profit_center if ss else None
 	if not cost_center:
-		frappe.throw(_("Set Default Cost Center in Sea Freight Settings."))
+		frappe.throw(_("Set Default Cost Center in Sea Freight Settings for company {0}.").format(plan.company))
 	if not profit_center:
-		frappe.throw(_("Set Default Profit Center in Sea Freight Settings."))
+		frappe.throw(_("Set Default Profit Center in Sea Freight Settings for company {0}.").format(plan.company))
 
 	consol = frappe.new_doc("Sea Consolidation")
 	consol.naming_series = "SC-{MM}-{YYYY}-{####}"

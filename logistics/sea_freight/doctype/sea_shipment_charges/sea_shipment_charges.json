@@ -688,7 +688,7 @@
    "label": "Item Name"
   },
   {
-   "description": "When the Item is a container-deposit charge, shows Sea Freight Settings \u201cDeposits Pending for Refund Request\u201d for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
+   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings \u201cDeposits Pending for Refund Request\u201d for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
    "fieldname": "container_deposit_pending_refund_gl",
    "fieldtype": "Data",
    "label": "Deposit pending refund GL",

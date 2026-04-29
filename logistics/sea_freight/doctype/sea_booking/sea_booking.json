@@ -239,6 +239,7 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
    "read_only": 1
   },
@@ -247,6 +248,7 @@
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
    "read_only": 1
   },
@@ -1041,8 +1043,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-22 18:26:01.112787",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-04-28 18:55:20.587743",
+ "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking",
  "naming_rule": "By \"Naming Series\" field",

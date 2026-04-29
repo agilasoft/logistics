@@ -14,11 +14,10 @@ window.logistics_apply_sea_freight_settings_accounting_defaults = function (frm)
 
 	frappe.call({
 		method: "frappe.client.get",
-		args: { doctype: "Sea Freight Settings", name: "Sea Freight Settings" },
+		args: { doctype: "Sea Freight Settings", name: company },
 		callback: function (r) {
 			if (!r.message) return;
 			var s = r.message;
-			if (s.default_company && s.default_company !== company) return;
 
 			var updates = [];
 			if (!frm.doc.branch && s.default_branch) {

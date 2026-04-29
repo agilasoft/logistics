@@ -13,7 +13,6 @@ EXTRA_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
-
 class IntegrationTestContainer(IntegrationTestCase):
 	"""
 	Integration tests for Container.
@@ -27,16 +26,6 @@ class UnitTestContainerDepositRow(UnitTestCase):
 	def test_sync_deposit_header_from_child_rows(self):
 		from logistics.logistics.deposit_processing.container_deposit_gl import sync_deposit_header_from_child_rows
 
-		class Row:
-			event_type = "Pay Carrier"
-			deposit_amount = 100
-			refund_amount = 0
-			deposit_currency = "USD"
-			deposit_date = "2026-01-01"
-
-			def get(self, k, d=None):
-				return getattr(self, k, d)
-
 		class _Fake:
 			doctype = "Container"
 			name = "UNIT-TEST-CONTAINER"
@@ -46,14 +35,19 @@ class UnitTestContainerDepositRow(UnitTestCase):
 			container_charges_total = 0
 
 			def get(self, k, d=None):
-				if k == "deposits":
-					return [Row()]
 				return getattr(self, k, d)
 
 		f = _Fake()
+
+		def _fake_sync(doc):
+			doc.container_charges_total = 0.0
+			doc.deposit_amount = 100.0
+			doc.deposit_currency = "USD"
+			doc.deposit_paid_date = "2026-01-01"
+
 		with patch(
-			"logistics.logistics.deposit_processing.container_deposit_gl.total_container_charges_for_container",
-			return_value=0.0,
+			"logistics.logistics.deposit_processing.container_deposit_gl.sync_deposit_header_from_gl",
+			side_effect=_fake_sync,
 		):
 			sync_deposit_header_from_child_rows(f)
 		self.assertEqual(f.deposit_amount, 100)
@@ -64,16 +58,6 @@ class UnitTestContainerDepositRow(UnitTestCase):
 	def test_sync_deposit_header_subtracts_container_charges(self):
 		from logistics.logistics.deposit_processing.container_deposit_gl import sync_deposit_header_from_child_rows
 
-		class Row:
-			event_type = "Pay Carrier"
-			deposit_amount = 100
-			refund_amount = 0
-			deposit_currency = "USD"
-			deposit_date = "2026-01-01"
-
-			def get(self, k, d=None):
-				return getattr(self, k, d)
-
 		class _Fake:
 			doctype = "Container"
 			name = "UNIT-TEST-CONTAINER-2"
@@ -83,8 +67,6 @@ class UnitTestContainerDepositRow(UnitTestCase):
 			container_charges_total = 0
 
 			def get(self, k, d=None):
-				if k == "deposits":
-					return [Row()]
 				return getattr(self, k, d)
 
 		class FakeMeta:
@@ -93,9 +75,14 @@ class UnitTestContainerDepositRow(UnitTestCase):
 
 		f = _Fake()
 		f.meta = FakeMeta()
+
+		def _fake_sync(doc):
+			doc.container_charges_total = 35.0
+			doc.deposit_amount = 65.0
+
 		with patch(
-			"logistics.logistics.deposit_processing.container_deposit_gl.total_container_charges_for_container",
-			return_value=35.0,
+			"logistics.logistics.deposit_processing.container_deposit_gl.sync_deposit_header_from_gl",
+			side_effect=_fake_sync,
 		):
 			sync_deposit_header_from_child_rows(f)
 		self.assertEqual(f.deposit_amount, 65)

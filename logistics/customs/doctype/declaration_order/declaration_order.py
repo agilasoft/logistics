@@ -727,8 +727,13 @@ def create_declaration_order_from_sales_quote(
 		frappe.throw(_("A Sales Quote must be selected to create a Declaration Order."))
 	from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
 
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		throw_if_additional_charge_sales_quote_blocks_booking_order_creation,
+	)
+
 	sq = frappe.get_doc("Sales Quote", sales_quote_name)
 	throw_if_sales_quote_expired_for_creation(sq)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sq)
 	if sq.quotation_type != "One-off":
 		frappe.throw(_("Only One-off Sales Quotes can create a Declaration Order."))
 	sq_customs = []

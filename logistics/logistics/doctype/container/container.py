@@ -4,7 +4,7 @@
 
 from __future__ import unicode_literals
 
-import hashlib
+import uuid
 
 import frappe
 from frappe import _
@@ -13,7 +13,11 @@ from frappe.utils import flt, getdate, now_datetime
 
 from logistics.logistics.deposit_processing.container_deposit_gl import (
 	resolve_default_job_number_for_container,
-	sync_deposit_header_from_child_rows,
+)
+from logistics.logistics.deposit_processing.container_gl_service import (
+	get_charges_gl_html as build_charges_gl_html,
+	get_deposits_gl_html as build_deposits_gl_html,
+	sync_deposit_header_from_gl,
 )
 from logistics.utils.container_validation import (
 	normalize_container_number,
@@ -22,36 +26,43 @@ from logistics.utils.container_validation import (
 )
 
 
-def _unique_container_doc_name(base):
-	name = base
-	suffix = 2
-	while frappe.db.exists("Container", name):
-		name = "{0}-{1}".format(base, suffix)
-		suffix += 1
-	return name
-
-
 class Container(Document):
 	def autoname(self):
 		self.container_number = normalize_container_number(self.container_number or "")
 		if not self.container_number:
 			frappe.throw(_("Container Number is required before naming."), title=_("Missing fields"))
-		if self.master_bill:
-			base = "{0}-{1}".format(self.master_bill, self.container_number)
-			if len(base) > 140:
-				h = hashlib.sha256(base.encode("utf-8")).hexdigest()[:16]
-				base = "{0}-{1}".format(self.master_bill, h)
-			self.name = _unique_container_doc_name(base)
-		else:
-			self.name = self.container_number
+		self.name = str(uuid.uuid4())
 
 	def validate(self):
 		self.container_number = normalize_container_number(self.container_number or "")
 		self._validate_container_number_format()
+		self._validate_unique_container_number_master_bill()
 		self.update_current_location_name()
 		if self.is_active:
 			self._validate_active_mbl_assignment()
 		self._stamp_refund_readiness_waivers()
+
+	def _validate_unique_container_number_master_bill(self):
+		if not self.container_number:
+			return
+		mbl = self.master_bill or ""
+		existing = frappe.db.sql(
+			"""
+			SELECT name FROM `tabContainer`
+			WHERE container_number = %s
+				AND IFNULL(master_bill, '') = %s
+				AND name != %s
+			LIMIT 1
+			""",
+			(self.container_number, mbl, self.name or ""),
+		)
+		if existing:
+			frappe.throw(
+				_("A container already exists for this equipment number and Master Bill ({0}).").format(
+					existing[0][0]
+				),
+				title=_("Duplicate container"),
+			)
 
 	def _validate_container_number_format(self):
 		if not self.container_number:
@@ -76,20 +87,14 @@ class Container(Document):
 				self.assignment_inactive_date = getdate()
 			elif self.is_active:
 				self.assignment_inactive_date = None
-		self._sync_deposit_lines_defaults()
-		sync_deposit_header_from_child_rows(self)
+		self._sync_job_number_default()
+		sync_deposit_header_from_gl(self)
 
-	def _sync_deposit_lines_defaults(self):
+	def _sync_job_number_default(self):
 		if self.is_new():
 			self.current_job_number = None
 			return
-		jn = resolve_default_job_number_for_container(self.name)
-		self.current_job_number = jn
-		for row in self.get("deposits") or []:
-			if not row.get("job_number") and jn:
-				row.job_number = jn
-			if not row.get("company") and row.get("job_number"):
-				row.company = frappe.db.get_value("Job Number", row.job_number, "company")
+		self.current_job_number = resolve_default_job_number_for_container(self.name)
 
 	def _stamp_refund_readiness_waivers(self):
 		for line in self.get("refund_readiness") or []:
@@ -184,6 +189,16 @@ def get_linked_transport_jobs_html(container):
 
 
 @frappe.whitelist()
+def get_deposits_gl_html(container):
+	return build_deposits_gl_html(container)
+
+
+@frappe.whitelist()
+def get_charges_gl_html(container):
+	return build_charges_gl_html(container)
+
+
+@frappe.whitelist()
 def validate_container_number_for_form(container_number=None):
 	"""
 	ISO 6346 check for the Container form (live feedback + client validate hook).
@@ -225,7 +240,7 @@ def calculate_penalties_for_container(container_name):
 			"estimated_penalty_amount": flt(getattr(container, "estimated_penalty_amount", 0)),
 			"skipped": True,
 		}
-	settings = frappe.get_single("Sea Freight Settings")
+	from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
 
 	shipment = frappe.db.sql(
 		"""
@@ -243,6 +258,9 @@ def calculate_penalties_for_container(container_name):
 
 	if shipment:
 		ship_doc = frappe.get_doc("Sea Shipment", shipment[0].parent)
+		settings = SeaFreightSettings.get_settings(ship_doc.company) or SeaFreightSettings.get_settings(
+			frappe.defaults.get_user_default("Company")
+		)
 		today = getdate(now_datetime())
 		out = compute_penalty_for_single_container(container, ship_doc, settings, today)
 		demurrage_days = out["demurrage_days"]

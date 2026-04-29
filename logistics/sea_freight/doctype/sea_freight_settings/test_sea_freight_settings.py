@@ -19,4 +19,7 @@ class IntegrationTestSeaFreightSettings(IntegrationTestCase):
 	Use this class for testing interactions between multiple components.
 	"""
 
-	pass
+	def test_get_settings_returns_none_without_company_match(self):
+		from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
+		self.assertIsNone(SeaFreightSettings.get_settings("__nonexistent_company_for_sf_settings_test__"))

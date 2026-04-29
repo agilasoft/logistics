@@ -13,6 +13,7 @@ from logistics.utils.sea_fcl_container_validation import (
     validate_fcl_container_numbers_required,
 )
 from logistics.utils.dg_fields import update_parent_dg_compliance_status
+from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
 
 # Virtual MBL display fields: (fieldname on Sea Shipment, column on Master Bill)
 _MBL_VIRTUAL_FIELD_SOURCES = (
@@ -329,7 +330,7 @@ class SeaShipment(Document):
     
     def after_insert(self):
         """Create Job Number when document is first created. Defer to avoid 'not found' during conversion."""
-        settings = frappe.get_single("Sea Freight Settings")
+        settings = SeaFreightSettings.get_settings(self.company)
         if settings and not getattr(settings, "auto_create_job_costing", True):
             return
         frappe.enqueue(
@@ -552,7 +553,7 @@ class SeaShipment(Document):
     def create_job_number_if_needed(self):
         """Create Job Number when document is first saved"""
         # Check settings for auto-create job costing
-        settings = frappe.get_single("Sea Freight Settings")
+        settings = SeaFreightSettings.get_settings(self.company)
         if settings and not getattr(settings, "auto_create_job_costing", True):
             return
         
@@ -1072,7 +1073,7 @@ class SeaShipment(Document):
             self.last_delay_check = now_datetime()
             
             # Send alert if delays detected and alert not sent yet
-            settings = frappe.get_single("Sea Freight Settings")
+            settings = SeaFreightSettings.get_settings(self.company)
             if has_delays and not self.delay_alert_sent and getattr(settings, "enable_delay_alerts", 1):
                 self.send_delay_alert()
                 self.delay_alert_sent = 1
@@ -1086,7 +1087,7 @@ class SeaShipment(Document):
             from frappe.utils import now_datetime, getdate
             from logistics.sea_freight.penalty_utils import compute_penalty_totals_for_sea_shipment
 
-            settings = frappe.get_single("Sea Freight Settings")
+            settings = SeaFreightSettings.get_settings(self.company)
             today = getdate(now_datetime())
 
             totals = compute_penalty_totals_for_sea_shipment(self, settings, today)
@@ -1558,8 +1559,8 @@ def compute_chargeable(self):
         return
     
     # Get volume to weight divisor and calculation method from Sea Freight Settings
-    divisor = _get_volume_to_weight_divisor()
-    calculation_method = _get_chargeable_weight_calculation_method()
+    divisor = _get_volume_to_weight_divisor(getattr(self, "company", None))
+    calculation_method = _get_chargeable_weight_calculation_method(getattr(self, "company", None))
     
     # Calculate volume weight
     volume_weight = 0
@@ -1589,15 +1590,15 @@ def compute_chargeable(self):
         else:
             self.chargeable = 0
 
-def _get_volume_to_weight_divisor():
+def _get_volume_to_weight_divisor(company=None):
     """Get the volume to weight divisor from Sea Freight Settings.
     Converts volume_to_weight_factor (kg/m³) to divisor format.
     Formula: divisor = 1,000,000 / factor
     Example: factor = 1000 kg/m³ → divisor = 1000
     """
     try:
-        settings = frappe.get_single("Sea Freight Settings")
-        factor = getattr(settings, "volume_to_weight_factor", None)
+        settings = SeaFreightSettings.get_settings(company)
+        factor = getattr(settings, "volume_to_weight_factor", None) if settings else None
         if factor:
             # Convert factor (kg/m³) to divisor: divisor = 1,000,000 / factor
             return flt(1000000.0 / flt(factor))
@@ -1606,13 +1607,13 @@ def _get_volume_to_weight_divisor():
     # Default to 1000 (equivalent to 1000 kg/m³ factor, common sea freight standard)
     return 1000.0
 
-def _get_chargeable_weight_calculation_method():
+def _get_chargeable_weight_calculation_method(company=None):
     """Get the chargeable weight calculation method from Sea Freight Settings.
     Returns: 'Actual Weight', 'Volume Weight', or 'Higher of Both' (default)
     """
     try:
-        settings = frappe.get_single("Sea Freight Settings")
-        method = getattr(settings, "chargeable_weight_calculation", None)
+        settings = SeaFreightSettings.get_settings(company)
+        method = getattr(settings, "chargeable_weight_calculation", None) if settings else None
         if method in ["Actual Weight", "Volume Weight", "Higher of Both"]:
             return method
     except Exception:

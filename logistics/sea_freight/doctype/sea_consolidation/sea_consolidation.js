@@ -42,7 +42,46 @@ function _load_documents_html(frm) {
 	});
 }
 
+frappe.ui.form.on("Sea Consolidation Packages", {
+	contains_dangerous_goods: function (frm) {
+		frm.refresh_field("consolidation_packages");
+	},
+	temperature_controlled: function (frm) {
+		frm.refresh_field("consolidation_packages");
+	},
+});
+
 frappe.ui.form.on("Sea Consolidation", {
+	validate: async function (frm) {
+		const rows = frm.doc.consolidation_containers || [];
+		for (let i = 0; i < rows.length; i++) {
+			const raw = rows[i].container_number;
+			if (raw === undefined || raw === null || String(raw).trim() === "") {
+				continue;
+			}
+			try {
+				const r = await frappe.call({
+					method: "logistics.logistics.doctype.container.container.validate_container_number_for_form",
+					args: { container_number: String(raw) },
+				});
+				const d = r.message || {};
+				if (!d.valid) {
+					frappe.validated = false;
+					frappe.msgprint({
+						title: __("Invalid Container Number"),
+						message: __("Consolidation container row {0}: {1}", [
+							i + 1,
+							d.message || __("Invalid container number"),
+						]),
+						indicator: "red",
+					});
+					return;
+				}
+			} catch (e) {
+				// Server-side Sea Consolidation / child row validate still runs on save.
+			}
+		}
+	},
 	document_list_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;
 		frm.save().then(function () {

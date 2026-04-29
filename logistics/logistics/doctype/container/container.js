@@ -88,11 +88,11 @@ frappe.ui.form.on("Container", {
 					);
 					return;
 				}
-				_prompt_cd_refund_deposit_row(frm, __("Request Deposit Refund"), function (row_name) {
+				_prompt_cd_refund_purchase_invoice(frm, __("Request Deposit Refund"), function (purchase_invoice) {
 					frappe.call({
 						method:
 							"logistics.logistics.deposit_processing.container_deposit_gl.create_request_cd_refund_journal_entry",
-						args: { container_name: frm.doc.name, child_row_name: row_name },
+						args: { container_name: frm.doc.name, purchase_invoice: purchase_invoice },
 						callback: function (r) {
 							if (!r.exc) {
 								frm.reload_doc();
@@ -134,6 +134,24 @@ frappe.ui.form.on("Container", {
 				}
 			},
 		});
+		frappe.call({
+			method: "logistics.logistics.doctype.container.container.get_deposits_gl_html",
+			args: { container: frm.doc.name },
+			callback: function (r) {
+				if (r.message && frm.fields_dict.deposits_gl_html) {
+					frm.fields_dict.deposits_gl_html.$wrapper.html(r.message);
+				}
+			},
+		});
+		frappe.call({
+			method: "logistics.logistics.doctype.container.container.get_charges_gl_html",
+			args: { container: frm.doc.name },
+			callback: function (r) {
+				if (r.message && frm.fields_dict.charges_gl_html) {
+					frm.fields_dict.charges_gl_html.$wrapper.html(r.message);
+				}
+			},
+		});
 	},
 });
 
@@ -149,38 +167,40 @@ function _container_eligible_for_cd_refund_request(frm) {
 	return false;
 }
 
-function _prompt_cd_refund_deposit_row(frm, title, callback) {
-	const rows = (frm.doc.deposits || []).filter(
-		(r) =>
-			r.name &&
-			r.purchase_invoice &&
-			!r.refund_request_journal_entry &&
-			frappe.utils.flt(r.deposit_amount) > 0
-	);
-	if (!rows.length) {
-		frappe.msgprint(
-			__(
-				"No eligible deposit lines: need a line linked to a Purchase Invoice, positive amount, and no refund request JE yet."
-			)
-		);
-		return;
-	}
-	const d = new frappe.ui.Dialog({
-		title: title,
-		fields: [
-			{
-				fieldname: "row",
-				fieldtype: "Select",
-				label: __("Deposit row"),
-				options: rows.map((r) => r.name).join("\n"),
-				reqd: 1,
-			},
-		],
-		primary_action_label: __("Post"),
-		primary_action(values) {
-			callback(values.row);
-			d.hide();
+function _prompt_cd_refund_purchase_invoice(frm, title, callback) {
+	frappe.call({
+		method:
+			"logistics.logistics.deposit_processing.container_deposit_gl.get_eligible_refund_purchase_invoices",
+		args: { container_name: frm.doc.name },
+		callback: function (r) {
+			const rows = r.message || [];
+			if (!rows.length) {
+				frappe.msgprint(
+					__(
+						"No eligible carrier deposit Purchase Invoices found in GL for this container " +
+							"(posted PI with Container dimension on the pending deposit account, positive balance, no refund JE yet)."
+					)
+				);
+				return;
+			}
+			const d = new frappe.ui.Dialog({
+				title: title,
+				fields: [
+					{
+						fieldname: "purchase_invoice",
+						fieldtype: "Select",
+						label: __("Purchase Invoice (net refund)"),
+						options: rows.map((x) => x.purchase_invoice).join("\n"),
+						reqd: 1,
+					},
+				],
+				primary_action_label: __("Post"),
+				primary_action(values) {
+					callback(values.purchase_invoice);
+					d.hide();
+				},
+			});
+			d.show();
 		},
 	});
-	d.show();
 }

@@ -21,6 +21,18 @@
   {
    "child": 0,
    "collapsible": 1,
+   "icon": "file-pen-line",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Sales Quote",
+   "link_to": "Sales Quote",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
    "icon": "file-input",
    "indent": 0,
    "keep_closed": 0,
@@ -71,6 +83,40 @@
    "label": "Master Bill",
    "link_to": "Master Bill",
    "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "container",
+   "indent": 1,
+   "keep_closed": 0,
+   "label": "Container Management",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "icon": "",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Container",
+   "link_to": "Container",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Container Deposit",
+   "link_to": "Container Deposit Report",
+   "link_type": "Report",
    "show_arrow": 0,
    "type": "Link"
   },
@@ -168,17 +214,6 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
-   "label": "Container Yard",
-   "link_to": "Container Yard",
-   "link_type": "DocType",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
-   "child": 1,
-   "collapsible": 1,
-   "indent": 0,
-   "keep_closed": 0,
    "label": "Incoterm",
    "link_to": "Incoterm",
    "link_type": "DocType",
@@ -203,6 +238,17 @@
    "keep_closed": 0,
    "label": "Other Service",
    "link_to": "Other Service",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Container Yard",
+   "link_to": "Container Yard",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
@@ -259,18 +305,6 @@
    "label": "Container Utilization Report",
    "link_to": "Container Utilization Report",
    "link_type": "Report",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
-   "child": 0,
-   "collapsible": 1,
-   "icon": "package",
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "Container Management",
-   "link_to": "Container Management",
-   "link_type": "Workspace",
    "show_arrow": 0,
    "type": "Link"
   },
@@ -406,21 +440,9 @@
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
-  },
-  {
-   "child": 0,
-   "collapsible": 1,
-   "icon": "file-pen-line",
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "Sales Quote",
-   "link_to": "Sales Quote",
-   "link_type": "DocType",
-   "show_arrow": 0,
-   "type": "Link"
   }
  ],
- "modified": "2026-02-26 18:50:11.165318",
+ "modified": "2026-04-29 07:37:16.035088",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight",

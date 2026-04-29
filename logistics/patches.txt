@@ -2,6 +2,7 @@
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/user/en/database-migrations
 
+logistics.patches.v1_0_backup_sea_freight_settings_single
 logistics.patches.v1_0_rename_job_costing_number_doctype_to_job_number
 logistics.patches.v1_0_rename_sea_freight_charges_to_sea_shipment_charges
 logistics.patches.v1_0_declaration_product_code_item_to_item_code
@@ -116,3 +117,6 @@ logistics.patches.v1_0_add_item_custom_container_deposit_charge
 logistics.patches.v1_0_ensure_container_accounting_dimension
 logistics.patches.v1_0_fix_empty_report_json_for_report_view
 logistics.patches.v1_0_add_logistics_party_code_fields_customer_supplier
+logistics.patches.v1_0_remove_container_transaction_and_container_charge_doctypes
+logistics.patches.v1_0_container_gl_virtual_deposits_cleanup
+logistics.patches.v1_0_migrate_sea_freight_settings_per_company

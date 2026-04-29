@@ -13,17 +13,21 @@ import frappe
 JOB_DOCTYPES_CONTAINER_DEPOSIT = ("Sea Shipment", "Declaration")
 
 
-def _pending_refund_account():
+def _pending_refund_account(company=None):
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
 	try:
-		sf = frappe.get_single("Sea Freight Settings")
+		from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
+		sf = SeaFreightSettings.get_settings(company)
 	except Exception:
 		return None
-	return sf.get("container_deposit_pending_refund_account")
+	return sf.get("container_deposit_pending_refund_account") if sf else None
 
 
-def get_container_deposit_pending_refund_account():
+def get_container_deposit_pending_refund_account(company=None):
 	"""Sea Freight Settings: Deposits Pending for Refund Request account (for PI expense and charge hints)."""
-	return _pending_refund_account()
+	return _pending_refund_account(company)
 
 
 def item_is_container_deposit(item_code):
@@ -42,7 +46,7 @@ def apply_container_deposit_expense_account(doc, method=None):
 		return
 	if doc.docstatus != 0:
 		return
-	pending = _pending_refund_account()
+	pending = _pending_refund_account(doc.company)
 	if not pending:
 		return
 	header_ref_dt = doc.get("reference_doctype") or ""

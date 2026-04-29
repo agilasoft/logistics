@@ -101,8 +101,8 @@
    "fieldname": "item_tax_template",
    "fieldtype": "Link",
    "label": "Item Tax Template",
-   "options": "Item Tax Template",
-   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
   },
   {
    "fieldname": "invoice_type",
@@ -123,6 +123,7 @@
   {
    "fieldname": "sales_quote_link",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Sales Quote Link",
    "options": "Sales Quote"
   },
@@ -133,6 +134,7 @@
   {
    "fieldname": "column_break_ruye",
    "fieldtype": "Column Break",
+   "hidden": 1,
    "label": "Revenue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -141,17 +143,17 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Bill To",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'"
   },
   {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "selling_amount",
@@ -184,17 +186,17 @@
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "buying_currency",
    "fieldtype": "Link",
    "label": "Buying Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "buying_amount",
@@ -217,6 +219,7 @@
   {
    "fieldname": "revenue_calc_notes",
    "fieldtype": "Long Text",
+   "hidden": 1,
    "label": "Revenue",
    "read_only": 1
   },
@@ -256,12 +259,12 @@
   },
   {
    "fieldname": "section_break_calc",
-   "fieldtype": "Section Break",
-   "label": "Revenue & Cost"
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "revenue_column",
    "fieldtype": "Column Break",
+   "hidden": 1,
    "label": "Revenue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
@@ -284,17 +287,17 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "rate",
@@ -379,17 +382,17 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "unit_cost",
@@ -484,7 +487,7 @@
  "grid_page_length": 50,
  "istable": 1,
  "links": [],
- "modified": "2026-03-03 13:07:27.913327",
+ "modified": "2026-04-28 23:47:10.960958",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation Charges",

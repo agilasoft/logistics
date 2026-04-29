@@ -1,6 +1,6 @@
 {
  "actions": [],
- "allow_rename": 1,
+ "allow_rename": 0,
  "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -29,24 +29,27 @@
   "penalty_alert_sent",
   "last_penalty_check",
   "penalty_manual_override",
-  "section_deposit",
+  "tab_container_deposit",
+  "section_deposit_paid",
   "current_job_number",
-  "container_deposit_column",
+  "col_deposit_main",
   "deposit_amount",
   "deposit_currency",
   "deposit_paid_date",
   "deposit_reference",
-  "empty_return_column",
+  "col_empty_return",
   "return_status",
   "returned_date",
   "return_location_type",
   "return_location",
-  "deposit_history_tab",
-  "section_deposits",
-  "deposits",
-  "section_container_charges_summary",
+  "section_deposit_lines",
+  "deposits_gl_html",
+  "section_container_charges",
+  "charges_gl_html",
+  "section_container_charges_total",
   "container_charges_total",
-  "refund_readiness_tab",
+  "section_refund_links",
+  "refund_links",
   "section_refund_readiness",
   "refund_readiness",
   "section_links",
@@ -202,9 +205,14 @@
    "label": "Manual penalty values"
   },
   {
-   "fieldname": "section_deposit",
+   "fieldname": "tab_container_deposit",
+   "fieldtype": "Tab Break",
+   "label": "Container Deposit"
+  },
+  {
+   "fieldname": "section_deposit_paid",
    "fieldtype": "Section Break",
-   "label": "Deposit & Return"
+   "label": "Deposit paid"
   },
   {
    "fieldname": "current_job_number",
@@ -212,6 +220,11 @@
    "label": "Current Job Number",
    "options": "Job Number",
    "read_only": 1
+  },
+  {
+   "fieldname": "col_deposit_main",
+   "fieldtype": "Column Break",
+   "label": "Amounts"
   },
   {
    "fieldname": "deposit_amount",
@@ -234,6 +247,11 @@
    "fieldname": "deposit_reference",
    "fieldtype": "Data",
    "label": "Deposit Reference"
+  },
+  {
+   "fieldname": "col_empty_return",
+   "fieldtype": "Column Break",
+   "label": "Empty return"
   },
   {
    "fieldname": "return_status",
@@ -260,29 +278,65 @@
    "options": "Transport Zone"
   },
   {
-   "fieldname": "section_deposits",
+   "fieldname": "section_deposit_lines",
    "fieldtype": "Section Break",
-   "label": "Deposit History"
+   "label": "Deposits (GL)"
   },
   {
-   "fieldname": "deposits",
-   "fieldtype": "Table",
-   "label": "Deposits",
-   "options": "Container Deposit"
+   "description": "GL lines with **Container** dimension on **Deposits Pending for Refund Request** only (per-company Sea Freight Settings).",
+   "fieldname": "deposits_gl_html",
+   "fieldtype": "HTML",
+   "label": "Deposit GL entries",
+   "read_only": 1
   },
   {
    "collapsible": 1,
-   "description": "Sum of **Container Charge** documents linked to this container (standalone records). Deducted from the deposit roll-up below. Enter charges via Container Charge, not here.",
-   "fieldname": "section_container_charges_summary",
+   "description": "Other GL lines with this container dimension (including AR refund postings, operational costs, etc.).",
+   "fieldname": "section_container_charges",
    "fieldtype": "Section Break",
-   "label": "Charges (Container Charge)"
+   "label": "Container charges (GL)"
   },
   {
-   "description": "Total of Container Charge.total_amount for this container (non-cancelled). Subtracted from deposit roll-up.",
+   "fieldname": "charges_gl_html",
+   "fieldtype": "HTML",
+   "label": "Charge GL entries",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_container_charges_total",
+   "fieldtype": "Section Break",
+   "label": "Charge total"
+  },
+  {
+   "description": "Sum of operational debit GL rows (Container dimension, non-deposit accounts). Subtracted from deposit roll-up.",
    "fieldname": "container_charges_total",
    "fieldtype": "Currency",
    "label": "Total charges",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_refund_links",
+   "fieldtype": "Section Break",
+   "label": "Refund requests posted"
+  },
+  {
+   "description": "Records each **Request Deposit Refund** Journal Entry against a carrier deposit Purchase Invoice.",
+   "fieldname": "refund_links",
+   "fieldtype": "Table",
+   "label": "Refund links",
+   "options": "Container Refund Link"
+  },
+  {
+   "description": "Populate from Logistics Settings (Refresh checklist). Mandatory lines must be Received or Waived before **Request Deposit Refund**.",
+   "fieldname": "section_refund_readiness",
+   "fieldtype": "Section Break",
+   "label": "Refund readiness"
+  },
+  {
+   "fieldname": "refund_readiness",
+   "fieldtype": "Table",
+   "label": "Refund readiness checklist",
+   "options": "Container Refund Readiness"
   },
   {
    "fieldname": "section_links",
@@ -300,44 +354,12 @@
    "fieldtype": "HTML",
    "label": "Linked Transport Jobs",
    "read_only": 1
-  },
-  {
-   "fieldname": "container_deposit_column",
-   "fieldtype": "Column Break",
-   "label": "Container Deposit"
-  },
-  {
-   "fieldname": "empty_return_column",
-   "fieldtype": "Column Break",
-   "label": "Empty Return"
-  },
-  {
-   "fieldname": "deposit_history_tab",
-   "fieldtype": "Tab Break",
-   "label": "Deposit History"
-  },
-  {
-   "fieldname": "refund_readiness_tab",
-   "fieldtype": "Tab Break",
-   "label": "Refund Readiness"
-  },
-  {
-   "description": "Populate from Logistics Settings template using Refresh checklist. Mandatory lines must be Received or Waived before posting refund journal entries.",
-   "fieldname": "section_refund_readiness",
-   "fieldtype": "Section Break",
-   "label": "Required documents for refund"
-  },
-  {
-   "fieldname": "refund_readiness",
-   "fieldtype": "Table",
-   "label": "Refund readiness",
-   "options": "Container Refund Readiness"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-22 18:58:10.607273",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-04-28 22:03:12.743707",
+ "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container",
  "owner": "Administrator",

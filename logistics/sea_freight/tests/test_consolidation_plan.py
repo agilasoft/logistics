@@ -16,8 +16,13 @@ from logistics.air_freight.tests.test_helpers import (
 )
 
 
-def _ensure_sea_freight_settings_defaults(cost_center, profit_center):
-	ss = frappe.get_single("Sea Freight Settings")
+def _ensure_sea_freight_settings_defaults(company, cost_center, profit_center):
+	if frappe.db.exists("Sea Freight Settings", company):
+		ss = frappe.get_doc("Sea Freight Settings", company)
+	else:
+		ss = frappe.get_doc({"doctype": "Sea Freight Settings", "company": company})
+		ss.flags.ignore_validate = True
+		ss.insert(ignore_permissions=True)
 	ss.default_cost_center = cost_center
 	ss.default_profit_center = profit_center
 	ss.save(ignore_permissions=True)
@@ -51,7 +56,7 @@ class TestSeaConsolidationPlanFlow(FrappeTestCase):
 		self.branch = create_test_branch(self.company)
 		self.cost_center = create_test_cost_center(self.company)
 		self.profit_center = create_test_profit_center(self.company)
-		_ensure_sea_freight_settings_defaults(self.cost_center, self.profit_center)
+		_ensure_sea_freight_settings_defaults(self.company, self.cost_center, self.profit_center)
 		self.shipping_line = _ensure_shipping_line()
 
 	def tearDown(self):

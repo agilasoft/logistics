@@ -27,7 +27,6 @@ class SeaConsolidation(Document):
         register_charge_resolution_parent(self)
         try:
             self.validate_dates()
-            self.validate_containers_iso6346()
             self.validate_route_consistency()
             self.validate_capacity_constraints()
             self.validate_attached_shipments_compatibility()
@@ -83,6 +82,7 @@ class SeaConsolidation(Document):
             frappe.throw(_("At least one package or container must be added to the consolidation"))
         if not self.consolidation_routes:
             frappe.throw(_("At least one route must be defined for the consolidation"))
+        self.validate_containers_iso6346()
     
     def validate_containers_iso6346(self):
         """Validate container numbers per ISO 6346."""

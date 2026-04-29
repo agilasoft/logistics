@@ -22,8 +22,10 @@ function _is_milestone_tracking_enabled(frm) {
 	if (frm._milestone_tracking_enabled !== undefined) {
 		return Promise.resolve(frm._milestone_tracking_enabled);
 	}
-	return frappe.db.get_single_value("Sea Freight Settings", "enable_milestone_tracking")
-		.then(function(value) {
+	var company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	return frappe.db.get_value("Sea Freight Settings", { company: company }, "enable_milestone_tracking")
+		.then(function(r) {
+			var value = r && r.message ? r.message.enable_milestone_tracking : undefined;
 			// Match doctype default (1): NULL/legacy unset rows must not hide the tab.
 			if (value === undefined || value === null || value === "") {
 				frm._milestone_tracking_enabled = true;
@@ -337,6 +339,7 @@ frappe.ui.form.on('Sea Booking', {
 	},
 
 	company: function(frm) {
+		frm._milestone_tracking_enabled = undefined;
 		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
 			window.logistics_apply_sea_freight_settings_accounting_defaults(frm);
 		}

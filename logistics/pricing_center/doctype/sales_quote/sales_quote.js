@@ -412,7 +412,13 @@ frappe.ui.form.on("Sales Quote", {
 			(frm.doc.warehousing && frm.doc.warehousing.length > 0);
 		const one_off_warehouse_ok =
 			frm.doc.quotation_type !== "One-off" || frm.doc.main_service === "Warehousing";
-		if (frm.doc.docstatus === 1 && has_warehousing && !frm.doc.__islocal && one_off_warehouse_ok) {
+		if (
+			frm.doc.docstatus === 1 &&
+			has_warehousing &&
+			!frm.doc.__islocal &&
+			one_off_warehouse_ok &&
+			!frm.doc.additional_charge
+		) {
 			frm.add_custom_button(__("Create Warehouse Contract"), function() {
 				create_warehouse_contract_from_sales_quote(frm);
 			}, __("Create"));
@@ -436,7 +442,8 @@ frappe.ui.form.on("Sales Quote", {
 			frm.doc.main_service === "Customs" &&
 			has_customs &&
 			!frm.doc.__islocal &&
-			frm.doc.docstatus === 1
+			frm.doc.docstatus === 1 &&
+			!frm.doc.additional_charge
 		) {
 			frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
 				if (!r || !r.name) {
@@ -1071,6 +1078,11 @@ function add_create_button(frm, config) {
 		view_label,        // e.g., "View Transport Orders"
 		create_function    // e.g., create_transport_order_from_sales_quote
 	} = config;
+
+	// Change Request additional-charge quotes bill the linked job; do not offer new bookings/orders here
+	if (frm.doc.additional_charge) {
+		return;
+	}
 
 	// Only charge lines for this service authorize creating the related job (not main_service alone)
 	const hasChargesForService = (frm.doc.charges || []).some((c) => c.service_type === main_service);

@@ -74,6 +74,23 @@ def _sales_quote_has_warehousing_for_contract(sales_quote):
 	return False
 
 
+def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote):
+	"""Additional-charge quotes (from Change Request) bill an existing job — do not spawn new bookings or orders."""
+	if not cint(getattr(sales_quote, "additional_charge", 0)):
+		return
+	job = _sq_strip_or_none(getattr(sales_quote, "job", None))
+	jt = _sq_strip_or_none(getattr(sales_quote, "job_type", None))
+	msg = _(
+		"This Sales Quote is for additional charges on an existing job (Change Request). "
+		"Creating a new booking or order from it is not allowed."
+	)
+	if job and jt:
+		msg = msg + " " + _("Additional charges apply on {0} {1}.").format(jt, job)
+	elif job:
+		msg = msg + " " + _("Additional charges apply on job {0}.").format(job)
+	frappe.throw(msg, title=_("Additional-Charge Quote"))
+
+
 class SalesQuote(Document):
 	def validate(self):
 		"""Validate Sales Quote data"""
@@ -522,6 +539,7 @@ class SalesQuote(Document):
 		"""
 		try:
 			throw_if_sales_quote_expired_for_creation(self)
+			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
 			# Check if Sales Quote has air charges (new) or air freight (legacy)
 			air_charge_count = frappe.db.count("Sales Quote Charge", {
 				"parent": self.name,
@@ -662,6 +680,7 @@ class SalesQuote(Document):
 		"""
 		try:
 			throw_if_sales_quote_expired_for_creation(self)
+			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
 			# First create the Sea Booking from Sales Quote
 			booking_result = _create_sea_booking_from_sales_quote(self)
 			booking_name = booking_result.get("sea_booking")
@@ -691,7 +710,8 @@ class SalesQuote(Document):
 			# Check if the quote is submitted
 			if self.docstatus != 1:
 				frappe.throw(_("This Sales Quote must be submitted before creating a Warehouse Contract."))
-			
+			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
+
 			# Check if Sales Quote has warehousing details (legacy table or unified Warehousing charges)
 			if not _sales_quote_has_warehousing_for_contract(self):
 				frappe.throw(_("No warehousing details found in this Sales Quote."))
@@ -1026,6 +1046,7 @@ def _get_service_params(sales_quote, service_type):
 def _create_transport_order_from_sales_quote(sales_quote):
 	"""Create Transport Order from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
 	legacy_transport = getattr(sales_quote, "transport", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Transport"
@@ -1168,6 +1189,7 @@ def _get_air_weight_volume_from_sales_quote(sales_quote):
 def _create_air_booking_from_sales_quote(sales_quote):
 	"""Create Air Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Air"]
 	legacy_air = getattr(sales_quote, "air_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Air"
@@ -1263,6 +1285,7 @@ def _create_air_booking_from_sales_quote(sales_quote):
 def _create_sea_booking_from_sales_quote(sales_quote):
 	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Sea"]
 	legacy_sea = getattr(sales_quote, "sea_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Sea"
