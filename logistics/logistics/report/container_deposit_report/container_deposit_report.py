@@ -23,6 +23,7 @@ from frappe.utils import cint, date_diff, flt, getdate, nowdate
 
 from logistics.analytics_reports.bootstrap import tally_chart
 from logistics.job_management.gl_reference_dimension import get_accounting_dimension_fieldname
+from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
 
 
 def execute(filters=None):
@@ -51,7 +52,7 @@ def _empty_message_if_needed(data, filters):
 	if data:
 		return None
 	return _(
-		"No rows match. This report rolls up GL on Account = Deposits Pending for Refund Request (Sea Freight Settings), "
+		"No rows match. This report rolls up GL on Account = Deposits Pending for Refund Request (Sea Freight Settings row for the selected company), "
 		"with the Container dimension set, and Company = filter. If Return Status is Returned but refund is still open in GL, "
 		'enable "Include returned containers". Clear optional filters (dates, supplier, shipping line).'
 	)
@@ -172,10 +173,8 @@ def _base_setup(filters):
 		filters.company = frappe.defaults.get_user_default("Company")
 	pending = None
 	if filters.get("company"):
-		pending = frappe.db.get_value(
-			"Sea Freight Settings",
-			{"company": filters.company},
-			"container_deposit_pending_refund_account",
+		pending = SeaFreightSettings.get_default_value(
+			filters.company, "container_deposit_pending_refund_account"
 		)
 	if not pending:
 		return None, None, filters

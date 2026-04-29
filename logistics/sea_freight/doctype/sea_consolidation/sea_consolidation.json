@@ -8,11 +8,6 @@
  "field_order": [
   "dashboard_tab",
   "dashboard_html",
-  "planning_tab",
-  "sea_planning_status",
-  "planning_owner",
-  "planning_lines_section",
-  "consolidation_planning_lines",
   "details_tab",
   "consolidation_info_section",
   "amended_from",
@@ -82,7 +77,10 @@
   "branch",
   "cost_center",
   "profit_center",
-  "job_number"
+  "job_number",
+  "sea_planning_status",
+  "planning_owner",
+  "consolidation_planning_lines"
  ],
  "fields": [
   {
@@ -97,14 +95,10 @@
    "label": "Dashboard"
   },
   {
-   "fieldname": "planning_tab",
-   "fieldtype": "Tab Break",
-   "label": "Planning"
-  },
-  {
    "default": "Draft",
    "fieldname": "sea_planning_status",
    "fieldtype": "Select",
+   "hidden": 1,
    "label": "Planning Status",
    "options": "Draft\nSubmitted",
    "read_only": 1
@@ -112,17 +106,14 @@
   {
    "fieldname": "planning_owner",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Planning Owner",
    "options": "User"
   },
   {
-   "fieldname": "planning_lines_section",
-   "fieldtype": "Section Break",
-   "label": "Planned Shipments"
-  },
-  {
    "fieldname": "consolidation_planning_lines",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Planning Lines",
    "options": "Sea Consolidation Planning Line"
   },
@@ -548,6 +539,29 @@
    "link_filters": "[[\"Job Number\", \"job_type\", \"=\", \"Sea Shipment\"]]",
    "no_copy": 1,
    "options": "Job Number"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "sea_planning_status",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Planning Status",
+   "options": "Draft\nSubmitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planning_owner",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Planning Owner",
+   "options": "User"
+  },
+  {
+   "fieldname": "consolidation_planning_lines",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Planning Lines",
+   "options": "Sea Consolidation Planning Line"
   },
   {
    "fieldname": "details_tab",

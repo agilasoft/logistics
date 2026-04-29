@@ -1,6 +1,7 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
+import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
@@ -33,7 +34,12 @@ class SeaShipmentCharges(Document):
         if not item or not item_is_container_deposit(item):
             self.container_deposit_pending_refund_gl = ""
             return
-        self.container_deposit_pending_refund_gl = get_container_deposit_pending_refund_account() or ""
+        company = None
+        if self.get("parent") and self.get("parenttype") == "Sea Shipment":
+            company = frappe.db.get_value("Sea Shipment", self.parent, "company")
+        self.container_deposit_pending_refund_gl = (
+            get_container_deposit_pending_refund_account(company) or ""
+        )
 
     def _calculate_charges(self, parent_doc=None):
         """Recalculate only actual revenue and cost (basis for SI/PI). Estimated revenue/cost come from Booking and are not changed."""

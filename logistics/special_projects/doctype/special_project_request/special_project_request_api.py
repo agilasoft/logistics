@@ -9,6 +9,8 @@ import frappe
 from frappe import _
 from frappe.utils import today, getdate
 
+from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
 
 @frappe.whitelist()
 def create_inbound_order_from_request(special_project_request):
@@ -253,19 +255,8 @@ def create_sea_booking_from_request(special_project_request, origin_port=None, d
 	project = special_project.project
 
 	default_company = frappe.defaults.get_defaults().get("company")
-	settings = frappe.db.get_value(
-		"Sea Freight Settings",
-		default_company,
-		[
-			"company",
-			"default_branch",
-			"default_cost_center",
-			"default_profit_center",
-			"default_origin_port",
-			"default_destination_port",
-		],
-		as_dict=True,
-	) or {}
+	sf = SeaFreightSettings.get_settings(default_company)
+	settings = sf.as_dict() if sf else {}
 	company = settings.get("company") or default_company
 	if not company:
 		frappe.throw(_("Company is required. Set default company or Sea Freight Settings."))

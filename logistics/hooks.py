@@ -29,7 +29,7 @@ fixtures = [
 # include js, css files in header of desk.html
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
-	"/assets/logistics/css/get_charges_from_quotation.css?v=5",
+	"/assets/logistics/css/get_charges_from_quotation.css?v=6",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 ]
 app_include_js = [
@@ -39,6 +39,7 @@ app_include_js = [
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=8",
+	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=1",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
@@ -134,6 +135,7 @@ doctype_js = {
 	"Sea Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/sea_consolidation_matching_shipments.js?v=1",
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Declaration": [

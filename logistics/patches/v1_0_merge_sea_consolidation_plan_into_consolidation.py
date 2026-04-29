@@ -2,6 +2,8 @@
 # See license.txt
 
 import frappe
+from frappe import _
+from frappe.utils import getdate, today
 
 
 def execute():
@@ -74,5 +76,105 @@ def _create_consolidations_from_orphan_submitted_plans():
 		)
 		if has_link:
 			continue
-		plan = frappe.get_doc("Sea Consolidation Plan", pname)
-		plan.create_sea_consolidation_from_plan()
+		fields = [
+			"company",
+			"branch",
+			"plan_date",
+			"consolidation_type",
+			"origin_port",
+			"destination_port",
+			"target_etd",
+			"target_eta",
+			"shipping_line",
+			"vessel_name",
+			"voyage_number",
+		]
+		plan_row = frappe.db.get_value("Sea Consolidation Plan", pname, fields, as_dict=True)
+		if not plan_row:
+			continue
+		items = frappe.get_all(
+			"Sea Consolidation Plan Item",
+			filters={"parent": pname},
+			fields=["sea_shipment"],
+			order_by="idx asc",
+		)
+		consol = _build_sea_consolidation_from_plan_data(plan_row, items)
+		consol.insert(ignore_permissions=True)
+
+
+def _build_sea_consolidation_from_plan_data(plan, items):
+	"""Recreate logic from removed Sea Consolidation Plan.create_sea_consolidation_from_plan (see git history)."""
+	from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
+	ss = SeaFreightSettings.get_settings(plan["company"])
+	cost_center = ss.default_cost_center if ss else None
+	profit_center = ss.default_profit_center if ss else None
+	if not cost_center:
+		frappe.throw(_("Set Default Cost Center in Sea Freight Settings for company {0}.").format(plan["company"]))
+	if not profit_center:
+		frappe.throw(_("Set Default Profit Center in Sea Freight Settings for company {0}.").format(plan["company"]))
+
+	consol = frappe.new_doc("Sea Consolidation")
+	consol.naming_series = "SC-{MM}-{YYYY}-{####}"
+	consol.consolidation_date = getdate(plan.get("plan_date")) or getdate(today())
+	consol.consolidation_type = plan.get("consolidation_type")
+	consol.status = "Draft"
+	consol.company = plan.get("company")
+	consol.branch = plan.get("branch")
+	consol.cost_center = cost_center
+	consol.profit_center = profit_center
+	consol.origin_port = plan.get("origin_port")
+	consol.destination_port = plan.get("destination_port")
+	consol.etd = plan.get("target_etd")
+	consol.eta = plan.get("target_eta")
+	consol.shipping_line = plan.get("shipping_line")
+	consol.vessel_name = plan.get("vessel_name") or "TBA"
+	consol.voyage_number = plan.get("voyage_number") or "TBA"
+
+	consol.append(
+		"consolidation_routes",
+		{
+			"route_type": "Direct",
+			"origin_port": plan.get("origin_port"),
+			"destination_port": plan.get("destination_port"),
+			"shipping_line": plan.get("shipping_line"),
+			"vessel_name": plan.get("vessel_name") or "TBA",
+			"voyage_number": plan.get("voyage_number") or "TBA",
+			"etd": plan.get("target_etd"),
+			"eta": plan.get("target_eta"),
+			"dangerous_goods_allowed": 1,
+		},
+	)
+
+	for line in items or []:
+		sh = line.get("sea_shipment")
+		if sh:
+			consol.append(
+				"consolidation_planning_lines",
+				{"sea_shipment": sh},
+			)
+	consol.sea_planning_status = "Submitted"
+
+	idx = 0
+	for line in items or []:
+		idx += 1
+		sh = line.get("sea_shipment")
+		if not sh:
+			continue
+		s = frappe.get_doc("Sea Shipment", sh)
+		pkg_ref = f"{sh}-{idx}"
+		consol.append(
+			"consolidation_packages",
+			{
+				"package_reference": pkg_ref,
+				"sea_shipment": sh,
+				"shipper": s.shipper,
+				"consignee": s.consignee,
+				"package_type": "Box",
+				"package_count": 1,
+				"package_weight": s.total_weight or 1,
+				"package_volume": s.total_volume or 0,
+			},
+		)
+
+	return consol

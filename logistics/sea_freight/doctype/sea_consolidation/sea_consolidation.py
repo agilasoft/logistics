@@ -4,9 +4,10 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe.exceptions import ValidationError
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt, now_datetime, getdate
+from frappe.utils import cstr, flt, now_datetime, getdate
 from datetime import datetime, timedelta
 
 from logistics.utils.consolidation_plan import (
@@ -86,7 +87,7 @@ class SeaConsolidation(Document):
 
         if get_sea_shipment_names_from_consolidation(self) and (self.sea_planning_status or "Draft") != "Submitted":
             frappe.throw(
-                _("Submit planning on the Planning tab before submitting the consolidation."),
+                _("Submit the planned shipment list (Planning Status) before submitting the consolidation."),
                 title=_("Planning required"),
             )
     
@@ -657,6 +658,144 @@ class SeaConsolidation(Document):
             "vessel_name": self.vessel_name,
             "voyage_number": self.voyage_number,
         }
+
+    def _merged_sea_plan_match_dict_from_dialog(self, filter_overrides):
+        keys = (
+            "company",
+            "branch",
+            "origin_port",
+            "destination_port",
+            "target_etd",
+            "shipping_line",
+            "vessel_name",
+            "voyage_number",
+        )
+        base = dict(self._sea_plan_match_dict())
+        o = filter_overrides or {}
+        if isinstance(o, str):
+            o = frappe.parse_json(o) or {}
+        if not isinstance(o, dict):
+            o = {}
+        for key in keys:
+            if key not in o:
+                continue
+            val = o[key]
+            if val is None or (isinstance(val, str) and not str(val).strip()):
+                continue
+            base[key] = val
+        return base
+
+    @frappe.whitelist()
+    def preview_matching_sea_shipments(self, filter_overrides=None):
+        """Return strict-matching shipments with eligibility for each row (no save)."""
+        self.reload()
+        if self.is_new():
+            return {"error": _("Save the consolidation first.")}
+
+        merged = self._merged_sea_plan_match_dict_from_dialog(filter_overrides)
+        try:
+            assert_sea_plan_fields_for_strict_match(merged)
+        except ValidationError as e:
+            return {"error": cstr(getattr(e, "message", e))}
+
+
+        candidates = get_strict_matching_sea_shipment_names(merged)
+        present = {
+            r.sea_shipment
+            for r in (self.get("consolidation_planning_lines") or [])
+            if getattr(r, "sea_shipment", None)
+        }
+
+        rows = []
+        for name in candidates:
+            shipment = frappe.db.get_value(
+                "Sea Shipment",
+                name,
+                [
+                    "name",
+                    "job_status",
+                    "origin_port",
+                    "destination_port",
+                    "shipping_line",
+                    "etd",
+                    "house_type",
+                    "company",
+                    "branch",
+                ],
+                as_dict=True,
+            ) or {}
+
+            row = {"name": name, "job_status": shipment.get("job_status") or "", "row_type": "eligible"}
+            if shipment.get("company") and shipment.get("branch"):
+                row["subtitle"] = "{0} · {1}".format(
+                    shipment.get("company"),
+                    shipment.get("branch"),
+                )
+            if name in present:
+                row["row_type"] = "already"
+                rows.append(row)
+                continue
+            ok, msg = sea_shipment_allowed_on_plan(name)
+            if not ok:
+                row["row_type"] = "blocked"
+                row["reason"] = cstr(msg)
+                rows.append(row)
+                continue
+            if conflicting_submitted_sea_planning_elsewhere(name, self.name):
+                row["row_type"] = "blocked"
+                row["reason"] = _("Reserved on another consolidation submitted planning.")
+                rows.append(row)
+                continue
+            row["origin_port"] = shipment.get("origin_port") or ""
+            row["destination_port"] = shipment.get("destination_port") or ""
+            row["shipping_line"] = shipment.get("shipping_line") or ""
+            row["etd"] = shipment.get("etd")
+            rows.append(row)
+
+        banner = _("{0} candidate(s); {1} can be added").format(
+            len(candidates), len([r for r in rows if r.get("row_type") == "eligible"])
+        )
+        return {"rows": rows, "message": banner}
+
+    @frappe.whitelist()
+    def apply_selected_sea_shipments_to_planning(self, shipment_names, filter_overrides=None):
+        """Append shipments chosen in the alignment dialog."""
+        names = frappe.parse_json(shipment_names) if isinstance(shipment_names, str) else shipment_names
+        if not names:
+            frappe.throw(_("Select at least one shipment."), title=_("Nothing selected"))
+
+        preview = self.preview_matching_sea_shipments(filter_overrides)
+        if isinstance(preview, dict) and preview.get("error"):
+            frappe.throw(preview["error"])
+
+        eligible = {r["name"] for r in (preview.get("rows") or []) if r.get("row_type") == "eligible"}
+
+        self.reload()
+        if self.sea_planning_status == "Submitted":
+            frappe.throw(_("Cannot add shipments after planning is submitted."), title=_("Planning locked"))
+
+        added, skipped = [], []
+        seen = set()
+        for nm in names:
+            if nm in seen:
+                continue
+            seen.add(nm)
+            if nm not in eligible:
+                skipped.append(nm)
+                continue
+            ok, msg = sea_shipment_allowed_on_plan(nm)
+            if not ok:
+                frappe.throw(cstr(msg))
+            if conflicting_submitted_sea_planning_elsewhere(nm, self.name):
+                frappe.throw(_("Sea Shipment {0} cannot be reserved on this consolidation.").format(nm))
+            self.append("consolidation_planning_lines", {"sea_shipment": nm})
+            added.append(nm)
+
+        self.save()
+        msg = _("{0} added").format(len(added))
+        if skipped:
+            msg += " · " + _("{0} not applied (criteria changed or not eligible).").format(len(skipped))
+        return {"added": added, "skipped": skipped, "message": msg}
 
     def _validate_consolidation_planning_lines(self):
         rows = self.get("consolidation_planning_lines") or []

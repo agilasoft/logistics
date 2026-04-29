@@ -544,3 +544,22 @@
 	cursor: not-allowed;
 	opacity: 0.65;
 }
+
+/* Sea Consolidation — aligned shipments dialog (reuses gcfq filter shell) */
+.logistics-scm-dialog .scm-m-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	margin-bottom: 12px;
+}
+
+.logistics-scm-dialog .scm-m-toolbar .scm-search {
+	flex: 1 1 220px;
+	min-width: 140px;
+	max-width: none;
+}
+
+.logistics-scm-dialog .scm-m-ban {
+	margin-bottom: 12px;
+}

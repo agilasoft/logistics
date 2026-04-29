@@ -286,7 +286,7 @@ def assert_sea_consolidation_plan_requirements(doc) -> None:
 		if not sea_shipment_on_submitted_consolidation_planning(consolidation_name, shipment):
 			frappe.throw(
 				_(
-					"Sea Shipment {0} must be listed on this consolidation's Planning tab and planning must be submitted "
+					"Sea Shipment {0} must be on this consolidation planned shipment list and planning must be submitted "
 					"(Planning Status = Submitted) before it can be included in cargo."
 				).format(shipment),
 				title=_("Planning Required"),
