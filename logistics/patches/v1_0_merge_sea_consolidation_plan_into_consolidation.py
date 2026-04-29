@@ -54,6 +54,7 @@ def _merge_linked_plan_lines_into_consolidations():
 			changed = True
 		if changed:
 			doc.flags.ignore_validate = True
+			doc.flags.ignore_validate_update_after_submit = True
 			doc.save(ignore_permissions=True)
 
 

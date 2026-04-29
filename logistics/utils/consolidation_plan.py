@@ -363,22 +363,3 @@ def conflicting_open_air_plan_line(shipment: str, exclude_parent_plan: Optional[
 		return True
 	return False
 
-
-def conflicting_open_sea_plan_line(shipment: str, exclude_parent_plan: Optional[str]) -> bool:
-	"""While legacy plan tables exist, use submitted-plan row conflicts; afterward defer to consolidation planning."""
-	if frappe.db.table_exists("Sea Consolidation Plan Item"):
-		for row in frappe.get_all(
-			"Sea Consolidation Plan Item",
-			filters={
-				"sea_shipment": shipment,
-				"linked_sea_consolidation": ["in", [None, ""]],
-			},
-			fields=["parent"],
-		):
-			if frappe.db.get_value("Sea Consolidation Plan", row.parent, "docstatus") != 1:
-				continue
-			if exclude_parent_plan and row.parent == exclude_parent_plan:
-				continue
-			return True
-		return False
-	return conflicting_submitted_sea_planning_elsewhere(shipment, exclude_parent_plan)

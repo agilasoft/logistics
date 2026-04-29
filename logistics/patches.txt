@@ -25,6 +25,8 @@ logistics.patches.v1_0_rename_intercompany_invoice_log_billing_company
 logistics.patches.v1_0_rename_sales_quote_charge_calculation_method_to_revenue
 logistics.patches.v1_0_rename_cash_advance_liquidation_child_to_request_item
 logistics.patches.v1_0_cash_advance_request_fund_source_column
+# Migrate legacy Sea Consolidation Plan rows before DocType/table removal on migrate (ordering-critical).
+logistics.patches.v1_0_merge_sea_consolidation_plan_into_consolidation
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -121,4 +123,3 @@ logistics.patches.v1_0_remove_container_transaction_and_container_charge_doctype
 logistics.patches.v1_0_container_gl_virtual_deposits_cleanup
 logistics.patches.v1_0_migrate_sea_freight_settings_per_company
 logistics.patches.v1_0_sea_consolidation_charges_charge_type_after_revenue_removal
-logistics.patches.v1_0_merge_sea_consolidation_plan_into_consolidation
