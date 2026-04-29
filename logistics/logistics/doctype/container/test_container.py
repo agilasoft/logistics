@@ -55,7 +55,7 @@ class UnitTestContainerDepositRow(UnitTestCase):
 		if hasattr(f, "container_charges_total"):
 			self.assertEqual(f.container_charges_total, 0)
 
-	def test_sync_deposit_header_subtracts_container_charges(self):
+	def test_sync_deposit_header_does_not_subtract_container_charges(self):
 		from logistics.logistics.deposit_processing.container_deposit_gl import sync_deposit_header_from_child_rows
 
 		class _Fake:
@@ -78,12 +78,12 @@ class UnitTestContainerDepositRow(UnitTestCase):
 
 		def _fake_sync(doc):
 			doc.container_charges_total = 35.0
-			doc.deposit_amount = 65.0
+			doc.deposit_amount = 100.0
 
 		with patch(
 			"logistics.logistics.deposit_processing.container_deposit_gl.sync_deposit_header_from_gl",
 			side_effect=_fake_sync,
 		):
 			sync_deposit_header_from_child_rows(f)
-		self.assertEqual(f.deposit_amount, 65)
+		self.assertEqual(f.deposit_amount, 100)
 		self.assertEqual(f.container_charges_total, 35)

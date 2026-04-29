@@ -39,7 +39,10 @@
   "allocation_method",
   "allocation_percentage",
   "column_break_4",
-  "allocated_amount"
+  "allocated_amount",
+  "section_break_purchase_pi",
+  "purchase_invoice_status",
+  "purchase_invoice"
  ],
  "fields": [
   {
@@ -248,6 +251,28 @@
    "label": "Allocated Amount",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_purchase_pi",
+   "fieldtype": "Section Break",
+   "label": "Purchase Invoice"
+  },
+  {
+   "default": "Not Requested",
+   "fieldname": "purchase_invoice_status",
+   "fieldtype": "Select",
+   "label": "Cost Invoice Status",
+   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "read_only": 1,
+   "description": "Set when included in a Purchase Invoice request; row becomes read-only."
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1,
+   "description": "Purchase Invoice this charge was requested in."
   }
  ],
  "grid_page_length": 50,

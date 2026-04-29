@@ -2,6 +2,7 @@
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/user/en/database-migrations
 
+logistics.patches.v1_0_backup_exchange_rate_source_child_before_split
 logistics.patches.v1_0_backup_sea_freight_settings_single
 logistics.patches.v1_0_rename_job_costing_number_doctype_to_job_number
 logistics.patches.v1_0_rename_sea_freight_charges_to_sea_shipment_charges
@@ -30,6 +31,7 @@ logistics.patches.v1_0_cash_advance_request_fund_source_column
 # Patches added in this section will be executed after doctypes are migrated
 # Merge legacy Sea Consolidation Plan data after schema sync (needs consolidation_planning_lines on Sea Consolidation).
 # Orphan Plan DocTypes/tables are removed later in post_schema_updates, not before this runs.
+logistics.patches.v1_0_migrate_tmp_ersr_to_source_exchange_rate
 logistics.patches.v1_0_merge_sea_consolidation_plan_into_consolidation
 logistics.patches.v1_0_add_charge_break_buttons
 logistics.patches.v1_0_add_weight_qty_break_options
@@ -117,6 +119,7 @@ logistics.patches.v1_0_purge_si_sii_job_costing_number_custom_field_when_job_num
 logistics.patches.v1_0_remove_duplicate_custom_fields_on_charge_tables
 logistics.patches.v1_0_remove_all_custom_fields_on_charge_tables
 logistics.patches.v1_0_add_item_custom_container_deposit_charge
+logistics.patches.v1_0_add_item_custom_container_charge
 logistics.patches.v1_0_ensure_container_accounting_dimension
 logistics.patches.v1_0_fix_empty_report_json_for_report_view
 logistics.patches.v1_0_add_logistics_party_code_fields_customer_supplier
@@ -124,3 +127,4 @@ logistics.patches.v1_0_remove_container_transaction_and_container_charge_doctype
 logistics.patches.v1_0_container_gl_virtual_deposits_cleanup
 logistics.patches.v1_0_migrate_sea_freight_settings_per_company
 logistics.patches.v1_0_sea_consolidation_charges_charge_type_after_revenue_removal
+logistics.patches.v1_0_seed_exchange_rate_sources

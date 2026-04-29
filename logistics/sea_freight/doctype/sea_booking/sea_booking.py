@@ -1024,6 +1024,8 @@ class SeaBooking(Document):
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
 				"bill_to_exchange_rate",
 				"pay_to_exchange_rate",
+				"bill_to_exchange_rate_source",
+				"pay_to_exchange_rate_source",
 			]
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
@@ -1059,6 +1061,10 @@ class SeaBooking(Document):
 				if charge_row:
 					self.append("charges", charge_row)
 					charges_added += 1
+
+			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 
 			# Don't show success message here - it's called automatically during validation
 			# The frontend will show a user-friendly message when the user explicitly selects a quote
@@ -1125,6 +1131,8 @@ class SeaBooking(Document):
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
 				"bill_to_exchange_rate",
 				"pay_to_exchange_rate",
+				"bill_to_exchange_rate_source",
+				"pay_to_exchange_rate_source",
 			]
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
@@ -1159,6 +1167,10 @@ class SeaBooking(Document):
 				if charge_row:
 					self.append("charges", charge_row)
 					charges_added += 1
+
+			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 			
 			# Don't show success message here - it's called automatically during validation
 			# The frontend will show a user-friendly message when the user explicitly selects a quote
@@ -1229,6 +1241,10 @@ class SeaBooking(Document):
 				if charge_row:
 					self.append("charges", charge_row)
 					charges_added += 1
+
+			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 
 			# Don't show success message here - it's called automatically during validation
 			# The frontend will show a user-friendly message when the user explicitly selects a quote
@@ -1535,6 +1551,12 @@ class SeaBooking(Document):
 			pxr = _get("pay_to_exchange_rate")
 			if pxr is not None:
 				charge_data["pay_to_exchange_rate"] = pxr
+			b_src = _get("bill_to_exchange_rate_source")
+			if b_src:
+				charge_data["bill_to_exchange_rate_source"] = b_src
+			p_src = _get("pay_to_exchange_rate_source")
+			if p_src:
+				charge_data["pay_to_exchange_rate_source"] = p_src
 			
 			return charge_data
 			
@@ -2020,6 +2042,10 @@ class SeaBooking(Document):
 					# Copy revenue fields
 					if hasattr(charge, 'bill_to'):
 						new_charge_row.bill_to = charge.bill_to
+					if hasattr(charge, 'bill_to_exchange_rate'):
+						new_charge_row.bill_to_exchange_rate = charge.bill_to_exchange_rate
+					if hasattr(charge, 'bill_to_exchange_rate_source'):
+						new_charge_row.bill_to_exchange_rate_source = charge.bill_to_exchange_rate_source
 					if hasattr(charge, 'selling_currency'):
 						new_charge_row.selling_currency = charge.selling_currency
 					if hasattr(charge, 'selling_amount'):
@@ -2034,6 +2060,10 @@ class SeaBooking(Document):
 					# Copy cost fields
 					if hasattr(charge, 'pay_to'):
 						new_charge_row.pay_to = charge.pay_to
+					if hasattr(charge, 'pay_to_exchange_rate'):
+						new_charge_row.pay_to_exchange_rate = charge.pay_to_exchange_rate
+					if hasattr(charge, 'pay_to_exchange_rate_source'):
+						new_charge_row.pay_to_exchange_rate_source = charge.pay_to_exchange_rate_source
 					if hasattr(charge, 'buying_currency'):
 						new_charge_row.buying_currency = charge.buying_currency
 					if hasattr(charge, 'buying_amount'):
@@ -2123,6 +2153,21 @@ class SeaBooking(Document):
 					# Use idx+1 because Frappe uses 1-based indexing for child table rows
 					if old_charge_name and old_charge_name != "new":
 						charge_name_mapping[old_charge_name] = idx + 1
+
+			if getattr(self, "operational_exchange_rates", None):
+				for ox in self.operational_exchange_rates:
+					sea_shipment.append(
+						"operational_exchange_rates",
+						{
+							"entity_type": ox.entity_type,
+							"entity": ox.entity,
+							"exchange_rate_source": ox.exchange_rate_source,
+							"currency": ox.currency,
+							"rate": ox.rate,
+							"alternate_currency": getattr(ox, "alternate_currency", None),
+							"alternate_rate": getattr(ox, "alternate_rate", None),
+						},
+					)
 			
 			# Copy routing legs (from Sea Booking Routing Leg to Sea Shipment Routing Leg)
 			# Note: Order is determined by idx (automatically set by Frappe), not leg_order
@@ -2590,6 +2635,8 @@ def populate_charges_from_sales_quote(
 			"cost_tariff",
 			"bill_to_exchange_rate",
 			"pay_to_exchange_rate",
+			"bill_to_exchange_rate_source",
+			"pay_to_exchange_rate_source",
 		]
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		sales_quote_sea_freight_records = frappe.get_all(

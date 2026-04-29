@@ -539,6 +539,7 @@ def create_transport_order_from_air_shipment(
 	if ij:
 		order.main_job_type = mjt
 		order.main_job = mj
+		order.is_main_service = 0
 	else:
 		order.main_job_type = None
 		order.main_job = None
@@ -631,6 +632,7 @@ def create_transport_order_from_sea_shipment(
 	if ij:
 		order.main_job_type = mjt
 		order.main_job = mj
+		order.is_main_service = 0
 	else:
 		order.main_job_type = None
 		order.main_job = None
@@ -1070,6 +1072,8 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 		"cost_tariff",
 		"bill_to_exchange_rate",
 		"pay_to_exchange_rate",
+		"bill_to_exchange_rate_source",
+		"pay_to_exchange_rate_source",
 		"tariff",
 		"selling_weight_break",
 		"selling_qty_break",
@@ -1166,8 +1170,10 @@ def _declaration_order_job_context_from_freight_shipment(shipment, shipment_doct
 	"""Return (is_internal_job, main_job_type, main_job) for a Declaration Order created from this shipment.
 
 	- If the shipment is already an Internal Job, copy its main job link.
-	- If the shipment is the quote's main service job and has Customs charge rows on the document,
-	  the Declaration Order is an internal customs job with Main Job = this shipment (customs lives on the freight job).
+	- Otherwise customs is always linked from this freight shipment: the Declaration Order is a satellite/internal
+	  job with Main Job = this shipment. This stays true when the freight doc has no Customs charge rows yet
+	  (charges only on the order) so ``resolve_allow_linked_freight_bookings_for_internal_job`` can allow the
+	  same one-off Sales Quote held on Air/Sea Booking as the freight leg.
 	"""
 	from frappe.utils import cint
 
@@ -1177,9 +1183,7 @@ def _declaration_order_job_context_from_freight_shipment(shipment, shipment_doct
 			getattr(shipment, "main_job_type", None),
 			getattr(shipment, "main_job", None),
 		)
-	if cint(getattr(shipment, "is_main_service", 0)) and _freight_shipment_has_customs_charge_rows(shipment):
-		return (1, shipment_doctype, shipment_name)
-	return (0, None, None)
+	return (1, shipment_doctype, shipment_name)
 
 
 def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) -> None:
@@ -1240,6 +1244,8 @@ def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) ->
 		"cost_tariff",
 		"bill_to_exchange_rate",
 		"pay_to_exchange_rate",
+		"bill_to_exchange_rate_source",
+		"pay_to_exchange_rate_source",
 		"selling_weight_break",
 		"selling_qty_break",
 		"cost_weight_break",
@@ -1740,6 +1746,8 @@ def _copy_transport_charges_from_declaration_to_transport_order(order, declarati
 		"cost_tariff",
 		"bill_to_exchange_rate",
 		"pay_to_exchange_rate",
+		"bill_to_exchange_rate_source",
+		"pay_to_exchange_rate_source",
 		"tariff",
 		"selling_weight_break",
 		"selling_qty_break",

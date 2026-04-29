@@ -76,6 +76,8 @@ _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
 	"pay_to", "estimated_cost", "use_tariff_in_cost", "cost_tariff",
 	"bill_to_exchange_rate",
 	"pay_to_exchange_rate",
+	"bill_to_exchange_rate_source",
+	"pay_to_exchange_rate_source",
 	"revenue_calculation_method", "quantity", "currency", "rate", "unit_type",
 	"minimum_quantity", "minimum_unit_rate", "minimum_charge", "maximum_charge",
 	"base_amount", "base_quantity",
@@ -228,7 +230,12 @@ class AirBooking(Document):
 					self.entry_type,
 					"\", \"".join(valid_entry_types)
 				))
-	
+
+	def _require_positive_booking_volume(self, message):
+		volume = flt(self.volume) if hasattr(self, "volume") and self.volume is not None else 0
+		if volume <= 0:
+			frappe.throw(message)
+
 	def validate_dates(self):
 		"""Validate date logic"""
 		from frappe.utils import getdate
@@ -408,6 +415,9 @@ class AirBooking(Document):
 	def before_submit(self):
 		"""Validate packages and required dates before submitting the Air Booking."""
 		self.validate_required_fields_for_submit()
+		self._require_positive_booking_volume(
+			_("Volume must be greater than 0 before submitting the Air Booking")
+		)
 		# Validate quote is not empty
 		quote_type = getattr(self, "quote_type", None)
 		has_quote = False
@@ -1065,6 +1075,8 @@ class AirBooking(Document):
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
 				"bill_to_exchange_rate",
 				"pay_to_exchange_rate",
+				"bill_to_exchange_rate_source",
+				"pay_to_exchange_rate_source",
 				"service_type",
 				"origin_port", "destination_port",
 			]
@@ -1244,6 +1256,10 @@ class AirBooking(Document):
 					f"Some charges failed to populate:\n" + "\n".join(errors),
 					"Air Booking - Charges Population Warnings"
 				)
+
+			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 			
 			# Return count of charges added (don't show message here, let fetch_quotations handle it)
 			return charges_added
@@ -1851,6 +1867,8 @@ class AirBooking(Document):
 				"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
 				"bill_to_exchange_rate": _sq_row_get("bill_to_exchange_rate"),
 				"pay_to_exchange_rate": _sq_row_get("pay_to_exchange_rate"),
+				"bill_to_exchange_rate_source": _sq_row_get("bill_to_exchange_rate_source"),
+				"pay_to_exchange_rate_source": _sq_row_get("pay_to_exchange_rate_source"),
 			}
 			
 			# Add minimum/maximum/quantity if available
@@ -2024,11 +2042,10 @@ class AirBooking(Document):
 					"One Air Booking can only have one Air Shipment."
 				).format(existing_shipment))
 			
-			# Validate volume is greater than 0 before conversion
-			volume = flt(self.volume) if hasattr(self, 'volume') and self.volume is not None else 0
-			if volume <= 0:
-				frappe.throw(_("Volume must be greater than 0 before converting to Air Shipment"))
-			
+			self._require_positive_booking_volume(
+				_("Volume must be greater than 0 before converting to Air Shipment")
+			)
+
 			# Validate before conversion
 			self.validate_before_conversion()
 			
@@ -2302,6 +2319,21 @@ class AirBooking(Document):
 					# sales_quote_link: from parent or charge
 					charge_row["sales_quote_link"] = self.sales_quote or getattr(charge, 'sales_quote_link', None)
 					air_shipment.append("charges", charge_row)
+
+			if getattr(self, "operational_exchange_rates", None):
+				for ox in self.operational_exchange_rates:
+					air_shipment.append(
+						"operational_exchange_rates",
+						{
+							"entity_type": ox.entity_type,
+							"entity": ox.entity,
+							"exchange_rate_source": ox.exchange_rate_source,
+							"currency": ox.currency,
+							"rate": ox.rate,
+							"alternate_currency": getattr(ox, "alternate_currency", None),
+							"alternate_rate": getattr(ox, "alternate_rate", None),
+						},
+					)
 			
 			# Copy routing legs (from Air Booking Routing Leg to Air Shipment Routing Leg)
 			# Note: Order is determined by idx (automatically set by Frappe), not leg_order
@@ -2676,6 +2708,8 @@ def populate_charges_from_sales_quote(
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
 			"bill_to_exchange_rate",
 			"pay_to_exchange_rate",
+			"bill_to_exchange_rate_source",
+			"pay_to_exchange_rate_source",
 			"service_type",  # Include service_type to identify charge types
 			"origin_port",
 			"destination_port",
@@ -2845,6 +2879,8 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
 			"bill_to_exchange_rate",
 			"pay_to_exchange_rate",
+			"bill_to_exchange_rate_source",
+			"pay_to_exchange_rate_source",
 			"service_type",
 			"origin_port",
 			"destination_port",

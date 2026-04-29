@@ -155,6 +155,8 @@ class SalesQuote(Document):
 
 	def validate_main_service_has_charges(self):
 		"""Require at least one charge line for the selected Main Service (aligned with UI create-booking logic)."""
+		if getattr(self, "change_request", None):
+			return
 		main = getattr(self, "main_service", None)
 		if not main:
 			return
@@ -1473,7 +1475,8 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			"charge_type", "charge_category",
 			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate", "service_type",
+			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
+			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
@@ -1501,6 +1504,10 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			if charge_row:
 				air_shipment.append("charges", charge_row)
 				charges_added += 1
+
+		from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+		sync_operational_exchange_rates_from_charge_rows(air_shipment, air_shipment.charges)
 		
 		if charges_added > 0:
 			frappe.msgprint(
@@ -1697,6 +1704,8 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
 			"bill_to_exchange_rate": _af_r("bill_to_exchange_rate"),
 			"pay_to_exchange_rate": _af_r("pay_to_exchange_rate"),
+			"bill_to_exchange_rate_source": _af_r("bill_to_exchange_rate_source"),
+			"pay_to_exchange_rate_source": _af_r("pay_to_exchange_rate_source"),
 		}
 		
 		# Add minimum/maximum charge if available
@@ -1749,7 +1758,8 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			"charge_type", "charge_category",
 			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate", "service_type",
+			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
+			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_sea_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
@@ -1777,6 +1787,10 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			if charge_row:
 				sea_shipment.append("charges", charge_row)
 				charges_added += 1
+
+		from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+		sync_operational_exchange_rates_from_charge_rows(sea_shipment, sea_shipment.charges)
 		
 		if charges_added > 0:
 			frappe.msgprint(
@@ -1916,6 +1930,8 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"cost_tariff": getattr(sqsf_record, "cost_tariff", None),
 			"bill_to_exchange_rate": _sf_r("bill_to_exchange_rate"),
 			"pay_to_exchange_rate": _sf_r("pay_to_exchange_rate"),
+			"bill_to_exchange_rate_source": _sf_r("bill_to_exchange_rate_source"),
+			"pay_to_exchange_rate_source": _sf_r("pay_to_exchange_rate_source"),
 		}
 		
 		# Add minimum charge if available

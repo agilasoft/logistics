@@ -76,6 +76,7 @@ doctype_js = {
 	# Charge parent doctypes: dialogs first, then charge script + handlers
 	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
 	"Air Booking": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
@@ -87,6 +88,7 @@ doctype_js = {
 		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Air Shipment": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/internal_job_create_from_source.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
@@ -105,8 +107,10 @@ doctype_js = {
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
 	],
 	"Sea Booking": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/sea_freight_accounting_defaults.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
@@ -117,6 +121,7 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Sea Shipment": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/internal_job_create_from_source.js",
 		"logistics/public/js/sea_freight_accounting_defaults.js",
@@ -137,6 +142,7 @@ doctype_js = {
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/public/js/sea_consolidation_matching_shipments.js?v=1",
 		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
 	],
 	"Declaration": [
 		"logistics/public/js/internal_job_create_from_source.js",

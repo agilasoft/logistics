@@ -224,24 +224,234 @@
 		});
 	};
 
+	window.show_create_consolidation_purchase_invoice_dialog = function(frm) {
+		if (!frm || !frm.doc || !frm.doc.name) {
+			frappe.msgprint({ title: __("Error"), message: __("Please save the document first."), indicator: "red" });
+			return;
+		}
+		if (frm.doc.__islocal) {
+			frappe.msgprint({ title: __("Save Required"), message: __("Please save the document before creating Purchase Invoice."), indicator: "orange" });
+			return;
+		}
+		var consolidation_doctype = frm.doctype;
+		var consolidation_name = frm.doc.name;
+
+		frappe.call({
+			method: "logistics.invoice_integration.purchase_invoice_api.get_eligible_charges_for_consolidation_purchase_invoice",
+			args: { consolidation_doctype: consolidation_doctype, consolidation_name: consolidation_name },
+			callback: function(r) {
+				if (!r.message) {
+					frappe.msgprint({ title: __("Error"), message: __("Could not load charges."), indicator: "red" });
+					return;
+				}
+				var data = r.message;
+				var charges = data.eligible_charges || [];
+				if (charges.length === 0) {
+					frappe.msgprint({
+						title: __("No Charges"),
+						message: __("No eligible consolidation charges with items and allocation. Add items and pay-to on charges, and ensure attached shipments exist."),
+						indicator: "orange"
+					});
+					return;
+				}
+
+				var default_posting = data.default_posting_date || frappe.datetime.get_today();
+				var default_due = default_due_date(default_posting);
+
+				var header = [
+					'<table class="table table-bordered table-sm">',
+					'<thead><tr>',
+					'<th style="width:32px"><input type="checkbox" id="pi_dialog_select_all_c" checked /></th>',
+					'<th>' + __("Item") + '</th>',
+					'<th class="text-right">' + __("Charge total") + '</th>',
+					'<th class="text-right">' + __("Qty") + '</th>',
+					'<th>' + __("Pay To") + '</th>',
+					'</tr></thead>',
+					'<tbody id="pi_dialog_charges_tbody_c">'
+				].join("");
+				var rows = charges.map(function(c, i) {
+					var payTo = c.pay_to || "—";
+					return [
+						'<tr data-index="' + i + '">',
+						'<td><input type="checkbox" class="pi-charge-cb-c" data-index="' + i + '" checked /></td>',
+						'<td>' + (c.item_name || c.item_code || "") + '</td>',
+						'<td class="text-right">' + (c.cost != null ? (typeof frappe.format === "function" ? frappe.format(c.cost, { fieldtype: "Currency", options: data.company }) : c.cost.toFixed(2)) : "") + '</td>',
+						'<td class="text-right">' + (c.quantity != null ? c.quantity : "") + '</td>',
+						'<td>' + payTo + '</td>',
+						'</tr>'
+					].join("");
+				});
+				var table_html = header + rows.join("") + "</tbody></table>";
+
+				function normalize_supplier(value) {
+					return (value || "").toString().trim();
+				}
+
+				var piNaming = data.pi_naming || {};
+				var headerFields = [
+					{ fieldname: "header_section_c", fieldtype: "Section Break", label: __("Header Details") }
+				];
+				if (piNaming.needs_purchase_invoice_name) {
+					headerFields.push({
+						fieldname: "purchase_invoice_name",
+						fieldtype: "Data",
+						label: __("Purchase Invoice Name"),
+						reqd: 1,
+						description: __("Same as on the standard Purchase Invoice form: set the name before saving the draft. Submit the invoice when ready.")
+					});
+				}
+				if (piNaming.show_naming_series && piNaming.naming_series_options && piNaming.naming_series_options.length) {
+					headerFields.push({
+						fieldname: "naming_series",
+						fieldtype: "Select",
+						label: __("Naming Series"),
+						options: piNaming.naming_series_options.join("\n"),
+						default: piNaming.default_naming_series || piNaming.naming_series_options[0],
+						reqd: 1
+					});
+				}
+				headerFields.push(
+					{ fieldname: "posting_date", fieldtype: "Date", label: __("Posting Date"), default: default_posting },
+					{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" },
+					{ fieldname: "due_date", fieldtype: "Date", label: __("Due Date"), default: default_due },
+					{ fieldname: "bill_no", fieldtype: "Data", label: __("Supplier Bill No"), description: __("Reference number from supplier invoice") },
+					{ fieldname: "bill_date", fieldtype: "Date", label: __("Supplier Bill Date") }
+				);
+
+				var dialog = new frappe.ui.Dialog({
+					title: __("Create Purchase Invoice"),
+					size: "large",
+					fields: [
+						{ fieldname: "charges_section_c", fieldtype: "Section Break", label: __("Charges to Include") },
+						{
+							fieldname: "split_help",
+							fieldtype: "HTML",
+							options: "<p class=\"text-muted small\">" + __("Each selected charge is split into one line per attached shipment; amounts follow the charge allocation method. Job Number is set per line.") + "</p>"
+						},
+						{ fieldname: "charges_html", fieldtype: "HTML", options: table_html }
+					].concat(headerFields),
+					primary_action_label: __("Create Purchase Invoice"),
+					primary_action: function(values) {
+						var indices = [];
+						dialog.$wrapper.find("input.pi-charge-cb-c:checked").each(function() {
+							indices.push(parseInt($(this).attr("data-index"), 10));
+						});
+						indices.sort(function(a, b) { return a - b; });
+						if (indices.length === 0) {
+							frappe.msgprint({ title: __("Select Charges"), message: __("Select at least one charge to include."), indicator: "orange" });
+							return;
+						}
+						if (!values.supplier) {
+							frappe.msgprint({ title: __("Supplier Required"), message: __("Please select a supplier."), indicator: "red" });
+							return;
+						}
+						dialog.hide();
+						frappe.call({
+							method: "logistics.invoice_integration.purchase_invoice_api.create_consolidation_purchase_invoice",
+							args: {
+								consolidation_doctype: consolidation_doctype,
+								consolidation_name: consolidation_name,
+								supplier: values.supplier,
+								posting_date: values.posting_date || undefined,
+								due_date: values.due_date || undefined,
+								bill_no: values.bill_no || undefined,
+								bill_date: values.bill_date || undefined,
+								selected_charge_indices: JSON.stringify(indices),
+								naming_series: values.naming_series || undefined,
+								purchase_invoice_name: values.purchase_invoice_name || undefined
+							},
+							callback: function(create_r) {
+								if (create_r.message && create_r.message.ok) {
+									frappe.show_alert({ message: create_r.message.message, indicator: "green" });
+									if (frm.reload_doc) frm.reload_doc();
+									if (create_r.message.purchase_invoice) {
+										frappe.set_route("Form", "Purchase Invoice", create_r.message.purchase_invoice);
+									}
+								} else {
+									frappe.msgprint({
+										title: __("Error"),
+										message: (create_r.message && create_r.message.message) || (create_r.exc && create_r.exc.join("\n")) || __("Failed to create Purchase Invoice"),
+										indicator: "red"
+									});
+								}
+							}
+						});
+					}
+				});
+
+				function apply_supplier_filter(selectedSupplier) {
+					var supplier = normalize_supplier(selectedSupplier);
+					var hasVisibleRows = false;
+					dialog.$wrapper.find("#pi_dialog_charges_tbody_c tr").each(function() {
+						var row = $(this);
+						var idx = parseInt(row.attr("data-index"), 10);
+						var charge = charges[idx] || {};
+						var payTo = normalize_supplier(charge.pay_to);
+						var matches = !supplier || payTo === supplier;
+						var checkbox = row.find("input.pi-charge-cb-c");
+						row.toggle(matches);
+						checkbox.prop("disabled", !matches);
+						if (!matches) checkbox.prop("checked", false);
+						if (matches) hasVisibleRows = true;
+					});
+					var visible = dialog.$wrapper.find("input.pi-charge-cb-c:visible:not(:disabled)");
+					var checkedVisible = dialog.$wrapper.find("input.pi-charge-cb-c:visible:not(:disabled):checked");
+					dialog.$wrapper.find("#pi_dialog_select_all_c").prop("checked", visible.length > 0 && visible.length === checkedVisible.length);
+					return hasVisibleRows;
+				}
+
+				var noChargesMessage = $('<div class="text-muted small mt-2" id="pi_dialog_no_supplier_rows_c" style="display:none;"></div>');
+				noChargesMessage.text(__("No charges found for the selected supplier."));
+				dialog.fields_dict.charges_html.$wrapper.append(noChargesMessage);
+
+				var supplierField = dialog.get_field("supplier");
+				if (supplierField) {
+					supplierField.df.onchange = function() {
+						var selected = dialog.get_value("supplier");
+						var hasVisibleRows = apply_supplier_filter(selected);
+						noChargesMessage.toggle(!hasVisibleRows);
+					};
+				}
+
+				dialog.$wrapper.find("#pi_dialog_select_all_c").on("change", function() {
+					var checked = $(this).prop("checked");
+					dialog.$wrapper.find("input.pi-charge-cb-c:visible:not(:disabled)").prop("checked", checked);
+				});
+
+				dialog.$wrapper.on("change", "input.pi-charge-cb-c", function() {
+					var visible = dialog.$wrapper.find("input.pi-charge-cb-c:visible:not(:disabled)");
+					var checkedVisible = dialog.$wrapper.find("input.pi-charge-cb-c:visible:not(:disabled):checked");
+					dialog.$wrapper.find("#pi_dialog_select_all_c").prop("checked", visible.length > 0 && visible.length === checkedVisible.length);
+				});
+
+				var initialHasRows = apply_supplier_filter(data.default_supplier || "");
+				noChargesMessage.toggle(!initialHasRows);
+
+				dialog.show();
+			}
+		});
+	};
+
 	// Make charge rows read-only when Cost Invoice Status is Requested, Posted, or Paid (avoid duplicate posting)
-	function set_requested_charge_rows_readonly(frm) {
+	function set_requested_charge_rows_readonly(frm, charges_field) {
 		if (!frm || !frm.doc) return;
-		var charges_field = "charges";
+		charges_field = charges_field || "charges";
 		if (!frm.fields_dict[charges_field] || !frm.doc[charges_field] || !frm.doc[charges_field].length) return;
 		var costLocked = ["Requested", "Invoiced", "Posted", "Paid"];
 		var revenueLocked = ["Requested", "Posted", "Paid"];
 		frm.doc[charges_field].forEach(function(row) {
-			if (costLocked.indexOf(row.purchase_invoice_status) !== -1 || revenueLocked.indexOf(row.sales_invoice_status) !== -1) {
+			var revBad = row.sales_invoice_status && revenueLocked.indexOf(row.sales_invoice_status) !== -1;
+			var costBad = costLocked.indexOf(row.purchase_invoice_status) !== -1;
+			if (costBad || revBad) {
 				row.__read_only = 1;
 			}
 		});
 		if (frm.fields_dict[charges_field].grid && frm.fields_dict[charges_field].grid.grid_rows) {
 			frm.fields_dict[charges_field].grid.grid_rows.forEach(function(grid_row) {
-				if (grid_row.doc && (
-					costLocked.indexOf(grid_row.doc.purchase_invoice_status) !== -1 ||
-					revenueLocked.indexOf(grid_row.doc.sales_invoice_status) !== -1
-				)) {
+				if (!grid_row.doc) return;
+				var revBad = grid_row.doc.sales_invoice_status && revenueLocked.indexOf(grid_row.doc.sales_invoice_status) !== -1;
+				var costBad = costLocked.indexOf(grid_row.doc.purchase_invoice_status) !== -1;
+				if (costBad || revBad) {
 					grid_row.doc.__read_only = 1;
 					if (grid_row.open_form_button) grid_row.open_form_button.toggle(false);
 				}
@@ -253,7 +463,15 @@
 	JOB_DOCTYPES_FOR_PI.forEach(function(doctype) {
 		frappe.ui.form.on(doctype, {
 			refresh: function(frm) {
-				set_requested_charge_rows_readonly(frm);
+				set_requested_charge_rows_readonly(frm, "charges");
+			}
+		});
+	});
+
+	["Air Consolidation", "Sea Consolidation"].forEach(function(doctype) {
+		frappe.ui.form.on(doctype, {
+			refresh: function(frm) {
+				set_requested_charge_rows_readonly(frm, "consolidation_charges");
 			}
 		});
 	});

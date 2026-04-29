@@ -4,7 +4,8 @@
 Container deposit / charge views from **GL Entry** using the **Container** accounting dimension.
 
 The **Deposits** HTML table lists only GL rows on **Deposits Pending for Refund Request** (Sea Freight Settings).
-Other rows with the same container dimension appear under **Charges** or feed operational charge roll-ups.
+**Charges** include only GL rows whose **Item** accounting dimension points to an Item with **Container charge** checked;
+those amounts roll into Total charges and are **not** deducted from the deposit header.
 """
 
 from __future__ import unicode_literals
@@ -13,11 +14,21 @@ import frappe
 from frappe import _
 from frappe.utils import escape_html, flt, formatdate
 
+from logistics.invoice_integration.container_deposit_pi import item_is_container_charge
+from logistics.job_management.gl_item_dimension import get_item_dimension_fieldname_on_gl_entry
 from logistics.job_management.gl_reference_dimension import get_accounting_dimension_fieldname
 
 
 def _container_column():
 	fn = get_accounting_dimension_fieldname("Container")
+	if not fn or not frappe.db.has_column("GL Entry", fn):
+		return None
+	return fn
+
+
+def _gl_item_column():
+	"""Column on GL Entry for Item accounting dimension (profitability / charge tagging)."""
+	fn = get_item_dimension_fieldname_on_gl_entry()
 	if not fn or not frappe.db.has_column("GL Entry", fn):
 		return None
 	return fn
@@ -91,16 +102,20 @@ def _query_gl_for_container(container_name):
 	fn = _container_column()
 	if not fn:
 		return []
+	item_fn = _gl_item_column()
+	item_expr = ""
+	if item_fn:
+		item_expr = ", gle.`{item_fn}` AS gl_item_code".format(item_fn=item_fn)
 	sql = """
 		SELECT gle.posting_date, gle.voucher_type, gle.voucher_no, gle.account,
 			gle.debit, gle.credit, gle.debit_in_account_currency, gle.credit_in_account_currency,
 			gle.against_voucher_type, gle.against_voucher, gle.party_type, gle.party,
-			gle.remarks, gle.company
+			gle.remarks, gle.company{item_expr}
 		FROM `tabGL Entry` gle
 		WHERE gle.`{fn}` = %s AND IFNULL(gle.is_cancelled, 0) = 0
 		ORDER BY gle.posting_date DESC, gle.creation DESC
 		LIMIT 500
-	""".format(fn=fn)
+	""".format(fn=fn, item_expr=item_expr)
 	return frappe.db.sql(sql, (container_name,), as_dict=True)
 
 
@@ -108,7 +123,7 @@ def get_gl_rows_split(container_name):
 	"""Return (deposit_rows, charge_rows) for HTML.
 
 	**Deposit** display rows: only **Deposits Pending for Refund Request** (Sea Freight Settings).
-	**Charge** display rows: all other GL lines with this container dimension.
+	**Charge** display rows: GL lines on **Container charge** Items (Item dimension), excluding deposit account lines.
 	"""
 	fn = _container_column()
 	if not fn:
@@ -122,7 +137,9 @@ def get_gl_rows_split(container_name):
 		pending = _pending_refund_account_for_company(co) if co else None
 		if pending and acc == pending:
 			deposit_rows.append(r)
-		else:
+			continue
+		item_code = r.get("gl_item_code")
+		if item_code and item_is_container_charge(item_code):
 			charge_rows.append(r)
 	return deposit_rows, charge_rows
 
@@ -145,9 +162,12 @@ def net_pending_balance_for_container(container_name):
 
 
 def total_container_charges_amount_from_gl(container_name):
-	"""Sum of debit-side operational GL rows (accounts outside deposit system set)."""
+	"""Sum of debit GL rows on **Container charge** Items (Item dimension), excluding deposit lifecycle accounts."""
 	fn = _container_column()
-	if not fn:
+	item_fn = _gl_item_column()
+	if not fn or not item_fn:
+		return 0.0
+	if not frappe.db.has_column("Item", "custom_container_charge"):
 		return 0.0
 	deposit_accts = get_deposit_system_accounts()
 	pending_accounts = _all_pending_refund_accounts()
@@ -157,10 +177,12 @@ def total_container_charges_amount_from_gl(container_name):
 		ph = ",".join(["%s"] * len(pending_accounts))
 		r = frappe.db.sql(
 			"""
-			SELECT COALESCE(SUM(debit), 0) FROM `tabGL Entry`
-			WHERE `{col}` = %s AND IFNULL(is_cancelled, 0) = 0 AND debit > 0
-				AND account NOT IN ({ph})
-			""".format(col=fn, ph=ph),
+			SELECT COALESCE(SUM(gle.debit), 0) FROM `tabGL Entry` gle
+			INNER JOIN `tabItem` item ON item.name = gle.`{item_fn}`
+			WHERE gle.`{col}` = %s AND IFNULL(gle.is_cancelled, 0) = 0 AND gle.debit > 0
+				AND IFNULL(item.custom_container_charge, 0) = 1
+				AND gle.account NOT IN ({ph})
+			""".format(col=fn, item_fn=item_fn, ph=ph),
 			(container_name,) + tuple(pending_accounts),
 		)
 		return flt(r[0][0] if r else 0)
@@ -168,11 +190,13 @@ def total_container_charges_amount_from_gl(container_name):
 	ac_list = tuple(deposit_accts)
 	r = frappe.db.sql(
 		"""
-		SELECT COALESCE(SUM(debit), 0) FROM `tabGL Entry`
-		WHERE `{col}` = %s AND IFNULL(is_cancelled, 0) = 0
-			AND account NOT IN ({ph})
-			AND debit > 0
-		""".format(col=fn, ph=placeholders),
+		SELECT COALESCE(SUM(gle.debit), 0) FROM `tabGL Entry` gle
+		INNER JOIN `tabItem` item ON item.name = gle.`{item_fn}`
+		WHERE gle.`{col}` = %s AND IFNULL(gle.is_cancelled, 0) = 0
+			AND IFNULL(item.custom_container_charge, 0) = 1
+			AND gle.account NOT IN ({ph})
+			AND gle.debit > 0
+		""".format(col=fn, item_fn=item_fn, ph=placeholders),
 		(container_name,) + ac_list,
 	)
 	return flt(r[0][0] if r else 0)
@@ -188,7 +212,7 @@ def sync_deposit_header_from_gl(container_doc):
 	charges_sum = total_container_charges_amount_from_gl(name)
 	if meta.has_field("container_charges_total"):
 		container_doc.container_charges_total = charges_sum
-	container_doc.deposit_amount = max(flt(net_pending) - flt(charges_sum), 0)
+	container_doc.deposit_amount = max(flt(net_pending), 0)
 	try:
 		fn = _container_column()
 		pending_accounts = _all_pending_refund_accounts()
@@ -293,7 +317,7 @@ def get_charges_gl_html(container_name):
 	_deposit, charge_rows = get_gl_rows_split(container_name)
 	return _html_table(
 		charge_rows,
-		_("Other GL (Container dimension), excluding Deposits Pending for Refund Request"),
+		_("Container charge Items only — GL (Container dimension), excluding deposit pending account"),
 	)
 
 
@@ -356,6 +380,7 @@ def get_refund_journal_for_pi(container_name, purchase_invoice):
 
 
 def pro_rata_charge_allocation_for_pi(container_name, purchase_invoice):
+	"""Legacy: proportional allocation of container-charge GL to one PI; unused for refund amount."""
 	total_ch = total_container_charges_amount_from_gl(container_name)
 	base = total_pending_pi_debits_for_container(container_name)
 	if total_ch <= 0 or base <= 0:
@@ -365,8 +390,8 @@ def pro_rata_charge_allocation_for_pi(container_name, purchase_invoice):
 
 
 def net_refund_amount_after_charges_for_pi(container_name, purchase_invoice):
-	gross = pending_amount_for_pi_container(container_name, purchase_invoice)
-	return max(flt(gross) - flt(pro_rata_charge_allocation_for_pi(container_name, purchase_invoice)), 0)
+	"""Refund request uses carrier deposit GL on this PI; container charges do not reduce it."""
+	return max(flt(pending_amount_for_pi_container(container_name, purchase_invoice)), 0)
 
 
 def list_eligible_refund_purchase_invoices(container_name):

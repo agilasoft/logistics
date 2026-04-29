@@ -228,7 +228,7 @@ function _calculate_volume_from_dimensions_api(length, width, height, dimension_
 					var pq = parseFloat(gf.doc.quantity);
 					if (!isNaN(pq)) q = pq;
 				}
-				mult = (dt === 'Transport Order Package' || dt === 'Transport Job Package') ? (n || q || 1) : (n || 0);
+				mult = n || q || 1;
 			}
 			volume *= mult;
 			frappe.model.set_value(cdt, cdn, 'volume', volume);

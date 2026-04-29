@@ -24,12 +24,14 @@
   "column_break_ruye",
   "bill_to",
   "bill_to_exchange_rate",
+  "bill_to_exchange_rate_source",
   "estimated_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_lday",
   "pay_to",
   "pay_to_exchange_rate",
+  "pay_to_exchange_rate_source",
   "estimated_cost",
   "use_tariff_in_cost",
   "cost_tariff",
@@ -218,6 +220,12 @@
    "precision": "9"
   },
   {
+   "fieldname": "bill_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Bill To)",
+   "options": "Exchange Rate Source"
+  },
+  {
    "fieldname": "column_break_lday",
    "fieldtype": "Column Break",
    "label": "Cost",
@@ -237,6 +245,12 @@
    "fieldtype": "Float",
    "label": "Exchange Rate (Pay To)",
    "precision": "9"
+  },
+  {
+   "fieldname": "pay_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Pay To)",
+   "options": "Exchange Rate Source"
   },
   {
    "allow_on_submit": 1,

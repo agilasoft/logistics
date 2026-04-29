@@ -30,10 +30,7 @@
 			if (!isNaN(pq)) q = pq;
 			if (!row.doctype && gf.doc.doctype) dt = gf.doc.doctype;
 		}
-		if (dt === 'Transport Order Package' || dt === 'Transport Job Package') {
-			return n || q || 1;
-		}
-		return n || 0;
+		return n || q || 1;
 	}
 	window.logistics_package_line_volume_multiplier = logistics_package_line_volume_multiplier;
 

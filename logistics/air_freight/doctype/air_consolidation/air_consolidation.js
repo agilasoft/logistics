@@ -147,6 +147,13 @@ frappe.ui.form.on('Air Consolidation', {
                     }
                 });
             }, __('Action'));
+            setTimeout(function() {
+                if (typeof show_create_consolidation_purchase_invoice_dialog === 'function') {
+                    frm.add_custom_button(__('Purchase Invoice'), function() {
+                        show_create_consolidation_purchase_invoice_dialog(frm);
+                    }, __('Create'));
+                }
+            }, 0);
         }
 
         // Add custom buttons

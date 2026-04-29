@@ -40,6 +40,15 @@ def item_is_container_deposit(item_code):
 	)
 
 
+def item_is_container_charge(item_code):
+	"""Operational container charge item — rolls into Container charges from GL (Item dimension); not deducted from deposit."""
+	if not item_code:
+		return False
+	if not frappe.db.has_column("Item", "custom_container_charge"):
+		return False
+	return frappe.utils.cint(frappe.db.get_value("Item", item_code, "custom_container_charge") or 0)
+
+
 def apply_container_deposit_expense_account(doc, method=None):
 	"""Set expense_account on PI item rows for container-deposit items linked to Sea Shipment / Declaration."""
 	if doc.doctype != "Purchase Invoice":

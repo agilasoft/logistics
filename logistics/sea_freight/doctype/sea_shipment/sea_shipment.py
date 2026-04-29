@@ -1302,6 +1302,10 @@ class SeaShipment(Document):
                 "item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
                 "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
                 "maximum_charge", "base_amount", "estimated_revenue", "service_type",
+                "charge_type", "charge_category", "bill_to", "pay_to",
+                "bill_to_exchange_rate", "pay_to_exchange_rate",
+                "bill_to_exchange_rate_source", "pay_to_exchange_rate_source",
+                "use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
             ] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
             sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
             sales_quote_sea_freight_records = frappe.get_all(
@@ -1345,6 +1349,10 @@ class SeaShipment(Document):
                 if charge_row:
                     self.append("charges", charge_row)
                     charges_added += 1
+
+            from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+            sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 
             from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
 

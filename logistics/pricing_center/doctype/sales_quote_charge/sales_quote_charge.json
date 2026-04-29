@@ -28,6 +28,8 @@
   "column_break_fktp",
   "pay_to",
   "pay_to_exchange_rate",
+  "bill_to_exchange_rate_source",
+  "pay_to_exchange_rate_source",
   "use_tariff_in_cost",
   "cost_tariff",
   "section_break_air_params",
@@ -228,6 +230,18 @@
    "fieldtype": "Float",
    "label": "Exchange Rate (Pay To)",
    "precision": "9"
+  },
+  {
+   "fieldname": "bill_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Bill To)",
+   "options": "Exchange Rate Source"
+  },
+  {
+   "fieldname": "pay_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Pay To)",
+   "options": "Exchange Rate Source"
   },
   {
    "default": "Regular",

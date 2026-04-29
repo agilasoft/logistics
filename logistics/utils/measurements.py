@@ -551,15 +551,12 @@ def compute_density_factor(
 IATA_VOLUMETRIC_DENSITY_KG_M3 = 1000.0 / 6.0
 IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG = 1_000_000.0 / IATA_VOLUMETRIC_DENSITY_KG_M3
 
-_TRANSPORT_PACKAGE_DOCTYPES = frozenset({"Transport Order Package", "Transport Job Package"})
-
-
 def get_package_line_volume_multiplier(row: Any) -> float:
 	"""
 	Scale single-unit volume to total line volume: multiply L×W×H volume by this value.
 
-	- Transport Order/Job Package: ``flt(no_of_packs or quantity or 1)`` (aligned with total_packages).
-	- Other package child rows: ``flt(no_of_packs or 0)``.
+	Uses ``flt(no_of_packs or quantity or 1)`` so one physical unit per line still gets
+	non-zero volume when pack count is left blank (0).
 
 	``row`` may be a Frappe Document or a dict (e.g. client/API payload).
 	"""
@@ -568,12 +565,9 @@ def get_package_line_volume_multiplier(row: Any) -> float:
 			return row.get(key, default)
 		return getattr(row, key, default)
 
-	doctype = _get("doctype")
 	no_p = _get("no_of_packs")
 	qty = _get("quantity")
-	if doctype in _TRANSPORT_PACKAGE_DOCTYPES:
-		return flt(no_p or qty or 1)
-	return flt(no_p or 0)
+	return flt(no_p or qty or 1)
 
 
 def calculate_volume_from_dimensions(

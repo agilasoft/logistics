@@ -1,6 +1,5 @@
 {
  "actions": [],
- "allow_rename": 0,
  "creation": "2025-01-01 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -32,11 +31,6 @@
   "tab_container_deposit",
   "section_deposit_paid",
   "current_job_number",
-  "col_deposit_main",
-  "deposit_amount",
-  "deposit_currency",
-  "deposit_paid_date",
-  "deposit_reference",
   "col_empty_return",
   "return_status",
   "returned_date",
@@ -65,7 +59,6 @@
    "reqd": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "section_master_bill",
    "fieldtype": "Section Break",
    "label": "Master bill assignment"
@@ -211,8 +204,7 @@
   },
   {
    "fieldname": "section_deposit_paid",
-   "fieldtype": "Section Break",
-   "label": "Deposit paid"
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "current_job_number",
@@ -220,33 +212,6 @@
    "label": "Current Job Number",
    "options": "Job Number",
    "read_only": 1
-  },
-  {
-   "fieldname": "col_deposit_main",
-   "fieldtype": "Column Break",
-   "label": "Amounts"
-  },
-  {
-   "fieldname": "deposit_amount",
-   "fieldtype": "Currency",
-   "label": "Deposit Amount"
-  },
-  {
-   "fieldname": "deposit_currency",
-   "fieldtype": "Link",
-   "label": "Deposit Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
-   "options": "Currency"
-  },
-  {
-   "fieldname": "deposit_paid_date",
-   "fieldtype": "Date",
-   "label": "Deposit Paid Date"
-  },
-  {
-   "fieldname": "deposit_reference",
-   "fieldtype": "Data",
-   "label": "Deposit Reference"
   },
   {
    "fieldname": "col_empty_return",
@@ -280,7 +245,7 @@
   {
    "fieldname": "section_deposit_lines",
    "fieldtype": "Section Break",
-   "label": "Deposits (GL)"
+   "label": "Transaction Postings"
   },
   {
    "description": "GL lines with **Container** dimension on **Deposits Pending for Refund Request** only (per-company Sea Freight Settings).",
@@ -290,11 +255,10 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
-   "description": "Other GL lines with this container dimension (including AR refund postings, operational costs, etc.).",
+   "description": "GL lines whose **Item** dimension is an Item with **Container charge** checked (operational charges).",
    "fieldname": "section_container_charges",
    "fieldtype": "Section Break",
-   "label": "Container charges (GL)"
+   "label": "Container Charges"
   },
   {
    "fieldname": "charges_gl_html",
@@ -303,18 +267,20 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "section_container_charges_total",
    "fieldtype": "Section Break",
    "label": "Charge total"
   },
   {
-   "description": "Sum of operational debit GL rows (Container dimension, non-deposit accounts). Subtracted from deposit roll-up.",
+   "description": "Sum of debit GL on **Container charge** Items (Item dimension; non-deposit accounts). Not deducted from deposit amount.",
    "fieldname": "container_charges_total",
    "fieldtype": "Currency",
    "label": "Total charges",
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "section_refund_links",
    "fieldtype": "Section Break",
    "label": "Refund requests posted"
@@ -358,7 +324,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-28 22:03:12.743707",
+ "modified": "2026-04-29 15:19:14.808423",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Container",

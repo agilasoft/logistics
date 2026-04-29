@@ -277,6 +277,13 @@ frappe.ui.form.on("Sea Consolidation", {
 				});
 			}, __("Action"));
 		}
+		setTimeout(function () {
+			if (frm.doc.name && !frm.doc.__islocal && typeof show_create_consolidation_purchase_invoice_dialog === "function") {
+				frm.add_custom_button(__("Purchase Invoice"), function () {
+					show_create_consolidation_purchase_invoice_dialog(frm);
+				}, __("Create"));
+			}
+		}, 0);
 	},
 });
 

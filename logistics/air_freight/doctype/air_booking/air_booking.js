@@ -52,6 +52,28 @@ function _warn_if_missing_service_charges(frm, service_type) {
 	}
 }
 
+/**
+ * Apply header totals from aggregate_volume_from_packages_api without marking the form dirty.
+ * Avoids toolbar primary-action rebuild (Submit/Save flicker) during async package sync.
+ * Skips while a document save/submit request is in flight.
+ */
+function _air_booking_apply_aggregate_to_header(frm, message) {
+	if (!frm || !frm.doc || !message || frappe.ui.form.is_saving) {
+		return;
+	}
+	if (message.total_volume !== undefined) {
+		frm.set_value('volume', message.total_volume, false, true);
+		frm.set_value('total_volume', message.total_volume, false, true);
+	}
+	if (message.total_weight !== undefined) {
+		frm.set_value('weight', message.total_weight, false, true);
+		frm.set_value('total_weight', message.total_weight, false, true);
+	}
+	if (message.chargeable !== undefined) {
+		frm.set_value('chargeable', message.chargeable, false, true);
+	}
+}
+
 /** Recalculate every charges grid row (estimated revenue/cost, quantities) using current booking context. */
 function _recalculate_air_booking_charge_rows(frm, done) {
 	var charges = frm.doc.charges || [];
@@ -639,15 +661,7 @@ frappe.ui.form.on('Air Booking', {
 				freeze: false,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
-						if (r.message.total_volume !== undefined) {
-							frm.set_value('volume', r.message.total_volume);
-							frm.set_value('total_volume', r.message.total_volume);
-						}
-						if (r.message.total_weight !== undefined) {
-							frm.set_value('weight', r.message.total_weight);
-							frm.set_value('total_weight', r.message.total_weight);
-						}
-						if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+						_air_booking_apply_aggregate_to_header(frm, r.message);
 					}
 				}
 			});
@@ -746,12 +760,22 @@ frappe.ui.form.on('Air Booking', {
 				args: { doc: frm.doc },
 				freeze: false,
 				callback: function(r) {
+					if (frappe.ui.form.is_saving) {
+						return;
+					}
 					if (r && !r.exc && r.message && Array.isArray(r.message)) {
 						r.message.forEach(function(item) {
 							if (item.name && item.volume !== undefined) {
 								var pkg = frm.doc.packages.find(function(p) { return p.name === item.name; });
 								if (pkg && parseFloat(pkg.volume || 0) !== parseFloat(item.volume || 0)) {
-									frappe.model.set_value('Air Booking Packages', item.name, 'volume', item.volume);
+									frappe.model.set_value(
+										'Air Booking Packages',
+										item.name,
+										'volume',
+										item.volume,
+										undefined,
+										true
+									);
 									if (frm.fields_dict.packages && frm.fields_dict.packages.grid && frm.fields_dict.packages.grid.grid_rows_by_docname && frm.fields_dict.packages.grid.grid_rows_by_docname[item.name]) {
 										frm.fields_dict.packages.grid.grid_rows_by_docname[item.name].refresh_field('volume');
 									}
@@ -765,9 +789,7 @@ frappe.ui.form.on('Air Booking', {
 							freeze: false,
 							callback: function(agg) {
 								if (agg && !agg.exc && agg.message) {
-									if (agg.message.total_volume !== undefined) frm.set_value('volume', agg.message.total_volume);
-									if (agg.message.total_weight !== undefined) frm.set_value('total_weight', agg.message.total_weight);
-									if (agg.message.chargeable !== undefined) frm.set_value('chargeable', agg.message.chargeable);
+									_air_booking_apply_aggregate_to_header(frm, agg.message);
 								}
 							}
 						});
@@ -1152,6 +1174,9 @@ function _air_booking_debounced_aggregate_packages(frm) {
 	frm._packages_aggregate_timer = setTimeout(function() {
 		frm._packages_aggregate_timer = null;
 		if (frm.is_new() || frm.doc.__islocal) return;
+		if (frappe.ui.form.is_saving) {
+			return;
+		}
 		// Use frappe.call with freeze: false so dimension edits never show freeze-message-container
 		frappe.call({
 			method: 'logistics.air_freight.doctype.air_booking.air_booking.aggregate_volume_from_packages_api',
@@ -1159,15 +1184,7 @@ function _air_booking_debounced_aggregate_packages(frm) {
 			freeze: false,
 			callback: function(r) {
 				if (r && !r.exc && r.message && frm.doc) {
-					if (r.message.total_volume !== undefined) {
-						frm.set_value('volume', r.message.total_volume);
-						frm.set_value('total_volume', r.message.total_volume);
-					}
-					if (r.message.total_weight !== undefined) {
-						frm.set_value('weight', r.message.total_weight);
-						frm.set_value('total_weight', r.message.total_weight);
-					}
-					if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+					_air_booking_apply_aggregate_to_header(frm, r.message);
 				}
 			}
 		});

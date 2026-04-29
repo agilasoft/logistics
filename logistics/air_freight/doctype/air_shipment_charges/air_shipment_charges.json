@@ -27,6 +27,7 @@
   "section_break_mzrh",
   "bill_to",
   "bill_to_exchange_rate",
+  "bill_to_exchange_rate_source",
   "selling_currency",
   "estimated_revenue",
   "actual_revenue",
@@ -35,6 +36,7 @@
   "column_break_tzln",
   "pay_to",
   "pay_to_exchange_rate",
+  "pay_to_exchange_rate_source",
   "buying_currency",
   "estimated_cost",
   "actual_cost",
@@ -396,6 +398,12 @@
    "precision": "9"
   },
   {
+   "fieldname": "bill_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Bill To)",
+   "options": "Exchange Rate Source"
+  },
+  {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
@@ -530,6 +538,12 @@
    "fieldtype": "Float",
    "label": "Exchange Rate (Pay To)",
    "precision": "9"
+  },
+  {
+   "fieldname": "pay_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Pay To)",
+   "options": "Exchange Rate Source"
   },
   {
    "fieldname": "buying_currency",

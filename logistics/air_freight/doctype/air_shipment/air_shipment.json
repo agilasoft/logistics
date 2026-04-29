@@ -119,6 +119,8 @@
   "section_break_igjn",
   "billing_status",
   "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
@@ -891,6 +893,20 @@
    "fieldtype": "Table",
    "label": "Charges",
    "options": "Air Shipment Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
   },
   {
    "fieldname": "documents_tab",

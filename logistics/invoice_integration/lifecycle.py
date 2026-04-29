@@ -21,6 +21,8 @@ CHARGE_CHILD_DOCTYPES = (
     "Sea Shipment Charges",
     "Warehouse Job Charges",
     "Declaration Charges",
+    "Air Consolidation Charges",
+    "Sea Consolidation Charges",
 )
 
 # Fields to update on jobs
@@ -96,6 +98,19 @@ def get_jobs_linked_to_purchase_invoice(pi_name: str) -> list:
     ref_name = frappe.db.get_value("Purchase Invoice", pi_name, "reference_name")
     if ref_dt and ref_name and ref_dt in JOB_DOCTYPES:
         jobs.append((ref_dt, ref_name))
+
+    # 3. Via PI Item reference to Air Shipment / Sea Shipment (e.g. consolidation PI allocated per job)
+    items = frappe.get_all(
+        "Purchase Invoice Item",
+        filters={"parent": pi_name, "parenttype": "Purchase Invoice"},
+        fields=["reference_doctype", "reference_name"],
+    )
+    for row in items:
+        rdt = row.get("reference_doctype")
+        rnm = row.get("reference_name")
+        if rdt and rnm and rdt in ("Air Shipment", "Sea Shipment") and frappe.db.exists(rdt, rnm):
+            jobs.append((rdt, rnm))
+
     return list(set(jobs))
 
 

@@ -33,6 +33,7 @@
   "section_break_consolidation",
   "consolidation_status",
   "position_in_consolidation",
+  "cost_allocation_percentage",
   "column_break_4",
   "check_in_time",
   "check_out_time"
@@ -214,6 +215,13 @@
    "fieldname": "position_in_consolidation",
    "fieldtype": "Int",
    "label": "Position in Consolidation"
+  },
+  {
+   "fieldname": "cost_allocation_percentage",
+   "fieldtype": "Percent",
+   "label": "Cost Allocation %",
+   "precision": "2",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_4",
