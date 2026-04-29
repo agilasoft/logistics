@@ -164,6 +164,15 @@ def _build_sea_consolidation_from_plan_doc(plan):
 		},
 	)
 
+	for line in plan.get("items") or []:
+		sh = line.sea_shipment
+		if sh:
+			consol.append(
+				"consolidation_planning_lines",
+				{"sea_shipment": sh},
+			)
+	consol.sea_planning_status = "Submitted"
+
 	idx = 0
 	for line in plan.get("items") or []:
 		idx += 1

@@ -20,6 +20,15 @@ function _load_milestone_html(frm) {
 	});
 }
 
+function _refresh_planning_field_props(frm) {
+	if (!frm.fields_dict.consolidation_planning_lines) {
+		return;
+	}
+	const locked =
+		(frm.doc.sea_planning_status || "Draft") === "Submitted" || frm.doc.docstatus !== 0;
+	frm.set_df_property("consolidation_planning_lines", "read_only", locked ? 1 : 0);
+}
+
 function _load_documents_html(frm) {
 	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._documents_html_called) return;
@@ -152,6 +161,71 @@ frappe.ui.form.on("Sea Consolidation", {
 			frm.layout.wrapper.off("click.milestone_html").on("click.milestone_html", '[data-fieldname="milestones_tab"]', function () {
 				_load_milestone_html(frm);
 			});
+		}
+		_refresh_planning_field_props(frm);
+		if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
+			if ((frm.doc.sea_planning_status || "Draft") === "Draft") {
+				frm.add_custom_button(
+					__("Fetch matching shipments"),
+					function () {
+						frm.call("fetch_matching_sea_shipments").then(function (r) {
+							const d = r.message || {};
+							const added = (d.added || []).length;
+							const already = (d.already_present || []).length;
+							const skipped = (d.skipped || []).length;
+							const parts = [];
+							if (added) {
+								parts.push(__("{0} added", [String(added)]));
+							}
+							if (already) {
+								parts.push(__("{0} already on planning", [String(already)]));
+							}
+							if (skipped) {
+								parts.push(__("{0} skipped", [String(skipped)]));
+							}
+							frappe.msgprint(parts.join(", ") || __("No matching shipments found."));
+							frm.reload_doc();
+						});
+					},
+					__("Planning")
+				);
+			}
+			if (
+				(frm.doc.sea_planning_status || "Draft") === "Draft" &&
+				(frm.doc.consolidation_planning_lines || []).length
+			) {
+				frm.add_custom_button(
+					__("Submit planning"),
+					function () {
+						frappe.confirm(__("Submit planning? Lines will lock until reset."), function () {
+							frm.call("submit_sea_planning").then(function () {
+								frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
+								frm.reload_doc();
+							});
+						});
+					},
+					__("Planning")
+				);
+			}
+			if (frm.doc.sea_planning_status === "Submitted") {
+				frm.add_custom_button(
+					__("Reset planning to draft"),
+					function () {
+						frappe.confirm(
+							__(
+								"This is only allowed after removing cargo that references sea shipments. Continue?"
+							),
+							function () {
+								frm.call("cancel_sea_planning_submit").then(function () {
+									frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
+									frm.reload_doc();
+								});
+							}
+						);
+					},
+					__("Planning")
+				);
+			}
 		}
 		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Get Milestones"), function () {

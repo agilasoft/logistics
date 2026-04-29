@@ -11,8 +11,10 @@ from datetime import datetime, timedelta
 
 from logistics.utils.consolidation_plan import (
 	assert_sea_consolidation_plan_requirements,
-	clear_sea_plan_links_for_consolidation,
-	sync_sea_plan_item_links,
+	assert_sea_plan_fields_for_strict_match,
+	conflicting_submitted_sea_planning_elsewhere,
+	get_strict_matching_sea_shipment_names,
+	sea_shipment_allowed_on_plan,
 )
 
 
@@ -37,6 +39,7 @@ class SeaConsolidation(Document):
             self.validate_packages()
             self.validate_containers()
             self.validate_duplicate_containers()
+            self._validate_consolidation_planning_lines()
             assert_sea_consolidation_plan_requirements(self)
             self._sync_charges_with_parent_actuals()
     
@@ -72,17 +75,20 @@ class SeaConsolidation(Document):
         self.update_related_sea_shipments()
         self.update_attached_shipments_table()
         self.send_consolidation_notifications()
-        sync_sea_plan_item_links(self)
-    
-    def on_cancel(self):
-        clear_sea_plan_links_for_consolidation(self.name)
-    
+
     def before_submit(self):
         if not self.consolidation_packages and not self.consolidation_containers:
             frappe.throw(_("At least one package or container must be added to the consolidation"))
         if not self.consolidation_routes:
             frappe.throw(_("At least one route must be defined for the consolidation"))
         self.validate_containers_iso6346()
+        from logistics.utils.consolidation_plan import get_sea_shipment_names_from_consolidation
+
+        if get_sea_shipment_names_from_consolidation(self) and (self.sea_planning_status or "Draft") != "Submitted":
+            frappe.throw(
+                _("Submit planning on the Planning tab before submitting the consolidation."),
+                title=_("Planning required"),
+            )
     
     def validate_containers_iso6346(self):
         """Validate container numbers per ISO 6346."""
@@ -639,7 +645,130 @@ class SeaConsolidation(Document):
         
         self.save()
         return True
-    
+
+    def _sea_plan_match_dict(self):
+        return {
+            "company": self.company,
+            "branch": self.branch,
+            "origin_port": self.origin_port,
+            "destination_port": self.destination_port,
+            "target_etd": self.etd,
+            "shipping_line": self.shipping_line,
+            "vessel_name": self.vessel_name,
+            "voyage_number": self.voyage_number,
+        }
+
+    def _validate_consolidation_planning_lines(self):
+        rows = self.get("consolidation_planning_lines") or []
+        seen = set()
+        for row in rows:
+            sh = row.sea_shipment
+            if not sh:
+                continue
+            if sh in seen:
+                frappe.throw(_("Sea Shipment {0} is duplicated in planning lines.").format(sh))
+            seen.add(sh)
+            ok, msg = sea_shipment_allowed_on_plan(sh)
+            if not ok:
+                frappe.throw(msg)
+            origin = frappe.db.get_value("Sea Shipment", sh, "origin_port")
+            dest = frappe.db.get_value("Sea Shipment", sh, "destination_port")
+            if self.origin_port and origin and origin != self.origin_port:
+                frappe.throw(
+                    _("Sea Shipment {0} origin {1} does not match consolidation origin {2}.").format(
+                        sh, origin, self.origin_port
+                    )
+                )
+            if self.destination_port and dest and dest != self.destination_port:
+                frappe.throw(
+                    _("Sea Shipment {0} destination {1} does not match consolidation destination {2}.").format(
+                        sh, dest, self.destination_port
+                    )
+                )
+            if (self.sea_planning_status or "Draft") == "Draft":
+                if conflicting_submitted_sea_planning_elsewhere(
+                    sh, self.name if not self.is_new() else None
+                ):
+                    frappe.throw(
+                        _(
+                            "Sea Shipment {0} is already reserved on another consolidation's submitted planning."
+                        ).format(sh),
+                        title=_("Planning Conflict"),
+                    )
+
+    @frappe.whitelist()
+    def fetch_matching_sea_shipments(self):
+        self.reload()
+        if self.sea_planning_status == "Submitted":
+            frappe.throw(_("Cannot fetch shipments after planning is submitted."), title=_("Planning locked"))
+        if self.is_new():
+            frappe.throw(_("Save the consolidation before fetching shipments."), title=_("Save required"))
+        assert_sea_plan_fields_for_strict_match(self._sea_plan_match_dict())
+        candidates = get_strict_matching_sea_shipment_names(self._sea_plan_match_dict())
+        present = {
+            r.sea_shipment
+            for r in (self.get("consolidation_planning_lines") or [])
+            if getattr(r, "sea_shipment", None)
+        }
+        added, already_present, skipped = [], [], []
+        for name in candidates:
+            if name in present:
+                already_present.append(name)
+                continue
+            ok, msg = sea_shipment_allowed_on_plan(name)
+            if not ok:
+                skipped.append({"shipment": name, "reason": msg})
+                continue
+            if conflicting_submitted_sea_planning_elsewhere(name, self.name):
+                skipped.append(
+                    {
+                        "shipment": name,
+                        "reason": _("Reserved on another consolidation's submitted planning."),
+                    }
+                )
+                continue
+            self.append("consolidation_planning_lines", {"sea_shipment": name})
+            added.append(name)
+            present.add(name)
+        self.save()
+        return {"added": added, "already_present": already_present, "skipped": skipped}
+
+    @frappe.whitelist()
+    def submit_sea_planning(self):
+        self.reload()
+        if self.sea_planning_status == "Submitted":
+            frappe.throw(_("Planning is already submitted."), title=_("Already submitted"))
+        if not self.get("consolidation_planning_lines"):
+            frappe.throw(
+                _("Add at least one shipment to planning before submitting."), title=_("No Lines")
+            )
+        self.sea_planning_status = "Submitted"
+        if not self.planning_owner:
+            self.planning_owner = frappe.session.user
+        self.save()
+        return self.sea_planning_status
+
+    @frappe.whitelist()
+    def cancel_sea_planning_submit(self):
+        from logistics.utils.consolidation_plan import get_sea_shipment_names_from_consolidation
+
+        self.reload()
+        if self.sea_planning_status != "Submitted":
+            frappe.throw(_("Planning is not submitted."), title=_("Not submitted"))
+        if self.docstatus != 0:
+            frappe.throw(
+                _("Cancel planning only while the consolidation is still draft (not submitted)."),
+                title=_("Not allowed"),
+            )
+        if get_sea_shipment_names_from_consolidation(self):
+            frappe.throw(
+                _("Remove packages and containers that reference sea shipments before cancelling planning."),
+                title=_("Cargo linked"),
+            )
+        self.sea_planning_status = "Draft"
+        self.save()
+        return self.sea_planning_status
+
     @frappe.whitelist()
     def get_dashboard_html(self):
         """Generate HTML for Dashboard tab: same tabbed layout as Sea Booking / Sea Shipment (Route, Milestones, Alerts)."""

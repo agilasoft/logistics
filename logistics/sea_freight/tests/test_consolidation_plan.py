@@ -44,7 +44,7 @@ def _ensure_shipping_line(code="TEST-SLINE"):
 	return code
 
 
-class TestSeaConsolidationPlanFlow(FrappeTestCase):
+class TestSeaConsolidationPlanning(FrappeTestCase):
 	def setUp(self):
 		data = setup_basic_master_data()
 		self.company = data["company"]
@@ -119,38 +119,42 @@ class TestSeaConsolidationPlanFlow(FrappeTestCase):
 		sh.insert()
 		return sh.name
 
-	def test_sea_submit_plan_create_consolidation_links_plan(self):
-		sh = self._make_sea_shipment()
-		etd = now_datetime()
-		eta = add_to_date(etd, days=5)
-		plan = frappe.get_doc(
+	def _make_sea_consolidation(self, **kwargs):
+		etd = kwargs.pop("etd", now_datetime())
+		eta = kwargs.pop("eta", add_to_date(etd, days=5))
+		doc = frappe.get_doc(
 			{
-				"doctype": "Sea Consolidation Plan",
-				"naming_series": "SCP-{YYYY}-{####}",
-				"plan_date": today(),
+				"doctype": "Sea Consolidation",
+				"naming_series": "SC-{MM}-{YYYY}-{####}",
+				"consolidation_date": today(),
+				"consolidation_type": "Direct Consolidation",
+				"status": "Draft",
 				"company": self.company,
 				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
-				"target_etd": etd,
-				"target_eta": eta,
+				"etd": etd,
+				"eta": eta,
 				"shipping_line": self.shipping_line,
 				"vessel_name": "TBA",
 				"voyage_number": "TBA",
-				"consolidation_type": "Direct Consolidation",
+				**kwargs,
 			}
 		)
-		plan.append("items", {"sea_shipment": sh})
-		plan.insert()
-		plan.submit()
-		name = plan.create_sea_consolidation_from_plan()
-		self.assertTrue(frappe.db.exists("Sea Consolidation", name))
-		linked = frappe.db.get_value(
-			"Sea Consolidation Plan Item",
-			{"parent": plan.name, "sea_shipment": sh},
-			"linked_sea_consolidation",
-		)
-		self.assertEqual(linked, name)
+		doc.insert()
+		return doc
+
+	def test_submit_planning_then_packages_validate(self):
+		sh = self._make_sea_shipment()
+		consol = self._make_sea_consolidation()
+		consol.append("consolidation_planning_lines", {"sea_shipment": sh})
+		consol.save()
+		consol.reload()
+		consol.submit_sea_planning()
+		consol.reload()
+		self.assertEqual(consol.sea_planning_status, "Submitted")
 
 	def test_fetch_matching_sea_shipments_strict(self):
 		etd_date = add_days(today(), 21)
@@ -158,28 +162,14 @@ class TestSeaConsolidationPlanFlow(FrappeTestCase):
 		target_eta = add_to_date(target_etd, days=5)
 		good = self._make_sea_shipment_for_fetch(etd_date, vessel="MV Alpha", voyage="V-100")
 		self._make_sea_shipment_for_fetch(etd_date, vessel="MV Alpha", voyage="V-999")
-		plan = frappe.get_doc(
-			{
-				"doctype": "Sea Consolidation Plan",
-				"naming_series": "SCP-{YYYY}-{####}",
-				"plan_date": today(),
-				"company": self.company,
-				"branch": self.branch,
-				"origin_port": "USLAX",
-				"destination_port": "USJFK",
-				"target_etd": target_etd,
-				"target_eta": target_eta,
-				"shipping_line": self.shipping_line,
-				"vessel_name": "MV Alpha",
-				"voyage_number": "V-100",
-				"consolidation_type": "Direct Consolidation",
-			}
-		)
-		plan.insert()
-		out = plan.fetch_matching_sea_shipments()
+		consol = self._make_sea_consolidation(etd=target_etd, eta=target_eta)
+		consol.db_set("vessel_name", "MV Alpha")
+		consol.db_set("voyage_number", "V-100")
+		consol.reload()
+		out = consol.fetch_matching_sea_shipments()
 		self.assertIn(good, out["added"])
 		self.assertEqual(len(out["added"]), 1)
-		plan.reload()
-		out2 = plan.fetch_matching_sea_shipments()
+		consol.reload()
+		out2 = consol.fetch_matching_sea_shipments()
 		self.assertEqual(out2["added"], [])
 		self.assertIn(good, out2["already_present"])

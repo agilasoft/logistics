@@ -8,6 +8,11 @@
  "field_order": [
   "dashboard_tab",
   "dashboard_html",
+  "planning_tab",
+  "sea_planning_status",
+  "planning_owner",
+  "planning_lines_section",
+  "consolidation_planning_lines",
   "details_tab",
   "consolidation_info_section",
   "amended_from",
@@ -90,6 +95,36 @@
    "fieldtype": "HTML",
    "is_virtual": 1,
    "label": "Dashboard"
+  },
+  {
+   "fieldname": "planning_tab",
+   "fieldtype": "Tab Break",
+   "label": "Planning"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "sea_planning_status",
+   "fieldtype": "Select",
+   "label": "Planning Status",
+   "options": "Draft\nSubmitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planning_owner",
+   "fieldtype": "Link",
+   "label": "Planning Owner",
+   "options": "User"
+  },
+  {
+   "fieldname": "planning_lines_section",
+   "fieldtype": "Section Break",
+   "label": "Planned Shipments"
+  },
+  {
+   "fieldname": "consolidation_planning_lines",
+   "fieldtype": "Table",
+   "label": "Planning Lines",
+   "options": "Sea Consolidation Planning Line"
   },
   {
    "fieldname": "consolidation_info_section",
