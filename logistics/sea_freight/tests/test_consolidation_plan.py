@@ -157,7 +157,7 @@ class TestSeaConsolidationPlanning(FrappeTestCase):
 		consol.reload()
 		self.assertEqual(consol.sea_planning_status, "Submitted")
 
-	def test_cancel_planning_submit_clears_planning_lines(self):
+	def test_cancel_planning_submit_retains_planning_lines(self):
 		sh = self._make_sea_shipment()
 		consol = self._make_sea_consolidation()
 		consol.append("consolidation_planning_lines", {"sea_shipment": sh})
@@ -169,7 +169,8 @@ class TestSeaConsolidationPlanning(FrappeTestCase):
 		consol.cancel_sea_planning_submit()
 		consol.reload()
 		self.assertEqual(consol.sea_planning_status, "Draft")
-		self.assertEqual(len(consol.consolidation_planning_lines or []), 0)
+		self.assertEqual(len(consol.consolidation_planning_lines or []), 1)
+		self.assertEqual(consol.consolidation_planning_lines[0].sea_shipment, sh)
 
 	def test_strict_match_excludes_submitted_sea_shipment(self):
 		etd_date = add_days(today(), 21)

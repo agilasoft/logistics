@@ -24,38 +24,49 @@ def _container_column():
 
 
 def _pending_refund_account_for_company(company):
+	"""Pending-refund GL account for ``company`` (reads DB; does not rely on Sea Freight Settings doc permission)."""
 	if not company:
 		return None
-	from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
-
-	s = SeaFreightSettings.get_settings(company)
-	return s.get("container_deposit_pending_refund_account") if s else None
+	if not frappe.db.table_exists("tabSea Freight Settings"):
+		return None
+	return frappe.db.get_value(
+		"Sea Freight Settings",
+		{"company": company},
+		"container_deposit_pending_refund_account",
+	)
 
 
 def _all_pending_refund_accounts():
-	"""Distinct Deposits Pending accounts configured across all Sea Freight Settings (companies)."""
-	out = []
+	"""Distinct Deposits Pending accounts configured across all Sea Freight Settings rows (SQL; not permission-filtered)."""
 	if not frappe.db.table_exists("tabSea Freight Settings"):
-		return out
-	for row in frappe.get_all("Sea Freight Settings", fields=["company"]):
-		a = _pending_refund_account_for_company(row.company)
-		if a:
-			out.append(a)
-	return list(dict.fromkeys(out))
+		return []
+	rows = frappe.db.sql(
+		"""
+		SELECT DISTINCT container_deposit_pending_refund_account
+		FROM `tabSea Freight Settings`
+		WHERE IFNULL(container_deposit_pending_refund_account, '') != ''
+		""",
+	)
+	out = []
+	for (acc,) in rows or []:
+		if acc:
+			out.append(acc)
+	return out
 
 
 def get_deposit_system_accounts():
 	"""Accounts that belong to the deposit / refund lifecycle (not operational charges)."""
 	accts = set()
-	from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
-
 	try:
-		for row in frappe.get_all("Sea Freight Settings", fields=["company"]):
-			s = SeaFreightSettings.get_settings(row.company)
-			if not s:
-				continue
+		for row in frappe.db.sql(
+			"""
+			SELECT container_deposit_pending_refund_account, container_deposit_ar_shipping_lines_account
+			FROM `tabSea Freight Settings`
+			""",
+			as_dict=True,
+		) or []:
 			for f in ("container_deposit_pending_refund_account", "container_deposit_ar_shipping_lines_account"):
-				v = s.get(f)
+				v = row.get(f)
 				if v:
 					accts.add(v)
 	except Exception:
@@ -259,7 +270,10 @@ def get_deposits_gl_html(container_name):
 	if not accounts:
 		return "<p class='text-muted'>{0}</p>".format(
 			escape_html(
-				_("Set **Deposits Pending for Refund Request** in Sea Freight Settings (per company) to list deposit GL rows.")
+				_(
+					"No Deposits Pending for Refund Request account is configured on any Sea Freight Settings row, "
+					"or the setting could not be read. Ask an administrator to set it per company on Sea Freight Settings."
+				)
 			)
 		)
 	deposit_rows, _charge = get_gl_rows_split(container_name)

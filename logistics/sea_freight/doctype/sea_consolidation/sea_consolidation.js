@@ -154,6 +154,25 @@ frappe.ui.form.on("Sea Consolidation", {
 				_load_milestone_html(frm);
 			});
 		}
+		(function lock_planned_shipments_grid() {
+			const planningLocked =
+				(frm.doc.sea_planning_status || "Draft") === "Submitted" && frm.doc.docstatus === 0;
+			if (!frm.fields_dict.consolidation_planning_lines) {
+				return;
+			}
+			frm.set_df_property("consolidation_planning_lines", "read_only", planningLocked ? 1 : 0);
+			frm.set_df_property(
+				"consolidation_planning_lines",
+				"cannot_add_rows",
+				planningLocked ? 1 : 0
+			);
+			frm.set_df_property(
+				"consolidation_planning_lines",
+				"cannot_delete_rows",
+				planningLocked ? 1 : 0
+			);
+			frm.refresh_field("consolidation_planning_lines");
+		})();
 		if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
 			if ((frm.doc.sea_planning_status || "Draft") === "Draft") {
 				frm.add_custom_button(__("Aligned Sea Shipments…"), function () {
@@ -190,7 +209,7 @@ frappe.ui.form.on("Sea Consolidation", {
 					function () {
 						frappe.confirm(
 							__(
-								"This is only allowed after removing cargo that references sea shipments. Your planned shipment rows will be cleared so you can choose shipments again in Aligned Sea Shipments. Continue?"
+								"This is only allowed after removing cargo that references sea shipments. Planning will return to draft: planned shipments stay listed, the table becomes editable again, and you can add more from Aligned Sea Shipments. Continue?"
 							),
 							function () {
 								frm.call("cancel_sea_planning_submit").then(function () {

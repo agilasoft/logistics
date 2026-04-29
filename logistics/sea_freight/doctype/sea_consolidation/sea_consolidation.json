@@ -470,7 +470,6 @@
    "label": "Shipments"
   },
   {
-   "collapsible": 1,
    "description": "Shipments matched via Aligned Sea Shipments before cargo is linked. Submit this list when ready so cargo can reference those jobs.",
    "fieldname": "section_break_shipment_planning",
    "fieldtype": "Section Break",
@@ -502,6 +501,7 @@
   {
    "fieldname": "attached_sea_shipments",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Attached shipments",
    "options": "Sea Consolidation Shipments"
   },
@@ -557,7 +557,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-28 23:45:04.968043",
+ "modified": "2026-04-29 10:38:23.519547",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",

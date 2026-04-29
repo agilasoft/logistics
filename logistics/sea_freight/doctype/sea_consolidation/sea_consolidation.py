@@ -29,6 +29,7 @@ class SeaConsolidation(Document):
 
         register_charge_resolution_parent(self)
         try:
+            self._prevent_planning_lines_edit_when_submitted()
             self.validate_dates()
             self.validate_route_consistency()
             self.validate_capacity_constraints()
@@ -46,6 +47,40 @@ class SeaConsolidation(Document):
     
         finally:
             clear_charge_resolution_parent(self)
+
+    def _prevent_planning_lines_edit_when_submitted(self):
+        """Planning lines are immutable while Planning Status is Submitted (until reset to draft)."""
+        if getattr(self.flags, "ignore_planning_lines_lock", False):
+            return
+        if getattr(frappe.flags, "in_install", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(frappe.flags, "in_import", False):
+            return
+        if self.is_new():
+            return
+        if (self.sea_planning_status or "Draft") != "Submitted":
+            return
+        prev = self.get_doc_before_save()
+        if not prev:
+            return
+
+        def shipment_tuple(doc):
+            return tuple(
+                sorted(
+                    getattr(r, "sea_shipment", None)
+                    for r in (doc.consolidation_planning_lines or [])
+                    if getattr(r, "sea_shipment", None)
+                )
+            )
+
+        if shipment_tuple(prev) != shipment_tuple(self):
+            frappe.throw(
+                _(
+                    "Planned shipments cannot be changed while planning status is Submitted. "
+                    "Reset planned shipments to draft if you need to edit the list."
+                ),
+                title=_("Planning locked"),
+            )
 
     def _sync_charges_with_parent_actuals(self):
         if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
@@ -910,8 +945,6 @@ class SeaConsolidation(Document):
             )
         self.sea_planning_status = "Draft"
         self.planning_owner = None
-        while len(self.get("consolidation_planning_lines") or []):
-            self.remove(self.consolidation_planning_lines[0])
         self.save()
         return self.sea_planning_status
 
