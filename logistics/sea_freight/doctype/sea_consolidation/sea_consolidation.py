@@ -14,6 +14,7 @@ from logistics.utils.consolidation_plan import (
 	assert_sea_consolidation_plan_requirements,
 	assert_sea_plan_fields_for_strict_match,
 	conflicting_submitted_sea_planning_elsewhere,
+	get_sea_shipment_names_from_consolidation,
 	get_strict_matching_sea_shipment_names,
 	sea_shipment_allowed_on_plan,
 )
@@ -118,7 +119,16 @@ class SeaConsolidation(Document):
         if not self.consolidation_routes:
             frappe.throw(_("At least one route must be defined for the consolidation"))
         self.validate_containers_iso6346()
-        from logistics.utils.consolidation_plan import get_sea_shipment_names_from_consolidation
+        distinct_shipments = set(get_sea_shipment_names_from_consolidation(self))
+        for row in self.get("consolidation_planning_lines") or []:
+            sh = getattr(row, "sea_shipment", None)
+            if sh:
+                distinct_shipments.add(sh)
+        if len(distinct_shipments) == 1:
+            frappe.throw(
+                _("A Sea Consolidation must include at least two distinct Sea Shipments."),
+                title=_("Insufficient shipments"),
+            )
 
         if get_sea_shipment_names_from_consolidation(self) and (self.sea_planning_status or "Draft") != "Submitted":
             frappe.throw(

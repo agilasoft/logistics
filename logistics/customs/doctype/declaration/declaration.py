@@ -1462,7 +1462,9 @@ def _append_declaration_charges_from_do_style_dicts(declaration: Document, charg
 		"revenue_tariff",
 		"cost_tariff",
 		"bill_to",
+		"bill_to_exchange_rate",
 		"pay_to",
+		"pay_to_exchange_rate",
 		"is_other_service",
 		"other_service_type",
 		"date_started",
@@ -1531,12 +1533,14 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 			"revenue_calc_notes",
 			"cost_calc_notes",
 			"use_tariff_in_revenue",
-			"use_tariff_in_cost",
-			"revenue_tariff",
-			"cost_tariff",
-			"bill_to",
-			"pay_to",
-			# Other services block
+		"use_tariff_in_cost",
+		"revenue_tariff",
+		"cost_tariff",
+		"bill_to",
+		"bill_to_exchange_rate",
+		"pay_to",
+		"pay_to_exchange_rate",
+		# Other services block
 			"is_other_service",
 			"other_service_type",
 			"date_started",
@@ -1597,7 +1601,8 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 				'cost_minimum_quantity', 'cost_minimum_charge', 'cost_maximum_charge',
 				'cost_base_amount', 'estimated_cost', 'revenue_calc_notes', 'cost_calc_notes',
 				'use_tariff_in_revenue', 'use_tariff_in_cost', 'tariff',
-				'revenue_tariff', 'cost_tariff', 'bill_to', 'pay_to'
+				'revenue_tariff', 'cost_tariff', 'bill_to', 'pay_to',
+				'bill_to_exchange_rate', 'pay_to_exchange_rate'
 			]
 			
 			for field in common_fields:

@@ -26,6 +26,7 @@
   "is_other_service",
   "section_break_mzrh",
   "bill_to",
+  "bill_to_exchange_rate",
   "selling_currency",
   "estimated_revenue",
   "actual_revenue",
@@ -33,6 +34,7 @@
   "revenue_tariff",
   "column_break_tzln",
   "pay_to",
+  "pay_to_exchange_rate",
   "buying_currency",
   "estimated_cost",
   "actual_cost",
@@ -391,6 +393,13 @@
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
@@ -518,6 +527,13 @@
    "options": "Supplier",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "fieldname": "buying_currency",
@@ -708,7 +724,7 @@
    "read_only": 1
   },
   {
-   "description": "Total standard cost (quantity \u00d7 standard unit cost)",
+   "description": "Total standard cost (quantity × standard unit cost)",
    "fieldname": "total_standard_cost",
    "fieldtype": "Currency",
    "label": "Total Standard Cost",

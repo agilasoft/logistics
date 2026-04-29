@@ -23,11 +23,13 @@
   "section_break_kljg",
   "revenue_summary",
   "bill_to",
+  "bill_to_exchange_rate",
   "estimated_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "cost_summary",
   "pay_to",
+  "pay_to_exchange_rate",
   "estimated_cost",
   "use_tariff_in_cost",
   "cost_tariff",
@@ -218,6 +220,13 @@
    "read_only_depends_on": "eval:doc.charge_type=='Cost'"
   },
   {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
    "label": "Estimated Revenue",
@@ -231,6 +240,13 @@
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "fieldname": "estimated_cost",

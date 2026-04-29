@@ -27,6 +27,7 @@
   "section_break_wicx",
   "column_break_ruye",
   "bill_to",
+  "bill_to_exchange_rate",
   "selling_currency",
   "estimated_revenue",
   "actual_revenue",
@@ -34,6 +35,7 @@
   "revenue_tariff",
   "column_break_lday",
   "pay_to",
+  "pay_to_exchange_rate",
   "buying_currency",
   "estimated_cost",
   "actual_cost",
@@ -270,6 +272,13 @@
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
@@ -302,6 +311,13 @@
    "options": "Supplier",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "fieldname": "buying_currency",

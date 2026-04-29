@@ -22,10 +22,12 @@
   "quotation_type",
   "section_break_summary",
   "bill_to",
+  "bill_to_exchange_rate",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_fktp",
   "pay_to",
+  "pay_to_exchange_rate",
   "use_tariff_in_cost",
   "cost_tariff",
   "section_break_air_params",
@@ -207,11 +209,25 @@
    "options": "Customer"
   },
   {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "label": "Pay To",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "default": "Regular",

@@ -1473,7 +1473,7 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			"charge_type", "charge_category",
 			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "service_type",
+			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
@@ -1695,6 +1695,8 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"tariff": getattr(sqaf_record, "tariff", None),
 			"revenue_tariff": getattr(sqaf_record, "revenue_tariff", None),
 			"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
+			"bill_to_exchange_rate": _af_r("bill_to_exchange_rate"),
+			"pay_to_exchange_rate": _af_r("pay_to_exchange_rate"),
 		}
 		
 		# Add minimum/maximum charge if available
@@ -1747,7 +1749,7 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			"charge_type", "charge_category",
 			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "service_type",
+			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_sea_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
@@ -1912,6 +1914,8 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"tariff": getattr(sqsf_record, "tariff", None),
 			"revenue_tariff": getattr(sqsf_record, "revenue_tariff", None),
 			"cost_tariff": getattr(sqsf_record, "cost_tariff", None),
+			"bill_to_exchange_rate": _sf_r("bill_to_exchange_rate"),
+			"pay_to_exchange_rate": _sf_r("pay_to_exchange_rate"),
 		}
 		
 		# Add minimum charge if available

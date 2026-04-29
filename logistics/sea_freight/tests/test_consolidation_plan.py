@@ -2,6 +2,7 @@
 # See license.txt
 
 import frappe
+from frappe.exceptions import ValidationError
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, add_to_date, get_datetime, now_datetime, today
 
@@ -166,6 +167,31 @@ class TestSeaConsolidationPlanning(FrappeTestCase):
 		consol.submit_sea_planning()
 		consol.reload()
 		self.assertEqual(consol.sea_planning_status, "Submitted")
+
+	def test_cannot_submit_consolidation_with_only_one_sea_shipment(self):
+		sh = self._make_sea_shipment()
+		consol = self._make_sea_consolidation()
+		consol.append("consolidation_planning_lines", {"sea_shipment": sh})
+		sh_doc = frappe.get_doc("Sea Shipment", sh)
+		consol.append(
+			"consolidation_packages",
+			{
+				"sea_shipment": sh,
+				"shipper": sh_doc.shipper,
+				"consignee": sh_doc.consignee,
+				"package_type": "Box",
+				"package_count": 1,
+				"package_weight": 20,
+				"package_volume": 0.2,
+			},
+		)
+		consol.save()
+		consol.reload()
+		consol.submit_sea_planning()
+		consol.reload()
+		with self.assertRaises(ValidationError) as ctx:
+			consol.submit()
+		self.assertIn("two", str(ctx.exception).lower())
 
 	def test_cancel_planning_submit_retains_planning_lines(self):
 		sh = self._make_sea_shipment()

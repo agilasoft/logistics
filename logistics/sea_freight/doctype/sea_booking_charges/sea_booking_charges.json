@@ -23,11 +23,13 @@
   "section_break_wicx",
   "column_break_ruye",
   "bill_to",
+  "bill_to_exchange_rate",
   "estimated_revenue",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_lday",
   "pay_to",
+  "pay_to_exchange_rate",
   "estimated_cost",
   "use_tariff_in_cost",
   "cost_tariff",
@@ -209,6 +211,13 @@
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "column_break_lday",
    "fieldtype": "Column Break",
    "label": "Cost",
@@ -221,6 +230,13 @@
    "options": "Supplier",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "allow_on_submit": 1,

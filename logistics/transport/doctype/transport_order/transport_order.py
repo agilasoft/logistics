@@ -43,6 +43,8 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "tariff",
     "revenue_tariff",
     "cost_tariff",
+    "bill_to_exchange_rate",
+    "pay_to_exchange_rate",
     "cost_calculation_method",
     "cost_quantity",
     "cost_uom",

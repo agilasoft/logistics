@@ -74,6 +74,8 @@ _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
 	"description",
 	"bill_to", "estimated_revenue", "use_tariff_in_revenue", "revenue_tariff",
 	"pay_to", "estimated_cost", "use_tariff_in_cost", "cost_tariff",
+	"bill_to_exchange_rate",
+	"pay_to_exchange_rate",
 	"revenue_calculation_method", "quantity", "currency", "rate", "unit_type",
 	"minimum_quantity", "minimum_unit_rate", "minimum_charge", "maximum_charge",
 	"base_amount", "base_quantity",
@@ -1061,6 +1063,8 @@ class AirBooking(Document):
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "cost_uom", "estimated_cost", "pay_to",
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+				"bill_to_exchange_rate",
+				"pay_to_exchange_rate",
 				"service_type",
 				"origin_port", "destination_port",
 			]
@@ -1845,6 +1849,8 @@ class AirBooking(Document):
 				"tariff": getattr(sqaf_record, "tariff", None),
 				"revenue_tariff": getattr(sqaf_record, "revenue_tariff", None),
 				"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
+				"bill_to_exchange_rate": _sq_row_get("bill_to_exchange_rate"),
+				"pay_to_exchange_rate": _sq_row_get("pay_to_exchange_rate"),
 			}
 			
 			# Add minimum/maximum/quantity if available
@@ -2668,6 +2674,8 @@ def populate_charges_from_sales_quote(
 			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+			"bill_to_exchange_rate",
+			"pay_to_exchange_rate",
 			"service_type",  # Include service_type to identify charge types
 			"origin_port",
 			"destination_port",
@@ -2835,6 +2843,8 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+			"bill_to_exchange_rate",
+			"pay_to_exchange_rate",
 			"service_type",
 			"origin_port",
 			"destination_port",

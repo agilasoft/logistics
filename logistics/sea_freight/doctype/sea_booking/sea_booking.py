@@ -1021,7 +1021,9 @@ class SeaBooking(Document):
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
-				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
+				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+				"bill_to_exchange_rate",
+				"pay_to_exchange_rate",
 			]
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
@@ -1120,7 +1122,9 @@ class SeaBooking(Document):
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
-				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff"
+				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+				"bill_to_exchange_rate",
+				"pay_to_exchange_rate",
 			]
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
@@ -1525,6 +1529,12 @@ class SeaBooking(Document):
 				charge_data["revenue_tariff"] = sqsf_record.revenue_tariff
 			if hasattr(sqsf_record, "cost_tariff") and sqsf_record.cost_tariff:
 				charge_data["cost_tariff"] = sqsf_record.cost_tariff
+			bxr = _get("bill_to_exchange_rate")
+			if bxr is not None:
+				charge_data["bill_to_exchange_rate"] = bxr
+			pxr = _get("pay_to_exchange_rate")
+			if pxr is not None:
+				charge_data["pay_to_exchange_rate"] = pxr
 			
 			return charge_data
 			
@@ -2577,7 +2587,9 @@ def populate_charges_from_sales_quote(
 			"use_tariff_in_cost",
 			"tariff",
 			"revenue_tariff",
-			"cost_tariff"
+			"cost_tariff",
+			"bill_to_exchange_rate",
+			"pay_to_exchange_rate",
 		]
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		sales_quote_sea_freight_records = frappe.get_all(
