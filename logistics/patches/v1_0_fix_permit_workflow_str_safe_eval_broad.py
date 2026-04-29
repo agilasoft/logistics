@@ -2,8 +2,8 @@
 # For license information, please see license.txt
 """Idempotent: replace str() in Permit Application workflow conditions — str is not in safe_eval globals.
 
-Follow-up to v1_0_fix_permit_workflow_mark_expired_safe_eval: broader match (any transition with
-str( and valid_to), for sites where the first patch did not apply or workflow was re-imported.
+Rewrites the Mark Expired condition (action Mark Expired → Expired) and any other transition whose
+condition still contains str( together with valid_to, to a get_datetime/.date() comparison.
 """
 
 import frappe
@@ -22,12 +22,15 @@ def execute():
 	changed = False
 	for row in wf.transitions:
 		cond = row.condition
-		if not cond or "str(" not in cond or "valid_to" not in cond:
+		if not cond or "str(" not in cond:
 			continue
 		if cond.strip() == _MARK_EXPIRED_NEW:
 			continue
-		row.condition = _MARK_EXPIRED_NEW
-		changed = True
+		# Any str() breaks workflow safe_eval (no str builtin). Standard case is Mark Expired.
+		is_mark_expired = row.action == "Mark Expired" and row.next_state == "Expired"
+		if is_mark_expired or "valid_to" in cond:
+			row.condition = _MARK_EXPIRED_NEW
+			changed = True
 
 	if changed:
 		wf.save(ignore_permissions=True)
