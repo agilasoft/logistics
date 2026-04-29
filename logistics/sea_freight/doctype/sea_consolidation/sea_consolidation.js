@@ -190,7 +190,7 @@ frappe.ui.form.on("Sea Consolidation", {
 					function () {
 						frappe.confirm(
 							__(
-								"This is only allowed after removing cargo that references sea shipments. Continue?"
+								"This is only allowed after removing cargo that references sea shipments. Your planned shipment rows will be cleared so you can choose shipments again in Aligned Sea Shipments. Continue?"
 							),
 							function () {
 								frm.call("cancel_sea_planning_submit").then(function () {

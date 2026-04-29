@@ -17,6 +17,11 @@ SEA_PLANNING_LINE = "Sea Consolidation Planning Line"
 
 _INELIGIBLE_AIR_HOUSE = frozenset({"Co-load Master", "Blind Co-load Master"})
 _INELIGIBLE_SEA_HOUSE = frozenset({"Co-load Master", "Blind Co-load Master"})
+# Draft consolidation planning aligns draft sea jobs only (submitted shipment doc → job_status Submitted).
+_SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES = frozenset({"Submitted", "Cancelled", "Closed"})
+_SEA_PLAN_ALIGNMENT_JOB_STATUS_SQL_NOT_IN = ", ".join(
+	"'{}'".format(x) for x in sorted(_SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES)
+)
 
 
 def _plan_as_dict(plan: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
@@ -120,14 +125,15 @@ def get_strict_matching_air_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 
 def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> List[str]:
 	"""Match company, branch, ports, ETD date; when plan has carrier / vessel / voyage, filter by
-	shipment header + MBL fields. Empty MBL fields on the shipment still match (e.g. draft/duplicated jobs)."""
+	shipment header + MBL fields. Empty MBL fields on the shipment still match (e.g. draft/duplicated jobs).
+	Excludes cancelled/closed jobs and shipments whose operational job status is Submitted (document submitted)."""
 	p = _plan_as_dict(plan)
 	if any(not p.get(f) for f in _sea_plan_required_for_match()):
 		return []
 	etd_date = getdate(p["target_etd"])
 	conditions = [
 		"s.docstatus != 2",
-		"IFNULL(s.job_status, '') NOT IN ('Cancelled', 'Closed')",
+		"IFNULL(s.job_status, '') NOT IN ({0})".format(_SEA_PLAN_ALIGNMENT_JOB_STATUS_SQL_NOT_IN),
 		"s.company = %(company)s",
 		"s.branch = %(branch)s",
 		"s.origin_port = %(origin)s",
@@ -338,9 +344,18 @@ def air_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
 
 
 def sea_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
-	if not frappe.db.exists("Sea Shipment", shipment_name):
+	row = frappe.db.get_value(
+		"Sea Shipment",
+		shipment_name,
+		["job_status", "house_type"],
+		as_dict=True,
+	)
+	if not row:
 		return False, _("Sea Shipment {0} does not exist").format(shipment_name)
-	ht = frappe.db.get_value("Sea Shipment", shipment_name, "house_type") or ""
+	js = row.get("job_status") or ""
+	if js in _SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES:
+		return False, _("Job status {0} cannot be added to consolidation planning.").format(js or "-")
+	ht = row.get("house_type") or ""
 	if ht in _INELIGIBLE_SEA_HOUSE:
 		return False, _("House type {0} cannot be added to a consolidation plan").format(ht or "-")
 	return True, ""

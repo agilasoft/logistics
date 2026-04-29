@@ -33,7 +33,7 @@ def _merge_linked_plan_lines_into_consolidations():
 		doc = frappe.get_doc("Sea Consolidation", name)
 		existing = {r.sea_shipment for r in doc.get("consolidation_planning_lines") or []}
 		submitted_any = False
-		changed = False
+		lines_changed = False
 		for item in frappe.db.sql(
 			"""
 			SELECT pi.sea_shipment AS sea_shipment, p.docstatus AS plan_docstatus
@@ -50,14 +50,21 @@ def _merge_linked_plan_lines_into_consolidations():
 			if sh and sh not in existing:
 				doc.append("consolidation_planning_lines", {"sea_shipment": sh})
 				existing.add(sh)
-				changed = True
-		if submitted_any and doc.sea_planning_status != "Submitted":
-			doc.sea_planning_status = "Submitted"
-			changed = True
-		if changed:
+				lines_changed = True
+		need_planning_status_submitted = submitted_any and (doc.sea_planning_status or "Draft") != "Submitted"
+		if lines_changed:
 			doc.flags.ignore_validate = True
 			doc.flags.ignore_validate_update_after_submit = True
 			doc.save(ignore_permissions=True)
+		# Avoid UpdateAfterSubmitError on read-only `sea_planning_status`: apply after save via DB.
+		if need_planning_status_submitted:
+			frappe.db.set_value(
+				"Sea Consolidation",
+				name,
+				"sea_planning_status",
+				"Submitted",
+				update_modified=True,
+			)
 
 
 def _create_consolidations_from_orphan_submitted_plans():

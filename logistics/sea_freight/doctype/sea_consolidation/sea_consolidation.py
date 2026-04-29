@@ -733,6 +733,10 @@ class SeaConsolidation(Document):
                 )
             if name in present:
                 row["row_type"] = "already"
+                row["origin_port"] = shipment.get("origin_port") or ""
+                row["destination_port"] = shipment.get("destination_port") or ""
+                row["shipping_line"] = shipment.get("shipping_line") or ""
+                row["etd"] = shipment.get("etd")
                 rows.append(row)
                 continue
             ok, msg = sea_shipment_allowed_on_plan(name)
@@ -905,6 +909,9 @@ class SeaConsolidation(Document):
                 title=_("Cargo linked"),
             )
         self.sea_planning_status = "Draft"
+        self.planning_owner = None
+        while len(self.get("consolidation_planning_lines") or []):
+            self.remove(self.consolidation_planning_lines[0])
         self.save()
         return self.sea_planning_status
 

@@ -14,6 +14,7 @@ from logistics.air_freight.tests.test_helpers import (
 	create_test_shipper,
 	create_test_unloco,
 )
+from logistics.utils.consolidation_plan import get_strict_matching_sea_shipment_names
 
 
 def _ensure_sea_freight_settings_defaults(company, cost_center, profit_center):
@@ -155,6 +156,40 @@ class TestSeaConsolidationPlanning(FrappeTestCase):
 		consol.submit_sea_planning()
 		consol.reload()
 		self.assertEqual(consol.sea_planning_status, "Submitted")
+
+	def test_cancel_planning_submit_clears_planning_lines(self):
+		sh = self._make_sea_shipment()
+		consol = self._make_sea_consolidation()
+		consol.append("consolidation_planning_lines", {"sea_shipment": sh})
+		consol.save()
+		consol.reload()
+		consol.submit_sea_planning()
+		consol.reload()
+		self.assertEqual(len(consol.consolidation_planning_lines), 1)
+		consol.cancel_sea_planning_submit()
+		consol.reload()
+		self.assertEqual(consol.sea_planning_status, "Draft")
+		self.assertEqual(len(consol.consolidation_planning_lines or []), 0)
+
+	def test_strict_match_excludes_submitted_sea_shipment(self):
+		etd_date = add_days(today(), 21)
+		target_etd = get_datetime(f"{etd_date} 11:00:00")
+		target_eta = add_to_date(target_etd, days=5)
+		sh_name = self._make_sea_shipment_for_fetch(etd_date, vessel="MV Alpha", voyage="V-100")
+		sh = frappe.get_doc("Sea Shipment", sh_name)
+		sh.submit()
+		plan = {
+			"company": self.company,
+			"branch": self.branch,
+			"origin_port": "USLAX",
+			"destination_port": "USJFK",
+			"target_etd": target_etd,
+			"shipping_line": self.shipping_line,
+			"vessel_name": "MV Alpha",
+			"voyage_number": "V-100",
+		}
+		names = get_strict_matching_sea_shipment_names(plan)
+		self.assertNotIn(sh_name, names)
 
 	def test_fetch_matching_sea_shipments_strict(self):
 		etd_date = add_days(today(), 21)
