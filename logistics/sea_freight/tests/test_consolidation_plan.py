@@ -94,6 +94,18 @@ class TestSeaConsolidationPlanning(FrappeTestCase):
 		shipping_line=None,
 	):
 		sl = shipping_line or self.shipping_line
+		sfx = frappe.generate_hash(length=8)
+		mb = frappe.get_doc(
+			{
+				"doctype": "Master Bill",
+				"master_bl": "TEST-MBL-FETCH-{0}".format(sfx),
+				"master_type": "Direct",
+				"shipping_line": sl,
+				"vessel": vessel,
+				"voyage_no": voyage,
+			}
+		)
+		mb.insert(ignore_permissions=True)
 		sh = frappe.get_doc(
 			{
 				"doctype": "Sea Shipment",
@@ -111,9 +123,7 @@ class TestSeaConsolidationPlanning(FrappeTestCase):
 				"weight": 20,
 				"volume": 0.2,
 				"shipping_line": sl,
-				"mbl_shipping_line": sl,
-				"mbl_vessel": vessel,
-				"mbl_voyage_no": voyage,
+				"master_bill": mb.name,
 				"etd": etd_date,
 			}
 		)

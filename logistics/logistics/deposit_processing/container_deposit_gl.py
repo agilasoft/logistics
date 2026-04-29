@@ -15,6 +15,7 @@ from frappe.utils import flt, getdate, nowdate
 from logistics.invoice_integration.container_deposit_pi import item_is_container_deposit
 from logistics.job_management.gl_item_dimension import item_row_dict
 from logistics.job_management.gl_reference_dimension import reference_dimension_row_dict
+from logistics.job_management.recognition_engine import apply_journal_entry_posting_header_from_job
 from logistics.logistics.deposit_processing.container_gl_service import (
 	has_refund_link,
 	list_eligible_refund_purchase_invoices,
@@ -221,6 +222,21 @@ def _job_number_from_purchase_invoice(purchase_invoice):
 	return None
 
 
+def _sea_shipment_branch_from_purchase_invoice(purchase_invoice):
+	"""Branch on first PI line referencing Sea Shipment — helps populate mandatory JE Posting Branch."""
+	if not purchase_invoice:
+		return None
+	pi = frappe.get_doc("Purchase Invoice", purchase_invoice)
+	header_ref_dt = pi.get("reference_doctype") or ""
+	header_ref_name = pi.get("reference_name") or ""
+	for row in pi.get("items") or []:
+		jdt = row.get("reference_doctype") or header_ref_dt
+		jnm = row.get("reference_name") or header_ref_name
+		if jdt == "Sea Shipment" and jnm and frappe.db.exists("Sea Shipment", jnm):
+			return frappe.db.get_value("Sea Shipment", jnm, "branch") or None
+	return None
+
+
 def _debtor_party_from_purchase_invoice(purchase_invoice):
 	if not purchase_invoice:
 		return None
@@ -314,6 +330,12 @@ def create_request_cd_refund_journal_entry(container_name, purchase_invoice=None
 	je.posting_date = getdate(nowdate())
 	je.voucher_type = "Journal Entry"
 	je.user_remark = _("Container deposit refund request {0}").format(container_name)
+
+	posting_job = frappe._dict(company=company, job_number=proxy.get("job_number"))
+	br_ship = _sea_shipment_branch_from_purchase_invoice(purchase_invoice)
+	if br_ship:
+		posting_job.branch = br_ship
+	apply_journal_entry_posting_header_from_job(je, posting_job)
 
 	_dim_extras = _refund_je_dimension_extras_from_pi(container_name, purchase_invoice)
 	_append_je_line(
