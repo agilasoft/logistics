@@ -9,6 +9,7 @@ function cr_canonical_charge_service_type(st) {
 		Air: "air",
 		Sea: "sea",
 		Transport: "transport",
+		Custom: "custom",
 		Customs: "custom",
 		custom: "custom",
 		customs: "custom",

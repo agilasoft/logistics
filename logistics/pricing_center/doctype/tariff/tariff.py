@@ -6,6 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.model.naming import make_autoname
 from logistics.pricing_center.api_parts.calculation_engine import get_available_methods
+from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
 
 
 class Tariff(Document):
@@ -138,11 +139,11 @@ def get_tariff_rates(tariff_name, service_type=None):
                     'valid_to': rate.valid_to
                 })
     
-    if service_type == "Customs" or not service_type:
+    if canonical_charge_service_type_for_storage(service_type or "") == "custom" or not service_type:
         if tariff.customs_rates:
             for rate in tariff.customs_rates:
                 rates.append({
-                    'service_type': 'Customs',
+                    'service_type': 'Custom',
                     'rate_name': rate.rate_name,
                     'calculation_method': rate.calculation_method,
                     'rate_value': rate.rate_value,

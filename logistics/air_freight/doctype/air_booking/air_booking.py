@@ -54,7 +54,7 @@ def _normalize_service_type_value(value):
 		"sea freight": "Sea",
 		"seafreight": "Sea",
 		"transport": "Transport",
-		"customs": "Customs",
+		"customs": "Custom",
 		"warehousing": "Warehousing",
 	}
 	return mapping.get(key, raw)

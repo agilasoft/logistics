@@ -8,12 +8,18 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
+from logistics.utils.charge_service_type import (
+	iter_sales_quote_charge_service_type_db_values_for_canonical,
+	sales_quote_charge_service_types_equal,
+)
+
 # Legacy child tables (pre–Sales Quote Charge); a row still counts as that service.
 SERVICE_LEGACY_TABLE: dict[str, str] = {
 	"Transport": "Sales Quote Transport",
 	"Air": "Sales Quote Air Freight",
 	"Sea": "Sales Quote Sea Freight",
 	"Customs": "Sales Quote Customs",
+	"Custom": "Sales Quote Customs",
 	"Warehousing": "Sales Quote Warehouse",
 }
 
@@ -50,7 +56,11 @@ def get_one_off_sales_quote_names_for_service(
 		not_in_clause = f"AND sq.name NOT IN ({placeholders})"
 		params.extend(excluded)
 
-	params.append(service_type)
+	variants = iter_sales_quote_charge_service_type_db_values_for_canonical(service_type)
+	if not variants:
+		return []
+	st_placeholders = ",".join(["%s"] * len(variants))
+	params.extend(variants)
 
 	sql = f"""
 		SELECT sq.name
@@ -64,7 +74,7 @@ def get_one_off_sales_quote_names_for_service(
 			EXISTS (
 				SELECT 1 FROM `tabSales Quote Charge` sqc
 				WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
-				AND sqc.service_type = %s
+				AND sqc.service_type IN ({st_placeholders})
 			)
 			{legacy_sql}
 		)
@@ -110,10 +120,15 @@ def sales_quote_has_service_charges(sales_quote: str, service_type: str) -> bool
 		return False
 	if not frappe.db.exists("Sales Quote", sales_quote):
 		return False
-	n = frappe.db.count(
-		"Sales Quote Charge",
-		{"parent": sales_quote, "parenttype": "Sales Quote", "service_type": service_type},
-	)
+	variants = iter_sales_quote_charge_service_type_db_values_for_canonical(service_type)
+	if not variants:
+		return False
+	st_f = {"parent": sales_quote, "parenttype": "Sales Quote"}
+	if len(variants) == 1:
+		st_f["service_type"] = variants[0]
+	else:
+		st_f["service_type"] = ["in", variants]
+	n = frappe.db.count("Sales Quote Charge", st_f)
 	if n > 0:
 		return True
 	child_dt = SERVICE_LEGACY_TABLE.get(service_type)
@@ -173,7 +188,7 @@ def get_quote_module_flags(
 		allow_declaration = sales_quote_has_service_charges(sales_quote, "Customs")
 		if not allow_declaration:
 			main_sv = frappe.db.get_value("Sales Quote", sales_quote, "main_service")
-			if main_sv == "Customs":
+			if sales_quote_charge_service_types_equal(main_sv or "", "Customs"):
 				allow_declaration = True
 
 	if source_doctype and source_name and frappe.db.exists(source_doctype, source_name):

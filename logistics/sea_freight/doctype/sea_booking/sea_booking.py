@@ -12,6 +12,7 @@ from typing import Dict, Any
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.charge_service_type import (
 	filter_sales_quote_charge_rows_for_operational_doc,
+	operational_booking_charge_service_type_label,
 	sales_quote_charge_filters,
 	throw_if_missing_destination_service_charge,
 )
@@ -1465,7 +1466,9 @@ class SeaBooking(Document):
 			
 			# Map the fields to Sea Booking Charges structure
 			charge_data = {
-				"service_type": _get("service_type") or "Sea",
+				"service_type": operational_booking_charge_service_type_label(
+					_get("service_type"), default="Sea"
+				),
 				"item_code": _get("item_code"),
 				"item_name": _get("item_name") or item_doc.item_name,
 				"charge_type": charge_type,
