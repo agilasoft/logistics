@@ -47,7 +47,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
+   "options": "Air\nSea\nTransport\nCustom\nWarehousing",
    "reqd": 1
   },
   {
@@ -252,13 +252,13 @@
    "options": "Pick and Drop Mode"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"Custom\"",
    "fieldname": "section_break_customs_params",
    "fieldtype": "Section Break",
    "label": "Customs Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"Custom\"",
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
@@ -266,14 +266,14 @@
    "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"Custom\"",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
    "options": "Import\nExport\nTransit\nBonded"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"Custom\"",
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
@@ -281,7 +281,7 @@
    "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"Custom\"",
    "fieldname": "customs_charge_category",
    "fieldtype": "Select",
    "label": "Charge Category",

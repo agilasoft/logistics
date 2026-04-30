@@ -340,7 +340,7 @@ class SalesQuote(Document):
 		customs_rows = []
 		if getattr(self, "charges", None):
 			customs_rows = [r for r in self.charges if _sq_charge_row_matches_service(r, "Customs")]
-		if getattr(self, "main_service", None) != "Customs" or not customs_rows:
+		if not sales_quote_charge_service_types_equal(getattr(self, "main_service", None) or "", "Customs") or not customs_rows:
 			return
 		for idx, row in enumerate(customs_rows, start=1):
 			unit_type = getattr(row, "unit_type", None)

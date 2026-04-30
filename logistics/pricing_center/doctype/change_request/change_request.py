@@ -8,6 +8,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import today
 
+from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+
 
 _SKIP_CHARGE_COPY = frozenset(
 	{
@@ -214,7 +216,7 @@ def populate_sales_quote_from_job(sales_quote, job_doc, job_type):
 			],
 		)
 		_merge_transport_order_into_sales_quote_for_transport_job(sales_quote, job_doc)
-	elif main_service == "Customs" and job_type in ("Declaration", "Declaration Order"):
+	elif sales_quote_charge_service_types_equal(main_service or "", "Customs") and job_type in ("Declaration", "Declaration Order"):
 		_set_sq_from_job(
 			sales_quote,
 			job_doc,

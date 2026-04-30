@@ -286,7 +286,7 @@ frappe.ui.form.on("Declaration", {
 			return {
 				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					service_type: 'Customs',
+					service_type: 'Custom',
 					reference_doctype: 'Declaration',
 					reference_name: frm.doc.name || ''
 				}

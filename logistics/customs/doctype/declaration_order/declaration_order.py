@@ -8,6 +8,7 @@ from frappe.utils import cint, flt, today, getdate
 
 from logistics.utils.charge_service_type import (
 	customs_charges_rows_from_sales_quote_doc,
+	iter_sales_quote_charge_service_type_db_values_for_canonical,
 	sales_quote_charge_service_types_equal,
 	throw_if_missing_destination_service_charge,
 )
@@ -529,9 +530,14 @@ def get_sales_quote_details(sales_quote):
 	]
 	out = frappe.db.get_value("Sales Quote", sales_quote, fields, as_dict=True) or {}
 	# Get customs params from first Customs charge or legacy header on Sales Quote (if those fields still exist)
+	_st_variants = iter_sales_quote_charge_service_type_db_values_for_canonical("Customs")
 	customs_charge = frappe.db.get_value(
 		"Sales Quote Charge",
-		{"parent": sales_quote, "parenttype": "Sales Quote", "service_type": "Customs"},
+		{
+			"parent": sales_quote,
+			"parenttype": "Sales Quote",
+			"service_type": ["in", _st_variants],
+		},
 		["customs_authority", "declaration_type"],
 		as_dict=True,
 	)

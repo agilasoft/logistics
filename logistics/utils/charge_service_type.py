@@ -2,8 +2,8 @@
 # For license information, please see license.txt
 
 """
-Sales Quote Charge rows are scoped by service_type (air, sea, transport, custom, warehousing),
-aligned with Load Type module checkboxes. Legacy Title Case values are still accepted.
+Sales Quote Charge rows are scoped by service_type (Air, Sea, Transport, Custom, Warehousing in the UI;
+canonical lowercase air/sea/transport/custom/warehousing is used for comparisons). Legacy values are accepted.
 
 Operational charge tables mirror this. Helpers build filters when copying quote → booking/shipment/job.
 
@@ -20,8 +20,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-# Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (lowercase = module keys).
-SERVICE_TYPE_SELECT_OPTIONS = "air\nsea\ntransport\ncustom\nwarehousing"
+# Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (stored as UI labels).
+SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustom\nWarehousing"
 
 IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Air Booking": "Air",
@@ -39,8 +39,8 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 
 def canonical_charge_service_type_for_storage(value):
 	"""
-	Normalize charge-line service_type to stored select values: air, sea, transport, custom, warehousing.
-	Accepts legacy Title Case (Air, Customs, …) and aliases (customs → custom).
+	Normalize charge-line service_type to canonical lowercase (air, sea, transport, custom, warehousing)
+	for comparisons and filters. Accepts UI labels (Air, Custom, …) and legacy Customs / lowercase DB values.
 	"""
 	if value is None:
 		return None
@@ -56,10 +56,37 @@ def canonical_charge_service_type_for_storage(value):
 		"Air": "air",
 		"Sea": "sea",
 		"Transport": "transport",
+		"Custom": "custom",
 		"Customs": "custom",
 		"Warehousing": "warehousing",
 	}
 	return legacy_title.get(s)
+
+
+# Select options on Sea/Air Booking (and similar) charge child tables use Title Case labels.
+_OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS = {
+	"air": "Air",
+	"sea": "Sea",
+	"transport": "Transport",
+	"custom": "Custom",
+	"warehousing": "Warehousing",
+}
+
+
+def operational_booking_charge_service_type_label(value, default="Sea"):
+	"""
+	Map Sales Quote Charge ``service_type`` (lowercase canonical or legacy labels) to operational
+	booking charge row Select values: Air, Sea, Transport, Custom, Warehousing.
+	"""
+	c = canonical_charge_service_type_for_storage(value)
+	if c and c in _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS:
+		return _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS[c]
+	s = (value or "").strip()
+	if s == "Customs":
+		return "Custom"
+	if s in ("Air", "Sea", "Transport", "Custom", "Warehousing"):
+		return s
+	return default
 
 
 def charge_service_type_to_load_type_flag_field(service_type):
@@ -80,12 +107,12 @@ def sales_quote_charge_service_types_equal(a, b):
 
 
 def normalize_charge_row_filter_service_type(value):
-	"""Value to use in frappe filters against Sales Quote Charge.service_type (DB storage form)."""
+	"""Canonical lowercase for internal use; prefer ``iter_sales_quote_charge_service_type_db_values_for_canonical`` for DB filters."""
 	return canonical_charge_service_type_for_storage(value)
 
 
 def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_label):
-	"""Possible ``service_type`` DB values for one logical charge service (during Title Case migration)."""
+	"""Possible ``service_type`` DB values for one logical charge service (legacy lowercase + UI Title Case)."""
 	c = canonical_charge_service_type_for_storage(canonical_or_label)
 	if not c:
 		return []
@@ -93,14 +120,27 @@ def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_la
 		"air": "Air",
 		"sea": "Sea",
 		"transport": "Transport",
-		"custom": "Customs",
+		"custom": "Custom",
 		"warehousing": "Warehousing",
 	}
 	title = legacy_title.get(c)
 	out = [c]
 	if title:
 		out.append(title)
-	return out
+	if c == "custom":
+		out.append("Customs")
+	return list(dict.fromkeys(out))
+
+
+def apply_sales_quote_charge_service_type_to_filters(base, implied_or_label):
+	"""Set ``service_type`` on a frappe filter dict (handles legacy and Title Case DB values)."""
+	variants = iter_sales_quote_charge_service_type_db_values_for_canonical(implied_or_label)
+	if not variants:
+		return
+	if len(variants) == 1:
+		base["service_type"] = variants[0]
+	else:
+		base["service_type"] = ["in", variants]
 
 
 def sales_quote_charge_filters_service_type_only(service_type_label):
@@ -284,18 +324,18 @@ def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type
 		# Quote filters are not used to populate internal job charges (see internal_job_charge_copy);
 		# kept for any legacy callers that still query Sales Quote Charge for internal jobs.
 		if implied_service_type:
-			base["service_type"] = normalize_charge_row_filter_service_type(implied_service_type) or implied_service_type
+			apply_sales_quote_charge_service_type_to_filters(base, implied_service_type)
 		return base
 	rt_st = routing_leg_service_type_for_parent(parent_doc, sales_quote_doc)
 	if rt_st:
-		base["service_type"] = normalize_charge_row_filter_service_type(rt_st) or rt_st
+		apply_sales_quote_charge_service_type_to_filters(base, rt_st)
 		return base
 	separate = cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
 	# When separate billing is OFF, always fetch all charges regardless of routing/main-job
 	if not separate:
 		return base
 	if implied_service_type:
-		base["service_type"] = normalize_charge_row_filter_service_type(implied_service_type) or implied_service_type
+		apply_sales_quote_charge_service_type_to_filters(base, implied_service_type)
 	return base
 
 
