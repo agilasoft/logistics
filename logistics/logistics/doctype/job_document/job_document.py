@@ -19,8 +19,15 @@ def apply_job_document_status_updates(row):
 	if not row.get("created_at"):
 		row.created_at = frappe.utils.now()
 	_realign_job_document_status_from_dates(row)
+	_downgrade_uploaded_when_no_attachment(row)
 	_apply_activity_based_status_updates(row)
 	_update_overdue_status(row)
+
+
+def _downgrade_uploaded_when_no_attachment(row):
+	"""If attachment was cleared, Uploaded is no longer valid — use Pending so save is not blocked."""
+	if row.get("status") == "Uploaded" and not row.get("attachment"):
+		row.status = "Pending"
 
 
 def _realign_job_document_status_from_dates(row):
@@ -98,6 +105,7 @@ def validate_job_document_status_aligned(row):
 	if not row or getattr(row, "doctype", None) != "Job Document":
 		return
 	_realign_job_document_status_from_dates(row)
+	_downgrade_uploaded_when_no_attachment(row)
 	status = row.get("status")
 	if not status:
 		return

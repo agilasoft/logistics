@@ -1,6 +1,6 @@
 # Copyright (c) 2026, AgilaSoft and contributors
 # See license.txt
-"""Air / Sea consolidation plan: submitted plan lines gate consolidation membership."""
+"""Air consolidation plans / Sea consolidation planning lines gate shipment membership."""
 
 from __future__ import annotations
 
@@ -12,11 +12,16 @@ from frappe.utils import getdate
 
 AIR_PLAN = "Air Consolidation Plan"
 AIR_PLAN_ITEM = "Air Consolidation Plan Item"
-SEA_PLAN = "Sea Consolidation Plan"
-SEA_PLAN_ITEM = "Sea Consolidation Plan Item"
+SEA_CONSOLIDATION = "Sea Consolidation"
+SEA_PLANNING_LINE = "Sea Consolidation Planning Line"
 
 _INELIGIBLE_AIR_HOUSE = frozenset({"Co-load Master", "Blind Co-load Master"})
 _INELIGIBLE_SEA_HOUSE = frozenset({"Co-load Master", "Blind Co-load Master"})
+# Draft consolidation planning aligns draft sea jobs only (submitted shipment doc → job_status Submitted).
+_SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES = frozenset({"Submitted", "Cancelled", "Closed"})
+_SEA_PLAN_ALIGNMENT_JOB_STATUS_SQL_NOT_IN = ", ".join(
+	"'{}'".format(x) for x in sorted(_SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES)
+)
 
 
 def _plan_as_dict(plan: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
@@ -119,14 +124,17 @@ def get_strict_matching_air_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 
 
 def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> List[str]:
-	"""Match company, branch, ports, ETD date; apply shipping_line / MBL vessel / MBL voyage filters only when set on the plan."""
+	"""Match company, branch, ports, ETD date; when plan has carrier / vessel / voyage, filter by
+	shipment header + linked Master Bill (virtual MBL fields are not DB columns on Sea Shipment).
+	Empty Master Bill carrier/vessel/voyage still match (e.g. no master bill yet, draft jobs).
+	Excludes cancelled/closed jobs and shipments whose operational job status is Submitted (document submitted)."""
 	p = _plan_as_dict(plan)
 	if any(not p.get(f) for f in _sea_plan_required_for_match()):
 		return []
 	etd_date = getdate(p["target_etd"])
 	conditions = [
 		"s.docstatus != 2",
-		"IFNULL(s.job_status, '') NOT IN ('Cancelled', 'Closed')",
+		"IFNULL(s.job_status, '') NOT IN ({0})".format(_SEA_PLAN_ALIGNMENT_JOB_STATUS_SQL_NOT_IN),
 		"s.company = %(company)s",
 		"s.branch = %(branch)s",
 		"s.origin_port = %(origin)s",
@@ -144,18 +152,29 @@ def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 	sl = (p.get("shipping_line") or "").strip()
 	if sl:
 		conditions.append("s.shipping_line = %(sl)s")
-		conditions.append("IFNULL(s.mbl_shipping_line, '') = %(sl)s")
+		# Virtual mbl_shipping_line comes from Master Bill; header may be set before master exists.
+		conditions.append(
+			"(IFNULL(mb.shipping_line, '') = '' OR IFNULL(mb.shipping_line, '') = %(sl)s)"
+		)
 		params["sl"] = sl
 	vessel = (p.get("vessel_name") or "").strip()
 	if vessel:
-		conditions.append("UPPER(TRIM(IFNULL(s.mbl_vessel, ''))) = UPPER(TRIM(%(vessel)s))")
+		conditions.append(
+			"(IFNULL(TRIM(mb.vessel), '') = '' "
+			"OR UPPER(TRIM(IFNULL(mb.vessel, ''))) = UPPER(TRIM(%(vessel)s)))"
+		)
 		params["vessel"] = vessel
 	voyage = (p.get("voyage_number") or "").strip()
 	if voyage:
-		conditions.append("UPPER(TRIM(IFNULL(s.mbl_voyage_no, ''))) = UPPER(TRIM(%(voyage)s))")
+		conditions.append(
+			"(IFNULL(TRIM(mb.voyage_no), '') = '' "
+			"OR UPPER(TRIM(IFNULL(mb.voyage_no, ''))) = UPPER(TRIM(%(voyage)s)))"
+		)
 		params["voyage"] = voyage
 	sql = (
-		"SELECT DISTINCT s.name FROM `tabSea Shipment` s WHERE "
+		"SELECT DISTINCT s.name FROM `tabSea Shipment` s "
+		"LEFT JOIN `tabMaster Bill` mb ON mb.name = s.master_bill "
+		"WHERE "
 		+ " AND ".join(conditions)
 		+ " ORDER BY s.name"
 	)
@@ -214,30 +233,37 @@ def _find_eligible_air_plan_line(shipment: str, consolidation_name: Optional[str
 	return rows[0] if rows else None
 
 
-def _find_eligible_sea_plan_line(shipment: str, consolidation_name: Optional[str]) -> Optional[str]:
-	submitted_plans = frappe.get_all(
-		SEA_PLAN,
-		filters={"docstatus": 1},
-		pluck="name",
+def sea_shipment_on_submitted_consolidation_planning(consolidation_name: str, shipment: str) -> bool:
+	"""True if this consolidation has submitted planning and lists the shipment."""
+	st = frappe.db.get_value(SEA_CONSOLIDATION, consolidation_name, "sea_planning_status")
+	if st != "Submitted":
+		return False
+	return bool(
+		frappe.db.exists(
+			SEA_PLANNING_LINE,
+			{"parent": consolidation_name, "sea_shipment": shipment},
+		)
 	)
-	if not submitted_plans:
-		return None
-	filters = {
-		"parent": ["in", submitted_plans],
-		"sea_shipment": shipment,
-	}
-	or_filters = [["linked_sea_consolidation", "in", [None, ""]]]
-	if consolidation_name:
-		or_filters.append(["linked_sea_consolidation", "=", consolidation_name])
-	rows = frappe.get_all(
-		SEA_PLAN_ITEM,
-		filters=filters,
-		or_filters=or_filters,
-		pluck="name",
-		order_by="modified desc",
-		limit=1,
+
+
+def conflicting_submitted_sea_planning_elsewhere(shipment: str, exclude_consolidation: Optional[str]) -> bool:
+	"""True if another consolidation (not exclude_consolidation) has submitted planning for this shipment."""
+	rows = frappe.db.sql(
+		"""
+		SELECT pl.parent
+		FROM `tabSea Consolidation Planning Line` pl
+		INNER JOIN `tabSea Consolidation` c ON c.name = pl.parent
+		WHERE pl.sea_shipment = %(sh)s
+			AND IFNULL(c.sea_planning_status, '') = 'Submitted'
+			AND IFNULL(c.docstatus, 0) != 2
+		""",
+		{"sh": shipment},
 	)
-	return rows[0] if rows else None
+	for (parent,) in rows:
+		if exclude_consolidation and parent == exclude_consolidation:
+			continue
+		return True
+	return False
 
 
 def assert_air_consolidation_plan_requirements(doc) -> None:
@@ -259,18 +285,19 @@ def assert_air_consolidation_plan_requirements(doc) -> None:
 
 def assert_sea_consolidation_plan_requirements(doc) -> None:
 	consolidation_name = doc.get("name")
+	if not consolidation_name:
+		return
 	shipments = get_sea_shipment_names_from_consolidation(doc)
 	if not shipments:
 		return
 	for shipment in shipments:
-		line = _find_eligible_sea_plan_line(shipment, consolidation_name)
-		if not line:
+		if not sea_shipment_on_submitted_consolidation_planning(consolidation_name, shipment):
 			frappe.throw(
 				_(
-					"Sea Shipment {0} is not on a submitted {1} with an open line for this consolidation. "
-					"Add it to a Sea Consolidation Plan, submit the plan, then add it here (or use Create Consolidation from Plan)."
-				).format(shipment, SEA_PLAN),
-				title=_("Consolidation Plan Required"),
+					"Sea Shipment {0} must be on this consolidation planned shipment list and planning must be submitted "
+					"(Planning Status = Submitted) before it can be included in cargo."
+				).format(shipment),
+				title=_("Planning Required"),
 			)
 
 
@@ -291,19 +318,8 @@ def sync_air_plan_item_links(consolidation_doc) -> None:
 
 
 def sync_sea_plan_item_links(consolidation_doc) -> None:
-	name = consolidation_doc.name
-	wanted = get_sea_shipment_names_from_consolidation(consolidation_doc)
-	for row in frappe.get_all(
-		SEA_PLAN_ITEM,
-		filters={"linked_sea_consolidation": name},
-		fields=["name", "sea_shipment"],
-	):
-		if row.sea_shipment not in wanted:
-			frappe.db.set_value(SEA_PLAN_ITEM, row.name, "linked_sea_consolidation", None, update_modified=False)
-	for shipment in wanted:
-		line = _find_eligible_sea_plan_line(shipment, name)
-		if line:
-			frappe.db.set_value(SEA_PLAN_ITEM, line, "linked_sea_consolidation", name, update_modified=False)
+	"""Legacy hook: sea planning lines live on Sea Consolidation; no external links to sync."""
+	pass
 
 
 def clear_air_plan_links_for_consolidation(consolidation_name: str) -> None:
@@ -316,12 +332,8 @@ def clear_air_plan_links_for_consolidation(consolidation_name: str) -> None:
 
 
 def clear_sea_plan_links_for_consolidation(consolidation_name: str) -> None:
-	for row in frappe.get_all(
-		SEA_PLAN_ITEM,
-		filters={"linked_sea_consolidation": consolidation_name},
-		pluck="name",
-	):
-		frappe.db.set_value(SEA_PLAN_ITEM, row, "linked_sea_consolidation", None, update_modified=False)
+	"""Legacy hook: nothing to clear on separate plan rows."""
+	pass
 
 
 def air_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
@@ -334,9 +346,18 @@ def air_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
 
 
 def sea_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
-	if not frappe.db.exists("Sea Shipment", shipment_name):
+	row = frappe.db.get_value(
+		"Sea Shipment",
+		shipment_name,
+		["job_status", "house_type"],
+		as_dict=True,
+	)
+	if not row:
 		return False, _("Sea Shipment {0} does not exist").format(shipment_name)
-	ht = frappe.db.get_value("Sea Shipment", shipment_name, "house_type") or ""
+	js = row.get("job_status") or ""
+	if js in _SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES:
+		return False, _("Job status {0} cannot be added to consolidation planning.").format(js or "-")
+	ht = row.get("house_type") or ""
 	if ht in _INELIGIBLE_SEA_HOUSE:
 		return False, _("House type {0} cannot be added to a consolidation plan").format(ht or "-")
 	return True, ""
@@ -359,19 +380,3 @@ def conflicting_open_air_plan_line(shipment: str, exclude_parent_plan: Optional[
 		return True
 	return False
 
-
-def conflicting_open_sea_plan_line(shipment: str, exclude_parent_plan: Optional[str]) -> bool:
-	for row in frappe.get_all(
-		SEA_PLAN_ITEM,
-		filters={
-			"sea_shipment": shipment,
-			"linked_sea_consolidation": ["in", [None, ""]],
-		},
-		fields=["parent"],
-	):
-		if frappe.db.get_value(SEA_PLAN, row.parent, "docstatus") != 1:
-			continue
-		if exclude_parent_plan and row.parent == exclude_parent_plan:
-			continue
-		return True
-	return False

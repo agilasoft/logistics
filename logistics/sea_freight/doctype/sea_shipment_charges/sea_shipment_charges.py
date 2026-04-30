@@ -1,15 +1,21 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
+import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from logistics.invoice_integration.container_deposit_pi import (
+	get_container_deposit_pending_refund_account,
+	item_is_container_deposit,
+)
 from logistics.utils.charges_calculation import (
     apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
 )
 from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
+from logistics.utils.freight_95_5 import validate_freight_95_5_row
 
 
 class SeaShipmentCharges(Document):
@@ -17,7 +23,23 @@ class SeaShipmentCharges(Document):
 
     def validate(self):
         validate_charge_item_not_manual_other_service(self, "Sea Shipment Charges", "charge_item")
+        validate_freight_95_5_row(self)
+        self._set_container_deposit_pending_refund_gl_display()
         self._calculate_charges()
+
+    def _set_container_deposit_pending_refund_gl_display(self):
+        if not frappe.get_meta(self.doctype).get_field("container_deposit_pending_refund_gl"):
+            return
+        item = self.get("item_code")
+        if not item or not item_is_container_deposit(item):
+            self.container_deposit_pending_refund_gl = ""
+            return
+        company = None
+        if self.get("parent") and self.get("parenttype") == "Sea Shipment":
+            company = frappe.db.get_value("Sea Shipment", self.parent, "company")
+        self.container_deposit_pending_refund_gl = (
+            get_container_deposit_pending_refund_account(company) or ""
+        )
 
     def _calculate_charges(self, parent_doc=None):
         """Recalculate only actual revenue and cost (basis for SI/PI). Estimated revenue/cost come from Booking and are not changed."""

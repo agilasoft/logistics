@@ -243,8 +243,8 @@
    "label": "Calculation Settings"
   },
   {
-   "default": "167",
-   "description": "IATA standard factor: 167 kg/m\u00b3 (6 m\u00b3/1000 kg). Factor to convert volume (m\u00b3) to weight (kg) for chargeable weight calculation",
+   "default": "166.66666666666666",
+   "description": "IATA volumetric factor: 1000/6 kg/m\u00b3 (1 kg per 6000 cm\u00b3). Factor to convert volume (m\u00b3) to weight (kg) for chargeable weight calculation",
    "fieldname": "volume_to_weight_factor",
    "fieldtype": "Float",
    "label": "Volume to Weight Factor (kg/m\u00b3)"

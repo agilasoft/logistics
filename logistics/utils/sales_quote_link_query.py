@@ -9,10 +9,22 @@ import json
 from typing import Any
 
 import frappe
+from frappe import _
 from frappe.desk.reportview import get_match_cond
 from frappe.utils import cint
 
 from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
+
+_SALES_QUOTE_TABLE_COLUMNS_KEY = "table_columns::tabSales Quote"
+
+
+def _invalidate_sales_quote_table_column_cache() -> None:
+	"""Bust column list cache used by ``has_column`` — same key is read via client_cache and frappe.cache."""
+	for delete in (frappe.cache.delete_value, frappe.client_cache.delete_value):
+		try:
+			delete(_SALES_QUOTE_TABLE_COLUMNS_KEY)
+		except Exception:
+			pass
 
 
 def _ensure_sales_quote_columns_for_permissions() -> None:
@@ -20,13 +32,38 @@ def _ensure_sales_quote_columns_for_permissions() -> None:
 	if not frappe.db.table_exists("Sales Quote") or not frappe.db.exists("DocType", "Sales Quote"):
 		return
 	try:
+		# Stale ``table_columns::*`` can make ``has_column`` look current and skip ``updatedb``.
+		_invalidate_sales_quote_table_column_cache()
 		if frappe.db.has_column("Sales Quote", "company"):
 			return
 	except frappe.db.TableMissingError:
 		return
 
 	frappe.db.updatedb("Sales Quote")
-	frappe.client_cache.delete_value("table_columns::tabSales Quote")
+	_invalidate_sales_quote_table_column_cache()
+
+
+def _sales_quote_match_cond() -> str:
+	"""Permission SQL for raw queries on ``Sales Quote``; relies on ``company`` column."""
+	_ensure_sales_quote_columns_for_permissions()
+	if not frappe.db.has_column("Sales Quote", "company"):
+		frappe.throw(
+			_(
+				"The Sales Quote table is missing required columns (for example `company`). "
+				"Please run `bench migrate` for this site and reload."
+			),
+			title=_("Database out of date"),
+		)
+	raw = get_match_cond("Sales Quote")
+	if not raw:
+		return raw
+	# Raw queries use ``FROM `tabSales Quote` sq``; ``get_match_cond`` qualifies columns as
+	# ``(`tabSales Quote`.`company` ...)``. MariaDB/MySQL reject ``tabSales Quote``.col in WHERE
+	# when the table is aliased as ``sq`` (Error 1054 Unknown column).
+	fixed = raw.replace("`tabSales Quote`", "sq")
+	if frappe.db.db_type == "postgres":
+		fixed = fixed.replace('"tabSales Quote"', "sq")
+	return fixed
 
 
 def _parse_filters(filters: Any) -> dict:
@@ -81,119 +118,210 @@ def _legacy_exists_clause(service_type: str) -> str:
 	)"""
 
 
-def _has_sales_quote_routing_legs_sql() -> str:
-	"""SQL fragment (references ``sq``): true if this Sales Quote has at least one routing leg row."""
-	return """EXISTS (
-		SELECT 1 FROM `tabSales Quote Routing Leg` rlx
-		WHERE rlx.parent = sq.name AND rlx.parenttype = 'Sales Quote'
+def _air_corridor_job_airline_sql(alias: str) -> str:
+	"""When ``job_airline`` query param is set: quote row/header airline blank = any carrier."""
+	# Case-insensitive: Link names can differ in casing between booking and charge row.
+	return f""" AND (
+		IFNULL({alias}.airline,'') = ''
+		OR LOWER(TRIM(IFNULL({alias}.airline,''))) = LOWER(TRIM(%(job_airline)s))
 	)"""
 
 
-def _corridor_match_sql_charges_header_legacy(service_type: str) -> str:
-	"""SQL fragment — corridor via unified charges, legacy child rows, or header only (no routing legs table)."""
+def _sea_corridor_job_shipping_line_sql(alias: str) -> str:
+	"""When ``job_shipping_line`` is set: blank shipping_line on a charge row or header = any line."""
+	return f""" AND (
+		IFNULL({alias}.shipping_line,'') = ''
+		OR LOWER(TRIM(IFNULL({alias}.shipping_line,''))) = LOWER(TRIM(%(job_shipping_line)s))
+	)"""
+
+
+def _airline_only_match_sql() -> str:
+	"""SQL fragment: at least one Air row (unified or legacy) with blank or matching job airline. No O/D."""
+	unified = f"""EXISTS (
+		SELECT 1 FROM `tabSales Quote Charge` sqc
+		WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
+		AND sqc.service_type = 'Air'
+		{_air_corridor_job_airline_sql("sqc")}
+	)"""
+	legacy = ""
+	legacy_dt = SERVICE_LEGACY_TABLE.get("Air")
+	if legacy_dt and frappe.db.table_exists(legacy_dt):
+		legacy = f""" OR EXISTS (
+			SELECT 1 FROM `tab{legacy_dt}` leg
+			WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
+			{_air_corridor_job_airline_sql("leg")}
+		)"""
+	return f"({unified}{legacy})"
+
+
+def _o_wildcard_port(alias: str) -> str:
+	"""``corridor_origin`` empty = do not filter that end."""
+	return (
+		f"(TRIM(IFNULL(%(corridor_origin)s,'')) = '' OR "
+		f"TRIM(IFNULL({alias}.origin_port,'')) = TRIM(IFNULL(%(corridor_origin)s,'')))"
+	)
+
+
+def _d_wildcard_port(alias: str) -> str:
+	"""``corridor_dest`` empty = do not filter that end."""
+	return (
+		f"(TRIM(IFNULL(%(corridor_dest)s,'')) = '' OR "
+		f"TRIM(IFNULL({alias}.destination_port,'')) = TRIM(IFNULL(%(corridor_dest)s,'')))"
+	)
+
+
+def _o_wildcard_loc_from(alias: str) -> str:
+	return (
+		f"(TRIM(IFNULL(%(corridor_origin)s,'')) = '' OR "
+		f"TRIM(IFNULL({alias}.location_from,'')) = TRIM(IFNULL(%(corridor_origin)s,'')))"
+	)
+
+
+def _d_wildcard_loc_to(alias: str) -> str:
+	return (
+		f"(TRIM(IFNULL(%(corridor_dest)s,'')) = '' OR "
+		f"TRIM(IFNULL({alias}.location_to,'')) = TRIM(IFNULL(%(corridor_dest)s,'')))"
+	)
+
+
+def _corridor_match_sql_charges_header_legacy(
+	service_type: str, job_airline: str | None = None, job_shipping_line: str | None = None
+) -> str:
+	"""SQL fragment — corridor via unified charges, legacy child rows, or header (Sales Quote) fields.
+
+	Empty ``corridor_origin`` and/or ``corridor_dest`` (after trim) is a wildcard for that end
+	(only the non-empty job ends constrain the match).
+	For **Air**, ``job_airline`` narrows Sea/Air port rows. For **Sea**, ``job_shipping_line`` narrows
+	unified/legacy/header rows the same way (blank on quotation = wildcard).
+	"""
 	st = (service_type or "").strip()
-	co, cd = "%(corridor_origin)s", "%(corridor_dest)s"
+	air_al = ""
+	if st == "Air" and (job_airline or "").strip():
+		air_al = _air_corridor_job_airline_sql("sqc")
+	sea_sl = ""
+	if st == "Sea" and (job_shipping_line or "").strip():
+		sea_sl = _sea_corridor_job_shipping_line_sql("sqc")
 	if st in ("Sea", "Air"):
+		oq = _o_wildcard_port("sqc")
+		dq = _d_wildcard_port("sqc")
 		unified = f"""EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type = %(service_type)s
-			AND IFNULL(sqc.origin_port,'') = {co}
-			AND IFNULL(sqc.destination_port,'') = {cd}
+			AND {oq}
+			AND {dq}
+			{air_al}
+			{sea_sl}
 		)"""
 		child_dt = SERVICE_LEGACY_TABLE.get(st)
 		legacy = ""
+		leg_air = ""
+		if st == "Air" and (job_airline or "").strip():
+			leg_air = _air_corridor_job_airline_sql("leg")
+		leg_sea = ""
+		if st == "Sea" and (job_shipping_line or "").strip():
+			leg_sea = _sea_corridor_job_shipping_line_sql("leg")
 		if child_dt and frappe.db.table_exists(child_dt):
+			ol = _o_wildcard_port("leg")
+			dl = _d_wildcard_port("leg")
 			legacy = f""" OR EXISTS (
 				SELECT 1 FROM `tab{child_dt}` leg
 				WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
-				AND IFNULL(leg.origin_port,'') = {co}
-				AND IFNULL(leg.destination_port,'') = {cd}
+				AND {ol}
+				AND {dl}
+				{leg_air}
+				{leg_sea}
 			)"""
+		hdr_air = ""
+		if st == "Air" and (job_airline or "").strip():
+			hdr_air = _air_corridor_job_airline_sql("sq")
+		hdr_sea = ""
+		if st == "Sea" and (job_shipping_line or "").strip():
+			hdr_sea = _sea_corridor_job_shipping_line_sql("sq")
+		h_o = _o_wildcard_port("sq")
+		h_d = _d_wildcard_port("sq")
 		parent_ports = f""" OR (
-			IFNULL(sq.origin_port,'') = {co} AND IFNULL(sq.destination_port,'') = {cd}
+			{h_o}
+			AND {h_d}
+			{hdr_air}
+			{hdr_sea}
 		)"""
 		return f"({unified}{legacy}{parent_ports})"
 	if st == "Transport":
+		lf = _o_wildcard_loc_from("sqc")
+		lt = _d_wildcard_loc_to("sqc")
 		unified = f"""EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type = 'Transport'
-			AND IFNULL(sqc.location_from,'') = {co}
-			AND IFNULL(sqc.location_to,'') = {cd}
+			AND {lf}
+			AND {lt}
 		)"""
 		legacy = ""
 		child_dt = SERVICE_LEGACY_TABLE.get("Transport")
 		if child_dt and frappe.db.table_exists(child_dt):
+			lf2 = _o_wildcard_loc_from("leg")
+			lt2 = _d_wildcard_loc_to("leg")
 			legacy = f""" OR EXISTS (
 				SELECT 1 FROM `tab{child_dt}` leg
 				WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
-				AND IFNULL(leg.location_from,'') = {co}
-				AND IFNULL(leg.location_to,'') = {cd}
+				AND {lf2}
+				AND {lt2}
 			)"""
+		ph_lf = _o_wildcard_loc_from("sq")
+		ph_lt = _d_wildcard_loc_to("sq")
 		parent_loc = f""" OR (
-			IFNULL(sq.location_from,'') = {co} AND IFNULL(sq.location_to,'') = {cd}
+			{ph_lf}
+			AND {ph_lt}
 		)"""
 		return f"({unified}{legacy}{parent_loc})"
-	return "(1=0)"
-
-
-def _corridor_match_sql_routing_legs_only(service_type: str) -> str:
-	"""SQL fragment — job O/D must match a Sales Quote Routing Leg (origin/destination + mode flags)."""
-	st = (service_type or "").strip()
-	co, cd = "%(corridor_origin)s", "%(corridor_dest)s"
-	if st in ("Sea", "Air"):
-		tm_flag = "IFNULL(tm.air, 0) = 1" if st == "Air" else "IFNULL(tm.sea, 0) = 1"
-		return f"""EXISTS (
-			SELECT 1 FROM `tabSales Quote Routing Leg` rl
-			INNER JOIN `tabTransport Mode` tm ON tm.name = rl.mode
-			WHERE rl.parent = sq.name AND rl.parenttype = 'Sales Quote'
-			AND IFNULL(rl.origin,'') = {co}
-			AND IFNULL(rl.destination,'') = {cd}
-			AND {tm_flag}
-		)"""
-	if st == "Transport":
-		return f"""EXISTS (
-			SELECT 1 FROM `tabSales Quote Routing Leg` rl
-			INNER JOIN `tabTransport Mode` tm ON tm.name = rl.mode
-			WHERE rl.parent = sq.name AND rl.parenttype = 'Sales Quote'
-			AND IFNULL(rl.origin,'') = {co}
-			AND IFNULL(rl.destination,'') = {cd}
-			AND IFNULL(tm.transport, 0) = 1
-		)"""
 	return "(1=0)"
 
 
 def _customs_declaration_charge_match_sql() -> str:
 	"""SQL fragment (references ``sq``): Customs quotes matching Declaration Order filters.
 
-	Matches **Sales Quote Charge** (service_type Customs) OR **Sales Quote Customs** legacy rows:
-	``customs_authority``, ``declaration_type``, and broker (charge row broker empty = wildcard).
+	Each of ``customs_authority``, ``declaration_type``, ``customs_broker`` may be empty (after trim) to
+	mean *no* filter on that attribute (any value on a charge line matches).
 
-	Legacy rows may carry ``transport_mode`` (Sea/Air/Road/Rail); when the job has a **Transport Mode**
-	link set, legacy rows must match that mode (via ``Transport Mode`` flags) or have blank transport_mode.
-	Unified charge rows have no transport mode and are not restricted by job transport mode.
+	For broker, when a job broker is set, a blank broker on a line still matches any quote broker.
+
+	Legacy transport mode: when ``job_transport_mode`` is NULL/empty, do not filter by mode; otherwise
+	legacy lines must match (unified charge rows are not restricted by mode).
 	"""
-	# job_transport_mode: NULL/empty = do not filter legacy rows by mode
 	return """(
 		EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type = 'Customs'
-			AND TRIM(IFNULL(sqc.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
-			AND TRIM(IFNULL(sqc.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
 			AND (
-				IFNULL(sqc.customs_broker,'') = ''
+				TRIM(IFNULL(%(customs_authority)s,'')) = ''
+				OR TRIM(IFNULL(sqc.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
+			)
+			AND (
+				TRIM(IFNULL(%(declaration_type)s,'')) = ''
+				OR TRIM(IFNULL(sqc.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
+			)
+			AND (
+				TRIM(IFNULL(%(customs_broker)s,'')) = ''
+				OR IFNULL(sqc.customs_broker,'') = ''
 				OR TRIM(IFNULL(sqc.customs_broker,'')) = TRIM(IFNULL(%(customs_broker)s,''))
 			)
 		)
 		OR EXISTS (
 			SELECT 1 FROM `tabSales Quote Customs` leg
 			WHERE leg.parent = sq.name AND leg.parenttype = 'Sales Quote'
-			AND TRIM(IFNULL(leg.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
-			AND TRIM(IFNULL(leg.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
 			AND (
-				IFNULL(leg.customs_broker,'') = ''
+				TRIM(IFNULL(%(customs_authority)s,'')) = ''
+				OR TRIM(IFNULL(leg.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
+			)
+			AND (
+				TRIM(IFNULL(%(declaration_type)s,'')) = ''
+				OR TRIM(IFNULL(leg.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
+			)
+			AND (
+				TRIM(IFNULL(%(customs_broker)s,'')) = ''
+				OR IFNULL(leg.customs_broker,'') = ''
 				OR TRIM(IFNULL(leg.customs_broker,'')) = TRIM(IFNULL(%(customs_broker)s,''))
 			)
 			AND (
@@ -220,15 +348,13 @@ def sales_quote_matches_declaration_order_filters(
 	customs_broker: str,
 	job_transport_mode: str | None = None,
 ) -> bool:
-	"""True if the Sales Quote has at least one Customs charge row matching Declaration Order scope."""
+	"""True if the Sales Quote has a Customs line matching the non-empty order filters (empties = wildcard)."""
 	ca = (customs_authority or "").strip()
 	dt = (declaration_type or "").strip()
 	cb = (customs_broker or "").strip()
-	if not ca or not dt or not cb:
-		return False
 	jtm = (job_transport_mode or "").strip() or None
 	match_sql = _customs_declaration_charge_match_sql()
-	params = {
+	params: dict[str, Any] = {
 		"name": sales_quote_name,
 		"customs_authority": ca,
 		"declaration_type": dt,
@@ -247,20 +373,24 @@ def sales_quote_matches_declaration_order_filters(
 	return bool(row)
 
 
-def _corridor_match_sql(service_type: str) -> str:
-	"""SQL fragment (references ``sq``) — corridor match with routing precedence.
+def _corridor_match_sql(
+	service_type: str,
+	job_airline: str | None = None,
+	job_shipping_line: str | None = None,
+) -> str:
+	"""SQL fragment (references ``sq``) — job O/D vs unified charge rows, legacy charge rows, or header ports/locations.
 
-	If the quote has **Routing Legs**, the job origin/destination must match a leg (and transport mode).
-	If it has **no** routing legs, matching uses unified charges, legacy rows, or header ports/locations only.
+	Sales Quote routing legs are not used for corridor filtering (Get Charges from Quotation list/preview/apply).
+
+	For **Air**, optional ``job_airline`` narrows to quotes whose matching charge row or header airline is blank
+	(wildcard) or equals the job airline. For **Sea**, optional ``job_shipping_line`` does the same for shipping lines.
 	"""
 	st = (service_type or "").strip()
 	if st not in ("Sea", "Air", "Transport"):
 		return "(1=1)"
-	has_legs = _has_sales_quote_routing_legs_sql()
-	no_legs = f"(NOT {has_legs})"
-	non_routing = _corridor_match_sql_charges_header_legacy(service_type)
-	routing_only = _corridor_match_sql_routing_legs_only(service_type)
-	return f"(({no_legs}) AND ({non_routing})) OR (({has_legs}) AND ({routing_only}))"
+	return _corridor_match_sql_charges_header_legacy(
+		service_type, job_airline=job_airline, job_shipping_line=job_shipping_line
+	)
 
 
 def sales_quote_matches_job_corridor(
@@ -268,22 +398,51 @@ def sales_quote_matches_job_corridor(
 	service_type: str,
 	corridor_origin: str,
 	corridor_dest: str,
+	job_airline: str | None = None,
+	job_shipping_line: str | None = None,
 ) -> bool:
-	"""True if the Sales Quote has at least one corridor match for Get Charges from Quotation (same rules as list filter)."""
+	"""True if charge rows or header O/D (and carrier for Air/Sea) match, same rules as list filter (wildcards allowed)."""
 	o = (corridor_origin or "").strip()
 	d = (corridor_dest or "").strip()
-	if not o or not d:
-		return False
 	st = (service_type or "").strip()
 	if st not in SERVICE_LEGACY_TABLE:
 		return False
-	match_sql = _corridor_match_sql(st)
+	ja = (job_airline or "").strip() if st == "Air" else ""
+	jsl = (job_shipping_line or "").strip() if st == "Sea" else ""
+	if st == "Air" and ja and not o and not d:
+		return sales_quote_matches_job_airline_only(sales_quote_name, ja)
+	match_sql = _corridor_match_sql(
+		st, job_airline=ja or None, job_shipping_line=jsl or None
+	)
 	params: dict[str, Any] = {
 		"name": sales_quote_name,
 		"service_type": st,
 		"corridor_origin": o,
 		"corridor_dest": d,
 	}
+	if ja:
+		params["job_airline"] = ja
+	if jsl:
+		params["job_shipping_line"] = jsl
+	row = frappe.db.sql(
+		f"""
+		SELECT 1 FROM `tabSales Quote` sq
+		WHERE sq.name = %(name)s
+		AND {match_sql}
+		LIMIT 1
+		""",
+		params,
+	)
+	return bool(row)
+
+
+def sales_quote_matches_job_airline_only(sales_quote_name: str, job_airline: str) -> bool:
+	"""True if the quote has an Air line (or legacy) with blank airline or same as ``job_airline`` (no O/D gate)."""
+	ja = (job_airline or "").strip()
+	if not ja:
+		return False
+	match_sql = _airline_only_match_sql()
+	params: dict[str, Any] = {"name": sales_quote_name, "job_airline": ja}
 	row = frappe.db.sql(
 		f"""
 		SELECT 1 FROM `tabSales Quote` sq
@@ -366,8 +525,7 @@ def sales_quote_by_service_link_search(
 	else:
 		where_block = f"{eligibility} AND {one_off_where} {excluded_cond}"
 
-	_ensure_sales_quote_columns_for_permissions()
-	match_cond = get_match_cond("Sales Quote")
+	match_cond = _sales_quote_match_cond()
 
 	sql = f"""
 		SELECT sq.name
@@ -391,6 +549,8 @@ def fetch_eligible_regular_sales_quote_names(
 	limit: int = 100,
 	corridor_origin: str | None = None,
 	corridor_dest: str | None = None,
+	job_airline: str | None = None,
+	job_shipping_line: str | None = None,
 	customs_authority: str | None = None,
 	declaration_type: str | None = None,
 	customs_broker: str | None = None,
@@ -401,13 +561,17 @@ def fetch_eligible_regular_sales_quote_names(
 	Returns **Regular** quotations only (Action → Get Charges from Quotation — excludes One-off and Project).
 	Only **submitted** quotes (``docstatus`` = 1) are returned.
 
-	When ``corridor_origin`` and ``corridor_dest`` are both non-empty, only quotes whose corridor
-	matches: if the quote has **routing legs**, only a matching **routing leg** counts; otherwise
-	unified charges, legacy child, or header fields (same as before).
+	Corridor matching uses **Sales Quote Charge** (unified) rows, legacy service charge rows, or header
+	fields on the quotation (not routing legs).
 
-	For **Customs**, when ``customs_authority``, ``declaration_type``, and ``customs_broker`` are all
-	non-empty, **Declaration Order** filters apply instead of corridor matching (see
-	``sales_quote_matches_declaration_order_filters``).
+	For **Customs**, ``customs_authority`` / ``declaration_type`` / ``customs_broker`` each narrow the
+	list when set; an empty value is a wildcard for that attribute. ``job_transport_mode`` still applies
+	only to legacy lines (see ``_customs_declaration_charge_match_sql``).
+
+	**Sea / Air / Transport**: empty ``corridor_origin`` and/or ``corridor_dest`` (after trim) is a
+	wildcard for that end. For **Air** with both ports empty and ``job_airline`` set, only airline
+	matching applies (equivalent to the former airline-only path). For **Sea**, ``job_shipping_line`` narrows
+	by line or header; blank on a quotation line matches any line.
 	"""
 	service_type = (service_type or "").strip()
 	if service_type not in SERVICE_LEGACY_TABLE:
@@ -416,33 +580,30 @@ def fetch_eligible_regular_sales_quote_names(
 	limit = cint(limit) or 100
 	co = (corridor_origin or "").strip()
 	cd = (corridor_dest or "").strip()
-	use_corridor = bool(co and cd)
 	ca = (customs_authority or "").strip()
 	dt = (declaration_type or "").strip()
 	cb = (customs_broker or "").strip()
-	use_customs_filters = service_type == "Customs" and bool(ca and dt and cb)
+	ja = (job_airline or "").strip() if service_type == "Air" else ""
+	jsl = (job_shipping_line or "").strip() if service_type == "Sea" else ""
 
 	params: dict[str, Any] = {"service_type": service_type, "limit": limit}
-	if use_customs_filters:
+	if service_type == "Customs":
 		jtm = (job_transport_mode or "").strip() or None
 		params["customs_authority"] = ca
 		params["declaration_type"] = dt
 		params["customs_broker"] = cb
 		params["job_transport_mode"] = jtm
 		eligibility = _customs_declaration_charge_match_sql()
-	elif use_corridor:
+	else:
 		params["corridor_origin"] = co
 		params["corridor_dest"] = cd
-		eligibility = _corridor_match_sql(service_type)
-	else:
-		legacy_sql = _legacy_exists_clause(service_type)
-		eligibility = f"""( EXISTS (
-				SELECT 1 FROM `tabSales Quote Charge` sqc
-				WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
-				AND sqc.service_type = %(service_type)s
-			)
-			{legacy_sql}
-		)"""
+		if ja:
+			params["job_airline"] = ja
+		if jsl:
+			params["job_shipping_line"] = jsl
+		eligibility = _corridor_match_sql(
+			service_type, job_airline=ja or None, job_shipping_line=jsl or None
+		)
 	# Action → Get Charges from Quotation: **Regular** quotes only (excludes One-off, Project, blank).
 	regular_only_where = "TRIM(IFNULL(sq.quotation_type,'')) = 'Regular'"
 
@@ -451,8 +612,7 @@ def fetch_eligible_regular_sales_quote_names(
 		params["customer"] = customer.strip()
 		customer_cond = "AND TRIM(IFNULL(sq.customer,'')) = %(customer)s"
 
-	_ensure_sales_quote_columns_for_permissions()
-	match_cond = get_match_cond("Sales Quote")
+	match_cond = _sales_quote_match_cond()
 	sql = f"""
 		SELECT sq.name
 		FROM `tabSales Quote` sq

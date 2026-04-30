@@ -111,10 +111,10 @@ def get_data(filters):
 				ELSE 0
 			END as avg_revenue_per_kg,
 			CASE
-				WHEN COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL THEN 1 END) > 0
-				THEN (SUM(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL 
-					AND TIMESTAMPDIFF(HOUR, aship.eta, aship.actual_arrival) <= 0 THEN 1 ELSE 0 END) * 100.0) /
-					COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.actual_arrival IS NOT NULL THEN 1 END)
+				WHEN COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL THEN 1 END) > 0
+				THEN (SUM(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL 
+					AND TIMESTAMPDIFF(HOUR, aship.eta, aship.ata) <= 0 THEN 1 ELSE 0 END) * 100.0) /
+					COUNT(CASE WHEN aship.eta IS NOT NULL AND aship.ata IS NOT NULL THEN 1 END)
 				ELSE 0
 			END as on_time_percentage,
 			(

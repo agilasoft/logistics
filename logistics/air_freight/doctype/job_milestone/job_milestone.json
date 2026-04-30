@@ -31,6 +31,7 @@
    "fieldname": "job_number",
    "fieldtype": "Dynamic Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "job_type"
   },
   {

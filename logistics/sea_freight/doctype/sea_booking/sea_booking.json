@@ -71,10 +71,10 @@
   "packing_tab",
   "routing_section",
   "routing_legs",
-  "containers_section",
-  "containers",
   "packages_section",
   "packages",
+  "containers_section",
+  "containers",
   "section_break_mene",
   "override_volume_weight",
   "total_containers",
@@ -117,6 +117,8 @@
   "customer_service_rep",
   "section_break_cjyd",
   "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
   "quote_reference_section",
   "is_main_service",
   "sales_quote",
@@ -207,8 +209,7 @@
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Booking Date",
-   "reqd": 1
+   "label": "Booking Date"
   },
   {
    "fieldname": "sales_quote",
@@ -240,16 +241,18 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -264,6 +267,7 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
   },
   {
@@ -293,8 +297,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport\nDomestic",
-   "reqd": 1
+   "options": "Import\nExport\nDomestic"
   },
   {
    "fieldname": "shipping_line",
@@ -316,8 +319,7 @@
    "in_list_view": 1,
    "label": "Local Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
-   "options": "Customer",
-   "reqd": 1
+   "options": "Customer"
   },
   {
    "fieldname": "freight_agent",
@@ -805,6 +807,20 @@
    "options": "Sea Booking Charges"
   },
   {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
+  },
+  {
    "fieldname": "dashboard_tab",
    "fieldtype": "Tab Break",
    "label": "Dashboard"
@@ -904,6 +920,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {
@@ -1042,8 +1059,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-22 18:26:01.112787",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-04-28 18:55:20.587743",
+ "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking",
  "naming_rule": "By \"Naming Series\" field",

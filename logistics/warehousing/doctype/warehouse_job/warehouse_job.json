@@ -313,14 +313,18 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
-   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nWarehouse Job\nDeclaration\nDeclaration Order"
+   "no_copy": 1,
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nWarehouse Job\nDeclaration\nDeclaration Order",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
-   "options": "main_job_type"
+   "no_copy": 1,
+   "options": "main_job_type",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_main_service",
@@ -339,6 +343,7 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
   },
   {
@@ -633,6 +638,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number",
    "read_only": 1
   },

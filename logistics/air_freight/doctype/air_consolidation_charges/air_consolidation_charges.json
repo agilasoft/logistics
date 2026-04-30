@@ -32,6 +32,11 @@
   "allocation_percentage",
   "column_break_4",
   "allocated_amount",
+  "section_break_purchase_pi",
+  "item_code",
+  "pay_to",
+  "purchase_invoice_status",
+  "purchase_invoice",
   "section_break_status",
   "charge_status",
   "billing_status",
@@ -199,6 +204,44 @@
    "label": "Allocated Amount",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_purchase_pi",
+   "fieldtype": "Section Break",
+   "label": "Purchase Invoice"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Item\", \"custom_air_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
+   "options": "Item"
+  },
+  {
+   "fieldname": "pay_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
+  },
+  {
+   "default": "Not Requested",
+   "fieldname": "purchase_invoice_status",
+   "fieldtype": "Select",
+   "label": "Cost Invoice Status",
+   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "read_only": 1,
+   "description": "Set when included in a Purchase Invoice request; row becomes read-only."
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1,
+   "description": "Purchase Invoice this charge was requested in."
   },
   {
    "fieldname": "section_break_status",

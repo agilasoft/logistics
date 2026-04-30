@@ -15,6 +15,33 @@
 	/** Parent-form fields that identify the main leg/job (doctypes use is_main_service; none use is_main_job on parent today). */
 	var MAIN_JOB_FIELDNAMES = ["is_main_service", "is_main_job"];
 
+	/**
+	 * When this document is an internal-job satellite fully linked to a main job, both checkboxes
+	 * must stay disabled (client `set_df_property` can otherwise override JSON `read_only_depends_on`).
+	 */
+	logistics.apply_internal_job_satellite_checkbox_locks = function (frm) {
+		if (!frm || !frm.doc || !frm.get_docfield) {
+			return;
+		}
+		var cint = frappe.utils.cint || function (v) {
+			return parseInt(v, 10) || 0;
+		};
+		var linked =
+			cint(frm.doc.is_internal_job) &&
+			(String(frm.doc.main_job_type || "").trim()) &&
+			(String(frm.doc.main_job || "").trim());
+		if (!linked) {
+			return;
+		}
+		["is_internal_job", "is_main_service"].forEach(function (fn) {
+			if (!frm.get_docfield(fn)) {
+				return;
+			}
+			frm.set_df_property(fn, "read_only", 1);
+			frm.refresh_field(fn);
+		});
+	};
+
 	function apply_one_off_locks_and_defaults(frm, main_fields, has_ij, is_draft) {
 		function lock_one_off() {
 			main_fields.forEach(function (fn) {
@@ -42,27 +69,32 @@
 		if (!is_draft) {
 			return;
 		}
+		var linkedIJ =
+			cint(frm.doc.is_internal_job) &&
+			(frm.doc.main_job_type || "").toString().trim() &&
+			(frm.doc.main_job || "").toString().trim();
 		var tasks = [];
-		// Main Service and Internal Job are mutually exclusive. Declaration Order may keep Internal Job
-		// (customs with no quote charges); do not force Main Service when Internal Job is set — that would
-		// leave both checked (skip_ij_clear below would not clear Internal Job).
+		// Main Service and Internal Job are mutually exclusive. Do not force Main Service when this doc is
+		// already an Internal Job (e.g. Declaration Order customs-only, or Transport Order / booking
+		// satellites created from Internal Job on a one-off freight leg).
 		if (
 			main_fields.indexOf("is_main_service") !== -1 &&
 			!cint(frm.doc.is_main_service) &&
-			!(frm.doctype === "Declaration Order" && cint(frm.doc.is_internal_job))
+			!cint(frm.doc.is_internal_job)
 		) {
 			tasks.push(Promise.resolve(frm.set_value("is_main_service", 1)));
 		}
 		// One-off locks Main Service read-only; mutual-exclusive set_value may not clear it when Internal Job
-		// is turned on (e.g. internal-job dialog). Always drop Main Service if Internal Job is set on DO.
-		if (frm.doctype === "Declaration Order" && cint(frm.doc.is_internal_job)) {
+		// is turned on (e.g. internal-job dialog). Always drop Main Service if Internal Job is checked.
+		if (cint(frm.doc.is_internal_job) && main_fields.indexOf("is_main_service") !== -1) {
 			tasks.push(Promise.resolve(frm.set_value("is_main_service", 0)));
 		}
 		if (main_fields.indexOf("is_main_job") !== -1 && !cint(frm.doc.is_main_job)) {
 			tasks.push(Promise.resolve(frm.set_value("is_main_job", 1)));
 		}
-		// Declaration Order can be an Internal Job (customs with no quote charges); do not clear the flag.
-		var skip_ij_clear = frm.doctype === "Declaration Order";
+		// Do not clear Internal Job when it is a linked satellite (Main Job Type / Main Job set), or on
+		// Declaration Order (internal customs job without a freight main link is still valid).
+		var skip_ij_clear = frm.doctype === "Declaration Order" || linkedIJ;
 		if (has_ij && cint(frm.doc.is_internal_job) && !skip_ij_clear) {
 			tasks.push(Promise.resolve(frm.set_value("is_internal_job", 0)));
 		}
@@ -74,6 +106,7 @@
 	logistics.apply_one_off_sales_quote_order_standard = function (frm, opts) {
 		opts = opts || {};
 		if (!frm || !frm.doc || !frm.get_docfield) return;
+		logistics.apply_internal_job_satellite_checkbox_locks(frm);
 		var main_fields = MAIN_JOB_FIELDNAMES.filter(function (fn) {
 			return !!frm.get_docfield(fn);
 		});
@@ -85,6 +118,9 @@
 
 		function unlock_when_allowed() {
 			if (!is_draft) return;
+			var cint = frappe.utils.cint || function (v) {
+				return parseInt(v, 10) || 0;
+			};
 			var linkedIJ =
 				cint(frm.doc.is_internal_job) &&
 				(frm.doc.main_job_type || "").toString().trim() &&
@@ -108,6 +144,9 @@
 					frm.refresh_field("is_internal_job");
 				}
 			}
+			// Standard / non–One-off quotes: must re-apply after unlock so linked internal-job satellites
+			// stay read-only (same as read_only_depends_on in DocType JSON).
+			logistics.apply_internal_job_satellite_checkbox_locks(frm);
 		}
 
 		// Must run before the empty sales_quote check: onload can fire before frm.doc.sales_quote is set

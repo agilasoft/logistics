@@ -12,6 +12,7 @@ import frappe
 from logistics.utils.charge_service_type import (
 	IMPLIED_SERVICE_TYPE_BY_DOCTYPE,
 	ROUTING_LEG_JOB_TYPES,
+	canonical_charge_service_type_for_storage,
 	effective_internal_job_detail_job_type,
 )
 from logistics.utils.sales_quote_charge_parameters import extract_sales_quote_charge_parameters
@@ -74,7 +75,9 @@ def job_detail_service_type_for_parent(parent_doc: Any, sales_quote_doc: Any = N
 
 
 def _service_type_match(row: Any, want: str) -> bool:
-	return (getattr(row, "service_type", None) or "").strip().lower() == want
+	row_c = canonical_charge_service_type_for_storage(getattr(row, "service_type", None))
+	want_c = canonical_charge_service_type_for_storage(want)
+	return bool(row_c and want_c and row_c == want_c)
 
 
 def get_internal_job_detail_by_service_type(parent_doc: Any, service_type: str, *, rows: list | None = None):

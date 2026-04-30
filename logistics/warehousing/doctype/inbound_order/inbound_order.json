@@ -23,10 +23,6 @@
   "due_date",
   "section_break_tams",
   "items",
-  "section_break_connections",
-  "air_shipment",
-  "sea_shipment",
-  "transport_job",
   "quote_reference_section",
   "is_main_service",
   "sales_quote",
@@ -164,35 +160,7 @@
   },
   {
    "collapsible": 1,
-   "description": "Links to the operational source (air, sea, or domestic transport). Used for traceability and to pull parties and schedules from the source job.",
-   "fieldname": "section_break_connections",
-   "fieldtype": "Section Break",
-   "label": "Connected Documents"
-  },
-  {
-   "description": "Receive goods from air freight",
-   "fieldname": "air_shipment",
-   "fieldtype": "Link",
-   "label": "Air Shipment",
-   "options": "Air Shipment"
-  },
-  {
-   "description": "Receive goods from sea freight",
-   "fieldname": "sea_shipment",
-   "fieldtype": "Link",
-   "label": "Sea Shipment",
-   "options": "Sea Shipment"
-  },
-  {
-   "description": "Receive goods from domestic transport",
-   "fieldname": "transport_job",
-   "fieldtype": "Link",
-   "label": "Transport Job",
-   "options": "Transport Job"
-  },
-  {
-   "collapsible": 1,
-   "description": "Sales Quote and main/internal job hierarchy for billing and recognition. Filled from the linked source job when Connected Documents is set.",
+   "description": "Sales Quote and main/internal job hierarchy for billing and recognition. Filled when the order is created from a job or declaration.",
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -204,7 +172,7 @@
    "fieldtype": "Check",
    "label": "Main Service",
    "no_copy": 1,
-   "read_only_depends_on": "eval: (doc.is_internal_job && doc.main_job_type && doc.main_job) || doc.air_shipment || doc.sea_shipment || doc.transport_job"
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "fieldname": "sales_quote",
@@ -226,7 +194,7 @@
    "fieldtype": "Check",
    "label": "Internal Job",
    "no_copy": 1,
-   "read_only_depends_on": "eval: (doc.is_internal_job && doc.main_job_type && doc.main_job) || doc.air_shipment || doc.sea_shipment || doc.transport_job"
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
    "depends_on": "eval:doc.is_internal_job",
@@ -235,7 +203,7 @@
    "label": "Main Job Type",
    "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval:doc.air_shipment || doc.sea_shipment || doc.transport_job"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
@@ -244,7 +212,7 @@
    "label": "Main Job",
    "no_copy": 1,
    "options": "main_job_type",
-   "read_only_depends_on": "eval:doc.air_shipment || doc.sea_shipment || doc.transport_job"
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -258,6 +226,7 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
   },
   {
@@ -341,6 +310,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {

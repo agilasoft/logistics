@@ -71,6 +71,10 @@
   "tab_charges",
   "consolidation_charges",
   "tab_attached_jobs",
+  "section_break_shipment_planning",
+  "sea_planning_status",
+  "planning_owner",
+  "consolidation_planning_lines",
   "attached_sea_shipments",
   "accounts_tab",
   "company",
@@ -154,8 +158,8 @@
    "fieldname": "consolidation_agent",
    "fieldtype": "Link",
    "label": "Consolidation Agent",
-   "options": "User",
-   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
+   "options": "User"
   },
   {
    "fieldname": "section_break_route",
@@ -167,18 +171,18 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO",
-   "reqd": 1,
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "description": "Destination port UNLOCO code",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO",
-   "reqd": 1,
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "etd",
@@ -200,9 +204,9 @@
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
    "options": "Shipping Line",
-   "reqd": 1,
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "vessel_name",
@@ -246,15 +250,15 @@
    "fieldname": "total_volume_uom",
    "fieldtype": "Link",
    "label": "Total Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "total_weight_uom",
    "fieldtype": "Link",
    "label": "Total Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_3",
@@ -271,8 +275,8 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "consolidation_ratio",
@@ -466,8 +470,39 @@
    "label": "Shipments"
   },
   {
+   "description": "Shipments matched via Aligned Sea Shipments before cargo is linked. Submit this list when ready so cargo can reference those jobs.",
+   "fieldname": "section_break_shipment_planning",
+   "fieldtype": "Section Break",
+   "label": "Shipment planning"
+  },
+  {
+   "default": "Draft",
+   "description": "Draft until you submit the planned shipment list; required before linking cargo that references sea shipments.",
+   "fieldname": "sea_planning_status",
+   "fieldtype": "Select",
+   "label": "Planning status",
+   "options": "Draft\nSubmitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planning_owner",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Planning Owner",
+   "options": "User"
+  },
+  {
+   "description": "Sea shipments approved for this consolidation via Aligned Sea Shipments or Fetch matching shipments.",
+   "fieldname": "consolidation_planning_lines",
+   "fieldtype": "Table",
+   "label": "Planned shipments",
+   "options": "Sea Consolidation Planning Line"
+  },
+  {
    "fieldname": "attached_sea_shipments",
    "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Attached shipments",
    "options": "Sea Consolidation Shipments"
   },
   {
@@ -508,7 +543,10 @@
    "description": "This will be used when posting financial transactions to this job.",
    "fieldname": "job_number",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Job Number",
+   "link_filters": "[[\"Job Number\", \"job_type\", \"=\", \"Sea Shipment\"]]",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {
@@ -519,7 +557,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-26 16:23:48.062198",
+ "modified": "2026-04-29 10:38:23.519547",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",

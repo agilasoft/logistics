@@ -42,7 +42,46 @@ function _load_documents_html(frm) {
 	});
 }
 
+frappe.ui.form.on("Sea Consolidation Packages", {
+	contains_dangerous_goods: function (frm) {
+		frm.refresh_field("consolidation_packages");
+	},
+	temperature_controlled: function (frm) {
+		frm.refresh_field("consolidation_packages");
+	},
+});
+
 frappe.ui.form.on("Sea Consolidation", {
+	validate: async function (frm) {
+		const rows = frm.doc.consolidation_containers || [];
+		for (let i = 0; i < rows.length; i++) {
+			const raw = rows[i].container_number;
+			if (raw === undefined || raw === null || String(raw).trim() === "") {
+				continue;
+			}
+			try {
+				const r = await frappe.call({
+					method: "logistics.logistics.doctype.container.container.validate_container_number_for_form",
+					args: { container_number: String(raw) },
+				});
+				const d = r.message || {};
+				if (!d.valid) {
+					frappe.validated = false;
+					frappe.msgprint({
+						title: __("Invalid Container Number"),
+						message: __("Consolidation container row {0}: {1}", [
+							i + 1,
+							d.message || __("Invalid container number"),
+						]),
+						indicator: "red",
+					});
+					return;
+				}
+			} catch (e) {
+				// Server-side Sea Consolidation / child row validate still runs on save.
+			}
+		}
+	},
 	document_list_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;
 		frm.save().then(function () {
@@ -73,7 +112,8 @@ frappe.ui.form.on("Sea Consolidation", {
 			});
 		});
 	},
-	setup: function(frm) {
+	setup: function (frm) {
+
 		frm.set_query('milestone_template', function() {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
@@ -113,6 +153,75 @@ frappe.ui.form.on("Sea Consolidation", {
 			frm.layout.wrapper.off("click.milestone_html").on("click.milestone_html", '[data-fieldname="milestones_tab"]', function () {
 				_load_milestone_html(frm);
 			});
+		}
+		(function lock_planned_shipments_grid() {
+			const planningLocked =
+				(frm.doc.sea_planning_status || "Draft") === "Submitted" && frm.doc.docstatus === 0;
+			if (!frm.fields_dict.consolidation_planning_lines) {
+				return;
+			}
+			frm.set_df_property("consolidation_planning_lines", "read_only", planningLocked ? 1 : 0);
+			frm.set_df_property(
+				"consolidation_planning_lines",
+				"cannot_add_rows",
+				planningLocked ? 1 : 0
+			);
+			frm.set_df_property(
+				"consolidation_planning_lines",
+				"cannot_delete_rows",
+				planningLocked ? 1 : 0
+			);
+			frm.refresh_field("consolidation_planning_lines");
+		})();
+		if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
+			if ((frm.doc.sea_planning_status || "Draft") === "Draft") {
+				frm.add_custom_button(__("Aligned Sea Shipments…"), function () {
+					if (window.logistics && logistics.open_sea_consolidation_matching_shipments_dialog) {
+						logistics.open_sea_consolidation_matching_shipments_dialog(frm);
+					} else {
+						frappe.msgprint(__("Sea consolidation UI is still loading — try again in a moment."));
+					}
+				}, __("Action"));
+			}
+			if (
+				(frm.doc.sea_planning_status || "Draft") === "Draft" &&
+				(frm.doc.consolidation_planning_lines || []).length
+			) {
+				frm.add_custom_button(
+					__("Submit planned shipments"),
+					function () {
+						frappe.confirm(
+							__("Submit planned shipment list? It will lock until reset."),
+							function () {
+								frm.call("submit_sea_planning").then(function () {
+									frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
+									frm.reload_doc();
+								});
+							}
+						);
+					},
+					__("Action")
+				);
+			}
+			if (frm.doc.sea_planning_status === "Submitted") {
+				frm.add_custom_button(
+					__("Reset planned shipments to draft"),
+					function () {
+						frappe.confirm(
+							__(
+								"This is only allowed after removing cargo that references sea shipments. Planning will return to draft: planned shipments stay listed, the table becomes editable again, and you can add more from Aligned Sea Shipments. Continue?"
+							),
+							function () {
+								frm.call("cancel_sea_planning_submit").then(function () {
+									frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
+									frm.reload_doc();
+								});
+							}
+						);
+					},
+					__("Action")
+				);
+			}
 		}
 		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Get Milestones"), function () {
@@ -168,6 +277,13 @@ frappe.ui.form.on("Sea Consolidation", {
 				});
 			}, __("Action"));
 		}
+		setTimeout(function () {
+			if (frm.doc.name && !frm.doc.__islocal && typeof show_create_consolidation_purchase_invoice_dialog === "function") {
+				frm.add_custom_button(__("Purchase Invoice"), function () {
+					show_create_consolidation_purchase_invoice_dialog(frm);
+				}, __("Create"));
+			}
+		}, 0);
 	},
 });
 

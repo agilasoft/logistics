@@ -67,8 +67,7 @@
    "fieldname": "containeryard_primary_address",
    "fieldtype": "Link",
    "label": "Primary Address",
-   "options": "Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "options": "Address"
   },
   {
    "fieldname": "primary_address",

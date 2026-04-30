@@ -22,9 +22,16 @@ function _is_milestone_tracking_enabled(frm) {
 	if (frm._milestone_tracking_enabled !== undefined) {
 		return Promise.resolve(frm._milestone_tracking_enabled);
 	}
-	return frappe.db.get_single_value("Sea Freight Settings", "enable_milestone_tracking")
-		.then(function(value) {
-			frm._milestone_tracking_enabled = Number(value || 0) === 1;
+	var company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	return frappe.db.get_value("Sea Freight Settings", { company: company }, "enable_milestone_tracking")
+		.then(function(r) {
+			var value = r && r.message ? r.message.enable_milestone_tracking : undefined;
+			// Match doctype default (1): NULL/legacy unset rows must not hide the tab.
+			if (value === undefined || value === null || value === "") {
+				frm._milestone_tracking_enabled = true;
+			} else {
+				frm._milestone_tracking_enabled = Number(value) === 1;
+			}
 			return frm._milestone_tracking_enabled;
 		})
 		.catch(function() {
@@ -63,6 +70,72 @@ function _warn_if_missing_service_charges(frm, service_type) {
 	}
 }
 
+/** Recalculate charges grid rows (estimated revenue/cost, quantities) for current Sea Booking context. */
+function _recalculate_sea_booking_charge_rows(frm, done) {
+	var charges = frm.doc.charges || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Sea Booking Charges",
+				parenttype: "Sea Booking",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides:
+					window.logistics && logistics.charge_row_parent_overrides
+						? logistics.charge_row_parent_overrides(frm)
+						: null,
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && row.name) {
+					if (r.message.estimated_revenue != null) {
+						frappe.model.set_value("Sea Booking Charges", row.name, "estimated_revenue", r.message.estimated_revenue);
+					}
+					if (r.message.estimated_cost != null) {
+						frappe.model.set_value("Sea Booking Charges", row.name, "estimated_cost", r.message.estimated_cost);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Sea Booking Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value("Sea Booking Charges", row.name, "cost_quantity", r.message.cost_quantity);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value("Sea Booking Charges", row.name, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value("Sea Booking Charges", row.name, "cost_calc_notes", r.message.cost_calc_notes || "");
+					}
+					if (window.logistics && logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Sea Booking Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function() {
+				run_next();
+			},
+		});
+	}
+	run_next();
+}
+
 /** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
 function _logistics_set_charges_cannot_add_rows(frm) {
 	if (!frm.get_docfield || !frm.get_docfield("charges")) {
@@ -70,6 +143,30 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	}
 	frm.set_df_property("charges", "cannot_add_rows", 1);
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
+}
+
+/** Origin/destination CTAs limited to Shipping Line CTO for that line and UNLOCO port. */
+function _sea_booking_set_query_shipping_line_cto(frm) {
+	frm.set_query("origin_cto", function() {
+		if (!frm.doc.shipping_line || !frm.doc.origin_port) {
+			return { filters: { name: ["in", []] } };
+		}
+		return {
+			query:
+				"logistics.sea_freight.doctype.shipping_line.shipping_line.shipping_line_cto_by_line_and_port_search",
+			filters: { shipping_line: frm.doc.shipping_line, port: frm.doc.origin_port },
+		};
+	});
+	frm.set_query("destination_cto", function() {
+		if (!frm.doc.shipping_line || !frm.doc.destination_port) {
+			return { filters: { name: ["in", []] } };
+		}
+		return {
+			query:
+				"logistics.sea_freight.doctype.shipping_line.shipping_line.shipping_line_cto_by_line_and_port_search",
+			filters: { shipping_line: frm.doc.shipping_line, port: frm.doc.destination_port },
+		};
+	});
 }
 
 // Suppress "Sea Booking X not found" when form is new/unsaved (e.g. package grid triggers API before save)
@@ -177,8 +274,22 @@ frappe.ui.form.on('Sea Booking', {
 			}
 			return { filters: filters };
 		});
+		_sea_booking_set_query_shipping_line_cto(frm);
 	},
-	
+
+	shipping_line: function(frm) {
+		frm.set_value("origin_cto", "");
+		frm.set_value("destination_cto", "");
+	},
+
+	origin_port: function(frm) {
+		frm.set_value("origin_cto", "");
+	},
+
+	destination_port: function(frm) {
+		frm.set_value("destination_cto", "");
+	},
+
 	shipper: function(frm) {
 		// Populate address/contact from shipper primary when shipper changes
 		if (!frm.doc.shipper) {
@@ -228,6 +339,7 @@ frappe.ui.form.on('Sea Booking', {
 	},
 
 	company: function(frm) {
+		frm._milestone_tracking_enabled = undefined;
 		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
 			window.logistics_apply_sea_freight_settings_accounting_defaults(frm);
 		}
@@ -540,34 +652,6 @@ frappe.ui.form.on('Sea Booking', {
 				}, __('Create'));
 			}, 100);
 		}
-
-		// Create > Internal Job (from internal_job_details; same behaviour as Sea Shipment)
-		if (frm.doc.name && !frm.doc.__islocal) {
-			setTimeout(function() {
-				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
-					frm.add_custom_button(__('Internal Job'), function() {
-						function _openInternalJobDlg() {
-							if (window.logistics_show_create_internal_job_dialog) {
-								window.logistics_show_create_internal_job_dialog(frm);
-							} else {
-								frappe.msgprint({
-									title: __('Not available'),
-									message: __(
-										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-									),
-									indicator: 'red',
-								});
-							}
-						}
-						if (window.logistics_show_create_internal_job_dialog) {
-							_openInternalJobDlg();
-						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
-						}
-					}, __('Create'));
-				}
-			}, 100);
-		}
 		
 		// Setup query filter for quote field based on quote_type
 		_setup_quote_query(frm);
@@ -755,19 +839,21 @@ function _populate_charges_from_quote(frm) {
 						});
 					});
 					frm.refresh_field('charges');
-					if (r.message.charges_count > 0) {
-						var message;
-						if (quote_type === 'One-Off Quote') {
-							message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
-						} else {
-							message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
+					_recalculate_sea_booking_charge_rows(frm, function() {
+						if (r.message.charges_count > 0) {
+							var message;
+							if (quote_type === 'One-Off Quote') {
+								message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
+							} else {
+								message = __("{0} charges added from quote {1}", [r.message.charges_count, target_quote]);
+							}
+							frappe.msgprint({
+								title: __("Charges Updated"),
+								message: message,
+								indicator: 'green'
+							});
 						}
-						frappe.msgprint({
-							title: __("Charges Updated"),
-							message: message,
-							indicator: 'green'
-						});
-					}
+					});
 				} else {
 					frm.clear_table('charges');
 					frm.refresh_field('charges');
@@ -969,6 +1055,21 @@ function _refresh_packing_summary_api(frm) {
 frappe.ui.form.on('Sea Booking Containers', {
 	type: function(frm) {
 		// Only refresh if row editor is not open
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
+	},
+	packages_in_container: function(frm) {
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
+	},
+	weight_in_container: function(frm) {
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
+	},
+	volume_in_container: function(frm) {
 		if (!_is_grid_dialog_open()) {
 			_refresh_packing_summary_api(frm);
 		}

@@ -10,6 +10,10 @@
   "service_type",
   "charge_type",
   "charge_category",
+  "freight_taxes_section",
+  "apply_95_5_rule",
+  "taxable_freight_item",
+  "taxable_freight_item_tax_template",
   "item_name",
   "sales_quote_link",
   "change_request",
@@ -119,6 +123,35 @@
    "fieldtype": "Select",
    "label": "Charge Category",
    "options": "Freight\nFuel Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fieldname": "freight_taxes_section",
+   "fieldtype": "Section Break",
+   "label": "Taxes"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fieldname": "apply_95_5_rule",
+   "fieldtype": "Check",
+   "label": "Apply 95/5 rule"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item",
+   "link_filters": "[[\"Item\", \"custom_warehousing_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0], [\"Item\", \"custom_charge_category\", \"=\", \"Freight\"]]",
+   "options": "Item"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item_tax_template",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
   },
   {
    "description": "Standard unit cost from item master",

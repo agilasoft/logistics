@@ -6,6 +6,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
+from logistics.utils.freight_95_5 import validate_freight_95_5_row
 from logistics.utils.charges_calculation import (
     apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
@@ -18,6 +19,7 @@ class DeclarationOrderCharges(Document):
 
     def validate(self):
         validate_charge_item_not_manual_other_service(self, "Declaration Order Charges", "item_code")
+        validate_freight_95_5_row(self)
         self._calculate_charges()
 
     def _calculate_charges(self, parent_doc=None):

@@ -38,9 +38,16 @@ function _is_milestone_tracking_enabled(frm) {
 	if (frm._milestone_tracking_enabled !== undefined) {
 		return Promise.resolve(frm._milestone_tracking_enabled);
 	}
-	return frappe.db.get_single_value("Sea Freight Settings", "enable_milestone_tracking")
-		.then(function(value) {
-			frm._milestone_tracking_enabled = Number(value || 0) === 1;
+	var company = frm.doc.company || frappe.defaults.get_user_default("Company");
+	return frappe.db.get_value("Sea Freight Settings", { company: company }, "enable_milestone_tracking")
+		.then(function(r) {
+			var value = r && r.message ? r.message.enable_milestone_tracking : undefined;
+			// Match doctype default (1): NULL/legacy unset rows must not hide the tab.
+			if (value === undefined || value === null || value === "") {
+				frm._milestone_tracking_enabled = true;
+			} else {
+				frm._milestone_tracking_enabled = Number(value) === 1;
+			}
 			return frm._milestone_tracking_enabled;
 		})
 		.catch(function() {
@@ -85,6 +92,22 @@ function _sea_shipment_volume_fallback(frm, cdt, cdn, grid_row) {
 	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
 }
 
+/** Virtual MBL read-only fields: filled from Master Bill via server (no DB columns on Sea Shipment). */
+function _apply_master_bill_virtuals(frm) {
+	frappe.call({
+		method: 'logistics.sea_freight.doctype.sea_shipment.sea_shipment.get_master_bill_virtuals',
+		args: { master_bill: frm.doc.master_bill || '' },
+		callback: function(r) {
+			if (!r.message) {
+				return;
+			}
+			Object.keys(r.message).forEach(function(fieldname) {
+				frm.set_value(fieldname, r.message[fieldname]);
+			});
+		},
+	});
+}
+
 function _show_create_from_shipment_review_dialog(frm, target_label, on_continue) {
 	var is_internal = !!frm.doc.is_internal_job;
 	var message = is_internal
@@ -123,12 +146,38 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _sea_shipment_set_query_shipping_line_cto(frm) {
+	frm.set_query("origin_cto", function() {
+		if (!frm.doc.shipping_line || !frm.doc.origin_port) {
+			return { filters: { name: ["in", []] } };
+		}
+		return {
+			query:
+				"logistics.sea_freight.doctype.shipping_line.shipping_line.shipping_line_cto_by_line_and_port_search",
+			filters: { shipping_line: frm.doc.shipping_line, port: frm.doc.origin_port },
+		};
+	});
+	frm.set_query("destination_cto", function() {
+		if (!frm.doc.shipping_line || !frm.doc.destination_port) {
+			return { filters: { name: ["in", []] } };
+		}
+		return {
+			query:
+				"logistics.sea_freight.doctype.shipping_line.shipping_line.shipping_line_cto_by_line_and_port_search",
+			filters: { shipping_line: frm.doc.shipping_line, port: frm.doc.destination_port },
+		};
+	});
+}
+
 frappe.ui.form.on('Sea Shipment', {
 	onload: function(frm) {
 		if (window.logistics && logistics.apply_one_off_route_options_onload) {
 			logistics.apply_one_off_route_options_onload(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (frm.doc.master_bill) {
+			_apply_master_bill_virtuals(frm);
+		}
 	},
 	packages_on_form_rendered: function(frm) {
 		if (window.logistics_attach_packages_change_listener) {
@@ -210,6 +259,20 @@ frappe.ui.form.on('Sea Shipment', {
 				}
 			};
 		});
+		_sea_shipment_set_query_shipping_line_cto(frm);
+	},
+
+	shipping_line: function(frm) {
+		frm.set_value("origin_cto", "");
+		frm.set_value("destination_cto", "");
+	},
+
+	origin_port: function(frm) {
+		frm.set_value("origin_cto", "");
+	},
+
+	destination_port: function(frm) {
+		frm.set_value("destination_cto", "");
 	},
 
 	override_volume_weight: function(frm) {
@@ -256,7 +319,12 @@ frappe.ui.form.on('Sea Shipment', {
 		});
 	},
 
+	master_bill: function(frm) {
+		_apply_master_bill_virtuals(frm);
+	},
+
 	company: function(frm) {
+		frm._milestone_tracking_enabled = undefined;
 		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
 			window.logistics_apply_sea_freight_settings_accounting_defaults(frm);
 		}
@@ -784,6 +852,15 @@ frappe.ui.form.on('Sea Freight Containers', {
 		_refresh_packing_summary_debounced(frm);
 	},
 	type: function(frm) {
+		_refresh_packing_summary_debounced(frm);
+	},
+	packages_in_container: function(frm) {
+		_refresh_packing_summary_debounced(frm);
+	},
+	weight_in_container: function(frm) {
+		_refresh_packing_summary_debounced(frm);
+	},
+	volume_in_container: function(frm) {
 		_refresh_packing_summary_debounced(frm);
 	}
 });

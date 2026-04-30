@@ -37,7 +37,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-17 14:18:06.029232",
+ "modified": "2026-04-28 12:04:55.645934",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Exporter Category",
@@ -58,6 +58,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "description",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

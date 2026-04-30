@@ -49,6 +49,9 @@ class RateCalculationEngine:
             "Trip": "trip",
             "TEU": "teu",
             "Container": "cnt",
+            "Shipment": "shipment",
+            "Item Count": "items",
+            "Handling Unit": "hu",
             "Operation Time": "hrs",
             "Day": "day",
         }
@@ -58,6 +61,7 @@ class RateCalculationEngine:
         rate_data: Dict,
         actual_quantity: float = 0,
         actual_weight: float = 0,
+        actual_chargeable_weight: float = 0,
         actual_volume: float = 0,
         actual_distance: float = 0,
         actual_pieces: float = 0,
@@ -106,6 +110,7 @@ class RateCalculationEngine:
                 rate_data=rate_data,
                 actual_quantity=actual_quantity,
                 actual_weight=actual_weight,
+                actual_chargeable_weight=actual_chargeable_weight,
                 actual_volume=actual_volume,
                 actual_distance=actual_distance,
                 actual_pieces=actual_pieces,
@@ -179,10 +184,18 @@ class RateCalculationEngine:
         **kwargs,
     ) -> float:
         """Get quantity based on unit type."""
+        ac_items = kwargs.get("actual_item_count")
+        ah_units = kwargs.get("actual_handling_units")
+        trips = kwargs.get("actual_trips")
+        days = kwargs.get("actual_days")
+
         if unit_type == "Weight":
             return actual_weight
         elif unit_type == "Chargeable Weight":
-            return flt(actual_chargeable_weight or kwargs.get("actual_chargeable_weight", 0))
+            cw = flt(actual_chargeable_weight or kwargs.get("actual_chargeable_weight", 0))
+            if cw > 0:
+                return cw
+            return flt(actual_weight or 0)
         elif unit_type == "Volume":
             return actual_volume
         elif unit_type == "Distance":
@@ -195,6 +208,23 @@ class RateCalculationEngine:
             return flt(actual_containers or kwargs.get("actual_containers", 0))
         elif unit_type == "Operation Time":
             return actual_operation_time
+        elif unit_type == "Day":
+            d = flt(days or 0)
+            if d > 0:
+                return d
+            return flt(actual_operation_time or 0) or 1.0
+        elif unit_type == "Item Count":
+            return flt(ac_items or 0)
+        elif unit_type == "Handling Unit":
+            hu = flt(ah_units or 0)
+            return hu if hu > 0 else 1.0
+        elif unit_type == "Job":
+            return 1.0
+        elif unit_type == "Trip":
+            t = flt(trips or 0)
+            return t if t > 0 else 1.0
+        elif unit_type == "Shipment":
+            return 1.0
         else:
             return actual_quantity
 
@@ -226,6 +256,7 @@ class RateCalculationEngine:
             actual_teu,
             actual_operation_time,
             actual_containers or kwargs.get("actual_containers", 0),
+            **kwargs,
         )
         return rate * quantity, quantity
 
@@ -250,6 +281,7 @@ class RateCalculationEngine:
         rate_data: Dict,
         actual_quantity: float = 0,
         actual_weight: float = 0,
+        actual_chargeable_weight: float = 0,
         actual_volume: float = 0,
         actual_distance: float = 0,
         actual_pieces: float = 0,
@@ -267,12 +299,14 @@ class RateCalculationEngine:
             unit_type,
             actual_quantity,
             actual_weight,
+            actual_chargeable_weight,
             actual_volume,
             actual_distance,
             actual_pieces,
             actual_teu,
             actual_operation_time,
             actual_containers or kwargs.get("actual_containers", 0),
+            **kwargs,
         )
         additional_quantity = max(0, total_quantity - base_quantity)
         additional_amount = rate * additional_quantity
@@ -283,6 +317,7 @@ class RateCalculationEngine:
         rate_data: Dict,
         actual_quantity: float = 0,
         actual_weight: float = 0,
+        actual_chargeable_weight: float = 0,
         actual_volume: float = 0,
         actual_distance: float = 0,
         actual_pieces: float = 0,
@@ -300,12 +335,14 @@ class RateCalculationEngine:
             unit_type,
             actual_quantity,
             actual_weight,
+            actual_chargeable_weight,
             actual_volume,
             actual_distance,
             actual_pieces,
             actual_teu,
             actual_operation_time,
             actual_containers or kwargs.get("actual_containers", 0),
+            **kwargs,
         )
 
         if actual_qty <= minimum_quantity:

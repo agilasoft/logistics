@@ -1,13 +1,37 @@
 // Copyright (c) 2026, Agilasoft and contributors
 // For license information, please see license.txt
 
-const SERVICE_TYPE_ITEM_FIELD_MAP = {
-	Air: "custom_air_forwarding_charge",
-	Sea: "custom_sea_forwarding_charge",
-	Transport: "custom_land_transport_charge",
-	Customs: "custom_customs_charge",
-	Warehousing: "custom_warehousing_charge",
-};
+/** Canonical charge-line service_type (aligned with Sales Quote Charge / Load Type modules). */
+function cr_canonical_charge_service_type(st) {
+	const raw = (st && String(st).trim()) || "";
+	if (!raw) return "";
+	const byTitle = {
+		Air: "air",
+		Sea: "sea",
+		Transport: "transport",
+		Customs: "custom",
+		custom: "custom",
+		customs: "custom",
+		Warehousing: "warehousing",
+	};
+	if (byTitle[raw] !== undefined) return byTitle[raw];
+	const low = raw.toLowerCase();
+	if (low === "customs") return "custom";
+	if (["air", "sea", "transport", "warehousing"].includes(low)) return low;
+	return low;
+}
+
+function cr_item_charge_field_for_service_type(st) {
+	const c = cr_canonical_charge_service_type(st);
+	const m = {
+		air: "custom_air_forwarding_charge",
+		sea: "custom_sea_forwarding_charge",
+		transport: "custom_land_transport_charge",
+		custom: "custom_customs_charge",
+		warehousing: "custom_warehousing_charge",
+	};
+	return m[c] || null;
+}
 
 function _load_cr_allowed_vehicle_types(frm, load_type, callback) {
 	if (!load_type) {
@@ -42,12 +66,14 @@ frappe.ui.form.on("Change Request Charge", {
 			frappe.model.set_value(cdt, cdn, "item_name", "");
 		}
 		if (row.service_type) {
-			const item_field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+			const item_field = cr_item_charge_field_for_service_type(row.service_type);
 			if (item_field) {
-				frm.set_query("item_code", "charges", function () {
-					return {
-						filters: { disabled: 0, [item_field]: 1 },
-					};
+				frm.set_query("item_code", "charges", function (doc, cdt, cdn) {
+					const r = locals[cdt] && locals[cdt][cdn];
+					const field = r && cr_item_charge_field_for_service_type(r.service_type);
+					if (field) {
+						return { filters: { disabled: 0, [field]: 1 } };
+					}
 				});
 			}
 		}
@@ -57,12 +83,14 @@ frappe.ui.form.on("Change Request Charge", {
 	item_code: function (frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
 		if (row.service_type) {
-			const item_field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+			const item_field = cr_item_charge_field_for_service_type(row.service_type);
 			if (item_field) {
-				frm.set_query("item_code", "charges", function () {
-					return {
-						filters: { disabled: 0, [item_field]: 1 },
-					};
+				frm.set_query("item_code", "charges", function (doc, cdt, cdn) {
+					const r = locals[cdt] && locals[cdt][cdn];
+					const field = r && cr_item_charge_field_for_service_type(r.service_type);
+					if (field) {
+						return { filters: { disabled: 0, [field]: 1 } };
+					}
 				});
 			}
 		}
@@ -78,7 +106,7 @@ frappe.ui.form.on("Change Request Charge", {
 
 	load_type: function (frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
-		if (row.service_type !== "Transport" || !row.load_type) return;
+		if (cr_canonical_charge_service_type(row.service_type) !== "transport" || !row.load_type) return;
 		if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
 		const previous_vehicle_type = row.vehicle_type;
 		if (previous_vehicle_type) frappe.model.set_value(cdt, cdn, "vehicle_type", "");
@@ -177,12 +205,12 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 frappe.ui.form.on("Change Request", {
 	charges_add: function (frm, cdt, cdn) {
 		const job_to_service = {
-			"Transport Job": "Transport",
-			"Warehouse Job": "Warehousing",
-			"Air Shipment": "Air",
-			"Sea Shipment": "Sea",
-			Declaration: "Customs",
-			"Declaration Order": "Customs",
+			"Transport Job": "transport",
+			"Warehouse Job": "warehousing",
+			"Air Shipment": "air",
+			"Sea Shipment": "sea",
+			Declaration: "custom",
+			"Declaration Order": "custom",
 		};
 		const st = job_to_service[frm.doc.job_type];
 		if (st) {

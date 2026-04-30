@@ -67,6 +67,12 @@ Before configuring Sea Freight Settings, ensure the following are set up:
 - **Enable Customs Clearance Tracking** – Track customs clearance status
 - **Enable EDI Integration** – Enable EDI for shipping lines
 
+### 3.7 Container deposit (GL)
+
+- **Deposits Pending for Refund Request** – Balance sheet account debited on **Purchase Invoice** lines for container-deposit items (with Job Number / Container accounting dimensions when configured).
+- **Container Deposit Receivable Account** – Receivable (AR) account used on the **Request Deposit Refund** journal entry from **Container** (debit), with a credit to Deposits Pending for Refund Request.
+
+For **Sea Shipment** charge rows that use a container-deposit item, the **Deposit pending refund GL** column shows this pending-refund account for reconciliation. Align **Item Group** or **Item** purchase defaults with the same account where your chart of accounts requires it.
 
 <!-- wiki-field-reference:start -->
 

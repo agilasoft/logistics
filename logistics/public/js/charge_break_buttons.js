@@ -1,25 +1,24 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
-// Weight Break and Qty Break buttons for charge tables - shared by Air Booking Charges,
-// Air Shipment Charges, Sea Booking Charges, Sea Shipment Charges, Transport Order Charges,
-// Transport Job Charges, Declaration Charges, Declaration Order Charges
+// Weight Break / Qty Break: grid toolbar buttons + row buttons → dialogs.
+// Child tables are detected via LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS and meta (see charge_break_dialogs.js).
 
-var CHARGE_DOCTYPES_WITH_BREAKS = [
-	"Air Booking Charges",
-	"Air Shipment Charges",
-	"Sea Booking Charges",
-	"Sea Shipment Charges",
-	"Transport Order Charges",
-	"Transport Job Charges",
-	"Declaration Charges",
-	"Declaration Order Charges",
-];
+var CHARGE_DOCTYPES_WITH_BREAKS =
+	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS ||
+	[].concat(
+		["Sea Booking Charges", "Sea Shipment Charges", "Sea Consolidation Charges"],
+		["Air Booking Charges", "Air Shipment Charges"],
+		["Declaration Charges", "Declaration Order Charges"],
+		["Transport Order Charges", "Transport Job Charges"]
+	);
 
 var CHARGE_PARENT_DOCTYPES = [
 	"Air Booking",
 	"Air Shipment",
+	"Air Consolidation",
 	"Sea Booking",
 	"Sea Shipment",
+	"Sea Consolidation",
 	"Transport Order",
 	"Transport Job",
 	"Declaration",
@@ -29,39 +28,63 @@ var CHARGE_PARENT_DOCTYPES = [
 function _register_break_handlers(doctype) {
 	var handlers = {
 		selling_weight_break: function(frm, cdt, cdn) {
-			var row = (cdn && cdt) ? frappe.get_doc(cdt, cdn) : (frm && frm.selected_doc) ? frm.selected_doc : null;
-			if (!row) return;
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : null;
+			if (!row) {
+				return;
+			}
 			if (typeof window.open_weight_break_rate_dialog === "function") {
 				window.open_weight_break_rate_dialog(frm, row, "Selling");
 			} else {
-				frappe.msgprint({ title: __("Error"), message: __("Weight Break dialog is not loaded. Please refresh the page."), indicator: "red" });
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Weight break dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
 			}
 		},
 		cost_weight_break: function(frm, cdt, cdn) {
-			var row = (cdn && cdt) ? frappe.get_doc(cdt, cdn) : (frm && frm.selected_doc) ? frm.selected_doc : null;
-			if (!row) return;
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : null;
+			if (!row) {
+				return;
+			}
 			if (typeof window.open_weight_break_rate_dialog === "function") {
 				window.open_weight_break_rate_dialog(frm, row, "Cost");
 			} else {
-				frappe.msgprint({ title: __("Error"), message: __("Weight Break dialog is not loaded. Please refresh the page."), indicator: "red" });
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Weight break dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
 			}
 		},
 		selling_qty_break: function(frm, cdt, cdn) {
-			var row = (cdn && cdt) ? frappe.get_doc(cdt, cdn) : (frm && frm.selected_doc) ? frm.selected_doc : null;
-			if (!row) return;
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
+			if (!row) {
+				return;
+			}
 			if (typeof window.open_qty_break_rate_dialog === "function") {
 				window.open_qty_break_rate_dialog(frm, row, "Selling");
 			} else {
-				frappe.msgprint({ title: __("Error"), message: __("Qty Break dialog is not loaded. Please refresh the page."), indicator: "red" });
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Qty Break dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
 			}
 		},
 		cost_qty_break: function(frm, cdt, cdn) {
-			var row = (cdn && cdt) ? frappe.get_doc(cdt, cdn) : (frm && frm.selected_doc) ? frm.selected_doc : null;
-			if (!row) return;
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
+			if (!row) {
+				return;
+			}
 			if (typeof window.open_qty_break_rate_dialog === "function") {
 				window.open_qty_break_rate_dialog(frm, row, "Cost");
 			} else {
-				frappe.msgprint({ title: __("Error"), message: __("Qty Break dialog is not loaded. Please refresh the page."), indicator: "red" });
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Qty Break dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
 			}
 		},
 	};
@@ -76,45 +99,109 @@ CHARGE_PARENT_DOCTYPES.forEach(function(doctype) {
 	frappe.ui.form.on(doctype, {
 		refresh: function(frm) {
 			_add_break_buttons_to_charge_grid(frm);
-		}
+		},
 	});
 });
+
+/** Toolbar default: Selling dialogs unless the child table only defines cost-side break buttons (e.g. Sea Consolidation Charges). */
+function _weight_break_side_for_child_doctype(dt) {
+	if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+		return "Selling";
+	}
+	var m = frappe.meta.docfield_map[dt];
+	var sw = m.selling_weight_break && m.selling_weight_break.fieldtype === "Button";
+	var cw = m.cost_weight_break && m.cost_weight_break.fieldtype === "Button";
+	if (cw && !sw) {
+		return "Cost";
+	}
+	return "Selling";
+}
+
+function _qty_break_side_for_child_doctype(dt) {
+	if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+		return "Selling";
+	}
+	var m = frappe.meta.docfield_map[dt];
+	var sq = m.selling_qty_break && m.selling_qty_break.fieldtype === "Button";
+	var cq = m.cost_qty_break && m.cost_qty_break.fieldtype === "Button";
+	if (cq && !sq) {
+		return "Cost";
+	}
+	return "Selling";
+}
+
+function _grid_is_logistics_charge_breaks_table(grid) {
+	if (!grid || !grid.doctype) {
+		return false;
+	}
+	var dt = grid.doctype;
+	if (CHARGE_DOCTYPES_WITH_BREAKS.indexOf(dt) !== -1) {
+		return true;
+	}
+	if (
+		window.logistics_charge_child_doctype_has_weight_break_buttons &&
+		window.logistics_charge_child_doctype_has_weight_break_buttons(dt)
+	) {
+		return true;
+	}
+	if (
+		window.logistics_charge_child_doctype_has_qty_break_buttons &&
+		window.logistics_charge_child_doctype_has_qty_break_buttons(dt)
+	) {
+		return true;
+	}
+	return false;
+}
 
 function _add_break_buttons_to_charge_grid(frm) {
 	var charge_fields = [];
 	for (var fn in frm.fields_dict) {
 		var grid = frm.fields_dict[fn] && frm.fields_dict[fn].grid;
-		if (grid && grid.doctype && CHARGE_DOCTYPES_WITH_BREAKS.indexOf(grid.doctype) !== -1) {
+		if (_grid_is_logistics_charge_breaks_table(grid)) {
 			charge_fields.push({ fieldname: fn, grid: grid });
 		}
 	}
 	charge_fields.forEach(function(item) {
 		var grid = item.grid;
 		var $custom = grid.wrapper.find(".grid-custom-buttons");
-		if (!$custom.length) return;
+		if (!$custom.length) {
+			return;
+		}
 		var $wb = $custom.find(".btn-weight-break-mgr");
 		var $qb = $custom.find(".btn-qty-break-mgr");
-		if ($wb.length && $qb.length) return;
+		if ($wb.length && $qb.length) {
+			return;
+		}
 		if (!$wb.length) {
-			$wb = $('<button type="button" class="btn btn-xs btn-default btn-weight-break-mgr">' + __("Manage Weight Breaks") + '</button>');
+			$wb = $('<button type="button" class="btn btn-xs btn-default btn-weight-break-mgr">' + __("Manage Weight Breaks") + "</button>");
 			$wb.on("click", function() {
 				var row = _get_selected_charge_row(frm, item.fieldname);
 				if (row) {
-					window.open_weight_break_rate_dialog && window.open_weight_break_rate_dialog(frm, row, "Selling");
+					var wbSide = _weight_break_side_for_child_doctype(grid.doctype);
+					window.open_weight_break_rate_dialog && window.open_weight_break_rate_dialog(frm, row, wbSide);
 				} else {
-					frappe.msgprint({ title: __("Select Row"), message: __("Please select a charge row first (click on the row)."), indicator: "orange" });
+					frappe.msgprint({
+						title: __("Select Row"),
+						message: __("Please select a charge row first (click on the row)."),
+						indicator: "orange",
+					});
 				}
 			});
 			$custom.append($wb);
 		}
 		if (!$qb.length) {
-			$qb = $('<button type="button" class="btn btn-xs btn-default btn-qty-break-mgr">' + __("Manage Qty Breaks") + '</button>');
+			$qb = $('<button type="button" class="btn btn-xs btn-default btn-qty-break-mgr">' + __("Manage Qty Breaks") + "</button>");
 			$qb.on("click", function() {
 				var row = _get_selected_charge_row(frm, item.fieldname);
 				if (row) {
-					window.open_qty_break_rate_dialog && window.open_qty_break_rate_dialog(frm, row, "Selling");
+					var qbSide = _qty_break_side_for_child_doctype(grid.doctype);
+					window.open_qty_break_rate_dialog && window.open_qty_break_rate_dialog(frm, row, qbSide);
 				} else {
-					frappe.msgprint({ title: __("Select Row"), message: __("Please select a charge row first (click on the row)."), indicator: "orange" });
+					frappe.msgprint({
+						title: __("Select Row"),
+						message: __("Please select a charge row first (click on the row)."),
+						indicator: "orange",
+					});
 				}
 			});
 			$custom.append($qb);
@@ -124,13 +211,23 @@ function _add_break_buttons_to_charge_grid(frm) {
 
 function _get_selected_charge_row(frm, fieldname) {
 	var grid = frm.fields_dict[fieldname] && frm.fields_dict[fieldname].grid;
-	if (!grid) return null;
+	if (!grid) {
+		return null;
+	}
 	var selected = grid.get_selected_children && grid.get_selected_children();
-	if (selected && selected.length) return selected[0];
+	if (selected && selected.length) {
+		return selected[0];
+	}
 	var open_row = $(".grid-row-open").data("grid_row");
-	if (open_row && open_row.doc) return open_row.doc;
-	if (frm.selected_doc) return frm.selected_doc;
+	if (open_row && open_row.doc) {
+		return open_row.doc;
+	}
+	if (frm.selected_doc) {
+		return frm.selected_doc;
+	}
 	var rows = grid.grid_rows || [];
-	if (rows.length) return rows[0].doc;
+	if (rows.length) {
+		return rows[0].doc;
+	}
 	return null;
 }

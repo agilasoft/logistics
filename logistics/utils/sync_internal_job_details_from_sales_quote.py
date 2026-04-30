@@ -9,6 +9,7 @@ from typing import Any
 
 import frappe
 
+from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 from logistics.utils.internal_job_detail_copy import internal_job_detail_row_as_dict
 from logistics.utils.sales_quote_charge_parameters import extract_sales_quote_charge_parameters
 
@@ -20,9 +21,8 @@ _SERVICE_SPECS: tuple[tuple[str, str], ...] = (
 
 
 def _first_charge_for_service(sales_quote_doc: Any, service_label: str):
-	st_want = (service_label or "").strip()
 	for row in getattr(sales_quote_doc, "charges", None) or []:
-		if (getattr(row, "service_type", None) or "").strip() == st_want:
+		if sales_quote_charge_service_types_equal(getattr(row, "service_type", None), service_label):
 			return row
 	return None
 

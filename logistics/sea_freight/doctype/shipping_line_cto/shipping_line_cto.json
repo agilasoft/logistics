@@ -23,8 +23,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Sea CTO",
-   "options": "Cargo Terminal Operator",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]"
+   "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "direction",

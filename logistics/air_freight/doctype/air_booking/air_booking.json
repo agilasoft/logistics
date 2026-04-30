@@ -102,6 +102,8 @@
   "customer_service_rep",
   "section_break_charges_table",
   "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
   "quote_reference_section",
   "is_main_service",
   "sales_quote",
@@ -196,8 +198,7 @@
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Booking Date",
-   "reqd": 1
+   "label": "Booking Date"
   },
   {
    "fieldname": "sales_quote",
@@ -231,16 +232,18 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -255,6 +258,7 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
   },
   {
@@ -268,8 +272,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport\nDomestic",
-   "reqd": 1
+   "options": "Import\nExport\nDomestic"
   },
   {
    "fieldname": "column_break_basic",
@@ -287,8 +290,7 @@
    "fieldtype": "Link",
    "label": "Local Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
-   "options": "Customer",
-   "reqd": 1
+   "options": "Customer"
   },
   {
    "fieldname": "freight_agent",
@@ -480,7 +482,7 @@
   },
   {
    "default": "IATA",
-   "description": "IATA: Uses standard 6000 divisor (167 kg/m\u00b3). Custom: Uses airline-specific divisor or override.",
+   "description": "IATA: volumetric 1 kg per 6000 cm\u00b3 (1000/6 kg/m\u00b3). Custom: airline-specific divisor or override.",
    "fieldname": "volume_to_weight_factor_type",
    "fieldtype": "Select",
    "label": "Volume to Weight Factor Type",
@@ -748,6 +750,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {
@@ -789,6 +792,20 @@
    "label": "Charges",
    "no_copy": 1,
    "options": "Air Booking Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
   },
   {
    "fieldname": "documents_tab",

@@ -221,17 +221,20 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "dg_compliance_status",
    "fieldtype": "Data",
    "label": "DG Compliance Status",
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "column_break_4",
    "fieldtype": "Column Break"
   },
   {
    "default": "0",
+   "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "dg_declaration_complete",
    "fieldtype": "Check",
    "label": "DG Declaration Complete",

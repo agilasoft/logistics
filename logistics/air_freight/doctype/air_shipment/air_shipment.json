@@ -116,11 +116,11 @@
   "sales_rep",
   "operations_rep",
   "customer_service_rep",
-  "section_break_vztz",
-  "section_break_billing",
+  "section_break_igjn",
   "billing_status",
-  "column_break_billing",
   "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
@@ -596,6 +596,7 @@
   {
    "fieldname": "house_awb_no",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "House AWB Number"
   },
   {
@@ -842,16 +843,18 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "fieldname": "quote_reference_section",
@@ -874,13 +877,8 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_billing",
-   "fieldtype": "Section Break",
-   "label": "Billing"
   },
   {
    "default": "Not Billed",
@@ -891,14 +889,24 @@
    "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
   },
   {
-   "fieldname": "column_break_billing",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
    "options": "Air Shipment Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
   },
   {
    "fieldname": "documents_tab",
@@ -1030,6 +1038,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {
@@ -1377,10 +1386,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "section_break_vztz",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "label": "Transport Mode",
@@ -1393,6 +1398,10 @@
    "label": "Load Type",
    "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"air\",\"=\",1]]",
    "options": "Load Type"
+  },
+  {
+   "fieldname": "section_break_igjn",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -1410,7 +1419,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-15 16:58:32.563828",
+ "modified": "2026-04-24 15:17:55.640939",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

@@ -57,15 +57,15 @@ def get_data(filters):
 		WHERE docstatus = 1 {conditions}
 	""".format(conditions=conditions), filters, as_dict=1)[0].count
 	
-	# On-Time Performance (based on ETA vs actual arrival)
+	# On-Time Performance (based on ETA vs ATA)
 	on_time_data = frappe.db.sql("""
 		SELECT
 			COUNT(*) as total,
-			SUM(CASE WHEN eta IS NOT NULL AND actual_arrival IS NOT NULL 
-				AND TIMESTAMPDIFF(DAY, eta, actual_arrival) <= 0 THEN 1 ELSE 0 END) as on_time
+			SUM(CASE WHEN eta IS NOT NULL AND ata IS NOT NULL
+				AND TIMESTAMPDIFF(DAY, eta, ata) <= 0 THEN 1 ELSE 0 END) as on_time
 		FROM `tabSea Shipment`
 		WHERE docstatus = 1 {conditions}
-		AND eta IS NOT NULL AND actual_arrival IS NOT NULL
+		AND eta IS NOT NULL AND ata IS NOT NULL
 	""".format(conditions=conditions), filters, as_dict=1)[0]
 	
 	on_time_percentage = (on_time_data.on_time / on_time_data.total * 100) if on_time_data.total > 0 else 0

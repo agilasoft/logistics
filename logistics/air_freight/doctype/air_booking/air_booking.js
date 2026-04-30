@@ -52,6 +52,94 @@ function _warn_if_missing_service_charges(frm, service_type) {
 	}
 }
 
+/**
+ * Apply header totals from aggregate_volume_from_packages_api without marking the form dirty.
+ * Avoids toolbar primary-action rebuild (Submit/Save flicker) during async package sync.
+ * Skips while a document save/submit request is in flight.
+ */
+function _air_booking_apply_aggregate_to_header(frm, message) {
+	if (!frm || !frm.doc || !message || frappe.ui.form.is_saving) {
+		return;
+	}
+	if (message.total_volume !== undefined) {
+		frm.set_value('volume', message.total_volume, false, true);
+		frm.set_value('total_volume', message.total_volume, false, true);
+	}
+	if (message.total_weight !== undefined) {
+		frm.set_value('weight', message.total_weight, false, true);
+		frm.set_value('total_weight', message.total_weight, false, true);
+	}
+	if (message.chargeable !== undefined) {
+		frm.set_value('chargeable', message.chargeable, false, true);
+	}
+}
+
+/** Recalculate every charges grid row (estimated revenue/cost, quantities) using current booking context. */
+function _recalculate_air_booking_charge_rows(frm, done) {
+	var charges = frm.doc.charges || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Air Booking Charges",
+				parenttype: "Air Booking",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides:
+					window.logistics && logistics.charge_row_parent_overrides
+						? logistics.charge_row_parent_overrides(frm)
+						: null,
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && row.name) {
+					if (r.message.estimated_revenue != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "estimated_revenue", r.message.estimated_revenue);
+					}
+					if (r.message.estimated_cost != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "estimated_cost", r.message.estimated_cost);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value("Air Booking Charges", row.name, "cost_quantity", r.message.cost_quantity);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value("Air Booking Charges", row.name, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value("Air Booking Charges", row.name, "cost_calc_notes", r.message.cost_calc_notes || "");
+					}
+					if (window.logistics && logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Air Booking Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function() {
+				run_next();
+			},
+		});
+	}
+	run_next();
+}
+
 function _apply_air_booking_settings_defaults(frm, force_reload) {
 	if (!frm.is_new() && !frm.doc.__islocal) return;
 	if (frm._applying_air_booking_defaults) return;
@@ -573,15 +661,7 @@ frappe.ui.form.on('Air Booking', {
 				freeze: false,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
-						if (r.message.total_volume !== undefined) {
-							frm.set_value('volume', r.message.total_volume);
-							frm.set_value('total_volume', r.message.total_volume);
-						}
-						if (r.message.total_weight !== undefined) {
-							frm.set_value('weight', r.message.total_weight);
-							frm.set_value('total_weight', r.message.total_weight);
-						}
-						if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+						_air_booking_apply_aggregate_to_header(frm, r.message);
 					}
 				}
 			});
@@ -616,7 +696,24 @@ frappe.ui.form.on('Air Booking', {
 		// Defer HTML field loading so the new doc is visible on the server (avoids "Air Booking ... not found")
 		var docname = frm.doc.name;
 		var isNew = !docname || frm.doc.__islocal;
-		if (isNew) return;
+		if (isNew) {
+			// Clear virtual HTML fields: the form is often reused, so a previous saved booking can leave
+			// loaded dashboard/documents/milestone HTML in the DOM; we do not fetch until the doc is saved.
+			if (frm.fields_dict.dashboard_html) {
+				frm.fields_dict.dashboard_html.$wrapper.html(
+					'<div class="text-muted" style="padding: 1rem;">' +
+						__("Save this booking to load the dashboard.") +
+						"</div>"
+				);
+			}
+			if (frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.empty();
+			}
+			if (frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.empty();
+			}
+			return;
+		}
 
 		function load_html_fields() {
 			if (!frm || frm.doc.name !== docname || frm.doc.__islocal) return;
@@ -663,12 +760,22 @@ frappe.ui.form.on('Air Booking', {
 				args: { doc: frm.doc },
 				freeze: false,
 				callback: function(r) {
+					if (frappe.ui.form.is_saving) {
+						return;
+					}
 					if (r && !r.exc && r.message && Array.isArray(r.message)) {
 						r.message.forEach(function(item) {
 							if (item.name && item.volume !== undefined) {
 								var pkg = frm.doc.packages.find(function(p) { return p.name === item.name; });
 								if (pkg && parseFloat(pkg.volume || 0) !== parseFloat(item.volume || 0)) {
-									frappe.model.set_value('Air Booking Packages', item.name, 'volume', item.volume);
+									frappe.model.set_value(
+										'Air Booking Packages',
+										item.name,
+										'volume',
+										item.volume,
+										undefined,
+										true
+									);
 									if (frm.fields_dict.packages && frm.fields_dict.packages.grid && frm.fields_dict.packages.grid.grid_rows_by_docname && frm.fields_dict.packages.grid.grid_rows_by_docname[item.name]) {
 										frm.fields_dict.packages.grid.grid_rows_by_docname[item.name].refresh_field('volume');
 									}
@@ -682,9 +789,7 @@ frappe.ui.form.on('Air Booking', {
 							freeze: false,
 							callback: function(agg) {
 								if (agg && !agg.exc && agg.message) {
-									if (agg.message.total_volume !== undefined) frm.set_value('volume', agg.message.total_volume);
-									if (agg.message.total_weight !== undefined) frm.set_value('total_weight', agg.message.total_weight);
-									if (agg.message.chargeable !== undefined) frm.set_value('chargeable', agg.message.chargeable);
+									_air_booking_apply_aggregate_to_header(frm, agg.message);
 								}
 							}
 						});
@@ -806,34 +911,6 @@ frappe.ui.form.on('Air Booking', {
 						}, __('Create'));
 					}
 				});
-			}, 100);
-		}
-
-		// Create > Internal Job (from internal_job_details; same behaviour as Air Shipment)
-		if (frm.doc.name && !frm.doc.__islocal) {
-			setTimeout(function() {
-				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
-					frm.add_custom_button(__('Internal Job'), function() {
-						function _openInternalJobDlg() {
-							if (window.logistics_show_create_internal_job_dialog) {
-								window.logistics_show_create_internal_job_dialog(frm);
-							} else {
-								frappe.msgprint({
-									title: __('Not available'),
-									message: __(
-										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-									),
-									indicator: 'red',
-								});
-							}
-						}
-						if (window.logistics_show_create_internal_job_dialog) {
-							_openInternalJobDlg();
-						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
-						}
-					}, __('Create'));
-				}
 			}, 100);
 		}
 	}
@@ -1002,19 +1079,21 @@ function _populate_charges_from_quote(frm) {
 						});
 					});
 					frm.refresh_field('charges');
-					if (r.message.charges_count > 0) {
-						var message = success_message_template;
-						if (quote_type === 'One-Off Quote') {
-							message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
-						} else {
-							message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+					_recalculate_air_booking_charge_rows(frm, function() {
+						if (r.message.charges_count > 0) {
+							var message = success_message_template;
+							if (quote_type === 'One-Off Quote') {
+								message = __("Successfully populated {0} charges from One-Off Quote: {1}", [r.message.charges_count, target_quote]);
+							} else {
+								message = __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, target_quote]);
+							}
+							frappe.msgprint({
+								title: __("Charges Updated"),
+								message: message,
+								indicator: 'green'
+							});
 						}
-						frappe.msgprint({
-							title: __("Charges Updated"),
-							message: message,
-							indicator: 'green'
-						});
-					}
+					});
 				} else {
 					frm.clear_table('charges');
 					frm.refresh_field('charges');
@@ -1095,6 +1174,9 @@ function _air_booking_debounced_aggregate_packages(frm) {
 	frm._packages_aggregate_timer = setTimeout(function() {
 		frm._packages_aggregate_timer = null;
 		if (frm.is_new() || frm.doc.__islocal) return;
+		if (frappe.ui.form.is_saving) {
+			return;
+		}
 		// Use frappe.call with freeze: false so dimension edits never show freeze-message-container
 		frappe.call({
 			method: 'logistics.air_freight.doctype.air_booking.air_booking.aggregate_volume_from_packages_api',
@@ -1102,15 +1184,7 @@ function _air_booking_debounced_aggregate_packages(frm) {
 			freeze: false,
 			callback: function(r) {
 				if (r && !r.exc && r.message && frm.doc) {
-					if (r.message.total_volume !== undefined) {
-						frm.set_value('volume', r.message.total_volume);
-						frm.set_value('total_volume', r.message.total_volume);
-					}
-					if (r.message.total_weight !== undefined) {
-						frm.set_value('weight', r.message.total_weight);
-						frm.set_value('total_weight', r.message.total_weight);
-					}
-					if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+					_air_booking_apply_aggregate_to_header(frm, r.message);
 				}
 			}
 		});

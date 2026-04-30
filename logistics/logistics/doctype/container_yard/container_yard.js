@@ -15,11 +15,10 @@ frappe.ui.form.on('Container Yard', {
 
     // Primary Address query → only addresses linked to this Container Yard
     frm.set_query('containeryard_primary_address', function (doc) {
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
       return {
-        filters: {
-          link_doctype: 'Container Yard',
-          link_name: doc.name
-        },
+        query: 'frappe.contacts.doctype.address.address.address_query',
+        filters: { link_doctype: 'Container Yard', link_name: doc.name },
       };
     });
   },

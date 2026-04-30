@@ -162,6 +162,10 @@ This project is licensed under the MIT License - see the [LICENSE](license.txt) 
 
 For support, email info@agilasoft.com or visit [www.agilasoft.com](https://www.agilasoft.com)
 
+## Release notes
+
+- **[CargoNext v1 — Astraea](logistics/wiki_content/release_notes_v1.md)** — scope, highlights, upgrade notes
+
 ## Repository
 
 - **Homepage**: https://github.com/agilasoft/logistics

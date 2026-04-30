@@ -40,5 +40,6 @@
  "ref_doctype": "Sea Consolidation",
  "report_name": "Sea Consolidation Port Pair Concentration",
  "report_type": "Script Report",
- "timeout": 0
+ "timeout": 0,
+ "json": "{}"
 }

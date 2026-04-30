@@ -69,7 +69,39 @@ RUN_SHEET_LAYOUT_CSS = """
 .header-item label { font-size: 10px; color: #6c757d; font-weight: 600; }
 .header-item span { font-size: 11px; color: #2c3e50; font-weight: 500; }
 .route-container { display: flex; gap: 20px; margin: 20px 0; align-items: flex-start; }
-.cards-sidebar { flex: 1; max-width: 320px; }
+.cards-sidebar { flex: 1; max-width: 320px; min-width: 0; }
+/* Collapsible milestone/leg column (details/summary — no JS, always shows a control) */
+.run-sheet-cards-panel { margin: 0; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; overflow: hidden; }
+.run-sheet-cards-panel-summary {
+	list-style: none;
+	cursor: pointer;
+	user-select: none;
+	padding: 10px 12px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #333;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: #f8f9fa;
+	border-bottom: 1px solid #e9ecef;
+}
+.run-sheet-cards-panel-summary::-webkit-details-marker { display: none; }
+.run-sheet-cards-panel-summary::before {
+	content: "";
+	display: inline-block;
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 6px solid #6c757d;
+	transition: transform 0.2s ease;
+	flex-shrink: 0;
+}
+.run-sheet-cards-panel[open] > .run-sheet-cards-panel-summary::before { transform: rotate(180deg); }
+.run-sheet-cards-panel .card-list { padding: 8px; }
+.run-sheet-cards-panel:not([open]) > .run-sheet-cards-panel-summary { border-bottom: none; }
+.cards-sidebar:has(.run-sheet-cards-panel:not([open])) { flex: 0 0 auto; max-width: 100%; }
 .map-main { flex: 2; align-self: flex-start; position: relative; z-index: 1; }
 .map-box { width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; }
 .map-view { width: 100%; height: 100%; }
@@ -145,7 +177,8 @@ RUN_SHEET_LAYOUT_CSS = """
 .dash-alert-group.dash-alert-group-warning .dash-alert-group-header { background: #fff3cd; color: #856404; }
 .dash-alert-group.dash-alert-group-info .dash-alert-group-header { background: #d1ecf1; color: #0c5460; }
 .dash-alert-group-chevron { font-size: 10px; transition: transform 0.2s ease; }
-.dash-alert-group-body { padding: 6px 12px 12px; }
+.run-sheet-dash .dash-alert-group-body,
+.dash-alert-group-body { padding: 6px 12px 12px; min-height: 0; max-height: 300px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .dash-alert-group.collapsed .dash-alert-group-body { display: none; }
 /* Dangerous Goods under origin/destination: green = compliant, red = non-compliant */
 .dg-alert-compliant { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -589,7 +622,12 @@ def build_run_sheet_style_dashboard(
 		route_container = f"""
 		<div class="route-container">
 			<div class="cards-sidebar">
-				<div class="card-list">{cards_html or '<div class="text-muted">No milestones or legs</div>'}</div>
+				<details class="run-sheet-cards-panel" open>
+					<summary class="run-sheet-cards-panel-summary">
+						<span class="run-sheet-cards-panel-title">Milestones &amp; legs</span>
+					</summary>
+					<div class="card-list">{cards_html or '<div class="text-muted">No milestones or legs</div>'}</div>
+				</details>
 			</div>
 			{map_section}
 		</div>

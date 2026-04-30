@@ -79,7 +79,7 @@
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Transport Weight\nTransport Volume\nFixed Amount\nFlat Rate\nPer Package\nPer Unit\nPer Piece\nPackage Count\nValue Range\nValue Band\nPercentage of Value\nMinimum Charge\nMaximum Charge\nPercentage\nFreight Inclusive\nAll Inclusive",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
    "reqd": 1
   },
   {

@@ -86,6 +86,7 @@ class TransportConsolidationJob(Document):
 			from logistics.utils.measurements import (
 				convert_weight, convert_volume, calculate_volume_from_dimensions,
 				get_default_uoms, get_aggregation_volume_uom,
+				get_package_line_volume_multiplier,
 			)
 			
 			# UOMs from Logistics Settings: aggregation volume = base or default; weight = default
@@ -130,6 +131,7 @@ class TransportConsolidationJob(Document):
 							volume_uom=volume_uom,
 							company=company
 						)
+						pkg_volume *= get_package_line_volume_multiplier(pkg)
 						total_volume += pkg_volume
 			
 			# Set calculated values (sum of all packages)
@@ -208,6 +210,7 @@ def calculate_weight_volume_from_job(transport_job: str, company: str = None) ->
 		from logistics.utils.measurements import (
 			convert_weight, convert_volume, calculate_volume_from_dimensions,
 			get_default_uoms, get_aggregation_volume_uom,
+			get_package_line_volume_multiplier,
 		)
 		
 		# UOMs from Logistics Settings: aggregation volume = base or default; weight = default
@@ -252,6 +255,7 @@ def calculate_weight_volume_from_job(transport_job: str, company: str = None) ->
 						volume_uom=volume_uom,
 						company=company
 					)
+					pkg_volume *= get_package_line_volume_multiplier(pkg)
 					total_volume += pkg_volume
 		
 		return {

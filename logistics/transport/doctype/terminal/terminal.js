@@ -18,11 +18,10 @@ frappe.ui.form.on('Terminal', {
 
     // Primary Address query → only addresses linked to this Terminal
     frm.set_query('terminal_primary_address', function (doc) {
+      if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
       return {
-        filters: {
-          link_doctype: 'Terminal',
-          link_name: doc.name
-        },
+        query: 'frappe.contacts.doctype.address.address.address_query',
+        filters: { link_doctype: 'Terminal', link_name: doc.name },
       };
     });
   },

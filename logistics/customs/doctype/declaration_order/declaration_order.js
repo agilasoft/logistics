@@ -81,6 +81,71 @@ function _load_milestone_html(frm) {
 	});
 }
 
+function _recalculate_declaration_order_charge_rows(frm, done) {
+	var charges = frm.doc.charges || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Declaration Order Charges",
+				parenttype: "Declaration Order",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides:
+					window.logistics && logistics.charge_row_parent_overrides
+						? logistics.charge_row_parent_overrides(frm)
+						: null,
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && row.name) {
+					if (r.message.estimated_revenue != null) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "estimated_revenue", r.message.estimated_revenue);
+					}
+					if (r.message.estimated_cost != null) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "estimated_cost", r.message.estimated_cost);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "cost_quantity", r.message.cost_quantity);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "cost_calc_notes", r.message.cost_calc_notes || "");
+					}
+					if (window.logistics && logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Declaration Order Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function() {
+				run_next();
+			},
+		});
+	}
+	run_next();
+}
+
 function _populate_charges_from_sales_quote(frm) {
 	var sales_quote = frm.doc.sales_quote;
 	var docname = frm.is_new() ? null : frm.doc.name;
@@ -125,12 +190,14 @@ function _populate_charges_from_sales_quote(frm) {
 						});
 					});
 					frm.refresh_field("charges");
-					if (r.message.charges_count > 0) {
-						frappe.show_alert({
-							message: __("Populated {0} charges from Sales Quote", [r.message.charges_count]),
-							indicator: "green"
-						}, 3);
-					}
+					_recalculate_declaration_order_charge_rows(frm, function() {
+						if (r.message.charges_count > 0) {
+							frappe.show_alert({
+								message: __("Populated {0} charges from Sales Quote", [r.message.charges_count]),
+								indicator: "green"
+							}, 3);
+						}
+					});
 					_warn_if_missing_service_charges(frm, "Customs");
 				} else {
 					frm.clear_table("charges");
@@ -539,34 +606,6 @@ frappe.ui.form.on("Declaration Order", {
 						}, __("Create"));
 					}
 				});
-			}, 100);
-		}
-
-		// Create > Internal Job (from internal_job_details; same behaviour as Declaration)
-		if (frm.doc.name && !frm.doc.__islocal) {
-			setTimeout(function() {
-				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
-					frm.add_custom_button(__('Internal Job'), function() {
-						function _openInternalJobDlg() {
-							if (window.logistics_show_create_internal_job_dialog) {
-								window.logistics_show_create_internal_job_dialog(frm);
-							} else {
-								frappe.msgprint({
-									title: __('Not available'),
-									message: __(
-										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-									),
-									indicator: 'red',
-								});
-							}
-						}
-						if (window.logistics_show_create_internal_job_dialog) {
-							_openInternalJobDlg();
-						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
-						}
-					}, __('Create'));
-				}
 			}, 100);
 		}
 	},

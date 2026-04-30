@@ -103,9 +103,15 @@ frappe.ui.form.on("Transport Job Package", {
 		_trigger_parent_aggregation(frm, 100);
 	},
 	no_of_packs: function(frm, cdt, cdn) {
+		if (typeof logistics_calculate_volume_from_dimensions === 'function') {
+			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
+		}
 		_trigger_parent_aggregation(frm);
 	},
 	quantity: function(frm, cdt, cdn) {
+		if (typeof logistics_calculate_volume_from_dimensions === 'function') {
+			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
+		}
 		_trigger_parent_aggregation(frm);
 	}
 });

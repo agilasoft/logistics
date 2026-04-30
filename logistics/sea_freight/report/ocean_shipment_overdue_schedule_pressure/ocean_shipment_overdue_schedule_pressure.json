@@ -40,5 +40,6 @@
  "ref_doctype": "Sea Shipment",
  "report_name": "Ocean Shipment Overdue Schedule Pressure",
  "report_type": "Script Report",
- "timeout": 0
+ "timeout": 0,
+ "json": "{}"
 }

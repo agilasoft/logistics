@@ -19,25 +19,57 @@ function logistics_set_route_to_transport_order(docname) {
 	});
 }
 
-/** Maps service_type to Load Type checkbox fieldnames (see Load Type DocType). */
-const SERVICE_TYPE_LOAD_TYPE_FLAG = {
-	Air: "air",
-	Sea: "sea",
-	Transport: "transport",
-	Customs: "customs",
-	Warehousing: "warehousing",
-};
+/** Canonical charge-line service_type: air, sea, transport, custom, warehousing (aligned with Load Type module flags). */
+function logistics_canonical_charge_service_type(st) {
+	const raw = (st && String(st).trim()) || "";
+	if (!raw) return "";
+	const byTitle = {
+		Air: "air",
+		Sea: "sea",
+		Transport: "transport",
+		Customs: "custom",
+		custom: "custom",
+		customs: "custom",
+		Warehousing: "warehousing",
+	};
+	if (byTitle[raw] !== undefined) return byTitle[raw];
+	const low = raw.toLowerCase();
+	if (low === "customs") return "custom";
+	if (["air", "sea", "transport", "warehousing"].includes(low)) return low;
+	return low;
+}
+
+/** Load Type DocType checkbox field for service_type (custom → customs). */
+function logistics_load_type_flag_for_charge_service_type(st) {
+	const c = logistics_canonical_charge_service_type(st);
+	if (!c) return null;
+	if (c === "custom") return "customs";
+	return c;
+}
+
+/** Item checkbox used for charge line item_code filtering by module. */
+function logistics_item_charge_field_for_service_type(st) {
+	const c = logistics_canonical_charge_service_type(st);
+	const m = {
+		air: "custom_air_forwarding_charge",
+		sea: "custom_sea_forwarding_charge",
+		transport: "custom_land_transport_charge",
+		custom: "custom_customs_charge",
+		warehousing: "custom_warehousing_charge",
+	};
+	return m[c] || null;
+}
 
 /** Clear Load Type when it does not match the row/header service (stale e.g. air-only ULD on a Sea row). */
 function logistics_sanitize_sales_quote_load_types(frm) {
 	if (!frm.doc) return;
 	const names = new Set();
-	const headerFlag = SERVICE_TYPE_LOAD_TYPE_FLAG[frm.doc.main_service];
+	const headerFlag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 	if (frm.doc.quotation_type === "One-off" && frm.doc.load_type && headerFlag) {
 		names.add(frm.doc.load_type);
 	}
 	(frm.doc.charges || []).forEach((row) => {
-		const f = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
+		const f = logistics_load_type_flag_for_charge_service_type(row.service_type);
 		if (f && row.load_type) {
 			names.add(row.load_type);
 		}
@@ -57,7 +89,7 @@ function logistics_sanitize_sales_quote_load_types(frm) {
 				}
 			}
 			(frm.doc.charges || []).forEach((row) => {
-				const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
+				const flag = logistics_load_type_flag_for_charge_service_type(row.service_type);
 				if (!flag || !row.load_type) return;
 				const fl = flags[row.load_type];
 				if (!fl || !fl[flag]) {
@@ -120,7 +152,7 @@ frappe.ui.form.on("Sales Quote", {
 			setTimeout(() => logistics_sanitize_sales_quote_load_types(frm), 100);
 		}
 		// Preload vehicle types cache for load_types in Transport charges
-		const transport_charges = (frm.doc.charges || []).filter(c => c.service_type === "Transport");
+		const transport_charges = (frm.doc.charges || []).filter(c => logistics_canonical_charge_service_type(c.service_type) === "transport");
 		if (transport_charges.length) {
 			const load_types = [...new Set(transport_charges.map(r => r.load_type).filter(Boolean))];
 			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
@@ -306,7 +338,7 @@ frappe.ui.form.on("Sales Quote", {
 			}
 		}
 		if (frm.doc.quotation_type === "One-off" && frm.doc.load_type) {
-			const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[frm.doc.main_service];
+			const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 			if (flag) {
 				frappe.db.get_value("Load Type", frm.doc.load_type, flag, (r) => {
 					if (r && r[flag]) return;
@@ -342,7 +374,6 @@ frappe.ui.form.on("Sales Quote", {
 		// Delegated click handler for Weight/Qty Break buttons (bypasses form event system if needed)
 		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
 			const $ctrl = $(e.target).closest(
-				'[data-fieldname="selling_weight_break"], [data-fieldname="cost_weight_break"], ' +
 				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"]'
 			);
 			if (!$ctrl.length) return;
@@ -372,9 +403,7 @@ frappe.ui.form.on("Sales Quote", {
 			e.preventDefault();
 			e.stopPropagation();
 			const record_type = fieldname.indexOf("cost_") === 0 ? "Cost" : "Selling";
-			if (fieldname.indexOf("weight_break") !== -1 && typeof window.open_weight_break_rate_dialog === "function") {
-				window.open_weight_break_rate_dialog(frm, row_doc, record_type);
-			} else if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
+			if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
 				window.open_qty_break_rate_dialog(frm, row_doc, record_type);
 			} else {
 				frappe.msgprint({ title: __("Error"), message: __("Dialog not loaded. Please refresh the page."), indicator: "red" });
@@ -393,7 +422,7 @@ frappe.ui.form.on("Sales Quote", {
 			frm.events.apply_default_uoms_per_tab(frm);
 		}
 		// Preload vehicle types cache for load_types in Transport charges
-		const transport_charges = (frm.doc.charges || []).filter(c => c.service_type === "Transport");
+		const transport_charges = (frm.doc.charges || []).filter(c => logistics_canonical_charge_service_type(c.service_type) === "transport");
 		if (transport_charges.length) {
 			const load_types = [...new Set(transport_charges.map(r => r.load_type).filter(Boolean))];
 			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
@@ -411,11 +440,17 @@ frappe.ui.form.on("Sales Quote", {
 		});
 		
 		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items (unified or legacy)
-		const has_warehousing = (frm.doc.charges && frm.doc.charges.some(c => c.service_type === "Warehousing")) ||
+		const has_warehousing = (frm.doc.charges && frm.doc.charges.some(c => logistics_canonical_charge_service_type(c.service_type) === "warehousing")) ||
 			(frm.doc.warehousing && frm.doc.warehousing.length > 0);
 		const one_off_warehouse_ok =
 			frm.doc.quotation_type !== "One-off" || frm.doc.main_service === "Warehousing";
-		if (frm.doc.docstatus === 1 && has_warehousing && !frm.doc.__islocal && one_off_warehouse_ok) {
+		if (
+			frm.doc.docstatus === 1 &&
+			has_warehousing &&
+			!frm.doc.__islocal &&
+			one_off_warehouse_ok &&
+			!frm.doc.additional_charge
+		) {
 			frm.add_custom_button(__("Create Warehouse Contract"), function() {
 				create_warehouse_contract_from_sales_quote(frm);
 			}, __("Create"));
@@ -429,26 +464,18 @@ frappe.ui.form.on("Sales Quote", {
 					}, __("Action"));
 				}
 			});
-
-			// Inbound Order is not created directly from Sales Quote.
-			frm.add_custom_button(__("Inbound Order"), function() {
-				frappe.msgprint({
-					title: __("Create > Inbound Order"),
-					message: __("Inbound Order is created from Shipment/Job (Air Shipment, Sea Shipment, Transport Job, or Declaration), not directly from Sales Quote."),
-					indicator: "blue"
-				});
-			}, __("Create"));
 		}
 		
 		// Add custom button to create Declaration Order if quote is One-Off and submitted (unified or legacy)
-		const has_customs = (frm.doc.charges && frm.doc.charges.some(c => c.service_type === "Customs")) ||
+		const has_customs = (frm.doc.charges && frm.doc.charges.some(c => logistics_canonical_charge_service_type(c.service_type) === "custom")) ||
 			(frm.doc.customs && frm.doc.customs.length > 0);
 		if (
 			frm.doc.quotation_type === "One-off" &&
 			frm.doc.main_service === "Customs" &&
 			has_customs &&
 			!frm.doc.__islocal &&
-			frm.doc.docstatus === 1
+			frm.doc.docstatus === 1 &&
+			!frm.doc.additional_charge
 		) {
 			frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
 				if (!r || !r.name) {
@@ -635,7 +662,7 @@ frappe.ui.form.on("Sales Quote", {
 	
 	setup_load_type_query(frm) {
 		frm.set_query("load_type", function () {
-			const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[frm.doc.main_service];
+			const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 			const filters = { is_active: 1 };
 			if (flag) {
 				filters[flag] = 1;
@@ -647,7 +674,7 @@ frappe.ui.form.on("Sales Quote", {
 			if (!row || !row.service_type) {
 				row = (doc.charges || []).find((r) => r.name === cdn);
 			}
-			const flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row && row.service_type];
+			const flag = logistics_load_type_flag_for_charge_service_type(row && row.service_type);
 			const filters = { is_active: 1 };
 			if (flag) {
 				filters[flag] = 1;
@@ -661,7 +688,7 @@ frappe.ui.form.on("Sales Quote", {
 		if (frm.fields_dict.charges) {
 			frm.set_query("vehicle_type", "charges", function (doc, cdt, cdn) {
 				const row = frappe.get_doc(cdt, cdn);
-				if (row.service_type !== "Transport") return { filters: {} };
+				if (logistics_canonical_charge_service_type(row.service_type) !== "transport") return { filters: {} };
 				const load_type = row.load_type;
 				if (!load_type) return { filters: { is_active: 1 } };
 
@@ -1084,8 +1111,13 @@ function add_create_button(frm, config) {
 		create_function    // e.g., create_transport_order_from_sales_quote
 	} = config;
 
+	// Change Request additional-charge quotes bill the linked job; do not offer new bookings/orders here
+	if (frm.doc.additional_charge) {
+		return;
+	}
+
 	// Only charge lines for this service authorize creating the related job (not main_service alone)
-	const hasChargesForService = (frm.doc.charges || []).some((c) => c.service_type === main_service);
+	const hasChargesForService = (frm.doc.charges || []).some((c) => logistics_canonical_charge_service_type(c.service_type) === logistics_canonical_charge_service_type(main_service));
 	if (!hasChargesForService) return;
 	
 	// Common conditions
@@ -1113,20 +1145,15 @@ function add_create_button(frm, config) {
 	});
 }
 
-// Mapping between service types and their corresponding Item custom fields for filtering
-const SERVICE_TYPE_ITEM_FIELD_MAP = {
-	"Air": "custom_air_forwarding_charge",
-	"Sea": "custom_sea_forwarding_charge",
-	"Transport": "custom_land_transport_charge",
-	"Customs": "custom_customs_charge",
-	"Warehousing": "custom_warehousing_charge"
-};
-
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
 	service_type: function(frm, cdt, cdn) {
-		const row = frappe.get_doc(cdt, cdn);
-		const lt_flag = SERVICE_TYPE_LOAD_TYPE_FLAG[row.service_type];
+		let row = frappe.get_doc(cdt, cdn);
+		if (logistics_canonical_charge_service_type(row.service_type) === "custom" && row.load_type) {
+			frappe.model.set_value(cdt, cdn, "load_type", "");
+			row = frappe.get_doc(cdt, cdn);
+		}
+		const lt_flag = logistics_load_type_flag_for_charge_service_type(row.service_type);
 		if (row.load_type && lt_flag) {
 			frappe.db.get_value("Load Type", row.load_type, lt_flag, (r) => {
 				if (r && r[lt_flag]) return;
@@ -1138,14 +1165,14 @@ frappe.ui.form.on('Sales Quote Charge', {
 			frappe.model.set_value(cdt, cdn, 'item_code', '');
 			frappe.model.set_value(cdt, cdn, 'item_name', '');
 		}
-		// Set up query filter for item_code based on new service_type
+		// Set up query filter for item_code based on new service_type (module checkboxes on Item)
 		if (row.service_type) {
-			const item_field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+			const item_field = logistics_item_charge_field_for_service_type(row.service_type);
 			if (item_field) {
 				frm.set_query('item_code', 'charges', function(doc, cdt, cdn) {
 					const row = locals[cdt][cdn];
 					if (row && row.service_type) {
-						const field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+						const field = logistics_item_charge_field_for_service_type(row.service_type);
 						if (field) {
 							return {
 								filters: {
@@ -1166,12 +1193,12 @@ frappe.ui.form.on('Sales Quote Charge', {
 		// Set query filter when item_code field is focused/clicked
 		const row = frappe.get_doc(cdt, cdn);
 		if (row.service_type) {
-			const item_field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+			const item_field = logistics_item_charge_field_for_service_type(row.service_type);
 			if (item_field) {
 				frm.set_query('item_code', 'charges', function(doc, cdt, cdn) {
 					const row = locals[cdt][cdn];
 					if (row && row.service_type) {
-						const field = SERVICE_TYPE_ITEM_FIELD_MAP[row.service_type];
+						const field = logistics_item_charge_field_for_service_type(row.service_type);
 						if (field) {
 							return {
 								filters: {
@@ -1184,7 +1211,14 @@ frappe.ui.form.on('Sales Quote Charge', {
 				});
 			}
 		}
+		// Recalc revenue/cost when item changes (tariff + engine depend on item_code)
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
 	},
+	tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	revenue_tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_tariff_in_revenue: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_tariff_in_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	
 	charge_type: function(frm, cdt, cdn) {
 		// Refresh charges so Revenue/Cost fields show/hide based on charge_type
@@ -1196,7 +1230,7 @@ frappe.ui.form.on('Sales Quote Charge', {
 	},
 	load_type: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
-		if (row.service_type !== "Transport" || !row.load_type) return;
+		if (logistics_canonical_charge_service_type(row.service_type) !== "transport" || !row.load_type) return;
 		if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
 		const previous_vehicle_type = row.vehicle_type;
 		if (previous_vehicle_type) frappe.model.set_value(cdt, cdn, 'vehicle_type', '');
@@ -1229,6 +1263,9 @@ frappe.ui.form.on('Sales Quote Charge', {
 
 function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 	if (!cdn) return;
+	if (frm && frm._syncing_sq_charge_from_tariff) {
+		return;
+	}
 	var row = locals[cdt] && locals[cdt][cdn];
 	if (!row) return;
 	frappe.call({
@@ -1241,6 +1278,18 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
+				if (r.message.row_updates && typeof r.message.row_updates === "object") {
+					frm._syncing_sq_charge_from_tariff = true;
+					try {
+						$.each(r.message.row_updates, function (key, v) {
+							if (v !== undefined && v !== null) {
+								frappe.model.set_value(cdt, cdn, key, v);
+							}
+						});
+					} finally {
+						frm._syncing_sq_charge_from_tariff = false;
+					}
+				}
 				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
 				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
 				if (r.message.quantity != null) {

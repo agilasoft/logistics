@@ -727,6 +727,12 @@ function renderAlerts(root, summary, items) {
     section.innerHTML =
       groupsHtml ||
       '<div class="text-muted small">' + __("No alerts for listed shipments.") + "</div>";
+    section.querySelectorAll(".dash-alert-group-body").forEach(function (bod) {
+      bod.style.setProperty("max-height", "300px");
+      bod.style.setProperty("min-height", "0");
+      bod.style.setProperty("overflow-y", "auto");
+      bod.style.setProperty("overflow-x", "hidden");
+    });
     section.querySelectorAll(".dash-alert-group-header").forEach(function (h) {
       h.addEventListener("click", function () {
         var g = h.closest(".dash-alert-group");

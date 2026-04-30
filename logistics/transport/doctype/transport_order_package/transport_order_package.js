@@ -41,6 +41,16 @@ frappe.ui.form.on('Transport Order Package', {
 		}
 		_trigger_parent_aggregation(frm);
 	},
+	no_of_packs: function(frm, cdt, cdn) {
+		if (typeof logistics_calculate_volume_from_dimensions === 'function') {
+			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
+		}
+	},
+	quantity: function(frm, cdt, cdn) {
+		if (typeof logistics_calculate_volume_from_dimensions === 'function') {
+			logistics_calculate_volume_from_dimensions(frm, cdt, cdn);
+		}
+	},
 	volume: function(frm, cdt, cdn) {
 		_trigger_parent_aggregation(frm);
 	},

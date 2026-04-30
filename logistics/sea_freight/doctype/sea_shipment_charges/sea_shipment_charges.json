@@ -10,8 +10,13 @@
   "service_type",
   "item_code",
   "item_name",
+  "container_deposit_pending_refund_gl",
   "charge_type",
   "charge_category",
+  "freight_taxes_section",
+  "apply_95_5_rule",
+  "taxable_freight_item",
+  "taxable_freight_item_tax_template",
   "item_tax_template",
   "invoice_type",
   "column_break_crpu",
@@ -23,6 +28,8 @@
   "section_break_wicx",
   "column_break_ruye",
   "bill_to",
+  "bill_to_exchange_rate",
+  "bill_to_exchange_rate_source",
   "selling_currency",
   "estimated_revenue",
   "actual_revenue",
@@ -30,6 +37,8 @@
   "revenue_tariff",
   "column_break_lday",
   "pay_to",
+  "pay_to_exchange_rate",
+  "pay_to_exchange_rate_source",
   "buying_currency",
   "estimated_cost",
   "actual_cost",
@@ -75,12 +84,12 @@
   "section_break_status",
   "sales_invoice",
   "sales_invoice_status",
+  "wip_recognition_journal_entry",
+  "wip_adjustment_journal_entry",
   "column_break_uheq",
   "purchase_invoice",
   "purchase_invoice_status",
-  "wip_recognition_journal_entry",
   "accrual_recognition_journal_entry",
-  "wip_adjustment_journal_entry",
   "accrual_adjustment_journal_entry",
   "other_services_section",
   "other_service_type",
@@ -165,11 +174,40 @@
    "options": "Freight\nFuel Surcharge\nSecurity Surcharge\nWar Risk Surcharge\nTerminal Handling\nPort Charges\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nDetention\nDemurrage\nOther"
   },
   {
+   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fieldname": "freight_taxes_section",
+   "fieldtype": "Section Break",
+   "label": "Taxes"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fieldname": "apply_95_5_rule",
+   "fieldtype": "Check",
+   "label": "Apply 95/5 rule"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item",
+   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0], [\"Item\", \"custom_charge_category\", \"=\", \"Freight\"]]",
+   "options": "Item"
+  },
+  {
+   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item_tax_template",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
+  },
+  {
    "fieldname": "item_tax_template",
    "fieldtype": "Link",
    "label": "Item Tax Template",
-   "options": "Item Tax Template",
-   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
   },
   {
    "fieldname": "invoice_type",
@@ -212,17 +250,30 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Bill To",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'"
+  },
+  {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
+   "fieldname": "bill_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Bill To)",
+   "options": "Exchange Rate Source"
   },
   {
    "fieldname": "selling_currency",
    "fieldtype": "Link",
    "label": "Selling Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "estimated_revenue",
@@ -248,17 +299,30 @@
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
    "options": "Supplier",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
+  },
+  {
+   "fieldname": "pay_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Pay To)",
+   "options": "Exchange Rate Source"
   },
   {
    "fieldname": "buying_currency",
    "fieldtype": "Link",
    "label": "Buying Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "estimated_cost",
@@ -281,11 +345,12 @@
    "label": "Use Tariff in Revenue"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
-   "options": "Tariff",
-   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
+   "options": "Tariff"
   },
   {
    "default": "0",
@@ -294,11 +359,12 @@
    "label": "Use Tariff in Cost"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
-   "options": "Tariff",
-   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
+   "options": "Tariff"
   },
   {
    "fieldname": "calculation_notes_section",
@@ -325,13 +391,13 @@
    "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
    "fieldname": "selling_weight_break",
    "fieldtype": "Button",
-   "label": "Manage Selling Weight Breaks"
+   "label": "Weight Break"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method=='Weight Break'",
    "fieldname": "cost_weight_break",
    "fieldtype": "Button",
-   "label": "Manage Cost Weight Breaks"
+   "label": "Weight Break"
   },
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Qty Break'",
@@ -375,17 +441,17 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "rate",
@@ -399,7 +465,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -470,17 +536,17 @@
    "fieldname": "cost_uom",
    "fieldtype": "Link",
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "cost_currency",
    "fieldtype": "Link",
    "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
-   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
    "fieldname": "unit_cost",
@@ -494,7 +560,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -652,6 +718,13 @@
    "label": "Item Name"
   },
   {
+   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings “Deposits Pending for Refund Request” for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
+   "fieldname": "container_deposit_pending_refund_gl",
+   "fieldtype": "Data",
+   "label": "Deposit pending refund GL",
+   "read_only": 1
+  },
+  {
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
@@ -661,7 +734,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-18 17:51:35.574557",
+ "modified": "2026-04-24 18:59:18.876150",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment Charges",

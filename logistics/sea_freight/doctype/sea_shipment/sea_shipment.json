@@ -137,11 +137,11 @@
   "sales_rep",
   "operations_rep",
   "customer_service_rep",
-  "section_break_elec",
-  "section_break_billing",
+  "section_break_vmta",
   "billing_status",
-  "column_break_billing",
   "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
@@ -295,8 +295,7 @@
    "in_list_view": 1,
    "label": "Shipper",
    "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
-   "options": "Shipper",
-   "reqd": 1
+   "options": "Shipper"
   },
   {
    "fieldname": "consignee",
@@ -304,23 +303,20 @@
    "in_list_view": 1,
    "label": "Consignee",
    "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
-   "options": "Consignee",
-   "reqd": 1
+   "options": "Consignee"
   },
   {
    "fieldname": "booking_date",
    "fieldtype": "Date",
    "in_standard_filter": 1,
-   "label": "Booking Date",
-   "reqd": 1
+   "label": "Booking Date"
   },
   {
    "fieldname": "sea_booking",
    "fieldtype": "Link",
    "label": "Sea Booking",
    "options": "Sea Booking",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "sales_quote",
@@ -351,16 +347,18 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
+   "no_copy": 1,
    "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.is_internal_job",
    "fieldname": "main_job",
    "fieldtype": "Dynamic Link",
    "label": "Main Job",
+   "no_copy": 1,
    "options": "main_job_type",
-   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+   "read_only": 1
   },
   {
    "fieldname": "quote_reference_section",
@@ -383,6 +381,7 @@
    "fieldname": "internal_job_details",
    "fieldtype": "Table",
    "label": "Internal Jobs",
+   "no_copy": 1,
    "options": "Internal Job Detail"
   },
   {
@@ -397,8 +396,7 @@
    "in_list_view": 1,
    "label": "Origin Port",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
-   "options": "UNLOCO",
-   "reqd": 1
+   "options": "UNLOCO"
   },
   {
    "fieldname": "destination_port",
@@ -406,8 +404,7 @@
    "in_list_view": 1,
    "label": "Destination Port",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
-   "options": "UNLOCO",
-   "reqd": 1
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_nbco",
@@ -419,8 +416,7 @@
    "in_list_view": 1,
    "label": "Local Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
-   "options": "Customer",
-   "reqd": 1
+   "options": "Customer"
   },
   {
    "fieldname": "transport_mode",
@@ -454,8 +450,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Direction",
-   "options": "Import\nExport\nDomestic",
-   "reqd": 1
+   "options": "Import\nExport\nDomestic"
   },
   {
    "fieldname": "freight_agent",
@@ -951,6 +946,7 @@
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
+   "no_copy": 1,
    "options": "Job Number"
   },
   {
@@ -1001,16 +997,6 @@
    "options": "Sea Freight Packages"
   },
   {
-   "fieldname": "section_break_elec",
-   "fieldtype": "Section Break"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_billing",
-   "fieldtype": "Section Break",
-   "label": "Billing"
-  },
-  {
    "default": "Not Billed",
    "fieldname": "billing_status",
    "fieldtype": "Select",
@@ -1019,14 +1005,25 @@
    "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
   },
   {
-   "fieldname": "column_break_billing",
-   "fieldtype": "Column Break"
-  },
-  {
    "allow_on_submit": 1,
    "fieldname": "charges",
    "fieldtype": "Table",
+   "label": "Charges",
    "options": "Sea Shipment Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
   },
   {
    "fieldname": "documents_tab",
@@ -1559,6 +1556,10 @@
    "label": "Load Type",
    "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
    "options": "Load Type"
+  },
+  {
+   "fieldname": "section_break_vmta",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -1606,7 +1607,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-21 15:49:38.094385",
+ "modified": "2026-04-23 16:29:42.281084",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",

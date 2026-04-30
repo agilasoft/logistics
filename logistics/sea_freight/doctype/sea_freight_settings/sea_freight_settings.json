@@ -1,12 +1,14 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:company",
  "creation": "2025-06-02 00:01:30.378127",
+ "default_view": "Form",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "general_settings_section",
-  "default_company",
+  "company",
   "default_branch",
   "default_cost_center",
   "column_break_general",
@@ -27,16 +29,12 @@
   "allow_creation_of_sales_order",
   "auto_create_job_costing",
   "enable_milestone_tracking",
-  "penalty_settings_section",
-  "default_free_time_days",
-  "detention_rate_per_day",
-  "column_break_penalty",
-  "demurrage_rate_per_day",
-  "alert_settings_section",
-  "enable_delay_alerts",
-  "enable_penalty_alerts",
-  "column_break_alert",
-  "alert_check_interval_hours",
+  "integration_settings_section",
+  "enable_vessel_tracking",
+  "enable_customs_clearance_tracking",
+  "column_break_integration",
+  "enable_edi_integration",
+  "calculations_tab",
   "calculation_settings_section",
   "volume_to_weight_factor",
   "chargeable_weight_calculation",
@@ -45,11 +43,22 @@
   "default_weight_uom",
   "default_volume_uom",
   "default_chargeable_uom",
-  "integration_settings_section",
-  "enable_vessel_tracking",
-  "enable_customs_clearance_tracking",
-  "column_break_integration",
-  "enable_edi_integration"
+  "alerts_and_penalties_tab",
+  "alert_settings_section",
+  "enable_delay_alerts",
+  "enable_penalty_alerts",
+  "column_break_alert",
+  "alert_check_interval_hours",
+  "penalty_settings_section",
+  "default_free_time_days",
+  "detention_rate_per_day",
+  "column_break_penalty",
+  "demurrage_rate_per_day",
+  "container_deposit_tab",
+  "container_deposit_gl_section",
+  "container_deposit_pending_refund_account",
+  "column_break_cd_gl",
+  "container_deposit_ar_shipping_lines_account"
  ],
  "fields": [
   {
@@ -58,10 +67,13 @@
    "label": "General Settings"
   },
   {
-   "fieldname": "default_company",
+   "fieldname": "company",
    "fieldtype": "Link",
-   "label": "Default Company",
-   "options": "Company"
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "default_branch",
@@ -73,8 +85,8 @@
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "options": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
   },
   {
    "fieldname": "column_break_general",
@@ -90,8 +102,8 @@
    "fieldname": "default_currency",
    "fieldtype": "Link",
    "label": "Default Currency",
-   "options": "Currency",
-   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
   },
   {
    "fieldname": "default_incoterm",
@@ -106,6 +118,7 @@
    "options": "Logistics Service Level"
   },
   {
+   "collapsible": 1,
    "fieldname": "location_settings_section",
    "fieldtype": "Section Break",
    "label": "Location Settings"
@@ -114,37 +127,36 @@
    "fieldname": "default_origin_location",
    "fieldtype": "Link",
    "label": "Default Origin Location",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "default_destination_location",
    "fieldtype": "Link",
    "label": "Default Destination Location",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_location",
    "fieldtype": "Column Break"
   },
   {
-   "description": "Default origin port UNLOCO code",
    "fieldname": "default_origin_port",
    "fieldtype": "Link",
    "label": "Default Origin Port",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
-   "description": "Default destination port UNLOCO code",
    "fieldname": "default_destination_port",
    "fieldtype": "Link",
    "label": "Default Destination Port",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
+   "collapsible": 1,
    "fieldname": "business_settings_section",
    "fieldtype": "Section Break",
    "label": "Business Settings"
@@ -153,15 +165,15 @@
    "fieldname": "default_shipping_line",
    "fieldtype": "Link",
    "label": "Default Shipping Line",
-   "options": "Shipping Line",
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
   },
   {
    "fieldname": "default_freight_agent",
    "fieldtype": "Link",
    "label": "Default Freight Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "column_break_business",
@@ -209,6 +221,27 @@
    "fieldname": "demurrage_rate_per_day",
    "fieldtype": "Currency",
    "label": "Demurrage Rate per Day"
+  },
+  {
+   "fieldname": "container_deposit_gl_section",
+   "fieldtype": "Section Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "container_deposit_pending_refund_account",
+   "fieldtype": "Link",
+   "label": "Deposits Pending for Refund Request",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_cd_gl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "container_deposit_ar_shipping_lines_account",
+   "fieldtype": "Link",
+   "label": "Container Deposit Receivable Account",
+   "options": "Account"
   },
   {
    "fieldname": "alert_settings_section",
@@ -271,26 +304,27 @@
    "fieldname": "default_weight_uom",
    "fieldtype": "Link",
    "label": "Default Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "description": "Default UOM for volume in Sales Quote Sea tab and sea-related doctypes",
    "fieldname": "default_volume_uom",
    "fieldtype": "Link",
    "label": "Default Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "description": "Default UOM for chargeable weight in Sales Quote Sea tab and sea-related doctypes",
    "fieldname": "default_chargeable_uom",
    "fieldtype": "Link",
    "label": "Default Chargeable UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
+   "collapsible": 1,
    "fieldname": "integration_settings_section",
    "fieldtype": "Section Break",
    "label": "Integration Settings"
@@ -316,16 +350,32 @@
    "fieldname": "enable_edi_integration",
    "fieldtype": "Check",
    "label": "Enable EDI Integration"
+  },
+  {
+   "fieldname": "container_deposit_tab",
+   "fieldtype": "Tab Break",
+   "label": "Container Deposit"
+  },
+  {
+   "fieldname": "calculations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Calculations"
+  },
+  {
+   "fieldname": "alerts_and_penalties_tab",
+   "fieldtype": "Tab Break",
+   "label": "Alerts and Penalties"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "issingle": 1,
+ "issingle": 0,
  "links": [],
- "modified": "2026-03-28 11:33:23.482913",
+ "modified": "2026-04-28 00:30:57.494619",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight Settings",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -337,10 +387,23 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sea Freight Manager",
+   "share": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

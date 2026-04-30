@@ -47,7 +47,16 @@ def execute():
             "default_dimension": None,
             "company": None,
             "applicable_for": "GL Entry"
-        }
+        },
+        {
+            "name": "Container",
+            "document_type": "Container",
+            "disabled": 0,
+            "is_mandatory": 0,
+            "default_dimension": None,
+            "company": None,
+            "applicable_for": "GL Entry"
+        },
     ]
     
     created_count = 0
@@ -58,7 +67,13 @@ def execute():
             if frappe.db.exists("Accounting Dimension", dim_config["name"]):
                 print(f"✅ Dimension '{dim_config['name']}' already exists")
                 continue
-            
+            doc_type = dim_config.get("document_type")
+            if doc_type and frappe.db.get_value(
+                "Accounting Dimension", {"document_type": doc_type}, "name"
+            ):
+                print(f"✅ Dimension for document type '{doc_type}' already exists")
+                continue
+
             # Create the dimension
             dimension = frappe.new_doc("Accounting Dimension")
             dimension.update(dim_config)

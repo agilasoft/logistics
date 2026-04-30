@@ -16,13 +16,13 @@ def validate_transport_job_status(doc, method=None):
     
     This prevents creating Sales Invoices for Transport Jobs that are not yet completed.
     """
-    if not doc.job_number:
-        # No job_number, so no Transport Job to validate
+    job_ref = doc.get("job_number") or doc.get("job_costing_number")
+    if not job_ref:
         return
-    
+
     try:
         # Get Job Number to find the linked Transport Job
-        jcn = frappe.get_doc("Job Number", doc.job_number)
+        jcn = frappe.get_doc("Job Number", job_ref)
         
         # Check if this Job Number is linked to a Transport Job
         if jcn.job_type != "Transport Job" or not jcn.job_no:

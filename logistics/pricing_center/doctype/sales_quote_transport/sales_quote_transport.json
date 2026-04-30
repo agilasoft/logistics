@@ -13,7 +13,9 @@
   "revenue_tariff",
   "cost_tariff",
   "bill_to",
+  "bill_to_exchange_rate",
   "pay_to",
+  "pay_to_exchange_rate",
   "section_break_charge_params_transport",
   "transport_template",
   "load_type",
@@ -323,6 +325,7 @@
    "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_revenue",
    "fieldname": "revenue_tariff",
    "fieldtype": "Link",
    "label": "Revenue Tariff",
@@ -330,6 +333,7 @@
    "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
   },
   {
+   "depends_on": "eval:doc.use_tariff_in_cost",
    "fieldname": "cost_tariff",
    "fieldtype": "Link",
    "label": "Cost Tariff",
@@ -356,11 +360,25 @@
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
   },
   {
+   "default": "1",
+   "fieldname": "bill_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Bill To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "pay_to",
    "fieldtype": "Link",
    "label": "Pay To",
    "options": "Supplier",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "fieldname": "revenue_cost_section",

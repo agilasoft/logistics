@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt
 import json
 from datetime import datetime, timedelta
 
@@ -263,13 +264,14 @@ class AirConsolidation(Document):
             self.total_weight = sum(package.package_weight for package in self.consolidation_packages)
             self.total_volume = sum(package.package_volume or 0 for package in self.consolidation_packages)
             
-            # Get settings for volume to weight factor
+            from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
             settings = self.get_air_freight_settings()
-            volume_to_weight_factor = 167  # Default IATA standard
+            volume_to_weight_factor = IATA_VOLUMETRIC_DENSITY_KG_M3
             chargeable_weight_calculation = "Higher of Both"  # Default
             
             if settings:
-                volume_to_weight_factor = settings.volume_to_weight_factor or 167
+                volume_to_weight_factor = settings.volume_to_weight_factor or IATA_VOLUMETRIC_DENSITY_KG_M3
                 chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
             
             # Calculate chargeable weight based on settings
@@ -335,12 +337,18 @@ class AirConsolidation(Document):
         
         for charge in self.consolidation_charges:
             if charge.revenue_calculation_method == "Per Unit":
-                if getattr(charge, "unit_type", None) == "Weight":
+                ut = getattr(charge, "unit_type", None)
+                if ut == "Weight":
                     charge.base_amount = charge.rate * self.chargeable_weight
-                elif getattr(charge, "unit_type", None) == "Volume":
+                elif ut == "Chargeable Weight":
+                    cq = flt(self.chargeable_weight or 0)
+                    if cq <= 0:
+                        cq = flt(self.total_weight or 0)
+                    charge.base_amount = charge.rate * cq
+                elif ut == "Volume":
                     charge.base_amount = charge.rate * self.total_volume
-                elif getattr(charge, "unit_type", None) == "Package":
-                    charge.base_amount = charge.rate * self.total_packages
+                elif ut in ("Package", "Piece"):
+                    charge.base_amount = charge.rate * (self.total_packages or 0)
                 else:
                     charge.base_amount = charge.rate * (charge.quantity or 0)
             elif charge.revenue_calculation_method == "Flat Rate":
@@ -365,11 +373,13 @@ class AirConsolidation(Document):
         """Optimize consolidation ratio for better space utilization"""
         if self.total_weight > 0 and self.total_volume > 0:
             # Get settings for volume to weight factor
+            from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
             settings = self.get_air_freight_settings()
-            standard_density = 167  # Default IATA standard
+            standard_density = IATA_VOLUMETRIC_DENSITY_KG_M3
             
             if settings:
-                standard_density = settings.volume_to_weight_factor or 167
+                standard_density = settings.volume_to_weight_factor or IATA_VOLUMETRIC_DENSITY_KG_M3
             
             # Calculate density
             density = self.total_weight / self.total_volume

@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import today, flt
+from frappe.utils import today, flt, cint
 from frappe.contacts.doctype.address.address import get_address_display
 from typing import Dict, Any
 
@@ -12,6 +12,7 @@ from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.charge_service_type import (
 	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
+	sales_quote_charge_filters_service_type_only,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
@@ -69,9 +70,15 @@ def _service_type_matches(value, allowed_values):
 # Fields to copy from Air Booking Charges to Air Shipment Charges (all copyable data fields)
 _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
 	"service_type",
-	"item_code", "item_name", "charge_type", "charge_category", "description",
+	"item_code", "item_name", "charge_type", "charge_category",
+	"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
+	"description",
 	"bill_to", "estimated_revenue", "use_tariff_in_revenue", "revenue_tariff",
 	"pay_to", "estimated_cost", "use_tariff_in_cost", "cost_tariff",
+	"bill_to_exchange_rate",
+	"pay_to_exchange_rate",
+	"bill_to_exchange_rate_source",
+	"pay_to_exchange_rate_source",
 	"revenue_calculation_method", "quantity", "currency", "rate", "unit_type",
 	"minimum_quantity", "minimum_unit_rate", "minimum_charge", "maximum_charge",
 	"base_amount", "base_quantity",
@@ -99,99 +106,100 @@ def _normalize_packing_group_for_shipment(value):
 class AirBooking(Document):
 	def validate(self):
 		"""Validate Air Booking data"""
-		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
-
-		validate_internal_job_main_link_unchanged(self)
-		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
-
-		apply_shipper_consignee_defaults(self)
-		# Apply settings-derived defaults before required-field checks.
-		if self.is_new():
-			self.apply_settings_defaults()
-		# Get original sales_quote from database if document exists
-		original_sales_quote = None
-		if not self.is_new():
-			try:
-				original_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
-			except Exception:
-				pass
-		
-		# Validate One-off Sales Quote not already converted (internal satellite bookings may share the main leg's quote)
-		_quote_is_sales_quote = (
-			getattr(self, "quote_type", None) == "One-Off Quote"
-			and getattr(self, "quote", None)
-			and frappe.db.exists("Sales Quote", self.quote)
+		from logistics.utils.charges_calculation import (
+			clear_charge_resolution_parent,
+			register_charge_resolution_parent,
 		)
-		if self.sales_quote or _quote_is_sales_quote:
-			from frappe.utils import cint
 
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-				resolve_allow_linked_freight_bookings_for_internal_job,
-				validate_one_off_quote_not_converted,
-			)
-
-			allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-			_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
-			if self.sales_quote:
-				validate_one_off_quote_not_converted(
-					self.sales_quote,
-					self.doctype,
-					self.name,
-					allow_linked_sea_booking=allow_sea,
-					allow_linked_air_booking=allow_air,
-					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
-				)
-			if _quote_is_sales_quote:
-				validate_one_off_quote_not_converted(
-					self.quote,
-					self.doctype,
-					self.name,
-					allow_linked_sea_booking=allow_sea,
-					allow_linked_air_booking=allow_air,
-					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
-				)
-		
-		# Handle sales_quote field clearing - reset One-off quote if cleared
-		if not self.is_new() and original_sales_quote and not self.sales_quote:
-			# sales_quote was cleared, check if it was a One-off quote and reset it
-			try:
-				if frappe.db.exists("Sales Quote", original_sales_quote):
-					sq = frappe.get_doc("Sales Quote", original_sales_quote)
-					if sq.quotation_type == "One-off":
-						from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-						reset_one_off_quote_on_cancel(original_sales_quote)
-			except Exception:
-				pass
-
-		from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
-
-		assert_one_off_sales_quote_job_rules(self)
-		
-		self.validate_required_fields()
-		self.validate_dates()
-		self.validate_accounts()
+		register_charge_resolution_parent(self)
 		try:
-			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
-			apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
-		except Exception:
-			pass
-		# Aggregate package volumes and weights to header (with UOM conversion) unless overridden
-		if not getattr(self, "override_volume_weight", False):
-			self.aggregate_volume_from_packages()
-			self.aggregate_weight_from_packages()
-		# Always calculate chargeable weight (even if volume/weight are 0)
-		self.calculate_chargeable_weight()
-		# Validate volume is not less than 0
-		volume = flt(self.volume) if hasattr(self, 'volume') and self.volume is not None else 0
-		if volume < 0:
-			frappe.throw(_("Volume cannot be less than 0 for Air Booking"))
-		self._update_packing_summary()
-		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-		msgprint_sales_quote_validity_warnings(self)
+			validate_internal_job_main_link_unchanged(self)
+			from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
-	def validate_required_fields(self):
-		"""Validate required fields"""
+			apply_shipper_consignee_defaults(self)
+			# Apply settings-derived defaults before required-field checks.
+			if self.is_new():
+				self.apply_settings_defaults()
+			# Get original sales_quote from database if document exists
+			original_sales_quote = None
+			if not self.is_new():
+				try:
+					original_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+				except Exception:
+					pass
+		
+			# Validate One-off Sales Quote not already converted (internal satellite bookings may share the main leg's quote)
+			_quote_is_sales_quote = (
+				getattr(self, "quote_type", None) == "One-Off Quote"
+				and getattr(self, "quote", None)
+				and frappe.db.exists("Sales Quote", self.quote)
+			)
+			if self.sales_quote or _quote_is_sales_quote:
+				from frappe.utils import cint
+
+				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_bookings_for_internal_job,
+					validate_one_off_quote_not_converted,
+				)
+
+				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
+				if self.sales_quote:
+					validate_one_off_quote_not_converted(
+						self.sales_quote,
+						self.doctype,
+						self.name,
+						allow_linked_sea_booking=allow_sea,
+						allow_linked_air_booking=allow_air,
+						allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
+					)
+				if _quote_is_sales_quote:
+					validate_one_off_quote_not_converted(
+						self.quote,
+						self.doctype,
+						self.name,
+						allow_linked_sea_booking=allow_sea,
+						allow_linked_air_booking=allow_air,
+						allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
+					)
+		
+			# Handle sales_quote field clearing - reset One-off quote if cleared
+			if not self.is_new() and original_sales_quote and not self.sales_quote:
+				# sales_quote was cleared, check if it was a One-off quote and reset it
+				try:
+					if frappe.db.exists("Sales Quote", original_sales_quote):
+						sq = frappe.get_doc("Sales Quote", original_sales_quote)
+						if sq.quotation_type == "One-off":
+							from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+							reset_one_off_quote_on_cancel(original_sales_quote)
+				except Exception:
+					pass
+
+			from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+
+			assert_one_off_sales_quote_job_rules(self)
+		
+			self.validate_dates()
+			self.validate_accounts()
+			self._prepare_header_totals_for_charge_calculation()
+			# Align charge quantity/cost_quantity and amounts with header actuals (not Sales Quote copy)
+			self._sync_charges_with_parent_actuals()
+			# Validate volume is not less than 0
+			volume = flt(self.volume) if hasattr(self, 'volume') and self.volume is not None else 0
+			if volume < 0:
+				frappe.throw(_("Volume cannot be less than 0 for Air Booking"))
+			self._update_packing_summary()
+			from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+			msgprint_sales_quote_validity_warnings(self)
+
+		finally:
+			clear_charge_resolution_parent(self)
+
+	def validate_required_fields_for_submit(self):
+		"""Enforce header party/routing fields when submitting (draft saves may omit them)."""
 		if not self.booking_date:
 			frappe.throw(_("Booking Date is required"))
 		
@@ -223,7 +231,12 @@ class AirBooking(Document):
 					self.entry_type,
 					"\", \"".join(valid_entry_types)
 				))
-	
+
+	def _require_positive_booking_volume(self, message):
+		volume = flt(self.volume) if hasattr(self, "volume") and self.volume is not None else 0
+		if volume <= 0:
+			frappe.throw(message)
+
 	def validate_dates(self):
 		"""Validate date logic"""
 		from frappe.utils import getdate
@@ -402,6 +415,10 @@ class AirBooking(Document):
 
 	def before_submit(self):
 		"""Validate packages and required dates before submitting the Air Booking."""
+		self.validate_required_fields_for_submit()
+		self._require_positive_booking_volume(
+			_("Volume must be greater than 0 before submitting the Air Booking")
+		)
 		# Validate quote is not empty
 		quote_type = getattr(self, "quote_type", None)
 		has_quote = False
@@ -553,7 +570,11 @@ class AirBooking(Document):
 	@frappe.whitelist()
 	def recalculate_package_volumes_api(self):
 		"""Recalculate volume for each package from dimensions (Dimension Volume UOM Conversion). Returns list of {name, volume} for client to apply."""
-		from logistics.utils.measurements import calculate_volume_from_dimensions, get_default_uoms
+		from logistics.utils.measurements import (
+			calculate_volume_from_dimensions,
+			get_default_uoms,
+			get_package_line_volume_multiplier,
+		)
 
 		packages = getattr(self, "packages", []) or []
 		company = getattr(self, "company", None)
@@ -600,10 +621,11 @@ class AirBooking(Document):
 				result.append({"name": name, "volume": 0})
 				continue
 			try:
-				vol = calculate_volume_from_dimensions(
+				base = calculate_volume_from_dimensions(
 					length=length, width=width, height=height,
 					dimension_uom=dimension_uom, volume_uom=volume_uom, company=company
 				)
+				vol = base * get_package_line_volume_multiplier(pkg)
 				result.append({"name": name, "volume": vol})
 			except Exception:
 				result.append({"name": name, "volume": 0})
@@ -626,12 +648,13 @@ class AirBooking(Document):
 		
 		# Validate divisor is positive
 		if divisor <= 0:
-			IATA_DIVISOR = 1000000.0 / 167.0  # IATA standard: exactly 167 kg/m³
+			from logistics.utils.measurements import IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
+
 			frappe.log_error(
-				f"Invalid divisor ({divisor}) for Air Booking {self.name}. Using IATA standard {IATA_DIVISOR:.2f}.",
+				f"Invalid divisor ({divisor}) for Air Booking {self.name}. Using IATA standard {IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG:.2f}.",
 				"Air Booking - Invalid Divisor"
 			)
-			divisor = IATA_DIVISOR  # Default to IATA standard
+			divisor = IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
 		
 		# Get and validate volume and weight
 		volume = flt(self.volume or 0)
@@ -678,18 +701,16 @@ class AirBooking(Document):
 	
 	def get_volume_to_weight_divisor(self):
 		"""Get the volume to weight divisor based on factor type and airline settings"""
-		# IATA standard: 167 kg/m³
-		# Divisor calculation: 1,000,000 cm³ / 167 kg = 5988.02 (exactly 1,000,000 / 167)
-		IATA_DIVISOR = 1000000.0 / 167.0  # = 5988.023952095808, gives exactly 167 kg/m³
-		
-		# Default to IATA standard
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
+
+		# IATA: 1 kg per 6000 cm³ => density 1000/6 kg/m³; divisor = 1e6 cm³/m³ / density = 6000
+		IATA_DIVISOR = IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG
+
 		divisor = IATA_DIVISOR
-		
-		# Get factor type (default to IATA if not set)
+
 		factor_type = self.volume_to_weight_factor_type or "IATA"
-		
+
 		if factor_type == "IATA":
-			# IATA standard: divisor that gives exactly 167 kg/m³
 			divisor = IATA_DIVISOR
 		elif factor_type == "Custom":
 			# Check if custom divisor is overridden on Air Booking
@@ -752,11 +773,13 @@ class AirBooking(Document):
 			self.flags.fetching_quotations = True
 			
 			# Check if Sales Quote has air charges (new structure) or air freight (legacy)
-			air_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.sales_quote,
-				"parenttype": "Sales Quote",
-				"service_type": "Air"
-			})
+			air_charge_count = frappe.db.count(
+				"Sales Quote Charge",
+				{
+					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
+					**sales_quote_charge_filters_service_type_only("Air"),
+				},
+			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
@@ -869,11 +892,13 @@ class AirBooking(Document):
 				self.quote = self.sales_quote
 			
 			# Populate charges from Sales Quote Charge (Air) or Sales Quote Air Freight (legacy)
-			air_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.sales_quote,
-				"parenttype": "Sales Quote",
-				"service_type": "Air"
-			})
+			air_charge_count = frappe.db.count(
+				"Sales Quote Charge",
+				{
+					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
+					**sales_quote_charge_filters_service_type_only("Air"),
+				},
+			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
@@ -980,6 +1005,49 @@ class AirBooking(Document):
 			)
 			frappe.throw(_("Error fetching quotations: {0}").format(str(e)))
 	
+	def _sync_charges_with_parent_actuals(self):
+		"""Recalculate each charge row using current booking totals so cost_quantity/quantity follow actuals."""
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		if getattr(self.flags, "ignore_charges_sync", False):
+			return
+		for charge in self.get("charges") or []:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=self)
+
+	def _prepare_header_totals_for_charge_calculation(self):
+		"""Refresh header weight/volume/chargeable from packages (same basis as validate, before charge math)."""
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+
+			apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
+		except Exception:
+			pass
+		if not getattr(self, "override_volume_weight", False):
+			self.aggregate_volume_from_packages()
+			self.aggregate_weight_from_packages()
+		self.calculate_chargeable_weight()
+
+	def _apply_actuals_to_charge_dicts(self, charge_dicts):
+		"""Recompute quantities and amounts on charge row dicts using this booking as parent (for API responses)."""
+		if not charge_dicts:
+			return
+		self._prepare_header_totals_for_charge_calculation()
+		for row_dict in charge_dicts:
+			row = frappe.new_doc("Air Booking Charges")
+			row.update(row_dict)
+			row.calculate_charge_amount(parent_doc=self)
+			row_dict["quantity"] = row.quantity
+			row_dict["cost_quantity"] = row.cost_quantity
+			row_dict["estimated_revenue"] = row.estimated_revenue
+			row_dict["estimated_cost"] = row.estimated_cost
+			if hasattr(row, "revenue_calc_notes"):
+				row_dict["revenue_calc_notes"] = row.revenue_calc_notes
+			if hasattr(row, "cost_calc_notes"):
+				row_dict["cost_calc_notes"] = row.cost_calc_notes
+			if hasattr(row, "rate"):
+				row_dict["rate"] = row.rate
+
 	def _populate_charges_from_sales_quote(self, sales_quote_name):
 		"""Populate charges from Sales Quote Air Freight records
 		
@@ -1002,13 +1070,18 @@ class AirBooking(Document):
 			# Get records from Sales Quote Charge (filtered by main service / internal job) or Sales Quote Air Freight (legacy)
 			# Full field list for legacy Sales Quote Air Freight (has cost_minimum_unit_rate, cost_base_quantity)
 			charge_fields_legacy = [
-				"item_code", "item_name", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
+				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category", "bill_to",
+				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "cost_uom", "estimated_cost", "pay_to",
 				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+				"bill_to_exchange_rate",
+				"pay_to_exchange_rate",
+				"bill_to_exchange_rate_source",
+				"pay_to_exchange_rate_source",
 				"service_type",
 				"origin_port", "destination_port",
 			]
@@ -1075,21 +1148,26 @@ class AirBooking(Document):
 				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
 			]
 			for sqaf_record in sales_quote_air_freight_records:
-				if sqaf_record.get("calculation_method"):
-					original = sqaf_record["calculation_method"]
+				_raw_method = sqaf_record.get("revenue_calculation_method") or sqaf_record.get("calculation_method")
+				if _raw_method:
+					original = _raw_method
 					# Quick normalization check - if it contains invalid patterns, normalize it
 					method_str = str(original).strip()
 					method_lower = method_str.lower()
 					invalid_patterns = ["m³", "m^3", "m3", "per m³", "per m3", "per kg", "per package", "per shipment"]
 					if any(pattern in method_lower for pattern in invalid_patterns) or method_str not in valid_calc_methods:
 						if "per" in method_lower and any(unit in method_lower for unit in ["m3", "kg", "kilogram", "package", "shipment", "piece"]):
-							sqaf_record['calculation_method'] = "Per Unit"
+							sqaf_record["revenue_calculation_method"] = "Per Unit"
+							if "calculation_method" in sqaf_record:
+								sqaf_record["calculation_method"] = "Per Unit"
 							frappe.logger().info(
 								f"[Air Booking] Normalized calculation_method in fetched record: '{original}' → 'Per Unit' "
 								f"for item {sqaf_record.get('item_code', 'Unknown')}"
 							)
 						elif method_str not in valid_calc_methods:
-							sqaf_record['calculation_method'] = "Per Unit"
+							sqaf_record["revenue_calculation_method"] = "Per Unit"
+							if "calculation_method" in sqaf_record:
+								sqaf_record["calculation_method"] = "Per Unit"
 							frappe.logger().info(
 								f"[Air Booking] Normalized invalid calculation_method in fetched record: '{original}' → 'Per Unit' "
 								f"for item {sqaf_record.get('item_code', 'Unknown')}"
@@ -1103,7 +1181,7 @@ class AirBooking(Document):
 				frappe.logger().info(
 					f"[Air Booking] _populate_charges_from_sales_quote: Record {idx+1}/{len(sales_quote_air_freight_records)} - "
 					f"item_code: {sqaf_record.get('item_code', 'N/A')}, "
-					f"calculation_method: '{sqaf_record.get('calculation_method', 'N/A')}', "
+					f"calculation_method: '{sqaf_record.get('revenue_calculation_method') or sqaf_record.get('calculation_method', 'N/A')}', "
 					f"unit_type: {sqaf_record.get('unit_type', 'N/A')}, "
 					f"uom: {sqaf_record.get('uom', 'N/A')}"
 				)
@@ -1114,7 +1192,7 @@ class AirBooking(Document):
 			for sqaf_record in sales_quote_air_freight_records:
 				try:
 					item_code = sqaf_record.get('item_code', 'Unknown')
-					original_calc_method = sqaf_record.get('calculation_method', 'N/A')
+					original_calc_method = sqaf_record.get("revenue_calculation_method") or sqaf_record.get("calculation_method", "N/A")
 					frappe.logger().info(
 						f"[Air Booking] _populate_charges_from_sales_quote: Mapping charge for item {item_code}, "
 						f"original calculation_method: '{original_calc_method}'"
@@ -1183,6 +1261,10 @@ class AirBooking(Document):
 					f"Some charges failed to populate:\n" + "\n".join(errors),
 					"Air Booking - Charges Population Warnings"
 				)
+
+			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 			
 			# Return count of charges added (don't show message here, let fetch_quotations handle it)
 			return charges_added
@@ -1538,63 +1620,40 @@ class AirBooking(Document):
 				return None
 			
 			# Get the item details
-			if not frappe.db.exists("Item", sqaf_record.item_code):
+			_sq_item = _sq_row_get("item_code")
+			if not frappe.db.exists("Item", _sq_item):
 				frappe.log_error(
-					f"Item {sqaf_record.item_code} does not exist",
+					f"Item {_sq_item} does not exist",
 					"Air Booking - Invalid Item Code"
 				)
 				return None
 			
-			item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+			item_doc = frappe.get_doc("Item", _sq_item)
 			
 			# Get default currency
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Get quantity based on unit_type
-			quantity = 0
+			# Quantity by unit_type — align with logistics.utils.charges_calculation (booking/shipment charges grid)
+			from logistics.utils.charges_calculation import get_quantity_from_parent_by_unit_type
+
 			unit_type = sqaf_record.get("unit_type")
-			if unit_type == "Chargeable Weight":
-				chargeable_qty = getattr(self, "chargeable", None)
-				if chargeable_qty in (None, ""):
-					chargeable_qty = getattr(self, "chargeable_weight", None)
-				quantity = flt(chargeable_qty or 0)
-			elif unit_type == "Weight":
-				quantity = flt(self.weight) or 0
-			elif unit_type == "Volume":
-				quantity = flt(self.volume) or 0
-			elif unit_type in ["Package", "Piece"]:
-				if hasattr(self, 'packages') and self.packages:
-					quantity = len(self.packages)
-				else:
-					quantity = 1
-			elif unit_type == "Shipment":
-				quantity = 1
-			elif not unit_type:
-				# Default quantity for fixed/flat rate charges
+			quantity = get_quantity_from_parent_by_unit_type(self, unit_type)
+			if unit_type in ("Package", "Piece") and flt(quantity) <= 0:
 				quantity = 1
 			
-			# Determine charge_type: first from Sales Quote Air Freight record, then from item, then default
-			charge_type = "Revenue"
-			# First check if charge_type is set in the Sales Quote Air Freight record
-			if hasattr(sqaf_record, 'charge_type') and sqaf_record.charge_type:
-				charge_type = sqaf_record.charge_type
-			# Fall back to item's custom_charge_type if not set in Sales Quote Air Freight
-			elif hasattr(item_doc, 'custom_charge_type') and item_doc.custom_charge_type:
-				charge_type = item_doc.custom_charge_type
-			
-			# Determine charge_category: first from Sales Quote record, then from item, then default
-			charge_category = "Other"
-			if hasattr(sqaf_record, 'charge_category') and sqaf_record.charge_category:
-				charge_category = sqaf_record.charge_category
-			elif hasattr(item_doc, 'custom_charge_category'):
-				charge_category = item_doc.custom_charge_category or "Other"
+			charge_type = _sq_row_get("charge_type") or (
+				item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
+			) or "Revenue"
+			charge_category = _sq_row_get("charge_category") or (
+				item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
+			) or "Other"
 			
 			# Get description from item or use item_name as fallback
 			description = None
 			if hasattr(item_doc, 'description') and item_doc.description:
 				description = item_doc.description
 			else:
-				description = sqaf_record.item_name or item_doc.item_name
+				description = _sq_row_get("item_name") or item_doc.item_name
 			
 			# Get item_tax_template and invoice_type from item if available
 			item_tax_template = None
@@ -1605,8 +1664,9 @@ class AirBooking(Document):
 			if hasattr(item_doc, 'invoice_type'):
 				invoice_type = item_doc.invoice_type
 			
-			# Get the original calculation_method from Sales Quote Air Freight
-			sqaf_calc_method = (sqaf_record.get("calculation_method") or "").strip()
+			# Get the original calculation_method from Sales Quote Charge (revenue_calculation_method) or legacy Air Freight
+			_raw_sq_rev = _sq_row_get("revenue_calculation_method") or _sq_row_get("calculation_method") or ""
+			sqaf_calc_method = str(_raw_sq_rev).strip() if _raw_sq_rev is not None else ""
 			item_code = sqaf_record.get('item_code', 'Unknown')
 			
 			# Define valid calculation methods for Air Booking Charges
@@ -1772,20 +1832,20 @@ class AirBooking(Document):
 				_sq_link = self.quote
 			charge_data = {
 				"service_type": service_type,
-				"item_code": sqaf_record.item_code,
-				"item_name": sqaf_record.item_name or item_doc.item_name,
+				"item_code": _sq_row_get("item_code"),
+				"item_name": _sq_row_get("item_name") or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_category": charge_category,
 				"description": description,  # Added: description from item
 				"item_tax_template": item_tax_template,  # Added: item_tax_template from item
 				"invoice_type": invoice_type,  # Added: invoice_type from item
 				"revenue_calculation_method": calculation_method,
-				"rate": sqaf_record.unit_rate or 0,
-				"currency": sqaf_record.currency or default_currency,
+				"rate": _sq_row_get("unit_rate") or 0,
+				"currency": _sq_row_get("currency") or default_currency,
 				"quantity": quantity,
 				"uom": uom_record_name,  # Use actual UOM record name, not normalized string
 				"unit_of_measure": normalized_uom,  # Keep normalized value for unit_of_measure if needed
-				"unit_type": sqaf_record.get("unit_type"),
+				"unit_type": _sq_row_get("unit_type"),
 				"billing_status": "To Bill",
 				"bill_to": _sq_row_get("bill_to"),
 				"pay_to": _sq_row_get("pay_to"),
@@ -1795,6 +1855,10 @@ class AirBooking(Document):
 				"tariff": getattr(sqaf_record, "tariff", None),
 				"revenue_tariff": getattr(sqaf_record, "revenue_tariff", None),
 				"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
+				"bill_to_exchange_rate": _sq_row_get("bill_to_exchange_rate"),
+				"pay_to_exchange_rate": _sq_row_get("pay_to_exchange_rate"),
+				"bill_to_exchange_rate_source": _sq_row_get("bill_to_exchange_rate_source"),
+				"pay_to_exchange_rate_source": _sq_row_get("pay_to_exchange_rate_source"),
 			}
 			
 			# Add minimum/maximum/quantity if available
@@ -1834,8 +1898,17 @@ class AirBooking(Document):
 				charge_data["cost_uom"] = sqaf_record.get("cost_uom")
 			if sqaf_record.get("estimated_cost") is not None:
 				charge_data["estimated_cost"] = sqaf_record.get("estimated_cost")
+			if _sq_row_get("estimated_revenue") is not None:
+				charge_data["estimated_revenue"] = _sq_row_get("estimated_revenue")
 			if sqaf_record.get("cost_calc_notes"):
 				charge_data["cost_calc_notes"] = sqaf_record.get("cost_calc_notes")
+
+			if _sq_row_get("apply_95_5_rule") is not None:
+				charge_data["apply_95_5_rule"] = cint(_sq_row_get("apply_95_5_rule"))
+			if _sq_row_get("taxable_freight_item"):
+				charge_data["taxable_freight_item"] = _sq_row_get("taxable_freight_item")
+			if _sq_row_get("taxable_freight_item_tax_template"):
+				charge_data["taxable_freight_item_tax_template"] = _sq_row_get("taxable_freight_item_tax_template")
 			
 			# Log the final charge_data calculation_method
 			frappe.logger().info(
@@ -1916,6 +1989,7 @@ class AirBooking(Document):
 		Raises:
 			frappe.ValidationError: If required fields are missing
 		"""
+		self.validate_required_fields_for_submit()
 		# Check if both quote and charges are empty
 		quote_type = getattr(self, "quote_type", None)
 		has_quote = False
@@ -1958,11 +2032,10 @@ class AirBooking(Document):
 					"One Air Booking can only have one Air Shipment."
 				).format(existing_shipment))
 			
-			# Validate volume is greater than 0 before conversion
-			volume = flt(self.volume) if hasattr(self, 'volume') and self.volume is not None else 0
-			if volume <= 0:
-				frappe.throw(_("Volume must be greater than 0 before converting to Air Shipment"))
-			
+			self._require_positive_booking_volume(
+				_("Volume must be greater than 0 before converting to Air Shipment")
+			)
+
 			# Validate before conversion
 			self.validate_before_conversion()
 			
@@ -2236,6 +2309,21 @@ class AirBooking(Document):
 					# sales_quote_link: from parent or charge
 					charge_row["sales_quote_link"] = self.sales_quote or getattr(charge, 'sales_quote_link', None)
 					air_shipment.append("charges", charge_row)
+
+			if getattr(self, "operational_exchange_rates", None):
+				for ox in self.operational_exchange_rates:
+					air_shipment.append(
+						"operational_exchange_rates",
+						{
+							"entity_type": ox.entity_type,
+							"entity": ox.entity,
+							"exchange_rate_source": ox.exchange_rate_source,
+							"currency": ox.currency,
+							"rate": ox.rate,
+							"alternate_currency": getattr(ox, "alternate_currency", None),
+							"alternate_rate": getattr(ox, "alternate_rate", None),
+						},
+					)
 			
 			# Copy routing legs (from Air Booking Routing Leg to Air Shipment Routing Leg)
 			# Note: Order is determined by idx (automatically set by Frappe), not leg_order
@@ -2290,25 +2378,10 @@ class AirBooking(Document):
 					air_shipment.insert(ignore_permissions=True)
 				else:
 					raise
-			
-			# Save the Air Shipment (after_insert may have already saved it, but we save again to be sure)
-			try:
-				air_shipment.save(ignore_permissions=True)
-			except (frappe.ValidationError, frappe.LinkValidationError) as e:
-				# If validation fails due to invalid link fields, clear them and try again
-				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
-					# Clear potentially invalid link fields
-					if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
-						if not frappe.db.exists("Logistics Service Level", air_shipment.service_level):
-							air_shipment.service_level = None
-					if hasattr(air_shipment, 'release_type') and air_shipment.release_type:
-						if not frappe.db.exists("Release Type", air_shipment.release_type):
-							air_shipment.release_type = None
-					# Try save again
-					air_shipment.save(ignore_permissions=True)
-				else:
-					raise
-			
+			# Do not call save() here: insert() already persists the document and runs post-save hooks.
+			# A follow-up save() triggers TimestampMismatchError when DB modified differs from the
+			# in-memory copy (see e.g. Transport Order create_job_from_order: reload + single writer).
+
 			# Ensure commit before client navigates (avoids "not found" on form load)
 			frappe.db.commit()
 			
@@ -2613,15 +2686,20 @@ def populate_charges_from_sales_quote(
 		# Fetch charges from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",  # Added charge_category
+			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"bill_to",
 			# Cost fields
 			"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+			"bill_to_exchange_rate",
+			"pay_to_exchange_rate",
+			"bill_to_exchange_rate_source",
+			"pay_to_exchange_rate_source",
 			"service_type",  # Include service_type to identify charge types
 			"origin_port",
 			"destination_port",
@@ -2701,6 +2779,9 @@ def populate_charges_from_sales_quote(
 			charge_row = temp_doc._map_sales_quote_air_freight_to_charge(sqaf_record)
 			if charge_row:
 				charges.append(charge_row)
+
+		if doc and charges:
+			doc._apply_actuals_to_charge_dicts(charges)
 		
 		# Note: We do NOT save the document here to avoid "document has been modified" errors.
 		# The client-side JavaScript will handle updating the form with the charges data.
@@ -2777,14 +2858,19 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "bill_to",
+			"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category", "bill_to",
+			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			# Cost fields
 			"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 			"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge", "cost_maximum_charge",
 			"cost_base_amount", "cost_uom", "estimated_cost", "pay_to",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+			"bill_to_exchange_rate",
+			"pay_to_exchange_rate",
+			"bill_to_exchange_rate_source",
+			"pay_to_exchange_rate_source",
 			"service_type",
 			"origin_port",
 			"destination_port",
@@ -2794,7 +2880,11 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
-			filters={"parent": one_off_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			filters={
+				"parent": one_off_quote,
+				"parenttype": "Sales Quote",
+				**sales_quote_charge_filters_service_type_only("Air"),
+			},
 			fields=sqc_fields,
 			order_by="idx"
 		)
@@ -2833,6 +2923,9 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			charge_row = temp_doc._map_sales_quote_air_freight_to_charge(sqaf_record)
 			if charge_row:
 				charges.append(charge_row)
+
+		if doc and charges:
+			doc._apply_actuals_to_charge_dicts(charges)
 		
 		# Note: We do NOT save the document here to avoid "document has been modified" errors.
 		# The client-side JavaScript will handle updating the form with the charges data.

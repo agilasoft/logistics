@@ -213,6 +213,24 @@ function _calculate_volume_from_dimensions_api(length, width, height, dimension_
 					volume = parseFloat(v);
 				}
 			}
+			var crow = frappe.get_doc(cdt, cdn);
+			var mult = 1;
+			if (typeof window.logistics_package_line_volume_multiplier === 'function') {
+				mult = window.logistics_package_line_volume_multiplier(crow, cdt, cdn);
+			} else if (crow) {
+				var dt = crow.doctype || cdt;
+				var n = parseFloat(crow.no_of_packs || 0);
+				var q = parseFloat(crow.quantity || 0);
+				var gf = frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form();
+				if (gf && gf.doc && gf.doc.doctype === cdt && gf.doc.name === cdn) {
+					var pn = parseFloat(gf.doc.no_of_packs);
+					if (!isNaN(pn)) n = pn;
+					var pq = parseFloat(gf.doc.quantity);
+					if (!isNaN(pq)) q = pq;
+				}
+				mult = n || q || 1;
+			}
+			volume *= mult;
 			frappe.model.set_value(cdt, cdn, 'volume', volume);
 			_refresh_child_field(frm, cdt, cdn, 'volume');
 			frm.trigger('volume', cdt, cdn);
@@ -231,7 +249,7 @@ var _packages_doctypes_with_volume = [
 	'Sea Freight Packages', 'Transport Order Package', 'Transport Job Package'
 ];
 _packages_doctypes_with_volume.forEach(function(cdt) {
-	frappe.model.on(cdt, ['length', 'width', 'height', 'dimension_uom', 'volume_uom'], function(fieldname, value, doc, skip_dirty_trigger) {
+	frappe.model.on(cdt, ['length', 'width', 'height', 'dimension_uom', 'volume_uom', 'no_of_packs', 'quantity'], function(fieldname, value, doc, skip_dirty_trigger) {
 		if (!doc || !doc.parent || doc.parentfield !== 'packages') return;
 		// When grid form ("Editing Row #N") is open, cur_frm is the child form; use parent form
 		var frm = cur_frm;

@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, add_days, date_diff, today
+from frappe.utils import cint, getdate, add_days, date_diff, today
 
 from logistics.utils import alert_utils
 
@@ -290,6 +290,39 @@ def update_job_document_status_on_parent_before_save(doc, method=None):
 		validate_job_document_status_aligned(row)
 
 
+_JOB_DOCUMENT_COMPLETE_STATUSES = frozenset(("Received", "Verified", "Done"))
+
+
+def enforce_required_job_documents_before_submit(doc, method=None):
+	"""Optional gate from Logistics Settings: block submit when required Job Document rows are incomplete."""
+	if not doc or getattr(doc, "flags", None) and doc.flags.get("skip_required_documents_submit_check"):
+		return
+	try:
+		settings = frappe.get_single("Logistics Settings")
+	except Exception:
+		return
+	if not cint(getattr(settings, "block_submit_if_required_documents_pending", 0)):
+		return
+	if not hasattr(doc, "documents"):
+		return
+	rows = doc.get("documents") or []
+	incomplete = []
+	for row in rows:
+		if not cint(row.get("is_required")):
+			continue
+		status = (row.get("status") or "").strip()
+		if status in _JOB_DOCUMENT_COMPLETE_STATUSES:
+			continue
+		label = row.get("document_type") or row.get("document_name") or _("Document")
+		incomplete.append("{0} ({1})".format(label, status or _("Pending")))
+	if not incomplete:
+		return
+	msg = _("Cannot submit: required document(s) are not complete. Complete or update the Documents table first.") + "\n\n" + "\n".join(
+		frappe.utils.escape_html(s) for s in incomplete
+	)
+	frappe.throw(msg, title=_("Required documents incomplete"))
+
+
 def ensure_documents_and_milestones_from_template(doc, method=None):
 	"""On parent save: auto-populate documents and milestones from applicable default template if empty or new.
 	Called from doc_events on_update for doctypes that have documents/milestones tabs.
@@ -332,6 +365,10 @@ def ensure_documents_and_milestones_from_template(doc, method=None):
 					f"Error applying milestone sync/triggers for {doctype} {name}: {e}",
 					"Milestone Sync/Trigger Error",
 				)
+		# populate_* and milestone_sync load a separate Document instance and may save again.
+		# Without reloading, this instance keeps an older `modified` than the DB and the client
+		# gets a stale timestamp → TimestampMismatchError on the next save (same as Declaration Order note in hooks).
+		doc.reload()
 	finally:
 		frappe.flags.in_ensure_documents_milestones = False
 

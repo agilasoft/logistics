@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Agilasoft and contributors
 // For license information, please see license.txt
 
-/** Sync hidden transport_mode_air / transport_mode_sea from Transport Mode checkboxes (child routing legs). */
+/** Sync hidden transport_mode_air / transport_mode_sea from linked Load Type or Transport Mode checkboxes (child routing legs). */
 
 (function () {
 	if (window.__logistics_routing_leg_mode_flags_init) {
@@ -22,10 +22,19 @@
 			frappe.model.set_value(cdt, cdn, "transport_mode_sea", 0);
 			return;
 		}
-		frappe.db.get_value("Transport Mode", mode, ["air", "sea"]).then((r) => {
-			const m = (r && r.message) || {};
-			frappe.model.set_value(cdt, cdn, "transport_mode_air", m.air ? 1 : 0);
-			frappe.model.set_value(cdt, cdn, "transport_mode_sea", m.sea ? 1 : 0);
+		frappe.db.get_value("Load Type", mode, ["air", "sea"]).then((r) => {
+			const m = r && r.message;
+			const tmProm =
+				m != null
+					? Promise.resolve({ air: m.air ? 1 : 0, sea: m.sea ? 1 : 0 })
+					: frappe.db.get_value("Transport Mode", mode, ["air", "sea"]).then((r2) => {
+							const x = (r2 && r2.message) || {};
+							return { air: x.air ? 1 : 0, sea: x.sea ? 1 : 0 };
+					  });
+			return tmProm.then(({ air, sea }) => {
+				frappe.model.set_value(cdt, cdn, "transport_mode_air", air);
+				frappe.model.set_value(cdt, cdn, "transport_mode_sea", sea);
+			});
 		});
 	}
 

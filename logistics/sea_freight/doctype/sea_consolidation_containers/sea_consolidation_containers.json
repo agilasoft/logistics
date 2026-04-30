@@ -30,6 +30,7 @@
    "label": "Container Information"
   },
   {
+   "description": "11 characters per ISO 6346 (3-letter owner, U/J/Z, 6-digit serial, check digit).",
    "fieldname": "container_number",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -65,7 +66,8 @@
    "fieldname": "mode",
    "fieldtype": "Link",
    "label": "Mode",
-   "options": "Freight Mode"
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1],[\"Load Type\",\"can_handle_consolidation\",\"=\",1]]",
+   "options": "Load Type"
   },
   {
    "fieldname": "delivery_mode",

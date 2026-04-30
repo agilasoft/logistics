@@ -10,12 +10,14 @@ from logistics.utils.charges_calculation import (
 	calculate_charge_revenue,
 	calculate_charge_cost,
 )
+from logistics.utils.freight_95_5 import validate_freight_95_5_row
 
 
 class SalesQuoteCharge(Document):
 	"""Sales Quote Charge child table - unified charges across Air, Sea, Transport, Customs, Warehousing."""
 
 	def validate(self):
+		validate_freight_95_5_row(self)
 		self._calculate_charges()
 
 	def _calculate_charges(self, parent_doc=None):

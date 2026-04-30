@@ -31,6 +31,7 @@ WIKI_PAGES_CONFIG = {
     "customer_portal": ("Customer Portal", "Introduction"),
     "recent_platform_updates": ("Recent Platform Updates", "Introduction"),
     "cargonext_v1_astraea_press_release": ("CargoNext v1 — Astraea Press Release", "Introduction"),
+    "release_notes_v1": ("CargoNext v1 — Release Notes", "Introduction"),
     # Settings
     "logistics_settings": ("Logistics Settings", "Setup"),
     "credit_management": ("Credit Management", "Setup"),

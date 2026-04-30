@@ -11,13 +11,19 @@ Uses Item accounting dimension on JE rows when configured, and matches open accr
 
 from __future__ import unicode_literals
 
+from collections import defaultdict
+
 import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.job_management.gl_reference_dimension import get_accounting_dimension_fieldname
 from logistics.job_management.charge_recognition_je import set_accrual_adjustment_je_on_charges
 from logistics.job_management.gl_item_dimension import get_item_dimension_fieldname_on_gl_entry, item_row_dict
-from logistics.job_management.recognition_engine import get_recognition_policy_for_job
+from logistics.job_management.recognition_engine import (
+	apply_journal_entry_posting_header_from_job,
+	get_recognition_policy_for_job,
+)
 from logistics.invoice_integration.recognition_voucher_reversal import (
 	append_logistics_reversal_marker,
 	reversal_journal_entry_exists_for_voucher,
@@ -95,6 +101,7 @@ def post_cost_accrual_reversal_journal_multi(
 	je.user_remark = user_remark
 
 	totals_per_job = []
+	header_job = None
 
 	for job, je_pairs in segments:
 		if not je_pairs:
@@ -103,6 +110,8 @@ def post_cost_accrual_reversal_journal_multi(
 		policy = get_recognition_policy_for_job(jcn)
 		if not policy:
 			continue
+		if header_job is None:
+			header_job = job
 		cost_acc = policy.get("cost_accrual_account")
 		liab_acc = policy.get("accrued_cost_liability_account")
 		if not cost_acc or not liab_acc:
@@ -149,6 +158,9 @@ def post_cost_accrual_reversal_journal_multi(
 	if not len(getattr(je, "accounts", []) or []):
 		return None
 
+	if header_job:
+		apply_journal_entry_posting_header_from_job(je, header_job)
+
 	je.insert()
 	je.submit()
 
@@ -174,27 +186,8 @@ def post_cost_accrual_reversal_journal_multi(
 	return je.name
 
 
-def reverse_cost_accrual_for_purchase_invoice(pi_doc):
-	"""
-	Post accrual reversal Journal Entry(ies) for a submitted Purchase Invoice.
-
-	Requires Purchase Invoice ``job_number`` (accounting dimension) and a recognition policy
-	with cost accrual + accrued liability accounts. Updates the job's ``accrual_amount`` and ``recognized_costs``.
-	"""
-	if not pi_doc or getattr(pi_doc, "docstatus", None) != 1:
-		return None
-
-	existing_je = reversal_journal_entry_exists_for_voucher("Purchase Invoice", pi_doc.name)
-	if existing_je:
-		return existing_je
-
-	jcn = getattr(pi_doc, "job_number", None)
-	meta_pi = frappe.get_meta("Purchase Invoice")
-	if not jcn and meta_pi.get_field("job_number"):
-		jcn = frappe.db.get_value("Purchase Invoice", pi_doc.name, "job_number")
-	if not jcn:
-		return None
-
+def _reverse_cost_accrual_for_purchase_invoice_single(pi_doc, jcn):
+	"""Single header Job Number: original behavior (all PI items apply to that job)."""
 	policy = get_recognition_policy_for_job(jcn)
 	if not policy:
 		return None
@@ -251,6 +244,105 @@ def reverse_cost_accrual_for_purchase_invoice(pi_doc):
 	return post_cost_accrual_reversal_journal(
 		job,
 		je_pairs,
+		pi_doc.posting_date,
+		company,
+		user_remark,
+	)
+
+
+def reverse_cost_accrual_for_purchase_invoice(pi_doc):
+	"""
+	Post accrual reversal Journal Entry(ies) for a submitted Purchase Invoice.
+
+	Uses header Job Number when set; otherwise splits by Job Number on each PI Item (multi-job consolidation invoices).
+	"""
+	if not pi_doc or getattr(pi_doc, "docstatus", None) != 1:
+		return None
+
+	existing_je = reversal_journal_entry_exists_for_voucher("Purchase Invoice", pi_doc.name)
+	if existing_je:
+		return existing_je
+
+	meta_pi = frappe.get_meta("Purchase Invoice")
+	jcn_header = getattr(pi_doc, "job_number", None)
+	if not jcn_header and meta_pi.get_field("job_number"):
+		jcn_header = frappe.db.get_value("Purchase Invoice", pi_doc.name, "job_number")
+
+	if jcn_header:
+		return _reverse_cost_accrual_for_purchase_invoice_single(pi_doc, jcn_header)
+
+	fn_item = get_accounting_dimension_fieldname("Job Number")
+	meta_item = frappe.get_meta("Purchase Invoice Item")
+	if not fn_item or not meta_item.get_field(fn_item):
+		return None
+
+	rows_by_jcn = defaultdict(list)
+	for row in pi_doc.get("items") or []:
+		jcn = getattr(row, fn_item, None)
+		if jcn:
+			rows_by_jcn[jcn].append(row)
+
+	if not rows_by_jcn:
+		return None
+
+	company = pi_doc.company
+	item_fn_gl = get_item_dimension_fieldname_on_gl_entry()
+	segments = []
+
+	for jcn_val, rows in rows_by_jcn.items():
+		policy = get_recognition_policy_for_job(jcn_val)
+		if not policy:
+			continue
+		cost_acc = policy.get("cost_accrual_account")
+		liab_acc = policy.get("accrued_cost_liability_account")
+		if not cost_acc or not liab_acc:
+			continue
+		if not frappe.db.exists("Job Number", jcn_val):
+			continue
+		jcn_doc = frappe.get_doc("Job Number", jcn_val)
+		job_dt = jcn_doc.job_type
+		job_no = jcn_doc.job_no
+		if not job_dt or not job_no or not frappe.db.exists(job_dt, job_no):
+			continue
+		job = frappe.get_doc(job_dt, job_no)
+		if not frappe.get_meta(job_dt).has_field("accrual_amount"):
+			continue
+
+		remaining = flt(job.get("accrual_amount"))
+		if remaining <= 0:
+			continue
+
+		je_pairs = []
+		for row in rows:
+			amt = flt(row.get("base_net_amount")) or flt(row.get("amount")) or 0
+			if amt <= 0:
+				continue
+			item_code = row.get("item_code")
+			rev = 0
+			if item_fn_gl and item_code:
+				open_item = _paired_accrual_open_for_item(jcn_val, company, cost_acc, liab_acc, item_fn_gl, item_code)
+				if open_item > 0:
+					rev = min(amt, open_item, remaining)
+			if rev <= 0:
+				rev = min(amt, remaining)
+			if rev <= 0:
+				continue
+			je_pairs.append((rev, item_code))
+			remaining -= rev
+
+		if je_pairs:
+			segments.append((job, je_pairs))
+
+	if not segments:
+		return None
+
+	user_remark = append_logistics_reversal_marker(
+		_("Accrual reversal for Purchase Invoice {0}").format(pi_doc.name),
+		"Purchase Invoice",
+		pi_doc.name,
+	)
+	return post_cost_accrual_reversal_journal_multi(
+		segments,
 		pi_doc.posting_date,
 		company,
 		user_remark,

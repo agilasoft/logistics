@@ -246,7 +246,14 @@ frappe.pages["air-freight-operations"].on_page_load = function (wrapper) {
           .dash-alert-group.dash-alert-group-warning .dash-alert-group-header { background: #fff3cd; color: #856404; }
           .dash-alert-group.dash-alert-group-info .dash-alert-group-header { background: #d1ecf1; color: #0c5460; }
           .dash-alert-group-chevron { font-size: 10px; transition: transform 0.2s ease; }
-          .dash-alert-group-body { padding: 6px 12px 12px; }
+          .dash-alert-group-body {
+          padding: 6px 12px 12px;
+          min-height: 0;
+          max-height: 300px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+        }
           .dash-alert-group.collapsed .dash-alert-group-body { display: none; }
         </style>
       `);
@@ -741,6 +748,12 @@ frappe.pages["air-freight-operations"].on_page_load = function (wrapper) {
       $section.html(
         groupsHtml || `<div class="text-muted small">${__("No alerts for listed shipments.")}</div>`
       );
+      $section.find(".dash-alert-group-body").each(function () {
+        this.style.setProperty("max-height", "300px");
+        this.style.setProperty("min-height", "0");
+        this.style.setProperty("overflow-y", "auto");
+        this.style.setProperty("overflow-x", "hidden");
+      });
       $section.find(".dash-alert-group-header").off("click").on("click", function () {
         const $h = $(this);
         const $g = $h.closest(".dash-alert-group");

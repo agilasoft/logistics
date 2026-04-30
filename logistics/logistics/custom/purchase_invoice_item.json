@@ -19,6 +19,16 @@
    "insert_after": "reference_doctype",
    "hidden": 1,
    "description": "Logistics job/shipment name"
+  },
+  {
+   "dt": "Purchase Invoice Item",
+   "fieldname": "logistics_container",
+   "fieldtype": "Link",
+   "label": "Container",
+   "options": "Container",
+   "insert_after": "reference_name",
+   "hidden": 0,
+   "description": "Container for this line (use Allocate container deposits when the job has multiple containers)."
   }
  ],
  "custom_perms": [],

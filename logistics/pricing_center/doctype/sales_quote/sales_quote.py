@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import format_date, today, flt, getdate
+from frappe.utils import format_date, today, flt, getdate, cint
 
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.party_address_contact_from_masters import (
@@ -14,8 +14,11 @@ from logistics.utils.party_address_contact_from_masters import (
 from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
 from logistics.utils.charge_service_type import (
+	canonical_charge_service_type_for_storage,
+	count_sales_quote_charges_for_service,
 	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
+	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 
@@ -57,14 +60,47 @@ CUSTOMS_ALLOWED_UNIT_TYPES_DISPLAY = (
 )
 
 
+def _sq_strip_or_none(val):
+	if val is None:
+		return None
+	s = str(val).strip()
+	return s or None
+
+
+def _sq_charge_row_matches_service(row, service_type_label):
+	st = (
+		getattr(row, "service_type", None)
+		if not isinstance(row, dict)
+		else row.get("service_type")
+	)
+	return sales_quote_charge_service_types_equal(st, service_type_label)
+
+
 def _sales_quote_has_warehousing_for_contract(sales_quote):
 	"""Legacy warehousing child rows or unified charges with service_type Warehousing (matches sales_quote.js + get_rates_from_sales_quote)."""
 	if sales_quote.get("warehousing"):
 		return True
 	for row in sales_quote.get("charges") or []:
-		if row.get("service_type") == "Warehousing":
+		if _sq_charge_row_matches_service(row, "Warehousing"):
 			return True
 	return False
+
+
+def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote):
+	"""Additional-charge quotes (from Change Request) bill an existing job — do not spawn new bookings or orders."""
+	if not cint(getattr(sales_quote, "additional_charge", 0)):
+		return
+	job = _sq_strip_or_none(getattr(sales_quote, "job", None))
+	jt = _sq_strip_or_none(getattr(sales_quote, "job_type", None))
+	msg = _(
+		"This Sales Quote is for additional charges on an existing job (Change Request). "
+		"Creating a new booking or order from it is not allowed."
+	)
+	if job and jt:
+		msg = msg + " " + _("Additional charges apply on {0} {1}.").format(jt, job)
+	elif job:
+		msg = msg + " " + _("Additional charges apply on job {0}.").format(job)
+	frappe.throw(msg, title=_("Additional-Charge Quote"))
 
 
 class SalesQuote(Document):
@@ -90,9 +126,49 @@ class SalesQuote(Document):
 	def before_submit(self):
 		"""Validate before submitting the document"""
 		self.validate_main_service_has_charges()
+		self.validate_air_sea_charge_ports_before_submit()
+
+	def validate_air_sea_charge_ports_before_submit(self):
+		"""At least one Air/Sea charge line must have Origin Port and Destination Port (row or quote-level fallbacks)."""
+		doc_origin, doc_dest = self._document_level_origin_destination_for_charges()
+		has_air_or_sea = False
+		has_complete_corridor = False
+		for row in getattr(self, "charges", None) or []:
+			st = _sq_strip_or_none(getattr(row, "service_type", None))
+			if canonical_charge_service_type_for_storage(st) not in ("air", "sea"):
+				continue
+			has_air_or_sea = True
+			row_o = _sq_strip_or_none(getattr(row, "origin_port", None))
+			row_d = _sq_strip_or_none(getattr(row, "destination_port", None))
+			eff_o = row_o or doc_origin
+			eff_d = row_d or doc_dest
+			if eff_o and eff_d:
+				has_complete_corridor = True
+				break
+		if has_air_or_sea and not has_complete_corridor:
+			frappe.throw(
+				_(
+					"At least one Air or Sea charge line must have Origin Port and Destination Port "
+					"(on that line or from the quote: Origin Port / Destination Port, or Location From / Location To). "
+					"Other Air/Sea lines may leave ports blank."
+				),
+				title=_("Charge Ports Required"),
+			)
+
+	def _document_level_origin_destination_for_charges(self):
+		"""Match booking/shipment behavior: prefer port fields, then transport locations."""
+		o = _sq_strip_or_none(getattr(self, "origin_port", None))
+		d = _sq_strip_or_none(getattr(self, "destination_port", None))
+		if not o:
+			o = _sq_strip_or_none(getattr(self, "location_from", None))
+		if not d:
+			d = _sq_strip_or_none(getattr(self, "location_to", None))
+		return o, d
 
 	def validate_main_service_has_charges(self):
 		"""Require at least one charge line for the selected Main Service (aligned with UI create-booking logic)."""
+		if getattr(self, "change_request", None):
+			return
 		main = getattr(self, "main_service", None)
 		if not main:
 			return
@@ -104,7 +180,7 @@ class SalesQuote(Document):
 				)
 			return
 		charges = getattr(self, "charges", None) or []
-		if not any(getattr(r, "service_type", None) == main for r in charges):
+		if not any(_sq_charge_row_matches_service(r, main) for r in charges):
 			frappe.throw(
 				_("Add at least one charge line with Service Type \"{0}\" (Main Service).").format(main),
 				title=_("Main Service Has No Charges"),
@@ -220,11 +296,11 @@ class SalesQuote(Document):
 		service_type (or one-off main_service) is enabled—not that other flags are off.
 		"""
 		service_to_field = {
-			"Air": "air",
-			"Sea": "sea",
-			"Transport": "transport",
-			"Customs": "customs",
-			"Warehousing": "warehousing",
+			"air": "air",
+			"sea": "sea",
+			"transport": "transport",
+			"custom": "customs",
+			"warehousing": "warehousing",
 		}
 
 		def _check(load_type_name, service_label, field_name, context):
@@ -245,14 +321,16 @@ class SalesQuote(Document):
 		if getattr(self, "quotation_type", None) == "One-off" and not getattr(self, "additional_charge", 0):
 			main = getattr(self, "main_service", None)
 			lt = getattr(self, "load_type", None)
-			field = service_to_field.get(main)
+			main_c = canonical_charge_service_type_for_storage(main)
+			field = service_to_field.get(main_c)
 			if lt and field:
 				_check(lt, main, field, _("this quote's Main Service"))
 
 		for row in getattr(self, "charges", None) or []:
 			st = getattr(row, "service_type", None)
 			lt = getattr(row, "load_type", None)
-			field = service_to_field.get(st)
+			st_c = canonical_charge_service_type_for_storage(st)
+			field = service_to_field.get(st_c)
 			if lt and field:
 				_check(lt, st, field, _("charge row {0}").format(getattr(row, "idx", "") or ""))
 
@@ -261,7 +339,7 @@ class SalesQuote(Document):
 		Prevents submission with e.g. 'Job' so that creating Declaration Order from the quote does not fail."""
 		customs_rows = []
 		if getattr(self, "charges", None):
-			customs_rows = [r for r in self.charges if getattr(r, "service_type", None) == "Customs"]
+			customs_rows = [r for r in self.charges if _sq_charge_row_matches_service(r, "Customs")]
 		if getattr(self, "main_service", None) != "Customs" or not customs_rows:
 			return
 		for idx, row in enumerate(customs_rows, start=1):
@@ -288,7 +366,7 @@ class SalesQuote(Document):
 
 	def validate_vehicle_type_load_type(self):
 		"""Validate that the selected vehicle_type is allowed for the selected load_type in each Transport charge"""
-		transport_rows = [c for c in (getattr(self, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
+		transport_rows = [c for c in (getattr(self, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
 		if getattr(self, "main_service", None) != "Transport" or not transport_rows:
 			return
 
@@ -322,7 +400,7 @@ class SalesQuote(Document):
 		if getattr(self, "main_service", None) != "Transport":
 			return
 
-		transport_rows = [c for c in (getattr(self, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
+		transport_rows = [c for c in (getattr(self, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
 		has_vehicle_type = any(getattr(r, "vehicle_type", None) for r in transport_rows)
 		if not has_vehicle_type:
 			return
@@ -477,12 +555,9 @@ class SalesQuote(Document):
 		"""
 		try:
 			throw_if_sales_quote_expired_for_creation(self)
+			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
 			# Check if Sales Quote has air charges (new) or air freight (legacy)
-			air_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.name,
-				"parenttype": "Sales Quote",
-				"service_type": "Air"
-			})
+			air_charge_count = count_sales_quote_charges_for_service(self.name, "Air")
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
 				"parent": self.name,
 				"parenttype": "Sales Quote"
@@ -617,6 +692,7 @@ class SalesQuote(Document):
 		"""
 		try:
 			throw_if_sales_quote_expired_for_creation(self)
+			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
 			# First create the Sea Booking from Sales Quote
 			booking_result = _create_sea_booking_from_sales_quote(self)
 			booking_name = booking_result.get("sea_booking")
@@ -646,7 +722,8 @@ class SalesQuote(Document):
 			# Check if the quote is submitted
 			if self.docstatus != 1:
 				frappe.throw(_("This Sales Quote must be submitted before creating a Warehouse Contract."))
-			
+			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
+
 			# Check if Sales Quote has warehousing details (legacy table or unified Warehousing charges)
 			if not _sales_quote_has_warehousing_for_contract(self):
 				frappe.throw(_("No warehousing details found in this Sales Quote."))
@@ -974,14 +1051,15 @@ def _get_invoice_items_from_job(job_type, job_name, customer):
 
 def _get_service_params(sales_quote, service_type):
 	"""Get params from first charge with the given service_type."""
-	charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == service_type]
+	charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, service_type)]
 	return charges[0] if charges else None
 
 
 def _create_transport_order_from_sales_quote(sales_quote):
 	"""Create Transport Order from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
-	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
 	legacy_transport = getattr(sales_quote, "transport", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Transport"
 	has_transport = bool(transport_charges) or bool(legacy_transport)
@@ -1100,7 +1178,7 @@ def _get_air_weight_volume_from_sales_quote(sales_quote):
 	"""Derive total weight and volume from Sales Quote Air charges (quantity where unit_type is Weight/Volume)."""
 	total_weight = flt(getattr(sales_quote, "air_weight", None) or getattr(sales_quote, "weight", None) or 0)
 	total_volume = flt(getattr(sales_quote, "air_volume", None) or getattr(sales_quote, "volume", None) or 0)
-	air_rows = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Air"]
+	air_rows = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Air")]
 	if not air_rows and getattr(sales_quote, "air_freight", None):
 		air_rows = sales_quote.air_freight
 	for row in (air_rows or []):
@@ -1123,7 +1201,8 @@ def _get_air_weight_volume_from_sales_quote(sales_quote):
 def _create_air_booking_from_sales_quote(sales_quote):
 	"""Create Air Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
-	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Air"]
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Air")]
 	legacy_air = getattr(sales_quote, "air_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Air"
 	has_air = bool(air_charges) or bool(legacy_air)
@@ -1218,7 +1297,8 @@ def _create_air_booking_from_sales_quote(sales_quote):
 def _create_sea_booking_from_sales_quote(sales_quote):
 	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
-	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Sea"]
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Sea")]
 	legacy_sea = getattr(sales_quote, "sea_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Sea"
 	has_sea = bool(sea_charges) or bool(legacy_sea)
@@ -1399,11 +1479,14 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
+			"charge_type", "charge_category",
+			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "service_type",
+			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
+			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
@@ -1431,6 +1514,10 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			if charge_row:
 				air_shipment.append("charges", charge_row)
 				charges_added += 1
+
+		from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+		sync_operational_exchange_rates_from_charge_rows(air_shipment, air_shipment.charges)
 		
 		if charges_added > 0:
 			frappe.msgprint(
@@ -1550,8 +1637,11 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 		dict: Mapped charge data
 	"""
 	try:
+		def _af_r(key, default=None):
+			return sqaf_record.get(key, default) if isinstance(sqaf_record, dict) else getattr(sqaf_record, key, default)
+
 		# Get the item details to fetch additional required fields
-		item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+		item_doc = frappe.get_doc("Item", _af_r("item_code"))
 		
 		# Get default currency from system settings
 		default_currency = frappe.get_system_settings("currency") or "USD"
@@ -1565,39 +1655,37 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"Piece": "Per Unit",
 			"Shipment": "Flat Rate"
 		}
-		calculation_method = unit_type_to_calc.get(sqaf_record.unit_type, "Flat Rate")
+		calculation_method = unit_type_to_calc.get(_af_r("unit_type"), "Flat Rate")
 		
 		# Get quantity based on unit_type
 		quantity = 0
-		if sqaf_record.unit_type == "Chargeable Weight":
+		if _af_r("unit_type") == "Chargeable Weight":
 			quantity = flt(
 				air_shipment.get("chargeable", 0)
 				or air_shipment.get("chargeable_weight", 0)
 			)
-		elif sqaf_record.unit_type == "Weight":
+		elif _af_r("unit_type") == "Weight":
 			quantity = flt(air_shipment.get("total_weight") or air_shipment.get("weight")) or 0
-		elif sqaf_record.unit_type == "Volume":
+		elif _af_r("unit_type") == "Volume":
 			quantity = flt(air_shipment.get("total_volume") or air_shipment.get("volume")) or 0
-		elif sqaf_record.unit_type in ("Package", "Piece"):
+		elif _af_r("unit_type") in ("Package", "Piece"):
 			if hasattr(air_shipment, 'packages') and air_shipment.packages:
 				quantity = len(air_shipment.packages)
 			else:
 				quantity = 1
-		elif sqaf_record.unit_type == "Shipment" or calculation_method == "Flat Rate":
+		elif _af_r("unit_type") == "Shipment" or calculation_method == "Flat Rate":
 			quantity = 1
 		
-		# Determine charge_type and charge_category from item or use defaults
-		charge_type = "Other"
-		charge_category = "Other"
-		
-		if hasattr(item_doc, 'custom_charge_type'):
-			charge_type = item_doc.custom_charge_type or "Other"
-			if hasattr(item_doc, 'custom_charge_category'):
-				charge_category = item_doc.custom_charge_category or "Other"
+		charge_type = _af_r("charge_type") or (
+			item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
+		) or "Other"
+		charge_category = _af_r("charge_category") or (
+			item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
+		) or "Other"
 		
 		normalized_uom = _normalize_uom_for_air_booking_charges(
-			sqaf_record.uom,
-			sqaf_record.unit_type
+			_af_r("uom"),
+			_af_r("unit_type"),
 		)
 		
 		_sq_st = (
@@ -1607,13 +1695,13 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 		) or "Air"
 		charge_data = {
 			"service_type": _sq_st,
-			"item_code": sqaf_record.item_code,
-			"item_name": sqaf_record.item_name or item_doc.item_name,
+			"item_code": _af_r("item_code"),
+			"item_name": _af_r("item_name") or item_doc.item_name,
 			"charge_type": charge_type,
 			"charge_category": charge_category,
-			"revenue_calculation_method": sqaf_record.calculation_method or calculation_method,
-			"rate": sqaf_record.unit_rate or 0,
-			"currency": sqaf_record.currency or default_currency,
+			"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or calculation_method,
+			"rate": _af_r("unit_rate") or 0,
+			"currency": _af_r("currency") or default_currency,
 			"quantity": quantity,
 			"unit_of_measure": normalized_uom,
 			"billing_status": "To Bill",
@@ -1624,13 +1712,24 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"tariff": getattr(sqaf_record, "tariff", None),
 			"revenue_tariff": getattr(sqaf_record, "revenue_tariff", None),
 			"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
+			"bill_to_exchange_rate": _af_r("bill_to_exchange_rate"),
+			"pay_to_exchange_rate": _af_r("pay_to_exchange_rate"),
+			"bill_to_exchange_rate_source": _af_r("bill_to_exchange_rate_source"),
+			"pay_to_exchange_rate_source": _af_r("pay_to_exchange_rate_source"),
 		}
 		
 		# Add minimum/maximum charge if available
-		if sqaf_record.minimum_charge:
-			charge_data["minimum_charge"] = sqaf_record.minimum_charge
-		if sqaf_record.maximum_charge:
-			charge_data["maximum_charge"] = sqaf_record.maximum_charge
+		if _af_r("minimum_charge"):
+			charge_data["minimum_charge"] = _af_r("minimum_charge")
+		if _af_r("maximum_charge"):
+			charge_data["maximum_charge"] = _af_r("maximum_charge")
+
+		if _af_r("apply_95_5_rule") is not None:
+			charge_data["apply_95_5_rule"] = cint(_af_r("apply_95_5_rule"))
+		if _af_r("taxable_freight_item"):
+			charge_data["taxable_freight_item"] = _af_r("taxable_freight_item")
+		if _af_r("taxable_freight_item_tax_template"):
+			charge_data["taxable_freight_item_tax_template"] = _af_r("taxable_freight_item_tax_template")
 
 		return charge_data
 
@@ -1663,11 +1762,14 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
+			"charge_type", "charge_category",
+			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "service_type",
+			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
+			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_sea_fields = filter_fields_existing_in_doctype("Sales Quote Sea Freight", charge_fields)
@@ -1695,6 +1797,10 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			if charge_row:
 				sea_shipment.append("charges", charge_row)
 				charges_added += 1
+
+		from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+		sync_operational_exchange_rates_from_charge_rows(sea_shipment, sea_shipment.charges)
 		
 		if charges_added > 0:
 			frappe.msgprint(
@@ -1723,8 +1829,11 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		dict: Mapped charge data
 	"""
 	try:
+		def _sf_r(key, default=None):
+			return sqsf_record.get(key, default) if isinstance(sqsf_record, dict) else getattr(sqsf_record, key, default)
+
 		# Get the item details to fetch additional required fields
-		item_doc = frappe.get_doc("Item", sqsf_record.item_code)
+		item_doc = frappe.get_doc("Item", _sf_r("item_code"))
 		
 		# Get default currency from system settings
 		default_currency = frappe.get_system_settings("currency") or "USD"
@@ -1739,66 +1848,70 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"Shipment": "shipment",
 			"Container": "container"
 		}
-		unit = unit_type_to_unit.get(sqsf_record.unit_type, "shipment")
+		unit = unit_type_to_unit.get(_sf_r("unit_type"), "shipment")
 		
 		# Get quantity based on unit type
 		quantity = 0
-		if sqsf_record.unit_type == "Chargeable Weight":
+		if _sf_r("unit_type") == "Chargeable Weight":
 			quantity = flt(
 				sea_shipment.get("chargeable", 0)
 				or sea_shipment.get("chargeable_weight", 0)
 			)
-		elif sqsf_record.unit_type == "Weight":
+		elif _sf_r("unit_type") == "Weight":
 			quantity = flt(sea_shipment.get("total_weight")) or 0
-		elif sqsf_record.unit_type == "Volume":
+		elif _sf_r("unit_type") == "Volume":
 			quantity = flt(sea_shipment.get("total_volume")) or 0
-		elif sqsf_record.unit_type == "Package":
+		elif _sf_r("unit_type") == "Package":
 			# Get package count from Sea Shipment if available
 			if hasattr(sea_shipment, 'packages') and sea_shipment.packages:
 				quantity = len(sea_shipment.packages)
 			else:
 				quantity = 1
-		elif sqsf_record.unit_type == "Container":
+		elif _sf_r("unit_type") == "Container":
 			# Get container count from Sea Shipment if available
 			if hasattr(sea_shipment, 'containers') and sea_shipment.containers:
 				quantity = len(sea_shipment.containers)
 			else:
 				quantity = 1
-		elif sqsf_record.unit_type == "Shipment":
+		elif _sf_r("unit_type") == "Shipment":
 			quantity = 1
 		else:
 			quantity = 1
 		
 		# Calculate selling amount based on calculation method
+		_sf_rev = (_sf_r("revenue_calculation_method") or _sf_r("calculation_method") or "").strip()
+		_sf_ur = flt(_sf_r("unit_rate")) or 0
 		selling_amount = 0
-		if sqsf_record.calculation_method == "Per Unit":
-			selling_amount = (sqsf_record.unit_rate or 0) * quantity
+		if _sf_rev == "Per Unit":
+			selling_amount = _sf_ur * quantity
 			# Apply minimum/maximum charge
-			if sqsf_record.minimum_charge and selling_amount < flt(sqsf_record.minimum_charge):
-				selling_amount = flt(sqsf_record.minimum_charge)
-			if sqsf_record.maximum_charge and selling_amount > flt(sqsf_record.maximum_charge):
-				selling_amount = flt(sqsf_record.maximum_charge)
-		elif sqsf_record.calculation_method == "Fixed Amount":
-			selling_amount = sqsf_record.unit_rate or 0
-		elif sqsf_record.calculation_method == "Base Plus Additional":
-			base = flt(sqsf_record.base_amount) or 0
-			additional = (sqsf_record.unit_rate or 0) * max(0, quantity - 1)
+			if _sf_r("minimum_charge") and selling_amount < flt(_sf_r("minimum_charge")):
+				selling_amount = flt(_sf_r("minimum_charge"))
+			if _sf_r("maximum_charge") and selling_amount > flt(_sf_r("maximum_charge")):
+				selling_amount = flt(_sf_r("maximum_charge"))
+		elif _sf_rev == "Fixed Amount":
+			selling_amount = _sf_ur
+		elif _sf_rev == "Base Plus Additional":
+			base = flt(_sf_r("base_amount")) or 0
+			additional = _sf_ur * max(0, quantity - 1)
 			selling_amount = base + additional
-		elif sqsf_record.calculation_method == "First Plus Additional":
-			min_qty = flt(sqsf_record.minimum_quantity) or 1
+		elif _sf_rev == "First Plus Additional":
+			min_qty = flt(_sf_r("minimum_quantity")) or 1
 			if quantity <= min_qty:
-				selling_amount = sqsf_record.unit_rate or 0
+				selling_amount = _sf_ur
 			else:
-				additional = (sqsf_record.unit_rate or 0) * (quantity - min_qty)
-				selling_amount = (sqsf_record.unit_rate or 0) + additional
+				additional = _sf_ur * (quantity - min_qty)
+				selling_amount = _sf_ur + additional
 		else:
-			selling_amount = sqsf_record.unit_rate or 0
+			selling_amount = _sf_ur
 		
-		# Determine charge_type from item or use default
-		charge_type = "Other"
-		if hasattr(item_doc, 'custom_charge_type'):
-			charge_type = item_doc.custom_charge_type or "Other"
-		
+		charge_type = _sf_r("charge_type") or (
+			item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
+		) or "Other"
+		charge_category = _sf_r("charge_category") or (
+			item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
+		) or "Other"
+
 		_sq_st = (
 			sqsf_record.get("service_type")
 			if isinstance(sqsf_record, dict)
@@ -1807,28 +1920,40 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		# Map the fields from sales_quote_sea_freight to sea_shipment_charges
 		charge_data = {
 			"service_type": _sq_st,
-			"charge_item": sqsf_record.item_code,
-			"charge_name": sqsf_record.item_name or item_doc.item_name,
+			"charge_item": _sf_r("item_code"),
+			"charge_name": _sf_r("item_name") or item_doc.item_name,
 			"charge_type": charge_type,
-			"charge_description": sqsf_record.item_name or item_doc.item_name,
+			"charge_category": charge_category,
+			"charge_description": _sf_r("item_name") or item_doc.item_name,
 			"bill_to": getattr(sqsf_record, "bill_to", None) or (sea_shipment.local_customer if hasattr(sea_shipment, 'local_customer') else None),
 			"pay_to": getattr(sqsf_record, "pay_to", None),
-			"selling_currency": sqsf_record.currency or default_currency,
+			"selling_currency": _sf_r("currency") or default_currency,
 			"selling_amount": selling_amount,
-			"per_unit_rate": sqsf_record.unit_rate or 0,
+			"per_unit_rate": _sf_r("unit_rate") or 0,
 			"unit": unit,
-			"revenue_calc_type": sqsf_record.calculation_method or "Manual",
-			"base_amount": sqsf_record.base_amount or 0,
+			"revenue_calc_type": _sf_r("revenue_calculation_method") or _sf_r("calculation_method") or "Manual",
+			"base_amount": _sf_r("base_amount") or 0,
 			"use_tariff_in_revenue": getattr(sqsf_record, "use_tariff_in_revenue", False),
 			"use_tariff_in_cost": getattr(sqsf_record, "use_tariff_in_cost", False),
 			"tariff": getattr(sqsf_record, "tariff", None),
 			"revenue_tariff": getattr(sqsf_record, "revenue_tariff", None),
 			"cost_tariff": getattr(sqsf_record, "cost_tariff", None),
+			"bill_to_exchange_rate": _sf_r("bill_to_exchange_rate"),
+			"pay_to_exchange_rate": _sf_r("pay_to_exchange_rate"),
+			"bill_to_exchange_rate_source": _sf_r("bill_to_exchange_rate_source"),
+			"pay_to_exchange_rate_source": _sf_r("pay_to_exchange_rate_source"),
 		}
 		
 		# Add minimum charge if available
-		if sqsf_record.minimum_charge:
-			charge_data["minimum"] = sqsf_record.minimum_charge
+		if _sf_r("minimum_charge"):
+			charge_data["minimum"] = _sf_r("minimum_charge")
+
+		if _sf_r("apply_95_5_rule") is not None:
+			charge_data["apply_95_5_rule"] = cint(_sf_r("apply_95_5_rule"))
+		if _sf_r("taxable_freight_item"):
+			charge_data["taxable_freight_item"] = _sf_r("taxable_freight_item")
+		if _sf_r("taxable_freight_item_tax_template"):
+			charge_data["taxable_freight_item_tax_template"] = _sf_r("taxable_freight_item_tax_template")
 
 		return charge_data
 
@@ -2044,7 +2169,9 @@ def validate_one_off_quote_not_converted(
 		allow_linked_air_booking: Air Booking name for the same job chain (e.g. Air Shipment's parent booking).
 		allow_main_transport_if_converted_to_declaration_order: If True and current doc is a main-service Transport Order,
 			Sea/Air Shipment, or Sea/Air Booking, allow when the quote is already marked converted to a Declaration Order
-			(customs leg submitted first; freight main leg is part of the same job chain).
+			(customs leg submitted first; freight main leg is part of the same job chain). For Transport Order, this
+			may also be True for an internal-job order when it is tied to the same chain (caller passes True only if
+			linked Sea/Air booking resolution succeeded).
 		
 	Raises:
 		frappe.ValidationError: If quote is already converted or linked to another document

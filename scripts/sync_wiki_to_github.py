@@ -22,6 +22,7 @@ PAGE_MAP = {
     "customer_portal": "Customer-Portal",
     "recent_platform_updates": "Recent-Platform-Updates",
     "cargonext_v1_astraea_press_release": "Cargonext-V1-Astraea-Press-Release",
+    "release_notes_v1": "CargoNext-V1-Release-Notes",
     # Settings
     "logistics_settings": "Logistics-Settings",
     "credit_management": "Credit-Management",
@@ -147,6 +148,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 - [Getting Started](Getting-Started) – Initial setup and configuration
 - [Recent Platform Updates](Recent-Platform-Updates) – release-line behaviour and upgrade notes
+- [CargoNext v1 — Release Notes](CargoNext-V1-Release-Notes)
 - [CargoNext v1 — Astraea Press Release](Cargonext-V1-Astraea-Press-Release)
 - [Document Management](Document-Management)
 - [Milestone Tracking](Milestone-Tracking)
@@ -260,6 +262,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 **Getting Started**
 - [Getting Started](Getting-Started)
 - [Recent Platform Updates](Recent-Platform-Updates)
+- [CargoNext v1 — Release Notes](CargoNext-V1-Release-Notes)
 - [CargoNext v1 — Astraea Press Release](Cargonext-V1-Astraea-Press-Release)
 - [Document Management](Document-Management)
 - [Milestone Tracking](Milestone-Tracking)

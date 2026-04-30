@@ -1436,93 +1436,117 @@ class AirShipment(Document):
 	
 	def validate(self):
 		"""Validate Air Shipment document"""
-		from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+		from logistics.utils.charges_calculation import (
+			clear_charge_resolution_parent,
+			register_charge_resolution_parent,
+		)
 
-		validate_internal_job_main_link_unchanged(self)
-		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+		register_charge_resolution_parent(self)
+		try:
+			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-		apply_shipper_consignee_defaults(self)
-		# Normalize legacy house_type values
-		self._normalize_house_type()
-		self.validate_dates()
-		self.validate_air_booking_uniqueness()
+			validate_internal_job_main_link_unchanged(self)
+			from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+			apply_shipper_consignee_defaults(self)
+			# Normalize legacy house_type values
+			self._normalize_house_type()
+			self.validate_dates()
+			self.validate_air_booking_uniqueness()
+			self._prepare_header_totals_for_charge_calculation()
+			self._sync_charges_with_parent_actuals()
+			self._update_packing_summary()
+			self.validate_weight_volume()
+			self.validate_packages()
+			self.validate_awb()
+			self.validate_uld()
+			self.validate_customs()
+			self.validate_insurance()
+			self.validate_temperature()
+			self.validate_documents()
+			self.validate_iata_transaction_link()
+			self.validate_revenue()
+			self.validate_billing()
+			dg_errors = self._collect_dangerous_goods_validation_errors()
+			dg_errors.extend(self._collect_dg_compliance_errors())
+			if dg_errors:
+				frappe.throw(dg_errors, title=_("Dangerous goods validation"), as_list=True)
+			# Update DG compliance status automatically
+			self.update_dg_compliance_status()
+			self.validate_accounts()
+			try:
+				from logistics.job_management.recognition_engine import (
+					sync_job_recognition_fields_from_policy,
+				)
+
+				sync_job_recognition_fields_from_policy(self)
+			except Exception:
+				pass
+
+			from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+			msgprint_sales_quote_validity_warnings(self)
+
+			if getattr(self, "sales_quote", None):
+				from frappe.utils import cint
+
+				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_bookings_for_internal_job,
+					resolve_single_main_air_booking_for_sales_quote,
+					resolve_single_main_sea_booking_for_sales_quote,
+					validate_one_off_quote_not_converted,
+				)
+
+				allow_air = (getattr(self, "air_booking", None) or "").strip() or None
+				allow_sea = None
+				r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				if r_sea:
+					allow_sea = (r_sea or "").strip() or None
+				if r_air:
+					allow_air = allow_air or (r_air or "").strip() or None
+				if not allow_sea:
+					allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+				if not allow_air:
+					allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+				validate_one_off_quote_not_converted(
+					self.sales_quote,
+					self.doctype,
+					self.name,
+					allow_linked_sea_booking=allow_sea,
+					allow_linked_air_booking=allow_air,
+					allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
+				)
+
+			from logistics.job_management.logistics_job_status import (
+				sync_air_shipment_job_status,
+				validate_job_status_field,
+			)
+
+			sync_air_shipment_job_status(self)
+			validate_job_status_field(self)
+
+		finally:
+			clear_charge_resolution_parent(self)
+
+	def _prepare_header_totals_for_charge_calculation(self):
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+
 			apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
 		except Exception:
 			pass
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
 			self.aggregate_weight_from_packages()
-		self._update_packing_summary()
-		self.validate_weight_volume()
-		self.validate_packages()
-		self.validate_awb()
-		self.validate_uld()
-		self.validate_customs()
-		self.validate_insurance()
-		self.validate_temperature()
-		self.validate_documents()
-		self.validate_iata_transaction_link()
-		self.validate_revenue()
-		self.validate_billing()
-		dg_errors = self._collect_dangerous_goods_validation_errors()
-		dg_errors.extend(self._collect_dg_compliance_errors())
-		if dg_errors:
-			frappe.throw(dg_errors, title=_("Dangerous goods validation"), as_list=True)
-		# Update DG compliance status automatically
-		self.update_dg_compliance_status()
-		self.validate_accounts()
-		try:
-			from logistics.job_management.recognition_engine import (
-				sync_job_recognition_fields_from_policy,
-			)
 
-			sync_job_recognition_fields_from_policy(self)
-		except Exception:
-			pass
-
-		from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
-
-		msgprint_sales_quote_validity_warnings(self)
-
-		if getattr(self, "sales_quote", None):
-			from frappe.utils import cint
-
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-				resolve_allow_linked_freight_bookings_for_internal_job,
-				resolve_single_main_air_booking_for_sales_quote,
-				resolve_single_main_sea_booking_for_sales_quote,
-				validate_one_off_quote_not_converted,
-			)
-
-			allow_air = (getattr(self, "air_booking", None) or "").strip() or None
-			allow_sea = None
-			r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-			if r_sea:
-				allow_sea = (r_sea or "").strip() or None
-			if r_air:
-				allow_air = allow_air or (r_air or "").strip() or None
-			if not allow_sea:
-				allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-			if not allow_air:
-				allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-			validate_one_off_quote_not_converted(
-				self.sales_quote,
-				self.doctype,
-				self.name,
-				allow_linked_sea_booking=allow_sea,
-				allow_linked_air_booking=allow_air,
-				allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
-			)
-
-		from logistics.job_management.logistics_job_status import (
-			sync_air_shipment_job_status,
-			validate_job_status_field,
-		)
-
-		sync_air_shipment_job_status(self)
-		validate_job_status_field(self)
+	def _sync_charges_with_parent_actuals(self):
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		if getattr(self.flags, "ignore_charges_sync", False):
+			return
+		for charge in self.get("charges") or []:
+			if hasattr(charge, "calculate_charge_amount"):
+				charge.calculate_charge_amount(parent_doc=self)
 
 	def aggregate_volume_from_packages(self):
 		"""Set header volume from sum of package volumes, converted to base/default volume UOM (used for chargeable weight)."""
@@ -2158,11 +2182,13 @@ class AirShipment(Document):
 		
 		# Get settings for volume to weight factor
 		settings = self.get_air_freight_settings()
-		volume_to_weight_factor = 167  # Default IATA standard
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		volume_to_weight_factor = IATA_VOLUMETRIC_DENSITY_KG_M3
 		chargeable_weight_calculation = "Higher of Both"  # Default
 		
 		if settings:
-			volume_to_weight_factor = settings.volume_to_weight_factor or 167
+			volume_to_weight_factor = settings.volume_to_weight_factor or IATA_VOLUMETRIC_DENSITY_KG_M3
 			chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
 		
 		# Calculate chargeable weight based on settings
@@ -2643,26 +2669,20 @@ class AirShipment(Document):
 	def _map_sales_quote_air_freight_to_charge(self, sqaf_record):
 		"""Map sales_quote_air_freight record to air_shipment_charges format"""
 		try:
+			def _af_r(key, default=None):
+				return sqaf_record.get(key, default) if isinstance(sqaf_record, dict) else getattr(sqaf_record, key, default)
+
 			# Get the item details to fetch additional required fields
-			item_doc = frappe.get_doc("Item", sqaf_record.item_code)
+			item_doc = frappe.get_doc("Item", _af_r("item_code"))
 			
 			# Get default currency from system settings
 			default_currency = frappe.get_system_settings("currency") or "USD"
 			
-			# Map unit_type to quantity
-			quantity = 0
-			if sqaf_record.unit_type == "Chargeable Weight":
-				chargeable_qty = getattr(self, "chargeable", None)
-				if chargeable_qty in (None, ""):
-					chargeable_qty = getattr(self, "chargeable_weight", None)
-				quantity = flt(chargeable_qty or 0)
-			elif sqaf_record.unit_type == "Weight":
-				quantity = flt(self.total_weight) or 0
-			elif sqaf_record.unit_type == "Volume":
-				quantity = flt(self.total_volume) or 0
-			elif sqaf_record.unit_type in ("Package", "Piece"):
-				quantity = len(self.packages) if (hasattr(self, 'packages') and self.packages) else 1
-			else:
+			from logistics.utils.charges_calculation import get_quantity_from_parent_by_unit_type
+
+			ut = _af_r("unit_type")
+			quantity = get_quantity_from_parent_by_unit_type(self, ut)
+			if ut in ("Package", "Piece") and flt(quantity) <= 0:
 				quantity = 1
 			
 			charge_type = "Other"
@@ -2673,17 +2693,26 @@ class AirShipment(Document):
 					charge_category = item_doc.custom_charge_category or "Other"
 			
 			charge_data = {
-				"item_code": sqaf_record.item_code,
-				"item_name": sqaf_record.item_name or item_doc.item_name,
+				"item_code": _af_r("item_code"),
+				"item_name": _af_r("item_name") or item_doc.item_name,
 				"charge_type": charge_type,
 				"charge_category": charge_category,
-				"revenue_calculation_method": sqaf_record.calculation_method or "Per Unit",
-				"rate": sqaf_record.unit_rate or 0,
-				"currency": sqaf_record.currency or default_currency,
+				"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or "Per Unit",
+				"rate": _af_r("unit_rate") or 0,
+				"currency": _af_r("currency") or default_currency,
 				"quantity": quantity,
-				"unit_of_measure": sqaf_record.uom or None,
+				"uom": _af_r("uom") or None,
+				"unit_type": ut,
 				"billing_status": "To Bill",
 			}
+			if _af_r("cost_calculation_method"):
+				charge_data["cost_calculation_method"] = _af_r("cost_calculation_method")
+			if _af_r("unit_cost") is not None:
+				charge_data["unit_cost"] = _af_r("unit_cost")
+			if _af_r("cost_unit_type"):
+				charge_data["cost_unit_type"] = _af_r("cost_unit_type")
+			if _af_r("cost_currency"):
+				charge_data["cost_currency"] = _af_r("cost_currency")
 
 			return charge_data
 			
@@ -3095,9 +3124,12 @@ def populate_charges_from_sales_quote(docname=None):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "service_type",
+			"charge_type", "charge_category", "bill_to", "pay_to",
+			"bill_to_exchange_rate", "pay_to_exchange_rate",
+			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
@@ -3140,6 +3172,10 @@ def populate_charges_from_sales_quote(docname=None):
 			if charge_row:
 				self.append("charges", charge_row)
 				charges_added += 1
+
+		from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+
+		sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 
 		from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
 
@@ -3196,6 +3232,14 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 	base_remarks = invoice.remarks or ""
 	note = _("Auto-created from Air Shipment {0}").format(shipment.name)
 	invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+	from logistics.utils.freight_95_5 import (
+		apply_freight_95_post_missing_values,
+		build_sales_invoice_item_payloads_for_charge,
+	)
+
+	si_item_meta = frappe.get_meta("Sales Invoice Item")
+	has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
+	freight_95_line_indices = []
 	for ch in shipment.charges:
 		rev = flt(getattr(ch, "estimated_revenue", 0) or getattr(ch, "rate", 0) * flt(getattr(ch, "quantity", 1) or 1))
 		if rev <= 0:
@@ -3203,10 +3247,31 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 		item_code = getattr(ch, "item_code", None)
 		if not item_code:
 			continue
-		invoice.append("items", {"item_code": item_code, "qty": 1, "rate": rev})
+		item_name = getattr(ch, "item_name", None) or item_code
+		payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
+			ch,
+			rev,
+			item_code=item_code,
+			item_name=item_name,
+			description=None,
+			job_type="Air Shipment",
+			company=shipment.company,
+			cost_center=getattr(shipment, "cost_center", None),
+			profit_center=getattr(shipment, "profit_center", None),
+			job_ref=getattr(shipment, "job_number", None),
+			si_item_meta=si_item_meta,
+			reference_doctype="Air Shipment" if has_ref else None,
+			reference_name=shipment.name if has_ref else None,
+		)
+		start_idx = len(invoice.items)
+		for p in payloads:
+			invoice.append("items", p)
+		for rel in clear_rel:
+			freight_95_line_indices.append(start_idx + rel)
 	if not invoice.items:
 		frappe.throw(_("No charge items with revenue found."))
 	invoice.set_missing_values()
+	apply_freight_95_post_missing_values(invoice, freight_95_line_indices)
 	invoice.insert(ignore_permissions=True)
 	if frappe.get_meta("Air Shipment").get_field("sales_invoice"):
 		frappe.db.set_value("Air Shipment", shipment_name, "sales_invoice", invoice.name, update_modified=False)

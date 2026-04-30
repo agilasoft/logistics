@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # For license information, please see license.txt
 
-"""Resolve air/sea UI flags from linked Transport Mode (checkboxes), not from mode_code string."""
+"""Resolve air/sea UI flags from linked Load Type or Transport Mode (checkboxes)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,16 @@ import frappe
 
 
 def get_air_sea_flags_for_transport_mode(mode: str | None) -> tuple[int, int]:
-	"""Return (transport_mode_air, transport_mode_sea) as 0/1 from Transport Mode checkboxes."""
-	if not mode or not frappe.db.exists("Transport Mode", mode):
+	"""Return (transport_mode_air, transport_mode_sea) as 0/1 from Load Type or Transport Mode checkboxes."""
+	if not mode:
 		return (0, 0)
-	row = frappe.db.get_value("Transport Mode", mode, ("air", "sea"), as_dict=True) or {}
-	return (1 if row.get("air") else 0, 1 if row.get("sea") else 0)
+	if frappe.db.exists("Load Type", mode):
+		row = frappe.db.get_value("Load Type", mode, ("air", "sea"), as_dict=True) or {}
+		return (1 if row.get("air") else 0, 1 if row.get("sea") else 0)
+	if frappe.db.exists("Transport Mode", mode):
+		row = frappe.db.get_value("Transport Mode", mode, ("air", "sea"), as_dict=True) or {}
+		return (1 if row.get("air") else 0, 1 if row.get("sea") else 0)
+	return (0, 0)
 
 
 def sync_flags_to_routing_leg(doc) -> None:

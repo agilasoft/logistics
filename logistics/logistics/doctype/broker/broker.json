@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "broker_name",
+  "default_unloco",
   "logo",
   "is_active",
   "column_break_pbzu",
@@ -30,6 +31,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Broker Name"
+  },
+  {
+   "fieldname": "default_unloco",
+   "fieldtype": "Link",
+   "label": "Default UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "logo",

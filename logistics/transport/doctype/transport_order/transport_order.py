@@ -31,7 +31,11 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "maximum_charge",
     "base_amount",
     "estimated_revenue",
+    "charge_type",
     "charge_category",  # Added: charge_category
+    "apply_95_5_rule",
+    "taxable_freight_item",
+    "taxable_freight_item_tax_template",
     "bill_to",  # Added: bill_to
     "pay_to",  # Added: pay_to
     "use_tariff_in_revenue",
@@ -39,6 +43,8 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "tariff",
     "revenue_tariff",
     "cost_tariff",
+    "bill_to_exchange_rate",
+    "pay_to_exchange_rate",
     "cost_calculation_method",
     "cost_quantity",
     "cost_uom",
@@ -75,143 +81,189 @@ def _sync_quote_and_sales_quote(doc):
 
 class TransportOrder(Document):
     def validate(self):
-        from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
+        from logistics.utils.charges_calculation import (
+            clear_charge_resolution_parent,
+            register_charge_resolution_parent,
+        )
 
-        validate_internal_job_main_link_unchanged(self)
-        # Preserve quote field value before syncing (to prevent it from being cleared)
-        # Get original values from database if document exists
-        original_quote = None
-        original_quote_type = None
-        original_sales_quote = None
-        
-        if not self.is_new():
-            try:
-                original_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
-                original_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
-                original_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
-            except Exception:
-                pass
-        
-        # Use current values if not in database yet
-        if not original_quote:
-            original_quote = getattr(self, 'quote', None)
-        if not original_quote_type:
-            original_quote_type = getattr(self, 'quote_type', None)
-        if not original_sales_quote:
-            original_sales_quote = getattr(self, 'sales_quote', None)
-        
-        _sync_quote_and_sales_quote(self)
-
-        # Ensure quote field is preserved - restore original values if they were cleared
-        # This ensures the quote field remains after submission
-        if original_quote and not getattr(self, 'quote', None):
-            self.quote = original_quote
-        if original_quote_type and not getattr(self, 'quote_type', None):
-            self.quote_type = original_quote_type
-        qt = getattr(self, "quote_type", None)
-        if original_sales_quote and not getattr(self, "sales_quote", None):
-            if qt == "Sales Quote" or (
-                qt == "One-Off Quote"
-                and getattr(self, "quote", None)
-                and original_sales_quote == getattr(self, "quote", None)
-            ):
-                self.sales_quote = original_sales_quote
-        # If the Transport Template changes, clear the Leg Plan table.
+        register_charge_resolution_parent(self)
         try:
-            if self.has_value_changed("transport_template"):
-                legs_field = _find_child_table_fieldname(
-                    "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
-                )
-                self.set(legs_field, [])
-        except Exception:
-            old = getattr(self, "_doc_before_save", None) or self.get_doc_before_save()
-            if old and getattr(old, "transport_template", None) != getattr(self, "transport_template", None):
-                legs_field = _find_child_table_fieldname(
-                    "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
-                )
-                self.set(legs_field, [])
-        
-        # Validate One-off Sales Quote not already converted (internal-job TO may share quote with main Sea/Air leg)
-        if self.sales_quote:
-            from frappe.utils import cint
+            from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
-            from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-                resolve_allow_linked_freight_bookings_for_internal_job,
-                resolve_single_main_air_booking_for_sales_quote,
-                resolve_single_main_sea_booking_for_sales_quote,
-                validate_one_off_quote_not_converted,
-            )
-
-            allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-            if cint(getattr(self, "is_internal_job", 0)):
-                if not allow_sea:
-                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-                if not allow_air:
-                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-            validate_one_off_quote_not_converted(
-                self.sales_quote,
-                self.doctype,
-                self.name,
-                allow_linked_sea_booking=allow_sea,
-                allow_linked_air_booking=allow_air,
-                allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
-            )
+            validate_internal_job_main_link_unchanged(self)
+            # Preserve quote field value before syncing (to prevent it from being cleared)
+            # Get original values from database if document exists
+            original_quote = None
+            original_quote_type = None
+            original_sales_quote = None
         
-        # Handle sales_quote field clearing - reset One-off quote if cleared
-        if not self.is_new() and original_sales_quote and not self.sales_quote:
-            # sales_quote was cleared, check if it was a One-off quote and reset it
+            if not self.is_new():
+                try:
+                    original_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
+                    original_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
+                    original_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+                except Exception:
+                    pass
+        
+            # Use current values if not in database yet
+            if not original_quote:
+                original_quote = getattr(self, 'quote', None)
+            if not original_quote_type:
+                original_quote_type = getattr(self, 'quote_type', None)
+            if not original_sales_quote:
+                original_sales_quote = getattr(self, 'sales_quote', None)
+        
+            _sync_quote_and_sales_quote(self)
+
+            # Ensure quote field is preserved - restore original values if they were cleared
+            # This ensures the quote field remains after submission
+            if original_quote and not getattr(self, 'quote', None):
+                self.quote = original_quote
+            if original_quote_type and not getattr(self, 'quote_type', None):
+                self.quote_type = original_quote_type
+            qt = getattr(self, "quote_type", None)
+            if original_sales_quote and not getattr(self, "sales_quote", None):
+                if qt == "Sales Quote" or (
+                    qt == "One-Off Quote"
+                    and getattr(self, "quote", None)
+                    and original_sales_quote == getattr(self, "quote", None)
+                ):
+                    self.sales_quote = original_sales_quote
+            # If the Transport Template changes, clear the Leg Plan table.
             try:
-                if frappe.db.exists("Sales Quote", original_sales_quote):
-                    sq = frappe.get_doc("Sales Quote", original_sales_quote)
-                    if sq.quotation_type == "One-off":
-                        from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-                        reset_one_off_quote_on_cancel(original_sales_quote)
+                if self.has_value_changed("transport_template"):
+                    legs_field = _find_child_table_fieldname(
+                        "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+                    )
+                    self.set(legs_field, [])
             except Exception:
-                pass
+                old = getattr(self, "_doc_before_save", None) or self.get_doc_before_save()
+                if old and getattr(old, "transport_template", None) != getattr(self, "transport_template", None):
+                    legs_field = _find_child_table_fieldname(
+                        "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+                    )
+                    self.set(legs_field, [])
+        
+            # Validate One-off Sales Quote not already converted (internal-job TO may share quote with main Sea/Air leg)
+            if self.sales_quote:
+                from frappe.utils import cint
 
-        from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+                from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                    resolve_allow_linked_freight_bookings_for_internal_job,
+                    resolve_single_main_air_booking_for_sales_quote,
+                    resolve_single_main_sea_booking_for_sales_quote,
+                    validate_one_off_quote_not_converted,
+                )
 
-        assert_one_off_sales_quote_job_rules(self)
+                allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+                if cint(getattr(self, "is_internal_job", 0)):
+                    if not allow_sea:
+                        allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+                    if not allow_air:
+                        allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+                # Main leg and internal satellite TOs (linked to main via main_job / booking) may share the
+                # same one-off quote when customs was converted first (Declaration Order).
+                allow_decl_order_same_chain = cint(getattr(self, "is_main_service", 0)) == 1 or (
+                    cint(getattr(self, "is_internal_job", 0)) == 1 and (bool(allow_sea) or bool(allow_air))
+                )
+                validate_one_off_quote_not_converted(
+                    self.sales_quote,
+                    self.doctype,
+                    self.name,
+                    allow_linked_sea_booking=allow_sea,
+                    allow_linked_air_booking=allow_air,
+                    allow_main_transport_if_converted_to_declaration_order=allow_decl_order_same_chain,
+                )
         
-        # On duplicate (new doc with same One-Off Quote), clear quote reference
-        self._validate_sales_quote_duplication()
-        
-        # Validate that pick and drop facilities are different in each leg
-        self._validate_leg_facilities()
-        
-        # Validate transport job type specific rules
-        self._validate_transport_job_type()
-        
-        # Note: vehicle_type validation moved to before_submit() to allow save without vehicle_type
-        # Users can save draft documents and fill vehicle_type later before submitting
-        
-        # Validate load type is allowed for job type
-        self.validate_load_type_allowed_for_job()
-        
-        # Validate consolidation eligibility
-        self.validate_consolidation_eligibility()
-        
-        # Validate vehicle type compatibility with load type
-        self.validate_vehicle_type_load_type_compatibility()
-        
-        # Capacity validation
-        self.validate_vehicle_type_capacity()
+            # Handle sales_quote field clearing - reset One-off quote if cleared
+            if not self.is_new() and original_sales_quote and not self.sales_quote:
+                # sales_quote was cleared, check if it was a One-off quote and reset it
+                try:
+                    if frappe.db.exists("Sales Quote", original_sales_quote):
+                        sq = frappe.get_doc("Sales Quote", original_sales_quote)
+                        if sq.quotation_type == "One-off":
+                            from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+                            reset_one_off_quote_on_cancel(original_sales_quote)
+                except Exception:
+                    pass
 
-        # Convert package measurements when UOM was changed (e.g. after import)
+            from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+
+            assert_one_off_sales_quote_job_rules(self)
+        
+            # On duplicate (new doc with same One-Off Quote), clear quote reference
+            self._validate_sales_quote_duplication()
+        
+            # Validate that pick and drop facilities are different in each leg
+            self._validate_leg_facilities()
+        
+            # Validate transport job type specific rules
+            self._validate_transport_job_type()
+        
+            # Note: vehicle_type validation moved to before_submit() to allow save without vehicle_type
+            # Users can save draft documents and fill vehicle_type later before submitting
+        
+            # Validate load type is allowed for job type
+            self.validate_load_type_allowed_for_job()
+        
+            # Validate consolidation eligibility
+            self.validate_consolidation_eligibility()
+        
+            # Validate vehicle type compatibility with load type
+            self.validate_vehicle_type_load_type_compatibility()
+        
+            # Capacity validation
+            self.validate_vehicle_type_capacity()
+
+            self._prepare_header_totals_for_charge_calculation()
+            self._sync_charges_with_parent_actuals()
+
+            from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+
+            msgprint_sales_quote_validity_warnings(self)
+
+        finally:
+            clear_charge_resolution_parent(self)
+
+    def _prepare_header_totals_for_charge_calculation(self):
+        """Refresh header totals from packages before charge math."""
         try:
             from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+
             apply_measurement_uom_conversion_to_children(self, "packages", company=getattr(self, "company", None))
         except Exception:
             pass
-        
-        # Aggregate package volumes and weights (with UOM conversion)
         self.aggregate_volume_from_packages()
         self.aggregate_weight_from_packages()
         self._update_packing_summary()
 
-        from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
+    def _sync_charges_with_parent_actuals(self):
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(self.flags, "ignore_charges_sync", False):
+            return
+        for charge in self.get("charges") or []:
+            if hasattr(charge, "calculate_charge_amount"):
+                charge.calculate_charge_amount(parent_doc=self)
 
-        msgprint_sales_quote_validity_warnings(self)
+    def _apply_actuals_to_charge_dicts(self, charge_dicts):
+        if not charge_dicts:
+            return
+        self._prepare_header_totals_for_charge_calculation()
+        for row_dict in charge_dicts:
+            row = frappe.new_doc("Transport Order Charges")
+            row.update(row_dict)
+            row.calculate_charge_amount(parent_doc=self)
+            row_dict["quantity"] = row.quantity
+            row_dict["cost_quantity"] = row.cost_quantity
+            row_dict["estimated_revenue"] = row.estimated_revenue
+            row_dict["estimated_cost"] = row.estimated_cost
+            if hasattr(row, "revenue_calc_notes"):
+                row_dict["revenue_calc_notes"] = row.revenue_calc_notes
+            if hasattr(row, "cost_calc_notes"):
+                row_dict["cost_calc_notes"] = row.cost_calc_notes
+            if hasattr(row, "rate"):
+                row_dict["rate"] = row.rate
 
     def before_save(self):
         from logistics.utils.module_integration import run_propagate_on_link
@@ -728,6 +780,7 @@ class TransportOrder(Document):
             from logistics.utils.measurements import (
                 convert_weight, convert_volume, calculate_volume_from_dimensions,
                 get_default_uoms, get_aggregation_volume_uom,
+                get_package_line_volume_multiplier,
             )
             default_uoms = get_default_uoms(self.company)
             weight_uom = default_uoms['weight']
@@ -768,6 +821,7 @@ class TransportOrder(Document):
                             volume_uom=volume_uom,
                             company=self.company
                         )
+                        pkg_volume *= get_package_line_volume_multiplier(pkg)
                         total_volume += pkg_volume
 
                 # Pallets
@@ -1635,6 +1689,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
             charge_row = _map_sales_quote_transport_to_charge_dict(sqt_record)
             if charge_row:
                 charges.append(charge_row)
+
+        if isinstance(order_for_filter, Document) and charges:
+            order_for_filter._apply_actuals_to_charge_dicts(charges)
         
         # Note: We do NOT save the document here to avoid "document has been modified" errors.
         # The client-side JavaScript will handle updating the form with the charges data.

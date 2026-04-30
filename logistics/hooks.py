@@ -29,7 +29,7 @@ fixtures = [
 # include js, css files in header of desk.html
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
-	"/assets/logistics/css/get_charges_from_quotation.css?v=3",
+	"/assets/logistics/css/get_charges_from_quotation.css?v=6",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 ]
 app_include_js = [
@@ -38,7 +38,8 @@ app_include_js = [
 	"/assets/logistics/js/internal_job_create_from_source.js?v=17",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=3",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=10",
+	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=1",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
@@ -47,6 +48,7 @@ app_include_js = [
 	"/assets/logistics/js/profitability_form.js?v=4",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
+	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
 ]
 
 # include js, css files in header of web template
@@ -74,6 +76,7 @@ doctype_js = {
 	# Charge parent doctypes: dialogs first, then charge script + handlers
 	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
 	"Air Booking": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
@@ -85,6 +88,7 @@ doctype_js = {
 		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Air Shipment": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/internal_job_create_from_source.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
@@ -103,8 +107,10 @@ doctype_js = {
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
 	],
 	"Sea Booking": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/sea_freight_accounting_defaults.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
@@ -115,6 +121,7 @@ doctype_js = {
 		"logistics/public/js/charge_break_buttons.js",
 	],
 	"Sea Shipment": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/routing_leg_transport_mode_flags.js",
 		"logistics/public/js/internal_job_create_from_source.js",
 		"logistics/public/js/sea_freight_accounting_defaults.js",
@@ -133,7 +140,9 @@ doctype_js = {
 	"Sea Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/sea_consolidation_matching_shipments.js?v=1",
 		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
 	],
 	"Declaration": [
 		"logistics/public/js/internal_job_create_from_source.js",
@@ -192,6 +201,9 @@ doctype_js = {
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
 	],
+	"Warehouse Contract": [
+		"logistics/public/js/charge_break_dialogs.js",
+	],
 	"General Job": [
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
@@ -202,6 +214,7 @@ doctype_js = {
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
+	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
@@ -265,6 +278,12 @@ _doc_milestone_doctypes = [
 ]
 
 doc_events = {
+	"Customer": {
+		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
+	},
+	"Supplier": {
+		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
+	},
 	"Accounting Dimension": {
 		"after_insert": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
@@ -274,8 +293,17 @@ doc_events = {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
 	},
 	"Purchase Invoice": {
-		"validate": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
-		"before_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"validate": [
+			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
+			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
+			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		],
+		"before_submit": [
+			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
+			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
+			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+			"logistics.invoice_integration.container_deposit_pi_ui.validate_container_deposit_lines_have_container_before_submit",
+		],
 		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
@@ -294,6 +322,7 @@ for _dt in _doc_milestone_doctypes:
 			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
 			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
 		],
+		"before_submit": "logistics.document_management.api.enforce_required_job_documents_before_submit",
 	}
 	# Exclude Declaration Order from automatic on_update hook to prevent timestamp mismatches
 	# Declaration Order uses user-initiated template population (like Air Booking and Sea Booking)

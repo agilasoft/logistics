@@ -13,14 +13,14 @@ frappe.ui.form.on('Consignee', {
       return contact_names.length ? { filters: { name: ['in', contact_names] } } : { filters: { name: '__none__' } };
     });
 
-    // Primary Address query → only addresses linked to this Consignee
+    const q = 'frappe.contacts.doctype.address.address.address_query';
     frm.set_query('consignee_primary_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', doc.name]] };
+      return { query: q, filters: { link_doctype: 'Consignee', link_name: doc.name } };
     });
     frm.set_query('delivery_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', doc.name]] };
+      return { query: q, filters: { link_doctype: 'Consignee', link_name: doc.name } };
     });
   },
 

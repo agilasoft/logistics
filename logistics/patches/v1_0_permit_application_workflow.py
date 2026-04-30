@@ -80,7 +80,7 @@ def ensure_permit_workflow() -> None:
 			"Approved",
 			"Mark Expired",
 			"Expired",
-			"doc.get('valid_to') and (str(doc.get('valid_to'))[0:10] < str(frappe.utils.now())[0:10])",
+			"doc.get('valid_to') and frappe.utils.get_datetime(doc.get('valid_to')).date() < frappe.utils.get_datetime(frappe.utils.now()).date()",
 		),
 	]
 

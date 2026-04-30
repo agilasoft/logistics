@@ -16,8 +16,6 @@
   "has_vents",
   "column_break_kzph",
   "container_transport_mode",
-  "container_make",
-  "iata_rate_class",
   "customs_container_codes_tab",
   "codes",
   "iso_container_details_tab",
@@ -102,19 +100,6 @@
    "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
   },
   {
-   "fieldname": "container_make",
-   "fieldtype": "Link",
-   "label": "Container Make",
-   "options": "Container Make"
-  },
-  {
-   "fieldname": "iata_rate_class",
-   "fieldtype": "Link",
-   "label": "IATA Rate Class",
-   "options": "IATA Rate Class",
-   "link_filters": "[[\"IATA Rate Class\", \"is_active\", \"=\", 1]]"
-  },
-  {
    "fieldname": "customs_container_codes_tab",
    "fieldtype": "Tab Break",
    "label": "Customs Container Codes"
@@ -138,8 +123,10 @@
   },
   {
    "fieldname": "iso_size",
-   "fieldtype": "Data",
-   "label": "ISO Size"
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "ISO Size",
+   "options": "Container ISO Size"
   },
   {
    "fieldname": "iso_description",
@@ -287,7 +274,7 @@
   }
  ],
  "row_format": "Dynamic",
- "search_fields": "container_make",
+ "search_fields": "code, description",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

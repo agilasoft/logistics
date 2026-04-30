@@ -2,7 +2,7 @@
  "app": "logistics",
  "charts": [],
  "doctype": "Workspace",
- "content": "[{\"id\": \"container-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Container Management</span>\", \"col\": 12}}, {\"id\": \"container-cards\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Containers with Penalties\", \"col\": 4}}, {\"id\": \"container-cards2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Outstanding Deposits\", \"col\": 4}}, {\"id\": \"container-shortcuts\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"shortcuts-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"shortcut-container\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container\", \"col\": 3}}, {\"id\": \"shortcut-status\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Status Report\", \"col\": 3}}, {\"id\": \"shortcut-penalty\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Penalty Report\", \"col\": 3}}, {\"id\": \"shortcut-deposit\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Deposit Report\", \"col\": 3}}, {\"id\": \"shortcut-movement\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Movement\", \"col\": 3}}, {\"id\": \"shortcut-charge\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Charge\", \"col\": 3}}, {\"id\": \"rep-hdr\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"rep-head\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Container lifecycle & charges\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Ocean & air cargo\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Commercial & billing\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Inland transport & OTIF\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Trade & warehouse touchpoints\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"ESG & enterprise risk\", \"col\": 4}}]",
+ "content": "[{\"id\": \"container-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Container Management</span>\", \"col\": 12}}, {\"id\": \"container-cards\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Containers with Penalties\", \"col\": 4}}, {\"id\": \"container-cards2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Outstanding Deposits\", \"col\": 4}}, {\"id\": \"container-shortcuts\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"shortcuts-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"shortcut-container\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container\", \"col\": 3}}, {\"id\": \"shortcut-status\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Status Report\", \"col\": 3}}, {\"id\": \"shortcut-penalty\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Penalty Report\", \"col\": 3}}, {\"id\": \"shortcut-deposit\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Deposit Report\", \"col\": 3}}, {\"id\": \"shortcut-movement\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Container Movement\", \"col\": 3}}, {\"id\": \"rep-hdr\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"rep-head\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Container lifecycle & charges\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Ocean & air cargo\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Commercial & billing\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Inland transport & OTIF\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Trade & warehouse touchpoints\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"ESG & enterprise risk\", \"col\": 4}}]",
  "creation": "2025-01-01 00:00:00.000000",
  "docstatus": 0,
  "extends": "",
@@ -37,18 +37,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Container Charge",
-   "link_count": 0,
-   "link_to": "Container Charge",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Container lifecycle & charges",
-   "link_count": 5,
+   "link_count": 3,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -462,13 +452,6 @@
    "doc_view": "List",
    "label": "Container Movement",
    "link_to": "Container Movement",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Container Charge",
-   "link_to": "Container Charge",
    "type": "DocType"
   }
  ],

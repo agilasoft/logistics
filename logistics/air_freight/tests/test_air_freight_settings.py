@@ -8,6 +8,7 @@ from frappe.utils import today, add_days
 from logistics.air_freight.tests.test_helpers import (
 	create_test_company, create_test_airline, setup_basic_master_data
 )
+from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
 
 
 class TestAirFreightSettings(FrappeTestCase):
@@ -29,13 +30,13 @@ class TestAirFreightSettings(FrappeTestCase):
 			"doctype": "Air Freight Settings",
 			"company": "Test Air Freight Company",
 			"default_currency": "USD",
-			"volume_to_weight_factor": 167
+			"volume_to_weight_factor": IATA_VOLUMETRIC_DENSITY_KG_M3
 		})
 		settings.insert()
 		
 		self.assertEqual(settings.company, "Test Air Freight Company")
 		self.assertEqual(settings.default_currency, "USD")
-		self.assertEqual(settings.volume_to_weight_factor, 167)
+		self.assertAlmostEqual(settings.volume_to_weight_factor, IATA_VOLUMETRIC_DENSITY_KG_M3, places=10)
 	
 	def test_air_freight_settings_company_required(self):
 		"""Test that company field is required"""

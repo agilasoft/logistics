@@ -63,6 +63,12 @@ def clear_item_field_cache():
 def on_accounting_dimension_changed(doc, method=None):
 	"""Doc hook: refresh cached Item dimension fieldname when dimensions change."""
 	clear_item_field_cache()
+	try:
+		from logistics.job_management.gl_reference_dimension import clear_reference_dimension_field_caches
+
+		clear_reference_dimension_field_caches()
+	except Exception:
+		pass
 
 
 def _get_item_accounting_dimension_row():

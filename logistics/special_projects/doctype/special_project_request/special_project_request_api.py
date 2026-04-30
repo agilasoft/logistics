@@ -9,6 +9,8 @@ import frappe
 from frappe import _
 from frappe.utils import today, getdate
 
+from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
 
 @frappe.whitelist()
 def create_inbound_order_from_request(special_project_request):
@@ -252,22 +254,10 @@ def create_sea_booking_from_request(special_project_request, origin_port=None, d
 
 	project = special_project.project
 
-	# Sea Freight Settings is a single doc
-	try:
-		settings_doc = frappe.get_single("Sea Freight Settings")
-		settings = {
-			"company": settings_doc.default_company,
-			"default_branch": settings_doc.default_branch,
-			"default_cost_center": settings_doc.default_cost_center,
-			"default_profit_center": settings_doc.default_profit_center,
-			"default_origin_port": settings_doc.default_origin_port,
-			"default_destination_port": settings_doc.default_destination_port,
-			"default_direction": getattr(settings_doc, "default_direction", None),
-			"default_transport_mode": getattr(settings_doc, "default_transport_mode", None),
-		}
-	except Exception:
-		settings = {}
-	company = settings.get("company") or frappe.defaults.get_defaults().get("company")
+	default_company = frappe.defaults.get_defaults().get("company")
+	sf = SeaFreightSettings.get_settings(default_company)
+	settings = sf.as_dict() if sf else {}
+	company = settings.get("company") or default_company
 	if not company:
 		frappe.throw(_("Company is required. Set default company or Sea Freight Settings."))
 

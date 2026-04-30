@@ -48,8 +48,6 @@ def get_container_by_number(container_number):
 	)
 	if active_rows:
 		return active_rows[0]
-	if frappe.db.exists("Container", container_number):
-		return container_number
 	legacy = frappe.db.sql(
 		"""
 		SELECT name FROM `tabContainer`
@@ -123,11 +121,50 @@ def expand_sea_container_no_for_sql_in(container_no_field):
 	return found
 
 
+def container_row_indicates_empty_returned(container_no_field):
+	"""
+	True if Container Management shows this equipment as empty returned / closed.
+
+	Resolves by ISO equipment number to the *active* Container (``get_container_by_number``) so
+	duplicate checks do not read a stale child-row link to an older inactive Container that was
+	never updated when the same box was re-assigned or returned.
+	"""
+	if not is_container_management_enabled() or not container_no_field:
+		return False
+	eq = sea_container_row_field_to_equipment_number(container_no_field)
+	if not eq:
+		return False
+	# Prefer active container for this number; fall back to link resolution only if needed
+	name = get_container_by_number(eq)
+	if not name:
+		name = sea_container_row_field_to_doc_name(container_no_field)
+	if not name:
+		return False
+	row = frappe.db.get_value("Container", name, ["return_status", "status"], as_dict=True)
+	if not row:
+		return False
+	if row.get("return_status") == "Returned":
+		return True
+	if row.get("status") in ("Empty Returned", "Closed"):
+		return True
+	return False
+
+
 @frappe.whitelist()
 def get_container_by_number_api(container_number):
 	"""Whitelisted: get Container name by number."""
 	name = get_container_by_number(container_number)
 	return {"container": name} if name else None
+
+
+def _sea_freight_default_free_time_days(company=None):
+	from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
+	co = company or frappe.defaults.get_user_default("Company")
+	s = SeaFreightSettings.get_settings(co)
+	if s:
+		return flt(getattr(s, "default_free_time_days", 7))
+	return 7
 
 
 def get_or_create_container(
@@ -138,13 +175,13 @@ def get_or_create_container(
 	parent_doctype=None,
 	parent_name=None,
 	master_bill=None,
+	company=None,
 ):
 	"""
 	Get existing Container or create new one.
-	When `master_bill` is set, names the doc `{master_bill}-{container_no}` and applies MBL assignment rules.
-	Without `master_bill`, uses legacy behaviour (document name = container number).
+	Document **name** is a UUID; uniqueness is enforced on (**container_number**, **master_bill**).
 	If ``status`` is None, an existing Container's status is left unchanged; a new Container defaults to "In Transit".
-	Returns Container name.
+	Returns Container name (UUID).
 	"""
 	if not is_container_management_enabled():
 		return None
@@ -161,7 +198,7 @@ def get_or_create_container(
 	if master_bill:
 		existing = frappe.db.get_value(
 			"Container",
-			{"container_number": container_no, "master_bill": master_bill, "is_active": 1},
+			{"container_number": container_no, "master_bill": master_bill},
 			"name",
 		)
 		if existing:
@@ -176,11 +213,7 @@ def get_or_create_container(
 		container.container_type = container_type
 		container.seal_number = seal_number
 		container.status = status or "In Transit"
-		try:
-			sf_settings = frappe.get_single("Sea Freight Settings")
-			container.free_time_days = flt(getattr(sf_settings, "default_free_time_days", 7))
-		except Exception:
-			container.free_time_days = 7
+		container.free_time_days = _sea_freight_default_free_time_days(company)
 		container.return_status = "Not Returned"
 		if container.status in ("Empty Returned", "Closed"):
 			container.return_status = "Returned"
@@ -188,20 +221,15 @@ def get_or_create_container(
 		container.insert(ignore_permissions=True)
 		return container.name
 
-	existing = None
-	if frappe.db.exists("Container", container_no):
-		existing = container_no
-	else:
-		legacy = frappe.db.sql(
-			"""
-			SELECT name FROM `tabContainer`
-			WHERE container_number = %s AND IFNULL(master_bill, '') = ''
-			ORDER BY modified DESC LIMIT 1
-			""",
-			(container_no,),
-		)
-		if legacy:
-			existing = legacy[0][0]
+	legacy = frappe.db.sql(
+		"""
+		SELECT name FROM `tabContainer`
+		WHERE container_number = %s AND IFNULL(master_bill, '') = ''
+		ORDER BY modified DESC LIMIT 1
+		""",
+		(container_no,),
+	)
+	existing = legacy[0][0] if legacy else None
 
 	if existing:
 		if status:
@@ -213,11 +241,7 @@ def get_or_create_container(
 	container.container_type = container_type
 	container.seal_number = seal_number
 	container.status = status or "In Transit"
-	try:
-		sf_settings = frappe.get_single("Sea Freight Settings")
-		container.free_time_days = flt(getattr(sf_settings, "default_free_time_days", 7))
-	except Exception:
-		container.free_time_days = 7
+	container.free_time_days = _sea_freight_default_free_time_days(company)
 	container.return_status = "Not Returned"
 	if container.status in ("Empty Returned", "Closed"):
 		container.return_status = "Returned"
@@ -266,6 +290,7 @@ def sync_shipment_containers_and_penalties(shipment_doc):
 					getattr(shipment_doc, "shipping_status", None)
 				),
 				master_bill=getattr(shipment_doc, "master_bill", None) or None,
+				company=getattr(shipment_doc, "company", None),
 			)
 		if container_name:
 			row.container = container_name
@@ -308,7 +333,9 @@ def _sync_penalty_to_container(container_name, shipment_doc):
 		container = frappe.get_doc("Container", container_name)
 		if getattr(container, "penalty_manual_override", 0):
 			return
-		settings = frappe.get_single("Sea Freight Settings")
+		from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+
+		settings = SeaFreightSettings.get_settings(getattr(shipment_doc, "company", None))
 		today = getdate(now_datetime())
 		out = compute_penalty_for_single_container(container, shipment_doc, settings, today)
 		container.demurrage_days = out["demurrage_days"]
@@ -335,6 +362,7 @@ def create_container_from_shipment(sea_shipment_name, container_no, container_ty
 		seal_number=seal_no,
 		status=_shipping_status_to_container_status(shipment.shipping_status),
 		master_bill=getattr(shipment, "master_bill", None) or None,
+		company=getattr(shipment, "company", None),
 	)
 	return {"container": container_name}
 
@@ -376,6 +404,7 @@ def sync_transport_job_container(job_doc):
 		container_no=container_no,
 		container_type=getattr(job_doc, "container_type", None),
 		status=_transport_status_to_container_status(getattr(job_doc, "status", None)),
+		company=getattr(job_doc, "company", None),
 	)
 	if container_name:
 		job_doc.container = container_name
@@ -395,6 +424,7 @@ def sync_transport_order_container(order_doc):
 		container_no=container_no,
 		container_type=getattr(order_doc, "container_type", None),
 		status="In Transit",
+		company=getattr(order_doc, "company", None),
 	)
 	if container_name:
 		order_doc.container = container_name

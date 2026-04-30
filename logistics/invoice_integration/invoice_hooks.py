@@ -82,10 +82,36 @@ def on_purchase_invoice_submit(doc, method=None):
     if doc.docstatus != 1:
         return
     update_job_on_purchase_invoice_submit(doc)
+    try:
+        from logistics.invoice_integration.container_deposit_sync import (
+            sync_container_deposits_on_purchase_invoice_submit,
+        )
+
+        sync_container_deposits_on_purchase_invoice_submit(doc)
+    except Exception as e:
+        frappe.log_error(
+            title="Container deposit sync on Purchase Invoice submit",
+            message=frappe.get_traceback(),
+        )
+        frappe.msgprint(
+            _("Container deposit rows could not be updated: {0}").format(str(e)),
+            indicator="orange",
+        )
 
 
 def on_purchase_invoice_cancel(doc, method=None):
     """Clear links and reset statuses when PI is cancelled."""
     if doc.docstatus != 2:
         return
+    try:
+        from logistics.invoice_integration.container_deposit_sync import (
+            clear_container_deposits_on_purchase_invoice_cancel,
+        )
+
+        clear_container_deposits_on_purchase_invoice_cancel(doc)
+    except Exception:
+        frappe.log_error(
+            title="Container deposit clear on Purchase Invoice cancel",
+            message=frappe.get_traceback(),
+        )
     update_job_on_purchase_invoice_cancel(doc)

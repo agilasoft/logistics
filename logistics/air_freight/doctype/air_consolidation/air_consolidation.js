@@ -147,6 +147,13 @@ frappe.ui.form.on('Air Consolidation', {
                     }
                 });
             }, __('Action'));
+            setTimeout(function() {
+                if (typeof show_create_consolidation_purchase_invoice_dialog === 'function') {
+                    frm.add_custom_button(__('Purchase Invoice'), function() {
+                        show_create_consolidation_purchase_invoice_dialog(frm);
+                    }, __('Create'));
+                }
+            }, 0);
         }
 
         // Add custom buttons
@@ -648,7 +655,7 @@ function update_consolidation_metrics(frm) {
         frm.set_value('total_volume', total_volume);
         
         // Calculate chargeable weight
-        let volume_weight = total_volume * 167; // IATA standard
+        let volume_weight = total_volume * (1000 / 6); // IATA: 1 kg per 6000 cm³
         let chargeable_weight = Math.max(total_weight, volume_weight);
         frm.set_value('chargeable_weight', chargeable_weight);
         
@@ -708,8 +715,8 @@ function calculate_package_charges(frm, cdt, cdn) {
 function calculate_volume_weight(frm, cdt, cdn) {
     let row = locals[cdt][cdn];
     if (row.package_volume) {
-        // Calculate volume weight (IATA standard: 167 kg/m³)
-        let volume_weight = row.package_volume * 167;
+        // IATA volumetric: 1000/6 kg per m³ (1 kg per 6000 cm³)
+        let volume_weight = row.package_volume * (1000 / 6);
         row.volume_weight = volume_weight;
         refresh_field('consolidation_packages');
     }
@@ -760,9 +767,11 @@ function update_charge_calculation(frm, cdt, cdn) {
     if (row.revenue_calculation_method === 'Per Unit') {
         if (row.unit_type === 'Weight' && frm.doc.chargeable_weight) {
             row.quantity = frm.doc.chargeable_weight;
+        } else if (row.unit_type === 'Chargeable Weight') {
+            row.quantity = frm.doc.chargeable_weight || frm.doc.total_weight || 0;
         } else if (row.unit_type === 'Volume' && frm.doc.total_volume) {
             row.quantity = frm.doc.total_volume;
-        } else if (row.unit_type === 'Package' && frm.doc.total_packages) {
+        } else if ((row.unit_type === 'Package' || row.unit_type === 'Piece') && frm.doc.total_packages) {
             row.quantity = frm.doc.total_packages;
         }
     }

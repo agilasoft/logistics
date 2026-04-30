@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "creation": "2026-04-29 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "entity_type",
+  "entity",
+  "exchange_rate_source",
+  "currency",
+  "rate",
+  "column_break_oer",
+  "alternate_currency",
+  "alternate_rate"
+ ],
+ "fields": [
+  {
+   "fieldname": "entity_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Entity Type",
+   "options": "Customer\nSupplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entity",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Entity",
+   "options": "entity_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "exchange_rate_source",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source",
+   "options": "Exchange Rate Source"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "description": "Company base currency units per 1 unit of Currency (same convention as ERPNext Currency Exchange for multiply from foreign amount).",
+   "fieldname": "rate",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Rate (to company base)",
+   "precision": "9",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_oer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional third currency: units of Alternate Currency per 1 unit of Currency (multiply foreign amount to get alternate-currency amount).",
+   "fieldname": "alternate_currency",
+   "fieldtype": "Link",
+   "label": "Alternate Currency",
+   "options": "Currency"
+  },
+  {
+   "depends_on": "eval:doc.alternate_currency",
+   "description": "Amount in Alternate Currency equals amount in Currency × Alternate Rate.",
+   "fieldname": "alternate_rate",
+   "fieldtype": "Float",
+   "label": "Alternate Rate",
+   "precision": "9"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-29 00:00:00",
+ "module": "Pricing Center",
+ "name": "Operational Exchange Rate",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
