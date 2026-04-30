@@ -96,7 +96,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
+   "options": "air\nsea\ntransport\ncustom\nwarehousing",
    "reqd": 1
   },
   {
@@ -251,20 +251,20 @@
    "label": "Quotation Type"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Air\"",
+   "depends_on": "eval:doc.service_type == \"air\"",
    "fieldname": "section_break_air_params",
    "fieldtype": "Section Break",
    "label": "Air Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Air\"",
+   "depends_on": "eval:doc.service_type == \"air\"",
    "fieldname": "air_house_type",
    "fieldtype": "Select",
    "label": "Air House Type",
    "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Air\"",
+   "depends_on": "eval:doc.service_type == \"air\"",
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
@@ -272,7 +272,7 @@
    "options": "Airline"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Air\"",
+   "depends_on": "eval:doc.service_type == \"air\"",
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
@@ -280,20 +280,20 @@
    "options": "Freight Agent"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "depends_on": "eval:doc.service_type == \"sea\"",
    "fieldname": "section_break_sea_params",
    "fieldtype": "Section Break",
    "label": "Sea Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "depends_on": "eval:doc.service_type == \"sea\"",
    "fieldname": "sea_house_type",
    "fieldtype": "Select",
    "label": "Sea House Type",
    "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "depends_on": "eval:doc.service_type == \"sea\"",
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
@@ -301,7 +301,7 @@
    "options": "Freight Agent"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "depends_on": "eval:doc.service_type == \"sea\"",
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
@@ -309,7 +309,7 @@
    "options": "Shipping Line"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "depends_on": "eval:doc.service_type == \"sea\"",
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "hidden": 1,
@@ -332,14 +332,14 @@
    "options": "Load Type"
   },
   {
-   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"air\",\"sea\"].includes(doc.service_type)",
    "fieldname": "direction",
    "fieldtype": "Select",
    "label": "Direction",
    "options": "Import\nExport\nDomestic"
   },
   {
-   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"air\",\"sea\"].includes(doc.service_type)",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
@@ -347,7 +347,7 @@
    "options": "UNLOCO"
   },
   {
-   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"air\",\"sea\"].includes(doc.service_type)",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
@@ -355,20 +355,20 @@
    "options": "UNLOCO"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "section_break_transport_params",
    "fieldtype": "Section Break",
    "label": "Transport Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "transport_template",
    "fieldtype": "Link",
    "label": "Transport Template",
    "options": "Transport Template"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
@@ -376,7 +376,7 @@
    "options": "Vehicle Type"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
@@ -384,12 +384,12 @@
    "options": "Container Type"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "column_break_transport",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "location_type",
    "fieldtype": "Link",
    "label": "Location Type",
@@ -397,41 +397,41 @@
    "options": "DocType"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "location_from",
    "fieldtype": "Dynamic Link",
    "label": "Location From",
    "options": "location_type"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "location_to",
    "fieldtype": "Dynamic Link",
    "label": "Location To",
    "options": "location_type"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "pick_mode",
    "fieldtype": "Link",
    "label": "Pick Mode",
    "options": "Pick and Drop Mode"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "depends_on": "eval:doc.service_type == \"transport\"",
    "fieldname": "drop_mode",
    "fieldtype": "Link",
    "label": "Drop Mode",
    "options": "Pick and Drop Mode"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"custom\"",
    "fieldname": "section_break_customs_params",
    "fieldtype": "Section Break",
    "label": "Customs Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"custom\"",
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
@@ -439,14 +439,14 @@
    "options": "Customs Authority"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"custom\"",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
    "options": "Import\nExport\nTransit\nBonded"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"custom\"",
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
@@ -454,7 +454,7 @@
    "options": "Broker"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "depends_on": "eval:doc.service_type == \"custom\"",
    "fieldname": "customs_charge_category",
    "fieldtype": "Select",
    "label": "Charge Category",

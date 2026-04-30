@@ -12,6 +12,7 @@ from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.charge_service_type import (
 	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
+	sales_quote_charge_filters_service_type_only,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
@@ -772,11 +773,13 @@ class AirBooking(Document):
 			self.flags.fetching_quotations = True
 			
 			# Check if Sales Quote has air charges (new structure) or air freight (legacy)
-			air_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.sales_quote,
-				"parenttype": "Sales Quote",
-				"service_type": "Air"
-			})
+			air_charge_count = frappe.db.count(
+				"Sales Quote Charge",
+				{
+					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
+					**sales_quote_charge_filters_service_type_only("Air"),
+				},
+			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
@@ -889,11 +892,13 @@ class AirBooking(Document):
 				self.quote = self.sales_quote
 			
 			# Populate charges from Sales Quote Charge (Air) or Sales Quote Air Freight (legacy)
-			air_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.sales_quote,
-				"parenttype": "Sales Quote",
-				"service_type": "Air"
-			})
+			air_charge_count = frappe.db.count(
+				"Sales Quote Charge",
+				{
+					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
+					**sales_quote_charge_filters_service_type_only("Air"),
+				},
+			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
 				"parent": self.sales_quote,
 				"parenttype": "Sales Quote"
@@ -2875,7 +2880,11 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		
 		sales_quote_air_freight_records = frappe.get_all(
 			"Sales Quote Charge",
-			filters={"parent": one_off_quote, "parenttype": "Sales Quote", "service_type": "Air"},
+			filters={
+				"parent": one_off_quote,
+				"parenttype": "Sales Quote",
+				**sales_quote_charge_filters_service_type_only("Air"),
+			},
 			fields=sqc_fields,
 			order_by="idx"
 		)

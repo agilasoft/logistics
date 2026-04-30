@@ -8,6 +8,7 @@ from frappe.utils import cint, flt, today, getdate
 
 from logistics.utils.charge_service_type import (
 	customs_charges_rows_from_sales_quote_doc,
+	sales_quote_charge_service_types_equal,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.internal_job_charge_copy import (
@@ -738,7 +739,7 @@ def create_declaration_order_from_sales_quote(
 		frappe.throw(_("Only One-off Sales Quotes can create a Declaration Order."))
 	sq_customs = []
 	if hasattr(sq, "charges") and sq.charges:
-		sq_customs = [c for c in sq.charges if c.get("service_type") == "Customs"]
+		sq_customs = [c for c in sq.charges if sales_quote_charge_service_types_equal(c.get("service_type"), "Customs")]
 	if not sq_customs and hasattr(sq, "customs") and sq.customs:
 		sq_customs = list(sq.customs)
 	if not sq_customs:

@@ -493,10 +493,16 @@ TARIFF_RATE_TABLES = (
 
 SERVICE_PREFERRED_TARIFF_TABLE = {
     "Air": "air_freight_rates",
+    "air": "air_freight_rates",
     "Sea": "sea_freight_rates",
+    "sea": "sea_freight_rates",
     "Transport": "transport_rates",
+    "transport": "transport_rates",
     "Customs": "customs_rates",
+    "custom": "customs_rates",
+    "customs": "customs_rates",
     "Warehousing": "warehouse_rates",
+    "warehousing": "warehouse_rates",
 }
 
 

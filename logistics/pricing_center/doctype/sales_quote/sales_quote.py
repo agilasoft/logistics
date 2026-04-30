@@ -14,8 +14,11 @@ from logistics.utils.party_address_contact_from_masters import (
 from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
 from logistics.utils.charge_service_type import (
+	canonical_charge_service_type_for_storage,
+	count_sales_quote_charges_for_service,
 	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
+	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 
@@ -64,12 +67,21 @@ def _sq_strip_or_none(val):
 	return s or None
 
 
+def _sq_charge_row_matches_service(row, service_type_label):
+	st = (
+		getattr(row, "service_type", None)
+		if not isinstance(row, dict)
+		else row.get("service_type")
+	)
+	return sales_quote_charge_service_types_equal(st, service_type_label)
+
+
 def _sales_quote_has_warehousing_for_contract(sales_quote):
 	"""Legacy warehousing child rows or unified charges with service_type Warehousing (matches sales_quote.js + get_rates_from_sales_quote)."""
 	if sales_quote.get("warehousing"):
 		return True
 	for row in sales_quote.get("charges") or []:
-		if row.get("service_type") == "Warehousing":
+		if _sq_charge_row_matches_service(row, "Warehousing"):
 			return True
 	return False
 
@@ -123,7 +135,7 @@ class SalesQuote(Document):
 		has_complete_corridor = False
 		for row in getattr(self, "charges", None) or []:
 			st = _sq_strip_or_none(getattr(row, "service_type", None))
-			if st not in ("Air", "Sea"):
+			if canonical_charge_service_type_for_storage(st) not in ("air", "sea"):
 				continue
 			has_air_or_sea = True
 			row_o = _sq_strip_or_none(getattr(row, "origin_port", None))
@@ -168,7 +180,7 @@ class SalesQuote(Document):
 				)
 			return
 		charges = getattr(self, "charges", None) or []
-		if not any(getattr(r, "service_type", None) == main for r in charges):
+		if not any(_sq_charge_row_matches_service(r, main) for r in charges):
 			frappe.throw(
 				_("Add at least one charge line with Service Type \"{0}\" (Main Service).").format(main),
 				title=_("Main Service Has No Charges"),
@@ -284,11 +296,11 @@ class SalesQuote(Document):
 		service_type (or one-off main_service) is enabled—not that other flags are off.
 		"""
 		service_to_field = {
-			"Air": "air",
-			"Sea": "sea",
-			"Transport": "transport",
-			"Customs": "customs",
-			"Warehousing": "warehousing",
+			"air": "air",
+			"sea": "sea",
+			"transport": "transport",
+			"custom": "customs",
+			"warehousing": "warehousing",
 		}
 
 		def _check(load_type_name, service_label, field_name, context):
@@ -309,14 +321,16 @@ class SalesQuote(Document):
 		if getattr(self, "quotation_type", None) == "One-off" and not getattr(self, "additional_charge", 0):
 			main = getattr(self, "main_service", None)
 			lt = getattr(self, "load_type", None)
-			field = service_to_field.get(main)
+			main_c = canonical_charge_service_type_for_storage(main)
+			field = service_to_field.get(main_c)
 			if lt and field:
 				_check(lt, main, field, _("this quote's Main Service"))
 
 		for row in getattr(self, "charges", None) or []:
 			st = getattr(row, "service_type", None)
 			lt = getattr(row, "load_type", None)
-			field = service_to_field.get(st)
+			st_c = canonical_charge_service_type_for_storage(st)
+			field = service_to_field.get(st_c)
 			if lt and field:
 				_check(lt, st, field, _("charge row {0}").format(getattr(row, "idx", "") or ""))
 
@@ -325,7 +339,7 @@ class SalesQuote(Document):
 		Prevents submission with e.g. 'Job' so that creating Declaration Order from the quote does not fail."""
 		customs_rows = []
 		if getattr(self, "charges", None):
-			customs_rows = [r for r in self.charges if getattr(r, "service_type", None) == "Customs"]
+			customs_rows = [r for r in self.charges if _sq_charge_row_matches_service(r, "Customs")]
 		if getattr(self, "main_service", None) != "Customs" or not customs_rows:
 			return
 		for idx, row in enumerate(customs_rows, start=1):
@@ -352,7 +366,7 @@ class SalesQuote(Document):
 
 	def validate_vehicle_type_load_type(self):
 		"""Validate that the selected vehicle_type is allowed for the selected load_type in each Transport charge"""
-		transport_rows = [c for c in (getattr(self, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
+		transport_rows = [c for c in (getattr(self, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
 		if getattr(self, "main_service", None) != "Transport" or not transport_rows:
 			return
 
@@ -386,7 +400,7 @@ class SalesQuote(Document):
 		if getattr(self, "main_service", None) != "Transport":
 			return
 
-		transport_rows = [c for c in (getattr(self, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
+		transport_rows = [c for c in (getattr(self, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
 		has_vehicle_type = any(getattr(r, "vehicle_type", None) for r in transport_rows)
 		if not has_vehicle_type:
 			return
@@ -543,11 +557,7 @@ class SalesQuote(Document):
 			throw_if_sales_quote_expired_for_creation(self)
 			throw_if_additional_charge_sales_quote_blocks_booking_order_creation(self)
 			# Check if Sales Quote has air charges (new) or air freight (legacy)
-			air_charge_count = frappe.db.count("Sales Quote Charge", {
-				"parent": self.name,
-				"parenttype": "Sales Quote",
-				"service_type": "Air"
-			})
+			air_charge_count = count_sales_quote_charges_for_service(self.name, "Air")
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
 				"parent": self.name,
 				"parenttype": "Sales Quote"
@@ -1041,7 +1051,7 @@ def _get_invoice_items_from_job(job_type, job_name, customer):
 
 def _get_service_params(sales_quote, service_type):
 	"""Get params from first charge with the given service_type."""
-	charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == service_type]
+	charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, service_type)]
 	return charges[0] if charges else None
 
 
@@ -1049,7 +1059,7 @@ def _create_transport_order_from_sales_quote(sales_quote):
 	"""Create Transport Order from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
-	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Transport"]
+	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
 	legacy_transport = getattr(sales_quote, "transport", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Transport"
 	has_transport = bool(transport_charges) or bool(legacy_transport)
@@ -1168,7 +1178,7 @@ def _get_air_weight_volume_from_sales_quote(sales_quote):
 	"""Derive total weight and volume from Sales Quote Air charges (quantity where unit_type is Weight/Volume)."""
 	total_weight = flt(getattr(sales_quote, "air_weight", None) or getattr(sales_quote, "weight", None) or 0)
 	total_volume = flt(getattr(sales_quote, "air_volume", None) or getattr(sales_quote, "volume", None) or 0)
-	air_rows = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Air"]
+	air_rows = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Air")]
 	if not air_rows and getattr(sales_quote, "air_freight", None):
 		air_rows = sales_quote.air_freight
 	for row in (air_rows or []):
@@ -1192,7 +1202,7 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	"""Create Air Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
-	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Air"]
+	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Air")]
 	legacy_air = getattr(sales_quote, "air_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Air"
 	has_air = bool(air_charges) or bool(legacy_air)
@@ -1288,7 +1298,7 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
-	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if getattr(c, "service_type", None) == "Sea"]
+	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Sea")]
 	legacy_sea = getattr(sales_quote, "sea_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Sea"
 	has_sea = bool(sea_charges) or bool(legacy_sea)

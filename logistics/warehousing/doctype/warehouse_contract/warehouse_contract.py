@@ -4,6 +4,8 @@
 import frappe
 from frappe.model.document import Document
 
+from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+
 
 class WarehouseContract(Document):
 	def validate(self):
@@ -61,7 +63,7 @@ def get_rates_from_sales_quote(warehouse_contract, sales_quote):
 	# Prefer Sales Quote Charge (service_type=Warehousing)
 	warehouse_items = []
 	if hasattr(sales_quote_doc, "charges") and sales_quote_doc.charges:
-		warehouse_items = [c for c in sales_quote_doc.charges if c.get("service_type") == "Warehousing"]
+		warehouse_items = [c for c in sales_quote_doc.charges if sales_quote_charge_service_types_equal(c.get("service_type"), "Warehousing")]
 	if not warehouse_items and hasattr(sales_quote_doc, "warehousing") and sales_quote_doc.warehousing:
 		warehouse_items = list(sales_quote_doc.warehousing)
 	

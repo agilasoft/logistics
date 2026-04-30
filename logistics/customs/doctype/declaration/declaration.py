@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 
 from logistics.utils.charge_service_type import (
 	customs_charges_rows_from_sales_quote_doc,
+	sales_quote_charge_service_types_equal,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
@@ -954,10 +955,10 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 
 		has_customs_on_quote = (
 			getattr(sq, "main_service", None) == "Customs"
-			or any(c.get("service_type") == "Customs" for c in (getattr(sq, "charges") or []))
+			or any(sales_quote_charge_service_types_equal(c.get("service_type"), "Customs") for c in (getattr(sq, "charges") or []))
 		)
 		order_customs_charges = any(
-			(getattr(c, "service_type", None) or "") == "Customs" for c in (order.charges or [])
+			sales_quote_charge_service_types_equal(getattr(c, "service_type", None), "Customs") for c in (order.charges or [])
 		)
 		internal_job_customs_ok = cint(getattr(order, "is_internal_job", 0)) and (
 			order_customs_charges or should_apply_internal_job_main_charge_overlay(order)
@@ -1041,7 +1042,7 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		# Check if Sales Quote has customs details (main_service or charges)
 		has_customs = (
 			getattr(sq, "main_service", None) == "Customs"
-			or any(c.get("service_type") == "Customs" for c in (getattr(sq, "charges") or []))
+			or any(sales_quote_charge_service_types_equal(c.get("service_type"), "Customs") for c in (getattr(sq, "charges") or []))
 		)
 		if not has_customs:
 			frappe.throw(_("No customs details found in this Sales Quote."))
@@ -1062,7 +1063,7 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		declaration.profit_center = getattr(sq, 'profit_center', None)
 		
 		# Set customs authority from first Customs charge or legacy header
-		customs_charge = next((c for c in (getattr(sq, "charges") or []) if c.get("service_type") == "Customs"), None)
+		customs_charge = next((c for c in (getattr(sq, "charges") or []) if sales_quote_charge_service_types_equal(c.get("service_type"), "Customs")), None)
 		if customs_charge and customs_charge.get("customs_authority"):
 			declaration.customs_authority = customs_charge.customs_authority
 		elif hasattr(sq, "customs_authority") and sq.customs_authority:

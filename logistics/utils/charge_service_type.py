@@ -2,7 +2,9 @@
 # For license information, please see license.txt
 
 """
-Sales Quote Charge rows are scoped by service_type (Air, Sea, Transport, Customs, Warehousing).
+Sales Quote Charge rows are scoped by service_type (air, sea, transport, custom, warehousing),
+aligned with Load Type module checkboxes. Legacy Title Case values are still accepted.
+
 Operational charge tables mirror this. Helpers build filters when copying quote → booking/shipment/job.
 
 Internal jobs do not take line items from the Sales Quote; they take charge rows from the Main Job
@@ -18,8 +20,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-# Same options as Sales Quote Charge.service_type
-SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing"
+# Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (lowercase = module keys).
+SERVICE_TYPE_SELECT_OPTIONS = "air\nsea\ntransport\ncustom\nwarehousing"
 
 IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Air Booking": "Air",
@@ -34,13 +36,107 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Inbound Order": "Warehousing",
 }
 
+
+def canonical_charge_service_type_for_storage(value):
+	"""
+	Normalize charge-line service_type to stored select values: air, sea, transport, custom, warehousing.
+	Accepts legacy Title Case (Air, Customs, …) and aliases (customs → custom).
+	"""
+	if value is None:
+		return None
+	s = (value if isinstance(value, str) else str(value)).strip()
+	if not s:
+		return None
+	low = s.lower()
+	if low in ("custom", "customs"):
+		return "custom"
+	if low in ("air", "sea", "transport", "warehousing"):
+		return low
+	legacy_title = {
+		"Air": "air",
+		"Sea": "sea",
+		"Transport": "transport",
+		"Customs": "custom",
+		"Warehousing": "warehousing",
+	}
+	return legacy_title.get(s)
+
+
+def charge_service_type_to_load_type_flag_field(service_type):
+	"""Load Type DocType checkbox fieldname for this charge service_type (uses 'customs' on Load Type, not 'custom')."""
+	c = canonical_charge_service_type_for_storage(service_type)
+	if not c:
+		return None
+	if c == "custom":
+		return "customs"
+	return c
+
+
+def sales_quote_charge_service_types_equal(a, b):
+	"""Compare two service_type values (charge row or implied vs main_service) in canonical form."""
+	ca = canonical_charge_service_type_for_storage(a)
+	cb = canonical_charge_service_type_for_storage(b)
+	return bool(ca and cb and ca == cb)
+
+
+def normalize_charge_row_filter_service_type(value):
+	"""Value to use in frappe filters against Sales Quote Charge.service_type (DB storage form)."""
+	return canonical_charge_service_type_for_storage(value)
+
+
+def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_label):
+	"""Possible ``service_type`` DB values for one logical charge service (during Title Case migration)."""
+	c = canonical_charge_service_type_for_storage(canonical_or_label)
+	if not c:
+		return []
+	legacy_title = {
+		"air": "Air",
+		"sea": "Sea",
+		"transport": "Transport",
+		"custom": "Customs",
+		"warehousing": "Warehousing",
+	}
+	title = legacy_title.get(c)
+	out = [c]
+	if title:
+		out.append(title)
+	return out
+
+
+def sales_quote_charge_filters_service_type_only(service_type_label):
+	"""Filter dict for Sales Quote Charge queries by logical service type (includes legacy Title Case)."""
+	variants = iter_sales_quote_charge_service_type_db_values_for_canonical(service_type_label)
+	if not variants:
+		return {}
+	if len(variants) == 1:
+		return {"service_type": variants[0]}
+	return {"service_type": ["in", variants]}
+
+
+def count_sales_quote_charges_for_service(parent_name, service_type_label):
+	"""Count charge child rows for a quote and service type (legacy + canonical values)."""
+	variants = iter_sales_quote_charge_service_type_db_values_for_canonical(service_type_label)
+	if not variants:
+		return 0
+	base = {"parent": parent_name, "parenttype": "Sales Quote"}
+	if len(variants) == 1:
+		return frappe.db.count("Sales Quote Charge", {**base, "service_type": variants[0]})
+	return frappe.db.count("Sales Quote Charge", {**base, "service_type": ["in", variants]})
+
+
 # Internal Job Detail: user selects Service Type; Job Type is set automatically to the target DocType.
 INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE = {
 	"Air": "Air Booking",
+	"air": "Air Booking",
 	"Sea": "Sea Booking",
+	"sea": "Sea Booking",
 	"Transport": "Transport Order",
+	"transport": "Transport Order",
 	"Customs": "Declaration Order",
+	"custom": "Declaration Order",
+	"customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
+	"warehousing": "Inbound Order",
 }
 
 # Routing leg job_type values that identify the same operational leg as the parent document
@@ -119,7 +215,8 @@ def is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc):
 	# No routing legs: same fallback as legacy (main_service on quote)
 	if not legs:
 		ms = getattr(sq, "main_service", None)
-		return implied_service_type_for_doctype(parent_doc.doctype) == ms
+		impl = implied_service_type_for_doctype(parent_doc.doctype)
+		return sales_quote_charge_service_types_equal(impl, ms)
 	return False
 
 
@@ -138,9 +235,9 @@ def sales_quote_charge_row_matches_operational_routing(parent_doc, row):
 	Rows with blank origin_port/destination_port (or location_from/location_to for Transport) act as
 	wildcards. When the operational document has no port/location set yet, rows are not excluded.
 	"""
-	row_st = (_sq_charge_row_field(row, "service_type") or "").strip()
+	row_st = canonical_charge_service_type_for_storage(_sq_charge_row_field(row, "service_type"))
 
-	if row_st == "Transport":
+	if row_st == "transport":
 		plf = (getattr(parent_doc, "location_from", None) or "").strip()
 		plt = (getattr(parent_doc, "location_to", None) or "").strip()
 		rlf = (_sq_charge_row_field(row, "location_from") or "").strip()
@@ -151,7 +248,7 @@ def sales_quote_charge_row_matches_operational_routing(parent_doc, row):
 			return False
 		return True
 
-	if row_st in ("Sea", "Air"):
+	if row_st in ("sea", "air"):
 		pop = (getattr(parent_doc, "origin_port", None) or "").strip()
 		pdp = (getattr(parent_doc, "destination_port", None) or "").strip()
 		rop = (_sq_charge_row_field(row, "origin_port") or "").strip()
@@ -187,18 +284,18 @@ def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type
 		# Quote filters are not used to populate internal job charges (see internal_job_charge_copy);
 		# kept for any legacy callers that still query Sales Quote Charge for internal jobs.
 		if implied_service_type:
-			base["service_type"] = implied_service_type
+			base["service_type"] = normalize_charge_row_filter_service_type(implied_service_type) or implied_service_type
 		return base
 	rt_st = routing_leg_service_type_for_parent(parent_doc, sales_quote_doc)
 	if rt_st:
-		base["service_type"] = rt_st
+		base["service_type"] = normalize_charge_row_filter_service_type(rt_st) or rt_st
 		return base
 	separate = cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
 	# When separate billing is OFF, always fetch all charges regardless of routing/main-job
 	if not separate:
 		return base
 	if implied_service_type:
-		base["service_type"] = implied_service_type
+		base["service_type"] = normalize_charge_row_filter_service_type(implied_service_type) or implied_service_type
 	return base
 
 
@@ -207,9 +304,8 @@ def _sq_charge_service_type(row):
 
 
 def _is_customs_sq_charge_row(row) -> bool:
-	"""True if this Sales Quote Charge row is Customs (case-insensitive)."""
-	st = (_sq_charge_service_type(row) or "").strip().lower()
-	return st == "customs"
+	"""True if this Sales Quote Charge row is Customs / custom module."""
+	return canonical_charge_service_type_for_storage(_sq_charge_service_type(row)) == "custom"
 
 
 def customs_charges_rows_from_sales_quote_doc(parent_doc, sales_quote_doc):
@@ -242,9 +338,14 @@ def destination_service_charge_validation(doc, required_service_type=None):
 	Build a standard validation payload for destination-specific service charges.
 	Used for both warning (conversion/create) and hard block (submit) flows.
 	"""
-	required = (required_service_type or implied_service_type_for_doctype(getattr(doc, "doctype", None)) or "").strip()
+	required_raw = (required_service_type or implied_service_type_for_doctype(getattr(doc, "doctype", None)) or "").strip()
+	required = canonical_charge_service_type_for_storage(required_raw) or required_raw
 	charges = list(getattr(doc, "charges", None) or [])
-	matching = [row for row in charges if _row_service_type(row) == required] if required else charges
+	matching = (
+		[row for row in charges if canonical_charge_service_type_for_storage(_row_service_type(row)) == required]
+		if required
+		else charges
+	)
 	label = getattr(doc, "doctype", "Document")
 	return {
 		"required_service_type": required,

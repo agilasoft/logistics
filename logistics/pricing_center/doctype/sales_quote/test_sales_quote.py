@@ -42,7 +42,7 @@ class TestSalesQuote(FrappeTestCase):
 			"main_service": "Air",
 		})
 		sq.append("charges", {
-			"service_type": "Air",
+			"service_type": "air",
 			"origin_port": "USLAX",
 			"destination_port": "USJFK",
 			"direction": "Export",
@@ -72,7 +72,7 @@ class TestSalesQuote(FrappeTestCase):
 			"main_service": "Air",
 		})
 		sq.append("charges", {
-			"service_type": "Air",
+			"service_type": "air",
 			"origin_port": "USLAX",
 			"destination_port": "USJFK",
 			"direction": "Export",
@@ -116,7 +116,7 @@ class TestSalesQuote(FrappeTestCase):
 			"main_service": "Air",
 		})
 		sq.append("charges", {
-			"service_type": "Air",
+			"service_type": "air",
 			"origin_port": "USLAX",
 			"destination_port": "USJFK",
 			"direction": "Export",
@@ -157,7 +157,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -227,7 +227,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq_specific.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -253,7 +253,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq_any.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -324,7 +324,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -374,7 +374,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq_draft.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -398,7 +398,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq_sub.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -453,7 +453,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -469,7 +469,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Sea",
+				"service_type": "sea",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -486,7 +486,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
@@ -502,7 +502,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"direction": "Export",
 			},
 		)
@@ -518,7 +518,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"direction": "Export",
 			},
 		)
@@ -536,7 +536,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"direction": "Export",
 			},
 		)
@@ -551,14 +551,14 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"direction": "Export",
 			},
 		)
 		sq.append(
 			"charges",
 			{
-				"service_type": "Air",
+				"service_type": "air",
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
 				"direction": "Export",
