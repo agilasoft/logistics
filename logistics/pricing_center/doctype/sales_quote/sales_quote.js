@@ -27,6 +27,7 @@ function logistics_canonical_charge_service_type(st) {
 		Air: "air",
 		Sea: "sea",
 		Transport: "transport",
+		Custom: "custom",
 		Customs: "custom",
 		custom: "custom",
 		customs: "custom",
@@ -471,7 +472,7 @@ frappe.ui.form.on("Sales Quote", {
 			(frm.doc.customs && frm.doc.customs.length > 0);
 		if (
 			frm.doc.quotation_type === "One-off" &&
-			frm.doc.main_service === "Customs" &&
+			(frm.doc.main_service === "Custom" || frm.doc.main_service === "Customs") &&
 			has_customs &&
 			!frm.doc.__islocal &&
 			frm.doc.docstatus === 1 &&
@@ -893,7 +894,7 @@ function show_get_rates_from_cost_sheet_dialog(frm) {
 			fieldname: "service_type",
 			fieldtype: "Select",
 			label: __("Service Type"),
-			options: "\nAir\nSea\nTransport\nCustoms\nWarehousing",
+			options: "\nAir\nSea\nTransport\nCustom\nWarehousing",
 			default: defaults.service_type
 		},
 		{

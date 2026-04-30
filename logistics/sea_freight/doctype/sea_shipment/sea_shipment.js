@@ -8,6 +8,7 @@ function _declaration_order_name_from_internal_job_details(frm) {
 		var st = String(r.service_type || "").trim();
 		var jt = String(r.job_type || "").trim();
 		var isDecl =
+			st === "Custom" ||
 			st === "Customs" ||
 			jt === "Declaration Order";
 		if (isDecl && String(r.job_no || "").trim()) {

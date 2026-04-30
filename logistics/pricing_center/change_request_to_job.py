@@ -195,7 +195,7 @@ def _map_cr_charge_to_declaration_cost(row, cr_name, charge_row_name):
 	rev_method = _row_val(row, "calculation_method") or "Fixed Amount"
 	cost_method = _row_val(row, "cost_calculation_method") or "Fixed Amount"
 	return {
-		"service_type": "Customs",
+		"service_type": "Custom",
 		"item_code": _row_val(row, "item_code"),
 		"charge_type": "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",

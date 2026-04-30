@@ -13,6 +13,10 @@ from frappe import _
 from frappe.desk.reportview import get_match_cond
 from frappe.utils import cint
 
+from logistics.utils.charge_service_type import (
+	canonical_charge_service_type_for_storage,
+	iter_sales_quote_charge_service_type_db_values_for_canonical,
+)
 from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
 
 _SALES_QUOTE_TABLE_COLUMNS_KEY = "table_columns::tabSales Quote"
@@ -293,7 +297,7 @@ def _customs_declaration_charge_match_sql() -> str:
 		EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
-			AND sqc.service_type = 'Customs'
+			AND sqc.service_type IN ('Custom', 'Customs', 'custom')
 			AND (
 				TRIM(IFNULL(%(customs_authority)s,'')) = ''
 				OR TRIM(IFNULL(sqc.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
@@ -475,11 +479,15 @@ def sales_quote_by_service_link_search(
 	if service_type not in SERVICE_LEGACY_TABLE:
 		return []
 
+	st_variants = tuple(iter_sales_quote_charge_service_type_db_values_for_canonical(service_type))
+	if not st_variants:
+		return []
+
 	start = cint(start)
 	page_len = cint(page_len) or 20
 
 	txt_cond = ""
-	params: dict[str, Any] = {"service_type": service_type, "start": start, "page_len": page_len}
+	params: dict[str, Any] = {"service_types": st_variants, "start": start, "page_len": page_len}
 	if txt:
 		params["txt"] = f"%{txt}%"
 		txt_cond = "AND (sq.name LIKE %(txt)s OR IFNULL(sq.customer,'') LIKE %(txt)s)"
@@ -489,7 +497,7 @@ def sales_quote_by_service_link_search(
 	eligibility = f"""( EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
-			AND sqc.service_type = %(service_type)s
+			AND sqc.service_type IN %(service_types)s
 		)
 		{legacy_sql}
 	)"""
@@ -587,7 +595,7 @@ def fetch_eligible_regular_sales_quote_names(
 	jsl = (job_shipping_line or "").strip() if service_type == "Sea" else ""
 
 	params: dict[str, Any] = {"service_type": service_type, "limit": limit}
-	if service_type == "Customs":
+	if canonical_charge_service_type_for_storage(service_type) == "custom":
 		jtm = (job_transport_mode or "").strip() or None
 		params["customs_authority"] = ca
 		params["declaration_type"] = dt
