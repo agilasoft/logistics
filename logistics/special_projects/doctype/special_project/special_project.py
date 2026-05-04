@@ -4,7 +4,12 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import escape_html, flt
+
+from logistics.utils.special_project_internal_jobs import (
+	job_refs_from_internal_job_details,
+	resolve_internal_job_detail_row_to_operational_ref,
+)
 
 
 class SpecialProject(Document):
@@ -55,9 +60,11 @@ class SpecialProject(Document):
 			project.expected_start_date = self.planned_start or self.start_date
 			project.expected_end_date = self.planned_end or self.end_date
 			project.status = self._map_status_to_project(self.status)
-			project.project_type = frappe.db.get_single_value(
-				"Special Project Settings", "default_project_type"
-			) or frappe.db.get_value("Project Type", {"name": "External"}, "name")
+			project.project_type = (
+				self.project_type
+				or frappe.db.get_single_value("Special Project Settings", "default_project_type")
+				or frappe.db.get_value("Project Type", {"name": "External"}, "name")
+			)
 			project.company = frappe.defaults.get_defaults().get("company")
 
 			project.insert(ignore_permissions=True)
@@ -106,33 +113,324 @@ def charge_scoping_costs(special_project):
 	return "Scoping costs charged."
 
 
+def _job_map_payload(job_type, job_name):
+	movements = _collect_movements_from_jobs([frappe._dict(job_type=job_type, job=job_name)])
+	map_points = []
+	for m in movements:
+		oc = m.get("origin_coords")
+		if oc and oc.get("lat") is not None and oc.get("lon") is not None:
+			map_points.append(
+				{
+					"lat": float(oc["lat"]),
+					"lon": float(oc["lon"]),
+					"label": m.get("origin_label", "Origin"),
+				}
+			)
+		dc = m.get("dest_coords")
+		if dc and dc.get("lat") is not None and dc.get("lon") is not None:
+			tup = (float(dc["lat"]), float(dc["lon"]))
+			if not map_points or (map_points[-1].get("lat"), map_points[-1].get("lon")) != tup:
+				map_points.append(
+					{
+						"lat": tup[0],
+						"lon": tup[1],
+						"label": m.get("dest_label", "Destination"),
+					}
+				)
+	if not map_points:
+		return {
+			"map_mode": "empty",
+			"map_points": [],
+			"label": _("No origin/destination coordinates for this job yet."),
+		}
+	label = f"{job_type} {job_name}"
+	road = job_type == "Transport Job"
+	if len(map_points) == 1:
+		return {
+			"map_mode": "pin",
+			"map_points": map_points,
+			"straight_line": True,
+			"label": label,
+		}
+	return {
+		"map_mode": "route",
+		"map_points": map_points,
+		"straight_line": not road,
+		"label": label,
+	}
+
+
+def _format_internal_job_location(row, which):
+	"""Display name for location_from / location_to (UNLOCO code or Transport Zone name)."""
+	val = getattr(row, "location_from" if which == "from" else "location_to", None)
+	if not val:
+		return ""
+	lt = (getattr(row, "location_type", None) or "").strip()
+	if lt == "Transport Zone" and frappe.db.exists("Transport Zone", val):
+		zn = frappe.db.get_value("Transport Zone", val, "zone_name")
+		return (zn or val).strip()
+	return str(val).strip()
+
+
+def _map_points_from_internal_job_transport_unloco(row):
+	"""When no booking: route from UNLOCO location_from → location_to (location_type must be UNLOCO)."""
+	if (getattr(row, "location_type", None) or "").strip() != "UNLOCO":
+		return []
+	from logistics.document_management.dashboard_layout import get_unloco_coords
+
+	map_points = []
+	for loc in (getattr(row, "location_from", None), getattr(row, "location_to", None)):
+		if not loc:
+			continue
+		c = get_unloco_coords(loc)
+		if not c:
+			continue
+		pt = {"lat": float(c["lat"]), "lon": float(c["lon"]), "label": c.get("label") or loc}
+		if (
+			not map_points
+			or pt["lat"] != map_points[-1]["lat"]
+			or pt["lon"] != map_points[-1]["lon"]
+		):
+			map_points.append(pt)
+	return map_points
+
+
+def _transport_fallback_route_label(row):
+	a = _format_internal_job_location(row, "from")
+	b = _format_internal_job_location(row, "to")
+	if a or b:
+		return f"{a or '—'} → {b or '—'}"
+	return _("Transport")
+
+
+def _internal_job_card_title(row):
+	st = (getattr(row, "service_type", None) or "").strip() or _("Line")
+	jt = (getattr(row, "job_type", None) or "").strip()
+	jn = (getattr(row, "job_no", None) or "").strip()
+	if jn and jt:
+		return f"{st} · {jt}: {jn}"
+	if jn:
+		return f"{st} · {jn}"
+	if st == "Transport":
+		return f"{st} · {_transport_fallback_route_label(row)}"
+	if st in ("Air", "Sea"):
+		op = (getattr(row, "origin_port", None) or "").strip()
+		dp = (getattr(row, "destination_port", None) or "").strip()
+		if op or dp:
+			return f"{st} · {op or '—'} → {dp or '—'}"
+	if st == "Customs" and (getattr(row, "customs_authority", None) or "").strip():
+		return f"{st} · {row.customs_authority}"
+	if st == "Special Project" and jn:
+		return f"{st} · {jn}"
+	return st
+
+
+def _internal_job_card_sub(row):
+	parts = []
+	st = (getattr(row, "service_type", None) or "").strip()
+	if st == "Air":
+		for x in (
+			getattr(row, "airline", None),
+			getattr(row, "freight_agent", None),
+			getattr(row, "load_type", None),
+			getattr(row, "direction", None),
+			getattr(row, "air_house_type", None),
+		):
+			if x:
+				parts.append(str(x).strip())
+	elif st == "Sea":
+		for x in (
+			getattr(row, "shipping_line", None),
+			getattr(row, "freight_agent_sea", None),
+			getattr(row, "load_type", None),
+			getattr(row, "direction", None),
+			getattr(row, "sea_house_type", None),
+		):
+			if x:
+				parts.append(str(x).strip())
+	elif st == "Transport":
+		for x in (
+			getattr(row, "transport_template", None),
+			getattr(row, "vehicle_type", None),
+			getattr(row, "container_type", None),
+			getattr(row, "container_no", None),
+			getattr(row, "pick_mode", None),
+			getattr(row, "drop_mode", None),
+		):
+			if x:
+				parts.append(str(x).strip())
+		ltp = (getattr(row, "location_type", None) or "").strip()
+		if ltp:
+			parts.append(ltp)
+		if not (getattr(row, "job_no", None) or "").strip():
+			lf = _format_internal_job_location(row, "from")
+			lt = _format_internal_job_location(row, "to")
+			if lf or lt:
+				parts.append(f"{lf or '—'} → {lt or '—'}")
+	elif st == "Customs":
+		for x in (
+			getattr(row, "customs_broker", None),
+			getattr(row, "declaration_type", None),
+			getattr(row, "customs_charge_category", None),
+		):
+			if x:
+				parts.append(str(x).strip())
+	elif st == "Special Project":
+		for x in (getattr(row, "sp_equipment_type", None), getattr(row, "sp_handling", None)):
+			if x:
+				parts.append(str(x).strip())
+		sp_site = getattr(row, "sp_site", None)
+		if sp_site:
+			site_lbl = frappe.db.get_value("Address", sp_site, "address_title")
+			parts.append((site_lbl or sp_site)[:120])
+		sn = getattr(row, "sp_resource_notes", None)
+		if sn:
+			parts.append((sn or "")[:120])
+	return " · ".join(parts) if parts else "—"
+
+
+def _map_payload_from_site_address(addr_name):
+	"""Single pin on the map from a linked Address (customer site), if lat/lon are set on the address."""
+	if not addr_name:
+		return None
+	try:
+		from logistics.transport.api_optimized import get_address_coordinates_batch
+
+		c = (get_address_coordinates_batch([addr_name]) or {}).get(addr_name)
+		if c and c.get("lat") is not None and c.get("lon") is not None:
+			lbl = frappe.db.get_value("Address", addr_name, "address_title") or addr_name
+			return {
+				"map_mode": "pin",
+				"map_points": [
+					{"lat": float(c["lat"]), "lon": float(c["lon"]), "label": lbl},
+				],
+				"straight_line": True,
+				"label": lbl,
+			}
+	except Exception:
+		pass
+	return None
+
+
+def _internal_job_row_map_payload(row):
+	"""Map payload for one Internal Job Detail row: resolved job, else ports/locations on the line."""
+	op = resolve_internal_job_detail_row_to_operational_ref(row)
+	if op:
+		return _job_map_payload(op[0], op[1])
+
+	st = (getattr(row, "service_type", None) or "").strip()
+	if st == "Special Project":
+		site = getattr(row, "sp_site", None)
+		if site:
+			pl = _map_payload_from_site_address(site)
+			if pl:
+				return pl
+
+	if st in ("Air", "Sea"):
+		try:
+			from logistics.document_management.dashboard_layout import get_unloco_coords
+
+			o_code = getattr(row, "origin_port", None)
+			d_code = getattr(row, "destination_port", None)
+			o = get_unloco_coords(o_code) if o_code else None
+			d = get_unloco_coords(d_code) if d_code else None
+			map_points = []
+			if o:
+				map_points.append({"lat": float(o["lat"]), "lon": float(o["lon"]), "label": o.get("label") or o_code or "Origin"})
+			if d and (
+				not map_points
+				or float(d["lat"]) != map_points[-1].get("lat")
+				or float(d["lon"]) != map_points[-1].get("lon")
+			):
+				map_points.append({"lat": float(d["lat"]), "lon": float(d["lon"]), "label": d.get("label") or d_code or "Destination"})
+			if len(map_points) == 1:
+				return {
+					"map_mode": "pin",
+					"map_points": map_points,
+					"straight_line": True,
+					"label": o_code or d_code or _("Port"),
+				}
+			if len(map_points) >= 2:
+				lbl = f"{o_code or '—'} → {d_code or '—'}"
+				return {
+					"map_mode": "route",
+					"map_points": map_points,
+					"straight_line": True,
+					"label": lbl,
+				}
+		except Exception:
+			pass
+
+	if st == "Transport":
+		tpts = _map_points_from_internal_job_transport_unloco(row)
+		lbl = _transport_fallback_route_label(row)
+		if len(tpts) >= 2:
+			return {
+				"map_mode": "route",
+				"map_points": tpts,
+				"straight_line": False,
+				"label": lbl,
+			}
+		if len(tpts) == 1:
+			return {
+				"map_mode": "pin",
+				"map_points": tpts,
+				"straight_line": True,
+				"label": lbl,
+			}
+
+	return {
+		"map_mode": "empty",
+		"map_points": [],
+		"label": _("Link a booking/order, set Air/Sea ports, or set Location From/To (UNLOCO) for Transport to see the map."),
+	}
+
+
+def _sp_dash_card_html(title, sub, badge, kind="task"):
+	border = "#17a2b8" if kind == "job" else "#667eea"
+	return (
+		f'<div class="sp-dash-card" style="border-left-color: {border};" role="button" tabindex="0">'
+		f'<div class="sp-dash-card-title">{escape_html(title)}</div>'
+		f'<div class="sp-dash-card-sub">{escape_html(sub)}</div>'
+		f'<span class="sp-dash-card-badge">{escape_html(badge)}</span></div>'
+	)
+
+
 @frappe.whitelist()
 def get_dashboard_html(special_project):
-	"""Generate HTML for Dashboard tab: Run Sheet layout with map, milestones."""
+	"""Dashboard tab: Transport Job style header/tabs; Route = internal job lines + map (ports or shipment route)."""
 	if not special_project:
 		return "<div class='alert alert-info'>Save the project to view the dashboard.</div>"
 	try:
-		from logistics.document_management.dashboard_layout import build_run_sheet_style_dashboard
-		from logistics.document_management.api import get_dashboard_alerts_html
+		from logistics.air_freight.doctype.air_booking.air_booking_dashboard import _milestones_ro_panel_html
+		from logistics.document_management.dashboard_layout import render_special_project_interactive_route_tab_html
+		from logistics.document_management.logistics_form_dashboard import (
+			build_customer_hero_html,
+			build_special_project_meta_cluster_html,
+			build_special_project_route_panel_html,
+			render_logistics_form_dashboard_html,
+		)
+		from logistics.utils.sales_quote_validity import get_sales_quote_validity_dashboard_html
 
 		doc = frappe.get_doc("Special Project", special_project)
+		quote_html = get_sales_quote_validity_dashboard_html(doc) or ""
+
 		status = doc.status or "Draft"
-		jobs = doc.get("jobs") or []
-		resources = doc.get("resources") or []
+		job_rows = doc.get("internal_job_details") or []
+		job_refs = job_refs_from_internal_job_details(doc)
 		billings = doc.get("billings") or []
 		deliveries = doc.get("deliveries") or []
-		planned_cost = sum(flt(j.planned_cost or 0) for j in jobs)
-		actual_cost = sum(flt(j.actual_cost or 0) for j in jobs)
-		planned_rev = sum(flt(j.planned_revenue or 0) for j in jobs)
-		actual_rev = sum(flt(j.actual_revenue or 0) for j in jobs)
+		planned_cost = sum(flt(a.planned_cost or 0) for a in job_rows)
+		actual_cost = sum(flt(a.actual_cost or 0) for a in job_rows)
+		actual_rev = sum(flt(a.actual_revenue or 0) for a in job_rows)
 
 		def fmt(v):
 			return frappe.format_value(v, df={"fieldtype": "Currency"}) if v is not None else "—"
 
 		header_items = [
 			("Status", status),
-			("Jobs", str(len(jobs))),
-			("Resources", str(len(resources))),
+			("Job lines", str(len(job_rows))),
+			("Logistics jobs", str(len(job_refs))),
 			("Budget", fmt(planned_cost)),
 			("Actual Revenue", fmt(actual_rev)),
 			("Deliveries", str(len(deliveries))),
@@ -141,9 +439,14 @@ def get_dashboard_html(special_project):
 		if doc.priority:
 			header_items.append(("Priority", doc.priority))
 
-		# Aggregated milestones from linked jobs
+		header_items_for_hero = list(header_items)
+		hero_html = build_customer_hero_html(doc, header_items_for_hero)
+		route_panel_html = build_special_project_route_panel_html(doc)
+		meta_cluster_html = build_special_project_meta_cluster_html(doc)
+
+		# Aggregated milestones from linked logistics jobs
 		all_milestones = []
-		for row in jobs:
+		for row in job_refs:
 			jt = (row.job_type or "").strip()
 			jn = (row.job or "").strip()
 			if not jt or not jn:
@@ -162,47 +465,96 @@ def get_dashboard_html(special_project):
 		if all_milestones:
 			names = [m.milestone for m in all_milestones if m.milestone]
 			if names:
-				for lm in frappe.get_all("Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]):
+				for lm in frappe.get_all(
+					"Logistics Milestone", filters={"name": ["in", names]}, fields=["name", "description"]
+				):
 					milestone_details[lm.name] = lm.description or lm.name
 
-		cards_html = ""
-		for i, m in enumerate(all_milestones[:15], 1):
-			st = (m.status or "Planned").lower().replace(" ", "-")
-			desc = milestone_details.get(m.milestone, m.milestone or "Milestone")
-			planned = frappe.utils.format_datetime(m.planned_end) if m.planned_end else "—"
-			actual = frappe.utils.format_datetime(m.actual_end) if m.actual_end else "—"
-			cards_html += f"""
-			<div class="dash-card {st}">
-				<div class="card-header"><h5>{desc}</h5><span class="card-num">#{i}</span></div>
-				<div class="card-details">Planned: {planned}<br>Actual: {actual}</div>
-				<span class="card-badge {st}">{m.status or "Planned"}</span>
-			</div>"""
-
-		# Map points from movements
-		movements = _collect_movements_from_jobs(jobs)
-		valid = [m for m in movements if m.get("origin_coords") or m.get("dest_coords")]
-		map_points = []
-		seen = set()
-		for m in valid:
-			for key, label in [("origin_coords", m.get("origin_label", "Origin")), ("dest_coords", m.get("dest_label", "Dest"))]:
-				c = m.get(key)
-				if c and c.get("lat") is not None and c.get("lon") is not None:
-					tup = (c["lat"], c["lon"])
-					if tup not in seen:
-						seen.add(tup)
-						map_points.append({"lat": float(c["lat"]), "lon": float(c["lon"]), "label": label})
-
-		alerts_html = get_dashboard_alerts_html("Special Project", special_project)
-		return build_run_sheet_style_dashboard(
-			header_title=doc.project_name or doc.name or "Special Project",
-			header_subtitle="Special Project",
-			header_items=header_items,
-			cards_html=cards_html or "<div class=\"text-muted\">No milestones. Link jobs to see aggregated milestones.</div>",
-			map_points=map_points,
-			map_id_prefix="sp-dash-map",
-			doc_alerts_html="",
-			alerts_html=alerts_html,
+		milestone_rows = list(all_milestones)
+		ms_inner = _milestones_ro_panel_html(
+			milestone_rows,
+			milestone_details,
+			doc.name or "",
+			scroll_doctype="Special Project",
+			scroll_field="milestone_html",
+			empty_hint_html='<p class="text-muted ab-tab-empty" style="margin:0;">'
+			+ _("No milestones from linked logistics jobs. Add jobs under <strong>Jobs</strong>.")
+			+ "</p>",
 		)
+		n_ms = len(milestone_rows)
+		done_ms = sum(1 for m in milestone_rows if str(m.status or "").strip() == "Completed")
+
+		cards_parts = []
+		map_payloads = []
+
+		lines_ordered = sorted(job_rows, key=lambda r: int(getattr(r, "idx", None) or 0))
+		for row in lines_ordered:
+			payload = _internal_job_row_map_payload(row)
+			map_payloads.append(payload)
+			title = _internal_job_card_title(row)[:200]
+			sub = _internal_job_card_sub(row)
+			pc = getattr(row, "planned_cost", None)
+			pr = getattr(row, "planned_revenue", None)
+			if pc or pr:
+				bits = []
+				if pc:
+					bits.append(_("Planned cost {0}").format(fmt(pc)))
+				if pr:
+					bits.append(_("Planned revenue {0}").format(fmt(pr)))
+				fin = " · ".join(bits)
+				if sub and sub != "—":
+					sub = sub + " · " + fin
+				else:
+					sub = fin
+			op = resolve_internal_job_detail_row_to_operational_ref(row)
+			badge = (
+				_("{0} (linked)").format(op[0])
+				if op
+				else (getattr(row, "service_type", None) or _("Job line"))
+			)
+			kind = "job" if op or (payload.get("map_points") or []) else "task"
+			cards_parts.append(
+				_sp_dash_card_html(
+					title[:200],
+					sub,
+					badge,
+					kind=kind,
+				)
+			)
+
+		if not cards_parts:
+			cards_parts.append(
+				f'<div class="text-muted" style="padding:8px;">{escape_html(_("Add lines under Project jobs to see them here."))}</div>'
+			)
+			map_payloads.append({"map_mode": "empty", "map_points": [], "label": _("Nothing to show on the map yet.")})
+
+		route_tab_override_html = render_special_project_interactive_route_tab_html(
+			"sp-form-dash",
+			map_payloads,
+			"".join(cards_parts),
+		)
+
+		cfg = {
+			"doctype": "Special Project",
+			"map_id_prefix": "sp-form-dash",
+			"header_items": header_items_for_hero,
+			"hero_html": hero_html,
+			"route_panel_html": route_panel_html,
+			"meta_cluster_html": meta_cluster_html,
+			"route_tab_override_html": route_tab_override_html,
+			"milestones_tab_inner_html": ms_inner,
+			"milestone_count_override": n_ms,
+			"milestone_done_override": done_ms,
+			"scroll_doctype": "Special Project",
+			"scroll_field": "milestone_html",
+			"ring_status_from": "workflow",
+			"ring_status_field": "status",
+			"include_default_dg": False,
+			"map_points": [],
+			"map_segments": None,
+		}
+		dash = render_logistics_form_dashboard_html(doc, cfg)
+		return quote_html + dash
 	except Exception as e:
 		frappe.log_error(f"Special Project get_dashboard_html: {str(e)}", "Special Project Dashboard")
 		return "<div class='alert alert-warning'>Error loading dashboard.</div>"
@@ -217,11 +569,11 @@ def get_milestone_html(special_project):
 		from logistics.document_management.milestone_html import build_milestone_html
 
 		doc = frappe.get_doc("Special Project", special_project)
-		jobs = doc.get("jobs") or []
+		job_refs = job_refs_from_internal_job_details(doc)
 
-		# Aggregate Job Milestones from all linked jobs
+		# Aggregate Job Milestones from all linked logistics jobs
 		all_milestones = []
-		for row in jobs:
+		for row in job_refs:
 			job_type = (row.job_type or "").strip()
 			job_name = (row.job or "").strip()
 			if not job_type or not job_name:
@@ -244,7 +596,7 @@ def get_milestone_html(special_project):
 		detail_items = [
 			("Status", doc.status or ""),
 			("Project", doc.project_name or doc.name),
-			("Jobs", str(len(jobs))),
+			("Logistics jobs", str(len(job_refs))),
 		]
 		detail_items = [(l, v) for l, v in detail_items if v]
 
@@ -295,7 +647,7 @@ def _get_unloco_coords(unloco_code):
 
 
 def _collect_movements_from_jobs(jobs):
-	"""Collect movement points (origin/dest) from jobs with movements. Returns list of dicts."""
+	"""Collect movement points (origin/dest) from logistics job refs. Each row: job_type (DocType), job (name)."""
 	movements = []
 	address_names = []
 
@@ -412,7 +764,7 @@ def _get_movement_map_html_fragment(special_project):
 		return "<div class='alert alert-info'>Save the project to view the map.</div>"
 	try:
 		doc = frappe.get_doc("Special Project", special_project)
-		movements = _collect_movements_from_jobs(doc.get("jobs") or [])
+		movements = _collect_movements_from_jobs(job_refs_from_internal_job_details(doc))
 
 		# Filter to movements that have at least one valid coordinate
 		valid_movements = [
@@ -587,16 +939,16 @@ def get_movement_map_html(special_project):
 
 @frappe.whitelist()
 def get_cost_revenue_summary(special_project):
-	"""Return HTML for Cost & Revenue Summary from jobs table."""
+	"""Return HTML for Cost & Revenue Summary from project job lines."""
 	if not special_project:
 		return ""
 	doc = frappe.get_doc("Special Project", special_project)
-	jobs = doc.get("jobs") or []
+	rows = doc.get("internal_job_details") or []
 
-	planned_cost = sum((j.planned_cost or 0) for j in jobs)
-	actual_cost = sum((j.actual_cost or 0) for j in jobs)
-	planned_revenue = sum((j.planned_revenue or 0) for j in jobs)
-	actual_revenue = sum((j.actual_revenue or 0) for j in jobs)
+	planned_cost = sum((a.planned_cost or 0) for a in rows)
+	actual_cost = sum((a.actual_cost or 0) for a in rows)
+	planned_revenue = sum((a.planned_revenue or 0) for a in rows)
+	actual_revenue = sum((a.actual_revenue or 0) for a in rows)
 	planned_margin = planned_revenue - planned_cost if planned_revenue or planned_cost else None
 	actual_margin = actual_revenue - actual_cost if actual_revenue or actual_cost else None
 

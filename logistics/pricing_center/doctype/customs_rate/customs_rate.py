@@ -21,9 +21,9 @@ class CustomsRate(Document):
         """Validate calculation method is available for Customs."""
         from logistics.pricing_center.api_parts.calculation_engine import get_available_methods
         
-        available_methods = get_available_methods("Custom")
+        available_methods = get_available_methods("Customs")
         if self.calculation_method and self.calculation_method not in available_methods:
-            frappe.throw(_("Calculation method '{0}' is not available for Custom").format(
+            frappe.throw(_("Calculation method '{0}' is not available for Customs").format(
                 self.calculation_method
             ))
     
@@ -36,7 +36,7 @@ class CustomsRate(Document):
             result = calculate_rate(
                 calculation_method=self.calculation_method,
                 rate_value=self.rate_value,
-                service_type="Custom",
+                service_type="Customs",
                 **calculation_params
             )
             return result

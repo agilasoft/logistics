@@ -284,36 +284,29 @@ class Declaration(Document):
 				exemption_percentage = flt(exemption.exemption_percentage or 0) or flt(
 					exemption_type.exemption_percentage or 0
 				)
-				
-				# Calculate exempted duty
-				if self.duty_amount:
-					exempted_duty = (flt(self.duty_amount) * exemption_percentage) / 100
-					# Apply maximum value limit if set
-					if exemption_type.maximum_value and exempted_duty > exemption_type.maximum_value:
-						exempted_duty = exemption_type.maximum_value
-					exemption.exempted_duty = exempted_duty
-				else:
-					exemption.exempted_duty = 0
-				
-				# Calculate exempted tax
-				if self.tax_amount:
-					exempted_tax = (flt(self.tax_amount) * exemption_percentage) / 100
-					# Apply maximum value limit if set
-					if exemption_type.maximum_value and exempted_tax > exemption_type.maximum_value:
-						exempted_tax = exemption_type.maximum_value
-					exemption.exempted_tax = exempted_tax
-				else:
-					exemption.exempted_tax = 0
-				
-				# Calculate exempted fees
-				if self.other_charges:
-					exempted_fee = (flt(self.other_charges) * exemption_percentage) / 100
-					# Apply maximum value limit if set
-					if exemption_type.maximum_value and exempted_fee > exemption_type.maximum_value:
-						exempted_fee = exemption_type.maximum_value
-					exemption.exempted_fee = exempted_fee
-				else:
-					exemption.exempted_fee = 0
+				# With 0% on the type, do not overwrite row amounts (user may enter fixed exempted values).
+				if flt(exemption_percentage):
+					# Calculate exempted duty (only overwrite when declaration has a duty base;
+					# if duty is zero, keep user-entered exempted_duty)
+					if flt(self.duty_amount):
+						exempted_duty = (flt(self.duty_amount) * exemption_percentage) / 100
+						if exemption_type.maximum_value and exempted_duty > exemption_type.maximum_value:
+							exempted_duty = exemption_type.maximum_value
+						exemption.exempted_duty = exempted_duty
+
+					# Calculate exempted tax (preserve manual exempted_tax when tax_amount is zero)
+					if flt(self.tax_amount):
+						exempted_tax = (flt(self.tax_amount) * exemption_percentage) / 100
+						if exemption_type.maximum_value and exempted_tax > exemption_type.maximum_value:
+							exempted_tax = exemption_type.maximum_value
+						exemption.exempted_tax = exempted_tax
+
+					# Calculate exempted fees (preserve manual exempted_fee when other_charges is zero)
+					if flt(self.other_charges):
+						exempted_fee = (flt(self.other_charges) * exemption_percentage) / 100
+						if exemption_type.maximum_value and exempted_fee > exemption_type.maximum_value:
+							exempted_fee = exemption_type.maximum_value
+						exemption.exempted_fee = exempted_fee
 			
 			# Calculate total exempted
 			exemption.total_exempted = (

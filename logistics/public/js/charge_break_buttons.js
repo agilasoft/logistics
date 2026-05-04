@@ -23,6 +23,7 @@ var CHARGE_PARENT_DOCTYPES = [
 	"Transport Job",
 	"Declaration",
 	"Declaration Order",
+	"Sales Quote",
 ];
 
 function _register_break_handlers(doctype) {

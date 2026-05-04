@@ -2,8 +2,8 @@
 # For license information, please see license.txt
 
 """
-Sales Quote Charge rows are scoped by service_type (Air, Sea, Transport, Custom, Warehousing in the UI;
-canonical lowercase air/sea/transport/custom/warehousing is used for comparisons). Legacy values are accepted.
+Sales Quote Charge rows are scoped by service_type (Air, Sea, Transport, Customs, Warehousing in the UI;
+canonical lowercase air/sea/transport/custom/warehousing is used for comparisons). Legacy label ``Custom`` is accepted.
 
 Operational charge tables mirror this. Helpers build filters when copying quote → booking/shipment/job.
 
@@ -21,7 +21,7 @@ from frappe import _
 from frappe.utils import cint
 
 # Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (stored as UI labels).
-SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustom\nWarehousing"
+SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing"
 
 IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Air Booking": "Air",
@@ -34,13 +34,14 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Declaration Order": "Customs",
 	"Warehouse Job": "Warehousing",
 	"Inbound Order": "Warehousing",
+	"Project Task Job": "Special Project",
 }
 
 
 def canonical_charge_service_type_for_storage(value):
 	"""
 	Normalize charge-line service_type to canonical lowercase (air, sea, transport, custom, warehousing)
-	for comparisons and filters. Accepts UI labels (Air, Custom, …) and legacy Customs / lowercase DB values.
+	for comparisons and filters. Accepts UI labels (Air, Customs, …) and legacy ``Custom`` / lowercase DB values.
 	"""
 	if value is None:
 		return None
@@ -50,7 +51,7 @@ def canonical_charge_service_type_for_storage(value):
 	low = s.lower()
 	if low in ("custom", "customs"):
 		return "custom"
-	if low in ("air", "sea", "transport", "warehousing"):
+	if low in ("air", "sea", "transport", "warehousing", "special project"):
 		return low
 	legacy_title = {
 		"Air": "air",
@@ -59,6 +60,7 @@ def canonical_charge_service_type_for_storage(value):
 		"Custom": "custom",
 		"Customs": "custom",
 		"Warehousing": "warehousing",
+		"Special Project": "special project",
 	}
 	return legacy_title.get(s)
 
@@ -68,7 +70,7 @@ _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS = {
 	"air": "Air",
 	"sea": "Sea",
 	"transport": "Transport",
-	"custom": "Custom",
+	"custom": "Customs",
 	"warehousing": "Warehousing",
 }
 
@@ -76,15 +78,15 @@ _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS = {
 def operational_booking_charge_service_type_label(value, default="Sea"):
 	"""
 	Map Sales Quote Charge ``service_type`` (lowercase canonical or legacy labels) to operational
-	booking charge row Select values: Air, Sea, Transport, Custom, Warehousing.
+	booking charge row Select values: Air, Sea, Transport, Customs, Warehousing.
 	"""
 	c = canonical_charge_service_type_for_storage(value)
 	if c and c in _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS:
 		return _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS[c]
 	s = (value or "").strip()
-	if s == "Customs":
-		return "Custom"
-	if s in ("Air", "Sea", "Transport", "Custom", "Warehousing"):
+	if s == "Custom":
+		return "Customs"
+	if s in ("Air", "Sea", "Transport", "Customs", "Warehousing"):
 		return s
 	return default
 
@@ -120,7 +122,7 @@ def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_la
 		"air": "Air",
 		"sea": "Sea",
 		"transport": "Transport",
-		"custom": "Custom",
+		"custom": "Customs",
 		"warehousing": "Warehousing",
 	}
 	title = legacy_title.get(c)
@@ -128,7 +130,7 @@ def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_la
 	if title:
 		out.append(title)
 	if c == "custom":
-		out.append("Customs")
+		out.append("Custom")
 	return list(dict.fromkeys(out))
 
 
@@ -172,11 +174,13 @@ INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE = {
 	"sea": "Sea Booking",
 	"Transport": "Transport Order",
 	"transport": "Transport Order",
+	"Custom": "Declaration Order",
 	"Customs": "Declaration Order",
 	"custom": "Declaration Order",
 	"customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
 	"warehousing": "Inbound Order",
+	"Special Project": "Project Task Job",
 }
 
 # Routing leg job_type values that identify the same operational leg as the parent document
@@ -209,11 +213,14 @@ def effective_internal_job_detail_job_type(row):
 	"""Operational job type for matching and create flows: mapped service_type wins over stored job_type."""
 	if not row:
 		return ""
+	jt = (getattr(row, "job_type", None) or "").strip()
+	if jt in ("Inbound Order", "Release Order", "Transfer Order"):
+		return jt
 	st = (getattr(row, "service_type", None) or "").strip()
 	mapped = default_job_type_for_internal_job_service_type(st)
 	if mapped:
 		return mapped
-	return (getattr(row, "job_type", None) or "").strip()
+	return jt
 
 
 def on_validate_main_service_internal_job(doc, method=None):

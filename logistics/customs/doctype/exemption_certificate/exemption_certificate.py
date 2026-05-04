@@ -20,6 +20,9 @@ class ExemptionCertificate(Document):
 		if self.exemption_quantity and self.exemption_quantity < 0:
 			frappe.throw(_("Exemption Quantity cannot be negative."))
 
+		self._validate_declaration_usage_rows()
+		self._validate_declaration_usage_totals()
+
 	def before_submit(self):
 		if not self.valid_from:
 			frappe.throw(_("Valid From is required to submit."))
@@ -30,9 +33,67 @@ class ExemptionCertificate(Document):
 
 	def before_save(self):
 		"""Calculate remaining values and update status"""
+		self._aggregate_usage_from_declarations()
 		self.calculate_remaining()
 		self.update_status()
 		self.update_verification_date()
+
+	def _declaration_usage_totals(self):
+		"""Sum exempted value/quantity from Related Declarations child rows."""
+		sum_value = 0.0
+		sum_qty = 0.0
+		for row in self.declarations or []:
+			sum_value += flt(getattr(row, "exempted_value", None) or 0)
+			sum_qty += flt(getattr(row, "exempted_quantity", None) or 0)
+		return sum_value, sum_qty
+
+	def _aggregate_usage_from_declarations(self):
+		"""Roll child-row usage into parent Used Value / Used Quantity (read-only on form)."""
+		sum_value, sum_qty = self._declaration_usage_totals()
+		self.used_value = sum_value
+		self.used_quantity = sum_qty
+
+	def _validate_declaration_usage_rows(self):
+		"""Per-row checks: non-negative amounts, at most one row per declaration."""
+		seen_declarations = set()
+		for row in self.declarations or []:
+			decl = getattr(row, "declaration", None)
+			if not decl:
+				continue
+			ev = flt(getattr(row, "exempted_value", None) or 0)
+			eq = flt(getattr(row, "exempted_quantity", None) or 0)
+			if ev < 0:
+				frappe.throw(
+					_("Exempted Value cannot be negative (row {0}).").format(row.idx),
+					title=_("Exemption Certificate"),
+				)
+			if eq < 0:
+				frappe.throw(
+					_("Exempted Quantity cannot be negative (row {0}).").format(row.idx),
+					title=_("Exemption Certificate"),
+				)
+			if decl in seen_declarations:
+				frappe.throw(
+					_("Declaration {0} is linked more than once. Use a single row per declaration.").format(decl),
+					title=_("Exemption Certificate"),
+				)
+			seen_declarations.add(decl)
+
+	def _validate_declaration_usage_totals(self):
+		"""Ensure summed usage does not exceed certificate limits."""
+		sum_value, sum_qty = self._declaration_usage_totals()
+		limit_v = flt(self.exemption_value or 0)
+		limit_q = flt(self.exemption_quantity or 0)
+		if limit_v and sum_value > limit_v:
+			frappe.throw(
+				_("Total exempted value ({0}) exceeds exemption value ({1}).").format(sum_value, limit_v),
+				title=_("Exemption Certificate"),
+			)
+		if limit_q and sum_qty > limit_q:
+			frappe.throw(
+				_("Total exempted quantity ({0}) exceeds exemption quantity ({1}).").format(sum_qty, limit_q),
+				title=_("Exemption Certificate"),
+			)
 	
 	def calculate_remaining(self):
 		"""Calculate remaining value and quantity"""

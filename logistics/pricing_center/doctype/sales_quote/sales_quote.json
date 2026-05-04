@@ -453,7 +453,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Main Service",
-   "options": "\nAir\nSea\nTransport\nCustom\nWarehousing",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing",
    "reqd": 1
   },
   {

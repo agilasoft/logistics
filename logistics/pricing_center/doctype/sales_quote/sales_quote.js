@@ -597,6 +597,23 @@ frappe.ui.form.on("Sales Quote", {
 		}
 	},
 	
+	before_submit(frm) {
+		const charges = frm.doc.charges || [];
+		const badRows = [];
+		charges.forEach((row, i) => {
+			const ic = row.item_code;
+			if (ic === undefined || ic === null || String(ic).trim() === "") {
+				badRows.push(row.idx != null ? row.idx : i + 1);
+			}
+		});
+		if (badRows.length) {
+			frappe.validated = false;
+			frappe.throw(
+				__("Each charge line must have an Item Code. Missing on row(s): {0}", [badRows.join(", ")])
+			);
+		}
+	},
+
 	after_save(frm) {
 		// Update primary button after save to show Submit button if document is saved and not dirty
 		// Clear the __unsaved flag immediately to ensure form is considered clean
@@ -894,7 +911,7 @@ function show_get_rates_from_cost_sheet_dialog(frm) {
 			fieldname: "service_type",
 			fieldtype: "Select",
 			label: __("Service Type"),
-			options: "\nAir\nSea\nTransport\nCustom\nWarehousing",
+			options: "\nAir\nSea\nTransport\nCustoms\nWarehousing",
 			default: defaults.service_type
 		},
 		{

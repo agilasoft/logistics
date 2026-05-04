@@ -125,7 +125,8 @@ def get_charges_table_name(doctype):
         "Transport Job": "charges",
         "Warehouse Job": "charges",
         "Declaration": "charges",
-        "General Job": "charges"
+        "General Job": "charges",
+        "Project Task Job": "charges",
     }
     return charges_tables.get(doctype)
 

@@ -549,6 +549,51 @@ def sales_quote_by_service_link_search(
 	return frappe.db.sql(sql, params)
 
 
+def _org_dimensions_header_match_sql() -> str:
+	"""Quote header ``branch`` / ``cost_center`` / ``profit_center`` vs job values; empty job value = wildcard."""
+	return """AND (
+		TRIM(IFNULL(%(job_branch)s,'')) = ''
+		OR TRIM(IFNULL(sq.branch,'')) = TRIM(IFNULL(%(job_branch)s,''))
+	)
+	AND (
+		TRIM(IFNULL(%(job_cost_center)s,'')) = ''
+		OR TRIM(IFNULL(sq.cost_center,'')) = TRIM(IFNULL(%(job_cost_center)s,''))
+	)
+	AND (
+		TRIM(IFNULL(%(job_profit_center)s,'')) = ''
+		OR TRIM(IFNULL(sq.profit_center,'')) = TRIM(IFNULL(%(job_profit_center)s,''))
+	)"""
+
+
+def sales_quote_matches_job_org_dimensions(
+	sales_quote_name: str,
+	job_branch: str | None = None,
+	job_cost_center: str | None = None,
+	job_profit_center: str | None = None,
+) -> bool:
+	"""True when each non-empty job dimension equals the Sales Quote header (strict: blank quote ≠ set job)."""
+	br = (job_branch or "").strip()
+	cc = (job_cost_center or "").strip()
+	pc = (job_profit_center or "").strip()
+	if not br and not cc and not pc:
+		return True
+	row = frappe.db.get_value(
+		"Sales Quote",
+		sales_quote_name,
+		["branch", "cost_center", "profit_center"],
+		as_dict=True,
+	)
+	if not row:
+		return False
+	if br and (row.get("branch") or "").strip() != br:
+		return False
+	if cc and (row.get("cost_center") or "").strip() != cc:
+		return False
+	if pc and (row.get("profit_center") or "").strip() != pc:
+		return False
+	return True
+
+
 def fetch_eligible_regular_sales_quote_names(
 	service_type: str,
 	customer: str | None = None,
@@ -563,6 +608,9 @@ def fetch_eligible_regular_sales_quote_names(
 	declaration_type: str | None = None,
 	customs_broker: str | None = None,
 	job_transport_mode: str | None = None,
+	job_branch: str | None = None,
+	job_cost_center: str | None = None,
+	job_profit_center: str | None = None,
 ) -> list[str]:
 	"""Sales Quote names that have unified or legacy charge rows for ``service_type``.
 
@@ -580,6 +628,10 @@ def fetch_eligible_regular_sales_quote_names(
 	wildcard for that end. For **Air** with both ports empty and ``job_airline`` set, only airline
 	matching applies (equivalent to the former airline-only path). For **Sea**, ``job_shipping_line`` narrows
 	by line or header; blank on a quotation line matches any line.
+
+	**Org dimensions**: When ``job_branch``, ``job_cost_center``, and/or ``job_profit_center`` are set,
+	the Sales Quote **header** must match each (empty job value = no filter on that field). A quotation
+	with a blank header field does not match a non-empty job value for that field.
 	"""
 	service_type = (service_type or "").strip()
 	if service_type not in SERVICE_LEGACY_TABLE:
@@ -612,6 +664,10 @@ def fetch_eligible_regular_sales_quote_names(
 		eligibility = _corridor_match_sql(
 			service_type, job_airline=ja or None, job_shipping_line=jsl or None
 		)
+	params["job_branch"] = (job_branch or "").strip()
+	params["job_cost_center"] = (job_cost_center or "").strip()
+	params["job_profit_center"] = (job_profit_center or "").strip()
+	org_sql = _org_dimensions_header_match_sql()
 	# Action → Get Charges from Quotation: **Regular** quotes only (excludes One-off, Project, blank).
 	regular_only_where = "TRIM(IFNULL(sq.quotation_type,'')) = 'Regular'"
 
@@ -630,6 +686,7 @@ def fetch_eligible_regular_sales_quote_names(
 		AND IFNULL(sq.status,'') NOT IN ('Lost','Expired')
 		AND (sq.valid_until IS NULL OR sq.valid_until >= CURDATE())
 		AND sq.docstatus = 1
+		{org_sql}
 		{match_cond}
 		ORDER BY sq.modified DESC
 		LIMIT %(limit)s

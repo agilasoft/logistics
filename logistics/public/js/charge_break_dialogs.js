@@ -17,12 +17,15 @@
 	window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES = ["Declaration Charges", "Declaration Order Charges"];
 	/** Transport — order & job charge child tables. */
 	window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES = ["Transport Order Charges", "Transport Job Charges"];
+	/** Pricing — unified quote charge rows (same break UX as Sea Booking Charges). */
+	window.LOGISTICS_PRICING_CHARGE_DOCTYPES = ["Sales Quote Charge"];
 
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [].concat(
 		window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_AIR_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES,
-		window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES
+		window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES,
+		window.LOGISTICS_PRICING_CHARGE_DOCTYPES
 	);
 
 	/** Any child DocType that ships freight-style weight-break row buttons (reference → Sales Quote Weight Break). */

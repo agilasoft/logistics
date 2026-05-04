@@ -15,6 +15,7 @@
   "column_break_leg",
   "notes",
   "section_break_sea",
+  "vessel_master",
   "vessel",
   "voyage_no",
   "shipping_line",
@@ -93,10 +94,20 @@
   },
   {
    "depends_on": "eval:doc.transport_mode_sea",
+   "description": "Link a Vessel master with MMSI or IMO for live AIS position on the Sea Shipment dashboard map",
+   "fieldname": "vessel_master",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vessel Master",
+   "link_filters": "[[\"Vessel\", \"is_active\", \"=\", 1]]",
+   "options": "Vessel"
+  },
+  {
+   "depends_on": "eval:doc.transport_mode_sea",
    "fieldname": "vessel",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Vessel"
+   "label": "Vessel (carrier text)"
   },
   {
    "depends_on": "eval:doc.transport_mode_sea",

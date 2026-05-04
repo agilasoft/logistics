@@ -58,7 +58,7 @@ def get_data(filters):
 			COALESCE(SUM(j.planned_revenue), 0) as planned_revenue,
 			COALESCE(SUM(j.actual_revenue), 0) as actual_revenue
 		FROM `tabSpecial Project` sp
-		LEFT JOIN `tabSpecial Project Job` j ON j.parent = sp.name AND j.parenttype = 'Special Project'
+		LEFT JOIN `tabInternal Job Detail` j ON j.parent = sp.name AND j.parenttype = 'Special Project' AND j.parentfield = 'internal_job_details'
 		WHERE {where}
 		GROUP BY sp.name, sp.project_name, sp.customer, sp.status
 		ORDER BY sp.modified DESC

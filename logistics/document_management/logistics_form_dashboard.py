@@ -13,6 +13,7 @@ import json
 import re
 
 import frappe
+from frappe import _
 from frappe.utils import escape_html, get_url
 
 
@@ -220,6 +221,110 @@ def build_transport_company_hero_html(doc, header_items):
 	return f'<span class="log-ab-logo-ph" title="{escape_html(title)}">{escape_html(ph)}</span>'
 
 
+def build_customer_hero_html(doc, header_items):
+	"""Customer image or initials placeholder (e.g. Special Project dashboard)."""
+	cust = getattr(doc, "customer", None)
+	if not cust:
+		return ""
+	row = frappe.db.get_value("Customer", cust, ["image", "customer_name"], as_dict=True) or {}
+	logo = row.get("image")
+	title = row.get("customer_name") or cust
+	if logo:
+		src = get_url(logo)
+		return f'<img class="log-ab-logo-img" src="{escape_html(src)}" alt="{escape_html(title)}" />'
+	ph = (title or cust or "?")[:3].upper()
+	return f'<span class="log-ab-logo-ph" title="{escape_html(title)}">{escape_html(ph)}</span>'
+
+
+def build_special_project_route_panel_html(doc):
+	"""Project name in the route band (customer is shown under Project No. in the meta cluster)."""
+	left = (getattr(doc, "project_name", None) or getattr(doc, "name", None) or "—") or "—"
+	return (
+		f'<div class="log-ab-route-panel">'
+		f'<div class="log-ab-route-leg"><span class="log-ab-route-flag log-ab-route-flag--empty" aria-hidden="true"></span>'
+		f'<div class="log-ab-route-leg-text"><span class="log-ab-route-sub">{escape_html(_("Project Name"))}</span>'
+		f'<span class="log-ab-route-code">{escape_html(str(left))}</span></div></div>'
+		f"</div>"
+	)
+
+
+def build_special_project_meta_cluster_html(doc):
+	"""Status, dates, priority | task / job counts."""
+
+	def _ab_meta_row(ic, val, label=None):
+		span = (
+			f'<span class="ab-meta-k">{escape_html(label)}:</span>{escape_html(str(val))}'
+			if label
+			else escape_html(str(val))
+		)
+		return f'<div class="ab-meta-row"><i class="fa {escape_html(ic)}"></i><span>{span}</span></div>'
+
+	parts = []
+	if getattr(doc, "status", None):
+		parts.append(_ab_meta_row("fa-flag", doc.status, "Status"))
+	if getattr(doc, "planned_start", None) or getattr(doc, "start_date", None):
+		parts.append(
+			_ab_meta_row(
+				"fa-calendar",
+				str(doc.planned_start or doc.start_date or ""),
+				"Start",
+			)
+		)
+	if getattr(doc, "planned_end", None) or getattr(doc, "end_date", None):
+		parts.append(
+			_ab_meta_row("fa-calendar-check-o", str(doc.planned_end or doc.end_date or ""), "End")
+		)
+	if getattr(doc, "priority", None) and str(doc.priority).strip() and str(doc.priority) != "Normal":
+		parts.append(_ab_meta_row("fa-bolt", doc.priority, "Priority"))
+	meta_primary = f'<div class="ab-summary-meta-rows">{"".join(parts)}</div>' if parts else ""
+
+	# Right column: Project No. (ERPNext Project link) with customer name as subtext below
+	sec_lines = []
+	proj = getattr(doc, "project", None)
+	sec_lines.append(
+		f'<div class="ab-sec-line"><i class="fa fa-folder-open"></i>'
+		f'<span class="ab-sec-val"><span class="ab-sec-k">{escape_html(_("Project No."))}:</span>'
+		f"{escape_html(str(proj) if proj else '—')}</span></div>"
+	)
+	cust = getattr(doc, "customer", None)
+	if cust:
+		cust_disp = cust
+		if frappe.db.exists("DocType", "Customer"):
+			ct = frappe.db.get_value("Customer", cust, "customer_name")
+			if ct:
+				cust_disp = ct
+		sec_lines.append(
+			f'<div class="ab-sec-line ab-sec-line--sub">'
+			f'<i class="fa fa-user"></i>'
+			f'<span class="ab-sec-val ab-sec-val--sub">{escape_html(str(cust_disp))}</span></div>'
+		)
+	meta_secondary = ""
+	if sec_lines:
+		sec_inner = "".join(sec_lines)
+		meta_secondary = f'<div class="ab-secondary-meta">{sec_inner}</div>'
+
+	if meta_primary and meta_secondary:
+		return (
+			f'<div class="log-ab-meta-cluster">'
+			f'<div class="log-ab-meta-col log-ab-meta-col--primary">{meta_primary}</div>'
+			f'<div class="log-ab-meta-col log-ab-meta-col--secondary">{meta_secondary}</div>'
+			f"</div>"
+		)
+	if meta_primary:
+		return (
+			f'<div class="log-ab-meta-cluster">'
+			f'<div class="log-ab-meta-col log-ab-meta-col--primary">{meta_primary}</div>'
+			f"</div>"
+		)
+	if meta_secondary:
+		return (
+			f'<div class="log-ab-meta-cluster">'
+			f'<div class="log-ab-meta-col log-ab-meta-col--secondary">{meta_secondary}</div>'
+			f"</div>"
+		)
+	return ""
+
+
 def build_transport_meta_cluster_html(doc):
 	"""Customer, booking/scheduled dates, job type | packages weight style lines."""
 
@@ -404,9 +509,11 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	- milestones_field, routing_legs_field, scroll_doctype, scroll_field
 	- map_points, map_segments (override lists or None to compute)
 	- hide_map (bool), straight_line (bool)
+	- vessel_tracking_map (dict): optional async AIS overlay for Sea Shipment dashboard map
 	- empty_milestones_hint (HTML str)
 	- milestones_tab_inner_html (optional str; replaces child-table milestone panel)
-	- milestone_count_override (int for tab badge when using custom milestones tab)
+	- milestone_count_override, milestone_done_override: when milestones_tab_inner_html is set, use these for the progress ring (else Job Milestone display rows)
+	- route_tab_override_html (optional str): replaces the default Route tab map (e.g. Special Project task + job split layout)
 	- alerts_prepend_html (str)
 	- status_slug (optional str for ring), ring_status_from workflow|docstatus
 	- ring_status_field when workflow (default status)
@@ -480,11 +587,15 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	# Embedded milestone HTML (Declaration, etc.) uses the same source as get_milestone_html:
 	# child table with legacy Job Milestone fallback — keep ring/tab counts aligned.
 	if cfg.get("milestones_tab_inner_html"):
-		from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
+		if cfg.get("milestone_count_override") is not None:
+			n_ms = int(cfg.get("milestone_count_override") or 0)
+			done_ms = int(cfg.get("milestone_done_override") or 0)
+		else:
+			from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 
-		ring_rows, _ = get_milestone_display_rows_and_editor_doctype(doc)
-		n_ms = len(ring_rows)
-		done_ms = sum(1 for m in ring_rows if str(m.get("status") or "").strip() == "Completed")
+			ring_rows, _ = get_milestone_display_rows_and_editor_doctype(doc)
+			n_ms = len(ring_rows)
+			done_ms = sum(1 for m in ring_rows if str(m.get("status") or "").strip() == "Completed")
 	else:
 		n_ms = cfg.get("milestone_count_override")
 		if n_ms is None:
@@ -531,13 +642,17 @@ def render_logistics_form_dashboard_html(doc, cfg):
 
 	hide_map = cfg.get("hide_map", False)
 	straight_line = cfg.get("straight_line", True)
-	map_section = render_route_map_html(
-		map_id_prefix,
-		map_points=map_points or [],
-		map_segments=map_segments,
-		straight_line=straight_line,
-		hide_map=hide_map,
-	)
+	if cfg.get("route_tab_override_html") is not None:
+		map_section = ""
+	else:
+		map_section = render_route_map_html(
+			map_id_prefix,
+			map_points=map_points or [],
+			map_segments=map_segments,
+			straight_line=straight_line,
+			hide_map=hide_map,
+			vessel_tracking_map=cfg.get("vessel_tracking_map"),
+		)
 
 	try:
 		doc_alerts = get_document_alerts_html(doctype, doc.name or "new")
@@ -576,10 +691,16 @@ def render_logistics_form_dashboard_html(doc, cfg):
 			scroll_field=scroll_fld,
 			empty_hint_html=empty_hint,
 		)
-	route_inner = (
-		f'<div class="log-ab-ro-card log-ab-ro-card--flush">'
-		f'<div class="ab-route-tab-inner">{map_section}</div></div>'
-	)
+	if cfg.get("route_tab_override_html") is not None:
+		route_inner = (
+			f'<div class="log-ab-ro-card log-ab-ro-card--flush">'
+			f'<div class="ab-route-tab-inner">{cfg.get("route_tab_override_html") or ""}</div></div>'
+		)
+	else:
+		route_inner = (
+			f'<div class="log-ab-ro-card log-ab-ro-card--flush">'
+			f'<div class="ab-route-tab-inner">{map_section}</div></div>'
+		)
 	alerts_tab_wrapped = f'<div class="log-ab-ro-card">{alerts_tab_inner}</div>'
 
 	safe_uid = re.sub(r"[^a-zA-Z0-9_]", "_", map_id_prefix or "lfdash")
@@ -877,6 +998,8 @@ def build_sea_consolidation_dashboard_config(doc):
 
 
 def build_sea_shipment_dashboard_config(doc):
+	from logistics.sea_freight.vessel_tracking.resolve import get_vessel_tracking_map_options_for_sea_shipment
+
 	status = doc.get("status") or (
 		"Submitted" if doc.docstatus == 1 else "Cancelled" if doc.docstatus == 2 else "Draft"
 	)
@@ -898,6 +1021,7 @@ def build_sea_shipment_dashboard_config(doc):
 		"scroll_doctype": "Sea Shipment",
 		"ring_status_from": "workflow",
 		"ring_status_field": "status",
+		"vessel_tracking_map": get_vessel_tracking_map_options_for_sea_shipment(doc),
 	}
 
 

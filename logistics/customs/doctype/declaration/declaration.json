@@ -170,8 +170,6 @@
   "sales_rep",
   "operations_rep",
   "customer_service_rep",
-  "charges_locked",
-  "charges_reopen_mode",
   "charges_section",
   "charges",
   "profitability_section_break",
@@ -622,8 +620,7 @@
   {
    "fieldname": "actual_clearance_date",
    "fieldtype": "Date",
-   "label": "Actual Clearance Date",
-   "read_only": 1
+   "label": "Actual Clearance Date"
   },
   {
    "fieldname": "section_break_financial",
@@ -1071,23 +1068,6 @@
    "options": "Employee"
   },
   {
-   "allow_on_submit": 1,
-   "default": "0",
-   "description": "Legacy. Charge lock uses Job Status (Completed/Closed).",
-   "fieldname": "charges_locked",
-   "fieldtype": "Check",
-   "label": "Charges Locked"
-  },
-  {
-   "allow_on_submit": 1,
-   "default": "0",
-   "description": "Internal: set after Reopen Job; cleared with Close Job.",
-   "fieldname": "charges_reopen_mode",
-   "fieldtype": "Check",
-   "hidden": 1,
-   "label": "Charges Reopen Mode"
-  },
-  {
    "fieldname": "charges_section",
    "fieldtype": "Section Break",
    "label": "Charges"
@@ -1450,7 +1430,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-04-15 11:23:50.256697",
+ "modified": "2026-05-04 15:05:10.124926",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration",

@@ -143,7 +143,7 @@ def get_tariff_rates(tariff_name, service_type=None):
         if tariff.customs_rates:
             for rate in tariff.customs_rates:
                 rates.append({
-                    'service_type': 'Custom',
+                    'service_type': 'Customs',
                     'rate_name': rate.rate_name,
                     'calculation_method': rate.calculation_method,
                     'rate_value': rate.rate_value,

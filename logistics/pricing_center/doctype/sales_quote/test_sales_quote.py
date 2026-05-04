@@ -7,6 +7,7 @@ from frappe.utils import add_days, today
 from logistics.air_freight.tests.test_helpers import (
 	setup_basic_master_data,
 	create_test_airline,
+	create_test_cost_center,
 	create_test_shipper,
 	create_test_consignee,
 	create_test_unloco,
@@ -203,6 +204,65 @@ class TestSalesQuote(FrappeTestCase):
 		out2 = list_sales_quotes_for_job("Air Booking", booking_wrong.name)
 		names2 = [r["name"] for r in (out2.get("quotes") or [])]
 		self.assertNotIn(sq.name, names2)
+
+	def test_get_charges_from_quotation_list_filters_by_cost_center_when_set(self):
+		"""When booking Cost Center is set, only quotations with the same header Cost Center are listed."""
+		from logistics.utils.get_charges_from_quotation import list_sales_quotes_for_job
+
+		cc_match = create_test_cost_center(self.company, "GCFQ List CC Match")
+		cc_other = create_test_cost_center(self.company, "GCFQ List CC Other")
+
+		def _submitted_air_quote(cc_name):
+			doc = frappe.get_doc(
+				{
+					"doctype": "Sales Quote",
+					"quotation_type": "Regular",
+					"company": self.company,
+					"customer": self.customer,
+					"date": today(),
+					"valid_until": today(),
+					"shipper": self.shipper,
+					"consignee": self.consignee,
+					"main_service": "Air",
+					"cost_center": cc_name,
+				}
+			)
+			doc.append(
+				"charges",
+				{
+					"service_type": "air",
+					"origin_port": "USLAX",
+					"destination_port": "USJFK",
+					"direction": "Export",
+				},
+			)
+			doc.insert()
+			doc.submit()
+			return doc.name
+
+		sq_ok = _submitted_air_quote(cc_match)
+		sq_wrong = _submitted_air_quote(cc_other)
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Air Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"cost_center": cc_match,
+			}
+		)
+		booking.insert()
+
+		out = list_sales_quotes_for_job("Air Booking", booking.name)
+		names = [r["name"] for r in (out.get("quotes") or [])]
+		self.assertIn(sq_ok, names)
+		self.assertNotIn(sq_wrong, names)
 
 	def test_get_charges_from_quotation_list_filters_by_airline_when_set(self):
 		"""When Air Booking has airline, only quotes matching that airline (or blank line airline) are listed."""

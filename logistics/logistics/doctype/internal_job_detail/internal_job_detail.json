@@ -10,6 +10,7 @@
   "column_break_ident",
   "job_type",
   "job_no",
+  "job_description",
   "section_break_air_params",
   "air_house_type",
   "airline",
@@ -39,7 +40,21 @@
   "customs_authority",
   "declaration_type",
   "customs_broker",
-  "customs_charge_category"
+  "customs_charge_category",
+  "section_break_special_project",
+  "sp_site",
+  "sp_manpower",
+  "sp_skilled",
+  "sp_equipment_type",
+  "column_break_sp_res",
+  "sp_handling",
+  "sp_resource_notes",
+  "section_break_financial",
+  "planned_cost",
+  "actual_cost",
+  "column_break_financial",
+  "planned_revenue",
+  "actual_revenue"
  ],
  "fields": [
   {
@@ -47,7 +62,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustom\nWarehousing",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project",
    "reqd": 1
   },
   {
@@ -59,7 +74,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Job Type",
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nRelease Order\nTransfer Order\nProject Task Job",
    "read_only": 1
   },
   {
@@ -88,16 +103,16 @@
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
-   "options": "Airline",
-   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
+   "options": "Airline"
   },
   {
    "depends_on": "eval:doc.service_type == \"Air\"",
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
@@ -117,16 +132,16 @@
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
-   "options": "Shipping Line",
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
@@ -134,8 +149,8 @@
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Transport Mode",
-   "options": "Transport Mode",
-   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Mode"
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
@@ -163,16 +178,16 @@
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
@@ -192,16 +207,16 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
-   "options": "Container Type",
-   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
@@ -252,51 +267,147 @@
    "options": "Pick and Drop Mode"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "section_break_customs_params",
    "fieldtype": "Section Break",
    "label": "Customs Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
-   "options": "Customs Authority",
-   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
+   "options": "Customs Authority"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
    "options": "Import\nExport\nTransit\nBonded"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
-   "options": "Broker",
-   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_charge_category",
    "fieldtype": "Select",
    "label": "Charge Category",
    "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "fieldname": "section_break_special_project",
+   "fieldtype": "Section Break",
+   "label": "Resources (Special Project)"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "description": "Customer address where this special-project line will be executed.",
+   "fieldname": "sp_site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "description": "Headcount or person-days for general manpower.",
+   "fieldname": "sp_manpower",
+   "fieldtype": "Float",
+   "label": "Manpower"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "description": "Skilled labor count or person-days.",
+   "fieldname": "sp_skilled",
+   "fieldtype": "Float",
+   "label": "Skilled Labor"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "fieldname": "sp_equipment_type",
+   "fieldtype": "Link",
+   "label": "Equipment",
+   "options": "Special Handling Equipment Type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "fieldname": "column_break_sp_res",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "fieldname": "sp_handling",
+   "fieldtype": "Link",
+   "label": "Handling",
+   "options": "Special Handling Type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Special Project\"",
+   "fieldname": "sp_resource_notes",
+   "fieldtype": "Small Text",
+   "label": "Resource Notes"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.parenttype=='Special Project'",
+   "fieldname": "section_break_financial",
+   "fieldtype": "Section Break",
+   "label": "Cost & Revenue (Project)"
+  },
+  {
+   "depends_on": "eval:doc.parenttype=='Special Project'",
+   "fieldname": "planned_cost",
+   "fieldtype": "Currency",
+   "label": "Planned Cost"
+  },
+  {
+   "depends_on": "eval:doc.parenttype=='Special Project'",
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Cost"
+  },
+  {
+   "depends_on": "eval:doc.parenttype=='Special Project'",
+   "fieldname": "column_break_financial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.parenttype=='Special Project'",
+   "fieldname": "planned_revenue",
+   "fieldtype": "Currency",
+   "label": "Planned Revenue"
+  },
+  {
+   "depends_on": "eval:doc.parenttype=='Special Project'",
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "label": "Actual Revenue"
+  },
+  {
+   "fieldname": "job_description",
+   "fieldtype": "Small Text",
+   "label": "Job Description"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-03 00:00:00",
+ "modified": "2026-05-04 17:30:42.537314",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Internal Job Detail",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "idx",
  "sort_order": "ASC",
  "states": []

@@ -242,7 +242,7 @@ def link_declaration_order_on_shipment(
 		row.job_type = DECLARATION_ORDER_JOB_TYPE
 		row.job_no = declaration_order_name
 		if hasattr(row, "service_type") and not (getattr(row, "service_type", None) or "").strip():
-			row.service_type = "Custom"
+			row.service_type = "Customs"
 		_save_shipment_internal_jobs(shipment)
 		return
 	shipment.append(
@@ -250,7 +250,7 @@ def link_declaration_order_on_shipment(
 		{
 			"job_type": DECLARATION_ORDER_JOB_TYPE,
 			"job_no": declaration_order_name,
-			"service_type": "Custom",
+			"service_type": "Customs",
 		},
 	)
 	_save_shipment_internal_jobs(shipment)

@@ -22,11 +22,7 @@ Before using Special Projects, set up the following:
 
 A **Special Project** is the main document. On save, an ERPNext **Project** is auto-created (or you can link an existing one). The Special Project ID uses the ERPNext Project ID (e.g. PROJ-0001) when auto-created, or the fallback series SP-.#####.
 
-### 2.2 Special Project Request
-
-A **Special Project Request** captures internal requests for resources, products, or equipment within a project. Use it to track fulfillment of resource requests, product requests, and equipment requests with statuses: Draft → Submitted → Approved → Partially Fulfilled → Fulfilled.
-
-### 2.3 Integration with Logistics Doctypes
+### 2.2 Integration with Logistics Doctypes
 
 Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration, etc.) have a **Project** field. Link them to the Special Project’s ERPNext Project so all jobs appear under one project for billing and reporting.
 
@@ -52,15 +48,7 @@ Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, D
 1. In **Jobs** tab – Add Transport Job, Warehouse Job, Air Shipment, Sea Shipment, or Declaration with planned/actual cost and revenue
 2. Or set the **Project** field on the job document directly – jobs with the same project appear under the Special Project
 
-### 3.4 Manage Requests and Create Orders
-
-1. Create **Special Project Request** from the project
-2. Add **Resource Requests**, **Product Requests**, **Equipment Requests**
-3. For **Product Requests**, set **Fulfillment Type** (Inbound, Release, Transport, Air Freight, Sea Freight, Transfer, VAS)
-4. Use **Create Order** actions to create Inbound Order, Release Order, Transfer Order, Transport Order, Air Booking, or Sea Booking from product requests – orders are linked to the project
-5. Use **Link Existing Order** to attach an order created outside the request flow to the request and set its project
-
-### 3.5 Track Deliveries and Billing
+### 3.4 Track Deliveries and Billing
 
 1. **Deliveries** tab – Track Full, Partial, Milestone, or Proof of Delivery with status (Pending, Scheduled, Completed, Delayed)
 2. **Billings** tab – Define Milestone, Interim, Final, or Ad-hoc billings; link Sales Invoice when invoiced
@@ -146,34 +134,18 @@ The Milestones tab shows aggregated milestones from all linked jobs (Transport J
 - **Terms and Conditions** – Link to Terms and Conditions master
 - **Service Level Agreement** – Link to Logistics Service Level for project-level commitments
 
-### 4.13 Create Order from Request
-
-From a Special Project Request, create logistics orders from **Product Requests** based on **Fulfillment Type**:
-
-| Fulfillment Type | Creates |
-|------------------|---------|
-| Inbound | Inbound Order |
-| Release | Release Order |
-| Transfer | Transfer Order |
-| Transport | Transport Order |
-| Air Freight | Air Booking |
-| Sea Freight | Sea Booking |
-
-Orders are linked to the Special Project’s ERPNext Project. Use **Link Existing Order** to attach an order created outside the request flow.
-
 ## 5. Workspace Structure
 
 ### 5.1 Number Cards and Chart
 
 - **Active Projects** – Projects in progress
 - **Total Projects** – All projects
-- **Open Requests** – Unfulfilled requests
 - **Chart** – Special Projects by Status
 
 ### 5.2 Quick Access
 
 - **Project** – Special Project list
-- **Request** – Special Project Request list
+- **Project Task Order** / **Project Task Job** – Program task order and job documents
 - **Active Projects** – Filtered list (status: In Progress, Planning, Approved, Booked, Scoping)
 
 ### 5.3 Reports
@@ -181,7 +153,6 @@ Orders are linked to the Special Project’s ERPNext Project. Use **Link Existin
 **Operational**
 
 - **Projects Report** – Project list with filters
-- **Request Fulfillment** – Open requests, status, fulfillment %
 - **Delivery Status** – Delivery status by project
 - **Billing Status** – Billing status by project
 

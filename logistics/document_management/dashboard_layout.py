@@ -9,7 +9,10 @@ Transport Job, Declaration, Special Project. Layout: header + sidebar (milestone
 from __future__ import unicode_literals
 
 import json
+
 import frappe
+from frappe import _
+from frappe.utils import escape_html
 
 
 def get_unloco_coords(unloco_code):
@@ -249,6 +252,25 @@ LEG_TYPE_COLORS = {
 }
 
 
+def get_dashboard_map_renderer():
+	"""Logistics Settings ``map_renderer``, else Transport Settings, else OpenStreetMap (same as Transport Job dashboard)."""
+	map_renderer = None
+	try:
+		ls = frappe.get_single("Logistics Settings")
+		map_renderer = getattr(ls, "map_renderer", None) if ls else None
+	except Exception:
+		pass
+	if not map_renderer or not str(map_renderer).strip():
+		try:
+			ts = frappe.get_single("Transport Settings")
+			map_renderer = getattr(ts, "map_renderer", None) if ts else None
+		except Exception:
+			pass
+	if not map_renderer or not str(map_renderer).strip():
+		map_renderer = "OpenStreetMap"
+	return map_renderer
+
+
 def _normalize_map_input(map_points=None, map_segments=None):
 	"""
 	Normalize map input: map_segments takes precedence. If only map_points given,
@@ -274,10 +296,13 @@ def render_route_map_html(
 	map_segments=None,
 	straight_line=True,
 	hide_map=False,
+	vessel_tracking_map=None,
 ):
 	"""
 	Build the map column HTML + init script (Leaflet / Google / MapLibre) for run-sheet and Air Booking dashboards.
 	Does not depend on header route labels.
+
+	vessel_tracking_map: optional dict with enabled (bool), sea_shipment (name), hint — enables async AIS vessel marker.
 	"""
 	segments, all_points, use_segments = _normalize_map_input(map_points, map_segments)
 	points_for_header = all_points if all_points else (map_points or [])
@@ -293,24 +318,12 @@ def render_route_map_html(
 	dest_lat = points_for_header[-1].get("lat", 0) if len(points_for_header) > 1 else 0
 	dest_lon = points_for_header[-1].get("lon", 0) if len(points_for_header) > 1 else 0
 
-	map_renderer = None
-	try:
-		ls = frappe.get_single("Logistics Settings")
-		map_renderer = getattr(ls, "map_renderer", None) if ls else None
-	except Exception:
-		pass
-	if not map_renderer or not str(map_renderer).strip():
-		try:
-			ts = frappe.get_single("Transport Settings")
-			map_renderer = getattr(ts, "map_renderer", None) if ts else None
-		except Exception:
-			pass
-	if not map_renderer or not str(map_renderer).strip():
-		map_renderer = "OpenStreetMap"
+	map_renderer = get_dashboard_map_renderer()
 
 	map_renderer_js = json.dumps(map_renderer)
 	waypoints_str = "|".join(f"{p.get('lat')},{p.get('lon')}" for p in points_for_header) if points_for_header else ""
 	straight_line_js = "true" if straight_line else "false"
+	vessel_tracking_json = json.dumps(vessel_tracking_map or {})
 
 	map_section = ""
 	legend_html = ""
@@ -356,6 +369,51 @@ def render_route_map_html(
 			const waypointsStr = {json.dumps(waypoints_str)};
 			const straightLine = {straight_line_js};
 			const useSegments = {json.dumps(use_segments)};
+			const vesselTrackingMap = {vessel_tracking_json};
+			function runVesselTrackingOverlay(engine, mapInstance) {{
+				if (!vesselTrackingMap || !vesselTrackingMap.enabled || !vesselTrackingMap.sea_shipment) return;
+				setTimeout(function() {{
+					frappe.call({{
+						method: 'logistics.sea_freight.vessel_tracking.api.get_vessel_position_for_map',
+						args: {{ sea_shipment: vesselTrackingMap.sea_shipment }}
+					}}).then(function(r) {{
+						var m = r.message;
+						if (!m || !m.success || m.lat == null || m.lon == null) return;
+						var lat = parseFloat(m.lat), lon = parseFloat(m.lon);
+						if (isNaN(lat) || isNaN(lon)) return;
+						var label = (m.label || 'Vessel');
+						var pop = '<b>' + frappe.utils.escape_html(String(label)) + '</b>';
+						if (m.recorded_at) pop += '<br/><small>' + frappe.utils.escape_html(String(m.recorded_at)) + '</small>';
+						if (m.sog != null && m.sog !== '') pop += '<br/>SOG: ' + frappe.utils.escape_html(String(m.sog)) + ' kn';
+						if (engine === 'leaflet') {{
+							L.marker([lat, lon]).addTo(mapInstance).bindPopup(pop);
+							try {{
+								var b = mapInstance.getBounds();
+								if (b && b.isValid()) {{ mapInstance.fitBounds(b.extend([lat, lon]).pad(0.12)); }}
+							}} catch (e1) {{}}
+						}} else if (engine === 'google') {{
+							var pos = {{ lat: lat, lng: lon }};
+							new google.maps.Marker({{ position: pos, map: mapInstance, title: label }});
+							try {{
+								var bounds = mapInstance.getBounds();
+								if (bounds) {{
+									bounds.extend(pos);
+									mapInstance.fitBounds(bounds);
+								}}
+							}} catch (e2) {{}}
+						}} else if (engine === 'maplibre') {{
+							new maplibregl.Marker({{ color: '#c0392b' }}).setLngLat([lon, lat]).setPopup(new maplibregl.Popup().setHTML(pop)).addTo(mapInstance);
+							try {{
+								var bb = mapInstance.getBounds();
+								if (bb) {{
+									bb.extend([lon, lat]);
+									mapInstance.fitBounds(bb, {{ padding: 50 }});
+								}}
+							}} catch (e3) {{}}
+						}}
+					}});
+				}}, 2000);
+			}}
 			function hideFallback() {{ const fb = document.getElementById(mapId + '-fallback'); if (fb) fb.style.display = 'none'; }}
 			function showFallback() {{ const fb = document.getElementById(mapId + '-fallback'); if (fb) fb.style.display = 'flex'; }}
 			function getRouteCoords(pts, cb) {{
@@ -421,6 +479,7 @@ def render_route_map_html(
 					const fitBounds = function(b) {{ if (b && b.length >= 2) map.fitBounds(L.latLngBounds(b).pad(0.1)); }};
 					drawSegments(map, addMarker, addPolyline, fitBounds);
 					hideFallback();
+					runVesselTrackingOverlay('leaflet', map);
 				}} catch (e) {{ console.error('Map init error:', e); showFallback(); }}
 			}}
 			function initGoogleMap() {{
@@ -455,6 +514,7 @@ def render_route_map_html(
 					}};
 					drawSegments(map, addMarker, addPolyline, fitBounds);
 					hideFallback();
+					runVesselTrackingOverlay('google', map);
 				}} catch (e) {{ console.error('Google Map init error:', e); initLeaflet(); }}
 			}}
 			function initMapLibre() {{
@@ -488,6 +548,7 @@ def render_route_map_html(
 					}};
 					drawSegments(map, addMarker, addPolyline, fitBounds);
 					hideFallback();
+					runVesselTrackingOverlay('maplibre', map);
 				}} catch (e) {{ initLeaflet(); }}
 			}}
 			function init() {{
@@ -508,6 +569,373 @@ def render_route_map_html(
 		map_section = ""
 
 	return map_section
+
+
+def render_special_project_interactive_route_tab_html(map_id_prefix, map_payloads, cards_sidebar_html):
+	"""
+	Split Route tab: cards (left) + map (right). Uses the same map renderer as Transport Job
+	(Logistics Settings / Transport Settings: OpenStreetMap → Leaflet, Google Maps, Mapbox/MapLibre).
+	"""
+	map_renderer = get_dashboard_map_renderer()
+	map_renderer_js = json.dumps(map_renderer)
+	items_json = json.dumps(map_payloads or [])
+	map_el_id = f"{map_id_prefix}-view"
+	fallback_id = f"{map_el_id}-fallback"
+	map_links_id = f"{map_el_id}-maplinks"
+	hint1 = escape_html(_("Select a task or job"))
+	hint2 = escape_html(_("Map updates when you click a card"))
+	return f"""
+<style>
+.sp-dash-split {{
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	align-items: stretch;
+	width: 100%;
+	min-height: 380px;
+}}
+.sp-dash-cards-col {{
+	flex: 1 1 340px;
+	max-width: min(440px, 100%);
+	min-width: 260px;
+	max-height: 520px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-right: 4px;
+}}
+.sp-dash-map-wrap {{
+	flex: 1 1 280px;
+	min-width: 220px;
+	min-height: 380px;
+}}
+.sp-dash-map-wrap .map-box {{
+	height: 420px !important;
+	max-width: 100%;
+}}
+.sp-dash-card {{
+	cursor: pointer;
+	background: #fff;
+	border: 1px solid var(--ro-border-soft, #e9ecef);
+	border-radius: 8px;
+	padding: 10px 12px;
+	margin-bottom: 8px;
+	transition: box-shadow 0.15s ease, border-color 0.15s ease;
+	border-left: 4px solid #667eea;
+}}
+.sp-dash-card:hover {{
+	box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}}
+.sp-dash-card.is-selected {{
+	border-color: #007bff;
+	box-shadow: 0 0 0 1px #007bff;
+}}
+.sp-dash-card .sp-dash-card-title {{
+	font-weight: 600;
+	font-size: 13px;
+	color: #212529;
+	margin: 0 0 4px 0;
+	line-height: 1.3;
+}}
+.sp-dash-card .sp-dash-card-sub {{
+	font-size: 11px;
+	color: #6c757d;
+	line-height: 1.35;
+}}
+.sp-dash-card .sp-dash-card-badge {{
+	display: inline-block;
+	margin-top: 6px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: #e9ecef;
+	color: #495057;
+}}
+</style>
+<div class="sp-dash-split">
+	<div class="sp-dash-cards-col">{cards_sidebar_html}</div>
+	<div class="sp-dash-map-wrap">
+		<div class="map-main" style="width:100%;">
+			<div class="map-box" style="position: relative;">
+				<div id="{map_el_id}" class="map-view" style="width:100%;height:100%;"></div>
+				<div id="{fallback_id}" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+					background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+					align-items: center; justify-content: center; flex-direction: column; z-index: 500;">
+					<div style="text-align: center; color: #6c757d; padding: 20px;">
+						<i class="fa fa-map" style="font-size: 28px; margin-bottom: 10px;"></i>
+						<div style="font-size: 14px; font-weight: 500;" class="sp-dash-fallback-msg">{hint1}</div>
+						<div class="text-muted small" style="margin-top:6px;">{hint2}</div>
+					</div>
+				</div>
+			</div>
+			<div id="{map_links_id}" class="sp-dash-map-links"></div>
+		</div>
+	</div>
+</div>
+<script>
+(function() {{
+	const items = {items_json};
+	const mapRenderer = {map_renderer_js};
+	const mapId = {json.dumps(map_el_id)};
+	const fallbackId = {json.dumps(fallback_id)};
+	const mapLinksId = {json.dumps(map_links_id)};
+	let engine = null;
+	let mapInst = null;
+	let lGroup = null;
+	let gMarkers = [];
+	let gPoly = null;
+	let mMarkers = [];
+
+	function hideFallback() {{
+		const fb = document.getElementById(fallbackId);
+		if (fb) fb.style.display = 'none';
+	}}
+	function showFallback(msg) {{
+		const fb = document.getElementById(fallbackId);
+		if (fb) {{
+			fb.style.display = 'flex';
+			const el = fb.querySelector('.sp-dash-fallback-msg');
+			if (el && msg) el.textContent = msg;
+		}}
+	}}
+	function updateMapLinks(pts) {{
+		const el = document.getElementById(mapLinksId);
+		if (!el) return;
+		if (!pts || pts.length < 2) {{ el.innerHTML = ''; return; }}
+		const o = pts[0], d = pts[pts.length - 1];
+		const ola = o.lat, olo = o.lon, dla = d.lat, dlo = d.lon;
+		el.innerHTML = '<div class="map-links" style="margin-top:10px;display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">'
+			+ '<a href="https://www.google.com/maps/dir/' + ola + ',' + olo + '/' + dla + ',' + dlo + '" target="_blank" rel="noopener"><i class="fa fa-external-link"></i> Google Maps</a>'
+			+ '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=' + ola + ',' + olo + ';' + dla + ',' + dlo + '" target="_blank" rel="noopener"><i class="fa fa-external-link"></i> OpenStreetMap</a>'
+			+ '<a href="http://maps.apple.com/?daddr=' + dla + ',' + dlo + '&saddr=' + ola + ',' + olo + '" target="_blank" rel="noopener"><i class="fa fa-external-link"></i> Apple Maps</a>'
+			+ '</div>';
+	}}
+
+	function getRouteCoords(pts, straightLine, cb) {{
+		if (straightLine || !pts || pts.length < 2) {{
+			cb(pts ? pts.map(function(p) {{ return [p.lat, p.lon]; }}) : []);
+			return;
+		}}
+		const wpStr = pts.map(function(p) {{ return p.lat + ',' + p.lon; }}).join('|');
+		if (wpStr.length < 3) {{ cb(pts.map(function(p) {{ return [p.lat, p.lon]; }})); return; }}
+		frappe.call({{ method: 'logistics.document_management.api.get_route_geometry', args: {{ waypoints: wpStr }} }})
+			.then(function(r) {{
+				const coords = (r.message && r.message.success && r.message.coordinates) ? r.message.coordinates : null;
+				cb(coords || pts.map(function(p) {{ return [p.lat, p.lon]; }}));
+			}})
+			.catch(function() {{ cb(pts.map(function(p) {{ return [p.lat, p.lon]; }})); }});
+	}}
+
+	function defaultLatLng() {{
+		for (let i = 0; i < items.length; i++) {{
+			const pts = items[i].map_points || [];
+			if (pts.length) return {{ lat: pts[0].lat, lng: pts[0].lon }};
+		}}
+		return {{ lat: 20, lng: 0 }};
+	}}
+	function defaultLngLat() {{
+		for (let i = 0; i < items.length; i++) {{
+			const pts = items[i].map_points || [];
+			if (pts.length) return [pts[0].lon, pts[0].lat];
+		}}
+		return [0, 20];
+	}}
+	function firstSelectableIndex() {{
+		for (let i = 0; i < items.length; i++) {{
+			if ((items[i].map_points || []).length > 0 && items[i].map_mode !== 'empty') return i;
+		}}
+		return 0;
+	}}
+
+	function clearOverlays() {{
+		if (engine === 'leaflet' && lGroup) {{
+			lGroup.clearLayers();
+		}} else if (engine === 'google') {{
+			gMarkers.forEach(function(m) {{ try {{ m.setMap(null); }} catch (e) {{}} }});
+			gMarkers = [];
+			if (gPoly) {{ try {{ gPoly.setMap(null); }} catch (e2) {{}} gPoly = null; }}
+		}} else if (engine === 'maplibre' && mapInst) {{
+			mMarkers.forEach(function(m) {{ try {{ m.remove(); }} catch (e) {{}} }});
+			mMarkers = [];
+			try {{
+				if (mapInst.getLayer && mapInst.getLayer('spdash-route-line')) mapInst.removeLayer('spdash-route-line');
+				if (mapInst.getSource && mapInst.getSource('spdash-route')) mapInst.removeSource('spdash-route');
+			}} catch (e3) {{}}
+		}}
+	}}
+
+	function drawItem(idx) {{
+		if (!mapInst || !items.length) return;
+		const item = items[idx] || items[0];
+		clearOverlays();
+		const mode = item.map_mode || 'empty';
+		const pts = item.map_points || [];
+		const straight = item.straight_line !== false;
+		const pop = function(t) {{ return '<b>' + String(t || '').replace(/</g, '&lt;') + '</b>'; }};
+
+		if (mode === 'empty' || !pts.length) {{
+			showFallback(item.label || 'No location data');
+			updateMapLinks(null);
+			if (engine === 'leaflet') mapInst.setView([20, 0], 2);
+			else if (engine === 'google') {{ mapInst.setCenter({{ lat: 20, lng: 0 }}); mapInst.setZoom(2); }}
+			else if (engine === 'maplibre') {{ mapInst.jumpTo({{ center: [0, 20], zoom: 2 }}); }}
+			return;
+		}}
+		hideFallback();
+
+		if (mode === 'pin' || pts.length === 1) {{
+			const p = pts[0];
+			const title = item.label || p.label || 'Location';
+			if (engine === 'leaflet') {{
+				L.marker([p.lat, p.lon]).addTo(lGroup).bindPopup(pop(title));
+				mapInst.setView([p.lat, p.lon], 11);
+			}} else if (engine === 'google') {{
+				const mk = new google.maps.Marker({{ position: {{ lat: p.lat, lng: p.lon }}, map: mapInst, title: title }});
+				gMarkers.push(mk);
+				mapInst.setCenter({{ lat: p.lat, lng: p.lon }});
+				mapInst.setZoom(11);
+			}} else {{
+				const mk = new maplibregl.Marker({{ color: 'blue' }}).setLngLat([p.lon, p.lat]).setPopup(new maplibregl.Popup().setHTML(pop(title))).addTo(mapInst);
+				mMarkers.push(mk);
+				mapInst.jumpTo({{ center: [p.lon, p.lat], zoom: 11 }});
+			}}
+			updateMapLinks(pts.length >= 2 ? pts : null);
+			return;
+		}}
+
+		getRouteCoords(pts, straight, function(latlngs) {{
+			if (engine === 'leaflet') {{
+				if (latlngs && latlngs.length >= 2) {{
+					L.polyline(latlngs, {{ color: '#2196f3', weight: 3 }}).addTo(lGroup);
+					try {{ mapInst.fitBounds(L.latLngBounds(latlngs).pad(0.12)); }} catch (e) {{}}
+				}}
+				pts.forEach(function(p, i) {{
+					L.marker([p.lat, p.lon]).addTo(lGroup).bindPopup(pop(p.label || ('Stop ' + (i + 1))));
+				}});
+			}} else if (engine === 'google') {{
+				if (latlngs && latlngs.length >= 2) {{
+					const path = latlngs.map(function(c) {{ return {{ lat: c[0], lng: c[1] }}; }});
+					gPoly = new google.maps.Polyline({{ path: path, strokeColor: '#2196f3', strokeWeight: 3, geodesic: true, map: mapInst }});
+				}}
+				pts.forEach(function(p, i) {{
+					gMarkers.push(new google.maps.Marker({{ position: {{ lat: p.lat, lng: p.lon }}, map: mapInst, title: p.label || ('Stop ' + (i + 1)) }}));
+				}});
+				if (pts.length >= 2) {{
+					const bounds = new google.maps.LatLngBounds();
+					pts.forEach(function(p) {{ bounds.extend({{ lat: p.lat, lng: p.lon }}); }});
+					mapInst.fitBounds(bounds);
+				}}
+			}} else {{
+				if (latlngs && latlngs.length >= 2) {{
+					const coords = latlngs.map(function(c) {{ return [c[1], c[0]]; }});
+					try {{
+						if (mapInst.getLayer('spdash-route-line')) mapInst.removeLayer('spdash-route-line');
+						if (mapInst.getSource('spdash-route')) mapInst.removeSource('spdash-route');
+					}} catch (e0) {{}}
+					mapInst.addSource('spdash-route', {{ type: 'geojson', data: {{ type: 'Feature', geometry: {{ type: 'LineString', coordinates: coords }} }} }});
+					mapInst.addLayer({{ id: 'spdash-route-line', type: 'line', source: 'spdash-route', paint: {{ 'line-color': '#2196f3', 'line-width': 3 }} }});
+				}}
+				pts.forEach(function(p, i) {{
+					mMarkers.push(new maplibregl.Marker({{ color: 'blue' }}).setLngLat([p.lon, p.lat]).setPopup(new maplibregl.Popup().setHTML(pop(p.label || ('Stop ' + (i + 1))))).addTo(mapInst));
+				}});
+				if (latlngs && latlngs.length >= 2) {{
+					const lngs = latlngs.map(function(ll) {{ return ll[1]; }});
+					const lats = latlngs.map(function(ll) {{ return ll[0]; }});
+					mapInst.fitBounds([[Math.min.apply(null, lngs), Math.min.apply(null, lats)], [Math.max.apply(null, lngs), Math.max.apply(null, lats)]], {{ padding: 50 }});
+				}}
+			}}
+			updateMapLinks(pts);
+		}});
+	}}
+
+	function selectCard(idx) {{
+		document.querySelectorAll('.sp-dash-card').forEach(function(el, j) {{
+			el.classList.toggle('is-selected', j === idx);
+		}});
+		drawItem(idx);
+	}}
+	function bindCards() {{
+		document.querySelectorAll('.sp-dash-card').forEach(function(card, i) {{
+			card.addEventListener('click', function() {{ selectCard(i); }});
+		}});
+		selectCard(firstSelectableIndex());
+	}}
+
+	function initLeaflet() {{
+		const el = document.getElementById(mapId);
+		if (!el) {{ setTimeout(initLeaflet, 150); return; }}
+		if (!window.L) {{
+			const c = document.createElement('link'); c.rel = 'stylesheet'; c.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(c);
+			const s = document.createElement('script'); s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload = initLeaflet; document.head.appendChild(s);
+			return;
+		}}
+		try {{
+			const d = defaultLatLng();
+			mapInst = L.map(mapId).setView([d.lat, d.lng], 4);
+			L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ attribution: '© OpenStreetMap' }}).addTo(mapInst);
+			lGroup = L.layerGroup().addTo(mapInst);
+			engine = 'leaflet';
+			bindCards();
+		}} catch (e) {{ console.error('SP dash Leaflet:', e); }}
+	}}
+
+	function doGoogleMap() {{
+		const el = document.getElementById(mapId);
+		if (!el) {{ setTimeout(doGoogleMap, 100); return; }}
+		try {{
+			const d = defaultLatLng();
+			mapInst = new google.maps.Map(el, {{ center: d, zoom: 8 }});
+			engine = 'google';
+			bindCards();
+		}} catch (e) {{ console.error('SP dash Google:', e); initLeaflet(); }}
+	}}
+	function initGoogleMap() {{
+		frappe.call({{ method: 'logistics.document_management.api.get_google_maps_api_key' }}).then(function(r) {{
+			const apiKey = r.message && r.message.api_key;
+			if (!apiKey || apiKey.length < 10) {{ initLeaflet(); return; }}
+			if (window.google && window.google.maps) {{ doGoogleMap(); return; }}
+			const s = document.createElement('script');
+			s.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&libraries=geometry';
+			s.async = true; s.onload = function() {{ doGoogleMap(); }};
+			s.onerror = function() {{ initLeaflet(); }};
+			document.head.appendChild(s);
+		}}).catch(function() {{ initLeaflet(); }});
+	}}
+
+	function initMapLibre() {{
+		const el = document.getElementById(mapId);
+		if (!el) {{ setTimeout(initMapLibre, 150); return; }}
+		if (!window.maplibregl) {{
+			const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css'; document.head.appendChild(css);
+			const script = document.createElement('script'); script.src = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js';
+			script.onload = initMapLibre; document.head.appendChild(script);
+			return;
+		}}
+		try {{
+			const c = defaultLngLat();
+			mapInst = new maplibregl.Map({{
+				container: mapId,
+				style: {{ version: 8, sources: {{ 'osm': {{ type: 'raster', tiles: ['https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png'], tileSize: 256 }} }}, layers: [{{ id: 'osm', type: 'raster', source: 'osm' }}] }},
+				center: c,
+				zoom: 4
+			}});
+			engine = 'maplibre';
+			mapInst.on('load', function() {{ bindCards(); }});
+		}} catch (e) {{ console.error('SP dash MapLibre:', e); initLeaflet(); }}
+	}}
+
+	function boot() {{
+		const r = (mapRenderer || '').toLowerCase();
+		if (r === 'google maps') {{ initGoogleMap(); return; }}
+		if (r === 'mapbox' || r === 'maplibre') {{ initMapLibre(); return; }}
+		initLeaflet();
+	}}
+	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+	else boot();
+}})();
+</script>
+"""
 
 
 def build_run_sheet_style_dashboard(

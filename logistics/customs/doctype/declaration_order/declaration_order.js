@@ -63,6 +63,48 @@ function _group_and_collapse_dash_alerts($container) {
 	});
 }
 
+/** Documents tab: Total and Exemptions cards order (same as Declaration). */
+function _swap_declaration_order_documents_exemptions_total_cards($wrapper) {
+	var $cards = $wrapper.find(".doc-alerts-cards");
+	var $total = $cards.find('[data-category="total"]');
+	var $exemptions = $cards.find('[data-category="exemptions"]');
+	var $received = $cards.find('[data-category="received"]');
+	var $permits = $cards.find('[data-category="pending_permits"]');
+	if (!$total.length || !$exemptions.length || !$received.length) {
+		return;
+	}
+	$exemptions.insertAfter($received);
+	if ($permits.length) {
+		$total.insertAfter($permits);
+	} else {
+		$total.appendTo($cards);
+	}
+}
+
+function _load_declaration_order_documents_html(frm) {
+	if (frm._logistics_template_populate_busy) return;
+	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._documents_html_called) return;
+	frm._documents_html_called = true;
+	frappe.call({
+		method: "logistics.document_management.api.get_document_alerts_html",
+		args: { doctype: "Declaration Order", docname: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.html(r.message);
+				_swap_declaration_order_documents_exemptions_total_cards(frm.fields_dict.documents_html.$wrapper);
+				if (window.logistics_bind_document_alert_cards) {
+					window.logistics_bind_document_alert_cards(frm.fields_dict.documents_html.$wrapper);
+				}
+			}
+		},
+	}).always(function () {
+		setTimeout(function () {
+			frm._documents_html_called = false;
+		}, 2000);
+	});
+}
+
 function _load_milestone_html(frm) {
 	if (frm._logistics_template_populate_busy) return;
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
@@ -378,7 +420,7 @@ frappe.ui.form.on("Declaration Order", {
 			return {
 				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					service_type: 'Custom',
+					service_type: 'Customs',
 					reference_doctype: 'Declaration Order',
 					reference_name: frm.doc.name || ''
 				}
@@ -429,6 +471,9 @@ frappe.ui.form.on("Declaration Order", {
 			if (frm.fields_dict.milestone_html) {
 				frm.fields_dict.milestone_html.$wrapper.empty();
 			}
+			if (frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.empty();
+			}
 		}
 		// Load dashboard HTML in Dashboard tab (only when doc is saved).
 		// Use fetch_declaration_order_dashboard_html(docname), not frm.call(get_dashboard_html), so we do not
@@ -474,6 +519,13 @@ frappe.ui.form.on("Declaration Order", {
 		if (frm.layout && frm.layout.wrapper) {
 			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
 				_load_milestone_html(frm);
+			});
+		}
+
+		_load_declaration_order_documents_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+				_load_declaration_order_documents_html(frm);
 			});
 		}
 

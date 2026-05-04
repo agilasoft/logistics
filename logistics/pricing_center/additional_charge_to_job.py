@@ -126,7 +126,7 @@ def _map_sq_charge_to_declaration(row, sales_quote_name):
 	qty = flt(_row_val(row, "quantity"), 2) or 1
 	rev_method = _row_val(row, "calculation_method") or "Fixed Amount"
 	return {
-		"service_type": "Custom",
+		"service_type": "Customs",
 		"item_code": _row_val(row, "item_code"),
 		"charge_type": "Revenue",
 		"charge_category": "Other",

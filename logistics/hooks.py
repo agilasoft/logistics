@@ -38,7 +38,7 @@ app_include_js = [
 	"/assets/logistics/js/internal_job_create_from_source.js?v=17",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=10",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=11",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=1",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
@@ -66,9 +66,10 @@ doctype_js = {
 		"logistics/logistics/doctype/unloco/unloco.js",
 		"logistics/logistics/doctype/unloco/unloco_list.js",
 	],
-	# Sales Quote: dialogs first, then air/sea freight scripts
+	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts
 	"Sales Quote": [
 		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/charge_break_buttons.js",
 		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
 		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
@@ -209,6 +210,26 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 	],
+	"Project Task Order": [
+		"logistics/special_projects/doctype/project_task_order/project_task_order.js",
+		"logistics/special_projects/doctype/project_task_job_resource/project_task_job_resource.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+	],
+	"Project Task Job": [
+		"logistics/special_projects/doctype/project_task_job_resource/project_task_job_resource.js",
+		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
+		"logistics/public/js/charge_break_buttons.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/public/js/operational_exchange_rate_grid.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
+	],
 	"Special Project": [
 		"logistics/public/js/document_alerts_dialog.js",
 	],
@@ -274,7 +295,7 @@ _doc_milestone_doctypes = [
 	"Transport Order", "Transport Job",
 	"Declaration", "Declaration Order",
 	"Inbound Order", "Release Order", "Transfer Order",
-	"Warehouse Job", "General Job", "Special Project",
+	"Warehouse Job", "General Job", "Special Project", "Project Task Job",
 ]
 
 doc_events = {
@@ -343,6 +364,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Project Task Job",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -364,6 +386,7 @@ for _dt in (
 	"Warehouse Job",
 	"Declaration",
 	"General Job",
+	"Project Task Job",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -401,6 +424,20 @@ append_hook(
 	"*",
 	{"validate": "logistics.utils.load_type_active.validate_load_type_links_on_doc"},
 )
+
+# Operational exchange rates: resolve from Source Exchange Rate (date-based) and push to charge lines
+_OER_BEFORE_SAVE = "logistics.utils.operational_exchange_rates.on_before_save_operational_exchange_rates"
+for _dt in ("Air Booking", "Sea Booking", "Air Shipment", "Sea Shipment", "Project Task Job"):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_bs = doc_events[_dt].get("before_save")
+	if not _bs:
+		doc_events[_dt]["before_save"] = _OER_BEFORE_SAVE
+	elif isinstance(_bs, list):
+		if _OER_BEFORE_SAVE not in _bs:
+			doc_events[_dt]["before_save"] = list(_bs) + [_OER_BEFORE_SAVE]
+	elif _bs != _OER_BEFORE_SAVE:
+		doc_events[_dt]["before_save"] = [_bs, _OER_BEFORE_SAVE]
 
 merge_credit_hooks(doc_events)
 

@@ -4,6 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils.password import get_decrypted_password
 
 
 class SeaFreightSettings(Document):
@@ -11,6 +12,31 @@ class SeaFreightSettings(Document):
 		if not self.company:
 			frappe.throw(_("Company is required."), title=_("Sea Freight Settings"))
 		self.validate_container_deposit_accounts()
+		self.validate_vessel_tracking_settings()
+
+	def validate_vessel_tracking_settings(self):
+		if not self.enable_vessel_tracking:
+			return
+		if not (self.vessel_tracking_provider or "").strip():
+			frappe.throw(
+				_("Vessel tracking provider is required when vessel tracking is enabled."),
+				title=_("Sea Freight Settings"),
+			)
+		if not self._vessel_tracking_api_key_provided():
+			frappe.throw(
+				_("Vessel tracking API key is required when vessel tracking is enabled."),
+				title=_("Sea Freight Settings"),
+			)
+
+	def _vessel_tracking_api_key_provided(self):
+		if (self.get("vessel_tracking_api_key") or "").strip():
+			return True
+		if self.is_new():
+			return False
+		existing = get_decrypted_password(
+			"Sea Freight Settings", self.name, "vessel_tracking_api_key", raise_exception=False
+		)
+		return bool(existing and str(existing).strip())
 
 	# Kept separate for tests that call validate_container_deposit_accounts with a stub instance.
 	def validate_container_deposit_accounts(self):

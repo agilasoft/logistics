@@ -4,7 +4,7 @@
 frappe.provide("logistics");
 
 var GET_CHARGES_TITLE_LIST = __("Get Charges from Quotation");
-var GCFQ_FILTER_GRID_SLOTS = 8;
+var GCFQ_FILTER_GRID_SLOTS = 12;
 
 var DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded";
 
@@ -49,6 +49,27 @@ function _gcfq_filter_specs(frm) {
 				label: __("Shipping Line"),
 				value: frm.doc.shipping_line || "",
 			},
+			{
+				key: "branch",
+				fieldtype: "Link",
+				options: "Branch",
+				label: __("Branch"),
+				value: frm.doc.branch || "",
+			},
+			{
+				key: "cost_center",
+				fieldtype: "Link",
+				options: "Cost Center",
+				label: __("Cost Center"),
+				value: frm.doc.cost_center || "",
+			},
+			{
+				key: "profit_center",
+				fieldtype: "Link",
+				options: "Profit Center",
+				label: __("Profit Center"),
+				value: frm.doc.profit_center || "",
+			},
 		];
 	}
 	if (d === "Air Booking") {
@@ -85,6 +106,27 @@ function _gcfq_filter_specs(frm) {
 				options: "Airline",
 				label: __("Airline"),
 				value: frm.doc.airline || "",
+			},
+			{
+				key: "branch",
+				fieldtype: "Link",
+				options: "Branch",
+				label: __("Branch"),
+				value: frm.doc.branch || "",
+			},
+			{
+				key: "cost_center",
+				fieldtype: "Link",
+				options: "Cost Center",
+				label: __("Cost Center"),
+				value: frm.doc.cost_center || "",
+			},
+			{
+				key: "profit_center",
+				fieldtype: "Link",
+				options: "Profit Center",
+				label: __("Profit Center"),
+				value: frm.doc.profit_center || "",
 			},
 		];
 	}
@@ -142,6 +184,29 @@ function _gcfq_filter_specs(frm) {
 				}
 			);
 		}
+		locSpecs.push(
+			{
+				key: "branch",
+				fieldtype: "Link",
+				options: "Branch",
+				label: __("Branch"),
+				value: frm.doc.branch || "",
+			},
+			{
+				key: "cost_center",
+				fieldtype: "Link",
+				options: "Cost Center",
+				label: __("Cost Center"),
+				value: frm.doc.cost_center || "",
+			},
+			{
+				key: "profit_center",
+				fieldtype: "Link",
+				options: "Profit Center",
+				label: __("Profit Center"),
+				value: frm.doc.profit_center || "",
+			}
+		);
 		return locSpecs;
 	}
 	if (d === "Declaration Order") {
@@ -199,6 +264,27 @@ function _gcfq_filter_specs(frm) {
 				options: "UNLOCO",
 				label: __("Port of Discharge/Exit"),
 				value: frm.doc.port_of_discharge || "",
+			},
+			{
+				key: "branch",
+				fieldtype: "Link",
+				options: "Branch",
+				label: __("Branch"),
+				value: frm.doc.branch || "",
+			},
+			{
+				key: "cost_center",
+				fieldtype: "Link",
+				options: "Cost Center",
+				label: __("Cost Center"),
+				value: frm.doc.cost_center || "",
+			},
+			{
+				key: "profit_center",
+				fieldtype: "Link",
+				options: "Profit Center",
+				label: __("Profit Center"),
+				value: frm.doc.profit_center || "",
 			},
 		];
 	}

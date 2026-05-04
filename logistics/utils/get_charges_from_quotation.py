@@ -17,6 +17,10 @@ the form and is written only by create-from-quote or by the apply step.
 Dialog **filter_overrides** (per-module keys in ``GCFQ_FILTER_KEYS``) refine corridor / customs matching
 for listing, preview, and apply **without** saving the job document first.
 
+**Branch / Cost Center / Profit Center**: When set on the job (or in the dialog filters), the Sales Quote
+**header** must match each; empty job value = no filter for that field. Blanks on the quotation do not
+satisfy a non-empty job filter.
+
 **Corridor match**: Sea Booking uses ``origin_port`` / ``destination_port`` and optional ``shipping_line``
 (quotation charge row or header; blank line = wildcard). **Air Booking** matches those ports and ``airline``
 when set. If the booking has ``airline`` but both ports are empty, eligible quotes are filtered **by airline
@@ -49,6 +53,7 @@ from logistics.utils.sales_quote_link_query import (
 	sales_quote_matches_declaration_order_filters,
 	sales_quote_matches_job_airline_only,
 	sales_quote_matches_job_corridor,
+	sales_quote_matches_job_org_dimensions,
 )
 from logistics.utils.sales_quote_service_eligibility import sales_quote_has_service_charges
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
@@ -57,9 +62,15 @@ JOB_DOCTYPES = frozenset({"Sea Booking", "Air Booking", "Transport Order", "Decl
 
 # Whitelisted keys for Action → Get Charges from Quotation dialog filters (client-sent).
 GCFQ_FILTER_KEYS: dict[str, frozenset[str]] = {
-	"Sea Booking": frozenset({"origin_port", "destination_port", "shipping_line"}),
-	"Air Booking": frozenset({"origin_port", "destination_port", "airline"}),
-	"Transport Order": frozenset({"location_from", "location_to"}),
+	"Sea Booking": frozenset(
+		{"origin_port", "destination_port", "shipping_line", "branch", "cost_center", "profit_center"}
+	),
+	"Air Booking": frozenset(
+		{"origin_port", "destination_port", "airline", "branch", "cost_center", "profit_center"}
+	),
+	"Transport Order": frozenset(
+		{"location_from", "location_to", "branch", "cost_center", "profit_center"}
+	),
 	"Declaration Order": frozenset(
 		{
 			"customs_authority",
@@ -68,6 +79,9 @@ GCFQ_FILTER_KEYS: dict[str, frozenset[str]] = {
 			"transport_mode",
 			"port_of_loading",
 			"port_of_discharge",
+			"branch",
+			"cost_center",
+			"profit_center",
 		}
 	),
 }
@@ -123,6 +137,14 @@ def _effective_sea_air_transport_corridor(
 		d2 = _pick_gcfq_field(doc, overrides, "location_to", "location_to")
 		return o, d2, None, None
 	return "", "", None, None
+
+
+def _effective_org_dimension_fields(doc, overrides: dict) -> tuple[str, str, str]:
+	"""Branch, Cost Center, Profit Center — dialog overrides or saved job (all job doctypes)."""
+	b = _pick_gcfq_field(doc, overrides, "branch", "branch")
+	cc = _pick_gcfq_field(doc, overrides, "cost_center", "cost_center")
+	pc = _pick_gcfq_field(doc, overrides, "profit_center", "profit_center")
+	return b, cc, pc
 
 
 def _effective_declaration_order_filter_fields(
@@ -196,6 +218,34 @@ def _job_customer(doc) -> str | None:
 	if doc.doctype in ("Transport Order", "Declaration Order"):
 		return (getattr(doc, "customer", None) or "").strip() or None
 	return None
+
+
+def _gcfq_merge_org_dimension_display(
+	filters_payload: dict, branch: str, cost_center: str, profit_center: str
+):
+	"""Append Branch / Cost Center / Profit Center to dialog ``extra_criteria`` and rules when set."""
+	br = (branch or "").strip()
+	cc = (cost_center or "").strip()
+	pc = (profit_center or "").strip()
+	extra_rows = []
+	if br:
+		extra_rows.append({"label": _("Branch"), "value": br})
+	if cc:
+		extra_rows.append({"label": _("Cost Center"), "value": cc})
+	if pc:
+		extra_rows.append({"label": _("Profit Center"), "value": pc})
+	if not extra_rows:
+		return
+	existing = list(filters_payload.get("extra_criteria") or [])
+	filters_payload["extra_criteria"] = existing + extra_rows
+	rules = list(filters_payload.get("rules") or [])
+	rule = _(
+		"When Branch, Cost Center, or Profit Center is set, the Sales Quote header must match "
+		"(a blank header on the quotation does not satisfy a set filter on the job)."
+	)
+	if rules and rule not in rules:
+		rules.insert(max(len(rules) - 1, 0), rule)
+		filters_payload["rules"] = rules
 
 
 def _gcfq_list_filters_payload(
@@ -384,6 +434,33 @@ def _corridor_mismatch_message_for_preview(
 	return None
 
 
+def _org_dimension_mismatch_message_for_preview(
+	doc, sales_quote: str, overrides: dict | None = None
+) -> str | None:
+	ov = overrides or {}
+	jb, jcc, jpc = _effective_org_dimension_fields(doc, ov)
+	if sales_quote_matches_job_org_dimensions(sales_quote, jb, jcc, jpc):
+		return None
+	return str(
+		_("Sales Quote {0} does not match this document's Branch, Cost Center, or Profit Center.").format(
+			sales_quote
+		)
+	)
+
+
+def _assert_sales_quote_org_dimensions_match_job(
+	doc, sales_quote: str, overrides: dict | None = None
+):
+	ov = overrides or {}
+	jb, jcc, jpc = _effective_org_dimension_fields(doc, ov)
+	if not sales_quote_matches_job_org_dimensions(sales_quote, jb, jcc, jpc):
+		frappe.throw(
+			_("Sales Quote {0} does not match this document's Branch, Cost Center, or Profit Center.").format(
+				sales_quote
+			)
+		)
+
+
 def _assert_sales_quote_corridor_matches_job(
 	doc, service_type: str, sales_quote: str, overrides: dict | None = None
 ):
@@ -483,6 +560,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 		}
 
 	ov = _parse_gcfq_filter_overrides(doctype, filter_overrides)
+	jb, jcc, jpc = _effective_org_dimension_fields(doc, ov)
 
 	if doctype == "Declaration Order":
 		ca, dt, cb, jtm, pol, pod = _effective_declaration_order_filter_fields(doc, ov)
@@ -502,6 +580,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			port_of_loading=pol,
 			port_of_discharge=pod,
 		)
+		_gcfq_merge_org_dimension_display(filters_payload, jb, jcc, jpc)
 		names = fetch_eligible_regular_sales_quote_names(
 			service_type,
 			customer=customer,
@@ -512,10 +591,13 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			declaration_type=dt or None,
 			customs_broker=cb or None,
 			job_transport_mode=jtm,
+			job_branch=jb or None,
+			job_cost_center=jcc or None,
+			job_profit_center=jpc or None,
 		)
 		empty_msg = (
 			_("No matching Sales Quotes for these filters.")
-			if (ca or dt or cb or jtm)
+			if (ca or dt or cb or jtm or jb or jcc or jpc)
 			else _("No matching Sales Quotes found.")
 		)
 	else:
@@ -547,6 +629,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 				service_type,
 				**extra_kw,
 			)
+		_gcfq_merge_org_dimension_display(filters_payload, jb, jcc, jpc)
 
 		names = fetch_eligible_regular_sales_quote_names(
 			service_type,
@@ -558,6 +641,9 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			corridor_dest=dest,
 			job_airline=job_airline,
 			job_shipping_line=job_shipping_line,
+			job_branch=jb or None,
+			job_cost_center=jcc or None,
+			job_profit_center=jpc or None,
 		)
 		empty_msg = (
 			_("No matching Sales Quotes for this airline.")
@@ -641,6 +727,10 @@ def preview_quotation_charges_for_job(
 	if corr_err:
 		return {"error": corr_err}
 
+	org_err = _org_dimension_mismatch_message_for_preview(doc, sales_quote, ov)
+	if org_err:
+		return {"error": org_err}
+
 	if doctype == "Sea Booking":
 		from logistics.sea_freight.doctype.sea_booking.sea_booking import populate_charges_from_sales_quote
 
@@ -708,6 +798,8 @@ def apply_quotation_charges_to_job(
 			)
 	else:
 		_assert_sales_quote_corridor_matches_job(doc, service_type, sales_quote, ov)
+
+	_assert_sales_quote_org_dimensions_match_job(doc, sales_quote, ov)
 
 	doc.flags.skip_sales_quote_on_change = True
 	doc.sales_quote = sales_quote

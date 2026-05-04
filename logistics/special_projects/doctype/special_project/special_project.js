@@ -1,6 +1,22 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function logistics_set_internal_job_site_query(frm) {
+	frm.set_query("sp_site", "internal_job_details", function () {
+		const cust = frm.doc.customer;
+		if (!cust) {
+			return { filters: [["name", "=", ""]] };
+		}
+		return {
+			query: "frappe.contacts.doctype.address.address.address_query",
+			filters: {
+				link_doctype: "Customer",
+				link_name: cust,
+			},
+		};
+	});
+}
+
 frappe.ui.form.on("Special Project", {
 	document_list_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;
@@ -18,6 +34,7 @@ frappe.ui.form.on("Special Project", {
 		});
 	},
 	refresh: function (frm) {
+		logistics_set_internal_job_site_query(frm);
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
@@ -32,6 +49,9 @@ frappe.ui.form.on("Special Project", {
 								setTimeout(function() {
 									window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
 								}, 100);
+							}
+							if (window.logistics_bind_document_alert_cards) {
+								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
 							}
 						}
 					}
@@ -103,6 +123,16 @@ frappe.ui.form.on("Special Project", {
 			}, __("Action"));
 		}
 	},
+	internal_job_details_add: function (frm) {
+		_refresh_cost_revenue_summary(frm);
+		_refresh_dashboard_html(frm);
+		_refresh_milestone_html(frm);
+	},
+	internal_job_details_remove: function (frm) {
+		_refresh_cost_revenue_summary(frm);
+		_refresh_dashboard_html(frm);
+		_refresh_milestone_html(frm);
+	},
 });
 
 
@@ -119,19 +149,6 @@ function _refresh_cost_revenue_summary(frm) {
 	});
 }
 
-frappe.ui.form.on("Special Project Job", {
-	jobs_add: function (frm) {
-		_refresh_cost_revenue_summary(frm);
-		_refresh_dashboard_html(frm);
-		_refresh_milestone_html(frm);
-	},
-	jobs_remove: function (frm) {
-		_refresh_cost_revenue_summary(frm);
-		_refresh_dashboard_html(frm);
-		_refresh_milestone_html(frm);
-	},
-});
-
 function _refresh_dashboard_html(frm) {
 	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.dashboard_html) return;
 	frm._dashboard_html_called = false;
@@ -145,6 +162,9 @@ function _refresh_dashboard_html(frm) {
 					setTimeout(function() {
 						window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
 					}, 100);
+				}
+				if (window.logistics_bind_document_alert_cards) {
+					window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
 				}
 			}
 		}

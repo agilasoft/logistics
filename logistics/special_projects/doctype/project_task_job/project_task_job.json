@@ -1,0 +1,928 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-02 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "details_tab",
+  "section_basic",
+  "naming_series",
+  "title",
+  "task_type",
+  "special_project",
+  "section_from_special_project",
+  "sp_project_type",
+  "column_break_sp_job",
+  "sp_customer",
+  "sp_priority",
+  "special_project_order",
+  "customer",
+  "column_break_basic",
+  "project",
+  "status",
+  "priority",
+  "job_date",
+  "planned_start",
+  "planned_end",
+  "site",
+  "section_description",
+  "description",
+  "contains_dangerous_goods",
+  "section_contacts",
+  "shipper",
+  "consignee",
+  "column_break_ca",
+  "shipper_address",
+  "shipper_address_display",
+  "column_break_cb",
+  "consignee_address",
+  "consignee_address_display",
+  "section_contacts_p",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_cc",
+  "consignee_contact",
+  "consignee_contact_display",
+  "resources_tab",
+  "section_resources",
+  "job_resources",
+  "charges_tab",
+  "column_break_logistics_reps",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_xphe",
+  "job_number",
+  "column_break_yhuu",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_charges_hdr",
+  "billing_status",
+  "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
+  "profitability_section_break",
+  "profitability_section_html",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "accrual_recognition_enabled",
+  "recognition_policy_reference",
+  "recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_closed",
+  "quote_reference_section",
+  "is_main_service",
+  "sales_quote",
+  "column_break_quote_ref",
+  "is_internal_job",
+  "main_job_type",
+  "main_job",
+  "internal_job_details_section",
+  "internal_job_details",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "more_info_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
+  "sla_section",
+  "logistics_service_level",
+  "sla_target_source",
+  "sla_target_date",
+  "sla_status",
+  "column_break_sla",
+  "sla_notes",
+  "sustainability_section",
+  "estimated_carbon_footprint",
+  "column_break_sustainability",
+  "sustainability_notes",
+  "dangerous_goods_section",
+  "dg_declaration_complete",
+  "dg_compliance_status",
+  "column_break_dg",
+  "dg_emergency_contact",
+  "dg_emergency_phone",
+  "dg_emergency_email",
+  "amended_from",
+  "connections_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "section_basic",
+   "fieldtype": "Section Break",
+   "label": "Job"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "SPJ-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "task_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Task Type",
+   "options": "Project Task Type"
+  },
+  {
+   "fieldname": "special_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Special Project",
+   "options": "Special Project",
+   "reqd": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_from_special_project",
+   "fieldtype": "Section Break",
+   "label": "From Special Project"
+  },
+  {
+   "description": "Program-level Project Type from the linked Special Project (read-only, synced via fetch).",
+   "fetch_from": "special_project.project_type",
+   "fieldname": "sp_project_type",
+   "fieldtype": "Link",
+   "label": "Project Type",
+   "options": "Project Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sp_job",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Program-level Customer from the linked Special Project (read-only, synced via fetch).",
+   "fetch_from": "special_project.customer",
+   "fieldname": "sp_customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "description": "Program-level Priority from the linked Special Project (read-only, synced via fetch).",
+   "fetch_from": "special_project.priority",
+   "fieldname": "sp_priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "special_project_order",
+   "fieldtype": "Link",
+   "label": "Project Task Order",
+   "options": "Project Task Order"
+  },
+  {
+   "description": "Defaults from the linked Special Project when saved.",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "ERPNext Project from the parent Special Project program.",
+   "fetch_from": "special_project.project",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nPlanned\nIn Progress\nCompleted\nCancelled"
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh"
+  },
+  {
+   "fieldname": "job_date",
+   "fieldtype": "Date",
+   "label": "Job Date"
+  },
+  {
+   "fieldname": "planned_start",
+   "fieldtype": "Datetime",
+   "label": "Planned Start"
+  },
+  {
+   "fieldname": "planned_end",
+   "fieldtype": "Datetime",
+   "label": "Planned End"
+  },
+  {
+   "description": "Customer address where this task job will be executed.",
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "fieldname": "section_description",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "default": "0",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "fieldname": "resources_tab",
+   "fieldtype": "Tab Break",
+   "label": "Resources"
+  },
+  {
+   "description": "People, equipment, facilities, budget, vendors, and other inputs required to execute this job (replaces freight Routing).",
+   "fieldname": "section_resources",
+   "fieldtype": "Section Break",
+   "label": "Resources Required"
+  },
+  {
+   "fieldname": "job_resources",
+   "fieldtype": "Table",
+   "label": "Resources",
+   "options": "Project Task Job Resource"
+  },
+  {
+   "fieldname": "section_contacts",
+   "fieldtype": "Section Break",
+   "label": "Parties"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "column_break_ca",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_cb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_contacts_p",
+   "fieldtype": "Section Break",
+   "label": "Contact Persons"
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_cc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "column_break_logistics_reps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_xphe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Financial posting job number.",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_yhuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_break_charges_hdr",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "default": "Not Billed",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "label": "Billing Status",
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Transport Job Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Operational Exchange Rates",
+   "options": "Operational Exchange Rate"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Quote & Internal Jobs"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_main_service",
+   "fieldtype": "Check",
+   "label": "Main Service",
+   "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote"
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_internal_job",
+   "fieldtype": "Check",
+   "label": "Internal Job",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job_type",
+   "fieldtype": "Select",
+   "label": "Main Job Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration\nProject Task Job",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "fieldname": "main_job",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Job",
+   "options": "main_job_type",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.is_main_service",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Transport Job Milestone"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sla_section",
+   "fieldtype": "Section Break",
+   "label": "Service Level Agreement"
+  },
+  {
+   "fieldname": "logistics_service_level",
+   "fieldtype": "Link",
+   "label": "Logistics Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fieldname": "sla_target_source",
+   "fieldtype": "Select",
+   "label": "SLA Target Source",
+   "options": "From Service Level\nManual"
+  },
+  {
+   "fieldname": "sla_target_date",
+   "fieldtype": "Datetime",
+   "label": "SLA Target Date"
+  },
+  {
+   "default": "Not Applicable",
+   "fieldname": "sla_status",
+   "fieldtype": "Select",
+   "label": "SLA Status",
+   "options": "On Track\nAt Risk\nBreached\nNot Applicable"
+  },
+  {
+   "fieldname": "column_break_sla",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sla_notes",
+   "fieldtype": "Text",
+   "label": "SLA Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sustainability_section",
+   "fieldtype": "Section Break",
+   "label": "Sustainability"
+  },
+  {
+   "fieldname": "estimated_carbon_footprint",
+   "fieldtype": "Float",
+   "label": "Estimated Carbon Footprint (kg CO2e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sustainability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sustainability_notes",
+   "fieldtype": "Text",
+   "label": "Sustainability Notes"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "dangerous_goods_section",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "fieldname": "dg_declaration_complete",
+   "fieldtype": "Check",
+   "label": "DG Declaration Complete"
+  },
+  {
+   "fieldname": "dg_compliance_status",
+   "fieldtype": "Select",
+   "label": "DG Compliance Status",
+   "options": "Compliant\nNon-Compliant\nUnder Review\nPending Documentation"
+  },
+  {
+   "fieldname": "column_break_dg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dg_emergency_contact",
+   "fieldtype": "Data",
+   "label": "DG Emergency Contact"
+  },
+  {
+   "fieldname": "dg_emergency_phone",
+   "fieldtype": "Data",
+   "label": "DG Emergency Phone"
+  },
+  {
+   "fieldname": "dg_emergency_email",
+   "fieldtype": "Data",
+   "label": "DG Emergency Email"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Project Task Job",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-04 00:00:00",
+ "module": "Special Projects",
+ "name": "Project Task Job",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}
