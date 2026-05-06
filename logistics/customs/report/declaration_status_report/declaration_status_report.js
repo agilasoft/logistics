@@ -2,6 +2,35 @@
 // For license information, please see license.txt
 
 frappe.query_reports["Declaration Status Report"] = {
+	// Build chart from grid data so the chart always renders (server chart can be dropped by API/serialization).
+	get_chart_data(columns, result) {
+		const rows = (result || []).filter((r) => r && Object.keys(r).length);
+		if (!rows.length) {
+			return {
+				data: {
+					labels: [__("No data")],
+					datasets: [{ name: __("Declarations"), values: [0] }],
+				},
+				type: "bar",
+				colors: ["#5e64ff"],
+			};
+		}
+		const counts = {};
+		for (const row of rows) {
+			const key = row.status || __("Unknown");
+			counts[key] = (counts[key] || 0) + 1;
+		}
+		const labels = Object.keys(counts);
+		const values = labels.map((k) => counts[k]);
+		return {
+			data: {
+				labels,
+				datasets: [{ name: __("Declarations"), values }],
+			},
+			type: "bar",
+			colors: ["#5e64ff"],
+		};
+	},
 	"filters": [
 		{
 			"fieldname": "from_date",

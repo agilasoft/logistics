@@ -3,14 +3,16 @@
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, flt
+from frappe.utils import flt
+
+from logistics.analytics_reports.bootstrap import tally_chart
 
 
 def execute(filters=None):
 	f = frappe._dict(filters or {})
 	columns = get_columns()
 	data = get_data(f)
-	chart = get_chart_data(data) if data else None
+	chart = tally_chart(data, "status", _("Declarations"))
 	summary = get_summary(data) if data else []
 	return columns, data, None, chart, summary
 
@@ -79,19 +81,6 @@ def get_conditions(filters):
 	return " AND " + " AND ".join(conditions) if conditions else ""
 
 
-def get_chart_data(data):
-	if not data:
-		return None
-	from collections import Counter
-	by_status = Counter((r.get("status") or _("Unknown")) for r in data)
-	return {
-		"data": {
-			"labels": list(by_status.keys()),
-			"datasets": [{"name": _("Declarations"), "values": list(by_status.values())}]
-		},
-		"type": "bar",
-		"colors": ["#5e64ff"]
-	}
 def get_summary(data):
 	if not data:
 		return []
