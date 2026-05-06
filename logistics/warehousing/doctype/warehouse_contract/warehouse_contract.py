@@ -35,8 +35,11 @@ class WarehouseContract(Document):
 			except Exception:
 				pass
 	
-	def after_submit(self):
-		"""Update One-off Sales Quote status to Converted when Warehouse Contract is submitted."""
+	def on_submit(self):
+		"""Update One-off Sales Quote status to Converted when Warehouse Contract is submitted.
+
+		Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
+		"""
 		if self.sales_quote:
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
 			update_one_off_quote_on_submit(self.sales_quote, self.name, self.doctype)

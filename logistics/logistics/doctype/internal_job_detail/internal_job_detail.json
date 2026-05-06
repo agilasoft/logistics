@@ -72,7 +72,6 @@
   {
    "fieldname": "job_type",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "label": "Job Type",
    "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nRelease Order\nTransfer Order\nProject Task Job",
    "read_only": 1
@@ -80,7 +79,6 @@
   {
    "fieldname": "job_no",
    "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
    "label": "Job No",
    "options": "job_type",
    "read_only": 1
@@ -367,12 +365,14 @@
    "depends_on": "eval:doc.parenttype=='Special Project'",
    "fieldname": "planned_cost",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Planned Cost"
   },
   {
    "depends_on": "eval:doc.parenttype=='Special Project'",
    "fieldname": "actual_cost",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Actual Cost"
   },
   {
@@ -384,12 +384,14 @@
    "depends_on": "eval:doc.parenttype=='Special Project'",
    "fieldname": "planned_revenue",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Planned Revenue"
   },
   {
    "depends_on": "eval:doc.parenttype=='Special Project'",
    "fieldname": "actual_revenue",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Actual Revenue"
   },
   {
@@ -401,7 +403,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-04 17:30:42.537314",
+ "modified": "2026-05-05 15:48:51.185244",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Internal Job Detail",

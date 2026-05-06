@@ -49,24 +49,29 @@
   "column_break_5",
   "quality_control_notes",
   "handling_requirements",
-  "tab_routes",
+  "packing_tab",
+  "routing_section",
   "consolidation_routes",
-  "tab_attached_jobs",
-  "attached_air_freight_jobs",
-  "tab_packages",
+  "packages_section",
   "consolidation_packages",
-  "tab_charges",
-  "consolidation_charges",
-  "milestones_tab",
-  "section_break_milestones",
-  "milestone_html",
-  "milestone_template",
-  "milestones",
   "documents_tab",
   "document_management_section",
   "documents_html",
   "document_list_template",
   "documents",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
+  "tab_charges",
+  "consolidation_charges",
+  "tab_attached_jobs",
+  "section_break_shipment_planning",
+  "air_planning_status",
+  "planning_owner",
+  "consolidation_planning_lines",
+  "attached_air_freight_jobs",
   "accounts_tab",
   "company",
   "branch",
@@ -122,7 +127,7 @@
   {
    "fieldname": "document_management_section",
    "fieldtype": "Section Break",
-   "label": "Document Management"
+   "label": "Document Checklist"
   },
   {
    "fieldname": "documents_html",
@@ -340,7 +345,7 @@
   {
    "fieldname": "consolidation_routes",
    "fieldtype": "Table",
-   "label": "Consolidation Routes",
+   "label": "Routing Legs",
    "options": "Air Consolidation Routes"
   },
   {
@@ -352,6 +357,7 @@
   {
    "fieldname": "attached_air_freight_jobs",
    "fieldtype": "Table",
+   "label": "Attached shipments",
    "options": "Air Consolidation Shipments"
   },
   {
@@ -414,15 +420,19 @@
    "label": "Handling Requirements"
   },
   {
-   "fieldname": "tab_packages",
+   "fieldname": "packing_tab",
    "fieldtype": "Tab Break",
-   "label": "Packages"
+   "label": "Packing & Routing"
   },
   {
-   "fieldname": "tab_routes",
-   "fieldtype": "Tab Break",
-   "label": "Routes",
-   "search_index": 1
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing Legs"
+  },
+  {
+   "fieldname": "packages_section",
+   "fieldtype": "Section Break",
+   "label": "Packages"
   },
   {
    "fieldname": "tab_charges",
@@ -433,6 +443,35 @@
    "fieldname": "tab_attached_jobs",
    "fieldtype": "Tab Break",
    "label": "Shipments"
+  },
+  {
+   "description": "Air shipments matched on this consolidation before cargo rows reference those jobs. Submit when ready (same pattern as Sea Consolidation).",
+   "fieldname": "section_break_shipment_planning",
+   "fieldtype": "Section Break",
+   "label": "Shipment planning"
+  },
+  {
+   "default": "Draft",
+   "description": "Draft until you submit the planned shipment list; required before packages can reference those air shipments.",
+   "fieldname": "air_planning_status",
+   "fieldtype": "Select",
+   "label": "Planning status",
+   "options": "Draft\nSubmitted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planning_owner",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Planning Owner",
+   "options": "User"
+  },
+  {
+   "description": "Air shipments approved for this consolidation. Use Fetch matching air shipments or add rows, then submit.",
+   "fieldname": "consolidation_planning_lines",
+   "fieldtype": "Table",
+   "label": "Planned shipments",
+   "options": "Air Consolidation Planning Line"
   },
   {
    "fieldname": "accounts_tab",

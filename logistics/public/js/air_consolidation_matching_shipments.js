@@ -1,11 +1,11 @@
 // Copyright (c) 2026, AgilaSoft and contributors
-// Sea Consolidation → filter grid + aligned shipments table (same shell as Get Charges from Quotation)
+// Air Consolidation → filter grid + aligned shipments table (same shell as Sea Consolidation)
 
 frappe.provide("logistics");
 
-var SCM_DIALOG_TITLE = __("Aligned Sea Shipments");
+var ACM_DIALOG_TITLE = __("Aligned Air Shipments");
 
-function _scm_pad(specs, n) {
+function _acm_pad(specs, n) {
 	var out = specs.slice();
 	while (out.length < n) {
 		out.push({ placeholder: 1, label: __("Filter field") });
@@ -13,82 +13,89 @@ function _scm_pad(specs, n) {
 	return out.slice(0, n);
 }
 
-function scm_route_fallback(frm) {
+function acm_route_fallback(frm) {
 	var routes = frm.doc.consolidation_routes || [];
 	if (!routes.length) {
 		return null;
 	}
-	var o = frm.doc.origin_port;
-	var d = frm.doc.destination_port;
+	var o = frm.doc.origin_airport;
+	var d = frm.doc.destination_airport;
 	for (var i = 0; i < routes.length; i++) {
 		var row = routes[i];
 		if (!row) {
 			continue;
 		}
-		if (o && d && row.origin_port === o && row.destination_port === d) {
+		if (o && d && row.origin_airport === o && row.destination_airport === d) {
 			return row;
 		}
 	}
 	return routes[0];
 }
 
-function scm_specs(frm) {
-	var rf = scm_route_fallback(frm);
-	var etd = frm.doc.etd || "";
-	var shipping_line = frm.doc.shipping_line || "";
-	var vessel = frm.doc.vessel_name || "";
-	var voyage = frm.doc.voyage_number || "";
+/** Route Date + Time → string for Datetime filter (matches server fallback). */
+function acm_route_departure_value(rf) {
+	if (!rf || !rf.departure_date) {
+		return "";
+	}
+	var t = rf.departure_time || "";
+	if (!t) {
+		return rf.departure_date;
+	}
+	return String(rf.departure_date).trim() + " " + String(t).trim();
+}
+
+function acm_specs(frm) {
+	var rf = acm_route_fallback(frm);
+	var dep = frm.doc.departure_date || "";
+	var airline = frm.doc.airline || "";
+	var flight = frm.doc.flight_number || "";
 	if (rf) {
-		if (!etd && rf.etd) {
-			etd = rf.etd;
+		if (!dep) {
+			dep = acm_route_departure_value(rf);
 		}
-		if (!shipping_line && rf.shipping_line) {
-			shipping_line = rf.shipping_line;
+		if (!airline && rf.airline) {
+			airline = rf.airline;
 		}
-		if (!vessel && rf.vessel_name) {
-			vessel = rf.vessel_name;
-		}
-		if (!voyage && rf.voyage_number) {
-			voyage = rf.voyage_number;
+		if (!flight && rf.flight_number) {
+			flight = rf.flight_number;
 		}
 	}
 	return [
 		{ key: "company", ft: "Link", opt: "Company", lbl: __("Company"), v: frm.doc.company || "" },
 		{ key: "branch", ft: "Link", opt: "Branch", lbl: __("Branch"), v: frm.doc.branch || "" },
 		{
-			key: "origin_port",
+			key: "origin_airport",
 			ft: "Link",
 			opt: "UNLOCO",
-			lbl: __("Origin Port"),
-			v: frm.doc.origin_port || "",
+			lbl: __("Origin Airport"),
+			v: frm.doc.origin_airport || "",
 		},
 		{
-			key: "destination_port",
+			key: "destination_airport",
 			ft: "Link",
 			opt: "UNLOCO",
-			lbl: __("Destination Port"),
-			v: frm.doc.destination_port || "",
+			lbl: __("Destination Airport"),
+			v: frm.doc.destination_airport || "",
 		},
 		{
-			key: "target_etd",
+			key: "target_departure",
 			ft: "Datetime",
-			lbl: __("ETD (strict date match)"),
-			v: etd,
+			lbl: __("Departure (strict date match)"),
+			v: dep,
 		},
 		{
-			key: "shipping_line",
+			key: "airline",
 			ft: "Link",
-			opt: "Shipping Line",
-			lbl: __("Shipping Line"),
-			v: shipping_line,
+			opt: "Airline",
+			lbl: __("Airline"),
+			v: airline,
 		},
-		{ key: "vessel_name", ft: "Data", lbl: __("Vessel"), v: vessel },
-		{ key: "voyage_number", ft: "Data", lbl: __("Voyage"), v: voyage },
+		{ key: "flight_number", ft: "Data", lbl: __("Flight"), v: flight },
 	];
 }
 
-function scm_mount($grid, rawSpecs, dlg) {
-	dlg._scm_ctrls = [];
+function acm_mount($grid, rawSpecs, dlg) {
+	dlg._acm_ctrls = [];
 	rawSpecs.forEach(function (spec, ix) {
 		var $cell = $('<div class="logistics-gcfq-filter-cell">').appendTo($grid);
 		if (spec.placeholder) {
@@ -103,18 +110,15 @@ function scm_mount($grid, rawSpecs, dlg) {
 			return;
 		}
 		var df = {
-			fieldname: "scm_fw_" + ix,
+			fieldname: "acm_fw_" + ix,
 			fieldtype: spec.ft,
 			options: spec.opt || "",
 			label: "",
 		};
 		if (spec.opt === "Branch") {
-			// search_link → get_list validates filter field permissions (permlevel), not just DocType access.
-			// Same pattern as Transport Consolidation branch link_filters: use custom_company, not company,
-			// which is often a restricted custom field on Branch.
 			df.get_query = function () {
 				var cmp = "";
-				(dlg._scm_ctrls || []).forEach(function (x) {
+				(dlg._acm_ctrls || []).forEach(function (x) {
 					if (x.key === "company" && x.get_val) {
 						cmp = (x.get_val() || "").trim();
 					}
@@ -129,7 +133,7 @@ function scm_mount($grid, rawSpecs, dlg) {
 		var c = frappe.ui.form.make_control({ df: df, parent: $cell, render_input: true });
 		c.set_value(spec.v || "");
 		$cell.prepend($('<label class="logistics-gcfq-filter-label">').text(spec.lbl || ""));
-		dlg._scm_ctrls.push({
+		dlg._acm_ctrls.push({
 			key: spec.key,
 			get_val: function () {
 				return c.get_value();
@@ -139,20 +143,20 @@ function scm_mount($grid, rawSpecs, dlg) {
 	});
 }
 
-function scm_snap(dlg) {
+function acm_snap(dlg) {
 	var o = {};
-	(dlg._scm_ctrls || []).forEach(function (x) {
+	(dlg._acm_ctrls || []).forEach(function (x) {
 		o[x.key] = x.get_val() == null ? "" : String(x.get_val()).trim();
 	});
-	dlg._scm_s0 = o;
+	dlg._acm_s0 = o;
 }
 
-function scm_overrides(dlg) {
+function acm_overrides(dlg) {
 	var cur = {};
-	(dlg._scm_ctrls || []).forEach(function (x) {
+	(dlg._acm_ctrls || []).forEach(function (x) {
 		cur[x.key] = x.get_val() == null ? "" : String(x.get_val()).trim();
 	});
-	var s0 = dlg._scm_s0 || {};
+	var s0 = dlg._acm_s0 || {};
 	var out = {};
 	Object.keys(cur).forEach(function (k) {
 		if (!(k in s0) || cur[k] !== (s0[k] || "").trim()) {
@@ -162,7 +166,7 @@ function scm_overrides(dlg) {
 	return out;
 }
 
-function scm_debounce_reload(dlg, reload) {
+function acm_debounce_reload(dlg, reload) {
 	var tmr;
 	function go() {
 		if (tmr) {
@@ -170,14 +174,14 @@ function scm_debounce_reload(dlg, reload) {
 		}
 		tmr = setTimeout(reload, 350);
 	}
-	(dlg._scm_ctrls || []).forEach(function (x) {
+	(dlg._acm_ctrls || []).forEach(function (x) {
 		if (x.control && x.control.$wrapper) {
 			x.control.$wrapper.on("change", go);
 		}
 	});
 }
 
-function scm_td_detail(rw) {
+function acm_td_detail(rw) {
 	var rt = rw.row_type || "";
 	if (rt === "already") {
 		return frappe.utils.escape_html(__("Already on planned list"));
@@ -188,8 +192,8 @@ function scm_td_detail(rw) {
 	return frappe.utils.escape_html(__("Eligible"));
 }
 
-logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
-	if (!frm || frm.doctype !== "Sea Consolidation" || frm.doc.__islocal || !frm.doc.name) {
+logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
+	if (!frm || frm.doctype !== "Air Consolidation" || frm.doc.__islocal || !frm.doc.name) {
 		frappe.msgprint(__("Save the consolidation first."));
 		return;
 	}
@@ -197,16 +201,16 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 		frappe.msgprint(__("Only draft consolidations allow this action."));
 		return;
 	}
-	if ((frm.doc.sea_planning_status || "Draft") === "Submitted") {
+	if ((frm.doc.air_planning_status || "Draft") === "Submitted") {
 		frappe.msgprint(__("Reset planning to draft before fetching shipments."));
 		return;
 	}
 
 	var dlg = new frappe.ui.Dialog({
-		title: SCM_DIALOG_TITLE,
+		title: ACM_DIALOG_TITLE,
 		size: "large",
 		no_focus: true,
-		fields: [{ fieldtype: "HTML", fieldname: "scm_body", options: "<div class='scm-root'></div>" }],
+		fields: [{ fieldtype: "HTML", fieldname: "acm_body", options: "<div class='acm-root'></div>" }],
 		secondary_action_label: __("Close"),
 		secondary_action: function () {
 			dlg.hide();
@@ -214,42 +218,42 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 	});
 
 	dlg.onhide = function () {
-		(dlg._scm_ctrls || []).forEach(function (x) {
+		(dlg._acm_ctrls || []).forEach(function (x) {
 			if (x.control && x.control.$wrapper) {
 				x.control.$wrapper.remove();
 			}
 		});
-		dlg._scm_ctrls = [];
+		dlg._acm_ctrls = [];
 	};
 
 	dlg.show();
-	dlg.$wrapper.addClass("logistics-gcfq-dialog logistics-scm-dialog");
+	dlg.$wrapper.addClass("logistics-gcfq-dialog logistics-acm-dialog");
 
-	var $shell = dlg.$wrapper.find(".scm-root");
+	var $shell = dlg.$wrapper.find(".acm-root");
 	function loadMatches() {
 		$shell.empty();
-		var $top = $('<div class="scm-top-wrap">').appendTo($shell);
+		var $top = $('<div class="acm-top-wrap">').appendTo($shell);
 		var box = $('<div class="logistics-gcfq-filters">').appendTo($top);
 		box.append($('<div class="logistics-gcfq-filters-title">').text(__("List filter criteria")));
 
 		var grid = $('<div class="logistics-gcfq-filters-grid">').appendTo(box);
-		scm_mount(grid, _scm_pad(scm_specs(frm), 8), dlg);
+		acm_mount(grid, _acm_pad(acm_specs(frm), 8), dlg);
 		var $act = $('<div class="gcfq-filter-actions">').appendTo(box);
 		$('<button type="button" class="btn btn-sm btn-default">' + __("Apply filters") + "</button>")
 			.appendTo($act)
 			.on("click", function () {
 				runList();
 			});
-		scm_debounce_reload(dlg, runList);
+		acm_debounce_reload(dlg, runList);
 
-		var $list = $('<div class="scm-dynamic">').appendTo($shell);
+		var $list = $('<div class="acm-dynamic">').appendTo($shell);
 
 		function runList() {
 			$list.html("<p class=text-muted>" + __("Loading aligned shipments…") + "</p>");
 			frappe.call({
 				doc: frm.doc,
-				method: "preview_matching_sea_shipments",
-				args: { filter_overrides: scm_overrides(dlg) },
+				method: "preview_matching_air_shipments",
+				args: { filter_overrides: acm_overrides(dlg) },
 				callback: function (r) {
 					if (!r || r.exc) {
 						$list.html('<div class="alert alert-danger">' + __("Failed to load.") + "</div>");
@@ -271,8 +275,8 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 
 					if (!rows.length) {
 						$list.html(
-							'<p class=text-muted scm-m-ban>' +
-								frappe.utils.escape_html(__("No aligning Sea Shipments for these criteria.")) +
+							'<p class=text-muted acm-m-ban>' +
+								frappe.utils.escape_html(__("No aligning Air Shipments for these criteria.")) +
 								"</p>"
 						);
 						return;
@@ -314,13 +318,13 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 						var nmEsc = frappe.utils.escape_html(String(rw.name || ""));
 						if (elig && rw.name) {
 							chk =
-								'<input type="checkbox" class="scm-sel" data-sn="' +
+								'<input type="checkbox" class="acm-sel" data-sn="' +
 								frappe.utils.escape_html(String(rw.name)) +
 								'" aria-label="' +
 								frappe.utils.escape_html(__("Select")) +
 								'"/>';
 						} else if (elig) {
-							chk = '<input type="checkbox" class="scm-sel" />';
+							chk = '<input type="checkbox" class="acm-sel" />';
 						} else {
 							chk = '<input type="checkbox" disabled />';
 						}
@@ -342,26 +346,26 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 							"</td><td>" +
 							frappe.utils.escape_html(etdFmt(rw.etd)) +
 							'</td><td class="text-muted">' +
-							scm_td_detail(rw) +
+							acm_td_detail(rw) +
 							"</td></tr>";
 					});
 
 					var html =
-						'<p class="text-muted scm-m-ban">' +
+						'<p class="text-muted acm-m-ban">' +
 						banner +
-						'</p><div class="scm-m-toolbar">' +
-						'<input type="search" class="form-control input-sm scm-search" placeholder="' +
+						'</p><div class="acm-m-toolbar">' +
+						'<input type="search" class="form-control input-sm acm-search" placeholder="' +
 						frappe.utils.escape_html(__("Search…")) +
 						'"/>' +
-						'<span class="scm-m-stat"></span>' +
-						'<button type="button" class="btn btn-xs btn-default scm-sel-all">' +
+						'<span class="acm-m-stat"></span>' +
+						'<button type="button" class="btn btn-xs btn-default acm-sel-all">' +
 						__("Select all addable") +
 						"</button>" +
-						'<button type="button" class="btn btn-sm btn-primary scm-apply">' +
+						'<button type="button" class="btn btn-sm btn-primary acm-apply">' +
 						__("Add selected to planned list") +
 						"</button></div>" +
 						'<div class="logistics-gcfq-table-wrap" style="max-height:54vh;">' +
-						'<table class="logistics-gcfq-table scm-tbl">' +
+						'<table class="logistics-gcfq-table acm-tbl">' +
 						thead +
 						"<tbody>" +
 						trs +
@@ -369,26 +373,26 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 
 					$list.html(html);
 
-					var $tbl = $list.find(".scm-tbl");
+					var $tbl = $list.find(".acm-tbl");
 
 					function stat() {
-						var k = $list.find(".scm-sel:checked").length;
-						$list.find(".scm-m-stat").text(
+						var k = $list.find(".acm-sel:checked").length;
+						$list.find(".acm-m-stat").text(
 							__("{0} selected", [String(k)])
 						);
 					}
 
-					$list.off(".scmscm");
-					$list.on("change.scmscm", ".scm-sel", stat);
+					$list.off(".acmacm");
+					$list.on("change.acmacm", ".acm-sel", stat);
 					stat();
 
-					$list.find(".scm-sel-all").on("click", function () {
-						$list.find(".scm-sel").prop("checked", true);
+					$list.find(".acm-sel-all").on("click", function () {
+						$list.find(".acm-sel").prop("checked", true);
 						stat();
 					});
 
-					$list.on("input.scmscm", ".scm-search", function () {
-						var q = String($list.find(".scm-search").val() || "")
+					$list.on("input.acmacm", ".acm-search", function () {
+						var q = String($list.find(".acm-search").val() || "")
 							.toLowerCase()
 							.trim();
 						$tbl.find("tbody tr").each(function () {
@@ -397,9 +401,9 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 						});
 					});
 
-					$list.find(".scm-apply").on("click", function () {
+					$list.find(".acm-apply").on("click", function () {
 						var picked = [];
-						$list.find(".scm-sel:checked").each(function () {
+						$list.find(".acm-sel:checked").each(function () {
 							var n = $(this).attr("data-sn");
 							if (n) {
 								picked.push(n);
@@ -411,10 +415,10 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 						}
 						frappe.call({
 							doc: frm.doc,
-							method: "apply_selected_sea_shipments_to_planning",
+							method: "apply_selected_air_shipments_to_planning",
 							args: {
 								shipment_names: picked,
-								filter_overrides: scm_overrides(dlg),
+								filter_overrides: acm_overrides(dlg),
 							},
 							freeze: true,
 							freeze_message: __("Updating…"),
@@ -434,7 +438,7 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 		}
 
 		setTimeout(function () {
-			scm_snap(dlg);
+			acm_snap(dlg);
 			runList();
 		}, 0);
 	}

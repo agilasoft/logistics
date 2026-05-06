@@ -1965,6 +1965,69 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		return None
 
 
+def one_off_stored_conversion_matches(
+	converted_ref: str, doctype: str | None, document_name: str | None
+) -> bool:
+	"""True if ``converted_ref`` (DB) refers to the same document as ``doctype`` + ``document_name``.
+
+	Supports **compact** storage (``ABK-000000426``), **legacy** ``\"Air Booking ABK-...\"``,
+	and exact match to ``\"{doctype} {name}\"``."""
+	cr = (converted_ref or "").strip()
+	if not cr or not (document_name or "").strip():
+		return False
+	dn = document_name.strip()
+	dt = (doctype or "").strip()
+	if cr == dn:
+		return True
+	if dt and cr == f"{dt} {dn}".strip():
+		return True
+	if dt and cr.startswith(f"{dt} "):
+		return cr[len(dt) + 1 :].strip() == dn
+	return False
+
+
+def _one_off_persist_converted(sales_quote_name: str, doctype: str, document_name: str) -> None:
+	"""Set status + Converted To. Many sites have ERPNext-style ``converted_to_doctype`` / ``converted_to_name``
+	used for the *Converted To* link in Customize; ``converted_to_doc`` holds the visible document id (e.g. ABK-…)."""
+	doc_name = (document_name or "").strip()
+	if len(doc_name) > 140:
+		doc_name = doc_name[:140]
+	dt = (doctype or "").strip()
+	if len(dt) > 140:
+		dt = dt[:140]
+
+	frappe.db.sql(
+		"""
+		UPDATE `tabSales Quote`
+		SET `status`=%(st)s,
+		    `converted_to_doc`=%(ref)s
+		WHERE `name`=%(nm)s
+		""",
+		{"st": "Converted", "ref": doc_name or None, "nm": sales_quote_name},
+	)
+
+	if frappe.db.has_column("Sales Quote", "converted_to_doctype"):
+		frappe.db.sql(
+			"""
+			UPDATE `tabSales Quote`
+			SET `converted_to_doctype`=%(cdt)s
+			WHERE `name`=%(nm)s
+			""",
+			{"cdt": dt or None, "nm": sales_quote_name},
+		)
+	if frappe.db.has_column("Sales Quote", "converted_to_name"):
+		frappe.db.sql(
+			"""
+			UPDATE `tabSales Quote`
+			SET `converted_to_name`=%(cn)s
+			WHERE `name`=%(nm)s
+			""",
+			{"cn": doc_name or None, "nm": sales_quote_name},
+		)
+
+	frappe.clear_document_cache("Sales Quote", sales_quote_name)
+
+
 def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, doctype: str):
 	"""
 	Update One-off Sales Quote status to Converted when referenced document is submitted.
@@ -1985,21 +2048,16 @@ def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, do
 		return
 	
 	try:
-		# Get the Sales Quote
-		sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
-		
-		# Only update if it's a One-off quote
-		if sales_quote.quotation_type != "One-off":
+		# Use DB reads/writes instead of get_doc + db_set so this still runs when the submitting user
+		# does not have Role permission to "read" Sales Quote (get_doc would raise and fail silently).
+		if not frappe.db.exists("Sales Quote", sales_quote_name):
 			return
 		
-		# Update status and converted_to_doc
-		sales_quote.db_set("status", "Converted", update_modified=False)
-		sales_quote.db_set("converted_to_doc", f"{doctype} {document_name}", update_modified=False)
-		frappe.db.commit()
+		qt = (frappe.db.get_value("Sales Quote", sales_quote_name, "quotation_type") or "").strip()
+		if qt != "One-off":
+			return
 		
-	except frappe.DoesNotExistError:
-		# Sales Quote doesn't exist, skip
-		pass
+		_one_off_persist_converted(sales_quote_name, doctype, document_name)
 	except Exception as e:
 		frappe.log_error(
 			f"Error updating One-off Sales Quote {sales_quote_name} on submit: {str(e)}",
@@ -2023,21 +2081,33 @@ def reset_one_off_quote_on_cancel(sales_quote_name: str):
 		return
 	
 	try:
-		# Get the Sales Quote
-		sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
-		
-		# Only reset if it's a One-off quote
-		if sales_quote.quotation_type != "One-off":
+		if not frappe.db.exists("Sales Quote", sales_quote_name):
 			return
 		
-		# Reset status and clear converted_to_doc
-		sales_quote.db_set("status", "Draft", update_modified=False)
-		sales_quote.db_set("converted_to_doc", None, update_modified=False)
-		frappe.db.commit()
+		qt = (frappe.db.get_value("Sales Quote", sales_quote_name, "quotation_type") or "").strip()
+		if qt != "One-off":
+			return
 		
-	except frappe.DoesNotExistError:
-		# Sales Quote doesn't exist, skip
-		pass
+		frappe.db.sql(
+			"""
+			UPDATE `tabSales Quote`
+			SET `status`=%(st)s,
+			    `converted_to_doc`=NULL
+			WHERE `name`=%(nm)s
+			""",
+			{"st": "Draft", "nm": sales_quote_name},
+		)
+		if frappe.db.has_column("Sales Quote", "converted_to_doctype"):
+			frappe.db.sql(
+				"UPDATE `tabSales Quote` SET `converted_to_doctype`=NULL WHERE `name`=%(nm)s",
+				{"nm": sales_quote_name},
+			)
+		if frappe.db.has_column("Sales Quote", "converted_to_name"):
+			frappe.db.sql(
+				"UPDATE `tabSales Quote` SET `converted_to_name`=NULL WHERE `name`=%(nm)s",
+				{"nm": sales_quote_name},
+			)
+		frappe.clear_document_cache("Sales Quote", sales_quote_name)
 	except Exception as e:
 		frappe.log_error(
 			f"Error resetting One-off Sales Quote {sales_quote_name} on cancel: {str(e)}",
@@ -2097,6 +2167,53 @@ def resolve_allow_linked_freight_bookings_for_internal_job(doc):
 	return allow_sea, allow_air
 
 
+def _resolved_transport_order_name_from_one_off_conversion(converted_ref: str | None) -> str | None:
+	"""Return Transport Order name if ``converted_ref`` points at one (compact id or ``Transport Order NAME``)."""
+	cr = (converted_ref or "").strip()
+	if not cr:
+		return None
+	if frappe.db.exists("Transport Order", cr):
+		return cr
+	if cr.startswith("Transport Order "):
+		tail = cr[len("Transport Order ") :].strip()
+		if tail and frappe.db.exists("Transport Order", tail):
+			return tail
+	return None
+
+
+def resolve_allow_linked_transport_order_for_freight_shipment(doc):
+	"""If the quote is converted to a Transport Order that references this Air/Sea Shipment (or the main-job hub), return that TRO name.
+
+	Same job chain as ``allow_linked_air_booking`` / ``allow_linked_sea_booking``: port pickup/delivery TRO shares the
+	one-off quote with the linked freight shipment.
+	"""
+	from frappe.utils import cint
+
+	dt = getattr(doc, "doctype", None) or ""
+	if dt not in ("Air Shipment", "Sea Shipment"):
+		return None
+	sq = getattr(doc, "sales_quote", None)
+	if not sq:
+		return None
+	cr = frappe.db.get_value("Sales Quote", sq, "converted_to_doc")
+	tro_name = _resolved_transport_order_name_from_one_off_conversion(cr)
+	if not tro_name:
+		return None
+	link_field = "air_shipment" if dt == "Air Shipment" else "sea_shipment"
+	tro_ship = frappe.db.get_value("Transport Order", tro_name, link_field)
+	if not tro_ship:
+		return None
+	my_name = (doc.name or "").strip()
+	if tro_ship == my_name:
+		return tro_name
+	if cint(getattr(doc, "is_internal_job", 0)):
+		mjt = (getattr(doc, "main_job_type", None) or "").strip()
+		mj = (getattr(doc, "main_job", None) or "").strip()
+		if mjt == dt and mj and tro_ship == mj:
+			return tro_name
+	return None
+
+
 def resolve_single_main_sea_booking_for_sales_quote(sales_quote_name):
 	"""If exactly one non-cancelled main Sea Booking references this Sales Quote, return its name.
 
@@ -2153,6 +2270,7 @@ def validate_one_off_quote_not_converted(
 	allow_if_quote_converted_to: str = None,
 	allow_linked_sea_booking: str = None,
 	allow_linked_air_booking: str = None,
+	allow_linked_transport_order: str = None,
 		allow_main_transport_if_converted_to_declaration_order: bool = False,
 ):
 	"""
@@ -2167,6 +2285,8 @@ def validate_one_off_quote_not_converted(
 			allow use — used when the current document is the next step in the same chain (e.g. Declaration from that Order).
 		allow_linked_sea_booking: Sea Booking name that may hold the same quote as this doc (e.g. Sea Shipment's parent booking, or main Sea leg for an internal-job Transport Order).
 		allow_linked_air_booking: Air Booking name for the same job chain (e.g. Air Shipment's parent booking).
+		allow_linked_transport_order: Transport Order name when the quote converted to that order and it links to this
+			Air/Sea Shipment via ``air_shipment`` / ``sea_shipment`` (same chain as pickup/delivery leg).
 		allow_main_transport_if_converted_to_declaration_order: If True and current doc is a main-service Transport Order,
 			Sea/Air Shipment, or Sea/Air Booking, allow when the quote is already marked converted to a Declaration Order
 			(customs leg submitted first; freight main leg is part of the same job chain). For Transport Order, this
@@ -2189,19 +2309,42 @@ def validate_one_off_quote_not_converted(
 		
 		# Check if already converted (but allow if converted to *this* document — e.g. re-saving the same order)
 		if sales_quote.status == "Converted" or sales_quote.converted_to_doc:
-			current_doc_ref = f"{current_doctype or ''} {current_docname or ''}".strip()
 			converted_ref = (sales_quote.converted_to_doc or "").strip()
-			if current_doc_ref and converted_ref and current_doc_ref == converted_ref:
+			if current_doctype and current_docname and one_off_stored_conversion_matches(
+				converted_ref, current_doctype, current_docname
+			):
 				return  # Same document that converted the quote — allow save
 			# Same conversion chain: e.g. quote was converted to Declaration Order X, current doc is Declaration from that Order
-			if allow_if_quote_converted_to and converted_ref and converted_ref == allow_if_quote_converted_to.strip():
-				return
+			if allow_if_quote_converted_to and converted_ref:
+				ac = allow_if_quote_converted_to.strip()
+				if converted_ref == ac:
+					return
+				ac_parts = ac.split(None, 1)
+				if len(ac_parts) == 2 and one_off_stored_conversion_matches(converted_ref, ac_parts[0], ac_parts[1]):
+					return
 			# Main freight/transport leg alongside a submitted Declaration Order (one-off quote covers customs + freight)
 			if (
 				allow_main_transport_if_converted_to_declaration_order
 				and (current_doctype or "") in _DOCTYPES_MAIN_SERVICE_WITH_DECLARATION_ORDER_CONVERSION
 				and converted_ref
-				and converted_ref.startswith("Declaration Order ")
+				and (
+					converted_ref.startswith("Declaration Order ")
+					or frappe.db.exists("Declaration Order", converted_ref)
+				)
+			):
+				return
+			# Quote converted to Air/Sea Booking; current doc is the shipment (or other child) for that same booking
+			if allow_linked_air_booking and one_off_stored_conversion_matches(
+				converted_ref, "Air Booking", allow_linked_air_booking
+			):
+				return
+			if allow_linked_sea_booking and one_off_stored_conversion_matches(
+				converted_ref, "Sea Booking", allow_linked_sea_booking
+			):
+				return
+			# Quote converted to Transport Order; current doc is the linked Air/Sea Shipment (or internal-job satellite of that hub)
+			if allow_linked_transport_order and one_off_stored_conversion_matches(
+				converted_ref, "Transport Order", allow_linked_transport_order
 			):
 				return
 			converted_info = sales_quote.converted_to_doc or _("Unknown document")
@@ -2268,7 +2411,11 @@ def validate_one_off_quote_not_converted(
 			limit=1
 		)
 		if transport_orders:
-			linked_documents.append(f"Transport Order: {transport_orders[0].name}")
+			ton = (transport_orders[0].name or "").strip()
+			if allow_linked_transport_order and ton == (allow_linked_transport_order or "").strip():
+				pass
+			else:
+				linked_documents.append(f"Transport Order: {ton}")
 		
 		# Check Warehouse Contract
 		warehouse_contracts = frappe.get_all(

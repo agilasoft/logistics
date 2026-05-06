@@ -1,6 +1,24 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _load_special_project_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
+	frappe.call({
+		method: "logistics.special_projects.doctype.special_project.special_project.get_milestone_html",
+		args: { special_project: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			}
+		},
+	});
+	setTimeout(function () {
+		frm._milestone_html_called = false;
+	}, 2000);
+}
+
 function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("sp_site", "internal_job_details", function () {
 		const cust = frm.doc.customer;
@@ -61,19 +79,7 @@ frappe.ui.form.on("Special Project", {
 		}
 		// Load milestone HTML in Milestones tab (only when doc is saved)
 		if (frm.fields_dict.milestone_html && frm.doc.name && !frm.doc.__islocal) {
-			if (!frm._milestone_html_called) {
-				frm._milestone_html_called = true;
-				frappe.call({
-					method: "logistics.special_projects.doctype.special_project.special_project.get_milestone_html",
-					args: { special_project: frm.doc.name },
-					callback: function (r) {
-						if (r.message && frm.fields_dict.milestone_html) {
-							frm.fields_dict.milestone_html.$wrapper.html(r.message);
-						}
-					}
-				});
-				setTimeout(function () { frm._milestone_html_called = false; }, 2000);
-			}
+			_load_special_project_milestone_html(frm);
 		}
 		if (frm.doc.project && frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Open Project"), function () {
@@ -101,6 +107,9 @@ frappe.ui.form.on("Special Project", {
 				if (window.logistics_load_documents_html) {
 					window.logistics_load_documents_html(frm, "Special Project");
 				}
+			});
+			frm.layout.wrapper.off("click.sp_milestone_html").on("click.sp_milestone_html", '[data-fieldname="milestones_tab"]', function () {
+				_load_special_project_milestone_html(frm);
 			});
 		}
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
@@ -174,13 +183,5 @@ function _refresh_dashboard_html(frm) {
 function _refresh_milestone_html(frm) {
 	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.milestone_html) return;
 	frm._milestone_html_called = false;
-	frappe.call({
-		method: "logistics.special_projects.doctype.special_project.special_project.get_milestone_html",
-		args: { special_project: frm.doc.name },
-		callback: function (r) {
-			if (r.message && frm.fields_dict.milestone_html) {
-				frm.fields_dict.milestone_html.$wrapper.html(r.message);
-			}
-		}
-	});
+	_load_special_project_milestone_html(frm);
 }

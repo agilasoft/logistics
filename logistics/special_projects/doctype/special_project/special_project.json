@@ -39,6 +39,7 @@
   "billings",
   "milestones_tab",
   "milestone_html",
+  "milestones",
   "documents_tab",
   "documents_section",
   "documents_html",
@@ -80,13 +81,20 @@
    "label": "Milestones"
   },
   {
+   "description": "Read-only list synced from Job Milestone on linked logistics jobs when you save.",
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Special Project Milestone",
+   "read_only": 1
+  },
+  {
    "fieldname": "section_break_basic",
    "fieldtype": "Section Break",
    "label": "Basic Information"
   },
   {
    "default": "PROJ-.####",
-   "description": "Uses PROJ-.#### when ERPNext Project is auto-created; SP-.##### as fallback.",
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Series",
@@ -94,7 +102,6 @@
    "reqd": 1
   },
   {
-   "description": "Linked ERPNext Project (auto-created on save). Use for task management and billing.",
    "fieldname": "project",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -111,7 +118,6 @@
    "reqd": 1
   },
   {
-   "description": "ERPNext Project Type for this special project. Used when auto-creating the linked ERPNext Project; falls back to Special Project Settings default if empty.",
    "fieldname": "project_type",
    "fieldtype": "Link",
    "label": "Project Type",
@@ -206,7 +212,6 @@
    "label": "Jobs"
   },
   {
-   "description": "Link operational jobs the same way as Internal Jobs on bookings and shipments. Service type **Special Project** rows define resource needs; other types link Air, Sea, Transport, Customs, and Warehousing jobs to this program.",
    "fieldname": "section_internal_jobs",
    "fieldtype": "Section Break",
    "label": "Project Jobs"
@@ -345,7 +350,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-04 12:55:12.451526",
+ "modified": "2026-05-05 15:46:00.376487",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",

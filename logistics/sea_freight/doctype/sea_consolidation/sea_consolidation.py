@@ -268,25 +268,24 @@ class SeaConsolidation(Document):
     
     def calculate_consolidation_metrics(self):
         """Calculate consolidation metrics"""
-        # Calculate totals from packages
-        if self.consolidation_packages:
-            self.total_packages = sum(package.package_count or 0 for package in self.consolidation_packages)
-            self.total_weight = sum(package.package_weight or 0 for package in self.consolidation_packages)
-            self.total_volume = sum(package.package_volume or 0 for package in self.consolidation_packages)
-        
-        # Calculate totals from containers
-        if self.consolidation_containers:
-            self.total_containers = len(self.consolidation_containers)
-            container_weight = sum(container.weight_in_container or 0 for container in self.consolidation_containers)
-            container_volume = sum(container.volume_in_container or 0 for container in self.consolidation_containers)
-            
-            # Add container totals to package totals if packages exist
-            if self.consolidation_packages:
-                self.total_weight += container_weight
-                self.total_volume += container_volume
-            else:
-                self.total_weight = container_weight
-                self.total_volume = container_volume
+        packages = self.consolidation_packages or []
+        containers = self.consolidation_containers or []
+
+        if packages:
+            self.total_packages = sum(package.package_count or 0 for package in packages)
+            self.total_weight = sum(package.package_weight or 0 for package in packages)
+            self.total_volume = sum(package.package_volume or 0 for package in packages)
+        else:
+            self.total_packages = 0
+            self.total_weight = 0
+            self.total_volume = 0
+
+        self.total_containers = len(containers)
+        if containers:
+            container_weight = sum(container.weight_in_container or 0 for container in containers)
+            container_volume = sum(container.volume_in_container or 0 for container in containers)
+            self.total_weight = (self.total_weight or 0) + container_weight
+            self.total_volume = (self.total_volume or 0) + container_volume
         
         # Calculate chargeable weight (higher of actual weight or volume weight)
         # For sea freight, volume weight factor is typically 1000 kg per m³
@@ -692,16 +691,43 @@ class SeaConsolidation(Document):
         self.save()
         return True
 
+    def _sea_plan_route_fallback_row(self):
+        """Prefer child route matching header O/D; else first route (ETD / carrier often live here only)."""
+        routes = self.get("consolidation_routes") or []
+        if not routes:
+            return None
+        ho, hd = self.origin_port, self.destination_port
+        for row in routes:
+            ro = getattr(row, "origin_port", None)
+            rd = getattr(row, "destination_port", None)
+            if ho and hd and ro == ho and rd == hd:
+                return row
+        return routes[0]
+
     def _sea_plan_match_dict(self):
+        etd = self.etd
+        shipping_line = self.shipping_line
+        vessel_name = self.vessel_name
+        voyage_number = self.voyage_number
+        r = self._sea_plan_route_fallback_row()
+        if r:
+            if not etd:
+                etd = getattr(r, "etd", None) or etd
+            if not shipping_line:
+                shipping_line = getattr(r, "shipping_line", None)
+            if not (vessel_name or "").strip():
+                vessel_name = getattr(r, "vessel_name", None)
+            if not (voyage_number or "").strip():
+                voyage_number = getattr(r, "voyage_number", None)
         return {
             "company": self.company,
             "branch": self.branch,
             "origin_port": self.origin_port,
             "destination_port": self.destination_port,
-            "target_etd": self.etd,
-            "shipping_line": self.shipping_line,
-            "vessel_name": self.vessel_name,
-            "voyage_number": self.voyage_number,
+            "target_etd": etd,
+            "shipping_line": shipping_line,
+            "vessel_name": vessel_name,
+            "voyage_number": voyage_number,
         }
 
     def _merged_sea_plan_match_dict_from_dialog(self, filter_overrides):
@@ -733,7 +759,7 @@ class SeaConsolidation(Document):
     @frappe.whitelist()
     def preview_matching_sea_shipments(self, filter_overrides=None):
         """Return strict-matching shipments with eligibility for each row (no save)."""
-        self.reload()
+        # Do not reload from DB: preview must use the document posted from the form (see Air Consolidation).
         if self.is_new():
             return {"error": _("Save the consolidation first.")}
 

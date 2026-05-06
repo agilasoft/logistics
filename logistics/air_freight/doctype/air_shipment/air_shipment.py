@@ -1492,6 +1492,7 @@ class AirShipment(Document):
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 					resolve_allow_linked_freight_bookings_for_internal_job,
+					resolve_allow_linked_transport_order_for_freight_shipment,
 					resolve_single_main_air_booking_for_sales_quote,
 					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
@@ -1508,12 +1509,14 @@ class AirShipment(Document):
 					allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
 				if not allow_air:
 					allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+				allow_tro = resolve_allow_linked_transport_order_for_freight_shipment(self)
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
 					self.doctype,
 					self.name,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
+					allow_linked_transport_order=allow_tro,
 					allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
 				)
 

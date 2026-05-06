@@ -1,3 +1,6 @@
+// Copyright (c) 2026, www.agilasoft.com and contributors
+// For license information, please see license.txt
+
 function _load_milestone_html(frm) {
     if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
     if (frm._milestone_html_called) return;
@@ -79,89 +82,145 @@ frappe.ui.form.on('Air Consolidation', {
         }
     },
     
-    refresh: function(frm) {
-        // Load dashboard HTML in Dashboard tab
-        const load_dashboard = function() {
-            if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal && !frm._dashboard_html_called) {
-                frm._dashboard_html_called = true;
-                frm.call("get_dashboard_html").then(function(r) {
-                    if (r.message && frm.fields_dict.dashboard_html) {
-                        frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-                        if (window.logistics_group_and_collapse_dash_alerts) {
-                            setTimeout(function() {
-                                window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-                            }, 100);
-                        }
-                        if (window.logistics_bind_document_alert_cards) {
-                            window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
-                        }
-                    }
-                });
-                setTimeout(function() { frm._dashboard_html_called = false; }, 2000);
-            }
-        };
-        load_dashboard();
-        if (frm.layout && frm.layout.wrapper) {
-            frm.layout.wrapper.off("click.ac_dashboard").on("click.ac_dashboard", '[data-fieldname="dashboard_tab"]', load_dashboard);
-        }
-
-        // Load documents summary HTML in Documents tab
-        _load_documents_html(frm);
-        if (frm.layout && frm.layout.wrapper) {
-            frm.layout.wrapper.off("click.ac_documents_html").on("click.ac_documents_html", '[data-fieldname="documents_tab"]', function() {
-                _load_documents_html(frm);
-            });
-        }
-
-        // Load milestone HTML in Milestones tab
-        _load_milestone_html(frm);
-        if (frm.layout && frm.layout.wrapper) {
-            frm.layout.wrapper.off("click.ac_milestone_html").on("click.ac_milestone_html", '[data-fieldname="milestones_tab"]', function() {
-                _load_milestone_html(frm);
-            });
-        }
-
-        // Add Get Milestones and Get Documents buttons
-        if (!frm.is_new() && !frm.doc.__islocal) {
-            frm.add_custom_button(__('Get Milestones'), function() {
-                frappe.call({
-                    method: 'logistics.document_management.api.populate_milestones_from_template',
-                    args: { doctype: 'Air Consolidation', docname: frm.doc.name },
-                    callback: function(r) {
-                        if (r.message && r.message.added !== undefined) {
-                            frm.reload_doc();
-                            frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
-                        }
-                    }
-                });
-            }, __('Action'));
-            frm.add_custom_button(__('Get Documents'), function() {
-                frappe.call({
-                    method: 'logistics.document_management.api.populate_documents_from_template',
-                    args: { doctype: 'Air Consolidation', docname: frm.doc.name },
-                    callback: function(r) {
-                        if (r.message && r.message.added !== undefined) {
-                            frm.reload_doc();
-                            frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
-                        }
-                    }
-                });
-            }, __('Action'));
-            setTimeout(function() {
-                if (typeof show_create_consolidation_purchase_invoice_dialog === 'function') {
-                    frm.add_custom_button(__('Purchase Invoice'), function() {
-                        show_create_consolidation_purchase_invoice_dialog(frm);
-                    }, __('Create'));
-                }
-            }, 0);
-        }
-
-        // Add custom buttons
-        add_consolidation_buttons(frm);
-        
-        // Update consolidation metrics
-        update_consolidation_metrics(frm);
-    },
+    refresh: function (frm) {
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+			if (!frm._dashboard_html_called) {
+				frm._dashboard_html_called = true;
+				frm.call("get_dashboard_html").then(function (r) {
+					if (r.message && frm.fields_dict.dashboard_html) {
+						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+						if (window.logistics_group_and_collapse_dash_alerts) {
+							setTimeout(function () {
+								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+							}, 100);
+						}
+						if (window.logistics_bind_document_alert_cards) {
+							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+						}
+					}
+				});
+				setTimeout(function () {
+					frm._dashboard_html_called = false;
+				}, 2000);
+			}
+		}
+		_load_documents_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+				_load_documents_html(frm);
+			});
+		}
+		_load_milestone_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.milestone_html").on("click.milestone_html", '[data-fieldname="milestones_tab"]', function () {
+				_load_milestone_html(frm);
+			});
+		}
+		(function lock_planned_shipments_grid() {
+			const planningLocked =
+				(frm.doc.air_planning_status || "Draft") === "Submitted" && frm.doc.docstatus === 0;
+			if (!frm.fields_dict.consolidation_planning_lines) {
+				return;
+			}
+			frm.set_df_property("consolidation_planning_lines", "read_only", planningLocked ? 1 : 0);
+			frm.set_df_property(
+				"consolidation_planning_lines",
+				"cannot_add_rows",
+				planningLocked ? 1 : 0
+			);
+			frm.set_df_property(
+				"consolidation_planning_lines",
+				"cannot_delete_rows",
+				planningLocked ? 1 : 0
+			);
+			frm.refresh_field("consolidation_planning_lines");
+		})();
+		if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
+			if ((frm.doc.air_planning_status || "Draft") === "Draft") {
+				frm.add_custom_button(__("Aligned Air Shipments…"), function () {
+					if (window.logistics && logistics.open_air_consolidation_matching_shipments_dialog) {
+						logistics.open_air_consolidation_matching_shipments_dialog(frm);
+					} else {
+						frappe.msgprint(__("Air consolidation UI is still loading — try again in a moment."));
+					}
+				}, __("Action"));
+			}
+			if (
+				(frm.doc.air_planning_status || "Draft") === "Draft" &&
+				(frm.doc.consolidation_planning_lines || []).length
+			) {
+				frm.add_custom_button(
+					__("Submit planned shipments"),
+					function () {
+						frappe.confirm(
+							__("Submit planned shipment list? It will lock until reset."),
+							function () {
+								frm.call("submit_air_planning").then(function () {
+									frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
+									frm.reload_doc();
+								});
+							}
+						);
+					},
+					__("Action")
+				);
+			}
+			if (frm.doc.air_planning_status === "Submitted") {
+				frm.add_custom_button(
+					__("Reset planned shipments to draft"),
+					function () {
+						frappe.confirm(
+							__(
+								"This is only allowed after removing packages that reference air shipments. Planning will return to draft: planned shipments stay listed, the table becomes editable again, and you can add more from Aligned Air Shipments. Continue?"
+							),
+							function () {
+								frm.call("cancel_air_planning_submit").then(function () {
+									frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
+									frm.reload_doc();
+								});
+							}
+						);
+					},
+					__("Action")
+				);
+			}
+		}
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			frm.add_custom_button(__("Get Milestones"), function () {
+				frappe.call({
+					method: "logistics.document_management.api.populate_milestones_from_template",
+					args: { doctype: "Air Consolidation", docname: frm.doc.name },
+					callback: function (r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
+						}
+					},
+				});
+			}, __("Action"));
+			frm.add_custom_button(__("Get Documents"), function () {
+				frappe.call({
+					method: "logistics.document_management.api.populate_documents_from_template",
+					args: { doctype: "Air Consolidation", docname: frm.doc.name },
+					callback: function (r) {
+						if (r.message && r.message.added !== undefined) {
+							frm.reload_doc();
+							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
+						}
+					},
+				});
+			}, __("Action"));
+		}
+		setTimeout(function () {
+			if (frm.doc.name && !frm.doc.__islocal && typeof show_create_consolidation_purchase_invoice_dialog === "function") {
+				frm.add_custom_button(__("Purchase Invoice"), function () {
+					show_create_consolidation_purchase_invoice_dialog(frm);
+				}, __("Create"));
+			}
+		}, 0);
+		add_consolidation_buttons(frm);
+		update_consolidation_metrics(frm);
+	},
     
     consolidation_type: function(frm) {
         // Update form based on consolidation type
@@ -185,28 +244,26 @@ frappe.ui.form.on('Air Consolidation', {
 });
 
 // Air Consolidation Packages child table events
-frappe.ui.form.on('Air Consolidation Packages', {
-    package_weight: function(frm, cdt, cdn) {
-        calculate_package_charges(frm, cdt, cdn);
-        update_consolidation_totals(frm);
-    },
-    
-    package_volume: function(frm, cdt, cdn) {
-        calculate_volume_weight(frm, cdt, cdn);
-        update_consolidation_totals(frm);
-    },
-    
-    contains_dangerous_goods: function(frm, cdt, cdn) {
-        validate_dangerous_goods(frm, cdt, cdn);
-    }
+frappe.ui.form.on("Air Consolidation Packages", {
+	package_weight: function (frm, cdt, cdn) {
+		calculate_package_charges(frm, cdt, cdn);
+		update_consolidation_totals(frm);
+	},
+	package_volume: function (frm, cdt, cdn) {
+		calculate_volume_weight(frm, cdt, cdn);
+		update_consolidation_totals(frm);
+	},
+	contains_dangerous_goods: function (frm, cdt, cdn) {
+		validate_dangerous_goods(frm, cdt, cdn);
+		frm.refresh_field("consolidation_packages");
+	},
+	temperature_controlled: function (frm) {
+		frm.refresh_field("consolidation_packages");
+	},
 });
 
 // Air Consolidation Routes child table events
 frappe.ui.form.on('Air Consolidation Routes', {
-    route_sequence: function(frm, cdt, cdn) {
-        validate_route_sequence(frm, cdt, cdn);
-    },
-    
     departure_date: function(frm, cdt, cdn) {
         calculate_transit_time(frm, cdt, cdn);
     },
@@ -447,7 +504,7 @@ function show_capacity_report(capacity_info) {
     capacity_info.forEach(function(route) {
         let status_class = route.status === 'Available' ? 'text-success' : 'text-danger';
         html += `<tr>
-            <td>Route ${route.route_sequence}</td>
+            <td>Route ${route.sequence}</td>
             <td>${route.available_weight} kg</td>
             <td>${route.available_volume} m³</td>
             <td>${route.weight_utilization.toFixed(1)}%</td>
@@ -708,7 +765,7 @@ function calculate_package_charges(frm, cdt, cdn) {
         // Calculate charges based on weight
         row.base_charge = row.package_weight * 10; // Example rate
         row.total_charge = row.base_charge + (row.surcharges || 0);
-        refresh_field('consolidation_packages');
+        frm.refresh_field('consolidation_packages');
     }
 }
 
@@ -718,7 +775,7 @@ function calculate_volume_weight(frm, cdt, cdn) {
         // IATA volumetric: 1000/6 kg per m³ (1 kg per 6000 cm³)
         let volume_weight = row.package_volume * (1000 / 6);
         row.volume_weight = volume_weight;
-        refresh_field('consolidation_packages');
+        frm.refresh_field('consolidation_packages');
     }
 }
 
@@ -731,16 +788,6 @@ function validate_dangerous_goods(frm, cdt, cdn) {
     }
 }
 
-function validate_route_sequence(frm, cdt, cdn) {
-    let row = locals[cdt][cdn];
-    // Validate route sequence
-    if (row.route_sequence <= 0) {
-        frappe.msgprint(__('Route sequence must be greater than 0'));
-        row.route_sequence = 1;
-        refresh_field('consolidation_routes');
-    }
-}
-
 function calculate_transit_time(frm, cdt, cdn) {
     let row = locals[cdt][cdn];
     if (row.departure_date && row.arrival_date) {
@@ -748,7 +795,7 @@ function calculate_transit_time(frm, cdt, cdn) {
         let arrival = new Date(row.arrival_date);
         let transit_time = (arrival - departure) / (1000 * 60 * 60); // hours
         row.transit_time_hours = transit_time;
-        refresh_field('consolidation_routes');
+        frm.refresh_field('consolidation_routes');
     }
 }
 
@@ -758,7 +805,7 @@ function calculate_capacity_utilization(frm, cdt, cdn) {
         let utilization = (frm.doc.total_weight / row.cargo_capacity_kg) * 100;
         row.utilization_percentage = utilization;
         row.available_capacity_kg = row.cargo_capacity_kg - frm.doc.total_weight;
-        refresh_field('consolidation_routes');
+        frm.refresh_field('consolidation_routes');
     }
 }
 
@@ -792,7 +839,7 @@ function calculate_charge_amount(frm, cdt, cdn) {
         
         // Calculate total
         row.total_amount = row.base_amount - row.discount_amount + (row.surcharge_amount || 0);
-        refresh_field('consolidation_charges');
+        frm.refresh_field('consolidation_charges');
     }
 }
 
@@ -803,7 +850,7 @@ function update_job_status_timestamps(frm, cdt, cdn) {
     } else if (row.consolidation_status === 'In Transit' && !row.check_out_time) {
         row.check_out_time = frappe.datetime.now_datetime();
     }
-    refresh_field('attached_air_freight_jobs');
+    frm.refresh_field('attached_air_freight_jobs');
 }
 
 function load_job_details(frm, cdt, cdn) {
@@ -842,7 +889,7 @@ function load_job_details(frm, cdt, cdn) {
                     row.contains_dangerous_goods = job.contains_dangerous_goods;
                     row.dg_compliance_status = job.dg_compliance_status;
                     row.dg_declaration_complete = job.dg_declaration_complete;
-                    refresh_field('attached_air_freight_jobs');
+                    frm.refresh_field('attached_air_freight_jobs');
                 }
             }
         });

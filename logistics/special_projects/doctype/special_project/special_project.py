@@ -14,7 +14,31 @@ from logistics.utils.special_project_internal_jobs import (
 
 class SpecialProject(Document):
 	def validate(self):
-		pass
+		self.sync_aggregated_milestones()
+
+	def sync_aggregated_milestones(self):
+		"""Fill child table from Job Milestone rows on linked jobs (native grid; no HTML table)."""
+		job_refs = job_refs_from_internal_job_details(self)
+		by_name = {}
+		for row in job_refs:
+			jt = (row.job_type or "").strip()
+			jn = (row.job or "").strip()
+			if not jt or not jn:
+				continue
+			for r in frappe.get_all(
+				"Job Milestone",
+				filters={"job_type": jt, "job_number": jn},
+				fields=["name", "planned_start"],
+			):
+				if r.name not in by_name:
+					by_name[r.name] = r
+		ordered = sorted(
+			by_name.values(),
+			key=lambda r: (r.planned_start is None, r.planned_start or "", r.name or ""),
+		)
+		self.set("milestones", [])
+		for r in ordered:
+			self.append("milestones", {"job_milestone": r.name})
 
 	def autoname(self):
 		"""Use ERPNext Project ID as Special Project ID (created in before_insert)."""
@@ -581,7 +605,17 @@ def get_milestone_html(special_project):
 			milestones = frappe.get_all(
 				"Job Milestone",
 				filters={"job_type": job_type, "job_number": job_name},
-				fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+				fields=[
+					"name",
+					"milestone",
+					"status",
+					"planned_start",
+					"planned_end",
+					"actual_start",
+					"actual_end",
+					"job_type",
+					"job_number",
+				],
 				order_by="planned_start",
 			)
 			for m in milestones:
@@ -609,9 +643,20 @@ def get_milestone_html(special_project):
 				"planned_end": m.planned_end,
 				"actual_start": m.actual_start,
 				"actual_end": m.actual_end,
+				"job_type": m.job_type,
+				"job_number": m.job_number,
 			}
 			for m in all_milestones
 		]
+
+		empty_hint = (
+			'<p class="text-muted" style="margin:0 0 16px 0;">'
+			+ _(
+				"Milestones come from linked logistics jobs. Add jobs under the <strong>Jobs</strong> tab, "
+				"then use <strong>Get Milestones</strong> on each job (or set a milestone template) to populate rows here."
+			)
+			+ "</p>"
+		)
 
 		return build_milestone_html(
 			doctype="Special Project",
@@ -624,6 +669,7 @@ def get_milestone_html(special_project):
 			include_doc_alerts=False,
 			refresh_method="logistics.special_projects.doctype.special_project.special_project.get_milestone_html",
 			refresh_arg_name="special_project",
+			empty_hint_html=empty_hint,
 		)
 	except Exception as e:
 		frappe.log_error(f"Special Project get_milestone_html: {str(e)}", "Special Project Milestones")

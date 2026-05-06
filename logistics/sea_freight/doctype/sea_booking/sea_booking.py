@@ -671,13 +671,27 @@ class SeaBooking(Document):
 		# Duplicate container checks when numbers are entered (FCL Container No enforced on Sea Shipment submit)
 		self.validate_container_numbers()
 	
-	def after_submit(self):
-		"""Ensure quote field values remain after submission."""
+	def on_submit(self):
+		"""Ensure quote field values remain after submission; update One-off Sales Quote when converted.
+
+		Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
+		"""
 		# Preserve quote field value after submission - ensure it's not cleared
 		# Get the quote value from the database to ensure it's preserved
 		current_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
 		current_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
 		current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+		if (
+			not current_sales_quote
+			and current_quote
+			and frappe.db.exists("Sales Quote", current_quote)
+		):
+			current_sales_quote = current_quote
+		if not current_sales_quote:
+			for cand in (getattr(self, "sales_quote", None), getattr(self, "quote", None)):
+				if cand and frappe.db.exists("Sales Quote", cand):
+					current_sales_quote = cand
+					break
 		
 		# If quote was set before submission, ensure it remains set
 		# This prevents any code from clearing the quote field after submission
@@ -696,6 +710,11 @@ class SeaBooking(Document):
 	def on_cancel(self):
 		"""Reset One-off Sales Quote status when Sea Booking is cancelled."""
 		current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+		if not current_sales_quote:
+			qt = frappe.db.get_value(self.doctype, self.name, 'quote_type')
+			q = frappe.db.get_value(self.doctype, self.name, 'quote')
+			if qt == "One-Off Quote" and q and frappe.db.exists("Sales Quote", q):
+				current_sales_quote = q
 		if current_sales_quote:
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
 			reset_one_off_quote_on_cancel(current_sales_quote)
