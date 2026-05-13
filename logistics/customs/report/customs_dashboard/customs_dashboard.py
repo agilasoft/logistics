@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.utils import getdate, today, add_days, flt
 
 
@@ -12,7 +13,7 @@ def execute(filters=None):
 	data = get_data(f)
 	chart = get_chart_data(data, f)
 	
-	return columns, data, None, chart
+	return columns, data, None, chart, []
 
 
 def get_columns():
@@ -177,11 +178,21 @@ def get_chart_data(data, filters):
 		ORDER BY count DESC
 	""".format(conditions=conditions), filters, as_dict=1)
 	
+	if not status_data:
+		return {
+			"data": {
+				"labels": [_("No declarations in period")],
+				"datasets": [{"name": _("Declarations by Status"), "values": [0]}],
+			},
+			"type": "bar",
+			"colors": ["#6c757d"],
+		}
+	
 	chart = {
 		"data": {
 			"labels": [s.status for s in status_data],
 			"datasets": [{
-				"name": "Declarations by Status",
+				"name": _("Declarations by Status"),
 				"values": [s.count for s in status_data]
 			}]
 		},

@@ -13,7 +13,45 @@ function _scm_pad(specs, n) {
 	return out.slice(0, n);
 }
 
+function scm_route_fallback(frm) {
+	var routes = frm.doc.consolidation_routes || [];
+	if (!routes.length) {
+		return null;
+	}
+	var o = frm.doc.origin_port;
+	var d = frm.doc.destination_port;
+	for (var i = 0; i < routes.length; i++) {
+		var row = routes[i];
+		if (!row) {
+			continue;
+		}
+		if (o && d && row.origin_port === o && row.destination_port === d) {
+			return row;
+		}
+	}
+	return routes[0];
+}
+
 function scm_specs(frm) {
+	var rf = scm_route_fallback(frm);
+	var etd = frm.doc.etd || "";
+	var shipping_line = frm.doc.shipping_line || "";
+	var vessel = frm.doc.vessel_name || "";
+	var voyage = frm.doc.voyage_number || "";
+	if (rf) {
+		if (!etd && rf.etd) {
+			etd = rf.etd;
+		}
+		if (!shipping_line && rf.shipping_line) {
+			shipping_line = rf.shipping_line;
+		}
+		if (!vessel && rf.vessel_name) {
+			vessel = rf.vessel_name;
+		}
+		if (!voyage && rf.voyage_number) {
+			voyage = rf.voyage_number;
+		}
+	}
 	return [
 		{ key: "company", ft: "Link", opt: "Company", lbl: __("Company"), v: frm.doc.company || "" },
 		{ key: "branch", ft: "Link", opt: "Branch", lbl: __("Branch"), v: frm.doc.branch || "" },
@@ -34,18 +72,18 @@ function scm_specs(frm) {
 		{
 			key: "target_etd",
 			ft: "Datetime",
-			lbl: __("ETD (strict date match)"),
-			v: frm.doc.etd || "",
+			lbl: __("ETD date (optional; matches shipment ETD date)"),
+			v: etd,
 		},
 		{
 			key: "shipping_line",
 			ft: "Link",
 			opt: "Shipping Line",
 			lbl: __("Shipping Line"),
-			v: frm.doc.shipping_line || "",
+			v: shipping_line,
 		},
-		{ key: "vessel_name", ft: "Data", lbl: __("Vessel"), v: frm.doc.vessel_name || "" },
-		{ key: "voyage_number", ft: "Data", lbl: __("Voyage"), v: frm.doc.voyage_number || "" },
+		{ key: "vessel_name", ft: "Data", lbl: __("Vessel"), v: vessel },
+		{ key: "voyage_number", ft: "Data", lbl: __("Voyage"), v: voyage },
 	];
 }
 
@@ -71,7 +109,9 @@ function scm_mount($grid, rawSpecs, dlg) {
 			label: "",
 		};
 		if (spec.opt === "Branch") {
-			// Avoid Branch.disabled in filters — search_link enforces field permissions on filter fields.
+			// search_link → get_list validates filter field permissions (permlevel), not just DocType access.
+			// Same pattern as Transport Consolidation branch link_filters: use custom_company, not company,
+			// which is often a restricted custom field on Branch.
 			df.get_query = function () {
 				var cmp = "";
 				(dlg._scm_ctrls || []).forEach(function (x) {
@@ -80,8 +120,8 @@ function scm_mount($grid, rawSpecs, dlg) {
 					}
 				});
 				var f = [];
-				if (cmp) {
-					f.push(["Branch", "company", "=", cmp]);
+				if (cmp && frappe.meta.has_field("Branch", "custom_company")) {
+					f.push(["Branch", "custom_company", "=", cmp]);
 				}
 				return { filters: f };
 			};
@@ -120,6 +160,15 @@ function scm_overrides(dlg) {
 		}
 	});
 	return out;
+}
+
+/** Full dialog filter map (server treats empty strings as “no filter”; avoids merging uncleared fields from the doc). */
+function scm_all_values(dlg) {
+	var o = {};
+	(dlg._scm_ctrls || []).forEach(function (x) {
+		o[x.key] = x.get_val() == null ? "" : String(x.get_val()).trim();
+	});
+	return o;
 }
 
 function scm_debounce_reload(dlg, reload) {
@@ -209,7 +258,7 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 			frappe.call({
 				doc: frm.doc,
 				method: "preview_matching_sea_shipments",
-				args: { filter_overrides: scm_overrides(dlg) },
+				args: { filter_values: scm_all_values(dlg) },
 				callback: function (r) {
 					if (!r || r.exc) {
 						$list.html('<div class="alert alert-danger">' + __("Failed to load.") + "</div>");
@@ -374,7 +423,7 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 							method: "apply_selected_sea_shipments_to_planning",
 							args: {
 								shipment_names: picked,
-								filter_overrides: scm_overrides(dlg),
+								filter_values: scm_all_values(dlg),
 							},
 							freeze: true,
 							freeze_message: __("Updating…"),

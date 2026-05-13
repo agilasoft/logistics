@@ -15,6 +15,7 @@ import json
 
 from logistics.job_management.gl_reference_dimension import reference_dimension_row_dict
 from logistics.invoice_integration.consolidation_pi_allocation import (
+    _attached_shipment_rows,
     allocation_factor_for_attached_job,
     distribute_amounts_with_rounding,
     count_attached_jobs,
@@ -174,9 +175,12 @@ def _get_eligible_consolidation_cost_rows(c_doc) -> List[Tuple[int, Any, float, 
 
 
 def _consolidation_attached_rows(c_doc):
-    if c_doc.doctype == "Air Consolidation":
-        return list(getattr(c_doc, "attached_air_freight_jobs", None) or [])
-    return list(getattr(c_doc, "attached_sea_shipments", None) or [])
+    """Per-shipment rows for PI splitting.
+
+    Air Consolidation derives rows from ``consolidation_packages`` (one per distinct
+    ``air_freight_job``); Sea Consolidation continues to read ``attached_sea_shipments``.
+    """
+    return _attached_shipment_rows(c_doc)
 
 
 def _shipment_doctype_and_name_from_attached(c_doc, attached_row) -> Tuple[str, str]:
@@ -377,7 +381,7 @@ def create_consolidation_purchase_invoice(
                 row.reference_name = sh_name
 
     if not pi.items:
-        frappe.throw(_("No Purchase Invoice lines could be built. Check allocation factors and attached shipments."))
+        frappe.throw(_("No Purchase Invoice lines could be built. Check allocation factors and consolidation packages."))
 
     pi.set_missing_values()
 

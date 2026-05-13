@@ -4,6 +4,30 @@
 
 frappe.provide("logistics.transport_mode_defaults");
 
+function _transport_doc_type_is_empty(v) {
+	return v == null || (typeof v === "string" && v.trim() === "");
+}
+
+/** Deferred so frm.doc / link fields match the server after save or render (avoids needing a manual reload). */
+function _schedule_transport_document_type_apply_if_empty(frm) {
+	if (!frm || !frm.doc) {
+		return;
+	}
+	if (frm._transport_doc_type_apply_tid) {
+		clearTimeout(frm._transport_doc_type_apply_tid);
+	}
+	frm._transport_doc_type_apply_tid = setTimeout(function () {
+		frm._transport_doc_type_apply_tid = null;
+		if (!frm.doc || !frm.doc.transport_mode) {
+			return;
+		}
+		if (!_transport_doc_type_is_empty(frm.doc.transport_document_type)) {
+			return;
+		}
+		logistics.transport_mode_defaults.apply(frm);
+	}, 0);
+}
+
 logistics.transport_mode_defaults.apply = function (frm) {
 	const prev_mode = frm._prev_transport_mode;
 	const new_mode = frm.doc.transport_mode;
@@ -22,7 +46,7 @@ logistics.transport_mode_defaults.apply = function (frm) {
 		}
 		const finish = function (prev_def) {
 			const cur = frm.doc.transport_document_type;
-			if (!cur || cur === prev_def) {
+			if (_transport_doc_type_is_empty(cur) || cur === prev_def) {
 				frm.set_value("transport_document_type", new_default);
 			}
 			sync_prev();
@@ -40,21 +64,41 @@ logistics.transport_mode_defaults.apply = function (frm) {
 	});
 };
 
+/** Link query + optional default; runs without waiting for a later form refresh. */
+function _transport_document_type_setup_query_and_maybe_apply(frm) {
+	frm._prev_transport_mode = frm.doc.transport_mode;
+	frm.set_query("transport_document_type", function () {
+		return {
+			query:
+				"logistics.utils.transport_document_type_link_query.transport_document_type_by_mode_search",
+			filters: { transport_mode: frm.doc.transport_mode || "" },
+		};
+	});
+	// Mode set without a transport_mode change event (e.g. loaded from DB, after save sync, quick entry).
+	if (frm.doc.transport_mode && _transport_doc_type_is_empty(frm.doc.transport_document_type)) {
+		_schedule_transport_document_type_apply_if_empty(frm);
+	}
+}
+
+if (!window._logistics_transport_doc_type_form_refresh_bound) {
+	window._logistics_transport_doc_type_form_refresh_bound = true;
+	$(document).on("form-refresh.logistics_transport_doc_type", function (_e, frm) {
+		if (!frm || (frm.doctype !== "Declaration Order" && frm.doctype !== "Declaration")) {
+			return;
+		}
+		if (frm.doc && frm.doc.transport_mode && _transport_doc_type_is_empty(frm.doc.transport_document_type)) {
+			_schedule_transport_document_type_apply_if_empty(frm);
+		}
+	});
+}
+
 ["Declaration Order", "Declaration"].forEach(function (doctype) {
 	frappe.ui.form.on(doctype, {
+		onload_post_render: function (frm) {
+			_transport_document_type_setup_query_and_maybe_apply(frm);
+		},
 		refresh: function (frm) {
-			frm._prev_transport_mode = frm.doc.transport_mode;
-			frm.set_query("transport_document_type", function () {
-				return {
-					query:
-						"logistics.utils.transport_document_type_link_query.transport_document_type_by_mode_search",
-					filters: { transport_mode: frm.doc.transport_mode || "" },
-				};
-			});
-			// Saved / new forms: mode is set but default was never applied (no transport_mode change event).
-			if (frm.doc.transport_mode && !frm.doc.transport_document_type) {
-				logistics.transport_mode_defaults.apply(frm);
-			}
+			_transport_document_type_setup_query_and_maybe_apply(frm);
 		},
 		transport_mode: function (frm) {
 			logistics.transport_mode_defaults.apply(frm);

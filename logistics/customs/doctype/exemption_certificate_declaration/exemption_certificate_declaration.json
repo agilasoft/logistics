@@ -25,12 +25,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Amount of this certificate allocated to the linked declaration. Summed into Used Value on the certificate.",
    "fieldname": "exempted_value",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Exempted Value"
   },
   {
+   "description": "Quantity of this certificate allocated to the linked declaration. Summed into Used Quantity on the certificate.",
    "fieldname": "exempted_quantity",
    "fieldtype": "Float",
    "label": "Exempted Quantity"

@@ -1,14 +1,23 @@
+import math
+
 import frappe
+from frappe.exceptions import ValidationError
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, cstr, flt
 import json
 from datetime import datetime, timedelta
 
 from logistics.utils.consolidation_plan import (
+	AIR_ALIGNMENT_PREVIEW_MAX_ROWS,
+	air_shipment_allowed_on_plan,
+	air_shipment_matches_plan_filter,
 	assert_air_consolidation_plan_requirements,
-	clear_air_plan_links_for_consolidation,
-	sync_air_plan_item_links,
+	assert_air_plan_fields_for_filter_match,
+	conflicting_submitted_air_planning_elsewhere,
+	count_filtered_air_shipments,
+	get_air_shipment_names_from_consolidation,
+	get_filtered_air_shipment_names,
 )
 
 
@@ -70,7 +79,7 @@ class AirConsolidation(Document):
                 </div>"""
 
             if not cards_html:
-                cards_html = '<div class="text-muted">No milestones. Use Get Milestones in Milestones tab. Attached Air Shipments in Shipments tab.</div>'
+                cards_html = '<div class="text-muted">No milestones. Use Get Milestones in Milestones tab. Manage planned shipments in the Shipments tab.</div>'
 
             return build_run_sheet_style_dashboard(
                 header_title=self.name or "Air Consolidation",
@@ -94,8 +103,8 @@ class AirConsolidation(Document):
 
     def validate(self):
         """Validate Air Consolidation document"""
+        self._prevent_planning_lines_edit_when_submitted()
         self.validate_dates()
-        self.validate_consolidation_data()
         self.validate_route_consistency()
         self.validate_capacity_constraints()
         self.validate_attached_jobs_compatibility()
@@ -103,7 +112,79 @@ class AirConsolidation(Document):
         self.calculate_consolidation_metrics()
         self.validate_dangerous_goods_compliance()
         self.validate_accounts()
+        self._validate_consolidation_planning_lines()
         assert_air_consolidation_plan_requirements(self)
+
+    def _prevent_planning_lines_edit_when_submitted(self):
+        if getattr(self.flags, "ignore_planning_lines_lock", False):
+            return
+        if getattr(frappe.flags, "in_install", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(frappe.flags, "in_import", False):
+            return
+        if self.is_new():
+            return
+        if (self.air_planning_status or "Draft") != "Submitted":
+            return
+        prev = self.get_doc_before_save()
+        if not prev:
+            return
+
+        def shipment_tuple(doc):
+            return tuple(
+                sorted(
+                    getattr(r, "air_shipment", None)
+                    for r in (doc.consolidation_planning_lines or [])
+                    if getattr(r, "air_shipment", None)
+                )
+            )
+
+        if shipment_tuple(prev) != shipment_tuple(self):
+            frappe.throw(
+                _(
+                    "Planned shipments cannot be changed while planning status is Submitted. "
+                    "Reset planned shipments to draft if you need to edit the list."
+                ),
+                title=_("Planning locked"),
+            )
+
+    def _validate_consolidation_planning_lines(self):
+        rows = self.get("consolidation_planning_lines") or []
+        seen = set()
+        for row in rows:
+            sh = row.air_shipment
+            if not sh:
+                continue
+            if sh in seen:
+                frappe.throw(_("Air Shipment {0} is duplicated in planning lines.").format(sh))
+            seen.add(sh)
+            ok, msg = air_shipment_allowed_on_plan(sh)
+            if not ok:
+                frappe.throw(msg)
+            origin = frappe.db.get_value("Air Shipment", sh, "origin_port")
+            dest = frappe.db.get_value("Air Shipment", sh, "destination_port")
+            if self.origin_airport and origin and origin != self.origin_airport:
+                frappe.throw(
+                    _("Air Shipment {0} origin {1} does not match consolidation origin {2}.").format(
+                        sh, origin, self.origin_airport
+                    )
+                )
+            if self.destination_airport and dest and dest != self.destination_airport:
+                frappe.throw(
+                    _("Air Shipment {0} destination {1} does not match consolidation destination {2}.").format(
+                        sh, dest, self.destination_airport
+                    )
+                )
+            if (self.air_planning_status or "Draft") == "Draft":
+                if conflicting_submitted_air_planning_elsewhere(
+                    sh, self.name if not self.is_new() else None
+                ):
+                    frappe.throw(
+                        _(
+                            "Air Shipment {0} is already reserved on another consolidation's submitted planning."
+                        ).format(sh),
+                        title=_("Planning Conflict"),
+                    )
     
     def before_save(self):
         """Actions before saving the document"""
@@ -134,22 +215,297 @@ class AirConsolidation(Document):
     def on_update(self):
         """Actions after document update"""
         self.update_related_air_freight_jobs()
-        self.update_attached_jobs_table()
         self.send_consolidation_notifications()
-        sync_air_plan_item_links(self)
-    
-    def on_cancel(self):
-        clear_air_plan_links_for_consolidation(self.name)
-    
-    def validate_consolidation_data(self):
-        """Validate consolidation data integrity"""
+
+    def before_submit(self):
         if not self.consolidation_packages:
             frappe.throw(_("At least one package must be added to the consolidation"))
-        
         if not self.consolidation_routes:
             frappe.throw(_("At least one route must be defined for the consolidation"))
-        
-        # Date validation is handled in validate_dates() method
+        distinct_jobs = set(get_air_shipment_names_from_consolidation(self))
+        for row in self.get("consolidation_planning_lines") or []:
+            aj = getattr(row, "air_shipment", None)
+            if aj:
+                distinct_jobs.add(aj)
+        if len(distinct_jobs) == 1:
+            frappe.throw(
+                _("An Air Consolidation must include at least two distinct Air Shipments."),
+                title=_("Insufficient shipments"),
+            )
+        if get_air_shipment_names_from_consolidation(self) and (self.air_planning_status or "Draft") != "Submitted":
+            frappe.throw(
+                _("Submit the planned shipment list (Planning status) before submitting the consolidation."),
+                title=_("Planning required"),
+            )
+
+    def _air_plan_route_fallback_row(self):
+        """Prefer child route matching header O/D; else first route (main leg data often lives here)."""
+        routes = self.get("consolidation_routes") or []
+        if not routes:
+            return None
+        ho, hd = self.origin_airport, self.destination_airport
+        for row in routes:
+            ro = getattr(row, "origin_airport", None)
+            rd = getattr(row, "destination_airport", None)
+            if ho and hd and ro == ho and rd == hd:
+                return row
+        return routes[0]
+
+    def _air_plan_match_dict(self):
+        dep = self.departure_date
+        airline = self.airline
+        flight_number = self.flight_number
+        r = self._air_plan_route_fallback_row()
+        if r:
+            if not dep:
+                # Route table uses Date; strict match uses calendar day only (getdate on target).
+                dep = getattr(r, "departure_date", None) or dep
+            if not airline:
+                airline = getattr(r, "airline", None)
+            if not (flight_number or "").strip():
+                flight_number = getattr(r, "flight_number", None)
+        return {
+            "company": self.company,
+            "branch": self.branch,
+            "origin_airport": self.origin_airport,
+            "destination_airport": self.destination_airport,
+            "target_departure": dep,
+            "airline": airline,
+            "flight_number": flight_number,
+        }
+
+    def _merged_air_plan_match_dict_from_dialog(self, filter_overrides):
+        keys = (
+            "company",
+            "branch",
+            "origin_airport",
+            "destination_airport",
+            "target_departure",
+            "airline",
+            "flight_number",
+        )
+        base = dict(self._air_plan_match_dict())
+        o = filter_overrides or {}
+        if isinstance(o, str):
+            o = frappe.parse_json(o) or {}
+        if not isinstance(o, dict):
+            o = {}
+        # Explicit empty override clears that criterion so users can e.g. filter by airline only
+        # without Company/Branch/Flight from the consolidation header still being applied.
+        for key in keys:
+            if key not in o:
+                continue
+            val = o[key]
+            if val is None or (isinstance(val, str) and not str(val).strip()):
+                base[key] = None
+                continue
+            base[key] = val
+        return base
+
+    @frappe.whitelist()
+    def preview_matching_air_shipments(self, filter_overrides=None):
+        """Return all filter-matching shipments (one scrollable list; capped for safety).
+
+        Matching uses plan criteria only (company, branch, ports, dates, airline, flight, etc.).
+        Document ``name`` may use any naming series (e.g. ASP-, legacy prefixes); none are excluded by ID pattern.
+        """
+        # Do not reload from DB: the dialog reads frm.doc (including unsaved edits). Reloading
+        # would query with stale header fields while the UI still shows the user's criteria.
+        if self.is_new():
+            return {"error": _("Save the consolidation first.")}
+
+        merged = self._merged_air_plan_match_dict_from_dialog(filter_overrides)
+        try:
+            assert_air_plan_fields_for_filter_match(merged)
+        except ValidationError as e:
+            return {"error": cstr(getattr(e, "message", e))}
+
+        total_count = count_filtered_air_shipments(merged)
+        candidates = get_filtered_air_shipment_names(
+            merged,
+            offset=0,
+            limit=AIR_ALIGNMENT_PREVIEW_MAX_ROWS,
+        )
+        present = {
+            r.air_shipment
+            for r in (self.get("consolidation_planning_lines") or [])
+            if getattr(r, "air_shipment", None)
+        }
+
+        rows = []
+        for name in candidates:
+            shipment = frappe.db.get_value(
+                "Air Shipment",
+                name,
+                [
+                    "name",
+                    "job_status",
+                    "origin_port",
+                    "destination_port",
+                    "airline",
+                    "etd",
+                    "company",
+                    "branch",
+                ],
+                as_dict=True,
+            ) or {}
+
+            row = {"name": name, "job_status": shipment.get("job_status") or "", "row_type": "eligible"}
+            if shipment.get("company") and shipment.get("branch"):
+                row["subtitle"] = "{0} · {1}".format(
+                    shipment.get("company"),
+                    shipment.get("branch"),
+                )
+            if name in present:
+                row["row_type"] = "already"
+                row["origin_port"] = shipment.get("origin_port") or ""
+                row["destination_port"] = shipment.get("destination_port") or ""
+                row["airline"] = shipment.get("airline") or ""
+                row["etd"] = shipment.get("etd")
+                rows.append(row)
+                continue
+            ok, msg = air_shipment_allowed_on_plan(name)
+            if not ok:
+                row["row_type"] = "blocked"
+                row["reason"] = cstr(msg)
+                rows.append(row)
+                continue
+            if conflicting_submitted_air_planning_elsewhere(name, self.name):
+                row["row_type"] = "blocked"
+                row["reason"] = _("Reserved on another consolidation's submitted planning.")
+                rows.append(row)
+                continue
+            row["origin_port"] = shipment.get("origin_port") or ""
+            row["destination_port"] = shipment.get("destination_port") or ""
+            row["airline"] = shipment.get("airline") or ""
+            row["etd"] = shipment.get("etd")
+            rows.append(row)
+
+        addable = len([r for r in rows if r.get("row_type") == "eligible"])
+        banner = _("{0} match(es); {1} can be added").format(total_count, addable)
+        if total_count > AIR_ALIGNMENT_PREVIEW_MAX_ROWS:
+            banner += " · " + _("Showing first {0} rows; narrow filters if you need the rest.").format(
+                AIR_ALIGNMENT_PREVIEW_MAX_ROWS
+            )
+        return {
+            "rows": rows,
+            "message": banner,
+            "total_count": total_count,
+        }
+
+    @frappe.whitelist()
+    def apply_selected_air_shipments_to_planning(self, shipment_names, filter_overrides=None):
+        """Append shipments chosen in the alignment dialog."""
+        names = frappe.parse_json(shipment_names) if isinstance(shipment_names, str) else shipment_names
+        if not names:
+            frappe.throw(_("Select at least one shipment."), title=_("Nothing selected"))
+
+        merged = self._merged_air_plan_match_dict_from_dialog(filter_overrides)
+        try:
+            assert_air_plan_fields_for_filter_match(merged)
+        except ValidationError as e:
+            frappe.throw(cstr(getattr(e, "message", e)))
+
+        self.reload()
+        if (self.air_planning_status or "Draft") == "Submitted":
+            frappe.throw(_("Cannot add shipments after planning is submitted."), title=_("Planning locked"))
+
+        added, skipped = [], []
+        seen = set()
+        for nm in names:
+            if nm in seen:
+                continue
+            seen.add(nm)
+            if not air_shipment_matches_plan_filter(nm, merged):
+                skipped.append(nm)
+                continue
+            ok, msg = air_shipment_allowed_on_plan(nm)
+            if not ok:
+                frappe.throw(cstr(msg))
+            if conflicting_submitted_air_planning_elsewhere(nm, self.name):
+                frappe.throw(_("Air Shipment {0} cannot be reserved on this consolidation.").format(nm))
+            self.append("consolidation_planning_lines", {"air_shipment": nm})
+            self._append_consolidation_packages_from_air_shipment(nm)
+            added.append(nm)
+
+        self.save()
+        msg = _("{0} added").format(len(added))
+        if skipped:
+            msg += " · " + _("{0} not applied (criteria changed or not eligible).").format(len(skipped))
+        return {"added": added, "skipped": skipped, "message": msg}
+
+    @frappe.whitelist()
+    def fetch_matching_air_shipments(self):
+        self.reload()
+        if (self.air_planning_status or "Draft") == "Submitted":
+            frappe.throw(_("Cannot fetch shipments after planning is submitted."), title=_("Planning locked"))
+        if self.is_new():
+            frappe.throw(_("Save the consolidation before fetching shipments."), title=_("Save required"))
+        assert_air_plan_fields_for_filter_match(self._air_plan_match_dict())
+        candidates = get_filtered_air_shipment_names(self._air_plan_match_dict())
+        present = {
+            r.air_shipment
+            for r in (self.get("consolidation_planning_lines") or [])
+            if getattr(r, "air_shipment", None)
+        }
+        added, already_present, skipped = [], [], []
+        for name in candidates:
+            if name in present:
+                already_present.append(name)
+                continue
+            ok, msg = air_shipment_allowed_on_plan(name)
+            if not ok:
+                skipped.append({"shipment": name, "reason": msg})
+                continue
+            if conflicting_submitted_air_planning_elsewhere(name, self.name):
+                skipped.append(
+                    {
+                        "shipment": name,
+                        "reason": _("Reserved on another consolidation's submitted planning."),
+                    }
+                )
+                continue
+            self.append("consolidation_planning_lines", {"air_shipment": name})
+            self._append_consolidation_packages_from_air_shipment(name)
+            added.append(name)
+            present.add(name)
+        self.save()
+        return {"added": added, "already_present": already_present, "skipped": skipped}
+
+    @frappe.whitelist()
+    def submit_air_planning(self):
+        self.reload()
+        if (self.air_planning_status or "Draft") == "Submitted":
+            frappe.throw(_("Planning is already submitted."), title=_("Already submitted"))
+        if not self.get("consolidation_planning_lines"):
+            frappe.throw(
+                _("Add at least one shipment to planning before submitting."), title=_("No Lines")
+            )
+        self.air_planning_status = "Submitted"
+        if not self.planning_owner:
+            self.planning_owner = frappe.session.user
+        self.save()
+        return self.air_planning_status
+
+    @frappe.whitelist()
+    def cancel_air_planning_submit(self):
+        self.reload()
+        if (self.air_planning_status or "Draft") != "Submitted":
+            frappe.throw(_("Planning is not submitted."), title=_("Not submitted"))
+        if self.docstatus != 0:
+            frappe.throw(
+                _("Cancel planning only while the consolidation is still draft (not submitted)."),
+                title=_("Not allowed"),
+            )
+        if get_air_shipment_names_from_consolidation(self):
+            frappe.throw(
+                _("Remove packages that reference air shipments before cancelling planning."),
+                title=_("Cargo linked"),
+            )
+        self.air_planning_status = "Draft"
+        self.planning_owner = None
+        self.save()
+        return self.air_planning_status
     
     def validate_route_consistency(self):
         """Validate route consistency and connectivity"""
@@ -159,16 +515,18 @@ class AirConsolidation(Document):
                     # Check if destination of previous route matches origin of current route
                     prev_route = self.consolidation_routes[i-1]
                     if prev_route.destination_airport != route.origin_airport:
-                        frappe.throw(_("Route {0}: Origin airport must match destination of previous route".format(route.route_sequence)))
+                        frappe.throw(
+                            _("Route {0}: Origin airport must match destination of previous route").format(i + 1)
+                        )
     
     def validate_capacity_constraints(self):
         """Validate capacity constraints for all routes"""
-        for route in self.consolidation_routes:
+        for i, route in enumerate(self.consolidation_routes, start=1):
             if route.cargo_capacity_kg and self.total_weight > route.cargo_capacity_kg:
-                frappe.throw(_("Route {0}: Total weight exceeds cargo capacity".format(route.route_sequence)))
-            
+                frappe.throw(_("Route {0}: Total weight exceeds cargo capacity").format(i))
+
             if route.cargo_capacity_volume and self.total_volume > route.cargo_capacity_volume:
-                frappe.throw(_("Route {0}: Total volume exceeds cargo capacity".format(route.route_sequence)))
+                frappe.throw(_("Route {0}: Total volume exceeds cargo capacity").format(i))
     
     def validate_attached_jobs_compatibility(self):
         """Validate that attached Air Shipments are compatible for consolidation"""
@@ -294,9 +652,11 @@ class AirConsolidation(Document):
         
         if dg_packages:
             # Check if all routes allow dangerous goods
-            for route in self.consolidation_routes:
+            for i, route in enumerate(self.consolidation_routes, start=1):
                 if not route.dangerous_goods_allowed:
-                    frappe.throw(_("Route {0} does not allow dangerous goods, but consolidation contains DG packages".format(route.route_sequence)))
+                    frappe.throw(
+                        _("Route {0} does not allow dangerous goods, but consolidation contains DG packages").format(i)
+                    )
             
             # Validate DG segregation requirements
             self.validate_dg_segregation(dg_packages)
@@ -335,11 +695,12 @@ class AirConsolidation(Document):
         """Calculate total charges for the consolidation"""
         total_charges = 0
         
+        cw = flt(self.chargeable_weight or 0)
         for charge in self.consolidation_charges:
             if charge.revenue_calculation_method == "Per Unit":
                 ut = getattr(charge, "unit_type", None)
                 if ut == "Weight":
-                    charge.base_amount = charge.rate * self.chargeable_weight
+                    charge.base_amount = charge.rate * cw
                 elif ut == "Chargeable Weight":
                     cq = flt(self.chargeable_weight or 0)
                     if cq <= 0:
@@ -354,7 +715,7 @@ class AirConsolidation(Document):
             elif charge.revenue_calculation_method == "Flat Rate":
                 charge.base_amount = charge.rate
             elif charge.revenue_calculation_method == "Percentage":
-                charge.base_amount = charge.rate * (self.chargeable_weight * 0.01)
+                charge.base_amount = charge.rate * (cw * 0.01)
             
             # Calculate discount
             if charge.discount_percentage:
@@ -366,12 +727,14 @@ class AirConsolidation(Document):
             total_charges += charge.total_amount
         
         # Calculate cost per kg
-        if self.chargeable_weight > 0:
-            self.cost_per_kg = total_charges / self.chargeable_weight
+        if cw > 0:
+            self.cost_per_kg = total_charges / cw
     
     def optimize_consolidation_ratio(self):
         """Optimize consolidation ratio for better space utilization"""
-        if self.total_weight > 0 and self.total_volume > 0:
+        tw = flt(self.total_weight or 0)
+        tv = flt(self.total_volume or 0)
+        if tw > 0 and tv > 0:
             # Get settings for volume to weight factor
             from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
 
@@ -382,11 +745,12 @@ class AirConsolidation(Document):
                 standard_density = settings.volume_to_weight_factor or IATA_VOLUMETRIC_DENSITY_KG_M3
             
             # Calculate density
-            density = self.total_weight / self.total_volume
+            density = tw / tv
             
             if density < standard_density:
                 # Low density cargo - volume weight applies
-                self.consolidation_ratio = (self.chargeable_weight / self.total_weight) * 100
+                cw = flt(self.chargeable_weight or 0)
+                self.consolidation_ratio = (cw / tw) * 100
             else:
                 # High density cargo - actual weight applies
                 self.consolidation_ratio = 100
@@ -434,7 +798,220 @@ class AirConsolidation(Document):
             subject=subject,
             message=message
         )
-    
+
+    def _package_references_in_use_air(self):
+        refs = set()
+        for row in self.get("consolidation_packages") or []:
+            ref = getattr(row, "package_reference", None)
+            if ref:
+                refs.add(ref)
+        return refs
+
+    def _allocate_consolidation_package_reference_air(self, air_shipment, idx, line_reference_no, used_refs):
+        """Stable unique ``package_reference`` for Air Consolidation Packages (autoname + global unique)."""
+
+        def _is_free(candidate):
+            if not candidate:
+                return False
+            if candidate in used_refs:
+                return False
+            return not frappe.db.exists("Air Consolidation Packages", candidate)
+
+        raw = (line_reference_no or "").strip()
+        if _is_free(raw):
+            used_refs.add(raw)
+            return raw
+        base = "{0}-P{1}".format(air_shipment, idx)
+        ref = base
+        suffix = 1
+        while not _is_free(ref):
+            suffix += 1
+            ref = "{0}-{1}".format(base, suffix)
+        used_refs.add(ref)
+        return ref
+
+    def _emergency_contact_from_air_pkg_line(self, sp):
+        parts = []
+        for f in ("emergency_contact_name", "emergency_contact_phone", "emergency_contact_email"):
+            v = getattr(sp, f, None)
+            if v is None:
+                continue
+            s = str(v).strip()
+            if s:
+                parts.append(s)
+        return " / ".join(parts) if parts else ""
+
+    @staticmethod
+    def _other_commodity_code_for_consolidation(code):
+        """Return a value safe for ``consolidation_packages.commodity`` (Link: Other Commodity Code).
+
+        Package lines on Air Shipment use Link ``Commodity``; names may differ or point to missing rows.
+        """
+        if code is None:
+            return None
+        name = cstr(code).strip()
+        if not name:
+            return None
+        return name if frappe.db.exists("Other Commodity Code", name) else None
+
+    def _first_consolidation_commodity_from_air_shipment(self, job):
+        for sp in job.get("packages") or []:
+            oc = self._other_commodity_code_for_consolidation(getattr(sp, "commodity", None))
+            if oc:
+                return oc
+        return None
+
+    def _air_consolidation_row_dg_fields(self, sp, job):
+        """Return (contains_dg, dg_class, un_number, proper_shipping_name, emergency_contact) for child validation."""
+        line_dg = bool(
+            getattr(sp, "dg_substance", None)
+            or (getattr(sp, "dg_class", None) or "").strip()
+            or (getattr(sp, "un_number", None) or "").strip()
+        )
+        emergency = self._emergency_contact_from_air_pkg_line(sp)
+        dg_c = (getattr(sp, "dg_class", None) or "").strip() or None
+        un = (getattr(sp, "un_number", None) or "").strip() or None
+        psn = (getattr(sp, "proper_shipping_name", None) or "").strip() or None
+        if line_dg and dg_c and un and psn and emergency:
+            return True, dg_c, un, psn, emergency
+        if line_dg or (job.contains_dangerous_goods and not line_dg):
+            # Incomplete DG data on line or header-only DG — store as non-DG row so save validates.
+            return False, None, None, None, None
+        return False, None, None, None, None
+
+    def _append_one_air_consolidation_package_row(
+        self,
+        air_shipment,
+        job,
+        *,
+        package_reference,
+        package_type,
+        package_count,
+        package_weight,
+        package_volume,
+        commodity,
+        description,
+        contains_dangerous_goods,
+        dg_class,
+        un_number,
+        proper_shipping_name,
+        emergency_contact,
+        temperature_controlled,
+        min_temperature,
+        max_temperature,
+    ):
+        row = self.append(
+            "consolidation_packages",
+            {
+                "package_reference": package_reference,
+                "air_freight_job": air_shipment,
+                "shipper": job.shipper,
+                "consignee": job.consignee,
+                "package_type": package_type,
+                "package_count": package_count,
+                "package_weight": package_weight,
+                "package_volume": package_volume,
+                "commodity": commodity,
+                "description": description or "",
+                "contains_dangerous_goods": 1 if contains_dangerous_goods else 0,
+                "dg_class": dg_class or None,
+                "un_number": un_number or None,
+                "proper_shipping_name": proper_shipping_name or None,
+                "emergency_contact": emergency_contact or None,
+                "temperature_controlled": 1 if temperature_controlled else 0,
+                "min_temperature": min_temperature,
+                "max_temperature": max_temperature,
+            },
+        )
+        return row
+
+    def _append_consolidation_packages_from_air_shipment(self, air_shipment):
+        """Mirror Air Shipment package lines into ``consolidation_packages`` (or one header summary row).
+
+        Skips if any consolidation package row already exists for this shipment on this document.
+        Used when shipments are added via planning alignment (same pattern as Sea Consolidation).
+        """
+        if not air_shipment:
+            return []
+        if self.name and frappe.db.exists(
+            "Air Consolidation Packages",
+            {"air_freight_job": air_shipment, "parent": self.name},
+        ):
+            return []
+
+        job = frappe.get_doc("Air Shipment", air_shipment)
+        used_refs = self._package_references_in_use_air()
+        appended = []
+        pkg_lines = [r for r in (job.get("packages") or []) if r is not None]
+
+        if pkg_lines:
+            for i, sp in enumerate(pkg_lines, start=1):
+                n_packs = flt(getattr(sp, "no_of_packs", 0) or 0)
+                if n_packs > 0:
+                    pack_count = max(1, cint(math.ceil(n_packs)))
+                else:
+                    pack_count = 1
+                w = flt(getattr(sp, "weight", 0) or 0)
+                v = flt(getattr(sp, "volume", 0) or 0)
+                if w <= 0:
+                    tw = flt(getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0)
+                    w = tw / len(pkg_lines) if tw else 0
+                if w <= 0:
+                    w = 0.01
+                line_ref = getattr(sp, "reference_no", None)
+                pkg_ref = self._allocate_consolidation_package_reference_air(
+                    air_shipment, i, line_ref, used_refs
+                )
+                dg_ok, dg_c, un, psn, emerg = self._air_consolidation_row_dg_fields(sp, job)
+                temp_flag = bool(getattr(sp, "temp_controlled", 0))
+                row = self._append_one_air_consolidation_package_row(
+                    air_shipment,
+                    job,
+                    package_reference=pkg_ref,
+                    package_type="Box",
+                    package_count=pack_count,
+                    package_weight=w,
+                    package_volume=v,
+                    commodity=self._other_commodity_code_for_consolidation(getattr(sp, "commodity", None)),
+                    description=getattr(sp, "goods_description", None) or "",
+                    contains_dangerous_goods=dg_ok,
+                    dg_class=dg_c,
+                    un_number=un,
+                    proper_shipping_name=psn,
+                    emergency_contact=emerg,
+                    temperature_controlled=temp_flag,
+                    min_temperature=getattr(sp, "min_temperature", None) if temp_flag else None,
+                    max_temperature=getattr(sp, "max_temperature", None) if temp_flag else None,
+                )
+                appended.append(row)
+        else:
+            pkg_ref = self._allocate_consolidation_package_reference_air(air_shipment, 1, None, used_refs)
+            tw = flt(getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0)
+            if tw <= 0:
+                tw = 0.01
+            row = self._append_one_air_consolidation_package_row(
+                air_shipment,
+                job,
+                package_reference=pkg_ref,
+                package_type="Box",
+                package_count=max(1, cint(job.packs or 1)),
+                package_weight=tw,
+                package_volume=flt(getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0),
+                commodity=None,
+                description=getattr(job, "description", None) or "",
+                contains_dangerous_goods=False,
+                dg_class=None,
+                un_number=None,
+                proper_shipping_name=None,
+                emergency_contact=None,
+                temperature_controlled=0,
+                min_temperature=None,
+                max_temperature=None,
+            )
+            appended.append(row)
+
+        return appended
+
     @frappe.whitelist()
     def add_package_from_job(self, air_freight_job):
         """Add package from Air Shipment to consolidation"""
@@ -458,7 +1035,8 @@ class AirConsolidation(Document):
         package.package_count = job.packs or 1
         package.package_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
         package.package_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0
-        package.commodity = job.description
+        package.commodity = self._first_consolidation_commodity_from_air_shipment(job)
+        package.description = getattr(job, "description", None) or ""
         package.contains_dangerous_goods = job.contains_dangerous_goods or 0
         
         self.save()
@@ -478,11 +1056,11 @@ class AirConsolidation(Document):
         
         # Sort by score (lower is better)
         route_scores.sort(key=lambda x: x[1])
-        
-        # Update route sequence based on optimization
-        for i, (route, score) in enumerate(route_scores):
-            route.route_sequence = i + 1
-        
+
+        # Child row order follows idx (same pattern as Sea Consolidation Routes without route_sequence)
+        for i, (route, score) in enumerate(route_scores, start=1):
+            route.idx = i
+
         self.save()
         return route_scores
     
@@ -513,10 +1091,10 @@ class AirConsolidation(Document):
             "packages": []
         }
         
-        # Add route information
-        for route in self.consolidation_routes:
+        # Add route information (sequence = row order in grid)
+        for seq, route in enumerate(self.consolidation_routes, start=1):
             report_data["routes"].append({
-                "sequence": route.route_sequence,
+                "sequence": seq,
                 "origin": route.origin_airport,
                 "destination": route.destination_airport,
                 "airline": route.airline,
@@ -545,7 +1123,7 @@ class AirConsolidation(Document):
         """Check capacity availability for all routes"""
         capacity_info = []
         
-        for route in self.consolidation_routes:
+        for seq, route in enumerate(self.consolidation_routes, start=1):
             available_weight = route.available_capacity_kg or 0
             available_volume = route.available_capacity_volume or 0
             
@@ -553,7 +1131,7 @@ class AirConsolidation(Document):
             volume_utilization = (self.total_volume / available_volume * 100) if available_volume > 0 else 0
             
             capacity_info.append({
-                "route_sequence": route.route_sequence,
+                "sequence": seq,
                 "available_weight": available_weight,
                 "available_volume": available_volume,
                 "weight_utilization": weight_utilization,
@@ -591,45 +1169,6 @@ class AirConsolidation(Document):
             cost_breakdown["cost_per_kg"] = cost_breakdown["total_cost"] / self.chargeable_weight
         
         return cost_breakdown
-    
-    def update_attached_jobs_table(self):
-        """Update the virtual child table with attached Air Shipments"""
-        # Clear existing attached jobs
-        self.attached_air_freight_jobs = []
-        
-        # Get all Air Shipments from consolidation packages
-        job_ids = [package.air_freight_job for package in self.consolidation_packages if package.air_freight_job]
-        
-        for i, job_id in enumerate(job_ids):
-            job = frappe.get_doc("Air Shipment", job_id)
-            
-            # Create attached job entry
-            attached_job = self.append("attached_air_freight_jobs", {})
-            attached_job.air_freight_job = job_id
-            attached_job.job_status = "Submitted" if job.docstatus == 1 else "Cancelled" if job.docstatus == 2 else "Draft"
-            attached_job.booking_date = job.booking_date
-            attached_job.shipper = job.shipper
-            attached_job.consignee = job.consignee
-            attached_job.origin_port = job.origin_port
-            attached_job.destination_port = job.destination_port
-            attached_job.weight = getattr(job, "total_weight", None) or job.weight
-            attached_job.volume = getattr(job, "total_volume", None) or job.volume
-            attached_job.packs = job.packs
-            attached_job.value = getattr(job, "goods_value", None) or 0
-            attached_job.currency = getattr(job, "billing_currency", None) or frappe.get_cached_value("Company", job.company, "default_currency") if job.company else None
-            attached_job.incoterm = job.incoterm
-            attached_job.contains_dangerous_goods = job.contains_dangerous_goods or 0
-            attached_job.dg_compliance_status = job.dg_compliance_status
-            attached_job.dg_declaration_complete = job.dg_declaration_complete
-            attached_job.consolidation_status = "Pending"
-            attached_job.position_in_consolidation = i + 1
-            
-            # Calculate cost allocation
-            if self.total_weight > 0:
-                job_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
-                attached_job.cost_allocation_percentage = (job_weight / self.total_weight) * 100
-            else:
-                attached_job.cost_allocation_percentage = 0
     
     @frappe.whitelist()
     def add_air_freight_job(self, air_freight_job):
@@ -673,11 +1212,9 @@ class AirConsolidation(Document):
         package.package_count = job.packs or 1
         package.package_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
         package.package_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0
-        package.commodity = job.description
+        package.commodity = self._first_consolidation_commodity_from_air_shipment(job)
+        package.description = getattr(job, "description", None) or ""
         package.contains_dangerous_goods = job.contains_dangerous_goods or 0
-        
-        # Update the attached jobs table
-        self.update_attached_jobs_table()
         
         self.save()
         return package
@@ -694,9 +1231,6 @@ class AirConsolidation(Document):
         for package in packages_to_remove:
             self.remove(package)
         
-        # Update the attached jobs table
-        self.update_attached_jobs_table()
-        
         # Clear consolidation reference from the job
         frappe.db.set_value("Air Shipment", air_freight_job, {
             "consolidation_reference": None,
@@ -709,6 +1243,61 @@ class AirConsolidation(Document):
     @frappe.whitelist()
     def get_consolidation_summary(self):
         """Get comprehensive consolidation summary"""
+        # Per-shipment summary derives from consolidation_packages (one entry per distinct
+        # air_freight_job, weight/volume/value summed across that shipment's package rows).
+        shipment_summaries: "dict[str, dict]" = {}
+        order: list = []
+        total_weight_header = flt(self.total_weight or 0)
+        for pkg in (self.consolidation_packages or []):
+            job = getattr(pkg, "air_freight_job", None)
+            if not job:
+                continue
+            if job not in shipment_summaries:
+                shipment_summaries[job] = {
+                    "air_freight_job": job,
+                    "weight": 0.0,
+                    "volume": 0.0,
+                    "value": 0.0,
+                    "dangerous_goods": 0,
+                }
+                order.append(job)
+            entry = shipment_summaries[job]
+            entry["weight"] += flt(getattr(pkg, "package_weight", None) or 0)
+            entry["volume"] += flt(getattr(pkg, "package_volume", None) or 0)
+            entry["value"] += flt(getattr(pkg, "value", None) or 0)
+            if getattr(pkg, "contains_dangerous_goods", 0):
+                entry["dangerous_goods"] = 1
+
+        attached_jobs = []
+        for job in order:
+            entry = shipment_summaries[job]
+            shipment = frappe.db.get_value(
+                "Air Shipment",
+                job,
+                [
+                    "shipper",
+                    "consignee",
+                    "origin_port",
+                    "destination_port",
+                    "billing_currency",
+                    "dg_compliance_status",
+                ],
+                as_dict=True,
+            ) or frappe._dict()
+            attached_jobs.append({
+                "air_freight_job": job,
+                "shipper": shipment.get("shipper"),
+                "consignee": shipment.get("consignee"),
+                "route": f"{shipment.get('origin_port') or ''} → {shipment.get('destination_port') or ''}",
+                "weight": entry["weight"],
+                "volume": entry["volume"],
+                "value": entry["value"],
+                "currency": shipment.get("billing_currency"),
+                "dangerous_goods": entry["dangerous_goods"],
+                "dg_status": shipment.get("dg_compliance_status"),
+                "cost_allocation": (entry["weight"] / total_weight_header * 100) if total_weight_header > 0 else 0,
+            })
+
         summary = {
             "consolidation_id": self.name,
             "status": self.status,
@@ -718,39 +1307,22 @@ class AirConsolidation(Document):
             "arrival": self.arrival_date,
             "airline": self.airline,
             "flight_number": self.flight_number,
-            "total_jobs": len(self.attached_air_freight_jobs),
+            "total_jobs": len(attached_jobs),
             "total_packages": self.total_packages,
             "total_weight": self.total_weight,
             "total_volume": self.total_volume,
             "chargeable_weight": self.chargeable_weight,
             "consolidation_ratio": self.consolidation_ratio,
             "cost_per_kg": self.cost_per_kg,
-            "attached_jobs": [],
+            "attached_jobs": attached_jobs,
             "routes": [],
             "charges": []
         }
         
-        # Add attached jobs information
-        for job in self.attached_air_freight_jobs:
-            summary["attached_jobs"].append({
-                "air_freight_job": job.air_freight_job,
-                "shipper": job.shipper,
-                "consignee": job.consignee,
-                "route": f"{job.origin_port} → {job.destination_port}",
-                "weight": getattr(job, "total_weight", None) or job.weight,
-                "volume": getattr(job, "total_volume", None) or job.volume,
-                "value": job.value,
-                "currency": job.currency,
-                "dangerous_goods": job.contains_dangerous_goods,
-                "dg_status": job.dg_compliance_status,
-                "consolidation_status": job.consolidation_status,
-                "cost_allocation": job.cost_allocation_percentage
-            })
-        
         # Add route information
-        for route in self.consolidation_routes:
+        for seq, route in enumerate(self.consolidation_routes, start=1):
             summary["routes"].append({
-                "sequence": route.route_sequence,
+                "sequence": seq,
                 "origin": route.origin_airport,
                 "destination": route.destination_airport,
                 "airline": route.airline,

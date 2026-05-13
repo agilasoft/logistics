@@ -277,7 +277,6 @@ class DeclarationOrder(Document):
 		run_propagate_on_link(self)
 		apply_internal_job_declaration_order_from_shipment(self)
 		apply_shipper_consignee_defaults(self)
-		apply_default_transport_document_type(self)
 		self.calculate_exemptions()
 		# First save only: pull charges from Sales Quote (or internal-job main service) when the grid is still empty.
 		# Covers API/quick entry and cases where the form did not run the client fetch (e.g. pre-filled sales_quote).
@@ -288,6 +287,8 @@ class DeclarationOrder(Document):
 				self
 			):
 				self._populate_charges_from_sales_quote()
+		# After propagation / charge overlay so transport_mode is final; fills default doc type when still empty.
+		apply_default_transport_document_type(self)
 
 	def before_submit(self):
 		"""Prevent submission if no Sales Quote is linked to this Declaration Order.
@@ -310,25 +311,38 @@ class DeclarationOrder(Document):
 				frappe.log_error(f"Update Sales Quote on Declaration Order submit: {e}", "Declaration Order Submit")
 
 	def on_cancel(self):
-		"""Reset One-off Sales Quote status when Declaration Order is cancelled."""
+		"""Reset One-off Sales Quote status when Declaration Order is cancelled.
+
+		Internal Job Detail rows on linked shipments / main job are left unchanged so the cancelled
+		order remains visible for audit; a new Declaration Order links on another open line or a new row.
+		"""
 		if self.sales_quote:
 			try:
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
 				reset_one_off_quote_on_cancel(self.sales_quote)
 			except Exception as e:
 				frappe.log_error(f"Reset Sales Quote on Declaration Order cancel: {e}", "Declaration Order Cancel")
+		self._unlink_declaration_order_from_internal_job_parents(preserve_internal_job_rows=True)
 
 	def on_trash(self):
-		"""Remove Internal Job Detail back-link on Air/Sea Shipment when this order is deleted."""
-		try:
-			from logistics.utils.internal_job_detail_copy import unlink_declaration_order_from_shipment
+		"""Remove Internal Job Detail back-link on linked operational parents when this order is deleted."""
+		self._unlink_declaration_order_from_internal_job_parents(preserve_internal_job_rows=False)
 
-			if getattr(self, "air_shipment", None) and frappe.db.exists("Air Shipment", self.air_shipment):
-				unlink_declaration_order_from_shipment("Air Shipment", self.air_shipment, self.name)
-			if getattr(self, "sea_shipment", None) and frappe.db.exists("Sea Shipment", self.sea_shipment):
-				unlink_declaration_order_from_shipment("Sea Shipment", self.sea_shipment, self.name)
+	def _unlink_declaration_order_from_internal_job_parents(self, preserve_internal_job_rows: bool = False):
+		"""Clear Internal Jobs table references to this order on Air/Sea Shipment or Transport Job."""
+		try:
+			from logistics.utils.internal_job_detail_copy import (
+				unlink_declaration_order_from_internal_job_parent_documents,
+			)
+
+			unlink_declaration_order_from_internal_job_parent_documents(
+				self.name, self, preserve_internal_job_rows=preserve_internal_job_rows
+			)
 		except Exception as e:
-			frappe.log_error(f"Declaration Order on_trash clear shipment link: {e}", "Declaration Order Trash")
+			frappe.log_error(
+				f"Declaration Order clear parent internal-job link: {e}",
+				"Declaration Order Parent Unlink",
+			)
 
 	@frappe.whitelist()
 	def calculate_total_charges(self):

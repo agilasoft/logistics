@@ -12,6 +12,12 @@ import json
 from logistics.pricing_center.api_parts.transport_rate_calculation_engine import (
     TransportRateCalculationEngine
 )
+from logistics.pricing_center.doctype.tariff.tariff_rate_rows import (
+    iter_tariff_charges_for_service,
+    tariff_charge_calculation_method,
+    tariff_charge_unit_rate,
+    tariff_charge_row_to_public_rate_dict,
+)
 
 
 class SalesQuoteSeaFreight(Document):
@@ -84,8 +90,8 @@ class SalesQuoteSeaFreight(Document):
             frappe.msgprint(_("Error fetching tariff data: {0}").format(str(e)), alert=True)
     
     def _find_matching_tariff_rate(self, tariff_doc):
-        """Find matching transport rate in tariff based on item code"""
-        for rate in tariff_doc.transport_rates:
+        """Find matching sea rate in tariff based on item code."""
+        for rate in iter_tariff_charges_for_service(tariff_doc, "Sea"):
             if rate.item_code == self.item_code:
                 return rate
         return None
@@ -96,8 +102,8 @@ class SalesQuoteSeaFreight(Document):
         self._disable_revenue_fields()
         
         # Populate from tariff
-        self.calculation_method = tariff_rate.calculation_method or "Per Unit"
-        self.unit_rate = tariff_rate.rate or 0
+        self.calculation_method = tariff_charge_calculation_method(tariff_rate)
+        self.unit_rate = tariff_charge_unit_rate(tariff_rate)
         self.unit_type = tariff_rate.unit_type
         self.currency = tariff_rate.currency or "USD"
         self.minimum_quantity = tariff_rate.minimum_quantity or 0
@@ -115,8 +121,8 @@ class SalesQuoteSeaFreight(Document):
         self._disable_cost_fields()
         
         # Populate from tariff
-        self.cost_calculation_method = tariff_rate.calculation_method or "Per Unit"
-        self.unit_cost = tariff_rate.rate or 0
+        self.cost_calculation_method = tariff_charge_calculation_method(tariff_rate)
+        self.unit_cost = tariff_charge_unit_rate(tariff_rate)
         self.cost_unit_type = tariff_rate.unit_type
         self.cost_currency = tariff_rate.currency or "USD"
         self.cost_minimum_quantity = tariff_rate.minimum_quantity or 0
@@ -684,21 +690,9 @@ def get_sea_freight_tariff_rates(tariff_name, item_code=None):
             return []
         
         rates = []
-        for rate in tariff_doc.transport_rates:
+        for rate in iter_tariff_charges_for_service(tariff_doc, "Sea"):
             if not item_code or rate.item_code == item_code:
-                rates.append({
-                    'item_code': rate.item_code,
-                    'item_name': rate.item_name,
-                    'calculation_method': rate.calculation_method,
-                    'rate': rate.rate,
-                    'unit_type': rate.unit_type,
-                    'currency': rate.currency,
-                    'minimum_quantity': rate.minimum_quantity,
-                    'minimum_charge': rate.minimum_charge,
-                    'maximum_charge': rate.maximum_charge,
-                    'base_amount': rate.base_amount,
-                    'uom': rate.uom
-                })
+                rates.append(tariff_charge_row_to_public_rate_dict(rate))
         
         return rates
         

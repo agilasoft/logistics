@@ -70,8 +70,12 @@ class AirConsolidationCharges(Document):
         consolidation = frappe.get_doc("Air Consolidation", self.parent)
         
         if self.allocation_method == "Equal":
-            # Equal allocation among all attached jobs
-            total_jobs = len(consolidation.attached_air_freight_jobs)
+            distinct_jobs = {
+                p.air_freight_job
+                for p in (consolidation.consolidation_packages or [])
+                if getattr(p, "air_freight_job", None)
+            }
+            total_jobs = len(distinct_jobs)
             if total_jobs > 0:
                 self.allocated_amount = self.total_amount / total_jobs
             else:

@@ -147,6 +147,10 @@ frappe.ui.form.on("Sales Quote", {
 	onload(frm) {
 		frm.events._show_sales_quote_charges_row_checkboxes(frm);
 		frm.events._clear_default_empty_charge_row(frm);
+		// Grid may append the placeholder row after first paint when the charges table was required; clear once more.
+		if (frm.is_new()) {
+			setTimeout(() => frm.events._clear_default_empty_charge_row(frm), 0);
+		}
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		if (!frm.is_new()) {
@@ -197,21 +201,29 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	_clear_default_empty_charge_row(frm) {
-		// New Sales Quotes may render with a placeholder row in charges; keep table empty until user adds a real row.
+		// New Sales Quotes used to get a forced grid row (reqd table + child defaults); keep table empty until the user adds a line.
 		if (!frm.is_new() || !Array.isArray(frm.doc.charges) || frm.doc.charges.length !== 1) {
 			return;
 		}
 		const row = frm.doc.charges[0] || {};
-		const has_meaningful_data = [
-			"service_type", "item_code", "charge_type", "charge_group", "charge_category",
-			"unit_rate", "unit_cost", "quantity", "cost_quantity", "currency", "cost_currency"
-		].some((field) => {
+		const nonempty = (field) => {
 			const value = row[field];
 			return value !== undefined && value !== null && String(value).trim() !== "";
-		});
-		if (!has_meaningful_data) {
-			frm.set_value("charges", []);
+		};
+		if (nonempty("item_code")) {
+			return;
 		}
+		if (nonempty("revenue_tariff") || nonempty("cost_tariff") || nonempty("change_request_charge")) {
+			return;
+		}
+		if (nonempty("origin_port") || nonempty("destination_port")) {
+			return;
+		}
+		if (nonempty("bill_to") || nonempty("pay_to")) {
+			return;
+		}
+		frm.set_value("charges", []);
+		frm.refresh_field("charges");
 	},
 
 	quotation_type(frm) {
@@ -597,6 +609,23 @@ frappe.ui.form.on("Sales Quote", {
 		}
 	},
 	
+	before_submit(frm) {
+		const charges = frm.doc.charges || [];
+		const badRows = [];
+		charges.forEach((row, i) => {
+			const ic = row.item_code;
+			if (ic === undefined || ic === null || String(ic).trim() === "") {
+				badRows.push(row.idx != null ? row.idx : i + 1);
+			}
+		});
+		if (badRows.length) {
+			frappe.validated = false;
+			frappe.throw(
+				__("Each charge line must have an Item Code. Missing on row(s): {0}", [badRows.join(", ")])
+			);
+		}
+	},
+
 	after_save(frm) {
 		// Update primary button after save to show Submit button if document is saved and not dirty
 		// Clear the __unsaved flag immediately to ensure form is considered clean
@@ -894,7 +923,7 @@ function show_get_rates_from_cost_sheet_dialog(frm) {
 			fieldname: "service_type",
 			fieldtype: "Select",
 			label: __("Service Type"),
-			options: "\nAir\nSea\nTransport\nCustom\nWarehousing",
+			options: "\nAir\nSea\nTransport\nCustoms\nWarehousing",
 			default: defaults.service_type
 		},
 		{

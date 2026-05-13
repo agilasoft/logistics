@@ -16,6 +16,7 @@ from frappe import _
 from frappe.utils import cint, flt
 from typing import Any, Dict, List, Optional, Tuple
 
+from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
 from logistics.utils.rate_calculation_engine import RateCalculationEngine
 
 # During parent Document.validate(), child rows may run validate() before the DB row reflects new totals.
@@ -482,38 +483,18 @@ INTERNAL_JOB_MAIN_JOB_TYPES = (
 )
 
 
-# (table_name, field on child row to match against charge item_code)
-TARIFF_RATE_TABLES = (
-    ("air_freight_rates", "item_code"),
-    ("sea_freight_rates", "item_code"),
-    ("transport_rates", "item_code"),
-    ("customs_rates", "item_code"),
-    ("warehouse_rates", "item_charge"),
-)
-
-SERVICE_PREFERRED_TARIFF_TABLE = {
-    "Air": "air_freight_rates",
-    "air": "air_freight_rates",
-    "Sea": "sea_freight_rates",
-    "sea": "sea_freight_rates",
-    "Transport": "transport_rates",
-    "transport": "transport_rates",
-    "Customs": "customs_rates",
-    "custom": "customs_rates",
-    "customs": "customs_rates",
-    "Warehousing": "warehouse_rates",
-    "warehousing": "warehouse_rates",
-}
-
-
 def _tariff_rate_row_to_rate_data(rate) -> Optional[Dict]:
-    """Build uniform rate_data for _fetch_rates_from_tariff from any Tariff child row."""
+    """Build uniform rate_data for _fetch_rates_from_tariff from a Tariff Charge row."""
     d = rate.as_dict() if hasattr(rate, "as_dict") else dict(rate)
     raw = d.get("rate")
     if raw is None or raw == "":
         raw = d.get("rate_value")
+    if raw is None or raw == "":
+        raw = d.get("unit_rate")
     rate_num = flt(raw or 0)
-    method = (d.get("calculation_method") or "Per Unit").strip()
+    method = (
+        (d.get("calculation_method") or d.get("revenue_calculation_method") or "Per Unit") or ""
+    ).strip()
     return {
         "calculation_method": method,
         "rate": rate_num,
@@ -533,8 +514,8 @@ def _find_tariff_rate_match(
     service_type: Optional[str] = None,
 ) -> Optional[Tuple[Dict, Any, str]]:
     """
-    Find matching rate row on Tariff by item (or warehouse item_charge). Returns
-    (normalized rate_data dict, raw child row, table_name), or None.
+    Find matching Tariff Charge row by item_code and optional service type.
+    Returns (normalized rate_data dict, raw child row, parentfield name).
     """
     if not tariff_name or not item_code:
         return None
@@ -543,21 +524,18 @@ def _find_tariff_rate_match(
     except Exception:
         return None
 
-    tables: List[tuple] = list(TARIFF_RATE_TABLES)
-    pref = SERVICE_PREFERRED_TARIFF_TABLE.get((service_type or "").strip())
-    if pref:
-        tables = [t for t in tables if t[0] == pref] + [t for t in tables if t[0] != pref]
-
-    seen_tables: set = set()
-    for table_name, item_field in tables:
-        if table_name in seen_tables:
+    want = canonical_charge_service_type_for_storage((service_type or "").strip())
+    rows: List[Any] = list(getattr(tariff_doc, "rates", None) or [])
+    if want:
+        matching = [r for r in rows if canonical_charge_service_type_for_storage(getattr(r, "service_type", "") or "") == want]
+        rest = [r for r in rows if r not in matching]
+        rows = matching + rest
+    for rate in rows:
+        if getattr(rate, "item_code", None) != item_code:
             continue
-        seen_tables.add(table_name)
-        rows = getattr(tariff_doc, table_name, None) or []
-        for rate in rows:
-            if getattr(rate, item_field, None) != item_code:
-                continue
-            return (_tariff_rate_row_to_rate_data(rate), rate, table_name)
+        if want and canonical_charge_service_type_for_storage(getattr(rate, "service_type", "") or "") != want:
+            continue
+        return (_tariff_rate_row_to_rate_data(rate), rate, "rates")
     return None
 
 
@@ -592,6 +570,23 @@ TARIFF_CONTEXT_COPY_SKIP = frozenset(
         "base_amount",
         "uom",
         "unit_type",
+        "revenue_calculation_method",
+        "cost_calculation_method",
+        "unit_rate",
+        "unit_cost",
+        "quantity",
+        "cost_quantity",
+        "tariff_valid_from",
+        "tariff_valid_to",
+        "tariff_rate_active",
+        "estimated_revenue",
+        "estimated_cost",
+        "charge_type",
+        "quotation_type",
+        "charge_group",
+        "cost_sheet_source",
+        "revenue_calc_notes",
+        "cost_calc_notes",
     }
 )
 
@@ -611,7 +606,6 @@ def _copy_tariff_line_context_to_charge(charge_doc: Any, rate_row: Any) -> None:
     for key, val in d.items():
         if key in TARIFF_CONTEXT_COPY_SKIP or val is None or val == "":
             continue
-        # FCL/LCL etc. on sea rate — do not overwrite charge Service Type (Air/Sea/Transport/…)
         if key == "service_type" and child_dt == "Sea Freight Rate":
             continue
         target = TARIFF_TO_CHARGE_FIELD_ALIASES.get(key, key)

@@ -67,12 +67,15 @@
   {
    "allow_on_submit": 1,
    "default": "Draft",
+   "description": "Updated automatically from approval / rejection dates, Valid To, and renewals. Use workflow to file and review.",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
+   "no_copy": 1,
    "options": "Draft\nSubmitted\nUnder Review\nApproved\nRejected\nExpired\nRenewed",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -150,14 +153,12 @@
   {
    "fieldname": "approval_date",
    "fieldtype": "Date",
-   "label": "Approval Date",
-   "read_only": 1
+   "label": "Approval Date"
   },
   {
    "fieldname": "rejection_date",
    "fieldtype": "Date",
-   "label": "Rejection Date",
-   "read_only": 1
+   "label": "Rejection Date"
   },
   {
    "fieldname": "section_break_permit",
@@ -260,7 +261,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-22 17:32:21.967325",
+ "modified": "2026-05-04 14:13:48.203102",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Permit Application",

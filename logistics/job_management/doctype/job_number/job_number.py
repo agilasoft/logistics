@@ -6,4 +6,7 @@ from frappe.model.document import Document
 
 
 class JobNumber(Document):
-	pass
+	def get_invalid_links(self, is_submittable=False):
+		invalid_links, cancelled_links = super().get_invalid_links(is_submittable=is_submittable)
+		cancelled_links = [c for c in cancelled_links if c[0] != "job_no"]
+		return invalid_links, cancelled_links

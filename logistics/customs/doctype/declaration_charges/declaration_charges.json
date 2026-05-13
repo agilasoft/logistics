@@ -6,7 +6,6 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "column_break_other_svc",
   "service_type",
   "item_code",
   "item_name",
@@ -92,6 +91,7 @@
   "other_service_type",
   "date_started",
   "date_ended",
+  "column_break_other_svc",
   "other_service_reference_no",
   "column_break_riux",
   "other_service_notes"
@@ -103,7 +103,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustom\nWarehousing"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
   },
   {
    "default": "0",

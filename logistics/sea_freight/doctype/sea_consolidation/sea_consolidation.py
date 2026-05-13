@@ -3,19 +3,23 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+import math
 import frappe
 from frappe.exceptions import ValidationError
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import cstr, flt, now_datetime, getdate
+from frappe.utils import cint, cstr, flt, now_datetime, getdate
 from datetime import datetime, timedelta
 
 from logistics.utils.consolidation_plan import (
+	SEA_ALIGNMENT_DIALOG_FILTER_KEYS,
 	assert_sea_consolidation_plan_requirements,
-	assert_sea_plan_fields_for_strict_match,
+	assert_sea_plan_fields_for_filter_match,
 	conflicting_submitted_sea_planning_elsewhere,
 	get_sea_shipment_names_from_consolidation,
+	get_sea_shipment_names_from_consolidation_cargo,
 	get_strict_matching_sea_shipment_names,
+	sea_alignment_plan_has_any_filter,
 	sea_shipment_allowed_on_plan,
 )
 
@@ -94,7 +98,6 @@ class SeaConsolidation(Document):
 
     def before_save(self):
         """Actions before saving the document"""
-        self._auto_populate_routing_from_ports()
         self.update_consolidation_status()
         self.calculate_total_charges()
         self.optimize_consolidation_ratio()
@@ -106,10 +109,13 @@ class SeaConsolidation(Document):
         # Save the document to persist the job_number field
         if self.job_number:
             self.save(ignore_permissions=True)
-    
+        else:
+            self._sync_house_bl_prefix_to_shipments()
+
     def on_update(self):
         """Actions after document update"""
         self.update_related_sea_shipments()
+        self._sync_house_bl_prefix_to_shipments()
         self.update_attached_shipments_table()
         self.send_consolidation_notifications()
 
@@ -119,7 +125,7 @@ class SeaConsolidation(Document):
         if not self.consolidation_routes:
             frappe.throw(_("At least one route must be defined for the consolidation"))
         self.validate_containers_iso6346()
-        distinct_shipments = set(get_sea_shipment_names_from_consolidation(self))
+        distinct_shipments = set(get_sea_shipment_names_from_consolidation_cargo(self))
         for row in self.get("consolidation_planning_lines") or []:
             sh = getattr(row, "sea_shipment", None)
             if sh:
@@ -130,7 +136,7 @@ class SeaConsolidation(Document):
                 title=_("Insufficient shipments"),
             )
 
-        if get_sea_shipment_names_from_consolidation(self) and (self.sea_planning_status or "Draft") != "Submitted":
+        if get_sea_shipment_names_from_consolidation_cargo(self) and (self.sea_planning_status or "Draft") != "Submitted":
             frappe.throw(
                 _("Submit the planned shipment list (Planning Status) before submitting the consolidation."),
                 title=_("Planning required"),
@@ -268,25 +274,24 @@ class SeaConsolidation(Document):
     
     def calculate_consolidation_metrics(self):
         """Calculate consolidation metrics"""
-        # Calculate totals from packages
-        if self.consolidation_packages:
-            self.total_packages = sum(package.package_count or 0 for package in self.consolidation_packages)
-            self.total_weight = sum(package.package_weight or 0 for package in self.consolidation_packages)
-            self.total_volume = sum(package.package_volume or 0 for package in self.consolidation_packages)
-        
-        # Calculate totals from containers
-        if self.consolidation_containers:
-            self.total_containers = len(self.consolidation_containers)
-            container_weight = sum(container.weight_in_container or 0 for container in self.consolidation_containers)
-            container_volume = sum(container.volume_in_container or 0 for container in self.consolidation_containers)
-            
-            # Add container totals to package totals if packages exist
-            if self.consolidation_packages:
-                self.total_weight += container_weight
-                self.total_volume += container_volume
-            else:
-                self.total_weight = container_weight
-                self.total_volume = container_volume
+        packages = self.consolidation_packages or []
+        containers = self.consolidation_containers or []
+
+        if packages:
+            self.total_packages = sum(package.package_count or 0 for package in packages)
+            self.total_weight = sum(package.package_weight or 0 for package in packages)
+            self.total_volume = sum(package.package_volume or 0 for package in packages)
+        else:
+            self.total_packages = 0
+            self.total_weight = 0
+            self.total_volume = 0
+
+        self.total_containers = len(containers)
+        if containers:
+            container_weight = sum(container.weight_in_container or 0 for container in containers)
+            container_volume = sum(container.volume_in_container or 0 for container in containers)
+            self.total_weight = (self.total_weight or 0) + container_weight
+            self.total_volume = (self.total_volume or 0) + container_volume
         
         # Calculate chargeable weight (higher of actual weight or volume weight)
         # For sea freight, volume weight factor is typically 1000 kg per m³
@@ -481,13 +486,6 @@ class SeaConsolidation(Document):
                 title=_("Duplicate Container Numbers"),
             )
     
-    def _auto_populate_routing_from_ports(self):
-        """Auto-populate routing from origin/destination when routing legs are empty (aligned with Sea Shipment)."""
-        routes = getattr(self, "consolidation_routes", None) or []
-        if routes or not self.origin_port or not self.destination_port:
-            return
-        self._append_main_route()
-
     def _append_main_route(self):
         """Append a single Direct route from origin to destination using header vessel/etd/eta."""
         if not self.origin_port or not self.destination_port:
@@ -561,32 +559,126 @@ class SeaConsolidation(Document):
                 pass
     
     def update_related_sea_shipments(self):
-        """Update related Sea Shipments with consolidation information"""
+        """Set consolidation reference on linked Sea Shipments without a full save.
+
+        A full ``Sea Shipment.save()`` would re-run link validation on every shipment field
+        (e.g. Broker); a bad or legacy broker value would then block saving the consolidation
+        even though we only need to update the back-reference.
+        """
         if not self.consolidation_packages:
             return
-        
-        try:
-            for package in self.consolidation_packages:
-                if package.sea_shipment:
-                    shipment = frappe.get_doc("Sea Shipment", package.sea_shipment)
-                    # Update shipment with consolidation reference
-                    if not hasattr(shipment, 'consolidation') or shipment.consolidation != self.name:
-                        shipment.consolidation = self.name
-                        shipment.save(ignore_permissions=True)
-        except Exception as e:
-            frappe.log_error(f"Error updating related Sea Shipments: {str(e)}")
-    
+        if not frappe.get_meta("Sea Shipment").has_field("consolidation"):
+            return
+        for package in self.consolidation_packages:
+            if not package.sea_shipment:
+                continue
+            try:
+                current = frappe.db.get_value("Sea Shipment", package.sea_shipment, "consolidation")
+                if current != self.name:
+                    frappe.db.set_value(
+                        "Sea Shipment",
+                        package.sea_shipment,
+                        "consolidation",
+                        self.name,
+                        update_modified=True,
+                    )
+            except Exception as e:
+                frappe.log_error(
+                    title=f"Error updating consolidation on Sea Shipment {package.sea_shipment}",
+                    message=frappe.get_traceback(),
+                )
+
+    def _sea_shipment_names_for_house_bill_sync(self):
+        """Sea Shipments on cargo (packages/containers) plus planning lines."""
+        names = set(get_sea_shipment_names_from_consolidation_cargo(self))
+        for row in self.get("consolidation_planning_lines") or []:
+            sh = getattr(row, "sea_shipment", None)
+            if sh:
+                names.add(sh)
+        return sorted(names)
+
+    def _sync_house_bl_prefix_to_shipments(self):
+        """Fill blank House B/L on linked Sea Shipments using ``house_bill_prefix``.
+
+        Each new number is ``{prefix}-{NNNN}`` where *NNNN* is chosen so the value is unique
+        among non-cancelled Sea Shipments (same rule as duplicate House B/L validation).
+        Non-blank House B/L is never overwritten. Clearing the prefix does not clear shipments.
+        """
+        if getattr(frappe.flags, "in_install", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(frappe.flags, "in_import", False):
+            return
+        if getattr(self.flags, "ignore_house_bl_prefix_sync", False):
+            return
+
+        prefix = (self.house_bill_prefix or "").strip()
+        if not prefix:
+            return
+
+        shipment_names = self._sea_shipment_names_for_house_bill_sync()
+        if not shipment_names:
+            return
+
+        prefix_core = prefix.rstrip("-_ /")
+        if not prefix_core:
+            return
+
+        reserved_in_batch = set()
+
+        def house_bl_taken(candidate, shipment_name):
+            return bool(
+                frappe.db.get_value(
+                    "Sea Shipment",
+                    {
+                        "house_bl": candidate,
+                        "name": ["!=", shipment_name],
+                        "docstatus": ["!=", 2],
+                    },
+                    "name",
+                )
+            )
+
+        for shipment_name in shipment_names:
+            current = (frappe.db.get_value("Sea Shipment", shipment_name, "house_bl") or "").strip()
+            if current:
+                continue
+
+            seq = 1
+            while True:
+                candidate = "{0}-{1:04d}".format(prefix_core, seq)
+                seq += 1
+                if candidate in reserved_in_batch:
+                    continue
+                if house_bl_taken(candidate, shipment_name):
+                    continue
+                reserved_in_batch.add(candidate)
+                frappe.db.set_value(
+                    "Sea Shipment",
+                    shipment_name,
+                    "house_bl",
+                    candidate,
+                    update_modified=True,
+                )
+                break
+
     def update_attached_shipments_table(self):
         """Update attached shipments table with latest data from packages.
         Preserves manually added rows that don't correspond to packages."""
-        if not self.consolidation_packages:
-            return
-        
+        packages = self.get("consolidation_packages") or []
+
         # Get unique shipments from packages
         unique_shipments = set()
-        for package in self.consolidation_packages:
-            if package.sea_shipment:
+        for package in packages:
+            if getattr(package, "sea_shipment", None):
                 unique_shipments.add(package.sea_shipment)
+
+        if not unique_shipments:
+            # No cargo references a shipment; remove stale attached lines (otherwise
+            # planning reset / validation still see ghost links after packages are cleared).
+            for attached in list(self.get("attached_sea_shipments") or []):
+                if getattr(attached, "sea_shipment", None):
+                    self.remove(attached)
+            return
         
         # Create a map of existing attached shipments by sea_shipment
         existing_attached = {}
@@ -618,7 +710,7 @@ class SeaConsolidation(Document):
                 attached.weight = shipment.total_weight
                 attached.volume = shipment.total_volume
                 attached.packs = shipment.total_packages
-                attached.value = shipment.total_value
+                attached.value = getattr(shipment, "goods_value", None) or 0
                 attached.currency = shipment.currency
                 attached.incoterm = shipment.incoterm
                 attached.contains_dangerous_goods = shipment.contains_dangerous_goods or 0
@@ -636,6 +728,162 @@ class SeaConsolidation(Document):
         """Send notifications for consolidation updates"""
         # This can be enhanced with email/notification logic
         pass
+
+    def _package_references_in_use(self):
+        refs = set()
+        for row in self.get("consolidation_packages") or []:
+            ref = getattr(row, "package_reference", None)
+            if ref:
+                refs.add(ref)
+        return refs
+
+    def _allocate_consolidation_package_reference(self, sea_shipment, idx, line_reference_no, used_refs):
+        """Stable unique package_reference for Sea Consolidation Packages (autoname field).
+
+        The child doctype is autonamed by ``package_reference`` and the field is marked
+        unique, so the value becomes the primary key of ``tabSea Consolidation Packages``
+        and must be unique across ALL consolidations, not just within this document.
+        """
+
+        def _is_free(candidate):
+            if not candidate:
+                return False
+            if candidate in used_refs:
+                return False
+            return not frappe.db.exists("Sea Consolidation Packages", candidate)
+
+        raw = (line_reference_no or "").strip()
+        if _is_free(raw):
+            used_refs.add(raw)
+            return raw
+        base = "{0}-P{1}".format(sea_shipment, idx)
+        ref = base
+        suffix = 1
+        while not _is_free(ref):
+            suffix += 1
+            ref = "{0}-{1}".format(base, suffix)
+        used_refs.add(ref)
+        return ref
+
+    def _append_one_consolidation_package_row(
+        self,
+        sea_shipment,
+        shipment,
+        *,
+        package_reference,
+        package_type,
+        package_count,
+        package_weight,
+        package_volume,
+        commodity,
+        description,
+        contains_dangerous_goods,
+        dg_class,
+        temperature_controlled,
+        min_temperature,
+        max_temperature,
+    ):
+        row = self.append(
+            "consolidation_packages",
+            {
+                "package_reference": package_reference,
+                "sea_shipment": sea_shipment,
+                "shipper": shipment.shipper,
+                "consignee": shipment.consignee,
+                "package_type": package_type,
+                "package_count": package_count,
+                "package_weight": package_weight,
+                "package_volume": package_volume,
+                "commodity": commodity,
+                "description": description,
+                "contains_dangerous_goods": 1 if contains_dangerous_goods else 0,
+                "dg_class": dg_class or None,
+                "temperature_controlled": 1 if temperature_controlled else 0,
+                "min_temperature": min_temperature,
+                "max_temperature": max_temperature,
+            },
+        )
+        return row
+
+    def _append_consolidation_packages_from_sea_shipment(self, sea_shipment):
+        """Mirror Sea Shipment package lines into consolidation_packages (or one header summary row).
+
+        Skips if any consolidation package row already exists for this shipment on this document.
+        """
+        if not sea_shipment:
+            return []
+        if self.name and frappe.db.exists(
+            "Sea Consolidation Packages",
+            {"sea_shipment": sea_shipment, "parent": self.name},
+        ):
+            return []
+
+        shipment = frappe.get_doc("Sea Shipment", sea_shipment)
+        used_refs = self._package_references_in_use()
+        appended = []
+        pkg_lines = [r for r in (shipment.get("packages") or []) if r is not None]
+
+        if pkg_lines:
+            for i, sp in enumerate(pkg_lines, start=1):
+                n_packs = flt(getattr(sp, "no_of_packs", 0) or 0)
+                if n_packs > 0:
+                    pack_count = max(1, cint(math.ceil(n_packs)))
+                else:
+                    pack_count = 1
+                w = flt(getattr(sp, "weight", 0) or 0)
+                v = flt(getattr(sp, "volume", 0) or 0)
+                if w <= 0:
+                    w = flt(shipment.total_weight or 0) / len(pkg_lines) if flt(shipment.total_weight or 0) else 0
+                if w <= 0:
+                    w = 0.01
+                line_ref = getattr(sp, "reference_no", None)
+                pkg_ref = self._allocate_consolidation_package_reference(
+                    sea_shipment, i, line_ref, used_refs
+                )
+                container_txt = (getattr(sp, "container", None) or "").strip()
+                pkg_type = "Container" if container_txt else "Other"
+                line_dg = bool(getattr(sp, "dg_substance", None) or (getattr(sp, "dg_class", None) or "").strip())
+                hdr_dg = bool(shipment.contains_dangerous_goods)
+                dg_flag = line_dg or hdr_dg
+                temp_flag = bool(getattr(sp, "temp_controlled", 0))
+                row = self._append_one_consolidation_package_row(
+                    sea_shipment,
+                    shipment,
+                    package_reference=pkg_ref,
+                    package_type=pkg_type,
+                    package_count=pack_count,
+                    package_weight=w,
+                    package_volume=v,
+                    commodity=getattr(sp, "commodity", None) or getattr(shipment, "commodity", None),
+                    description=getattr(sp, "goods_description", None) or "",
+                    contains_dangerous_goods=1 if dg_flag else 0,
+                    dg_class=(getattr(sp, "dg_class", None) or None) if dg_flag else None,
+                    temperature_controlled=1 if temp_flag else 0,
+                    min_temperature=getattr(sp, "min_temperature", None) if temp_flag else None,
+                    max_temperature=getattr(sp, "max_temperature", None) if temp_flag else None,
+                )
+                appended.append(row)
+        else:
+            pkg_ref = self._allocate_consolidation_package_reference(sea_shipment, 1, None, used_refs)
+            row = self._append_one_consolidation_package_row(
+                sea_shipment,
+                shipment,
+                package_reference=pkg_ref,
+                package_type="Box",
+                package_count=shipment.total_packages or 1,
+                package_weight=flt(shipment.total_weight or 0),
+                package_volume=flt(shipment.total_volume or 0),
+                commodity=getattr(shipment, "commodity", None),
+                description="",
+                contains_dangerous_goods=1 if shipment.contains_dangerous_goods else 0,
+                dg_class=None,
+                temperature_controlled=0,
+                min_temperature=None,
+                max_temperature=None,
+            )
+            appended.append(row)
+
+        return appended
     
     @frappe.whitelist()
     def add_sea_shipment(self, sea_shipment):
@@ -657,26 +905,15 @@ class SeaConsolidation(Document):
                 "Sea Shipment with House Type '{0}' cannot be added to consolidation. "
                 "Only Co-load Master, Blind Co-load Master, Co-load House, Buyer's Consol Lead, or Shipper's Consol Lead are allowed."
             ).format(shipment.house_type or "Standard House"))
-        
-        # Add package to consolidation
-        package = self.append("consolidation_packages", {})
-        package.sea_shipment = sea_shipment
-        
-        # Get shipment details (shipment already fetched above for house_type validation)
-        package.shipper = shipment.shipper
-        package.consignee = shipment.consignee
-        package.package_type = "Box"  # Default, can be updated
-        package.package_count = shipment.total_packages or 1
-        package.package_weight = shipment.total_weight or 0
-        package.package_volume = shipment.total_volume or 0
-        package.commodity = shipment.commodity
-        package.contains_dangerous_goods = shipment.contains_dangerous_goods or 0
+
+        self._append_consolidation_packages_from_sea_shipment(sea_shipment)
         
         # Update the attached shipments table
         self.update_attached_shipments_table()
         
         self.save()
-        return package
+        rows = [p for p in (self.consolidation_packages or []) if getattr(p, "sea_shipment", None) == sea_shipment]
+        return rows[-1] if rows else None
     
     @frappe.whitelist()
     def remove_sea_shipment(self, sea_shipment):
@@ -692,16 +929,43 @@ class SeaConsolidation(Document):
         self.save()
         return True
 
+    def _sea_plan_route_fallback_row(self):
+        """Prefer child route matching header O/D; else first route (ETD / carrier often live here only)."""
+        routes = self.get("consolidation_routes") or []
+        if not routes:
+            return None
+        ho, hd = self.origin_port, self.destination_port
+        for row in routes:
+            ro = getattr(row, "origin_port", None)
+            rd = getattr(row, "destination_port", None)
+            if ho and hd and ro == ho and rd == hd:
+                return row
+        return routes[0]
+
     def _sea_plan_match_dict(self):
+        etd = self.etd
+        shipping_line = self.shipping_line
+        vessel_name = self.vessel_name
+        voyage_number = self.voyage_number
+        r = self._sea_plan_route_fallback_row()
+        if r:
+            if not etd:
+                etd = getattr(r, "etd", None) or etd
+            if not shipping_line:
+                shipping_line = getattr(r, "shipping_line", None)
+            if not (vessel_name or "").strip():
+                vessel_name = getattr(r, "vessel_name", None)
+            if not (voyage_number or "").strip():
+                voyage_number = getattr(r, "voyage_number", None)
         return {
             "company": self.company,
             "branch": self.branch,
             "origin_port": self.origin_port,
             "destination_port": self.destination_port,
-            "target_etd": self.etd,
-            "shipping_line": self.shipping_line,
-            "vessel_name": self.vessel_name,
-            "voyage_number": self.voyage_number,
+            "target_etd": etd,
+            "shipping_line": shipping_line,
+            "vessel_name": vessel_name,
+            "voyage_number": voyage_number,
         }
 
     def _merged_sea_plan_match_dict_from_dialog(self, filter_overrides):
@@ -726,20 +990,64 @@ class SeaConsolidation(Document):
                 continue
             val = o[key]
             if val is None or (isinstance(val, str) and not str(val).strip()):
-                continue
-            base[key] = val
+                base[key] = None
+            else:
+                base[key] = val
         return base
 
+    def _sea_plan_dict_from_dialog_full(self, raw):
+        """Build alignment plan from dialog field values only (cleared fields = no filter)."""
+        o = raw or {}
+        if isinstance(o, str):
+            o = frappe.parse_json(o) or {}
+        if not isinstance(o, dict):
+            o = {}
+        plan = {}
+        for k in SEA_ALIGNMENT_DIALOG_FILTER_KEYS:
+            if k not in o:
+                plan[k] = None
+                continue
+            val = o[k]
+            if val is None or (isinstance(val, str) and not str(val).strip()):
+                plan[k] = None
+            else:
+                plan[k] = val
+        return plan
+
+    def _sea_alignment_apply_company_scope_if_empty(self, merged):
+        """If every criterion is empty, list draft jobs for this consolidation's company only."""
+        if sea_alignment_plan_has_any_filter(merged):
+            return merged
+        if not self.company:
+            frappe.throw(
+                _("Set Company on this consolidation to search with no filters."),
+                title=_("Company required"),
+            )
+        broad = {k: None for k in SEA_ALIGNMENT_DIALOG_FILTER_KEYS}
+        broad["company"] = self.company
+        return broad
+
+    def _sea_alignment_plan_for_preview(self, filter_values=None, filter_overrides=None):
+        """Posted dialog uses *filter_values* (full field map); legacy callers use *filter_overrides* diffs."""
+        if filter_values is not None:
+            merged = self._sea_plan_dict_from_dialog_full(filter_values)
+        else:
+            merged = self._merged_sea_plan_match_dict_from_dialog(filter_overrides)
+        return self._sea_alignment_apply_company_scope_if_empty(merged)
+
     @frappe.whitelist()
-    def preview_matching_sea_shipments(self, filter_overrides=None):
+    def preview_matching_sea_shipments(self, filter_values=None, filter_overrides=None):
         """Return strict-matching shipments with eligibility for each row (no save)."""
-        self.reload()
+        # Do not reload from DB: preview must use the document posted from the form (see Air Consolidation).
         if self.is_new():
             return {"error": _("Save the consolidation first.")}
 
-        merged = self._merged_sea_plan_match_dict_from_dialog(filter_overrides)
+        merged = self._sea_alignment_plan_for_preview(
+            filter_values=filter_values,
+            filter_overrides=filter_overrides,
+        )
         try:
-            assert_sea_plan_fields_for_strict_match(merged)
+            assert_sea_plan_fields_for_filter_match(merged)
         except ValidationError as e:
             return {"error": cstr(getattr(e, "message", e))}
 
@@ -807,13 +1115,18 @@ class SeaConsolidation(Document):
         return {"rows": rows, "message": banner}
 
     @frappe.whitelist()
-    def apply_selected_sea_shipments_to_planning(self, shipment_names, filter_overrides=None):
+    def apply_selected_sea_shipments_to_planning(
+        self, shipment_names, filter_values=None, filter_overrides=None
+    ):
         """Append shipments chosen in the alignment dialog."""
         names = frappe.parse_json(shipment_names) if isinstance(shipment_names, str) else shipment_names
         if not names:
             frappe.throw(_("Select at least one shipment."), title=_("Nothing selected"))
 
-        preview = self.preview_matching_sea_shipments(filter_overrides)
+        preview = self.preview_matching_sea_shipments(
+            filter_values=filter_values,
+            filter_overrides=filter_overrides,
+        )
         if isinstance(preview, dict) and preview.get("error"):
             frappe.throw(preview["error"])
 
@@ -838,6 +1151,7 @@ class SeaConsolidation(Document):
             if conflicting_submitted_sea_planning_elsewhere(nm, self.name):
                 frappe.throw(_("Sea Shipment {0} cannot be reserved on this consolidation.").format(nm))
             self.append("consolidation_planning_lines", {"sea_shipment": nm})
+            self._append_consolidation_packages_from_sea_shipment(nm)
             added.append(nm)
 
         self.save()
@@ -891,7 +1205,7 @@ class SeaConsolidation(Document):
             frappe.throw(_("Cannot fetch shipments after planning is submitted."), title=_("Planning locked"))
         if self.is_new():
             frappe.throw(_("Save the consolidation before fetching shipments."), title=_("Save required"))
-        assert_sea_plan_fields_for_strict_match(self._sea_plan_match_dict())
+        assert_sea_plan_fields_for_filter_match(self._sea_plan_match_dict())
         candidates = get_strict_matching_sea_shipment_names(self._sea_plan_match_dict())
         present = {
             r.sea_shipment
@@ -916,6 +1230,7 @@ class SeaConsolidation(Document):
                 )
                 continue
             self.append("consolidation_planning_lines", {"sea_shipment": name})
+            self._append_consolidation_packages_from_sea_shipment(name)
             added.append(name)
             present.add(name)
         self.save()
@@ -938,7 +1253,7 @@ class SeaConsolidation(Document):
 
     @frappe.whitelist()
     def cancel_sea_planning_submit(self):
-        from logistics.utils.consolidation_plan import get_sea_shipment_names_from_consolidation
+        from logistics.utils.consolidation_plan import get_sea_shipment_names_from_consolidation_cargo
 
         self.reload()
         if self.sea_planning_status != "Submitted":
@@ -948,7 +1263,7 @@ class SeaConsolidation(Document):
                 _("Cancel planning only while the consolidation is still draft (not submitted)."),
                 title=_("Not allowed"),
             )
-        if get_sea_shipment_names_from_consolidation(self):
+        if get_sea_shipment_names_from_consolidation_cargo(self):
             frappe.throw(
                 _("Remove packages and containers that reference sea shipments before cancelling planning."),
                 title=_("Cargo linked"),

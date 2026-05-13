@@ -1,9 +1,10 @@
-# Copyright (c) 2025, www.agilasoft.com and contributors
+# Copyright (c) 2026, Agilasoft and contributors
 # For license information, please see license.txt
 
-import frappe
-from frappe.model.document import Document
+"""Shim: DB may still reference Special Project Job until logistics rename patch runs."""
+
+from logistics.special_projects.doctype.project_task_job.project_task_job import ProjectTaskJob
 
 
-class SpecialProjectJob(Document):
+class SpecialProjectJob(ProjectTaskJob):
 	pass

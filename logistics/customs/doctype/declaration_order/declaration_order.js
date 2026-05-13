@@ -3,6 +3,37 @@
 
 frappe.provide("logistics");
 
+function _is_empty_stringish(v) {
+	return v == null || (typeof v === "string" && v.trim() === "");
+}
+
+function _maybe_apply_transport_document_type_default(frm) {
+	if (!frm || !frm.doc) return;
+	const mode = (frm.doc.transport_mode || "").trim();
+	if (!mode) return;
+	if (!_is_empty_stringish(frm.doc.transport_document_type)) return;
+
+	// Defer to ensure the form doc is fully synced/rendered.
+	setTimeout(function () {
+		if (!frm.doc) return;
+		const mode2 = (frm.doc.transport_mode || "").trim();
+		if (!mode2) return;
+		if (!_is_empty_stringish(frm.doc.transport_document_type)) return;
+
+		// Prefer shared transport-mode defaults if loaded; otherwise fetch directly.
+		if (window.logistics && logistics.transport_mode_defaults && logistics.transport_mode_defaults.apply) {
+			logistics.transport_mode_defaults.apply(frm);
+			return;
+		}
+		frappe.db.get_value("Transport Mode", mode2, "default_transport_document_type").then(function (r) {
+			const def = r && r.message && r.message.default_transport_document_type;
+			if (def && _is_empty_stringish(frm.doc.transport_document_type)) {
+				frm.set_value("transport_document_type", def);
+			}
+		});
+	}, 0);
+}
+
 function _group_and_collapse_dash_alerts($container) {
 	if (window.logistics_group_and_collapse_dash_alerts) {
 		window.logistics_group_and_collapse_dash_alerts($container);
@@ -60,6 +91,48 @@ function _group_and_collapse_dash_alerts($container) {
 			$group.addClass("collapsed");
 			$chevron.removeClass("fa-chevron-down").addClass("fa-chevron-right");
 		}
+	});
+}
+
+/** Documents tab: Total and Exemptions cards order (same as Declaration). */
+function _swap_declaration_order_documents_exemptions_total_cards($wrapper) {
+	var $cards = $wrapper.find(".doc-alerts-cards");
+	var $total = $cards.find('[data-category="total"]');
+	var $exemptions = $cards.find('[data-category="exemptions"]');
+	var $received = $cards.find('[data-category="received"]');
+	var $permits = $cards.find('[data-category="pending_permits"]');
+	if (!$total.length || !$exemptions.length || !$received.length) {
+		return;
+	}
+	$exemptions.insertAfter($received);
+	if ($permits.length) {
+		$total.insertAfter($permits);
+	} else {
+		$total.appendTo($cards);
+	}
+}
+
+function _load_declaration_order_documents_html(frm) {
+	if (frm._logistics_template_populate_busy) return;
+	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._documents_html_called) return;
+	frm._documents_html_called = true;
+	frappe.call({
+		method: "logistics.document_management.api.get_document_alerts_html",
+		args: { doctype: "Declaration Order", docname: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.html(r.message);
+				_swap_declaration_order_documents_exemptions_total_cards(frm.fields_dict.documents_html.$wrapper);
+				if (window.logistics_bind_document_alert_cards) {
+					window.logistics_bind_document_alert_cards(frm.fields_dict.documents_html.$wrapper);
+				}
+			}
+		},
+	}).always(function () {
+		setTimeout(function () {
+			frm._documents_html_called = false;
+		}, 2000);
 	});
 }
 
@@ -367,6 +440,10 @@ frappe.ui.form.on("Declaration Order", {
 		if (window.logistics && logistics.apply_one_off_route_options_onload) {
 			logistics.apply_one_off_route_options_onload(frm);
 		}
+		if (window.logistics && logistics.sync_form_breadcrumbs) {
+			logistics.sync_form_breadcrumbs(frm);
+		}
+		_maybe_apply_transport_document_type_default(frm);
 	},
 	setup(frm) {
 		frm._initial_sales_quote = frm.doc.sales_quote || null;
@@ -378,7 +455,7 @@ frappe.ui.form.on("Declaration Order", {
 			return {
 				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					service_type: 'Custom',
+					service_type: 'Customs',
 					reference_doctype: 'Declaration Order',
 					reference_name: frm.doc.name || ''
 				}
@@ -400,6 +477,7 @@ frappe.ui.form.on("Declaration Order", {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		_maybe_apply_transport_document_type_default(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
@@ -428,6 +506,9 @@ frappe.ui.form.on("Declaration Order", {
 			}
 			if (frm.fields_dict.milestone_html) {
 				frm.fields_dict.milestone_html.$wrapper.empty();
+			}
+			if (frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.empty();
 			}
 		}
 		// Load dashboard HTML in Dashboard tab (only when doc is saved).
@@ -477,9 +558,16 @@ frappe.ui.form.on("Declaration Order", {
 			});
 		}
 
+		_load_declaration_order_documents_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+				_load_declaration_order_documents_html(frm);
+			});
+		}
+
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
-			if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 0) {
+			if (window.logistics && typeof logistics.should_show_get_charges_from_quotation === "function" ? logistics.should_show_get_charges_from_quotation(frm) : (cint(frm.doc.docstatus) === 0 && !cint(frm.doc.is_internal_job))) {
 				frm.add_custom_button(__('Get Charges from Quotation'), function() {
 					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
 						logistics.open_get_charges_from_quotation_dialog(frm);

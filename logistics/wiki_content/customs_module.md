@@ -49,10 +49,13 @@ CargoNext supports country-specific manifests: US AMS, US ISF, CA eManifest Forw
 
 ### 3.3 Reports
 
-- **Dashboards:** Customs Dashboard, Global Customs Dashboard
-- **Status:** Declaration Status Report, Manifest Status Report
-- **Compliance:** Customs Compliance Report, Filing Compliance Report
-- **Value:** Declaration Value Report
+The Customs workspace **Reports and Analysis** area lists only the script reports below, grouped into **Operations**, **Compliance**, and **Analytics & Insights**.
+
+**Operations:** Customs Dashboard, Global Customs Dashboard, Declaration Branch Performance View, Declaration Monthly Clearance Volume And Value, Declaration Monthly Throughput Index, Declaration Open Draft Aging Backlog, Declaration Job Status Pipeline Mix, Declaration Owner Workload Review, Declaration Status Pipeline Mix, Declaration Weekly Clearance Volume And Value, Declaration Weekly Throughput Index
+
+**Compliance:** Declaration Authority Workload Concentration, Declaration Overdue Clearance Pressure, Declaration Payment Status Risk Pipeline, Declaration Submission Health Ratio, Declaration Type Regulatory Mix, Declaration Incoterm Commercial Mix
+
+**Analytics & Insights:** Customs Declaration Executive Snapshot, Declaration Customer Value Concentration, Declaration Destination Country Trade Concentration, Declaration Origin Country Trade Concentration, Declaration Transport Mode Corridor Mix
 
 
 <!-- wiki-field-reference:start -->

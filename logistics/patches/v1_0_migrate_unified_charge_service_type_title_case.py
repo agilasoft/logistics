@@ -5,17 +5,18 @@ import frappe
 from frappe.utils import get_table_name
 
 # After v1_0_normalize_unified_charge_service_type_lowercase, unified charge rows use lowercase keys.
-# DocType Select options use Title Case labels (Air, Sea, Transport, Custom, Warehousing).
+# DocType Select options use Title Case labels (Air, Sea, Transport, Customs, Warehousing).
 
 _LOWER_TO_TITLE = (
 	("air", "Air"),
 	("sea", "Sea"),
 	("transport", "Transport"),
-	("custom", "Custom"),
+	("custom", "Customs"),
 	("warehousing", "Warehousing"),
 )
 
-_CUSTOMS_TO_CUSTOM = ("Customs", "Custom")
+# Resolve duplicate labels after lowercase migration (Custom was used briefly; Customs is canonical).
+_LEGACY_CUSTOM_TITLE_TO_CUSTOMS = ("Customs", "Custom")
 
 _OPERATIONAL_CHARGE_DOCTYPES = (
 	"Sea Booking Charges",
@@ -42,7 +43,7 @@ def execute():
 			)
 		frappe.db.sql(
 			"UPDATE `{}` SET `service_type`=%s WHERE `service_type`=%s".format(table),
-			_CUSTOMS_TO_CUSTOM,
+			_LEGACY_CUSTOM_TITLE_TO_CUSTOMS,
 		)
 
 	for dt in _OPERATIONAL_CHARGE_DOCTYPES:
@@ -51,17 +52,17 @@ def execute():
 		table = get_table_name(dt)
 		frappe.db.sql(
 			"UPDATE `{}` SET `service_type`=%s WHERE `service_type`=%s".format(table),
-			_CUSTOMS_TO_CUSTOM,
+			_LEGACY_CUSTOM_TITLE_TO_CUSTOMS,
 		)
 
 	if frappe.db.exists("DocType", "Sales Quote"):
 		frappe.db.sql(
 			"UPDATE `tabSales Quote` SET `main_service`=%s WHERE `main_service`=%s",
-			_CUSTOMS_TO_CUSTOM,
+			_LEGACY_CUSTOM_TITLE_TO_CUSTOMS,
 		)
 
 	if frappe.db.exists("DocType", "Internal Job Detail"):
 		frappe.db.sql(
 			"UPDATE `tabInternal Job Detail` SET `service_type`=%s WHERE `service_type`=%s",
-			_CUSTOMS_TO_CUSTOM,
+			_LEGACY_CUSTOM_TITLE_TO_CUSTOMS,
 		)

@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, today, date_diff
+from frappe.utils import cint, today
 
 
 def execute(filters=None):
@@ -14,7 +14,7 @@ def execute(filters=None):
 	data = get_data(filters)
 	chart = get_chart_data(data, filters)
 	
-	return columns, data, None, chart
+	return columns, data, None, chart, []
 
 
 def get_columns():
@@ -121,37 +121,48 @@ def get_data(filters):
 
 
 def get_chart_data(data, filters):
-	"""Generate chart data"""
-	if not data:
-		return None
-	
-	# Status distribution chart
-	status_data = {}
-	for row in data:
-		metric = row.get("metric", "")
-		if "Manifests -" in metric:
-			status = metric.replace("Manifests - ", "")
-			status_data[status] = row.get("value", 0)
-	
-	if not status_data:
-		return None
-	
-	labels = list(status_data.keys())
-	values = [status_data[label] for label in labels]
-	
-	chart = {
+	"""Generate chart data — Global Manifest status distribution for the selected company."""
+	company = filters.get("company") or frappe.defaults.get_user_default("Company")
+	if not company:
+		return {
+			"data": {
+				"labels": [_("Set company filter")],
+				"datasets": [{"name": _("Manifests"), "values": [0]}],
+			},
+			"type": "bar",
+			"colors": ["#6c757d"],
+		}
+	status_rows = frappe.db.sql(
+		"""
+		SELECT status, COUNT(*) AS cnt
+		FROM `tabGlobal Manifest`
+		WHERE docstatus < 2 AND company = %(company)s
+		GROUP BY status
+		ORDER BY cnt DESC
+		""",
+		{"company": company},
+		as_dict=1,
+	)
+	if status_rows:
+		return {
+			"data": {
+				"labels": [r.status or _("Unknown") for r in status_rows],
+				"datasets": [
+					{
+						"name": _("Manifests by Status"),
+						"values": [cint(r.cnt) for r in status_rows],
+					}
+				],
+			},
+			"type": "pie",
+			"colors": ["#36a2eb", "#4bc0c0", "#9966ff", "#ff6384", "#ff9f40"],
+		}
+	return {
 		"data": {
-			"labels": labels,
-			"datasets": [
-				{
-					"name": "Manifest Status",
-					"values": values
-				}
-			]
+			"labels": [_("No manifests on file")],
+			"datasets": [{"name": _("Manifests by Status"), "values": [0]}],
 		},
-		"type": "pie",
-		"colors": ["#36a2eb", "#4bc0c0", "#9966ff", "#ff6384", "#ff9f40"]
+		"type": "bar",
+		"colors": ["#6c757d"],
 	}
-	
-	return chart
 

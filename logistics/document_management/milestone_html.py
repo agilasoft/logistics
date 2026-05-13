@@ -5,8 +5,8 @@
 
 from __future__ import unicode_literals
 
-import json
 import frappe
+from frappe import _
 
 
 def _get_milestone_attr(m, key, default=None):
@@ -184,7 +184,7 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 	rows = []
 	for m in milestones:
 		desc = milestone_details.get(m.milestone, m.milestone or "—")
-		display_status, is_delayed, _ = _compute_milestone_status(m)
+		display_status, is_delayed, severity = _compute_milestone_status(m)
 		status_label = "Delayed" if (display_status == "delayed" or is_delayed) else (m.status or "Planned").strip()
 		status_class = "label-success" if display_status == "completed" else "label-info" if display_status == "started" else "label-danger" if display_status == "delayed" or is_delayed else "label-default"
 		planned_start = format_datetime_fn(m.planned_start) if m.planned_start else "—"
@@ -259,12 +259,14 @@ def build_milestone_html(
 	child_milestone_doctype=None,
 	refresh_method=None,
 	refresh_arg_name=None,
+	empty_hint_html=None,
 ):
 	"""
 	Build milestone HTML for Milestones tab.
 	detail_items: list of (label, value) for header details.
 	include_doc_alerts: if False, omit document alerts (use when Dashboard tab shows them separately).
 	include_origin_destination: if False, omit ORIGIN/DESTINATION header (shown in Dashboard tab instead).
+	empty_hint_html: optional HTML when there are no milestones (timeline only; use DocType child table for grid).
 	"""
 	doc_alerts = ""
 	if include_doc_alerts:
@@ -386,6 +388,14 @@ def build_milestone_html(
 
 	html += timeline_html
 
+	if not milestones:
+		hint = empty_hint_html or (
+			'<p class="text-muted" style="margin:0 0 16px 0;">'
+			+ frappe.utils.escape_html(_("No milestones to display."))
+			+ "</p>"
+		)
+		html += hint
+
 	html += """
 			</div>
 		</div>
@@ -415,45 +425,6 @@ def build_milestone_html(
 			.milestone-timeline-labels { height: 32px; }
 		}
 		</style>
-		<script>
-		var _milestoneChildDoctype = """ + json.dumps(child_milestone_doctype or "Job Milestone") + """;
-		var _milestoneRefreshMethod = """ + json.dumps(refresh_method or "logistics.document_management.api.get_milestone_html") + """;
-		var _milestoneRefreshArgName = """ + json.dumps(refresh_arg_name or "docname") + """;
-		function _refreshMilestoneHtml() {
-			var frm = frappe.ui.form.get_cur_frm();
-			if (!frm || !frm.doc.name || frm.doc.__islocal) return;
-			var args = _milestoneRefreshArgName === 'special_project'
-				? { special_project: frm.doc.name }
-				: { doctype: frm.doctype, docname: frm.doc.name };
-			frappe.call({
-				method: _milestoneRefreshMethod,
-				args: args,
-				callback: function(r) {
-					if (r.message && frm.fields_dict.milestone_html) {
-						frm.fields_dict.milestone_html.$wrapper.html(r.message);
-					}
-				}
-			});
-		}
-		function captureActualStart(milestoneDoctype, milestoneId) {
-			var dt = milestoneDoctype || _milestoneChildDoctype;
-			frappe.prompt([{fieldname: 'actual_start', fieldtype: 'Datetime', label: 'Actual Start', reqd: 1, default: frappe.datetime.now_datetime()}], function(values) {
-				frappe.call({
-					method: 'frappe.client.set_value',
-					args: { doctype: dt, name: milestoneId, fieldname: 'actual_start', value: values.actual_start }
-				}, function() { _refreshMilestoneHtml(); });
-			});
-		}
-		function captureActualEnd(milestoneDoctype, milestoneId) {
-			var dt = milestoneDoctype || _milestoneChildDoctype;
-			frappe.prompt([{fieldname: 'actual_end', fieldtype: 'Datetime', label: 'Actual End', reqd: 1, default: frappe.datetime.now_datetime()}], function(values) {
-				frappe.call({
-					method: 'frappe.client.set_value',
-					args: { doctype: dt, name: milestoneId, fieldname: 'actual_end', value: values.actual_end }
-				}, function() { _refreshMilestoneHtml(); });
-			});
-		}
-		</script>
 	"""
 
 	return (doc_alerts + html) if doc_alerts else html

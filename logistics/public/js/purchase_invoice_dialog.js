@@ -249,7 +249,7 @@
 				if (charges.length === 0) {
 					frappe.msgprint({
 						title: __("No Charges"),
-						message: __("No eligible consolidation charges with items and allocation. Add items and pay-to on charges, and ensure attached shipments exist."),
+						message: __("No eligible consolidation charges with items and allocation. Add items and pay-to on charges, and ensure consolidation packages reference shipments."),
 						indicator: "orange"
 					});
 					return;
@@ -326,7 +326,7 @@
 						{
 							fieldname: "split_help",
 							fieldtype: "HTML",
-							options: "<p class=\"text-muted small\">" + __("Each selected charge is split into one line per attached shipment; amounts follow the charge allocation method. Job Number is set per line.") + "</p>"
+							options: "<p class=\"text-muted small\">" + __("Each selected charge is split into one line per shipment in the consolidation; amounts follow the charge allocation method. Job Number is set per line.") + "</p>"
 						},
 						{ fieldname: "charges_html", fieldtype: "HTML", options: table_html }
 					].concat(headerFields),

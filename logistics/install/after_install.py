@@ -122,11 +122,6 @@ def create_custom_indexes():
                 "name": "idx_consolidation_route"
             },
             {
-                "table": "tabAir Consolidation Shipments",
-                "columns": ["air_freight_job"],
-                "name": "idx_shipments_job"
-            },
-            {
                 "table": "tabAir Consolidation Packages",
                 "columns": ["air_freight_job"],
                 "name": "idx_packages_job"

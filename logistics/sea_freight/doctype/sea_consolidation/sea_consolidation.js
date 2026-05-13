@@ -51,6 +51,19 @@ frappe.ui.form.on("Sea Consolidation Packages", {
 	},
 });
 
+function _sync_total_containers(frm) {
+	frm.set_value("total_containers", (frm.doc.consolidation_containers || []).length);
+}
+
+frappe.ui.form.on("Sea Consolidation Containers", {
+	consolidation_containers_add: function (frm) {
+		_sync_total_containers(frm);
+	},
+	consolidation_containers_remove: function (frm) {
+		_sync_total_containers(frm);
+	},
+});
+
 frappe.ui.form.on("Sea Consolidation", {
 	validate: async function (frm) {
 		const rows = frm.doc.consolidation_containers || [];

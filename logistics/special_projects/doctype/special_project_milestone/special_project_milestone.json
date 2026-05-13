@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "creation": "2026-05-05 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "job_milestone",
+  "milestone",
+  "job_type",
+  "job_number",
+  "column_break_1",
+  "status",
+  "planned_start",
+  "planned_end",
+  "column_break_2",
+  "actual_start",
+  "actual_end"
+ ],
+ "fields": [
+  {
+   "fieldname": "job_milestone",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Milestone",
+   "options": "Job Milestone",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "job_milestone.milestone",
+   "fieldname": "milestone",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Milestone",
+   "options": "Logistics Milestone",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "job_milestone.job_type",
+   "fieldname": "job_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "job_milestone.job_number",
+   "fieldname": "job_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "job_milestone.status",
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "job_milestone.planned_start",
+   "fieldname": "planned_start",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Planned Start",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "job_milestone.planned_end",
+   "fieldname": "planned_end",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Planned End",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "job_milestone.actual_start",
+   "fieldname": "actual_start",
+   "fieldtype": "Datetime",
+   "label": "Actual Start",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "job_milestone.actual_end",
+   "fieldname": "actual_end",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Actual End",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Milestone",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": [],
+ "track_changes": 1
+}
