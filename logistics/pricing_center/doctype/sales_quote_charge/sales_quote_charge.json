@@ -22,14 +22,14 @@
   "quotation_type",
   "section_break_summary",
   "bill_to",
+  "bill_to_exchange_rate_source",
   "bill_to_exchange_rate",
   "use_tariff_in_revenue",
   "revenue_tariff",
   "column_break_fktp",
   "pay_to",
-  "pay_to_exchange_rate",
-  "bill_to_exchange_rate_source",
   "pay_to_exchange_rate_source",
+  "pay_to_exchange_rate",
   "use_tariff_in_cost",
   "cost_tariff",
   "section_break_air_params",
@@ -88,7 +88,13 @@
   "cost_base_amount",
   "estimated_cost",
   "cost_calc_notes",
-  "cost_sheet_source"
+  "cost_sheet_source",
+  "section_break_weight_breaks",
+  "selling_weight_break",
+  "selling_qty_break",
+  "column_break_calc_notes",
+  "cost_weight_break",
+  "cost_qty_break"
  ],
  "fields": [
   {
@@ -96,7 +102,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustom\nWarehousing",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
    "reqd": 1
   },
   {
@@ -324,7 +330,7 @@
    "label": "Common Parameters"
   },
   {
-   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Custom\",\"Warehousing\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Warehousing\"].includes(doc.service_type)",
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
@@ -425,13 +431,13 @@
    "options": "Pick and Drop Mode"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "section_break_customs_params",
    "fieldtype": "Section Break",
    "label": "Customs Parameters"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
@@ -439,14 +445,14 @@
    "options": "Customs Authority"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
    "options": "Import\nExport\nTransit\nBonded"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
@@ -454,7 +460,7 @@
    "options": "Broker"
   },
   {
-   "depends_on": "eval:doc.service_type == \"Custom\"",
+   "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_charge_category",
    "fieldtype": "Select",
    "label": "Charge Category",
@@ -641,6 +647,39 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_break_weight_breaks",
+   "fieldtype": "Section Break",
+   "label": "Weight Breaks"
+  },
+  {
+   "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
+   "fieldname": "selling_weight_break",
+   "fieldtype": "Button",
+   "label": "Weight Break"
+  },
+  {
+   "depends_on": "eval:doc.revenue_calculation_method=='Qty Break'",
+   "fieldname": "selling_qty_break",
+   "fieldtype": "Button",
+   "label": "Manage Selling Qty Breaks"
+  },
+  {
+   "fieldname": "column_break_calc_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Weight Break'",
+   "fieldname": "cost_weight_break",
+   "fieldtype": "Button",
+   "label": "Weight Break"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Qty Break'",
+   "fieldname": "cost_qty_break",
+   "fieldtype": "Button",
+   "label": "Manage Cost Qty Breaks"
+  },
+  {
    "fieldname": "cost_sheet_source",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -674,7 +713,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-27 17:35:48.742467",
+ "modified": "2026-05-04 17:18:05.936727",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote Charge",

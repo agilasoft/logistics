@@ -72,8 +72,20 @@ def install_transport_modes():
         return
     print("🚢 Installing Transport Mode data...")
     modes = [
-        {"mode_code": "Air", "mode_name": "Air", "primary_document": "Air Shipment", "description": "Air freight"},
-        {"mode_code": "Sea", "mode_name": "Sea", "primary_document": "Sea Shipment", "description": "Sea freight"},
+        {
+            "mode_code": "Air",
+            "mode_name": "Air",
+            "primary_document": "Air Shipment",
+            "description": "Air freight",
+            "air": 1,
+        },
+        {
+            "mode_code": "Sea",
+            "mode_name": "Sea",
+            "primary_document": "Sea Shipment",
+            "description": "Sea freight",
+            "sea": 1,
+        },
         {"mode_code": "Road", "mode_name": "Road", "primary_document": "Transport Job", "description": "Road transport"},
         {"mode_code": "Rail", "mode_name": "Rail", "primary_document": "Transport Job - Rail", "description": "Rail transport"},
         {"mode_code": "Inland Water", "mode_name": "Inland Water", "primary_document": "Transport Job - Inland Water", "description": "Inland waterway transport"},

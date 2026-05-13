@@ -115,13 +115,19 @@ def copy_internal_job_details_to_doc(source_doc: Any, dest_doc: Any) -> None:
 
 
 def get_declaration_order_job_no_from_shipment_doc(shipment_doc: Any) -> str | None:
-	"""Return linked Declaration Order name from internal_job_details (job_type = Declaration Order)."""
+	"""Return linked Declaration Order name from internal_job_details (job_type = Declaration Order).
+
+	Skips cancelled Declaration Orders so the main shipment can create/link a replacement after cancel.
+	"""
 	for row in getattr(shipment_doc, "internal_job_details", None) or []:
 		if effective_internal_job_detail_job_type(row) != DECLARATION_ORDER_JOB_TYPE:
 			continue
 		jn = (getattr(row, "job_no", None) or "").strip()
-		if jn and frappe.db.exists("Declaration Order", jn):
-			return jn
+		if not jn or not frappe.db.exists("Declaration Order", jn):
+			continue
+		if frappe.db.get_value("Declaration Order", jn, "docstatus") == 2:
+			continue
+		return jn
 	return None
 
 
@@ -226,6 +232,18 @@ def persist_internal_job_detail_job_link(
 	_save_parent_internal_job_details(parent)
 
 
+def _internal_job_detail_row_open_for_declaration_order_link(row: Any) -> bool:
+	"""True if this Internal Job line can receive a new Declaration Order link without overwriting an active order."""
+	if effective_internal_job_detail_job_type(row) != DECLARATION_ORDER_JOB_TYPE:
+		return False
+	jn = (getattr(row, "job_no", None) or "").strip()
+	if not jn:
+		return True
+	if not frappe.db.exists("Declaration Order", jn):
+		return True
+	return int(frappe.db.get_value("Declaration Order", jn, "docstatus") or 0) == 2
+
+
 def link_declaration_order_on_shipment(
 	shipment_doctype: str, shipment_name: str, declaration_order_name: str
 ) -> None:
@@ -237,12 +255,12 @@ def link_declaration_order_on_shipment(
 		return
 	shipment = frappe.get_doc(shipment_doctype, shipment_name)
 	for row in shipment.internal_job_details or []:
-		if effective_internal_job_detail_job_type(row) != DECLARATION_ORDER_JOB_TYPE:
+		if not _internal_job_detail_row_open_for_declaration_order_link(row):
 			continue
 		row.job_type = DECLARATION_ORDER_JOB_TYPE
 		row.job_no = declaration_order_name
 		if hasattr(row, "service_type") and not (getattr(row, "service_type", None) or "").strip():
-			row.service_type = "Custom"
+			row.service_type = "Customs"
 		_save_shipment_internal_jobs(shipment)
 		return
 	shipment.append(
@@ -250,7 +268,7 @@ def link_declaration_order_on_shipment(
 		{
 			"job_type": DECLARATION_ORDER_JOB_TYPE,
 			"job_no": declaration_order_name,
-			"service_type": "Custom",
+			"service_type": "Customs",
 		},
 	)
 	_save_shipment_internal_jobs(shipment)
@@ -283,3 +301,43 @@ def unlink_declaration_order_from_shipment(
 		shipment.remove(row)
 	if to_remove:
 		_save_shipment_internal_jobs(shipment)
+
+
+def unlink_declaration_order_from_internal_job_parent_documents(
+	declaration_order_name: str,
+	order_doc: Any,
+	*,
+	preserve_internal_job_rows: bool = False,
+) -> None:
+	"""Clear or remove Internal Job Detail references to this Declaration Order on linked operational parents.
+
+	When ``preserve_internal_job_rows`` is True (Declaration Order **cancel**), rows that pointed at this
+	order are left in place so users still see which line was tied to the cancelled order.
+
+	When False (**delete**), matching rows are removed so parents do not keep links to a non-existent document.
+
+	Parents may be linked via ``air_shipment`` / ``sea_shipment`` (freight flow) and/or ``main_job`` /
+	``main_job_type`` (e.g. internal-job orders from Transport Job).
+	"""
+	dco = (declaration_order_name or "").strip()
+	if not dco:
+		return
+	if preserve_internal_job_rows:
+		return
+	targets: list[tuple[str, str]] = []
+	for fn, dt in (("air_shipment", "Air Shipment"), ("sea_shipment", "Sea Shipment")):
+		nm = (getattr(order_doc, fn, None) or "").strip()
+		if nm:
+			targets.append((dt, nm))
+	mjt = (getattr(order_doc, "main_job_type", None) or "").strip()
+	mj = (getattr(order_doc, "main_job", None) or "").strip()
+	if mj and mjt in ("Air Shipment", "Sea Shipment", "Transport Job"):
+		targets.append((mjt, mj))
+	seen: set[tuple[str, str]] = set()
+	for dt, nm in targets:
+		key = (dt, nm)
+		if key in seen:
+			continue
+		seen.add(key)
+		if frappe.db.exists(dt, nm):
+			unlink_declaration_order_from_shipment(dt, nm, dco)

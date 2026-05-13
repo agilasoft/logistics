@@ -163,15 +163,35 @@ class TransportOrder(Document):
                         allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
                 # Main leg and internal satellite TOs (linked to main via main_job / booking) may share the
                 # same one-off quote when customs was converted first (Declaration Order).
-                allow_decl_order_same_chain = cint(getattr(self, "is_main_service", 0)) == 1 or (
-                    cint(getattr(self, "is_internal_job", 0)) == 1 and (bool(allow_sea) or bool(allow_air))
+                is_internal = cint(getattr(self, "is_internal_job", 0)) == 1
+                main_job_type = (getattr(self, "main_job_type", None) or "").strip()
+                main_job = (getattr(self, "main_job", None) or "").strip()
+                linked_to_main_transport = is_internal and main_job_type == "Transport Order" and bool(main_job)
+                linked_to_freight_shipment = bool(getattr(self, "air_shipment", None) or getattr(self, "sea_shipment", None))
+                linked_declaration_order = None
+                if is_internal and main_job_type == "Declaration" and main_job:
+                    try:
+                        linked_declaration_order = (
+                            frappe.db.get_value("Declaration", main_job, "declaration_order") or None
+                        )
+                    except Exception:
+                        linked_declaration_order = None
+
+                allow_decl_order_same_chain = (
+                    cint(getattr(self, "is_main_service", 0)) == 1
+                    or linked_to_main_transport
+                    or linked_to_freight_shipment
+                    or (is_internal and (bool(allow_sea) or bool(allow_air)))
+                    or bool(linked_declaration_order)
                 )
                 validate_one_off_quote_not_converted(
                     self.sales_quote,
                     self.doctype,
                     self.name,
+                    allow_if_quote_converted_to=linked_declaration_order,
                     allow_linked_sea_booking=allow_sea,
                     allow_linked_air_booking=allow_air,
+                    allow_linked_transport_order=main_job if linked_to_main_transport else None,
                     allow_main_transport_if_converted_to_declaration_order=allow_decl_order_same_chain,
                 )
         
@@ -391,13 +411,27 @@ class TransportOrder(Document):
         
         self._validate_transport_legs()
     
-    def after_submit(self):
-        """Ensure quote field values remain after submission."""
+    def on_submit(self):
+        """Ensure quote field values remain after submission; update One-off Sales Quote when converted.
+
+        Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
+        """
         # Preserve quote field value after submission - ensure it's not cleared
         # Get the quote value from the database to ensure it's preserved
         current_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
         current_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
         current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+        if (
+            not current_sales_quote
+            and current_quote
+            and frappe.db.exists("Sales Quote", current_quote)
+        ):
+            current_sales_quote = current_quote
+        if not current_sales_quote:
+            for cand in (getattr(self, "sales_quote", None), getattr(self, "quote", None)):
+                if cand and frappe.db.exists("Sales Quote", cand):
+                    current_sales_quote = cand
+                    break
         
         # If quote was set before submission, ensure it remains set
         # This prevents any code from clearing the quote field after submission
@@ -416,6 +450,11 @@ class TransportOrder(Document):
     def on_cancel(self):
         """Reset One-off Sales Quote status when Transport Order is cancelled."""
         current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
+        if not current_sales_quote:
+            qt = frappe.db.get_value(self.doctype, self.name, 'quote_type')
+            q = frappe.db.get_value(self.doctype, self.name, 'quote')
+            if qt == "One-Off Quote" and q and frappe.db.exists("Sales Quote", q):
+                current_sales_quote = q
         if current_sales_quote:
             from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
             reset_one_off_quote_on_cancel(current_sales_quote)

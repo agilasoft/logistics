@@ -31,7 +31,9 @@
   "pay_to",
   "pay_to_exchange_rate",
   "bill_to_exchange_rate_source",
+  "bill_to_exchange_rate_date",
   "pay_to_exchange_rate_source",
+  "pay_to_exchange_rate_date",
   "estimated_cost",
   "use_tariff_in_cost",
   "cost_tariff",
@@ -87,7 +89,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustom\nWarehousing"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
   },
   {
    "default": "0",
@@ -255,10 +257,20 @@
    "options": "Exchange Rate Source"
   },
   {
+   "fieldname": "bill_to_exchange_rate_date",
+   "fieldtype": "Date",
+   "label": "Exchange Rate Date (Bill To)"
+  },
+  {
    "fieldname": "pay_to_exchange_rate_source",
    "fieldtype": "Link",
    "label": "Exchange Rate Source (Pay To)",
    "options": "Exchange Rate Source"
+  },
+  {
+   "fieldname": "pay_to_exchange_rate_date",
+   "fieldtype": "Date",
+   "label": "Exchange Rate Date (Pay To)"
   },
   {
    "fieldname": "estimated_cost",

@@ -7,7 +7,6 @@
  "engine": "InnoDB",
  "field_order": [
   "route_info_section",
-  "route_sequence",
   "route_type",
   "origin_airport",
   "destination_airport",
@@ -56,14 +55,6 @@
    "fieldname": "route_info_section",
    "fieldtype": "Section Break",
    "label": "Route Information"
-  },
-  {
-   "fieldname": "route_sequence",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Route Sequence",
-   "reqd": 1,
-   "unique": 1
   },
   {
    "fieldname": "route_type",
@@ -322,7 +313,7 @@
  "in_create": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-26 09:53:52.148715",
+ "modified": "2026-05-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation Routes",

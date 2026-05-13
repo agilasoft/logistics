@@ -92,7 +92,9 @@ def _update_overdue_status(row):
 	# Overdue: date_required passed, required document not received
 	if row.date_required:
 		required = getdate(row.date_required)
-		if required < today_date and row.status in ("Pending", "Uploaded"):
+		# Include Overdue so overdue_days is recomputed each save; otherwise the branch below
+		# (`elif row.overdue_days`) clears days whenever status is already Overdue.
+		if required < today_date and row.status in ("Pending", "Uploaded", "Overdue"):
 			row.overdue_days = date_diff(today_date, required)
 			if row.status == "Pending":
 				row.status = "Overdue"

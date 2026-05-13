@@ -54,7 +54,8 @@ def _normalize_service_type_value(value):
 		"sea freight": "Sea",
 		"seafreight": "Sea",
 		"transport": "Transport",
-		"customs": "Custom",
+		"custom": "Customs",
+		"customs": "Customs",
 		"warehousing": "Warehousing",
 	}
 	return mapping.get(key, raw)
@@ -112,7 +113,12 @@ class AirBooking(Document):
 		)
 
 		register_charge_resolution_parent(self)
+		from logistics.utils.transport_mode_flags import sync_transport_mode_flags_on_parent_routing_legs
+
+		sync_transport_mode_flags_on_parent_routing_legs(self)
 		try:
+			_sync_quote_and_sales_quote(self)
+
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
 			validate_internal_job_main_link_unchanged(self)
@@ -416,6 +422,9 @@ class AirBooking(Document):
 	def before_submit(self):
 		"""Validate packages and required dates before submitting the Air Booking."""
 		self.validate_required_fields_for_submit()
+		# Keep sales_quote in sync with quote when quote_type is One-Off Quote (unified Sales Quote).
+		# Without this, on_submit never updates the One-off Sales Quote status / converted_to_doc.
+		_sync_quote_and_sales_quote(self)
 		self._require_positive_booking_volume(
 			_("Volume must be greater than 0 before submitting the Air Booking")
 		)
@@ -2415,11 +2424,41 @@ class AirBooking(Document):
 			)
 			frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
 	
-	def after_submit(self):
-		"""Update One-off Sales Quote status to Converted when Air Booking is submitted."""
-		if self.sales_quote:
+	def on_submit(self):
+		"""Update One-off Sales Quote status to Converted when Air Booking is submitted.
+
+		Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
+		"""
+		_sync_quote_and_sales_quote(self)
+		# Read persisted quote link from DB — same pattern as Sea Booking. Submit hooks can leave
+		# in-memory quote/sales_quote unset while DB still holds the One-off Sales Quote name on `quote`.
+		current_quote = frappe.db.get_value(self.doctype, self.name, "quote")
+		current_quote_type = frappe.db.get_value(self.doctype, self.name, "quote_type")
+		current_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
+		# Fallback when `sales_quote` column is empty but `quote` still holds the Sales Quote name
+		# (e.g. legacy rows or quote_type/quote not persisted on this DocType).
+		if (
+			not current_sales_quote
+			and current_quote
+			and frappe.db.exists("Sales Quote", current_quote)
+		):
+			current_sales_quote = current_quote
+		# Last resort: use synced in-memory link (same request as submit).
+		if not current_sales_quote:
+			for cand in (getattr(self, "sales_quote", None), getattr(self, "quote", None)):
+				if cand and frappe.db.exists("Sales Quote", cand):
+					current_sales_quote = cand
+					break
+		if current_quote and not getattr(self, "quote", None):
+			self.db_set("quote", current_quote, update_modified=False)
+		if current_quote_type and not getattr(self, "quote_type", None):
+			self.db_set("quote_type", current_quote_type, update_modified=False)
+		if current_sales_quote and not getattr(self, "sales_quote", None):
+			self.db_set("sales_quote", current_sales_quote, update_modified=False)
+		if current_sales_quote:
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
-			update_one_off_quote_on_submit(self.sales_quote, self.name, self.doctype)
+
+			update_one_off_quote_on_submit(current_sales_quote, self.name, self.doctype)
 
 	@frappe.whitelist()
 	def get_dashboard_html(self):
@@ -2437,9 +2476,15 @@ class AirBooking(Document):
 
 	def on_cancel(self):
 		"""Reset One-off Sales Quote status when Air Booking is cancelled."""
-		if self.sales_quote:
+		current_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
+		if not current_sales_quote:
+			q = frappe.db.get_value(self.doctype, self.name, "quote")
+			if q and frappe.db.exists("Sales Quote", q):
+				current_sales_quote = q
+		if current_sales_quote:
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-			reset_one_off_quote_on_cancel(self.sales_quote)
+
+			reset_one_off_quote_on_cancel(current_sales_quote)
 
 
 @frappe.whitelist()

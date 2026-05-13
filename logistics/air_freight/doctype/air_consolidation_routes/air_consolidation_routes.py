@@ -106,7 +106,7 @@ class AirConsolidationRoutes(Document):
     def get_route_summary(self):
         """Get summary information for the route"""
         return {
-            "route_sequence": self.route_sequence,
+            "idx": self.idx,
             "route_type": self.route_type,
             "origin": self.origin_airport,
             "destination": self.destination_airport,

@@ -447,8 +447,8 @@ def kpi_doc_health_ratio(ref, filters, options):
 		row = frappe.db.sql(
 			"""
 			SELECT
-				SUM(CASE WHEN docstatus = 1 THEN 1 ELSE 0 END) AS submitted,
-				SUM(CASE WHEN docstatus IN (0, 1) THEN 1 ELSE 0 END) AS openish
+				SUM(CASE WHEN docstatus = 0 THEN 1 ELSE 0 END) AS drafts,
+				SUM(CASE WHEN docstatus = 1 THEN 1 ELSE 0 END) AS submitted
 			FROM {tbl}
 			WHERE {where}
 			""".format(
@@ -460,15 +460,26 @@ def kpi_doc_health_ratio(ref, filters, options):
 		)[0]
 	except Exception:
 		return _empty(_("Could not load doc health."))
+	drafts = cint(row.get("drafts"))
 	sub = cint(row.get("submitted"))
-	op = cint(row.get("openish")) or 1
-	ratio = round(100.0 * sub / op, 2)
+	den = drafts + sub
+	ratio = round(100.0 * sub / den, 2) if den else 0.0
 	data = [
 		{"metric": _("Submitted share of active pipeline %"), "value": ratio},
-		{"metric": _("Submitted documents"), "value": sub},
-		{"metric": _("Draft plus submitted"), "value": op},
+		{"metric": _("Submitted documents"), "value": float(sub)},
+		{"metric": _("Draft documents"), "value": float(drafts)},
+		{"metric": _("Active pipeline (draft + submitted)"), "value": float(den)},
 	]
-	chart = series_chart(data, "metric", "value", chart_type="bar")
+	# Same-scale counts so the query-report chart renders clearly (not % mixed with hundreds).
+	chart = bar_top_numeric(
+		[
+			{"k": _("Submitted"), "v": float(sub)},
+			{"k": _("Draft"), "v": float(drafts)},
+		],
+		"k",
+		"v",
+		dataset_label=_("Documents"),
+	)
 	summary = [{"label": _("Submitted %"), "value": "{0}%".format(ratio), "indicator": "green" if ratio >= 70 else "orange"}]
 	return columns, data, None, chart, summary
 

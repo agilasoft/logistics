@@ -17,12 +17,15 @@
 	window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES = ["Declaration Charges", "Declaration Order Charges"];
 	/** Transport — order & job charge child tables. */
 	window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES = ["Transport Order Charges", "Transport Job Charges"];
+	/** Pricing — unified quote charge rows (same break UX as Sea Booking Charges). */
+	window.LOGISTICS_PRICING_CHARGE_DOCTYPES = ["Sales Quote Charge", "Tariff Charge"];
 
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [].concat(
 		window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_AIR_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES,
-		window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES
+		window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES,
+		window.LOGISTICS_PRICING_CHARGE_DOCTYPES
 	);
 
 	/** Any child DocType that ships freight-style weight-break row buttons (reference → Sales Quote Weight Break). */
@@ -47,8 +50,21 @@
 		return (sq && sq.fieldtype === "Button") || (cq && cq.fieldtype === "Button");
 	};
 
+	function _pricing_charge_reference_doctype_from_row(row) {
+		if (row.doctype) {
+			return row.doctype;
+		}
+		if (row.parentfield === "charges") {
+			return "Sales Quote Charge";
+		}
+		if (row.parentfield === "rates") {
+			return "Tariff Charge";
+		}
+		return "Sales Quote Air Freight";
+	}
+
 	function _wb_reference_from_row(row) {
-		var reference_doctype = row.doctype || (row.parentfield === "charges" ? "Sales Quote Charge" : "Sales Quote Air Freight");
+		var reference_doctype = _pricing_charge_reference_doctype_from_row(row);
 		return { reference_doctype: reference_doctype, reference_no: row.name };
 	}
 
@@ -326,7 +342,18 @@
 
 	window.open_qty_break_rate_dialog = function(frm, row, record_type) {
 		record_type = record_type || "Selling";
-		var reference_doctype = row.doctype || (row.parentfield === "charges" ? "Sales Quote Charge" : "Sales Quote Air Freight");
+		var reference_doctype = (function (r) {
+			if (r.doctype) {
+				return r.doctype;
+			}
+			if (r.parentfield === "charges") {
+				return "Sales Quote Charge";
+			}
+			if (r.parentfield === "rates") {
+				return "Tariff Charge";
+			}
+			return "Sales Quote Air Freight";
+		})(row);
 		var reference_no = row.name;
 		if (!reference_no || reference_no === "new" || String(reference_no).startsWith("new-")) {
 			frappe.msgprint({

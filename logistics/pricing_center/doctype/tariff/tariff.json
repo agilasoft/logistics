@@ -22,16 +22,8 @@
   "currency",
   "column_break_10",
   "service_tabs",
-  "air_freight_tab",
-  "air_freight_rates",
-  "sea_freight_tab",
-  "sea_freight_rates",
-  "transport_tab",
-  "transport_rates",
-  "warehouse_tab",
-  "warehouse_rates",
-  "customs_tab",
-  "customs_rates",
+  "rates_section",
+  "rates",
   "summary_tab",
   "total_rates",
   "notes"
@@ -128,62 +120,18 @@
   {
    "fieldname": "service_tabs",
    "fieldtype": "Tab Break",
-   "label": "Service Rates"
+   "label": "Rates"
   },
   {
-   "fieldname": "air_freight_tab",
-   "fieldtype": "Tab Break",
-   "label": "Air Freight"
+   "fieldname": "rates_section",
+   "fieldtype": "Section Break",
+   "label": "Tariff Rates"
   },
   {
-   "fieldname": "air_freight_rates",
+   "fieldname": "rates",
    "fieldtype": "Table",
-   "label": "Air Freight Rates",
-   "options": "Air Freight Rate"
-  },
-  {
-   "fieldname": "sea_freight_tab",
-   "fieldtype": "Tab Break",
-   "label": "Sea Freight"
-  },
-  {
-   "fieldname": "sea_freight_rates",
-   "fieldtype": "Table",
-   "label": "Sea Freight Rates",
-   "options": "Sea Freight Rate"
-  },
-  {
-   "fieldname": "transport_tab",
-   "fieldtype": "Tab Break",
-   "label": "Transport"
-  },
-  {
-   "fieldname": "transport_rates",
-   "fieldtype": "Table",
-   "label": "Transport Rates",
-   "options": "Transport Rate"
-  },
-  {
-   "fieldname": "warehouse_tab",
-   "fieldtype": "Tab Break",
-   "label": "Warehouse"
-  },
-  {
-   "fieldname": "warehouse_rates",
-   "fieldtype": "Table",
-   "label": "Warehouse Rates",
-   "options": "Warehouse Rate"
-  },
-  {
-   "fieldname": "customs_tab",
-   "fieldtype": "Tab Break",
-   "label": "Customs"
-  },
-  {
-   "fieldname": "customs_rates",
-   "fieldtype": "Table",
-   "label": "Customs Rates",
-   "options": "Customs Rate"
+   "label": "Rates",
+   "options": "Tariff Charge"
   },
   {
    "fieldname": "summary_tab",

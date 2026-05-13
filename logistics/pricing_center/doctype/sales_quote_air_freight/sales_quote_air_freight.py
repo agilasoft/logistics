@@ -17,6 +17,11 @@ from typing import Optional, Any
 from logistics.pricing_center.api_parts.transport_rate_calculation_engine import (
 	TransportRateCalculationEngine,
 )
+from logistics.pricing_center.doctype.tariff.tariff_rate_rows import (
+	iter_tariff_charges_for_service,
+	tariff_charge_calculation_method,
+	tariff_charge_unit_rate,
+)
 
 
 class SalesQuoteAirFreight(Document):
@@ -129,11 +134,11 @@ class SalesQuoteAirFreight(Document):
 		try:
 			if self.use_tariff_in_revenue and rev_tariff:
 				tariff_doc = frappe.get_doc("Tariff", rev_tariff)
-				if tariff_doc and tariff_doc.transport_rates:
-					for rate in tariff_doc.transport_rates:
+				if tariff_doc:
+					for rate in iter_tariff_charges_for_service(tariff_doc, "Air"):
 						if rate.item_code == self.item_code:
-							self.calculation_method = rate.calculation_method or "Per Unit"
-							self.unit_rate = rate.rate or 0
+							self.calculation_method = tariff_charge_calculation_method(rate)
+							self.unit_rate = tariff_charge_unit_rate(rate)
 							self.unit_type = rate.unit_type
 							self.currency = rate.currency or "USD"
 							self.minimum_quantity = rate.minimum_quantity or 0
@@ -143,11 +148,11 @@ class SalesQuoteAirFreight(Document):
 							break
 			if self.use_tariff_in_cost and cost_tariff:
 				tariff_doc = frappe.get_doc("Tariff", cost_tariff)
-				if tariff_doc and tariff_doc.transport_rates:
-					for rate in tariff_doc.transport_rates:
+				if tariff_doc:
+					for rate in iter_tariff_charges_for_service(tariff_doc, "Air"):
 						if rate.item_code == self.item_code:
-							self.cost_calculation_method = rate.calculation_method or "Per Unit"
-							self.unit_cost = rate.rate or 0
+							self.cost_calculation_method = tariff_charge_calculation_method(rate)
+							self.unit_cost = tariff_charge_unit_rate(rate)
 							self.cost_unit_type = rate.unit_type
 							self.cost_minimum_quantity = rate.minimum_quantity or 0
 							self.cost_minimum_charge = rate.minimum_charge or 0

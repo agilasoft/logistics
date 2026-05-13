@@ -6,7 +6,8 @@
 Integration tests for list filtering live in
 ``logistics.pricing_center.doctype.sales_quote.test_sales_quote.TestSalesQuote.test_get_charges_from_quotation_list_filters_by_air_corridor``
 and
-``logistics.pricing_center.doctype.sales_quote.test_sales_quote.TestSalesQuote.test_get_charges_from_quotation_list_filters_by_airline_when_set``.
+``logistics.pricing_center.doctype.sales_quote.test_sales_quote.TestSalesQuote.test_get_charges_from_quotation_list_filters_by_airline_when_set`` and
+``TestSalesQuote.test_get_charges_from_quotation_list_filters_by_cost_center_when_set``.
 
 Manual check (initialized bench site):
 
@@ -24,6 +25,7 @@ from logistics.utils.get_charges_from_quotation import (
 	_effective_declaration_order_filter_fields,
 	_effective_sea_air_transport_corridor,
 )
+from logistics.utils.sales_quote_link_query import sales_quote_matches_job_org_dimensions
 
 
 class TestGetChargesCorridorHelpers(FrappeTestCase):
@@ -49,15 +51,27 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		d.location_to = "B"
 		self.assertEqual(_effective_sea_air_transport_corridor(d, {}), ("A", "B", None, None))
 
-	def test_effective_corridor_override(self):
+	def test_effective_corridor_override_partial_only_origin(self):
+		d = MagicMock()
+		d.doctype = "Air Booking"
+		d.origin_port = "A"
+		d.destination_port = "B"
+		d.airline = "AL1"
+		# Any override → keys not sent are wildcards, not parent values.
+		self.assertEqual(
+			_effective_sea_air_transport_corridor(d, {"origin_port": "O1"}),
+			("O1", "", None, None),
+		)
+
+	def test_effective_corridor_override_airline_only(self):
 		d = MagicMock()
 		d.doctype = "Air Booking"
 		d.origin_port = "A"
 		d.destination_port = "B"
 		d.airline = "AL1"
 		self.assertEqual(
-			_effective_sea_air_transport_corridor(d, {"origin_port": "O1"}),
-			("O1", "B", "AL1", None),
+			_effective_sea_air_transport_corridor(d, {"airline": "AL2"}),
+			("", "", "AL2", None),
 		)
 
 	def test_effective_declaration_order_fields(self):
@@ -84,6 +98,20 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		msg = _corridor_mismatch_message_for_preview(doc, "Air", "SQ-TEST-001", {})
 		self.assertIsNotNone(msg)
 		self.assertIn("SQ-TEST-001", msg)
+
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
+	def test_org_dimensions_blank_quote_header_is_wildcard(self, mock_gv):
+		mock_gv.return_value = {"branch": "", "cost_center": "", "profit_center": ""}
+		self.assertTrue(
+			sales_quote_matches_job_org_dimensions("SQ-X", job_profit_center="PC-FILTER")
+		)
+
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
+	def test_org_dimensions_nonblank_mismatch_fails(self, mock_gv):
+		mock_gv.return_value = {"branch": "", "cost_center": "", "profit_center": "PC-OTHER"}
+		self.assertFalse(
+			sales_quote_matches_job_org_dimensions("SQ-X", job_profit_center="PC-FILTER")
+		)
 
 
 def run():

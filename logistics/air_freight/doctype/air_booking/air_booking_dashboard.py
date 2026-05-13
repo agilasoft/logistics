@@ -139,6 +139,9 @@ AIR_BOOKING_DASH_CSS = """
 .log-ab-dash .ab-secondary-meta .ab-sec-line i { color: #adb5bd; flex-shrink: 0; }
 .log-ab-dash .ab-secondary-meta .ab-sec-val { font-size: 0.82rem; color: var(--ro-muted); line-height: 1.45; }
 .log-ab-dash .ab-secondary-meta .ab-sec-k { font-weight: 600; color: var(--ro-label-2); margin-right: 0.25rem; }
+.log-ab-dash .ab-secondary-meta .ab-sec-line.ab-sec-line--sub { margin-top: 0.1rem; margin-bottom: 0.4rem; }
+.log-ab-dash .ab-secondary-meta .ab-sec-line.ab-sec-line--sub i { font-size: 0.7rem; opacity: 0.85; }
+.log-ab-dash .ab-secondary-meta .ab-sec-val.ab-sec-val--sub { font-size: 0.76rem; color: var(--ro-label-2); line-height: 1.35; }
 .log-ab-dash .ab-ring-wrap { position: relative; width: 112px; height: 112px; flex-shrink: 0; }
 .log-ab-dash .ab-ring {
 	width: 100%; height: 100%; border-radius: 50%;

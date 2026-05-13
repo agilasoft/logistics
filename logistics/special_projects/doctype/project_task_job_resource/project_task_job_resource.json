@@ -1,0 +1,151 @@
+{
+ "creation": "2026-05-04 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "resource_category",
+  "resource_name",
+  "task_type",
+  "column_break_res",
+  "status",
+  "priority",
+  "section_qty",
+  "quantity",
+  "uom",
+  "column_break_dates",
+  "required_from",
+  "required_to",
+  "section_detail",
+  "specification",
+  "supplier",
+  "assigned_to",
+  "estimated_cost",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "resource_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Resource Category",
+   "options": "Personnel\nEquipment\nFacility\nMaterial\nVehicle\nIT Systems\nBudget / Cost Center\nVendor Service\nTraining\nCompliance\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "resource_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Resource",
+   "link_filters": "[[\"Project Resource\", \"resource_category\", \"=\", \"eval:doc.resource_category\"],[\"Project Resource\", \"is_active\", \"=\", 1]]",
+   "options": "Project Resource",
+   "reqd": 1
+  },
+  {
+   "fieldname": "task_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Task Type",
+   "options": "Project Task Type"
+  },
+  {
+   "fieldname": "column_break_res",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nRequested\nApproved\nAllocated\nIn Progress\nCompleted\nCancelled"
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nCritical"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_qty",
+   "fieldtype": "Section Break",
+   "label": "Quantity & Timing"
+  },
+  {
+   "default": "1",
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "precision": "3"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "required_from",
+   "fieldtype": "Date",
+   "label": "Required From"
+  },
+  {
+   "fieldname": "required_to",
+   "fieldtype": "Date",
+   "label": "Required To"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_detail",
+   "fieldtype": "Section Break",
+   "label": "Assignment & Cost"
+  },
+  {
+   "fieldname": "specification",
+   "fieldtype": "Small Text",
+   "label": "Specification / Scope"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Preferred Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "fieldname": "estimated_cost",
+   "fieldtype": "Currency",
+   "label": "Estimated Cost"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-04 00:00:00",
+ "module": "Special Projects",
+ "name": "Project Task Job Resource",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -286,7 +286,7 @@ frappe.ui.form.on("Declaration", {
 			return {
 				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
 				filters: {
-					service_type: 'Custom',
+					service_type: 'Customs',
 					reference_doctype: 'Declaration',
 					reference_name: frm.doc.name || ''
 				}
@@ -561,7 +561,7 @@ frappe.ui.form.on("Declaration", {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=19', _openInternalJobDlg);
 						}
 					}, __('Create'));
 				}

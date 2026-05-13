@@ -453,7 +453,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Main Service",
-   "options": "\nAir\nSea\nTransport\nCustom\nWarehousing",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing",
    "reqd": 1
   },
   {
@@ -502,8 +502,7 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
-   "options": "Sales Quote Charge",
-   "reqd": 1
+   "options": "Sales Quote Charge"
   },
   {
    "fieldname": "additional_information_tab",

@@ -52,10 +52,10 @@ class TestAirConsolidation(FrappeTestCase):
 			"destination_airport": "USJFK"
 		})
 		
-		# Test that validation methods exist
+		# Test that validation methods exist (routes/packages enforced in before_submit)
 		self.assertTrue(hasattr(consolidation, 'validate'))
 		self.assertTrue(hasattr(consolidation, 'validate_dates'))
-		self.assertTrue(hasattr(consolidation, 'validate_consolidation_data'))
+		self.assertTrue(hasattr(consolidation, 'before_submit'))
 	
 	def test_air_consolidation_before_save(self):
 		"""Test before_save hook"""

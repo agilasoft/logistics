@@ -31,6 +31,11 @@
   "enable_milestone_tracking",
   "integration_settings_section",
   "enable_vessel_tracking",
+  "vessel_tracking_provider",
+  "vessel_tracking_api_key",
+  "vessel_tracking_column_break",
+  "vessel_tracking_api_user",
+  "vessel_tracking_api_secret",
   "enable_customs_clearance_tracking",
   "column_break_integration",
   "enable_edi_integration",
@@ -334,6 +339,38 @@
    "fieldname": "enable_vessel_tracking",
    "fieldtype": "Check",
    "label": "Enable Vessel Tracking"
+  },
+  {
+   "depends_on": "eval:doc.enable_vessel_tracking",
+   "fieldname": "vessel_tracking_provider",
+   "fieldtype": "Select",
+   "label": "Vessel tracking provider",
+   "options": "VesselAPI\nMarinesia\nVesselFinder"
+  },
+  {
+   "depends_on": "eval:doc.enable_vessel_tracking",
+   "fieldname": "vessel_tracking_api_key",
+   "fieldtype": "Password",
+   "label": "Vessel tracking API key"
+  },
+  {
+   "depends_on": "eval:doc.enable_vessel_tracking",
+   "fieldname": "vessel_tracking_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.enable_vessel_tracking",
+   "description": "Some providers (e.g. VesselFinder) require an API user id or username in addition to the key",
+   "fieldname": "vessel_tracking_api_user",
+   "fieldtype": "Data",
+   "label": "Vessel tracking API user"
+  },
+  {
+   "depends_on": "eval:doc.enable_vessel_tracking",
+   "description": "Secondary secret/password when required by the provider",
+   "fieldname": "vessel_tracking_api_secret",
+   "fieldtype": "Password",
+   "label": "Vessel tracking API secret"
   },
   {
    "default": "0",

@@ -1,1 +1,1 @@
-# Special Project Job
+# Legacy module path for pre-migrate DocType name "Special Project Job".
