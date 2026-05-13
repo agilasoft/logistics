@@ -2271,7 +2271,7 @@ def validate_one_off_quote_not_converted(
 	allow_linked_sea_booking: str = None,
 	allow_linked_air_booking: str = None,
 	allow_linked_transport_order: str = None,
-		allow_main_transport_if_converted_to_declaration_order: bool = False,
+	allow_main_transport_if_converted_to_declaration_order: bool = False,
 ):
 	"""
 	Validate that One-off Sales Quote is not already converted or linked to another document.

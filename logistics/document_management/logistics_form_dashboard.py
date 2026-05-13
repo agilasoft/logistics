@@ -624,7 +624,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 		map_segments = cfg.get("map_segments")
 	else:
 		legs_field = cfg.get("routing_legs_field", "routing_legs")
-		map_segments = build_map_segments_from_routing_legs(getattr(doc, legs_field) or [])
+		map_segments = build_map_segments_from_routing_legs(getattr(doc, legs_field, None) or [])
 		map_points = []
 		if not map_segments:
 			op = getattr(doc, cfg.get("route_origin_attr", "origin_port"), None)

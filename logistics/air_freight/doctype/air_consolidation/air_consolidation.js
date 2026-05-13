@@ -303,17 +303,6 @@ frappe.ui.form.on('Air Consolidation Charges', {
     }
 });
 
-// Air Consolidation Shipments child table events
-frappe.ui.form.on('Air Consolidation Shipments', {
-    consolidation_status: function(frm, cdt, cdn) {
-        update_job_status_timestamps(frm, cdt, cdn);
-    },
-    
-    air_freight_job: function(frm, cdt, cdn) {
-        load_job_details(frm, cdt, cdn);
-    }
-});
-
 // Function to apply settings defaults
 function apply_settings_defaults(frm) {
 	if (frm.doc._settings_applied) {
@@ -840,59 +829,6 @@ function calculate_charge_amount(frm, cdt, cdn) {
         // Calculate total
         row.total_amount = row.base_amount - row.discount_amount + (row.surcharge_amount || 0);
         frm.refresh_field('consolidation_charges');
-    }
-}
-
-function update_job_status_timestamps(frm, cdt, cdn) {
-    let row = locals[cdt][cdn];
-    if (row.consolidation_status === 'Accepted' && !row.check_in_time) {
-        row.check_in_time = frappe.datetime.now_datetime();
-    } else if (row.consolidation_status === 'In Transit' && !row.check_out_time) {
-        row.check_out_time = frappe.datetime.now_datetime();
-    }
-    frm.refresh_field('attached_air_freight_jobs');
-}
-
-function load_job_details(frm, cdt, cdn) {
-    let row = locals[cdt][cdn];
-    if (row.air_freight_job) {
-        frappe.call({
-            method: 'frappe.client.get',
-            args: {
-                doctype: 'Air Shipment',
-                name: row.air_freight_job
-            },
-            callback: function(r) {
-                if (r.message) {
-                    let job = r.message;
-                    // Derive status from docstatus (Air Shipment doesn't have a status field)
-                    if (job.docstatus === 1) {
-                        row.job_status = "Submitted";
-                    } else if (job.docstatus === 2) {
-                        row.job_status = "Cancelled";
-                    } else {
-                        row.job_status = "Draft";
-                    }
-                    row.booking_date = job.booking_date;
-                    row.shipper = job.shipper;
-                    row.consignee = job.consignee;
-                    row.origin_port = job.origin_port;
-                    row.destination_port = job.destination_port;
-                    row.weight = job.total_weight || job.weight;
-                    row.volume = job.total_volume || job.volume;
-                    row.packs = job.packs;
-                    // Fix: Use correct field name 'goods_value' instead of 'gooda_value'
-                    row.value = job.goods_value || 0;
-                    // Fix: Use 'billing_currency' instead of non-existent 'currency' field
-                    row.currency = job.billing_currency || '';
-                    row.incoterm = job.incoterm;
-                    row.contains_dangerous_goods = job.contains_dangerous_goods;
-                    row.dg_compliance_status = job.dg_compliance_status;
-                    row.dg_declaration_complete = job.dg_declaration_complete;
-                    frm.refresh_field('attached_air_freight_jobs');
-                }
-            }
-        });
     }
 }
 

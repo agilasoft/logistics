@@ -72,7 +72,7 @@ function scm_specs(frm) {
 		{
 			key: "target_etd",
 			ft: "Datetime",
-			lbl: __("ETD (strict date match)"),
+			lbl: __("ETD date (optional; matches shipment ETD date)"),
 			v: etd,
 		},
 		{
@@ -162,6 +162,15 @@ function scm_overrides(dlg) {
 	return out;
 }
 
+/** Full dialog filter map (server treats empty strings as “no filter”; avoids merging uncleared fields from the doc). */
+function scm_all_values(dlg) {
+	var o = {};
+	(dlg._scm_ctrls || []).forEach(function (x) {
+		o[x.key] = x.get_val() == null ? "" : String(x.get_val()).trim();
+	});
+	return o;
+}
+
 function scm_debounce_reload(dlg, reload) {
 	var tmr;
 	function go() {
@@ -249,7 +258,7 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 			frappe.call({
 				doc: frm.doc,
 				method: "preview_matching_sea_shipments",
-				args: { filter_overrides: scm_overrides(dlg) },
+				args: { filter_values: scm_all_values(dlg) },
 				callback: function (r) {
 					if (!r || r.exc) {
 						$list.html('<div class="alert alert-danger">' + __("Failed to load.") + "</div>");
@@ -414,7 +423,7 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 							method: "apply_selected_sea_shipments_to_planning",
 							args: {
 								shipment_names: picked,
-								filter_overrides: scm_overrides(dlg),
+								filter_values: scm_all_values(dlg),
 							},
 							freeze: true,
 							freeze_message: __("Updating…"),

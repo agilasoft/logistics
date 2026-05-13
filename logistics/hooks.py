@@ -33,14 +33,15 @@ app_include_css = [
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 ]
 app_include_js = [
+	"/assets/logistics/js/form_desk_title_route_guard.js?v=2",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/internal_job_create_from_source.js?v=17",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=19",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=11",
-	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=2",
-	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=2",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=16",
+	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
+	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
@@ -75,6 +76,12 @@ doctype_js = {
 		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
 	],
+	"Tariff": [
+		"logistics/public/js/charge_break_dialogs.js",
+		"logistics/public/js/charge_break_buttons.js",
+		"logistics/pricing_center/doctype/tariff_charge/tariff_charge.js",
+		"logistics/pricing_center/doctype/tariff/tariff.js",
+	],
 	# Charge parent doctypes: dialogs first, then charge script + handlers
 	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
 	"Air Booking": [
@@ -108,7 +115,7 @@ doctype_js = {
 	"Air Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/air_consolidation_matching_shipments.js?v=2",
+		"logistics/public/js/air_consolidation_matching_shipments.js?v=5",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 	],
@@ -143,7 +150,7 @@ doctype_js = {
 	"Sea Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/sea_consolidation_matching_shipments.js?v=2",
+		"logistics/public/js/sea_consolidation_matching_shipments.js?v=3",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 	],
@@ -440,6 +447,42 @@ for _dt in ("Air Booking", "Sea Booking", "Air Shipment", "Sea Shipment", "Proje
 			doc_events[_dt]["before_save"] = list(_bs) + [_OER_BEFORE_SAVE]
 	elif _bs != _OER_BEFORE_SAVE:
 		doc_events[_dt]["before_save"] = [_bs, _OER_BEFORE_SAVE]
+
+# Internal job → Main Service rollup: push planned / actual cost & revenue from an internal job's
+# charges onto its Main Service's Internal Jobs row. Covers every operational doctype that can be
+# flagged ``is_internal_job=1`` with a ``main_job_type`` + ``main_job`` link.
+_INTERNAL_JOB_ROLLUP_MODULE = "logistics.utils.internal_job_main_rollup"
+_INTERNAL_JOB_ROLLUP_EVENTS = (
+	("on_update", _INTERNAL_JOB_ROLLUP_MODULE + ".on_internal_job_after_save"),
+	("on_submit", _INTERNAL_JOB_ROLLUP_MODULE + ".on_internal_job_submit"),
+	("on_update_after_submit", _INTERNAL_JOB_ROLLUP_MODULE + ".on_internal_job_update_after_submit"),
+	("on_cancel", _INTERNAL_JOB_ROLLUP_MODULE + ".on_internal_job_cancel"),
+)
+for _dt in (
+	"Air Booking",
+	"Sea Booking",
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Order",
+	"Transport Job",
+	"Declaration",
+	"Declaration Order",
+	"Warehouse Job",
+	"Inbound Order",
+	"Release Order",
+	"Project Task Job",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event, _handler in _INTERNAL_JOB_ROLLUP_EVENTS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _handler
+		elif isinstance(_existing, list):
+			if _handler not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_handler]
+		elif _existing != _handler:
+			doc_events[_dt][_event] = [_existing, _handler]
 
 merge_credit_hooks(doc_events)
 

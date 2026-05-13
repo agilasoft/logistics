@@ -26,6 +26,12 @@ def suggest_job_description(row):
 class InternalJobDetail(Document):
 	"""Child row: internal job link + service parameters (aligned with Sales Quote Charge)."""
 
+	def get_invalid_links(self, is_submittable=False):
+		invalid_links, cancelled_links = super().get_invalid_links(is_submittable=is_submittable)
+		# job_no is a historical pointer; linked operational docs may be cancelled while parent still saves.
+		cancelled_links = [c for c in cancelled_links if c[0] != "job_no"]
+		return invalid_links, cancelled_links
+
 	def validate(self):
 		st = (self.service_type or "").strip()
 		if not st:

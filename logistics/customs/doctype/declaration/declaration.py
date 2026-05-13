@@ -628,18 +628,39 @@ class Declaration(Document):
 
 		return alerts
 	
+	def _invoice_amount_to_declaration_currency(self, amount):
+		"""Express an invoice-currency amount in ``currency`` (declaration / customs value).
+
+		Line items and ``inv_total_amount`` are in ``inv_currency``; ``declaration_value``
+		uses ``currency``. When they differ, multiply by ``inv_exchange_rate`` (units of
+		declaration currency per one unit of invoice currency).
+		"""
+		amt = flt(amount or 0)
+		inv_cur = (self.inv_currency or "").strip()
+		doc_cur = (self.currency or "").strip()
+		if not inv_cur or not doc_cur or inv_cur == doc_cur:
+			return amt
+		rate = flt(self.inv_exchange_rate or 0)
+		if rate:
+			return amt * rate
+		return amt
+
 	def calculate_declaration_value(self):
-		"""Calculate total declaration value from commercial invoice line items or inv_total_amount"""
+		"""Calculate total declaration value from commercial invoice line items or inv_total_amount.
+
+		Result is stored in ``currency``. Invoice amounts in a different ``inv_currency``
+		are converted using ``inv_exchange_rate``.
+		"""
 		if flt(self.inv_total_amount):
-			self.declaration_value = self.inv_total_amount
-		else:
-			total_value = 0
-			if self.commercial_invoice_line_items:
-				for row in self.commercial_invoice_line_items:
-					qty = flt(row.invoice_qty or row.customs_qty or 1)
-					price = flt(row.price or 0)
-					total_value += qty * price
-			self.declaration_value = total_value
+			self.declaration_value = self._invoice_amount_to_declaration_currency(self.inv_total_amount)
+			return
+		total_value = 0
+		if self.commercial_invoice_line_items:
+			for row in self.commercial_invoice_line_items:
+				qty = flt(row.invoice_qty or row.customs_qty or 1)
+				price = flt(row.price or 0)
+				total_value += qty * price
+		self.declaration_value = self._invoice_amount_to_declaration_currency(total_value)
 
 	def update_payment_status(self):
 		"""Auto-set payment status from invoice total, payment amount, and payment due date."""

@@ -16,10 +16,18 @@ the form and is written only by create-from-quote or by the apply step.
 (``local_customer`` on Sea/Air, ``customer`` on Transport Order) are listed and may be applied.
 Dialog **filter_overrides** (per-module keys in ``GCFQ_FILTER_KEYS``) refine corridor / customs matching
 for listing, preview, and apply **without** saving the job document first.
+When the client sends **no** overrides, filters match the saved parent. When the user changes **any**
+filter, **only** keys present in ``filter_overrides`` apply; every other filter field is treated as a
+wildcard (empty), so e.g. changing only ``airline`` lists quotes by carrier without constraining ports from the parent.
+
+**Apply / preview**: After dialog filters pass, the quotation must **match the saved document**
+(corridor / customs fields / org dimensions). If dialog filters widened the search, this blocks apply when
+the quote still does not fit the booking/order on disk. Mismatch surfaces as an error (preview) or
+``Cannot apply quotation`` (apply).
 
 **Branch / Cost Center / Profit Center**: When set on the job (or in the dialog filters), the Sales Quote
-**header** must match each; empty job value = no filter for that field. Blanks on the quotation do not
-satisfy a non-empty job filter.
+**header** must equal each value or be blank on the quotation (wildcard); empty job value = no filter for
+that field.
 
 **Corridor match**: Sea Booking uses ``origin_port`` / ``destination_port`` and optional ``shipping_line``
 (quotation charge row or header; blank line = wildcard). **Air Booking** matches those ports and ``airline``
@@ -111,10 +119,18 @@ def _parse_gcfq_filter_overrides(doctype: str, filter_overrides) -> dict[str, st
 
 
 def _pick_gcfq_field(doc, overrides: dict, param_key: str, doc_attr: str) -> str:
-	"""Use dialog override when the client sent this key; otherwise the saved document."""
+	"""Resolve one dialog filter for listing/preview/apply.
+
+	- **No overrides** (user did not change any filter): use the saved document, same as at dialog open.
+	- **Any override** (user changed at least one filter): use the value only for keys present in
+	  ``overrides``; keys **not** sent are wildcards (empty string), not the parent field — so a single
+	  changed field (e.g. ``airline``) does not keep inheriting origin/destination from the booking.
+	"""
+	if not overrides:
+		return (getattr(doc, doc_attr, None) or "").strip()
 	if param_key in overrides:
 		return (overrides[param_key] or "").strip()
-	return (getattr(doc, doc_attr, None) or "").strip()
+	return ""
 
 
 def _effective_sea_air_transport_corridor(
@@ -174,7 +190,11 @@ def _gcfq_airline_only_effective(
 
 
 def _sales_quote_row_eligible_for_gcfq_list(name: str, expected_customer: str) -> bool:
-	"""Defensive check: list must match the same rules as preview/apply (Regular, submitted, customer)."""
+	"""Defensive check: list must match the same rules as preview/apply (Regular, submitted, customer).
+
+	Customer compare is case-insensitive so it stays aligned with typical SQL collations: otherwise the
+	main query can return rows that this step stripped away and the user sees “no quotes” despite matches.
+	"""
 	row = frappe.db.get_value(
 		"Sales Quote",
 		name,
@@ -183,11 +203,11 @@ def _sales_quote_row_eligible_for_gcfq_list(name: str, expected_customer: str) -
 	)
 	if not row:
 		return False
-	if (row.get("quotation_type") or "").strip() != "Regular":
+	if (row.get("quotation_type") or "").strip().lower() != "regular":
 		return False
 	if cint(row.get("docstatus")) != 1:
 		return False
-	if (row.get("customer") or "").strip() != (expected_customer or "").strip():
+	if not _gcfq_customer_matches_job(row.get("customer"), expected_customer):
 		return False
 	return True
 
@@ -220,6 +240,11 @@ def _job_customer(doc) -> str | None:
 	return None
 
 
+def _gcfq_customer_matches_job(sales_quote_customer: str | None, job_customer: str | None) -> bool:
+	"""Link fields compared case-insensitively (matches SQL LIKE typical collations; avoids empty lists after SQL)."""
+	return (sales_quote_customer or "").strip().lower() == (job_customer or "").strip().lower()
+
+
 def _gcfq_merge_org_dimension_display(
 	filters_payload: dict, branch: str, cost_center: str, profit_center: str
 ):
@@ -240,8 +265,8 @@ def _gcfq_merge_org_dimension_display(
 	filters_payload["extra_criteria"] = existing + extra_rows
 	rules = list(filters_payload.get("rules") or [])
 	rule = _(
-		"When Branch, Cost Center, or Profit Center is set, the Sales Quote header must match "
-		"(a blank header on the quotation does not satisfy a set filter on the job)."
+		"When Branch, Cost Center, or Profit Center is set on the filter, the Sales Quote header must "
+		"match or be blank on the quotation (blank = any)."
 	)
 	if rules and rule not in rules:
 		rules.insert(max(len(rules) - 1, 0), rule)
@@ -448,6 +473,24 @@ def _org_dimension_mismatch_message_for_preview(
 	)
 
 
+def _gcfq_saved_parent_match_error(
+	doc, service_type: str, sales_quote: str
+) -> str | None:
+	"""If the quotation does not match fields saved on the document, return a message; else None."""
+	parent: dict = {}
+	if doc.doctype == "Declaration Order":
+		ca, dt, cb, jtm, _, _ = _effective_declaration_order_filter_fields(doc, parent)
+		if not sales_quote_matches_declaration_order_filters(sales_quote, ca, dt, cb, jtm):
+			return str(
+				_("Sales Quote {0} does not match the customs fields saved on this document.").format(sales_quote)
+			)
+	else:
+		corr_err = _corridor_mismatch_message_for_preview(doc, service_type, sales_quote, parent)
+		if corr_err:
+			return corr_err
+	return _org_dimension_mismatch_message_for_preview(doc, sales_quote, parent)
+
+
 def _assert_sales_quote_org_dimensions_match_job(
 	doc, sales_quote: str, overrides: dict | None = None
 ):
@@ -645,11 +688,26 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			job_cost_center=jcc or None,
 			job_profit_center=jpc or None,
 		)
-		empty_msg = (
-			_("No matching Sales Quotes for this airline.")
-			if airline_only
-			else _("No matching Sales Quotes for this corridor and filters.")
-		)
+		# Clearer copy when corridor is not narrowing (e.g. only Branch/CC/PC set — matches screenshot UX).
+		has_corridor_constraint = False
+		if doctype == "Air Booking":
+			has_corridor_constraint = bool(
+				(origin or "").strip() or (dest or "").strip() or (job_airline or "").strip()
+			)
+		elif doctype == "Sea Booking":
+			has_corridor_constraint = bool(
+				(origin or "").strip() or (dest or "").strip() or (job_shipping_line or "").strip()
+			)
+		elif doctype == "Transport Order":
+			has_corridor_constraint = bool((origin or "").strip() or (dest or "").strip())
+		if airline_only:
+			empty_msg = _("No matching Sales Quotes for this airline.")
+		elif not has_corridor_constraint and (jb or jcc or jpc):
+			empty_msg = _("No matching Sales Quotes for these filters.")
+		elif not has_corridor_constraint:
+			empty_msg = _("No matching Sales Quotes found.")
+		else:
+			empty_msg = _("No matching Sales Quotes for this corridor and filters.")
 
 	names = [n for n in names if _sales_quote_row_eligible_for_gcfq_list(n, customer)]
 	if not names:
@@ -704,7 +762,7 @@ def preview_quotation_charges_for_job(
 		return {"error": _("Only Regular quotations can be used from this action.")}
 
 	customer = _job_customer(doc)
-	if not customer or (sq.customer or "").strip() != (customer or "").strip():
+	if not customer or not _gcfq_customer_matches_job(sq.customer, customer):
 		return {"error": _("Sales Quote customer does not match this document.")}
 
 	if doctype == "Declaration Order":
@@ -730,6 +788,10 @@ def preview_quotation_charges_for_job(
 	org_err = _org_dimension_mismatch_message_for_preview(doc, sales_quote, ov)
 	if org_err:
 		return {"error": org_err}
+
+	parent_err = _gcfq_saved_parent_match_error(doc, service_type, sales_quote)
+	if parent_err:
+		return {"error": parent_err}
 
 	if doctype == "Sea Booking":
 		from logistics.sea_freight.doctype.sea_booking.sea_booking import populate_charges_from_sales_quote
@@ -781,7 +843,7 @@ def apply_quotation_charges_to_job(
 	customer = _job_customer(doc)
 	if not customer:
 		frappe.throw(_("Set the customer on this document first."))
-	if (sq.customer or "").strip() != (customer or "").strip():
+	if not _gcfq_customer_matches_job(sq.customer, customer):
 		frappe.throw(_("Sales Quote customer does not match this document."))
 
 	service_type = implied_service_type_for_doctype(doctype)
@@ -800,6 +862,10 @@ def apply_quotation_charges_to_job(
 		_assert_sales_quote_corridor_matches_job(doc, service_type, sales_quote, ov)
 
 	_assert_sales_quote_org_dimensions_match_job(doc, sales_quote, ov)
+
+	parent_err = _gcfq_saved_parent_match_error(doc, service_type, sales_quote)
+	if parent_err:
+		frappe.throw(parent_err, title=_("Cannot apply quotation"))
 
 	doc.flags.skip_sales_quote_on_change = True
 	doc.sales_quote = sales_quote

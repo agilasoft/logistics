@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import add_days, get_datetime, today
+from frappe.utils import add_days, flt, get_datetime, today
 
 from logistics.air_freight.tests.test_helpers import (
 	create_test_airline,
@@ -14,6 +14,10 @@ from logistics.air_freight.tests.test_helpers import (
 	create_test_profit_center,
 	create_test_shipper,
 	create_test_unloco,
+)
+from logistics.utils.consolidation_plan import (
+	assert_air_plan_fields_for_filter_match,
+	get_filtered_air_shipment_names,
 )
 
 
@@ -154,7 +158,7 @@ class TestAirConsolidationEmbeddedPlanning(FrappeTestCase):
 		sh.insert()
 		return sh.name
 
-	def test_consolidation_without_submitted_planning_fails(self):
+	def test_cargo_air_shipment_not_on_planning_lines_fails(self):
 		sh = self._make_air_shipment()
 		data = _base_consolidation_dict(
 			self.company, self.branch, self.cost_center, self.profit_center
@@ -191,7 +195,7 @@ class TestAirConsolidationEmbeddedPlanning(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			consol.insert()
 
-	def test_submitted_planning_allows_insert_with_cargo(self):
+	def test_draft_planning_allows_insert_with_cargo_when_shipment_is_planned(self):
 		sh = self._make_air_shipment()
 		data = _base_consolidation_dict(
 			self.company, self.branch, self.cost_center, self.profit_center
@@ -213,10 +217,6 @@ class TestAirConsolidationEmbeddedPlanning(FrappeTestCase):
 			},
 		)
 		consol.append("consolidation_planning_lines", {"air_shipment": sh})
-		consol.insert()
-		consol.reload()
-		consol.submit_air_planning()
-		consol.reload()
 		consol.append(
 			"consolidation_packages",
 			{
@@ -230,7 +230,9 @@ class TestAirConsolidationEmbeddedPlanning(FrappeTestCase):
 				"package_volume": 0.1,
 			},
 		)
-		consol.save()
+		consol.insert()
+		consol.reload()
+		self.assertEqual((consol.air_planning_status or "Draft"), "Draft")
 
 	def test_shipment_blocked_on_second_consolidation_when_first_planning_submitted(self):
 		sh = self._make_air_shipment()
@@ -316,6 +318,116 @@ class TestAirConsolidationEmbeddedPlanning(FrappeTestCase):
 		self.assertNotIn(no_leg, out["added"])
 		consol.reload()
 		self.assertEqual(len(consol.consolidation_planning_lines), 1)
+		pkg_for = [p for p in (consol.consolidation_packages or []) if p.air_freight_job == good]
+		self.assertEqual(len(pkg_for), 1)
+		self.assertGreater(flt(pkg_for[0].package_weight), 0)
+		self.assertTrue(pkg_for[0].package_reference)
 		out2 = consol.fetch_matching_air_shipments()
 		self.assertEqual(out2["added"], [])
 		self.assertIn(good, out2["already_present"])
+		consol.reload()
+		self.assertEqual(len([p for p in (consol.consolidation_packages or []) if p.air_freight_job == good]), 1)
+
+	def test_air_plan_filter_requires_at_least_one_criterion(self):
+		with self.assertRaises(frappe.ValidationError):
+			assert_air_plan_fields_for_filter_match({})
+
+	def test_get_filtered_air_shipments_single_origin_field(self):
+		"""Unset criteria are ignored; matching uses only provided filters."""
+		etd = add_days(today(), 14)
+		lax_ship = self._make_air_shipment_for_fetch(etd, flight_no="TA101", with_main_leg=True)
+		create_test_unloco("USORD", "Chicago", "ORD", "US", "Airport")
+		mode = _ensure_test_air_transport_mode()
+		ord_ship = frappe.get_doc(
+			{
+				"doctype": "Air Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USORD",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"direction": "Export",
+				"weight": 10,
+				"chargeable": 10,
+				"volume": 0.1,
+				"airline": "TA",
+				"etd": etd,
+			}
+		)
+		ord_ship.append(
+			"routing_legs",
+			{
+				"mode": mode,
+				"type": "Main",
+				"flight_no": "TA202",
+				"airline": "TA",
+				"load_port": "USORD",
+				"discharge_port": "USJFK",
+			},
+		)
+		ord_ship.insert()
+
+		matches = get_filtered_air_shipment_names({"origin_airport": "USLAX"})
+		self.assertIn(lax_ship, matches)
+		self.assertNotIn(ord_ship.name, matches)
+
+		matches_ord = get_filtered_air_shipment_names({"origin_airport": "USORD"})
+		self.assertIn(ord_ship.name, matches_ord)
+		self.assertNotIn(lax_ship, matches_ord)
+
+	def test_airline_filter_includes_main_leg_when_header_blank(self):
+		"""Many Air Shipments set the carrier on the Main leg only; header `airline` is empty."""
+		etd = add_days(today(), 14)
+		mode = _ensure_test_air_transport_mode()
+		sh = frappe.get_doc(
+			{
+				"doctype": "Air Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"direction": "Export",
+				"weight": 10,
+				"chargeable": 10,
+				"volume": 0.1,
+				"etd": etd,
+			}
+		)
+		sh.append(
+			"routing_legs",
+			{
+				"mode": mode,
+				"type": "Main",
+				"flight_no": "TA999",
+				"airline": "TA",
+				"load_port": "USLAX",
+				"discharge_port": "USJFK",
+			},
+		)
+		sh.insert()
+		matches = get_filtered_air_shipment_names({"airline": "TA"})
+		self.assertIn(sh.name, matches)
+		frappe.db.set_value("Air Shipment", sh.name, "job_status", "Submitted", update_modified=False)
+		matches_sub = get_filtered_air_shipment_names({"airline": "TA"})
+		self.assertNotIn(sh.name, matches_sub)
+
+	def test_merge_empty_override_clears_branch_for_filtering(self):
+		"""Cleared fields in the dialog must drop Company/Branch etc., not keep document values."""
+		data = _base_consolidation_dict(
+			self.company, self.branch, self.cost_center, self.profit_center
+		)
+		consol = frappe.get_doc(data)
+		m = consol._merged_air_plan_match_dict_from_dialog({"branch": ""})
+		self.assertIsNone(m.get("branch"))
+		self.assertEqual(m.get("company"), self.company)

@@ -800,7 +800,7 @@ frappe.ui.form.on('Air Booking', {
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
-			if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 0) {
+			if (window.logistics && typeof logistics.should_show_get_charges_from_quotation === "function" ? logistics.should_show_get_charges_from_quotation(frm) : (cint(frm.doc.docstatus) === 0 && !cint(frm.doc.is_internal_job))) {
 				frm.add_custom_button(__('Get Charges from Quotation'), function() {
 					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
 						logistics.open_get_charges_from_quotation_dialog(frm);

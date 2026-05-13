@@ -113,6 +113,9 @@ class AirBooking(Document):
 		)
 
 		register_charge_resolution_parent(self)
+		from logistics.utils.transport_mode_flags import sync_transport_mode_flags_on_parent_routing_legs
+
+		sync_transport_mode_flags_on_parent_routing_legs(self)
 		try:
 			_sync_quote_and_sales_quote(self)
 

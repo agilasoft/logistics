@@ -7,7 +7,7 @@ const SALES_QUOTE_CALCULATION_METHOD_OPTIONS =
 
 frappe.ui.form.on('Tariff', {
 	refresh: function (frm) {
-		apply_sales_quote_calc_method_options_to_tariff_grids(frm);
+		apply_sales_quote_calc_method_options_to_tariff_grid(frm);
 	},
 
 	tariff_type: function (frm) {
@@ -37,77 +37,55 @@ frappe.ui.form.on('Tariff', {
 	},
 });
 
-function apply_sales_quote_calc_method_options_to_tariff_grids(frm) {
-	const table_fields = [
-		'air_freight_rates',
-		'sea_freight_rates',
-		'transport_rates',
-		'warehouse_rates',
-		'customs_rates',
-	];
-	table_fields.forEach((fieldname) => {
-		const grid = frm.fields_dict[fieldname] && frm.fields_dict[fieldname].grid;
-		if (grid && grid.update_docfield_property) {
-			grid.update_docfield_property(
-				'calculation_method',
-				'options',
-				SALES_QUOTE_CALCULATION_METHOD_OPTIONS
-			);
-		}
-	});
+function apply_sales_quote_calc_method_options_to_tariff_grid(frm) {
+	const grid = frm.fields_dict.rates && frm.fields_dict.rates.grid;
+	if (!grid || !grid.update_docfield_property) {
+		return;
+	}
+	grid.update_docfield_property(
+		'revenue_calculation_method',
+		'options',
+		SALES_QUOTE_CALCULATION_METHOD_OPTIONS
+	);
+	grid.update_docfield_property(
+		'cost_calculation_method',
+		'options',
+		SALES_QUOTE_CALCULATION_METHOD_OPTIONS
+	);
 }
 
-// Child table events for rate validation
-frappe.ui.form.on('Air Freight Rate', {
-	calculation_method: function (frm, cdt, cdn) {
+frappe.ui.form.on('Tariff Charge', {
+	service_type: function (frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row && row.service_type === 'Transport') {
+			clear_transport_rate_fields_for_method(cdt, cdn);
+		}
+	},
+	revenue_calculation_method: function (frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row && row.service_type === 'Transport') {
+			clear_transport_rate_fields_for_method(cdt, cdn);
+		}
+		validate_rate_entry(frm, cdt, cdn);
+	},
+	cost_calculation_method: function (frm, cdt, cdn) {
 		validate_rate_entry(frm, cdt, cdn);
 	},
 	rate_value: function (frm, cdt, cdn) {
 		validate_rate_entry(frm, cdt, cdn);
 	},
-});
-
-frappe.ui.form.on('Sea Freight Rate', {
-	calculation_method: function (frm, cdt, cdn) {
+	unit_rate: function (frm, cdt, cdn) {
 		validate_rate_entry(frm, cdt, cdn);
 	},
-	rate_value: function (frm, cdt, cdn) {
-		validate_rate_entry(frm, cdt, cdn);
-	},
-});
-
-frappe.ui.form.on('Transport Rate', {
-	calculation_method: function (frm, cdt, cdn) {
-		clear_transport_rate_fields_for_method(cdt, cdn);
-		validate_rate_entry(frm, cdt, cdn);
-	},
-	rate_value: function (frm, cdt, cdn) {
-		validate_rate_entry(frm, cdt, cdn);
-	},
-});
-
-frappe.ui.form.on('Customs Rate', {
-	calculation_method: function (frm, cdt, cdn) {
-		validate_rate_entry(frm, cdt, cdn);
-	},
-	rate_value: function (frm, cdt, cdn) {
-		validate_rate_entry(frm, cdt, cdn);
-	},
-});
-
-frappe.ui.form.on('Warehouse Rate', {
-	calculation_method: function (frm, cdt, cdn) {
-		validate_rate_entry(frm, cdt, cdn);
-	},
-	rate_value: function (frm, cdt, cdn) {
+	unit_cost: function (frm, cdt, cdn) {
 		validate_rate_entry(frm, cdt, cdn);
 	},
 });
 
 function clear_transport_rate_fields_for_method(cdt, cdn) {
 	const row = locals[cdt][cdn];
-	if (!row) return;
-	const m = row.calculation_method;
+	if (!row || row.service_type !== 'Transport') return;
+	const m = (row.revenue_calculation_method || '').trim();
 	if (m !== 'Base Plus Additional' && m !== 'Percentage') {
 		if (row.base_amount) frappe.model.set_value(cdt, cdn, 'base_amount', null);
 	}
@@ -132,9 +110,9 @@ function validate_rate_entry(frm, cdt, cdn) {
 		frappe.model.set_value(cdt, cdn, 'minimum_charge', '');
 	}
 
-	// Validate date ranges
-	if (row.valid_from && row.valid_to && row.valid_from > row.valid_to) {
+	// Row validity dates (Tariff Charge)
+	if (row.tariff_valid_from && row.tariff_valid_to && row.tariff_valid_from > row.tariff_valid_to) {
 		frappe.msgprint(__('Valid From date cannot be later than Valid To date'));
-		frappe.model.set_value(cdt, cdn, 'valid_to', '');
+		frappe.model.set_value(cdt, cdn, 'tariff_valid_to', '');
 	}
 }

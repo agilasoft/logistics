@@ -587,18 +587,17 @@ frappe.ui.form.on('Sea Booking', {
 					});
 				}, __('Action'));
 			}
-		}
-
-		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 0) {
-			frm.add_custom_button(__('Get Charges from Quotation'), function() {
-				if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
-					logistics.open_get_charges_from_quotation_dialog(frm);
-				} else {
-					frappe.msgprint(
-						__("Charges dialog is not ready. Please refresh the page and try again.")
-					);
-				}
-			}, __('Action'));
+			if (window.logistics && typeof logistics.should_show_get_charges_from_quotation === "function" ? logistics.should_show_get_charges_from_quotation(frm) : (cint(frm.doc.docstatus) === 0 && !cint(frm.doc.is_internal_job))) {
+				frm.add_custom_button(__('Get Charges from Quotation'), function() {
+					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+						logistics.open_get_charges_from_quotation_dialog(frm);
+					} else {
+						frappe.msgprint(
+							__("Charges dialog is not ready. Please refresh the page and try again.")
+						);
+					}
+				}, __('Action'));
+			}
 		}
 
 		// --- Create menu ---

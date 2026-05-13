@@ -30,9 +30,13 @@ logistics.patches.v1_0_cash_advance_request_fund_source_column
 logistics.patches.v1_0_special_project_legacy_tables_to_staging
 # Merge Air Consolidation Plan into Air Consolidation before Plan DocTypes are dropped (same pattern as Sea).
 logistics.patches.v1_0_merge_air_consolidation_plan_into_consolidation
+# Tariff: copy legacy per-module child rows to SQL stash before unified ``Tariff Charge`` replaces them.
+logistics.patches.v1_0_stash_tariff_legacy_child_rates_for_unified_tariff_charge
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+# Tariff: restore stashed legacy rates into ``Tariff.rates`` (Tariff Charge) after the new child table exists.
+logistics.patches.v1_0_restore_tariff_rates_from_stash_unified_tariff_charge
 # Merge legacy Sea Consolidation Plan data after schema sync (needs consolidation_planning_lines on Sea Consolidation).
 # Orphan Plan DocTypes/tables are removed later in post_schema_updates, not before this runs.
 logistics.patches.v1_0_migrate_tmp_ersr_to_source_exchange_rate
@@ -148,3 +152,7 @@ logistics.patches.v1_0_fix_customs_in_saved_desktop_layouts
 logistics.patches.v1_0_sync_customs_workspace_analytics_insights
 logistics.patches.v1_0_sync_customs_workspace_three_report_groups
 logistics.patches.v1_0_fix_empty_json_customs_script_reports
+logistics.patches.v1_0_remove_air_consolidation_shipments_doctype
+logistics.patches.v1_0_fix_canonical_transport_mode_air_sea_flags
+# Backfill planned / actual cost & revenue on Main Service Internal Job Detail rows from already-submitted internal jobs.
+logistics.patches.v1_0_backfill_main_service_internal_job_rollup

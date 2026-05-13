@@ -14,6 +14,20 @@
 		return PACKAGE_DOCTYPES.indexOf(doctype) >= 0;
 	}
 
+	// Locale-aware parse of a raw input string. Frappe formats Float fields with the
+	// system number format on blur (e.g. "1,000" for 1000), so naive parseFloat would
+	// truncate at the first thousand separator. Use flt() when available, else strip
+	// thousand separators before parseFloat.
+	function _parse_input_number(raw) {
+		if (raw === undefined || raw === null || raw === '') return 0;
+		if (typeof flt === 'function') {
+			var n = flt(raw);
+			return isNaN(n) ? 0 : n;
+		}
+		var n2 = parseFloat(String(raw).replace(/,/g, ''));
+		return isNaN(n2) ? 0 : n2;
+	}
+
 	function logistics_package_line_volume_multiplier(row, cdt, cdn) {
 		if (!row) return 1;
 		var dt = row.doctype || cdt;
@@ -124,7 +138,7 @@
 				var $in = $form.find('input[data-fieldname="' + fn + '"]');
 				if ($in.length) {
 					var v = $in.val();
-					if (fn === 'length' || fn === 'width' || fn === 'height' || fn === 'no_of_packs' || fn === 'quantity') v = parseFloat(v) || 0;
+					if (fn === 'length' || fn === 'width' || fn === 'height' || fn === 'no_of_packs' || fn === 'quantity') v = _parse_input_number(v);
 					frappe.model.set_value(cdt, cdn, fn, v);
 				}
 			});
@@ -152,7 +166,7 @@
 				var $in = $form.find('input[data-fieldname="' + fn + '"], select[data-fieldname="' + fn + '"]');
 				if ($in.length) {
 					var v = $in.val();
-					if (fn === 'length' || fn === 'width' || fn === 'height' || fn === 'no_of_packs' || fn === 'quantity') v = parseFloat(v) || 0;
+					if (fn === 'length' || fn === 'width' || fn === 'height' || fn === 'no_of_packs' || fn === 'quantity') v = _parse_input_number(v);
 					frappe.model.set_value(cdt, cdn, fn, v);
 				}
 			});

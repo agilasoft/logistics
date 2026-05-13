@@ -304,6 +304,7 @@
    "options": "Master Bill"
   },
   {
+   "description": "Linked Sea Shipments with a blank House B/L get PREFIX-0001, PREFIX-0002, ... (unique across active Sea Shipments) when this consolidation is saved. Existing House B/L values are not changed.",
    "fieldname": "house_bill_prefix",
    "fieldtype": "Data",
    "label": "House Bill Prefix"

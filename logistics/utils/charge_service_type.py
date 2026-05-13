@@ -129,6 +129,12 @@ def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_la
 	out = [c]
 	if title:
 		out.append(title)
+	# Legacy/older data sometimes stored expanded labels in service_type.
+	# Keep these here so link queries and eligibility checks still find the right quotations.
+	if c == "air":
+		out.extend(["Air Freight", "air freight", "airfreight", "AirFreight"])
+	if c == "sea":
+		out.extend(["Sea Freight", "sea freight", "seafreight", "SeaFreight"])
 	if c == "custom":
 		out.append("Custom")
 	return list(dict.fromkeys(out))

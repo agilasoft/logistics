@@ -24,6 +24,17 @@ CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
 )
 
 
+def linked_internal_job_target_is_cancelled(job_type: str, job_no: str) -> bool:
+	"""True when Job No points at an operational document with docstatus 2 (cancelled)."""
+	jt = (job_type or "").strip()
+	jn = (job_no or "").strip()
+	if not jt or not jn or jt not in CREATABLE_INTERNAL_JOB_TYPES:
+		return False
+	if not frappe.db.exists(jt, jn):
+		return False
+	return (frappe.db.get_value(jt, jn, "docstatus") or 0) == 2
+
+
 def _source_internal_job_nested_block_message() -> str:
 	return _(
 		"This document is already an internal job linked to a main job. Create additional internal jobs from the main service document, not from this one."
@@ -426,6 +437,13 @@ def get_internal_job_creation_choices(
 		label = _choice_label(jt, row, idx)
 		if jt and not creatable and not jn:
 			label = "{0} — {1}".format(label, _("cannot create from here"))
+		header = _choice_header_fields(jt, row, idx)
+		if jn and linked_internal_job_target_is_cancelled(jt, jn):
+			header = {
+				**header,
+				"header_subtitle": _("Linked to {0} (cancelled).").format(jn),
+				"linked_job_cancelled": True,
+			}
 		choices.append(
 			{
 				"mode": "detail",
@@ -435,7 +453,7 @@ def get_internal_job_creation_choices(
 				"job_no": jn or None,
 				"label": label,
 				"creatable": creatable,
-				**_choice_header_fields(jt, row, idx),
+				**header,
 			}
 		)
 
@@ -556,7 +574,12 @@ def _get_internal_job_creation_preview_body(
 	from logistics.utils import module_integration as mi
 
 	def _line_only_preview(
-		row: Any, res_idx: int, *, message: str, job_type_label: str | None = None
+		row: Any,
+		res_idx: int,
+		*,
+		message: str,
+		job_type_label: str | None = None,
+		linked_job_cancelled: bool = False,
 	) -> dict[str, Any]:
 		params = extract_sales_quote_charge_parameters(row) if row else {}
 		preview_params = _job_preview_parameters_for_display(params)
@@ -564,7 +587,7 @@ def _get_internal_job_creation_preview_body(
 		jtl = (job_type_label if job_type_label is not None else jt) or ""
 		if not jtl and row is not None:
 			jtl = effective_internal_job_detail_job_type(row)
-		return {
+		out: dict[str, Any] = {
 			"job_type": jtl,
 			"detail_idx": res_idx,
 			"uses_job_detail_row": True,
@@ -585,6 +608,9 @@ def _get_internal_job_creation_preview_body(
 			"job_detail_parameters": preview_params,
 			"charges": [],
 		}
+		if linked_job_cancelled:
+			out["linked_job_cancelled"] = True
+		return out
 
 	if idx is not None:
 		rows_ij = _ij_rows_list(doc)
@@ -594,11 +620,18 @@ def _get_internal_job_creation_preview_body(
 			if jn_linked:
 				row_jt = effective_internal_job_detail_job_type(row_linked)
 				jtl = (jt or "").strip() or row_jt
+				cancelled = linked_internal_job_target_is_cancelled(row_jt, jn_linked)
+				msg = _("This line is already linked to {0}.").format(jn_linked)
+				if cancelled:
+					msg = _("This line still references {0}, which is cancelled. Reload this document if the link should have been removed.").format(
+						jn_linked
+					)
 				return _line_only_preview(
 					row_linked,
 					idx,
-					message=_("This line is already linked to {0}.").format(jn_linked),
+					message=msg,
 					job_type_label=jtl or row_jt,
+					linked_job_cancelled=cancelled,
 				)
 
 	if not jt:

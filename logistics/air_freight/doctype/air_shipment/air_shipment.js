@@ -474,7 +474,7 @@ frappe.ui.form.on('Air Shipment', {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=17', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=19', _openInternalJobDlg);
 						}
 					}, __('Create'));
 				}

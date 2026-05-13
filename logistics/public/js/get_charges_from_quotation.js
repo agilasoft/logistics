@@ -378,8 +378,8 @@ function _gcfq_capture_initial_filter_snapshot(dialog) {
 }
 
 /**
- * Only send keys the user changed vs. dialog open. Omitting a key lets the server use the saved document
- * (avoids empty Link controls overwriting booking airline / ports).
+ * Only send keys the user changed vs. dialog open.
+ * Server: no keys → effective filters = saved parent; any keys → only those keys apply (others wildcard).
  */
 function _gcfq_collect_filter_overrides(dialog) {
 	var o = {};
@@ -450,6 +450,38 @@ function _gcfq_mount_filter_panel($parent, frm, dialog, reloadList) {
 }
 
 /**
+ * Single source of truth for whether the Action → Get Charges from Quotation button is shown.
+ *
+ * Rule: visible on draft (`docstatus === 0`) jobs that are not flagged as Internal Job.
+ * `is_main_service` is *not* a precondition — Get Charges from Quotation is allowed on
+ * any draft non–internal-job booking/order regardless of the Main Service flag.
+ *
+ * @param {frappe.ui.form.Form} frm
+ * @returns {boolean}
+ */
+logistics.should_show_get_charges_from_quotation = function (frm) {
+	if (!frm || !frm.doc) {
+		return false;
+	}
+	var as_int =
+		typeof cint === "function"
+			? cint
+			: function (v) {
+					return parseInt(v, 10) || 0;
+				};
+	if (frm.doc.__islocal) {
+		return false;
+	}
+	if (as_int(frm.doc.docstatus) !== 0) {
+		return false;
+	}
+	if (as_int(frm.doc.is_internal_job)) {
+		return false;
+	}
+	return true;
+};
+
+/**
  * Open dialog: filter grid → expandable cards per Sales Quote (charge preview) → Apply.
  * @param {frappe.ui.form.Form} frm
  */
@@ -510,14 +542,31 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	var $wrap = d.$wrapper.find(".quotation-list");
 	$wrap.addClass("logistics-gcfq-quotation-list");
 	$wrap.empty();
+
 	var $filterMount = $('<div class="logistics-gcfq-filters-mount">').appendTo($wrap);
-	var $dynamic = $('<div class="gcfq-dialog-dynamic">').appendTo($wrap);
+	var $dynamic = $('<div class="gcfq-dialog-dynamic">');
 
 	function reloadList() {
 		_load_quote_list(frm, d, $dynamic);
 	}
 
 	_gcfq_mount_filter_panel($filterMount, frm, d, reloadList);
+
+	// Under “Apply filters”, above the quotation cards (same layout as Sea Booking).
+	var $searchWrap = $('<div class="gcfq-quote-search-wrap">');
+	var $searchInput = $("<input>")
+		.attr("type", "search")
+		.addClass("form-control input-sm gcfq-quote-search")
+		.attr("autocomplete", "off")
+		.attr(
+			"placeholder",
+			__("Search by quotation, customer, corridor…")
+		);
+	$searchWrap.append($searchInput);
+	$wrap.append($searchWrap);
+	$wrap.append($dynamic);
+
+	d._gcfq_quotation_list_wrap = $wrap;
 	// Defer snapshot + first load so Link/Select controls finish populating (avoids sending "" overrides).
 	setTimeout(function () {
 		_gcfq_capture_initial_filter_snapshot(d);
@@ -749,6 +798,13 @@ function _gcfq_bind_quote_search($root) {
 	});
 }
 
+function _gcfq_bind_quote_search_for_dialog(dialog, $dynamic) {
+	var $scope =
+		(dialog && dialog._gcfq_quotation_list_wrap) ||
+		$dynamic.closest(".logistics-gcfq-quotation-list");
+	_gcfq_bind_quote_search($scope);
+}
+
 function _gcfq_run_quote_search($root) {
 	var q = String($root.find(".gcfq-quote-search").val() || "")
 		.toLowerCase()
@@ -839,6 +895,7 @@ function _load_quote_list(frm, dialog, $dynamic) {
 				$dynamic.html(
 					'<div class="alert alert-danger">' + __("Failed to load quotations.") + "</div>"
 				);
+				_gcfq_bind_quote_search_for_dialog(dialog, $dynamic);
 				return;
 			}
 			var msg = (r.message && r.message.message) || "";
@@ -853,22 +910,11 @@ function _load_quote_list(frm, dialog, $dynamic) {
 						"</div>" +
 						rulesHtml
 				);
+				_gcfq_bind_quote_search_for_dialog(dialog, $dynamic);
 				return;
 			}
 
 			var $root = $('<div class="logistics-gcfq-list-root">');
-
-			var $searchWrap = $('<div class="gcfq-quote-search-wrap">');
-			var $searchInput = $("<input>")
-				.attr("type", "search")
-				.addClass("form-control input-sm gcfq-quote-search")
-				.attr("autocomplete", "off")
-				.attr(
-					"placeholder",
-					__("Search by quotation, customer, corridor…")
-				);
-			$searchWrap.append($searchInput);
-			$root.append($searchWrap);
 
 			var $scroll = $('<div class="gcfq-cards-scroll">');
 			var $cards = $('<div class="gcfq-cards">');
@@ -944,7 +990,7 @@ function _load_quote_list(frm, dialog, $dynamic) {
 
 			$dynamic.empty().append($root);
 			_gcfq_bind_quote_cards($dynamic, frm, dialog);
-			_gcfq_bind_quote_search($root);
+			_gcfq_bind_quote_search_for_dialog(dialog, $dynamic);
 		},
 	});
 }

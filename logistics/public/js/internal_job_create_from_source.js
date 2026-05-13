@@ -191,6 +191,8 @@
 			".lij-card-chevron{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--text-muted,#64748b);transition:transform .18s ease;font-size:11px;}" +
 			".lij-card.open .lij-card-chevron{transform:rotate(90deg);}" +
 			".lij-card-hd .lij-card-create{flex-shrink:0;margin-left:auto;cursor:pointer;}" +
+			".lij-card-badges{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto;flex-shrink:0;}" +
+			".lij-chip-cancelled{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;}" +
 			".lij-card-bd{display:none;border-top:1px solid var(--border-color,#e2e8f0);padding:12px 14px;background:var(--modal-bg,#fafafa);max-height:min(45vh,380px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}" +
 			".lij-card.open .lij-card-bd{display:block;}" +
 			".lij-card-preview{min-height:8px;}" +
@@ -314,6 +316,14 @@
 				esc(String(p.not_creatable_message)) +
 				"</div></div>";
 		}
+		var cancelledBanner = "";
+		if (p.linked_job_cancelled) {
+			cancelledBanner =
+				"<div class='ij-section' style='margin-bottom:12px;border-color:var(--red-400,#f87171)'>" +
+				"<div class='ij-section-bd' style='font-size:12px;line-height:1.45'>" +
+				esc(__("The linked operational job is cancelled.")) +
+				"</div></div>";
+		}
 
 		var ctxRows = [
 			["dt", __("Source"), esc((sc.source_doctype || "") + " · " + (sc.source_name || ""))],
@@ -330,12 +340,19 @@
 			]);
 		}
 		var ti = p.target_internal_job;
+		var targetDoctype = (p.job_type || "").toString().trim();
 		if (ti && ti.is_internal_job) {
-			ctxRows.push([
-				"dt",
-				__("New document"),
-				__("Internal job → {0}", [esc(String((ti.main_job_type || "") + " " + (ti.main_job || "")).trim())]),
-			]);
+			var linkTarget = String((ti.main_job_type || "") + " " + (ti.main_job || "")).trim();
+			var newDocHtml;
+			if (targetDoctype) {
+				newDocHtml = __("{0} (internal job) → {1}", [
+					esc(__(targetDoctype)),
+					esc(linkTarget || "—"),
+				]);
+			} else {
+				newDocHtml = __("Internal job → {0}", [esc(linkTarget || "—")]);
+			}
+			ctxRows.push(["dt", __("New document"), newDocHtml]);
 		}
 		var ctxDl =
 			"<dl class='ij-dl'>" +
@@ -384,6 +401,7 @@
 			IJ_PREVIEW_CLASS +
 			"'>" +
 			uncreatableBanner +
+			cancelledBanner +
 			secContext +
 			secParams +
 			secCharges +
@@ -407,18 +425,35 @@
 	function _routeAfterFormNavigate(doctype, routeArgs) {
 		return frappe.set_route.apply(null, routeArgs).then(function () {
 			_syncBreadcrumbsForFormDoctype(doctype);
+			var docname = routeArgs.length >= 3 ? routeArgs[routeArgs.length - 1] : null;
+			if (docname) {
+				_reloadCreatedInternalJobTargetForm(doctype, docname);
+			}
+		});
+	}
+
+	/** Reload the document we just routed to so the grid/title match the server (avoids stale desk title). */
+	function _reloadCreatedInternalJobTargetForm(doctype, docname) {
+		frappe.after_ajax(function () {
+			setTimeout(function () {
+				if (
+					!cur_frm ||
+					cur_frm.doctype !== doctype ||
+					String(cur_frm.docname || "") !== String(docname)
+				) {
+					return;
+				}
+				cur_frm.reload_doc();
+			}, 200);
 		});
 	}
 
 	/**
-	 * After navigating to the created job (e.g. Transport Order), reload the source Air/Sea Shipment
-	 * so Internal Job Details and links stay in sync. Must run after route + form load AJAX to avoid races.
-	 *
-	 * Only reload when the user is still on the source form. If we already routed to the new document,
-	 * reloading the hidden shipment form runs Form.refresh → refresh_header, which overwrites the desk
-	 * title/breadcrumbs (wrong doctype shown) and can race with loading the new form ("… not found").
+	 * Optionally reload Air/Sea Shipment after create only if the user is still on that form.
+	 * Uses a delayed check so we never call reload_doc on the source while the desk has already
+	 * switched to the new form — that race used to overwrite the browser title (e.g. still "Air Shipment").
 	 */
-	function _reloadSourceFreightShipmentAfterNavigate(frm) {
+	function _maybeReloadSourceFreightShipmentIfStillActive(frm) {
 		if (
 			!frm ||
 			(frm.doctype !== "Air Shipment" && frm.doctype !== "Sea Shipment") ||
@@ -430,16 +465,21 @@
 		}
 		var sourceName = frm.docname || frm.doc.name;
 		frappe.after_ajax(function () {
-			var route = frappe.get_route && frappe.get_route();
-			if (
-				!route ||
-				route[0] !== "Form" ||
-				route[1] !== frm.doctype ||
-				(route[2] || "") !== String(sourceName)
-			) {
-				return;
-			}
-			frm.reload_doc();
+			setTimeout(function () {
+				if (cur_frm !== frm) {
+					return;
+				}
+				var route = frappe.get_route && frappe.get_route();
+				if (
+					!route ||
+					route[0] !== "Form" ||
+					route[1] !== frm.doctype ||
+					(route[2] || "") !== String(sourceName)
+				) {
+					return;
+				}
+				frm.reload_doc();
+			}, 400);
 		});
 	}
 
@@ -448,7 +488,7 @@
 		if (msg.transport_order) {
 			_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]).then(
 				function () {
-					_reloadSourceFreightShipmentAfterNavigate(frm);
+					_maybeReloadSourceFreightShipmentIfStillActive(frm);
 				}
 			);
 			return;
@@ -459,7 +499,7 @@
 				"Declaration Order",
 				msg.declaration_order,
 			]).then(function () {
-				_reloadSourceFreightShipmentAfterNavigate(frm);
+				_maybeReloadSourceFreightShipmentIfStillActive(frm);
 			});
 			return;
 		}
@@ -491,7 +531,9 @@
 
 	function _dialogIntroHtml(frm) {
 		var esc = frappe.utils.escape_html;
-		var ref = esc((frm.doctype || "") + " · " + (frm.doc.name || ""));
+		var dt = frm.doctype || "";
+		var dtLabel = dt ? __(dt) : "";
+		var ref = esc(dtLabel + " · " + (frm.doc.name || ""));
 		return (
 			"<div class='" +
 			IJ_PREVIEW_CLASS +
@@ -656,9 +698,12 @@
 				);
 			} else {
 				var linked = c.job_no != null && String(c.job_no).trim() !== "";
-				$hd.append(
-					$('<span class="lij-chip-na">').text(linked ? __("Linked") : __("Cannot create"))
-				);
+				var $badges = $('<span class="lij-card-badges">');
+				if (c.linked_job_cancelled) {
+					$badges.append($('<span class="lij-chip-cancelled">').text(__("Cancelled")));
+				}
+				$badges.append($('<span class="lij-chip-na">').text(linked ? __("Linked") : __("Cannot create")));
+				$hd.append($badges);
 			}
 			var $bd = $('<div class="lij-card-bd">');
 			var $pv = $('<div class="lij-card-preview">');
@@ -748,7 +793,7 @@
 						"Declaration Order",
 						r2.message.declaration_order,
 					]).then(function () {
-						_reloadSourceFreightShipmentAfterNavigate(frm);
+						_maybeReloadSourceFreightShipmentIfStillActive(frm);
 					});
 					return;
 				}

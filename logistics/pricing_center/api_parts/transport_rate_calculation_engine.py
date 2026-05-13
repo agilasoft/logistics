@@ -12,6 +12,10 @@ import frappe
 import json
 from typing import Dict, List
 
+from logistics.pricing_center.doctype.tariff.tariff_rate_rows import (
+    iter_tariff_charges_for_service,
+    tariff_charge_row_to_engine_dict,
+)
 from logistics.utils.rate_calculation_engine import (
     RateCalculationEngine,
     get_available_calculation_methods,
@@ -44,8 +48,8 @@ class TransportRateCalculationEngine(RateCalculationEngine):
             if tariff_name:
                 tariff_doc = frappe.get_doc("Tariff", tariff_name)
                 rates = []
-                for rate in tariff_doc.transport_rates:
-                    rate_dict = rate.as_dict()
+                for rate in iter_tariff_charges_for_service(tariff_doc, "Transport"):
+                    rate_dict = tariff_charge_row_to_engine_dict(rate)
                     if self._matches_criteria(
                         rate_dict,
                         origin_location,

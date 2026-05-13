@@ -12,6 +12,27 @@
 
 	frappe.provide("logistics");
 
+	/**
+	 * Re-register desk breadcrumbs for the given form doctype (module + doctype label).
+	 * Fixes a stale navbar segment when opening a form after another (e.g. Customs still shows
+	 * "Air Shipment" while the active form is Declaration Order).
+	 */
+	logistics.sync_form_breadcrumbs = function (frmOrDoctype) {
+		var dt =
+			typeof frmOrDoctype === "string"
+				? frmOrDoctype
+				: frmOrDoctype && frmOrDoctype.doctype;
+		if (!dt) {
+			return;
+		}
+		frappe.model.with_doctype(dt, function () {
+			var meta = frappe.get_meta(dt);
+			if (meta && meta.module) {
+				frappe.breadcrumbs.add(meta.module, dt);
+			}
+		});
+	};
+
 	/** Parent-form fields that identify the main leg/job (doctypes use is_main_service; none use is_main_job on parent today). */
 	var MAIN_JOB_FIELDNAMES = ["is_main_service", "is_main_job"];
 

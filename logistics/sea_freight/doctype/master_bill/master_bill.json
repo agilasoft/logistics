@@ -122,8 +122,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Shipping Line",
-   "options": "Shipping Line",
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
   },
   {
    "fieldname": "vessel",
@@ -166,22 +166,22 @@
    "fieldname": "consolidator",
    "fieldtype": "Link",
    "label": "Consolidator",
-   "options": "Freight Consolidator",
-   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Consolidator\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Consolidator"
   },
   {
    "fieldname": "sending_agent",
    "fieldtype": "Link",
    "label": "Sending Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "fieldname": "receiving_agent",
    "fieldtype": "Link",
    "label": "Receiving Agent",
-   "options": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
   },
   {
    "collapsible": 1,
@@ -237,15 +237,13 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Origin Port",
-   "options": "UNLOCO",
-   "read_only": 1,
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "departure_berth",
    "fieldtype": "Data",
-   "label": "Departure Berth",
-   "read_only": 1
+   "label": "Departure Berth"
   },
   {
    "fieldname": "column_break_ports2",
@@ -256,15 +254,13 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Destination Port",
-   "options": "UNLOCO",
-   "read_only": 1,
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "arrival_berth",
    "fieldtype": "Data",
-   "label": "Arrival Berth",
-   "read_only": 1
+   "label": "Arrival Berth"
   },
   {
    "collapsible": 1,
@@ -516,8 +512,8 @@
    "link_fieldname": "master_bill"
   }
  ],
- "modified": "2026-03-02 23:31:07.822605",
- "modified_by": "Administrator",
+ "modified": "2026-05-11 13:41:02.136146",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Master Bill",
  "naming_rule": "By fieldname",

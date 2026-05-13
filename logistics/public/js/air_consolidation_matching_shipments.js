@@ -80,7 +80,7 @@ function acm_specs(frm) {
 		{
 			key: "target_departure",
 			ft: "Datetime",
-			lbl: __("Departure (strict date match)"),
+			lbl: __("Departure / ETD date (optional)"),
 			v: dep,
 		},
 		{
@@ -229,6 +229,8 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 	dlg.show();
 	dlg.$wrapper.addClass("logistics-gcfq-dialog logistics-acm-dialog");
 
+	dlg._acm_picked = {};
+
 	var $shell = dlg.$wrapper.find(".acm-root");
 	function loadMatches() {
 		$shell.empty();
@@ -242,9 +244,13 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 		$('<button type="button" class="btn btn-sm btn-default">' + __("Apply filters") + "</button>")
 			.appendTo($act)
 			.on("click", function () {
+				dlg._acm_picked = {};
 				runList();
 			});
-		acm_debounce_reload(dlg, runList);
+		acm_debounce_reload(dlg, function () {
+			dlg._acm_picked = {};
+			runList();
+		});
 
 		var $list = $('<div class="acm-dynamic">').appendTo($shell);
 
@@ -253,7 +259,9 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 			frappe.call({
 				doc: frm.doc,
 				method: "preview_matching_air_shipments",
-				args: { filter_overrides: acm_overrides(dlg) },
+				args: {
+					filter_overrides: acm_overrides(dlg),
+				},
 				callback: function (r) {
 					if (!r || r.exc) {
 						$list.html('<div class="alert alert-danger">' + __("Failed to load.") + "</div>");
@@ -285,7 +293,7 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 					var thead =
 						'<thead><tr><th width="42"></th>' +
 						"<th>" +
-						frappe.utils.escape_html(__("Shipment")) +
+						frappe.utils.escape_html(__("ID")) +
 						"</th>" +
 						"<th>" +
 						frappe.utils.escape_html(__("Job status")) +
@@ -311,18 +319,23 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 						}
 					}
 
+					var pickedMap = dlg._acm_picked || {};
 					var trs = "";
 					rows.forEach(function (rw) {
 						var elig = rw.row_type === "eligible";
 						var chk = "";
 						var nmEsc = frappe.utils.escape_html(String(rw.name || ""));
+						var pre = elig && rw.name && pickedMap[rw.name];
+						var checkedAttr = pre ? " checked" : "";
 						if (elig && rw.name) {
 							chk =
 								'<input type="checkbox" class="acm-sel" data-sn="' +
 								frappe.utils.escape_html(String(rw.name)) +
 								'" aria-label="' +
 								frappe.utils.escape_html(__("Select")) +
-								'"/>';
+								'"' +
+								checkedAttr +
+								"/>";
 						} else if (elig) {
 							chk = '<input type="checkbox" class="acm-sel" />';
 						} else {
@@ -364,7 +377,7 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 						'<button type="button" class="btn btn-sm btn-primary acm-apply">' +
 						__("Add selected to planned list") +
 						"</button></div>" +
-						'<div class="logistics-gcfq-table-wrap" style="max-height:54vh;">' +
+						'<div class="logistics-gcfq-table-wrap logistics-acm-scroll" style="max-height:70vh;overflow:auto;-webkit-overflow-scrolling:touch;">' +
 						'<table class="logistics-gcfq-table acm-tbl">' +
 						thead +
 						"<tbody>" +
@@ -376,18 +389,37 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 					var $tbl = $list.find(".acm-tbl");
 
 					function stat() {
-						var k = $list.find(".acm-sel:checked").length;
-						$list.find(".acm-m-stat").text(
-							__("{0} selected", [String(k)])
-						);
+						var k = Object.keys(dlg._acm_picked || {}).length;
+						$list.find(".acm-m-stat").text(__("{0} selected", [String(k)]));
 					}
 
 					$list.off(".acmacm");
-					$list.on("change.acmacm", ".acm-sel", stat);
+					$list.on("change.acmacm", ".acm-sel", function () {
+						var $cb = $(this);
+						var n = $cb.attr("data-sn");
+						if (!n) {
+							stat();
+							return;
+						}
+						if ($cb.prop("checked")) {
+							dlg._acm_picked[n] = true;
+						} else {
+							delete dlg._acm_picked[n];
+						}
+						stat();
+					});
 					stat();
 
 					$list.find(".acm-sel-all").on("click", function () {
-						$list.find(".acm-sel").prop("checked", true);
+						$list.find(".acm-sel[data-sn]").each(function () {
+							var $cb = $(this);
+							var n = $cb.attr("data-sn");
+							if (!n) {
+								return;
+							}
+							$cb.prop("checked", true);
+							dlg._acm_picked[n] = true;
+						});
 						stat();
 					});
 
@@ -402,13 +434,7 @@ logistics.open_air_consolidation_matching_shipments_dialog = function (frm) {
 					});
 
 					$list.find(".acm-apply").on("click", function () {
-						var picked = [];
-						$list.find(".acm-sel:checked").each(function () {
-							var n = $(this).attr("data-sn");
-							if (n) {
-								picked.push(n);
-							}
-						});
+						var picked = Object.keys(dlg._acm_picked || {});
 						if (!picked.length) {
 							frappe.msgprint(__("Select at least one eligible shipment."));
 							return;

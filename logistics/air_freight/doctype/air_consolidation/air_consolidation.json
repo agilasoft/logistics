@@ -71,7 +71,6 @@
   "air_planning_status",
   "planning_owner",
   "consolidation_planning_lines",
-  "attached_air_freight_jobs",
   "accounts_tab",
   "company",
   "branch",
@@ -355,12 +354,6 @@
    "options": "Air Consolidation Charges"
   },
   {
-   "fieldname": "attached_air_freight_jobs",
-   "fieldtype": "Table",
-   "label": "Attached shipments",
-   "options": "Air Consolidation Shipments"
-  },
-  {
    "fieldname": "section_break_documents",
    "fieldtype": "Section Break",
    "label": "Documents"
@@ -452,7 +445,7 @@
   },
   {
    "default": "Draft",
-   "description": "Draft until you submit the planned shipment list; required before packages can reference those air shipments.",
+   "description": "Draft while building the planned list. Packages may reference air shipments that appear in Planned shipments; submit planning before submitting the consolidation.",
    "fieldname": "air_planning_status",
    "fieldtype": "Select",
    "label": "Planning status",

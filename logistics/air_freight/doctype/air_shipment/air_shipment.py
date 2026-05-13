@@ -1442,6 +1442,9 @@ class AirShipment(Document):
 		)
 
 		register_charge_resolution_parent(self)
+		from logistics.utils.transport_mode_flags import sync_transport_mode_flags_on_parent_routing_legs
+
+		sync_transport_mode_flags_on_parent_routing_legs(self)
 		try:
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 

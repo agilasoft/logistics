@@ -24,6 +24,7 @@ var CHARGE_PARENT_DOCTYPES = [
 	"Declaration",
 	"Declaration Order",
 	"Sales Quote",
+	"Tariff",
 ];
 
 function _register_break_handlers(doctype) {
