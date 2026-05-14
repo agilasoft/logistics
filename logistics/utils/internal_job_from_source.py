@@ -838,6 +838,79 @@ def create_internal_job_from_operational_source(
 	frappe.throw(_("Unsupported source type."))
 
 
+def _populate_sea_booking_charges_from_linked_quote_on_internal_create(doc) -> None:
+	"""Apply Sales Quote routing and Sea charges when an internal Sea Booking is created from another job.
+
+	Mirrors the ``sales_quote`` ``on_change`` / fetch-quotations path so charges are not left empty
+	just because the link was set before the first save (no ``has_value_changed``).
+	"""
+	sq_name = getattr(doc, "sales_quote", None)
+	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
+		return
+	try:
+		sq = frappe.get_doc("Sales Quote", sq_name)
+	except Exception:
+		return
+	try:
+		from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+
+		apply_sales_quote_routing_to_booking(doc, sq)
+		doc._populate_charges_from_sales_quote_doc()
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			"Sea Booking internal job — charge population on create",
+		)
+
+
+def _populate_air_booking_charges_from_linked_quote_on_internal_create(doc) -> None:
+	"""Apply Sales Quote routing and Air charges when an internal Air Booking is created from another job.
+
+	Mirrors the internal Sea Booking create path so charges are not left empty because ``sales_quote``
+	was set before the first save (``on_change`` does not run without ``has_value_changed``).
+	Prefers Air ``service_type`` charge rows copied from the Main Job when present, otherwise Sales Quote.
+	"""
+	from frappe.utils import cint
+
+	from logistics.utils.internal_job_charge_copy import (
+		populate_internal_job_charges_from_main_service,
+		should_apply_internal_job_main_charge_overlay,
+	)
+
+	overlay_populated = False
+	if cint(getattr(doc, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(doc):
+		try:
+			n, _st = populate_internal_job_charges_from_main_service(doc)
+			if n:
+				overlay_populated = True
+		except Exception:
+			frappe.log_error(
+				frappe.get_traceback(),
+				"Air Booking internal job — charges from Main Job on create",
+			)
+
+	if overlay_populated:
+		return
+
+	sq_name = getattr(doc, "sales_quote", None)
+	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
+		return
+	try:
+		sq = frappe.get_doc("Sales Quote", sq_name)
+	except Exception:
+		return
+	try:
+		from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+
+		apply_sales_quote_routing_to_booking(doc, sq)
+		doc._populate_charges_from_sales_quote(doc.sales_quote)
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			"Air Booking internal job — charge population on create",
+		)
+
+
 def _create_air_booking_from_sea_shipment(sea_shipment_name: str, internal_job_detail_idx: int | None):
 	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -867,6 +940,7 @@ def _create_air_booking_from_sea_shipment(sea_shipment_name: str, internal_job_d
 	doc.main_job = sea_shipment_name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	_populate_air_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Sea Shipment", sea_shipment_name, "Air Booking", doc.name, detail_idx=resolved_idx
@@ -900,6 +974,7 @@ def _create_sea_booking_from_air_shipment(air_shipment_name: str, internal_job_d
 	doc.main_job = air_shipment_name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	_populate_sea_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Air Shipment", air_shipment_name, "Sea Booking", doc.name, detail_idx=resolved_idx
@@ -930,6 +1005,7 @@ def _create_air_booking_from_transport_job(transport_job_name: str, internal_job
 	doc.main_job = job.name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	_populate_air_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Transport Job", transport_job_name, "Air Booking", doc.name, detail_idx=resolved_idx
@@ -960,6 +1036,7 @@ def _create_sea_booking_from_transport_job(transport_job_name: str, internal_job
 	doc.main_job = job.name
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	_populate_sea_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Transport Job", transport_job_name, "Sea Booking", doc.name, detail_idx=resolved_idx

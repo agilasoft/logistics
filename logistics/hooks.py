@@ -29,17 +29,17 @@ fixtures = [
 # include js, css files in header of desk.html
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
-	"/assets/logistics/css/get_charges_from_quotation.css?v=6",
+	"/assets/logistics/css/get_charges_from_quotation.css?v=7",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 ]
 app_include_js = [
-	"/assets/logistics/js/form_desk_title_route_guard.js?v=2",
+	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/internal_job_create_from_source.js?v=19",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=16",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=17",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",

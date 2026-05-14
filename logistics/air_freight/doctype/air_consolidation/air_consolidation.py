@@ -699,7 +699,13 @@ class AirConsolidation(Document):
         for charge in self.consolidation_charges:
             if charge.revenue_calculation_method == "Per Unit":
                 ut = getattr(charge, "unit_type", None)
-                if ut == "Weight":
+                uom = (getattr(charge, "unit_of_measure", None) or "").strip().lower()
+                # ``unit_of_measure`` (e.g. shipment) reflects billing basis; ``unit_type`` may still
+                # default to Weight. Do not multiply rate by consolidation chargeable weight when the
+                # row is explicitly priced per shipment (matches child validate: rate × quantity).
+                if uom == "shipment":
+                    charge.base_amount = charge.rate * flt(charge.quantity or 0)
+                elif ut == "Weight":
                     charge.base_amount = charge.rate * cw
                 elif ut == "Chargeable Weight":
                     cq = flt(self.chargeable_weight or 0)
@@ -717,12 +723,20 @@ class AirConsolidation(Document):
             elif charge.revenue_calculation_method == "Percentage":
                 charge.base_amount = charge.rate * (cw * 0.01)
             
-            # Calculate discount
-            if charge.discount_percentage:
-                charge.discount_amount = charge.base_amount * (charge.discount_percentage / 100)
-            
+            # Calculate discount (must set discount_amount; unsaved rows can leave it None)
+            if charge.discount_percentage and charge.base_amount is not None:
+                charge.discount_amount = flt(charge.base_amount) * (
+                    flt(charge.discount_percentage) / 100
+                )
+            else:
+                charge.discount_amount = 0
+
             # Calculate total amount
-            charge.total_amount = charge.base_amount - charge.discount_amount + charge.surcharge_amount
+            charge.total_amount = (
+                flt(charge.base_amount)
+                - flt(charge.discount_amount)
+                + flt(charge.surcharge_amount)
+            )
             
             total_charges += charge.total_amount
         
@@ -1347,6 +1361,55 @@ class AirConsolidation(Document):
             })
         
         return summary
+    
+    @frappe.whitelist()
+    def allocate_costs(self, allocation_method="weight"):
+        """Set package cost_allocation % by weight, volume, or equal split per air shipment (aligned with Sea Consolidation)."""
+        method = (allocation_method or "weight").lower()
+        if method not in ("weight", "volume", "equal"):
+            frappe.throw(_("Allocation method must be weight, volume, or equal"))
+
+        basis_map = {"weight": "Weight", "volume": "Volume", "equal": "Equal"}
+        self.package_allocation_basis = basis_map[method]
+
+        pkgs = list(self.get("consolidation_packages") or [])
+        if not pkgs:
+            self.save()
+            return True
+
+        if method == "weight":
+            tw = flt(self.total_weight) or 1.0
+            for p in pkgs:
+                w = flt(getattr(p, "package_weight", None) or 0)
+                if w:
+                    p.cost_allocation = (w / tw) * 100
+                else:
+                    p.cost_allocation = 0
+        elif method == "volume":
+            tv = flt(self.total_volume) or 1.0
+            for p in pkgs:
+                v = flt(getattr(p, "package_volume", None) or 0)
+                if v:
+                    p.cost_allocation = (v / tv) * 100
+                else:
+                    p.cost_allocation = 0
+        else:
+            from collections import Counter
+
+            jobs = [getattr(p, "air_freight_job", None) for p in pkgs if getattr(p, "air_freight_job", None)]
+            n_jobs = len(set(jobs)) or 1
+            per_job_pct = 100.0 / float(n_jobs)
+            counts = Counter(jobs)
+            for p in pkgs:
+                j = getattr(p, "air_freight_job", None)
+                if not j:
+                    p.cost_allocation = 0
+                    continue
+                cnt = counts[j] or 1
+                p.cost_allocation = per_job_pct / float(cnt)
+
+        self.save()
+        return True
     
     def validate_dates(self):
         """Validate date fields"""

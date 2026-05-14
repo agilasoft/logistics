@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt
 
 
 class AirConsolidationPackages(Document):
@@ -108,14 +109,42 @@ class AirConsolidationPackages(Document):
             pass
     
     def calculate_cost_allocation(self):
-        """Calculate cost allocation percentage"""
-        if self.parent:
-            consolidation = frappe.get_doc("Air Consolidation", self.parent)
-            
-            if consolidation.total_weight > 0:
-                self.cost_allocation = (self.package_weight / consolidation.total_weight) * 100
-            else:
+        """Cost allocation % on each package line (mirrors Sea Consolidation shipment splits for PI / Custom)."""
+        if not self.parent:
+            return
+        parent = frappe.get_cached_doc("Air Consolidation", self.parent)
+        basis = (getattr(parent, "package_allocation_basis", None) or "Weight").strip()
+
+        if basis == "Volume":
+            tv = flt(parent.total_volume or 0)
+            if tv <= 0:
                 self.cost_allocation = 0
+                return
+            v = flt(getattr(self, "package_volume", None) or 0)
+            self.cost_allocation = (v / tv) * 100 if v else 0
+            return
+
+        if basis == "Equal":
+            pkgs = list(parent.get("consolidation_packages") or [])
+            distinct_jobs = {
+                getattr(r, "air_freight_job", None) for r in pkgs if getattr(r, "air_freight_job", None)
+            }
+            n_jobs = len(distinct_jobs)
+            my_job = getattr(self, "air_freight_job", None)
+            if not n_jobs or not my_job:
+                self.cost_allocation = 0
+                return
+            per_job_pct = 100.0 / float(n_jobs)
+            pkgs_this_job = sum(1 for r in pkgs if getattr(r, "air_freight_job", None) == my_job) or 1
+            self.cost_allocation = per_job_pct / float(pkgs_this_job)
+            return
+
+        tw = flt(parent.total_weight or 0)
+        if tw > 0:
+            w = flt(getattr(self, "package_weight", None) or 0)
+            self.cost_allocation = (w / tw) * 100
+        else:
+            self.cost_allocation = 0
     
     @frappe.whitelist()
     def get_package_details(self):

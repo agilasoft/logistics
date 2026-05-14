@@ -1,0 +1,10 @@
+/* Customer link caption — avoid clipping letter descenders (g, y, p) */
+
+.frappe-control[data-fieldname="customer"] .link-field .awesomplete > input,
+.frappe-control[data-fieldname="customer"] .link-field input {
+	min-height: 2rem;
+	line-height: 1.5;
+	padding-top: 6px;
+	padding-bottom: 6px;
+	box-sizing: border-box;
+}

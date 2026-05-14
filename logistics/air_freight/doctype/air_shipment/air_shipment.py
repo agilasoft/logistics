@@ -1494,6 +1494,7 @@ class AirShipment(Document):
 				from frappe.utils import cint
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
 					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_freight_shipment,
 					resolve_single_main_air_booking_for_sales_quote,
@@ -1512,6 +1513,11 @@ class AirShipment(Document):
 					allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
 				if not allow_air:
 					allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+				conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
+				if not allow_sea:
+					allow_sea = conv_sea
+				if not allow_air:
+					allow_air = conv_air
 				allow_tro = resolve_allow_linked_transport_order_for_freight_shipment(self)
 				validate_one_off_quote_not_converted(
 					self.sales_quote,

@@ -37,6 +37,7 @@
   "chargeable_weight_uom",
   "consolidation_ratio",
   "cost_per_kg",
+  "package_allocation_basis",
   "section_break_documents",
   "master_awb",
   "house_awb_prefix",
@@ -261,8 +262,7 @@
   {
    "fieldname": "flight_number",
    "fieldtype": "Data",
-   "label": "Flight Number",
-   "reqd": 1
+   "label": "Flight Number"
   },
   {
    "fieldname": "section_break_cargo",
@@ -334,6 +334,14 @@
    "label": "Cost per kg",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "default": "Weight",
+   "description": "Controls how package cost allocation % is derived (same modes as Sea Consolidation allocate_costs).",
+   "fieldname": "package_allocation_basis",
+   "fieldtype": "Select",
+   "label": "Package cost allocation basis",
+   "options": "Weight\nVolume\nEqual"
   },
   {
    "fieldname": "consolidation_packages",
@@ -516,7 +524,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-24 21:11:08.161049",
+ "modified": "2026-05-14 11:10:00.143364",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",
@@ -533,6 +541,7 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {

@@ -866,7 +866,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
@@ -1419,7 +1418,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-24 15:17:55.640939",
+ "modified": "2026-05-14 13:26:29.648360",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

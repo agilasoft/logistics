@@ -3,14 +3,70 @@ function vehicle_type_cache_key(load_type, hazardous, reefer) {
 	return (load_type || "") + "|" + (hazardous ? "1" : "0") + "|" + (reefer ? "1" : "0");
 }
 
+/** True if this Transport Order form still represents the document the async call was made for (avoids stale callbacks). */
+function _transport_order_async_still_for_doc(frm, docname_when_called) {
+	if (!frm || frm.doctype !== "Transport Order" || docname_when_called == null) {
+		return false;
+	}
+	return String(frm.doc.name || "") === String(docname_when_called);
+}
+
+(function _install_transport_order_not_found_msgprint_guard() {
+	if (frappe._logistics_transport_order_not_found_msgprint_guard) {
+		return;
+	}
+	frappe._logistics_transport_order_not_found_msgprint_guard = true;
+	var _orig_msgprint = frappe.msgprint;
+	frappe.msgprint = function (options) {
+		var message =
+			typeof options === "string"
+				? options
+				: options && options.message != null
+					? options.message
+					: "";
+		if (
+			typeof message !== "string" ||
+			message.indexOf("Transport Order") === -1 ||
+			message.indexOf("not found") === -1
+		) {
+			return _orig_msgprint.apply(this, arguments);
+		}
+		var route = frappe.get_route && frappe.get_route();
+		var frm = typeof cur_frm !== "undefined" ? cur_frm : null;
+		if (!frm || frm.doctype !== "Transport Order") {
+			return _orig_msgprint.apply(this, arguments);
+		}
+		// Unsaved / new: suppress spurious not-found from child grids and early API calls (legacy behavior)
+		if (frm.is_new() || frm.doc.__islocal) {
+			return;
+		}
+		// Saved order: suppress only while the desk route still matches this form (avoids hiding errors on other screens)
+		if (
+			route &&
+			route[0] === "Form" &&
+			route[1] === "Transport Order" &&
+			String(route[2] || "") === String(frm.docname || "") &&
+			String(frm.docname || "") === String(frm.doc.name || "")
+		) {
+			// Message may name this doc (race) or another TRO (stale response); either way it is misleading here
+			return;
+		}
+		return _orig_msgprint.apply(this, arguments);
+	};
+})();
+
 function _load_milestone_html(frm) {
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._milestone_html_called) return;
 	frm._milestone_html_called = true;
+	var _milestone_docname = frm.doc.name;
 	frappe.call({
 		method: 'logistics.document_management.api.get_milestone_html',
-		args: { doctype: 'Transport Order', docname: frm.doc.name },
+		args: { doctype: 'Transport Order', docname: _milestone_docname },
 		callback: function(r) {
+			if (!_transport_order_async_still_for_doc(frm, _milestone_docname)) {
+				return;
+			}
 			if (r.message && frm.fields_dict.milestone_html) {
 				frm.fields_dict.milestone_html.$wrapper.html(r.message);
 			}
@@ -208,26 +264,6 @@ frappe.ui.form.on("Transport Order", {
 		if (window.logistics && logistics.apply_one_off_route_options_onload) {
 			logistics.apply_one_off_route_options_onload(frm);
 		}
-		// Suppress "Transport Order X not found" when form is new/unsaved (package grid triggers API before save)
-		if (frm.is_new() || frm.doc.__islocal) {
-			if (!frappe._original_msgprint) {
-				frappe._original_msgprint = frappe.msgprint;
-			}
-			frappe.msgprint = function(options) {
-				const message = typeof options === 'string' ? options : (options && options.message || '');
-				if (message && typeof message === 'string' &&
-					message.includes('Transport Order') &&
-					message.includes('not found')) {
-					return;
-				}
-				return frappe._original_msgprint.apply(this, arguments);
-			};
-			frm.$wrapper.one('form-refresh', function() {
-				if (!frm.is_new() && !frm.doc.__islocal && frappe._original_msgprint) {
-					frappe.msgprint = frappe._original_msgprint;
-				}
-			});
-		}
 		// Update vehicle_type required state based on consolidate checkbox
 		frm.events.toggle_vehicle_type_required(frm);
 		// Apply transport job type filters on load (container/reefer field visibility, etc.)
@@ -423,13 +459,17 @@ frappe.ui.form.on("Transport Order", {
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
+				var _dashboard_docname = frm.doc.name;
 				// Use frappe.call, not frm.call: run_doc_method always reloads from DB (check_if_latest)
 				// and can raise "Transport Order … not found" right after first save or when the client
 				// state is slightly ahead of the DB.
 				frappe.call({
 					method: 'logistics.transport.doctype.transport_order.transport_order.get_dashboard_html_by_name',
-					args: { docname: frm.doc.name },
+					args: { docname: _dashboard_docname },
 					callback: function(r) {
+						if (!_transport_order_async_still_for_doc(frm, _dashboard_docname)) {
+							return;
+						}
 						if (r.message && frm.fields_dict.dashboard_html) {
 							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
 							if (window.logistics_group_and_collapse_dash_alerts) {
@@ -1099,12 +1139,16 @@ frappe.ui.form.on("Transport Order", {
 			return;
 		}
 
+		var _aggregate_docname = frm.doc.name;
 		// frappe.call + remote helper (not frm.call): avoids run_doc_method / TimestampMismatchError
 		// when this runs right after save while modified timestamp is updating.
 		frappe.call({
 			method: 'logistics.transport.doctype.transport_order.transport_order.aggregate_volume_from_packages_remote',
 			args: { doc: frm.doc },
 			callback: function(r) {
+				if (!_transport_order_async_still_for_doc(frm, _aggregate_docname)) {
+					return;
+				}
 				if (r && !r.exc && r.message) {
 					if (r.message.total_volume !== undefined && frm.fields_dict.total_volume) {
 						frm.set_value('total_volume', r.message.total_volume);

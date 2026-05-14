@@ -76,6 +76,26 @@ def _sq_charge_row_matches_service(row, service_type_label):
 	return sales_quote_charge_service_types_equal(st, service_type_label)
 
 
+def _sync_sales_quote_charge_load_type_filter_flags_for_row(row):
+	"""Keep hidden per-mode flags aligned with service_type (used for Load Type link filtering in the desk)."""
+	row.load_type_filter_air = 0
+	row.load_type_filter_sea = 0
+	row.load_type_filter_transport = 0
+	row.load_type_filter_customs = 0
+	row.load_type_filter_warehousing = 0
+	st = canonical_charge_service_type_for_storage(getattr(row, "service_type", None))
+	if st == "air":
+		row.load_type_filter_air = 1
+	elif st == "sea":
+		row.load_type_filter_sea = 1
+	elif st == "transport":
+		row.load_type_filter_transport = 1
+	elif st == "custom":
+		row.load_type_filter_customs = 1
+	elif st == "warehousing":
+		row.load_type_filter_warehousing = 1
+
+
 def _sales_quote_has_warehousing_for_contract(sales_quote):
 	"""Legacy warehousing child rows or unified charges with service_type Warehousing (matches sales_quote.js + get_rates_from_sales_quote)."""
 	if sales_quote.get("warehousing"):
@@ -106,6 +126,8 @@ def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_q
 class SalesQuote(Document):
 	def validate(self):
 		"""Validate Sales Quote data"""
+		for ch in getattr(self, "charges", None) or []:
+			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
 		self.validate_naming_series_quotation_type()
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.validate_one_off_required_parameters()
@@ -2214,6 +2236,35 @@ def resolve_allow_linked_transport_order_for_freight_shipment(doc):
 	return None
 
 
+def resolve_allow_linked_transport_order_for_internal_job_freight_booking(doc):
+	"""For internal-job Air/Sea Bookings whose hub is an Air/Sea Shipment, return the Transport Order name when
+	the one-off quote was converted to that order and the order links to the same hub shipment — mirrors
+	``resolve_allow_linked_transport_order_for_freight_shipment`` for shipment rows."""
+	from frappe.utils import cint
+
+	if not cint(getattr(doc, "is_internal_job", 0)):
+		return None
+	dt = getattr(doc, "doctype", None) or ""
+	if dt not in ("Air Booking", "Sea Booking"):
+		return None
+	mjt = (getattr(doc, "main_job_type", None) or "").strip()
+	mj = (getattr(doc, "main_job", None) or "").strip()
+	if mjt not in ("Air Shipment", "Sea Shipment") or not mj:
+		return None
+	sq = getattr(doc, "sales_quote", None)
+	if not sq:
+		return None
+	cr = frappe.db.get_value("Sales Quote", sq, "converted_to_doc")
+	tro_name = _resolved_transport_order_name_from_one_off_conversion(cr)
+	if not tro_name:
+		return None
+	link_field = "air_shipment" if mjt == "Air Shipment" else "sea_shipment"
+	tro_ship = frappe.db.get_value("Transport Order", tro_name, link_field)
+	if tro_ship and (tro_ship or "").strip() == mj.strip():
+		return tro_name
+	return None
+
+
 def resolve_single_main_sea_booking_for_sales_quote(sales_quote_name):
 	"""If exactly one non-cancelled main Sea Booking references this Sales Quote, return its name.
 
@@ -2249,6 +2300,36 @@ def resolve_single_main_air_booking_for_sales_quote(sales_quote_name):
 		limit=2,
 	)
 	return cand[0] if len(cand) == 1 else None
+
+
+def resolve_allow_linked_freight_booking_from_one_off_converted_doc(sales_quote_name: str):
+	"""Return ``(sea_booking_name_or_none, air_booking_name_or_none)`` from the quote's ``converted_to_doc``.
+
+	When :func:`resolve_single_main_sea_booking_for_sales_quote` / air returns *None* (no ``is_main_service`` match,
+	multiple mains, etc.) but submit already recorded conversion on a specific Sea/Air Booking that still links this
+	quote, that booking must be accepted as the linked leg — same idea as ``allow_if_quote_converted_to`` for Declaration Order.
+	"""
+	if not sales_quote_name:
+		return None, None
+	cr = (frappe.db.get_value("Sales Quote", sales_quote_name, "converted_to_doc") or "").strip()
+	if not cr:
+		return None, None
+	sq_key = (sales_quote_name or "").strip()
+
+	def _booking_if_same_quote(doctype: str, prefix: str) -> str | None:
+		tail = cr[len(prefix) + 1 :].strip() if cr.startswith(f"{prefix} ") else cr
+		if not tail or not frappe.db.exists(doctype, tail):
+			return None
+		row = frappe.db.get_value(doctype, tail, ["sales_quote", "docstatus"], as_dict=True)
+		if not row or row.docstatus == 2:
+			return None
+		if (row.sales_quote or "").strip() != sq_key:
+			return None
+		return tail
+
+	allow_sea = _booking_if_same_quote("Sea Booking", "Sea Booking")
+	allow_air = _booking_if_same_quote("Air Booking", "Air Booking")
+	return allow_sea, allow_air
 
 
 # Main-service ops docs allowed to share a one-off quote already converted to a Declaration Order (same job chain).

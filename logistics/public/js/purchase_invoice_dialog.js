@@ -434,28 +434,35 @@
 
 	// Make charge rows read-only when Cost Invoice Status is Requested, Posted, or Paid (avoid duplicate posting)
 	function set_requested_charge_rows_readonly(frm, charges_field) {
-		if (!frm || !frm.doc) return;
-		charges_field = charges_field || "charges";
-		if (!frm.fields_dict[charges_field] || !frm.doc[charges_field] || !frm.doc[charges_field].length) return;
-		var costLocked = ["Requested", "Invoiced", "Posted", "Paid"];
-		var revenueLocked = ["Requested", "Posted", "Paid"];
-		frm.doc[charges_field].forEach(function(row) {
-			var revBad = row.sales_invoice_status && revenueLocked.indexOf(row.sales_invoice_status) !== -1;
-			var costBad = costLocked.indexOf(row.purchase_invoice_status) !== -1;
-			if (costBad || revBad) {
-				row.__read_only = 1;
-			}
-		});
-		if (frm.fields_dict[charges_field].grid && frm.fields_dict[charges_field].grid.grid_rows) {
-			frm.fields_dict[charges_field].grid.grid_rows.forEach(function(grid_row) {
-				if (!grid_row.doc) return;
-				var revBad = grid_row.doc.sales_invoice_status && revenueLocked.indexOf(grid_row.doc.sales_invoice_status) !== -1;
-				var costBad = costLocked.indexOf(grid_row.doc.purchase_invoice_status) !== -1;
+		try {
+			if (!frm || !frm.doc) return;
+			charges_field = charges_field || "charges";
+			if (!frm.fields_dict[charges_field] || !frm.doc[charges_field] || !frm.doc[charges_field].length) return;
+			var costLocked = ["Requested", "Invoiced", "Posted", "Paid"];
+			var revenueLocked = ["Requested", "Posted", "Paid"];
+			frm.doc[charges_field].forEach(function(row) {
+				if (!row) return;
+				var revBad = row.sales_invoice_status && revenueLocked.indexOf(row.sales_invoice_status) !== -1;
+				var costBad = costLocked.indexOf(row.purchase_invoice_status) !== -1;
 				if (costBad || revBad) {
-					grid_row.doc.__read_only = 1;
-					if (grid_row.open_form_button) grid_row.open_form_button.toggle(false);
+					row.__read_only = 1;
 				}
 			});
+			if (frm.fields_dict[charges_field].grid && frm.fields_dict[charges_field].grid.grid_rows) {
+				frm.fields_dict[charges_field].grid.grid_rows.forEach(function(grid_row) {
+					if (!grid_row || !grid_row.doc) return;
+					var revBad = grid_row.doc.sales_invoice_status && revenueLocked.indexOf(grid_row.doc.sales_invoice_status) !== -1;
+					var costBad = costLocked.indexOf(grid_row.doc.purchase_invoice_status) !== -1;
+					if (costBad || revBad) {
+						grid_row.doc.__read_only = 1;
+						if (grid_row.open_form_button && typeof grid_row.open_form_button.toggle === "function") {
+							grid_row.open_form_button.toggle(false);
+						}
+					}
+				});
+			}
+		} catch (e) {
+			console.error("set_requested_charge_rows_readonly", charges_field, e);
 		}
 	}
 
@@ -472,7 +479,30 @@
 		frappe.ui.form.on(doctype, {
 			refresh: function(frm) {
 				set_requested_charge_rows_readonly(frm, "consolidation_charges");
-			}
+				setTimeout(function () {
+					if (!frm.doc.name || frm.doc.__islocal) {
+						return;
+					}
+					function open_consolidation_purchase_invoice() {
+						if (typeof show_create_consolidation_purchase_invoice_dialog === "function") {
+							show_create_consolidation_purchase_invoice_dialog(frm);
+							return;
+						}
+						frappe.require("/assets/logistics/js/purchase_invoice_dialog.js", function () {
+							if (typeof show_create_consolidation_purchase_invoice_dialog === "function") {
+								show_create_consolidation_purchase_invoice_dialog(frm);
+							} else {
+								frappe.msgprint({
+									title: __("Error"),
+									message: __("Purchase Invoice feature is not loaded. Please refresh the page."),
+									indicator: "red",
+								});
+							}
+						});
+					}
+					frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+				}, 0);
+			},
 		});
 	});
 })();

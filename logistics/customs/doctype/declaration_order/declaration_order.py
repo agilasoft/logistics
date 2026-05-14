@@ -141,11 +141,25 @@ class DeclarationOrder(Document):
 
 			if self.sales_quote:
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
 					resolve_allow_linked_freight_bookings_for_internal_job,
+					resolve_single_main_air_booking_for_sales_quote,
+					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
 				)
 
 				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				# Same multimodal one-off chain as Air/Sea Shipment validate: main_job may be only one leg,
+				# but the quote conversion can sit on the sibling Sea/Air main booking.
+				if not allow_sea:
+					allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+				if not allow_air:
+					allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+				conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
+				if not allow_sea:
+					allow_sea = conv_sea
+				if not allow_air:
+					allow_air = conv_air
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
 					self.doctype,
@@ -493,6 +507,7 @@ class DeclarationOrder(Document):
 				"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
 				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 				"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
+				"revenue_calculation_method",
 				"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
 				"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
@@ -509,12 +524,15 @@ class DeclarationOrder(Document):
 						val = _ch_get(sq_charge, field)
 						if val is not None:
 							row.set(field, val)
-				if "charge_basis" in charge_fields and _ch_get(sq_charge, "calculation_method"):
-					row.set("charge_basis", _ch_get(sq_charge, "calculation_method"))
+				_rev_basis = _ch_get(sq_charge, "revenue_calculation_method") or _ch_get(
+					sq_charge, "calculation_method"
+				)
+				if "charge_basis" in charge_fields and _rev_basis:
+					row.set("charge_basis", _rev_basis)
 				if "rate" in charge_fields and _ch_get(sq_charge, "unit_rate") is not None:
 					row.set("rate", _ch_get(sq_charge, "unit_rate"))
-				if "revenue_calculation_method" in charge_fields and _ch_get(sq_charge, "calculation_method"):
-					row.set("revenue_calculation_method", _ch_get(sq_charge, "calculation_method"))
+				if "revenue_calculation_method" in charge_fields and _rev_basis:
+					row.set("revenue_calculation_method", _rev_basis)
 				legacy_tariff = _ch_get(sq_charge, "tariff")
 				if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
 					if "revenue_tariff" in charge_fields and (
@@ -654,6 +672,7 @@ def populate_charges_from_sales_quote(
 			"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
 			"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 			"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
+			"revenue_calculation_method",
 			"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
 			"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 			"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
@@ -676,13 +695,15 @@ def populate_charges_from_sales_quote(
 					if val is not None:
 						row[field] = val
 			# Map Sales Quote field names to charge table
-			if "charge_basis" in charge_fields and _ch_get(sq_charge, "calculation_method"):
-				row["charge_basis"] = _ch_get(sq_charge, "calculation_method")
+			_rev_basis = _ch_get(sq_charge, "revenue_calculation_method") or _ch_get(
+				sq_charge, "calculation_method"
+			)
+			if "charge_basis" in charge_fields and _rev_basis:
+				row["charge_basis"] = _rev_basis
 			if "rate" in charge_fields and _ch_get(sq_charge, "unit_rate") is not None:
 				row["rate"] = _ch_get(sq_charge, "unit_rate")
-			# Map revenue_calculation_method from calculation_method if field exists
-			if "revenue_calculation_method" in charge_fields and _ch_get(sq_charge, "calculation_method"):
-				row["revenue_calculation_method"] = _ch_get(sq_charge, "calculation_method")
+			if "revenue_calculation_method" in charge_fields and _rev_basis:
+				row["revenue_calculation_method"] = _rev_basis
 			# Map legacy tariff field to revenue_tariff and cost_tariff if they exist
 			legacy_tariff = _ch_get(sq_charge, "tariff")
 			if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
