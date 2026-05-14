@@ -1,6 +1,10 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt
+
+
+_ALLOWED_CHARGE_TYPES = frozenset({"Margin", "Disbursement", "Revenue", "Cost"})
 
 
 class AirConsolidationCharges(Document):
@@ -22,6 +26,14 @@ class AirConsolidationCharges(Document):
         """Validate charge data integrity"""
         if not self.charge_type:
             frappe.throw(_("Charge type is required"))
+        if self.charge_type not in _ALLOWED_CHARGE_TYPES:
+            frappe.throw(
+                _(
+                    "Charge type must be one of: {0}. If this row was created when the field "
+                    "was misconfigured, pick a valid type from the list."
+                ).format(", ".join(sorted(_ALLOWED_CHARGE_TYPES))),
+                title=_("Invalid charge type"),
+            )
         
         if not self.revenue_calculation_method:
             frappe.throw(_("Revenue calculation method is required"))
@@ -63,51 +75,13 @@ class AirConsolidationCharges(Document):
         self.total_amount = self.base_amount - self.discount_amount + (self.surcharge_amount or 0)
     
     def calculate_allocated_amount(self):
-        """Calculate allocated amount based on allocation method"""
-        if not self.parent or not self.total_amount:
+        """Set allocated_amount from charge total and allocation % (same pattern as Sea Consolidation Charges)."""
+        if not hasattr(self, "allocated_amount") or not hasattr(self, "allocation_percentage"):
             return
-        
-        consolidation = frappe.get_doc("Air Consolidation", self.parent)
-        
-        if self.allocation_method == "Equal":
-            distinct_jobs = {
-                p.air_freight_job
-                for p in (consolidation.consolidation_packages or [])
-                if getattr(p, "air_freight_job", None)
-            }
-            total_jobs = len(distinct_jobs)
-            if total_jobs > 0:
-                self.allocated_amount = self.total_amount / total_jobs
-            else:
-                self.allocated_amount = 0
-        
-        elif self.allocation_method == "Weight-based":
-            # Allocation based on weight percentage
-            if self.allocation_percentage:
-                self.allocated_amount = self.total_amount * (self.allocation_percentage / 100)
-            else:
-                self.allocated_amount = 0
-        
-        elif self.allocation_method == "Volume-based":
-            # Allocation based on volume percentage
-            if self.allocation_percentage:
-                self.allocated_amount = self.total_amount * (self.allocation_percentage / 100)
-            else:
-                self.allocated_amount = 0
-        
-        elif self.allocation_method == "Value-based":
-            # Allocation based on cargo value percentage
-            if self.allocation_percentage:
-                self.allocated_amount = self.total_amount * (self.allocation_percentage / 100)
-            else:
-                self.allocated_amount = 0
-        
-        else:
-            # Custom allocation
-            if self.allocation_percentage:
-                self.allocated_amount = self.total_amount * (self.allocation_percentage / 100)
-            else:
-                self.allocated_amount = 0
+        pct = flt(self.allocation_percentage, 2)
+        if pct > 0:
+            base = flt(self.total_amount or 0)
+            self.allocated_amount = base * (pct / 100)
     
     def update_charge_status(self):
         """Update charge status based on current data"""

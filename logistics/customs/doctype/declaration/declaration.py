@@ -1779,6 +1779,33 @@ def post_standard_costs(docname):
 	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
 
 
+@frappe.whitelist()
+def get_customer_address(customer: str) -> Optional[str]:
+	"""Rendered address for a Customer (desk: Declaration notify party)."""
+	if not customer or not frappe.db.exists("Customer", customer):
+		return None
+
+	from frappe.contacts.doctype.address.address import get_address_display
+
+	addr_name = frappe.db.get_value("Customer", customer, "customer_primary_address")
+	if addr_name:
+		return get_address_display(addr_name)
+
+	addresses = frappe.get_all(
+		"Address",
+		filters={"link_doctype": "Customer", "link_name": customer},
+		fields=["name", "is_primary_address", "is_shipping_address"],
+		order_by="is_primary_address DESC, is_shipping_address DESC, creation ASC",
+	)
+	for row in addresses:
+		if row.is_primary_address or row.is_shipping_address:
+			return get_address_display(row.name)
+	if addresses:
+		return get_address_display(addresses[0].name)
+
+	return frappe.db.get_value("Customer", customer, "primary_address")
+
+
 def _safe_meta_fieldnames(doctype: str) -> list:
 	"""Get safe list of fieldnames from doctype meta"""
 	try:

@@ -14,7 +14,10 @@ from frappe import _
 from frappe.utils import cint, cstr, flt
 
 from logistics.utils.charges_calculation import _get_item_code_from_charge
-from logistics.utils.charge_service_type import implied_service_type_for_doctype
+from logistics.utils.charge_service_type import (
+	implied_service_type_for_doctype,
+	sales_quote_charge_service_types_equal,
+)
 
 
 def should_apply_internal_job_main_charge_overlay(doc):
@@ -48,9 +51,22 @@ def _main_charge_matches_internal_service(charge, implied_internal, main_doctype
 	"""Main charge row belongs to internal job when service_type matches, or legacy row without service_type matches main doc type."""
 	st = cstr(getattr(charge, "service_type", None) or "").strip()
 	if st:
-		return st == implied_internal
+		return sales_quote_charge_service_types_equal(st, implied_internal)
 	main_implied = implied_service_type_for_doctype(main_doctype)
-	return main_implied == implied_internal
+	return sales_quote_charge_service_types_equal(main_implied, implied_internal)
+
+
+def _main_job_charge_filter_service_type_for_internal_child(parent_doc):
+	"""Which ``service_type`` on the *main* job's charge rows to match when copying onto this internal child.
+
+	Always use the **child** doctype's implied freight service (Sea for Sea Booking, Air for Air
+	Booking). The hub may be the opposite mode (e.g. internal Sea under a one-off Air Shipment):
+	then the hub document typically has no matching Sea rows, ``populate_internal_job_charges_from_main_service``
+	returns zero rows, and Sea Booking charge population falls back to the Sales Quote / one-off quote
+	instead of incorrectly consuming the hub's Air lines and skipping Sea.
+	"""
+	dt = getattr(parent_doc, "doctype", None)
+	return implied_service_type_for_doctype(dt)
 
 
 def _index_main_charges_by_item(main_doc, restrict_service_type=None):
@@ -74,11 +90,11 @@ def _index_main_charges_by_item(main_doc, restrict_service_type=None):
 
 
 def _iter_main_charge_rows_for_internal_job(parent_doc):
-	"""Yield main job charge rows whose service_type matches parent_doc's internal job."""
+	"""Yield main job charge rows whose service_type matches this internal child's main-job filter."""
 	if not should_apply_internal_job_main_charge_overlay(parent_doc):
 		return
 	main = frappe.get_doc(parent_doc.main_job_type, parent_doc.main_job)
-	want = implied_service_type_for_doctype(parent_doc.doctype)
+	want = _main_job_charge_filter_service_type_for_internal_child(parent_doc)
 	if not want:
 		return
 	for ch in main.get("charges") or []:
@@ -149,6 +165,13 @@ def _scrub_main_row_to_child_dict(main_ch, child_doctype, forced_service_type):
 		rm = raw.get("revenue_calculation_method") or raw.get("calculation_method")
 		if rm and "revenue_calculation_method" in valid:
 			d["revenue_calculation_method"] = rm
+	elif "Air Booking Charges" == child_doctype:
+		rt = flt(raw.get("rate")) or flt(raw.get("unit_rate"))
+		if rt and "rate" in valid:
+			d["rate"] = rt
+		rm = raw.get("revenue_calculation_method") or raw.get("calculation_method")
+		if rm and "revenue_calculation_method" in valid:
+			d["revenue_calculation_method"] = rm
 	if forced_service_type and "service_type" in valid:
 		d["service_type"] = forced_service_type
 	if "estimated_revenue" in valid:
@@ -194,6 +217,17 @@ def build_internal_job_sea_booking_charge_dicts(parent_doc):
 	return out
 
 
+def build_internal_job_air_booking_charge_dicts(parent_doc):
+	"""Charge row dicts for Air Booking from main job rows with service_type Air."""
+	out = []
+	want = implied_service_type_for_doctype("Air Booking")
+	for ch in _iter_main_charge_rows_for_internal_job(parent_doc):
+		row = _scrub_main_row_to_child_dict(ch, "Air Booking Charges", want)
+		if row:
+			out.append(row)
+	return out
+
+
 def populate_internal_job_charges_from_main_service(doc):
 	"""
 	Replace doc.charges from main job (filtered by service_type). Sets overlay flag via apply overlay.
@@ -208,6 +242,9 @@ def populate_internal_job_charges_from_main_service(doc):
 	elif doc.doctype == "Sea Booking":
 		dicts = build_internal_job_sea_booking_charge_dicts(doc)
 		st_label = _("Sea")
+	elif doc.doctype == "Air Booking":
+		dicts = build_internal_job_air_booking_charge_dicts(doc)
+		st_label = _("Air")
 	else:
 		return (0, "")
 	doc.set("charges", [])
@@ -254,6 +291,27 @@ def _clear_declaration_order_charge_amounts(row):
 
 
 def _clear_sea_booking_charge_amounts(row):
+	for fn in (
+		"estimated_revenue",
+		"estimated_cost",
+		"rate",
+		"unit_cost",
+		"base_amount",
+		"cost_base_amount",
+		"minimum_charge",
+		"maximum_charge",
+		"cost_minimum_charge",
+		"cost_maximum_charge",
+	):
+		if hasattr(row, fn):
+			setattr(row, fn, 0)
+	if hasattr(row, "use_tariff_in_revenue"):
+		row.use_tariff_in_revenue = 0
+	if hasattr(row, "use_tariff_in_cost"):
+		row.use_tariff_in_cost = 0
+
+
+def _clear_air_booking_charge_amounts(row):
 	for fn in (
 		"estimated_revenue",
 		"estimated_cost",
@@ -364,6 +422,36 @@ def _apply_main_to_sea_booking_row(row, main_ch):
 		row.cost_calc_notes = cn
 
 
+def _apply_main_to_air_booking_row(row, main_ch):
+	rev = _revenue_from_main_charge(main_ch)
+	cst = _cost_from_main_charge(main_ch)
+	row.estimated_revenue = rev
+	row.estimated_cost = cst
+	rt = flt(getattr(main_ch, "rate", 0)) or flt(getattr(main_ch, "unit_rate", 0))
+	if rt and hasattr(row, "rate"):
+		row.rate = rt
+	uc = flt(getattr(main_ch, "unit_cost", 0))
+	if uc and hasattr(row, "unit_cost"):
+		row.unit_cost = uc
+	q = getattr(main_ch, "quantity", None)
+	if q is not None and hasattr(row, "quantity"):
+		row.quantity = flt(q)
+	cq = getattr(main_ch, "cost_quantity", None)
+	if cq is not None and hasattr(row, "cost_quantity"):
+		row.cost_quantity = flt(cq)
+	for a, b in (("uom", "uom"), ("currency", "currency"), ("cost_uom", "cost_uom"), ("cost_currency", "cost_currency")):
+		if hasattr(main_ch, a) and hasattr(row, b):
+			v = getattr(main_ch, a, None)
+			if v:
+				setattr(row, b, v)
+	rn = getattr(main_ch, "revenue_calc_notes", None) or getattr(main_ch, "calculation_notes", None)
+	if rn and hasattr(row, "revenue_calc_notes"):
+		row.revenue_calc_notes = rn
+	cn = getattr(main_ch, "cost_calc_notes", None)
+	if cn and hasattr(row, "cost_calc_notes"):
+		row.cost_calc_notes = cn
+
+
 def apply_internal_job_main_charge_overlay(parent_doc):
 	"""
 	Sync internal job charge rows from Main Service charge rows (same item_code, same service_type
@@ -374,7 +462,7 @@ def apply_internal_job_main_charge_overlay(parent_doc):
 	if _declaration_order_charge_overlay_redundant_with_linked_shipment(parent_doc):
 		return
 	main = frappe.get_doc(parent_doc.main_job_type, parent_doc.main_job)
-	restrict = implied_service_type_for_doctype(parent_doc.doctype)
+	restrict = _main_job_charge_filter_service_type_for_internal_child(parent_doc)
 	idx = _index_main_charges_by_item(main, restrict_service_type=restrict)
 	dt = parent_doc.doctype
 	for row in parent_doc.get("charges") or []:
@@ -384,6 +472,8 @@ def apply_internal_job_main_charge_overlay(parent_doc):
 			_clear_declaration_order_charge_amounts(row)
 		elif dt == "Sea Booking":
 			_clear_sea_booking_charge_amounts(row)
+		elif dt == "Air Booking":
+			_clear_air_booking_charge_amounts(row)
 		ic = _get_item_code_from_charge(row)
 		if not ic or ic not in idx:
 			continue
@@ -394,4 +484,6 @@ def apply_internal_job_main_charge_overlay(parent_doc):
 			_apply_main_to_declaration_order_row(row, main_ch)
 		elif dt == "Sea Booking":
 			_apply_main_to_sea_booking_row(row, main_ch)
+		elif dt == "Air Booking":
+			_apply_main_to_air_booking_row(row, main_ch)
 	parent_doc._internal_job_charge_overlay_applied = True

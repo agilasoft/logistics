@@ -9,6 +9,26 @@ var GCFQ_FILTER_GRID_SLOTS = 12;
 var DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded";
 
 /**
+ * Human-readable label for readonly Customer / Local Customer filter cells.
+ * Link fields store the doc name; Frappe adds *_name with the title when the doc is loaded.
+ * @param {frappe.ui.form.Form} frm
+ * @returns {string}
+ */
+function _gcfq_readonly_party_label(frm) {
+	if (!frm || !frm.doc) {
+		return "";
+	}
+	var d = frm.doctype;
+	if (d === "Sea Booking" || d === "Air Booking") {
+		return (frm.doc.local_customer_name || frm.doc.local_customer || "").trim();
+	}
+	if (d === "Transport Order" || d === "Declaration Order") {
+		return (frm.doc.customer_name || frm.doc.customer || "").trim();
+	}
+	return "";
+}
+
+/**
  * Per–job-type filter fields (editable). Keys must match server GCFQ_FILTER_KEYS.
  * @param {frappe.ui.form.Form} frm
  */
@@ -26,7 +46,7 @@ function _gcfq_filter_specs(frm) {
 				key: "_cust",
 				readonly: true,
 				label: __("Local Customer"),
-				value: frm.doc.local_customer || "",
+				value: _gcfq_readonly_party_label(frm),
 			},
 			{
 				key: "origin_port",
@@ -84,7 +104,7 @@ function _gcfq_filter_specs(frm) {
 				key: "_cust",
 				readonly: true,
 				label: __("Local Customer"),
-				value: frm.doc.local_customer || "",
+				value: _gcfq_readonly_party_label(frm),
 			},
 			{
 				key: "origin_port",
@@ -142,7 +162,7 @@ function _gcfq_filter_specs(frm) {
 				key: "_cust",
 				readonly: true,
 				label: __("Customer"),
-				value: frm.doc.customer || "",
+				value: _gcfq_readonly_party_label(frm),
 			},
 		];
 		if (frm.doc.location_type) {
@@ -221,7 +241,7 @@ function _gcfq_filter_specs(frm) {
 				key: "_cust",
 				readonly: true,
 				label: __("Customer"),
-				value: frm.doc.customer || "",
+				value: _gcfq_readonly_party_label(frm),
 			},
 			{
 				key: "customs_authority",

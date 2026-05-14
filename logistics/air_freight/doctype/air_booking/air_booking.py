@@ -10,9 +10,10 @@ from typing import Dict, Any
 
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.charge_service_type import (
+	canonical_charge_service_type_for_storage,
 	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
-	sales_quote_charge_filters_service_type_only,
+	sales_quote_charge_filters_air_sea_service_types_combined,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
@@ -147,10 +148,12 @@ class AirBooking(Document):
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 					resolve_allow_linked_freight_bookings_for_internal_job,
+					resolve_allow_linked_transport_order_for_internal_job_freight_booking,
 					validate_one_off_quote_not_converted,
 				)
 
 				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				allow_tro = resolve_allow_linked_transport_order_for_internal_job_freight_booking(self)
 				_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
 				if self.sales_quote:
 					validate_one_off_quote_not_converted(
@@ -159,6 +162,7 @@ class AirBooking(Document):
 						self.name,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
+						allow_linked_transport_order=allow_tro,
 						allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 					)
 				if _quote_is_sales_quote:
@@ -168,6 +172,7 @@ class AirBooking(Document):
 						self.name,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
+						allow_linked_transport_order=allow_tro,
 						allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 					)
 		
@@ -786,7 +791,7 @@ class AirBooking(Document):
 				"Sales Quote Charge",
 				{
 					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
-					**sales_quote_charge_filters_service_type_only("Air"),
+					**sales_quote_charge_filters_air_sea_service_types_combined(),
 				},
 			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
@@ -795,7 +800,7 @@ class AirBooking(Document):
 			}) if frappe.db.table_exists("Sales Quote Air Freight") else 0
 			if air_charge_count == 0 and air_freight_count == 0:
 				frappe.msgprint(
-					_("No Air Freight lines found in Sales Quote {0}. Only basic fields will be populated.").format(self.sales_quote),
+					_("No air or sea freight lines found in Sales Quote {0}. Only basic fields will be populated.").format(self.sales_quote),
 					indicator="orange"
 				)
 			
@@ -905,7 +910,7 @@ class AirBooking(Document):
 				"Sales Quote Charge",
 				{
 					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
-					**sales_quote_charge_filters_service_type_only("Air"),
+					**sales_quote_charge_filters_air_sea_service_types_combined(),
 				},
 			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
@@ -1110,19 +1115,12 @@ class AirBooking(Document):
 			)
 			# Backward-compatible fallback: when separate billing is ON, quotes may have blank service_type.
 			# If nothing was returned, retry by fetching all quote charges and filtering in Python by
-			# allowed service types (Air or blank), so Air Booking still receives its rows.
+			# allowed service types (Air, Sea, or blank), so Air Booking still receives its rows.
 			if not sales_quote_air_freight_records:
 				try:
 					separate = frappe.utils.cint(getattr(sales_quote, "separate_billings_per_service_type", 0))
 				except Exception:
 					separate = 0
-				implied_service = "Air"
-				try:
-					# Try to infer implied service from the filter if present
-					if isinstance(filters, dict) and "service_type" in filters and filters.get("service_type"):
-						implied_service = filters.get("service_type") or "Air"
-				except Exception:
-					pass
 				if separate:
 					base_filters = {k: v for k, v in (filters or {}).items() if k not in ("service_type",)}
 					# Fetch all quote charges for this Sales Quote, then filter locally
@@ -1132,13 +1130,14 @@ class AirBooking(Document):
 						fields=sqc_fields,
 						order_by="idx"
 					)
-					allowed_aliases = {implied_service, "", None}
-					# Common alias used historically
-					if implied_service == "Air":
-						allowed_aliases.update({"Air Freight", "air", "airfreight"})
+
+					def _air_booking_sq_charge_row_allowed(row):
+						raw = row.get("service_type") if isinstance(row, dict) else None
+						c = canonical_charge_service_type_for_storage(raw)
+						return c is None or c in ("air", "sea")
+
 					sales_quote_air_freight_records = [
-						row for row in all_sq_charges
-						if _service_type_matches(row.get("service_type"), allowed_aliases)
+						row for row in all_sq_charges if _air_booking_sq_charge_row_allowed(row)
 					]
 			if not sales_quote_air_freight_records and frappe.db.table_exists("Sales Quote Air Freight"):
 				sales_quote_air_freight_records = frappe.get_all(
@@ -2900,7 +2899,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			"Air Booking", doc, sales_quote_doc
 		)
 
-		# Fetch charges from Sales Quote Charge (service_type=Air) or Sales Quote Air Freight (legacy)
+		# Fetch charges from Sales Quote Charge (Air and/or Sea) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
 		charge_fields = [
 			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
@@ -2928,7 +2927,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			filters={
 				"parent": one_off_quote,
 				"parenttype": "Sales Quote",
-				**sales_quote_charge_filters_service_type_only("Air"),
+				**sales_quote_charge_filters_air_sea_service_types_combined(),
 			},
 			fields=sqc_fields,
 			order_by="idx"
@@ -2948,7 +2947,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		if not sales_quote_air_freight_records:
 			return {
 				"charges": [],
-				"message": f"No air freight charges found in Sales Quote: {one_off_quote}",
+				"message": f"No air or sea freight charges found in Sales Quote: {one_off_quote}",
 				"internal_job_details": ij_detail_payload,
 			}
 		

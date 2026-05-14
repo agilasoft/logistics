@@ -138,10 +138,12 @@ class SeaBooking(Document):
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 					resolve_allow_linked_freight_bookings_for_internal_job,
+					resolve_allow_linked_transport_order_for_internal_job_freight_booking,
 					validate_one_off_quote_not_converted,
 				)
 
 				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				allow_tro = resolve_allow_linked_transport_order_for_internal_job_freight_booking(self)
 				_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
 				if self.sales_quote:
 					validate_one_off_quote_not_converted(
@@ -150,6 +152,7 @@ class SeaBooking(Document):
 						self.name,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
+						allow_linked_transport_order=allow_tro,
 						allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 					)
 				if _quote_is_sales_quote:
@@ -159,6 +162,7 @@ class SeaBooking(Document):
 						self.name,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
+						allow_linked_transport_order=allow_tro,
 						allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 					)
 		
@@ -181,6 +185,7 @@ class SeaBooking(Document):
 			self.validate_dates()
 			self.validate_accounts()
 			self.validate_main_routing_legs_by_entry_type()
+			self.validate_house_bl_unique_among_sea_shipments()
 			self._prepare_header_totals_for_charge_calculation()
 			self._sync_charges_with_parent_actuals()
 			self._update_packing_summary()
@@ -577,6 +582,33 @@ class SeaBooking(Document):
 			frappe.throw(
 				"\n".join(errors),
 				title=_("Duplicate Container Numbers")
+			)
+
+	def validate_house_bl_unique_among_sea_shipments(self):
+		"""Align with Sea Shipment.validate_duplicates House BL rule; surface on booking save/submit before conversion."""
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		house_bl = getattr(self, "house_bl", None)
+		if not house_bl:
+			return
+		linked_shipment = None
+		if getattr(self, "name", None):
+			linked_shipment = frappe.db.get_value(
+				"Sea Shipment", {"sea_booking": self.name}, "name"
+			)
+		filters = {
+			"house_bl": house_bl,
+			"docstatus": ["!=", 2],
+		}
+		if linked_shipment:
+			filters["name"] = ["!=", linked_shipment]
+		existing = frappe.db.exists("Sea Shipment", filters)
+		if existing:
+			frappe.throw(
+				_("A Sea Shipment with House BL '{0}' already exists: {1}").format(
+					house_bl, existing
+				),
+				title=_("Duplicate House BL"),
 			)
 
 	def _container_returned(
@@ -1214,6 +1246,13 @@ class SeaBooking(Document):
 		if not self.quote or getattr(self, "quote_type", None) != "One-Off Quote":
 			return
 
+		# Unified one-off: ``quote`` is a Sales Quote name (not legacy ``One-Off Quote`` doctype).
+		if frappe.db.exists("Sales Quote", self.quote):
+			if not getattr(self, "sales_quote", None):
+				self.sales_quote = self.quote
+			self._populate_charges_from_sales_quote_doc()
+			return
+
 		try:
 			# Verify that the one_off_quote exists
 			if not frappe.db.exists("One-Off Quote", self.quote):
@@ -1737,6 +1776,7 @@ class SeaBooking(Document):
 			frappe.throw(_("Cannot convert to Sea Shipment. Missing or invalid fields:\n{0}").format("\n".join(f"- {msg}" for msg in messages)))
 
 		self.validate_container_numbers()
+		self.validate_house_bl_unique_among_sea_shipments()
 
 	@frappe.whitelist()
 	def convert_to_shipment(self):
@@ -2427,6 +2467,8 @@ class SeaBooking(Document):
 				"sea_shipment": sea_shipment.name
 			}
 			
+		except frappe.ValidationError:
+			raise
 		except Exception as e:
 			frappe.log_error(
 				f"Error converting Sea Booking {self.name} to Sea Shipment: {str(e)}",

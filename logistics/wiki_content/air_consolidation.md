@@ -201,7 +201,7 @@ _All fields from DocType **Air Consolidation** and nested child tables, in form 
 | Label (Field name) | Type | Description |
 | --- | --- | --- |
 | Charge Information (`charge_info_section`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
-| Charge Type (`charge_type`) | Link | **Purpose:** Creates a controlled reference to **About Us Settings** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **About Us Settings**. Create the master first if it does not exist. |
+| Charge Type (`charge_type`) | Select | **Purpose:** Classifies the charge for margin, revenue, cost, or disbursement handling (aligned with other air freight charge lines). **What to enter:** Pick exactly one value: Margin, Disbursement, Revenue, or Cost. |
 | Charge Category (`charge_category`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: Transportation, Surcharges, Handling, Documentation, Insurance, Storage, Customs, Other. |
 | Description (`description`) | Long Text | **Purpose:** Long remarks: cargo description, marks & numbers, special instructions, legal text. **What to enter:** Enter the full operational or legal wording; paste from external docs if allowed by policy. |
 | `column_break_1` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
