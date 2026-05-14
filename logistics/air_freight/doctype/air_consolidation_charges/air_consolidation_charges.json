@@ -1,7 +1,6 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:charge_type",
  "creation": "2025-01-27 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -52,12 +51,11 @@
   },
   {
    "fieldname": "charge_type",
-   "fieldtype": "Link",
+   "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Charge Type",
-   "options": "About Us Settings",
-   "reqd": 1,
-   "unique": 1
+   "options": "Margin\nDisbursement\nRevenue\nCost",
+   "reqd": 1
   },
   {
    "fieldname": "charge_category",
@@ -286,7 +284,6 @@
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation Charges",
- "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",

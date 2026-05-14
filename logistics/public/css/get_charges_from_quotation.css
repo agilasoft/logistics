@@ -62,13 +62,16 @@
 }
 
 .logistics-gcfq-filter-input.form-control {
-	height: 30px;
-	padding: 4px 10px;
+	min-height: 32px;
+	height: auto;
+	padding: 6px 10px;
 	font-size: 12px;
+	line-height: 1.45;
 	color: #36414c;
 	background-color: #fff;
 	border-radius: 4px;
 	cursor: default;
+	box-sizing: border-box;
 }
 
 .logistics-gcfq-filter-input.form-control::placeholder {

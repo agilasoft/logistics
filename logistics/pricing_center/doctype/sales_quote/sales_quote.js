@@ -48,6 +48,96 @@ function logistics_load_type_flag_for_charge_service_type(st) {
 	return c;
 }
 
+function logistics_sq_charge_filter_flag_on(row, fieldname) {
+	if (!row) return false;
+	const v = row[fieldname];
+	return v === 1 || v === true || v === "1";
+}
+
+/** Which Load Type master column to filter on, from hidden row flags (mirrors service_type). */
+function logistics_load_type_column_from_charge_filter_row(row) {
+	if (!row) return null;
+	if (logistics_sq_charge_filter_flag_on(row, "load_type_filter_air")) return "air";
+	if (logistics_sq_charge_filter_flag_on(row, "load_type_filter_sea")) return "sea";
+	if (logistics_sq_charge_filter_flag_on(row, "load_type_filter_transport")) return "transport";
+	if (logistics_sq_charge_filter_flag_on(row, "load_type_filter_customs")) return "customs";
+	if (logistics_sq_charge_filter_flag_on(row, "load_type_filter_warehousing")) return "warehousing";
+	return null;
+}
+
+/**
+ * If DocField still has link_filters in cached meta, Frappe's Link control calls apply_link_field_filters(),
+ * which replaces get_query with link_filters-only on every search — so air/sea module filters never run.
+ * Strip meta and the live grid docfield (Customize Form / doc-specific meta may reintroduce link_filters).
+ */
+function logistics_strip_sq_charge_load_type_link_filters_from_meta(frm) {
+	const df = frappe.meta.get_docfield("Sales Quote Charge", "load_type");
+	if (df && df.link_filters) {
+		df.link_filters = null;
+	}
+	if (frm && frm.fields_dict && frm.fields_dict.charges && frm.fields_dict.charges.grid) {
+		const gdf = frm.fields_dict.charges.grid.get_docfield("load_type");
+		if (gdf && gdf.link_filters) {
+			gdf.link_filters = null;
+		}
+	}
+}
+
+/**
+ * Resolve the charge row for load_type get_query. Expanded grid form can pass a stale cdn; use cur_grid / open row.
+ */
+function logistics_resolved_sales_quote_charge_row(frm, doc, cdt, cdn) {
+	if (cdt !== "Sales Quote Charge") return null;
+	let row = null;
+	if (cdn) {
+		row = frappe.get_doc(cdt, cdn) || (locals[cdt] && locals[cdt][cdn]) || null;
+	}
+	if ((!row || !row.name) && cdn && doc && doc.charges) {
+		row = doc.charges.find((r) => r.name === cdn) || row;
+	}
+	if ((!row || !row.service_type) && frm && frm.cur_grid && frm.cur_grid.doc) {
+		const d = frm.cur_grid.doc;
+		if (d && d.doctype === cdt) row = d;
+	}
+	if ((!row || !row.service_type) && frappe.ui.form.get_open_grid_form) {
+		const gr = frappe.ui.form.get_open_grid_form();
+		const d = gr && gr.doc;
+		if (d && d.doctype === cdt) row = d;
+	}
+	return row;
+}
+
+function logistics_charge_row_expected_load_type_filter_flags(service_type) {
+	const c = logistics_canonical_charge_service_type(service_type);
+	return {
+		load_type_filter_air: c === "air" ? 1 : 0,
+		load_type_filter_sea: c === "sea" ? 1 : 0,
+		load_type_filter_transport: c === "transport" ? 1 : 0,
+		load_type_filter_customs: c === "custom" ? 1 : 0,
+		load_type_filter_warehousing: c === "warehousing" ? 1 : 0,
+	};
+}
+
+/** Sync hidden load-type filter checkboxes from service_type for one charge row. */
+function logistics_sync_charge_load_type_filter_flags(cdt, cdn) {
+	const row = locals[cdt] && locals[cdt][cdn];
+	if (!row) return;
+	const exp = logistics_charge_row_expected_load_type_filter_flags(row.service_type);
+	Object.keys(exp).forEach((k) => {
+		const cur = row[k] ? 1 : 0;
+		if (cur !== exp[k]) {
+			frappe.model.set_value(cdt, cdn, k, exp[k]);
+		}
+	});
+}
+
+function logistics_sync_all_sales_quote_charge_load_type_filter_flags(frm) {
+	(frm.doc.charges || []).forEach((row) => {
+		if (!row || !row.name) return;
+		logistics_sync_charge_load_type_filter_flags(row.doctype, row.name);
+	});
+}
+
 /** Item checkbox used for charge line item_code filtering by module. */
 function logistics_item_charge_field_for_service_type(st) {
 	const c = logistics_canonical_charge_service_type(st);
@@ -350,6 +440,9 @@ frappe.ui.form.on("Sales Quote", {
 				frm.events.apply_default_uoms_for_tab(frm, frm.doc.main_service.toLowerCase(), prefix);
 			}
 		}
+		// Explicit refresh: warehousing / charges use depends_on vs main_service; ensures grids repaint when switching mode.
+		frm.refresh_field("charges");
+		frm.refresh_field("warehousing");
 		if (frm.doc.quotation_type === "One-off" && frm.doc.load_type) {
 			const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 			if (flag) {
@@ -374,7 +467,9 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		logistics_strip_sq_charge_load_type_link_filters_from_meta(frm);
 		frm.events._show_sales_quote_charges_row_checkboxes(frm);
+		logistics_sync_all_sales_quote_charge_load_type_filter_flags(frm);
 		// Keep naming_series locked in all states.
 		frm.events._lock_naming_series(frm);
 		// Lock quotation_type only for existing documents.
@@ -691,6 +786,9 @@ frappe.ui.form.on("Sales Quote", {
 	},
 	
 	setup_load_type_query(frm) {
+		// Child load_type must not use DocType link_filters for is_active: Frappe replaces get_query with
+		// link_filters only, so the charges set_query below (air/sea/…) would never run. Also strip stale meta.
+		logistics_strip_sq_charge_load_type_link_filters_from_meta(frm);
 		frm.set_query("load_type", function () {
 			const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 			const filters = { is_active: 1 };
@@ -700,14 +798,15 @@ frappe.ui.form.on("Sales Quote", {
 			return { filters };
 		});
 		frm.set_query("load_type", "charges", function (doc, cdt, cdn) {
-			let row = frappe.get_doc(cdt, cdn);
-			if (!row || !row.service_type) {
-				row = (doc.charges || []).find((r) => r.name === cdn);
-			}
-			const flag = logistics_load_type_flag_for_charge_service_type(row && row.service_type);
+			logistics_strip_sq_charge_load_type_link_filters_from_meta(frm);
+			const row = logistics_resolved_sales_quote_charge_row(frm, doc, cdt, cdn);
 			const filters = { is_active: 1 };
-			if (flag) {
-				filters[flag] = 1;
+			let col = logistics_load_type_column_from_charge_filter_row(row);
+			if (!col && row) {
+				col = logistics_load_type_flag_for_charge_service_type(row.service_type);
+			}
+			if (col) {
+				filters[col] = 1;
 			}
 			return { filters };
 		});
@@ -1178,6 +1277,7 @@ function add_create_button(frm, config) {
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
 	service_type: function(frm, cdt, cdn) {
+		logistics_sync_charge_load_type_filter_flags(cdt, cdn);
 		let row = frappe.get_doc(cdt, cdn);
 		if (logistics_canonical_charge_service_type(row.service_type) === "custom" && row.load_type) {
 			frappe.model.set_value(cdt, cdn, "load_type", "");
@@ -1217,6 +1317,8 @@ frappe.ui.form.on('Sales Quote Charge', {
 		}
 		// Refresh the field to apply new filter
 		frm.refresh_field('charges');
+		// refresh_field redraws the grid; re-attach load_type get_query so Link search still filters by module flag
+		frm.events.setup_load_type_query(frm);
 	},
 	
 	item_code: function(frm, cdt, cdn) {

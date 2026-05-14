@@ -149,6 +149,7 @@ class TransportOrder(Document):
                 from frappe.utils import cint
 
                 from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                    resolve_allow_linked_freight_booking_from_one_off_converted_doc,
                     resolve_allow_linked_freight_bookings_for_internal_job,
                     resolve_single_main_air_booking_for_sales_quote,
                     resolve_single_main_sea_booking_for_sales_quote,
@@ -156,11 +157,17 @@ class TransportOrder(Document):
                 )
 
                 allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-                if cint(getattr(self, "is_internal_job", 0)):
-                    if not allow_sea:
-                        allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-                    if not allow_air:
-                        allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+                # Same multimodal one-off chain as Air/Sea Shipment: sibling main booking may hold conversion
+                # even when this TO is not flagged internal job (e.g. create from Air Shipment + sea leg consumed quote).
+                if not allow_sea:
+                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
+                if not allow_air:
+                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
+                conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
+                if not allow_sea:
+                    allow_sea = conv_sea
+                if not allow_air:
+                    allow_air = conv_air
                 # Main leg and internal satellite TOs (linked to main via main_job / booking) may share the
                 # same one-off quote when customs was converted first (Declaration Order).
                 is_internal = cint(getattr(self, "is_internal_job", 0)) == 1
